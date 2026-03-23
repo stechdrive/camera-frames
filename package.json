@@ -9,7 +9,10 @@
 		"preview": "vite preview",
 		"lint": "biome check .",
 		"format": "biome format .",
-		"test": "node --no-warnings --loader ts-node/esm --test test/**/*.test.ts"
+		"test": "node --no-warnings --loader ts-node/esm --test test/**/*.test.ts",
+		"develop": "npm run dev",
+		"pages:build": "npm run build",
+		"pages:publish": "echo Pages publish will be added after repo split stabilizes"
 	},
 	"dependencies": {
 		"@preact/signals": "^2.8.2",
