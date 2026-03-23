@@ -25,6 +25,7 @@ import { createFrameController } from "./controllers/frame-controller.js";
 import { createInteractionController } from "./controllers/interaction-controller.js";
 import { createOutputFrameController } from "./controllers/output-frame-controller.js";
 import { createProjectionController } from "./controllers/projection-controller.js";
+import { createRuntimeController } from "./controllers/runtime-controller.js";
 import { createSceneFramingController } from "./controllers/scene-framing-controller.js";
 import { createUiSyncController } from "./controllers/ui-sync-controller.js";
 import { drawFramesToContext } from "./engine/frame-overlay.js";
@@ -34,15 +35,11 @@ import {
 	getDefaultAssetUnitMode,
 } from "./engine/scene-units.js";
 import { getAnchorLabel, translate } from "./i18n.js";
-import { bindInputRouter } from "./interactions/input-router.js";
 import {
 	extractProjectPackageAssets,
 	isProjectPackageSource,
 } from "./project-package.js";
-import {
-	WORKSPACE_PANE_CAMERA,
-	WORKSPACE_PANE_VIEWPORT,
-} from "./workspace-model.js";
+import { WORKSPACE_PANE_CAMERA } from "./workspace-model.js";
 
 export function createCameraFramesController(elements, store) {
 	const {
@@ -308,14 +305,13 @@ export function createCameraFramesController(elements, store) {
 	pointerControls.pointerRollScale = 0.0;
 
 	const loader = new GLTFLoader();
-	let lastFrameTime = 0;
 	let cameraController = null;
 	let interactionController = null;
 	let outputFrameController = null;
 	let projectionController = null;
+	let runtimeController = null;
 	let sceneFramingController = null;
 	let uiSyncController = null;
-	const disposers = [];
 
 	function currentLocale() {
 		return store.locale.value;
@@ -504,6 +500,67 @@ export function createCameraFramesController(elements, store) {
 		getActiveCamera,
 		getProjectionState,
 		getActiveShotCameraDocument,
+	});
+	runtimeController = createRuntimeController({
+		renderer,
+		scene,
+		store,
+		state,
+		viewportShell,
+		dropHint,
+		anchorDot,
+		assetController,
+		updateDropHint,
+		updateUi,
+		updateOutputFrameOverlay,
+		setStatus,
+		startZoomToolDrag,
+		toggleZoomTool,
+		isInteractiveTextTarget,
+		isZoomInteractionMode: () =>
+			interactionController?.isZoomInteractionMode() ?? false,
+		applyNavigateInteractionMode: () =>
+			interactionController?.applyNavigateInteractionMode(),
+		isFrameSelectionActive,
+		clearFrameSelection,
+		clearOutputFrameSelection,
+		handleZoomToolDragMove,
+		handleZoomToolDragEnd,
+		handleOutputFramePanMove,
+		handleOutputFramePanEnd,
+		handleOutputFrameResizeMove,
+		handleOutputFrameResizeEnd,
+		handleOutputFrameAnchorDragMove,
+		handleOutputFrameAnchorDragEnd,
+		handleFrameDragMove,
+		handleFrameDragEnd,
+		handleFrameResizeMove,
+		handleFrameResizeEnd,
+		handleFrameRotateMove,
+		handleFrameRotateEnd,
+		handleFrameAnchorDragMove,
+		handleFrameAnchorDragEnd,
+		startOutputFrameAnchorDrag,
+		exportController,
+		handleResize,
+		fpsMovement,
+		pointerControls,
+		getActiveCamera,
+		syncViewportProjection,
+		syncShotProjection,
+		applyCameraViewProjection,
+		updateShotCameraHelpers,
+		getActiveCameraViewCamera,
+		viewportCamera,
+		updateCameraSummary,
+		t,
+		formatNumber,
+		frameAllCameras,
+		syncControlsToMode,
+		applyInitialNavigateInteractionMode: () =>
+			interactionController?.applyNavigateInteractionMode({ silent: true }),
+		loadStartupUrls: () => assetController.loadStartupUrls(),
+		setExportStatus,
 	});
 	registerShotCameraDocuments();
 
@@ -941,110 +998,7 @@ export function createCameraFramesController(elements, store) {
 		return assetController.openFiles();
 	}
 
-	function listen(target, eventName, handler) {
-		target.addEventListener(eventName, handler);
-		disposers.push(() => target.removeEventListener(eventName, handler));
-	}
-
-	function bindViewportInteractions() {
-		bindInputRouter({
-			listen,
-			viewportShell,
-			dropHint,
-			anchorDot,
-			assetController,
-			updateDropHint,
-			updateUi,
-			updateOutputFrameOverlay,
-			setStatus,
-			startZoomToolDrag,
-			toggleZoomTool,
-			isInteractiveTextTarget,
-			isZoomInteractionMode: () =>
-				interactionController?.isZoomInteractionMode() ?? false,
-			applyNavigateInteractionMode: () =>
-				interactionController?.applyNavigateInteractionMode(),
-			state,
-			isFrameSelectionActive,
-			clearFrameSelection,
-			clearOutputFrameSelection,
-			handleZoomToolDragMove,
-			handleZoomToolDragEnd,
-			handleOutputFramePanMove,
-			handleOutputFramePanEnd,
-			handleOutputFrameResizeMove,
-			handleOutputFrameResizeEnd,
-			handleOutputFrameAnchorDragMove,
-			handleOutputFrameAnchorDragEnd,
-			handleFrameDragMove,
-			handleFrameDragEnd,
-			handleFrameResizeMove,
-			handleFrameResizeEnd,
-			handleFrameRotateMove,
-			handleFrameRotateEnd,
-			handleFrameAnchorDragMove,
-			handleFrameAnchorDragEnd,
-			startOutputFrameAnchorDrag,
-		});
-	}
-
-	async function loadStartupUrls() {
-		return assetController.loadStartupUrls();
-	}
-
-	function animate(timeMs) {
-		handleResize();
-		if (exportController.isRenderLocked()) {
-			updateOutputFrameOverlay();
-			return;
-		}
-
-		const deltaTime =
-			lastFrameTime > 0 ? Math.min((timeMs - lastFrameTime) / 1000, 0.1) : 0;
-		lastFrameTime = timeMs;
-		const activeCamera = getActiveCamera();
-		fpsMovement.update(deltaTime, activeCamera);
-		pointerControls.update(deltaTime, activeCamera, activeCamera);
-
-		syncViewportProjection();
-		syncShotProjection();
-		applyCameraViewProjection();
-
-		updateShotCameraHelpers();
-
-		renderer.render(
-			scene,
-			state.mode === WORKSPACE_PANE_CAMERA
-				? getActiveCameraViewCamera()
-				: viewportCamera,
-		);
-		updateOutputFrameOverlay();
-		updateCameraSummary();
-	}
-
-	function init() {
-		document.body.dataset.mode = state.mode;
-		store.sceneSummary.value = t("scene.summaryEmpty");
-		store.sceneScaleSummary.value = t("scene.scaleDefault");
-		store.exportSummary.value = t("exportSummary.empty");
-		setStatus(t("status.ready"));
-		setExportStatus("export.idle");
-		updateUi();
-		frameAllCameras();
-		syncControlsToMode();
-		interactionController?.applyNavigateInteractionMode({ silent: true });
-		setStatus(
-			t("status.navigationActive", {
-				speed: formatNumber(fpsMovement.moveSpeed, 1),
-			}),
-		);
-		handleResize();
-		bindViewportInteractions();
-		renderer.setAnimationLoop(animate);
-		loadStartupUrls();
-	}
-
-	init();
+	runtimeController.init();
 
 	return {
 		setMode,
@@ -1086,15 +1040,7 @@ export function createCameraFramesController(elements, store) {
 		refreshOutputPreview,
 		downloadPng,
 		dispose() {
-			renderer.setAnimationLoop(null);
-			while (disposers.length > 0) {
-				const dispose = disposers.pop();
-				dispose();
-			}
-			fpsMovement.enable = false;
-			pointerControls.enable = false;
-			exportController.dispose();
-			renderer.dispose();
+			runtimeController.dispose();
 		},
 	};
 }
