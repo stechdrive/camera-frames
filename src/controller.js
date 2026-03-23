@@ -25,6 +25,7 @@ import { createFrameController } from "./controllers/frame-controller.js";
 import { createInteractionController } from "./controllers/interaction-controller.js";
 import { createOutputFrameController } from "./controllers/output-frame-controller.js";
 import { createProjectionController } from "./controllers/projection-controller.js";
+import { createSceneFramingController } from "./controllers/scene-framing-controller.js";
 import { createUiSyncController } from "./controllers/ui-sync-controller.js";
 import { drawFramesToContext } from "./engine/frame-overlay.js";
 import { horizontalToVerticalFovDegrees } from "./engine/projection.js";
@@ -278,11 +279,7 @@ export function createCameraFramesController(elements, store) {
 	}
 
 	function getAutoClipRange() {
-		const { radius } = getSceneFraming();
-		return {
-			near: Math.max(radius / 200, DEFAULT_CAMERA_NEAR),
-			far: Math.max(radius * 40, 60),
-		};
+		return sceneFramingController.getAutoClipRange();
 	}
 
 	function updateShotCameraHelpers() {
@@ -312,9 +309,11 @@ export function createCameraFramesController(elements, store) {
 
 	const loader = new GLTFLoader();
 	let lastFrameTime = 0;
+	let cameraController = null;
 	let interactionController = null;
 	let outputFrameController = null;
 	let projectionController = null;
+	let sceneFramingController = null;
 	let uiSyncController = null;
 	const disposers = [];
 
@@ -394,7 +393,16 @@ export function createCameraFramesController(elements, store) {
 		updateShotCameraHelpers,
 	});
 
-	const cameraController = createCameraController({
+	sceneFramingController = createSceneFramingController({
+		getSceneBounds,
+		viewportCamera,
+		shotCameraRegistry,
+		syncShotCameraEntryFromDocument: (entry) =>
+			cameraController?.syncShotCameraEntryFromDocument(entry),
+		syncControlsToMode: () => interactionController?.syncControlsToMode(),
+	});
+
+	cameraController = createCameraController({
 		store,
 		state,
 		scene,
@@ -404,15 +412,15 @@ export function createCameraFramesController(elements, store) {
 		t,
 		setStatus,
 		updateUi,
-		getAutoClipRange,
+		getAutoClipRange: () => sceneFramingController.getAutoClipRange(),
 		clearFrameDrag: () => frameController.clearFrameDrag(),
 		clearOutputFramePan,
 		clearOutputFrameSelection,
 		clearControlMomentum: () => interactionController?.clearControlMomentum(),
 		applyNavigateInteractionMode: () =>
 			interactionController?.applyNavigateInteractionMode({ silent: true }),
-		copyPose,
-		frameCamera,
+		copyPose: (...args) => sceneFramingController.copyPose(...args),
+		frameCamera: (...args) => sceneFramingController.frameCamera(...args),
 		syncControlsToMode: () => interactionController?.syncControlsToMode(),
 	});
 	outputFrameController = createOutputFrameController({
@@ -624,61 +632,15 @@ export function createCameraFramesController(elements, store) {
 	}
 
 	function copyPose(sourceCamera, destinationCamera) {
-		destinationCamera.position.copy(sourceCamera.position);
-		destinationCamera.quaternion.copy(sourceCamera.quaternion);
-		destinationCamera.up.copy(sourceCamera.up);
-		destinationCamera.updateMatrixWorld();
-	}
-
-	function getSceneFraming() {
-		const bounds = getSceneBounds();
-		if (!bounds) {
-			return {
-				center: new THREE.Vector3(0, 0, 0),
-				radius: 1,
-			};
-		}
-
-		const center = bounds.box.getCenter(new THREE.Vector3());
-		const size = bounds.size;
-		return {
-			center,
-			radius: Math.max(size.length() * 0.35, 0.6),
-		};
+		return sceneFramingController.copyPose(sourceCamera, destinationCamera);
 	}
 
 	function frameCamera(camera, variant) {
-		const { center, radius } = getSceneFraming();
-		const offset =
-			variant === "camera"
-				? new THREE.Vector3(
-						radius * 0.12,
-						radius * 0.08,
-						Math.max(radius * 2.3, 2),
-					)
-				: new THREE.Vector3(
-						radius * 1.5,
-						radius * 0.9,
-						Math.max(radius * 2.6, 2.8),
-					);
-
-		camera.position.copy(center).add(offset);
-		if (variant === "viewport") {
-			const autoClip = getAutoClipRange();
-			camera.near = autoClip.near;
-			camera.far = Math.max(autoClip.far, DEFAULT_CAMERA_FAR);
-		}
-		camera.lookAt(center);
-		camera.updateMatrixWorld();
+		return sceneFramingController.frameCamera(camera, variant);
 	}
 
 	function frameAllCameras() {
-		for (const entry of shotCameraRegistry.values()) {
-			frameCamera(entry.camera, "camera");
-			syncShotCameraEntryFromDocument(entry);
-		}
-		frameCamera(viewportCamera, "viewport");
-		syncControlsToMode();
+		return sceneFramingController.frameAllCameras();
 	}
 
 	function handleResize() {
