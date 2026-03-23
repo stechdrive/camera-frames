@@ -22,6 +22,7 @@ import { createAssetController } from "./controllers/asset-controller.js";
 import { createCameraController } from "./controllers/camera-controller.js";
 import { createExportController } from "./controllers/export-controller.js";
 import { createFrameController } from "./controllers/frame-controller.js";
+import { createInteractionController } from "./controllers/interaction-controller.js";
 import { createOutputFrameController } from "./controllers/output-frame-controller.js";
 import { drawFramesToContext } from "./engine/frame-overlay.js";
 import {
@@ -102,9 +103,6 @@ export function createCameraFramesController(elements, store) {
 		},
 	};
 
-	const INTERACTION_MODE_NAVIGATE = "navigate";
-	const INTERACTION_MODE_ZOOM = "zoom";
-
 	const state = {
 		get mode() {
 			return store.mode.value;
@@ -122,7 +120,7 @@ export function createCameraFramesController(elements, store) {
 		exportBusy: false,
 		exportStatusKey: "export.idle",
 		outputFrameSelected: false,
-		interactionMode: INTERACTION_MODE_NAVIGATE,
+		interactionMode: "navigate",
 		lastCameraSummary: "",
 		lastSceneSummary: "",
 		lastSceneScaleSummary: "",
@@ -322,7 +320,7 @@ export function createCameraFramesController(elements, store) {
 
 	const loader = new GLTFLoader();
 	let lastFrameTime = 0;
-	let zoomToolDragState = null;
+	let interactionController = null;
 	let outputFrameController = null;
 	const disposers = [];
 
@@ -339,7 +337,7 @@ export function createCameraFramesController(elements, store) {
 		state,
 		renderBox,
 		workspacePaneCamera: WORKSPACE_PANE_CAMERA,
-		isZoomToolActive,
+		isZoomToolActive: () => interactionController?.isZoomToolActive() ?? false,
 		t,
 		setStatus,
 		updateUi,
@@ -416,12 +414,12 @@ export function createCameraFramesController(elements, store) {
 		clearFrameDrag: () => frameController.clearFrameDrag(),
 		clearOutputFramePan,
 		clearOutputFrameSelection,
-		clearControlMomentum,
+		clearControlMomentum: () => interactionController?.clearControlMomentum(),
 		applyNavigateInteractionMode: () =>
-			applyInteractionMode(INTERACTION_MODE_NAVIGATE, { silent: true }),
+			interactionController?.applyNavigateInteractionMode({ silent: true }),
 		copyPose,
 		frameCamera,
-		syncControlsToMode,
+		syncControlsToMode: () => interactionController?.syncControlsToMode(),
 	});
 	outputFrameController = createOutputFrameController({
 		store,
@@ -433,7 +431,7 @@ export function createCameraFramesController(elements, store) {
 		frameOverlayCanvas,
 		outputFrameResizeHandles: OUTPUT_FRAME_RESIZE_HANDLES,
 		workspacePaneCamera: WORKSPACE_PANE_CAMERA,
-		isZoomToolActive,
+		isZoomToolActive: () => interactionController?.isZoomToolActive() ?? false,
 		t,
 		getAnchorLabel,
 		currentLocale,
@@ -453,6 +451,19 @@ export function createCameraFramesController(elements, store) {
 		updateActiveShotCameraDocument,
 		updateUi,
 	});
+	interactionController = createInteractionController({
+		state,
+		viewportShell,
+		fpsMovement,
+		pointerControls,
+		workspacePaneCamera: WORKSPACE_PANE_CAMERA,
+		t,
+		setStatus,
+		updateUi,
+		getViewZoomFactor: () => state.outputFrame.viewZoom,
+		setViewZoomFactor: (nextZoom) =>
+			outputFrameController.setViewZoomFactor(nextZoom),
+	});
 	registerShotCameraDocuments();
 
 	function formatNumber(value, digits = 2) {
@@ -460,99 +471,35 @@ export function createCameraFramesController(elements, store) {
 	}
 
 	function isZoomToolActive() {
-		return (
-			state.mode === WORKSPACE_PANE_CAMERA &&
-			state.interactionMode === INTERACTION_MODE_ZOOM
-		);
+		return interactionController?.isZoomToolActive() ?? false;
 	}
 
 	function isInteractiveTextTarget(target) {
-		return (
-			target instanceof Element &&
-			target.closest(
-				'input, textarea, select, option, [contenteditable="true"]',
-			) !== null
-		);
+		return interactionController?.isInteractiveTextTarget(target) ?? false;
 	}
 
 	function clearZoomToolDrag() {
-		zoomToolDragState = null;
-		viewportShell.classList.remove("is-zoom-dragging");
+		return interactionController?.clearZoomToolDrag();
 	}
 
 	function applyInteractionMode(nextMode, { silent = false } = {}) {
-		if (state.interactionMode === nextMode) {
-			return;
-		}
-
-		state.interactionMode = nextMode;
-		clearZoomToolDrag();
-		clearControlMomentum();
-		const navigationEnabled = nextMode === INTERACTION_MODE_NAVIGATE;
-		fpsMovement.enable = navigationEnabled;
-		pointerControls.enable = navigationEnabled;
-		if (!silent) {
-			setStatus(
-				navigationEnabled
-					? t("status.navigationActive", {
-							speed: formatNumber(fpsMovement.moveSpeed, 1),
-						})
-					: t("status.zoomToolEnabled"),
-			);
-		}
-		updateUi();
+		return interactionController?.applyInteractionMode(nextMode, { silent });
 	}
 
 	function toggleZoomTool() {
-		if (state.mode !== WORKSPACE_PANE_CAMERA) {
-			setStatus(t("status.zoomToolUnavailable"));
-			return;
-		}
-
-		applyInteractionMode(
-			state.interactionMode === INTERACTION_MODE_ZOOM
-				? INTERACTION_MODE_NAVIGATE
-				: INTERACTION_MODE_ZOOM,
-		);
-	}
-
-	function setViewZoomFactor(nextZoom) {
-		return outputFrameController.setViewZoomFactor(nextZoom);
+		return interactionController?.toggleZoomTool();
 	}
 
 	function startZoomToolDrag(event) {
-		if (!isZoomToolActive() || event.button !== 0) {
-			return false;
-		}
-
-		event.preventDefault();
-		event.stopPropagation();
-		viewportShell.classList.add("is-zoom-dragging");
-		zoomToolDragState = {
-			pointerId: event.pointerId,
-			startClientX: event.clientX,
-			startViewZoom: state.outputFrame.viewZoom,
-		};
-		return true;
+		return interactionController?.startZoomToolDrag(event) ?? false;
 	}
 
 	function handleZoomToolDragMove(event) {
-		if (!zoomToolDragState || event.pointerId !== zoomToolDragState.pointerId) {
-			return;
-		}
-
-		const deltaX = event.clientX - zoomToolDragState.startClientX;
-		const nextZoom =
-			zoomToolDragState.startViewZoom * Math.exp(deltaX * 0.0045);
-		setViewZoomFactor(nextZoom);
+		return interactionController?.handleZoomToolDragMove(event);
 	}
 
 	function handleZoomToolDragEnd(event) {
-		if (!zoomToolDragState || event.pointerId !== zoomToolDragState.pointerId) {
-			return;
-		}
-
-		clearZoomToolDrag();
+		return interactionController?.handleZoomToolDragEnd(event);
 	}
 
 	function getActiveCamera() {
@@ -709,18 +656,11 @@ export function createCameraFramesController(elements, store) {
 	}
 
 	function clearControlMomentum() {
-		pointerControls.moveVelocity.set(0, 0, 0);
-		pointerControls.rotateVelocity.set(0, 0, 0);
-		pointerControls.scroll.set(0, 0, 0);
+		return interactionController?.clearControlMomentum();
 	}
 
 	function syncControlsToMode() {
-		clearControlMomentum();
-		const navigationEnabled =
-			state.interactionMode === INTERACTION_MODE_NAVIGATE;
-		fpsMovement.enable = navigationEnabled;
-		pointerControls.enable = navigationEnabled;
-		updateUi();
+		return interactionController?.syncControlsToMode();
 	}
 
 	function copyPose(sourceCamera, destinationCamera) {
@@ -1226,9 +1166,9 @@ export function createCameraFramesController(elements, store) {
 			toggleZoomTool,
 			isInteractiveTextTarget,
 			isZoomInteractionMode: () =>
-				state.interactionMode === INTERACTION_MODE_ZOOM,
+				interactionController?.isZoomInteractionMode() ?? false,
 			applyNavigateInteractionMode: () =>
-				applyInteractionMode(INTERACTION_MODE_NAVIGATE),
+				interactionController?.applyNavigateInteractionMode(),
 			state,
 			isFrameSelectionActive,
 			clearFrameSelection,
@@ -1301,7 +1241,7 @@ export function createCameraFramesController(elements, store) {
 		updateUi();
 		frameAllCameras();
 		syncControlsToMode();
-		applyInteractionMode(INTERACTION_MODE_NAVIGATE, { silent: true });
+		interactionController?.applyNavigateInteractionMode({ silent: true });
 		setStatus(
 			t("status.navigationActive", {
 				speed: formatNumber(fpsMovement.moveSpeed, 1),
