@@ -526,21 +526,26 @@ export function createCameraFramesController(elements, store) {
 		clearOutputFrameSelection,
 		handleZoomToolDragMove,
 		handleZoomToolDragEnd,
-		handleOutputFramePanMove,
-		handleOutputFramePanEnd,
-		handleOutputFrameResizeMove,
-		handleOutputFrameResizeEnd,
-		handleOutputFrameAnchorDragMove,
-		handleOutputFrameAnchorDragEnd,
-		handleFrameDragMove,
-		handleFrameDragEnd,
-		handleFrameResizeMove,
-		handleFrameResizeEnd,
-		handleFrameRotateMove,
-		handleFrameRotateEnd,
-		handleFrameAnchorDragMove,
-		handleFrameAnchorDragEnd,
-		startOutputFrameAnchorDrag,
+		handleOutputFramePanMove: outputFrameController.handleOutputFramePanMove,
+		handleOutputFramePanEnd: outputFrameController.handleOutputFramePanEnd,
+		handleOutputFrameResizeMove:
+			outputFrameController.handleOutputFrameResizeMove,
+		handleOutputFrameResizeEnd:
+			outputFrameController.handleOutputFrameResizeEnd,
+		handleOutputFrameAnchorDragMove:
+			outputFrameController.handleOutputFrameAnchorDragMove,
+		handleOutputFrameAnchorDragEnd:
+			outputFrameController.handleOutputFrameAnchorDragEnd,
+		handleFrameDragMove: frameController.handleFrameDragMove,
+		handleFrameDragEnd: frameController.handleFrameDragEnd,
+		handleFrameResizeMove: frameController.handleFrameResizeMove,
+		handleFrameResizeEnd: frameController.handleFrameResizeEnd,
+		handleFrameRotateMove: frameController.handleFrameRotateMove,
+		handleFrameRotateEnd: frameController.handleFrameRotateEnd,
+		handleFrameAnchorDragMove: frameController.handleFrameAnchorDragMove,
+		handleFrameAnchorDragEnd: frameController.handleFrameAnchorDragEnd,
+		startOutputFrameAnchorDrag:
+			outputFrameController.startOutputFrameAnchorDrag,
 		exportController,
 		handleResize,
 		fpsMovement,
@@ -736,10 +741,6 @@ export function createCameraFramesController(elements, store) {
 		return projectionController.syncOutputCamera();
 	}
 
-	function setMode(mode) {
-		return cameraController.setMode(mode);
-	}
-
 	function setLocale(nextLocale) {
 		if (nextLocale === currentLocale()) {
 			return;
@@ -757,10 +758,6 @@ export function createCameraFramesController(elements, store) {
 				language: t(`localeName.${nextLocale}`),
 			}),
 		);
-	}
-
-	function clearScene() {
-		return assetController.clearScene();
 	}
 
 	function setStatus(message) {
@@ -786,259 +783,47 @@ export function createCameraFramesController(elements, store) {
 		return uiSyncController?.updateUi();
 	}
 
-	async function refreshOutputPreview() {
-		return exportController.refreshOutputPreview();
-	}
-
-	async function downloadPng() {
-		return exportController.downloadPng();
-	}
-
-	function setBaseFovX(nextValue) {
-		return cameraController.setBaseFovX(nextValue);
-	}
-
-	function setShotCameraClippingMode(nextValue) {
-		return cameraController.setShotCameraClippingMode(nextValue);
-	}
-
-	function setShotCameraNear(nextValue) {
-		return cameraController.setShotCameraNear(nextValue);
-	}
-
-	function setShotCameraFar(nextValue) {
-		return cameraController.setShotCameraFar(nextValue);
-	}
-
-	function setShotCameraExportName(nextValue) {
-		return cameraController.setShotCameraExportName(nextValue);
-	}
-
-	function setExportTarget(nextValue) {
-		return exportController.setExportTarget(nextValue);
-	}
-
-	function toggleExportPreset(shotCameraId) {
-		return exportController.toggleExportPreset(shotCameraId);
-	}
-
-	function selectShotCamera(shotCameraId) {
-		return cameraController.selectShotCamera(shotCameraId);
-	}
-
-	function createShotCamera() {
-		return cameraController.createShotCamera();
-	}
-
-	function duplicateActiveShotCamera() {
-		return cameraController.duplicateActiveShotCamera();
-	}
-
-	function selectFrame(frameId) {
-		return frameController.selectFrame(frameId);
-	}
-
-	function createFrame() {
-		return frameController.createFrame();
-	}
-
-	function duplicateActiveFrame() {
-		return frameController.duplicateActiveFrame();
-	}
-
-	function deleteActiveFrame() {
-		return frameController.deleteActiveFrame();
-	}
-
-	function startFrameDrag(frameId, event) {
-		return frameController.startFrameDrag(frameId, event);
-	}
-
-	function handleFrameDragMove(event) {
-		return frameController.handleFrameDragMove(event);
-	}
-
-	function handleFrameDragEnd(event) {
-		return frameController.handleFrameDragEnd(event);
-	}
-
-	function startFrameResize(frameId, handleKey, event) {
-		return frameController.startFrameResize(frameId, handleKey, event);
-	}
-
-	function handleFrameResizeMove(event) {
-		return frameController.handleFrameResizeMove(event);
-	}
-
-	function handleFrameResizeEnd(event) {
-		return frameController.handleFrameResizeEnd(event);
-	}
-
-	function startFrameRotate(frameId, zoneKey, event) {
-		return frameController.startFrameRotate(frameId, zoneKey, event);
-	}
-
-	function handleFrameRotateMove(event) {
-		return frameController.handleFrameRotateMove(event);
-	}
-
-	function handleFrameRotateEnd(event) {
-		return frameController.handleFrameRotateEnd(event);
-	}
-
-	function startFrameAnchorDrag(frameId, event) {
-		return frameController.startFrameAnchorDrag(frameId, event);
-	}
-
-	function handleFrameAnchorDragMove(event) {
-		return frameController.handleFrameAnchorDragMove(event);
-	}
-
-	function handleFrameAnchorDragEnd(event) {
-		return frameController.handleFrameAnchorDragEnd(event);
-	}
-
-	function startOutputFramePan(event) {
-		return outputFrameController.startOutputFramePan(event);
-	}
-
-	function handleOutputFramePanMove(event) {
-		return outputFrameController.handleOutputFramePanMove(event);
-	}
-
-	function handleOutputFramePanEnd(event) {
-		return outputFrameController.handleOutputFramePanEnd(event);
-	}
-
-	function startOutputFrameAnchorDrag(event) {
-		return outputFrameController.startOutputFrameAnchorDrag(event);
-	}
-
-	function handleOutputFrameAnchorDragMove(event) {
-		return outputFrameController.handleOutputFrameAnchorDragMove(event);
-	}
-
-	function handleOutputFrameAnchorDragEnd(event) {
-		return outputFrameController.handleOutputFrameAnchorDragEnd(event);
-	}
-
-	function startOutputFrameResize(handleKey, event) {
-		return outputFrameController.startOutputFrameResize(handleKey, event);
-	}
-
-	function handleOutputFrameResizeMove(event) {
-		return outputFrameController.handleOutputFrameResizeMove(event);
-	}
-
-	function handleOutputFrameResizeEnd(event) {
-		return outputFrameController.handleOutputFrameResizeEnd(event);
-	}
-
-	function applyOutputFrameResize(
-		documentState,
-		nextWidthScale,
-		nextHeightScale,
-	) {
-		return outputFrameController.applyOutputFrameResize(
-			documentState,
-			nextWidthScale,
-			nextHeightScale,
-		);
-	}
-
-	function setAssetWorldScale(assetId, nextValue) {
-		return assetController.setAssetWorldScale(assetId, nextValue);
-	}
-
-	function resetAssetWorldScale(assetId) {
-		return assetController.resetAssetWorldScale(assetId);
-	}
-
-	function setBoxWidthPercent(nextValue) {
-		return outputFrameController.setBoxWidthPercent(nextValue);
-	}
-
-	function setBoxHeightPercent(nextValue) {
-		return outputFrameController.setBoxHeightPercent(nextValue);
-	}
-
-	function setViewZoomPercent(nextValue) {
-		return outputFrameController.setViewZoomPercent(nextValue);
-	}
-
-	function setAnchor(nextValue) {
-		return outputFrameController.setAnchor(nextValue);
-	}
-
-	async function loadRemoteUrls() {
-		return assetController.loadRemoteUrls();
-	}
-
-	async function handleAssetInputChange(event) {
-		return assetController.handleAssetInputChange(event);
-	}
-
-	async function loadSample() {
-		return assetController.loadSample();
-	}
-
-	function copyViewportToShotCamera() {
-		return cameraController.copyViewportToShotCamera();
-	}
-
-	function copyShotCameraToViewport() {
-		return cameraController.copyShotCameraToViewport();
-	}
-
-	function resetActiveView() {
-		return cameraController.resetActiveView();
-	}
-
-	function openFiles() {
-		return assetController.openFiles();
-	}
-
 	runtimeController.init();
 
 	return {
-		setMode,
+		setMode: cameraController.setMode,
 		setLocale,
-		setBaseFovX,
-		setBoxWidthPercent,
-		setBoxHeightPercent,
-		setViewZoomPercent,
-		setAnchor,
-		setShotCameraClippingMode,
-		setShotCameraNear,
-		setShotCameraFar,
-		setShotCameraExportName,
-		setExportTarget,
-		toggleExportPreset,
-		selectFrame,
-		createFrame,
-		duplicateActiveFrame,
-		deleteActiveFrame,
-		startFrameDrag,
-		startFrameResize,
-		startFrameRotate,
-		startFrameAnchorDrag,
-		startOutputFramePan,
-		startOutputFrameResize,
-		selectShotCamera,
-		createShotCamera,
-		duplicateActiveShotCamera,
-		setAssetWorldScale,
-		resetAssetWorldScale,
-		openFiles,
-		loadSample,
-		clearScene,
-		loadRemoteUrls,
-		handleAssetInputChange,
-		copyViewportToShotCamera,
-		copyShotCameraToViewport,
-		resetActiveView,
-		refreshOutputPreview,
-		downloadPng,
+		setBaseFovX: cameraController.setBaseFovX,
+		setBoxWidthPercent: outputFrameController.setBoxWidthPercent,
+		setBoxHeightPercent: outputFrameController.setBoxHeightPercent,
+		setViewZoomPercent: outputFrameController.setViewZoomPercent,
+		setAnchor: outputFrameController.setAnchor,
+		setShotCameraClippingMode: cameraController.setShotCameraClippingMode,
+		setShotCameraNear: cameraController.setShotCameraNear,
+		setShotCameraFar: cameraController.setShotCameraFar,
+		setShotCameraExportName: cameraController.setShotCameraExportName,
+		setExportTarget: exportController.setExportTarget,
+		toggleExportPreset: exportController.toggleExportPreset,
+		selectFrame: frameController.selectFrame,
+		createFrame: frameController.createFrame,
+		duplicateActiveFrame: frameController.duplicateActiveFrame,
+		deleteActiveFrame: frameController.deleteActiveFrame,
+		startFrameDrag: frameController.startFrameDrag,
+		startFrameResize: frameController.startFrameResize,
+		startFrameRotate: frameController.startFrameRotate,
+		startFrameAnchorDrag: frameController.startFrameAnchorDrag,
+		startOutputFramePan: outputFrameController.startOutputFramePan,
+		startOutputFrameResize: outputFrameController.startOutputFrameResize,
+		selectShotCamera: cameraController.selectShotCamera,
+		createShotCamera: cameraController.createShotCamera,
+		duplicateActiveShotCamera: cameraController.duplicateActiveShotCamera,
+		setAssetWorldScale: assetController.setAssetWorldScale,
+		resetAssetWorldScale: assetController.resetAssetWorldScale,
+		openFiles: assetController.openFiles,
+		loadSample: assetController.loadSample,
+		clearScene: assetController.clearScene,
+		loadRemoteUrls: assetController.loadRemoteUrls,
+		handleAssetInputChange: assetController.handleAssetInputChange,
+		copyViewportToShotCamera: cameraController.copyViewportToShotCamera,
+		copyShotCameraToViewport: cameraController.copyShotCameraToViewport,
+		resetActiveView: cameraController.resetActiveView,
+		refreshOutputPreview: exportController.refreshOutputPreview,
+		downloadPng: exportController.downloadPng,
 		dispose() {
 			runtimeController.dispose();
 		},
