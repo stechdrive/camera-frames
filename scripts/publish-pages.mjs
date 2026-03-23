@@ -1,5 +1,5 @@
-import { cp, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
+import { cp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -76,7 +76,10 @@ async function main() {
 		await copyDistContents();
 		await writeFile(path.join(worktreeDir, ".nojekyll"), "");
 
-		const indexHtml = await readFile(path.join(worktreeDir, "index.html"), "utf8");
+		const indexHtml = await readFile(
+			path.join(worktreeDir, "index.html"),
+			"utf8",
+		);
 		await writeFile(path.join(worktreeDir, "404.html"), indexHtml);
 
 		run("git", ["-C", worktreeDir, "add", "-A"]);
@@ -103,12 +106,15 @@ async function main() {
 		]);
 		run("git", ["-C", worktreeDir, "push", "origin", "gh-pages"]);
 	} finally {
-		const worktreeList = spawnSync(
-			"git",
-			["worktree", "list", "--porcelain"],
-			{ cwd: repoRoot, encoding: "utf8", shell: false },
-		);
-		if (worktreeList.status === 0 && worktreeList.stdout.includes(worktreeDir)) {
+		const worktreeList = spawnSync("git", ["worktree", "list", "--porcelain"], {
+			cwd: repoRoot,
+			encoding: "utf8",
+			shell: false,
+		});
+		if (
+			worktreeList.status === 0 &&
+			worktreeList.stdout.includes(worktreeDir)
+		) {
 			run("git", ["worktree", "remove", "--force", worktreeDir]);
 		} else {
 			await rm(worktreeDir, { force: true, recursive: true });

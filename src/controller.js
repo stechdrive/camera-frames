@@ -9,7 +9,6 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { getAssetFileURL } from "./asset-url.js";
 import {
-	ANCHORS,
 	BASE_RENDER_BOX,
 	DEFAULT_CAMERA_FAR,
 	DEFAULT_CAMERA_NEAR,
@@ -18,74 +17,29 @@ import {
 	DEFAULT_GRID_SIZE_METERS,
 	DEFAULT_POINTER_SCROLL_SPEED,
 	DEFAULT_POINTER_SLIDE_SPEED,
-	FRAME_MAX_COUNT,
 } from "./constants.js";
 import { createAssetController } from "./controllers/asset-controller.js";
 import { createCameraController } from "./controllers/camera-controller.js";
 import { createExportController } from "./controllers/export-controller.js";
+import { createFrameController } from "./controllers/frame-controller.js";
+import { createInteractionController } from "./controllers/interaction-controller.js";
 import { createOutputFrameController } from "./controllers/output-frame-controller.js";
+import { createProjectionController } from "./controllers/projection-controller.js";
+import { createRuntimeController } from "./controllers/runtime-controller.js";
+import { createSceneFramingController } from "./controllers/scene-framing-controller.js";
+import { createUiSyncController } from "./controllers/ui-sync-controller.js";
+import { drawFramesToContext } from "./engine/frame-overlay.js";
+import { horizontalToVerticalFovDegrees } from "./engine/projection.js";
 import {
-	drawFramesToContext,
-	getFrameOutlineSpec,
-} from "./engine/frame-overlay.js";
-import {
-	FRAME_MAX_SCALE,
-	FRAME_MIN_SCALE,
-	FRAME_RESIZE_HANDLES,
-	getFrameAnchorLocalNormalized,
-	getFrameAnchorWorldPoint,
-	getFrameDocumentCenterFromWorld,
-	getFrameResizeAxisLocal,
-	getFrameWorldPointFromLocal,
-	getOppositeFrameResizeHandleKey,
-	getUniformFrameScaleFromHandle,
-	inverseRotateVector,
-	normalizeRotationDegrees,
-	rotateVector,
-} from "./engine/frame-transform.js";
-import {
-	clampOutputFrameCenterPx,
-	clampViewZoom,
-	frustumSpanToFovDegrees,
-	getBaseFrustumExtents,
-	getExportSize,
-	getPreviewFrustumExtents,
-	getRenderBoxMetrics,
-	getTargetFrustumExtents,
-	horizontalToVerticalFovDegrees,
-	remapPointBetweenRenderBoxes,
-} from "./engine/projection.js";
-import {
-	buildAssetCountBadge,
-	buildSceneScaleSummary,
-	buildSceneSummary,
 	formatAssetWorldScale,
-	getAssetKindLabelKey,
-	getAssetUnitModeLabelKey,
 	getDefaultAssetUnitMode,
 } from "./engine/scene-units.js";
 import { getAnchorLabel, translate } from "./i18n.js";
-import { bindInputRouter } from "./interactions/input-router.js";
 import {
 	extractProjectPackageAssets,
 	isProjectPackageSource,
 } from "./project-package.js";
-import {
-	WORKSPACE_PANE_CAMERA,
-	WORKSPACE_PANE_VIEWPORT,
-	cloneShotCameraDocument,
-	createFrameDocument,
-	createShotCameraDocument,
-	getFrameDisplayLabel,
-	getFrameDocumentById,
-	getFrameDocumentId,
-	getNextFrameNumber,
-	getNextShotCameraNumber,
-	getShotCameraDocumentById,
-	getShotCameraDocumentId,
-	getActiveFrameDocument as resolveActiveFrameDocument,
-	setSinglePaneRole,
-} from "./workspace-model.js";
+import { WORKSPACE_PANE_CAMERA } from "./workspace-model.js";
 
 export function createCameraFramesController(elements, store) {
 	const {
@@ -139,9 +93,6 @@ export function createCameraFramesController(elements, store) {
 		},
 	};
 
-	const INTERACTION_MODE_NAVIGATE = "navigate";
-	const INTERACTION_MODE_ZOOM = "zoom";
-
 	const state = {
 		get mode() {
 			return store.mode.value;
@@ -159,7 +110,7 @@ export function createCameraFramesController(elements, store) {
 		exportBusy: false,
 		exportStatusKey: "export.idle",
 		outputFrameSelected: false,
-		interactionMode: INTERACTION_MODE_NAVIGATE,
+		interactionMode: "navigate",
 		lastCameraSummary: "",
 		lastSceneSummary: "",
 		lastSceneScaleSummary: "",
@@ -264,150 +215,32 @@ export function createCameraFramesController(elements, store) {
 		);
 	}
 
-	function buildFrameDocumentName(nextNumber) {
-		return t("frame.defaultName", { index: getFrameDisplayLabel(nextNumber) });
-	}
-
 	function getActiveFrames() {
-		return getActiveShotCameraDocument()?.frames ?? [];
-	}
-
-	function getActiveFrameDocument() {
-		return resolveActiveFrameDocument(
-			getActiveFrames(),
-			getActiveShotCameraDocument()?.activeFrameId ?? null,
-		);
-	}
-
-	function createWorkspaceFrameDocument(sourceFrame = null) {
-		const nextNumber = getNextFrameNumber(getActiveFrames());
-		return createFrameDocument({
-			id: getFrameDocumentId(nextNumber),
-			name: buildFrameDocumentName(nextNumber),
-			source: sourceFrame,
-		});
-	}
-
-	function hasReachedFrameLimit() {
-		return getActiveFrames().length >= FRAME_MAX_COUNT;
+		return frameController.getActiveFrames();
 	}
 
 	function resolveFrameAxis(value) {
-		return Number.isFinite(value) ? value : 0;
-	}
-
-	function resolveFrameScale(value) {
-		const nextValue = Number(value);
-		return Number.isFinite(nextValue) && nextValue > 0
-			? Math.min(FRAME_MAX_SCALE, Math.max(FRAME_MIN_SCALE, nextValue))
-			: 1;
+		return frameController.resolveFrameAxis(value);
 	}
 
 	function resolveFrameAnchor(value, fallback = null) {
-		const fallbackAnchor = fallback ?? { x: 0.5, y: 0.5 };
-		const nextAnchor =
-			value && typeof value === "object"
-				? value
-				: typeof value === "string" && ANCHORS[value]
-					? ANCHORS[value]
-					: fallbackAnchor;
-
-		return {
-			x: resolveFrameAxis(nextAnchor.x ?? fallbackAnchor.x),
-			y: resolveFrameAxis(nextAnchor.y ?? fallbackAnchor.y),
-		};
+		return frameController.resolveFrameAnchor(value, fallback);
 	}
 
 	function getFrameAnchorDocument(frame) {
-		return resolveFrameAnchor(frame?.anchor, {
-			x: resolveFrameAxis(frame?.x ?? 0.5),
-			y: resolveFrameAxis(frame?.y ?? 0.5),
-		});
-	}
-
-	function offsetFrameDocument(frame, xOffset, yOffset) {
-		const nextFrame = {
-			...frame,
-			x: resolveFrameAxis(frame.x + xOffset),
-			y: resolveFrameAxis(frame.y + yOffset),
-		};
-
-		const anchor = getFrameAnchorDocument(frame);
-		nextFrame.anchor = resolveFrameAnchor(
-			{
-				x: anchor.x + xOffset,
-				y: anchor.y + yOffset,
-			},
-			{
-				x: nextFrame.x,
-				y: nextFrame.y,
-			},
-		);
-
-		return nextFrame;
+		return frameController.getFrameAnchorDocument(frame);
 	}
 
 	function isFrameSelectionActive() {
-		return store.frames.selectionActive.value;
-	}
-
-	function isFrameSelected(frameId) {
-		return isFrameSelectionActive() && store.frames.activeId.value === frameId;
+		return frameController.isFrameSelectionActive();
 	}
 
 	function clearFrameDrag() {
-		frameDragState = null;
-	}
-
-	function clearFrameResize() {
-		frameResizeState = null;
-	}
-
-	function clearFrameRotate() {
-		frameRotateState = null;
-	}
-
-	function clearFrameAnchorDrag() {
-		frameAnchorDragState = null;
-	}
-
-	function clearFrameInteraction() {
-		clearFrameDrag();
-		clearFrameResize();
-		clearFrameRotate();
-		clearFrameAnchorDrag();
+		return frameController.clearFrameDrag();
 	}
 
 	function clearFrameSelection() {
-		store.frames.selectionActive.value = false;
-		clearFrameInteraction();
-	}
-
-	function activateFrameSelection(frameId) {
-		const frame = getFrameDocumentById(getActiveFrames(), frameId);
-		if (!frame) {
-			return null;
-		}
-
-		clearOutputFrameSelection();
-		clearFrameInteraction();
-		let selectedFrame = frame;
-		updateActiveShotCameraDocument((documentState) => {
-			const nextFrame = getFrameDocumentById(documentState.frames, frame.id);
-			if (!nextFrame) {
-				return documentState;
-			}
-
-			documentState.activeFrameId = nextFrame.id;
-			nextFrame.anchor = {
-				x: nextFrame.x,
-				y: nextFrame.y,
-			};
-			selectedFrame = nextFrame;
-			return documentState;
-		});
-		store.frames.selectionActive.value = true;
-		return selectedFrame;
+		return frameController.clearFrameSelection();
 	}
 
 	function clearOutputFramePan() {
@@ -443,11 +276,7 @@ export function createCameraFramesController(elements, store) {
 	}
 
 	function getAutoClipRange() {
-		const { radius } = getSceneFraming();
-		return {
-			near: Math.max(radius / 200, DEFAULT_CAMERA_NEAR),
-			far: Math.max(radius * 40, 60),
-		};
+		return sceneFramingController.getAutoClipRange();
 	}
 
 	function updateShotCameraHelpers() {
@@ -461,8 +290,6 @@ export function createCameraFramesController(elements, store) {
 	function syncActiveShotCameraFromDocument() {
 		return cameraController.syncActiveShotCameraFromDocument();
 	}
-
-	registerShotCameraDocuments();
 
 	const fpsMovement = new FpsMovement({
 		moveSpeed: DEFAULT_FPS_MOVE_SPEED,
@@ -478,13 +305,13 @@ export function createCameraFramesController(elements, store) {
 	pointerControls.pointerRollScale = 0.0;
 
 	const loader = new GLTFLoader();
-	let lastFrameTime = 0;
-	let frameDragState = null;
-	let frameResizeState = null;
-	let frameRotateState = null;
-	let frameAnchorDragState = null;
-	let zoomToolDragState = null;
-	const disposers = [];
+	let cameraController = null;
+	let interactionController = null;
+	let outputFrameController = null;
+	let projectionController = null;
+	let runtimeController = null;
+	let sceneFramingController = null;
+	let uiSyncController = null;
 
 	function currentLocale() {
 		return store.locale.value;
@@ -493,6 +320,23 @@ export function createCameraFramesController(elements, store) {
 	function t(key, params) {
 		return translate(currentLocale(), key, params);
 	}
+
+	const frameController = createFrameController({
+		store,
+		state,
+		renderBox,
+		workspacePaneCamera: WORKSPACE_PANE_CAMERA,
+		isZoomToolActive: () => interactionController?.isZoomToolActive() ?? false,
+		t,
+		setStatus,
+		updateUi,
+		clearOutputFrameSelection: () =>
+			outputFrameController?.clearOutputFrameSelection(),
+		clearOutputFramePan: () => outputFrameController?.clearOutputFramePan(),
+		getActiveShotCameraDocument,
+		updateActiveShotCameraDocument,
+		getOutputFrameMetrics,
+	});
 
 	const assetController = createAssetController({
 		sceneState,
@@ -545,7 +389,16 @@ export function createCameraFramesController(elements, store) {
 		updateShotCameraHelpers,
 	});
 
-	const cameraController = createCameraController({
+	sceneFramingController = createSceneFramingController({
+		getSceneBounds,
+		viewportCamera,
+		shotCameraRegistry,
+		syncShotCameraEntryFromDocument: (entry) =>
+			cameraController?.syncShotCameraEntryFromDocument(entry),
+		syncControlsToMode: () => interactionController?.syncControlsToMode(),
+	});
+
+	cameraController = createCameraController({
 		store,
 		state,
 		scene,
@@ -555,18 +408,18 @@ export function createCameraFramesController(elements, store) {
 		t,
 		setStatus,
 		updateUi,
-		getAutoClipRange,
-		clearFrameDrag,
+		getAutoClipRange: () => sceneFramingController.getAutoClipRange(),
+		clearFrameDrag: () => frameController.clearFrameDrag(),
 		clearOutputFramePan,
 		clearOutputFrameSelection,
-		clearControlMomentum,
+		clearControlMomentum: () => interactionController?.clearControlMomentum(),
 		applyNavigateInteractionMode: () =>
-			applyInteractionMode(INTERACTION_MODE_NAVIGATE, { silent: true }),
-		copyPose,
-		frameCamera,
-		syncControlsToMode,
+			interactionController?.applyNavigateInteractionMode({ silent: true }),
+		copyPose: (...args) => sceneFramingController.copyPose(...args),
+		frameCamera: (...args) => sceneFramingController.frameCamera(...args),
+		syncControlsToMode: () => interactionController?.syncControlsToMode(),
 	});
-	const outputFrameController = createOutputFrameController({
+	outputFrameController = createOutputFrameController({
 		store,
 		state,
 		viewportShell,
@@ -576,123 +429,180 @@ export function createCameraFramesController(elements, store) {
 		frameOverlayCanvas,
 		outputFrameResizeHandles: OUTPUT_FRAME_RESIZE_HANDLES,
 		workspacePaneCamera: WORKSPACE_PANE_CAMERA,
-		isZoomToolActive,
+		isZoomToolActive: () => interactionController?.isZoomToolActive() ?? false,
 		t,
 		getAnchorLabel,
 		currentLocale,
-		clearFrameSelection,
-		isFrameSelectionActive,
+		clearFrameSelection: () => frameController.clearFrameSelection(),
+		isFrameSelectionActive: () => frameController.isFrameSelectionActive(),
 		getActiveShotCameraDocument,
 		getShotCameraDocument,
 		getActiveShotCameraEntry,
 		shotCameraRegistry,
-		getActiveFrames,
-		getFrameAnchorDocument,
-		resolveFrameAxis,
-		resolveFrameAnchor,
+		getActiveFrames: () => frameController.getActiveFrames(),
+		getFrameAnchorDocument: (frame) =>
+			frameController.getFrameAnchorDocument(frame),
+		resolveFrameAxis: (value) => frameController.resolveFrameAxis(value),
+		resolveFrameAnchor: (value, fallback) =>
+			frameController.resolveFrameAnchor(value, fallback),
 		getBaseFovX: () => state.baseFovX,
 		updateActiveShotCameraDocument,
 		updateUi,
 	});
+	interactionController = createInteractionController({
+		state,
+		viewportShell,
+		fpsMovement,
+		pointerControls,
+		workspacePaneCamera: WORKSPACE_PANE_CAMERA,
+		t,
+		setStatus,
+		updateUi,
+		getViewZoomFactor: () => state.outputFrame.viewZoom,
+		setViewZoomFactor: (nextZoom) =>
+			outputFrameController.setViewZoomFactor(nextZoom),
+	});
+	projectionController = createProjectionController({
+		state,
+		viewportShell,
+		viewportCamera,
+		renderer,
+		getOutputSizeState: (documentState) =>
+			outputFrameController.getOutputSizeState(documentState),
+		getOutputFrameMetrics: (documentState) =>
+			outputFrameController.getOutputFrameMetrics(documentState),
+		getViewportSize: () => outputFrameController.getViewportSize(),
+		handleOutputFrameResize: () => outputFrameController.handleResize(),
+		syncActiveShotCameraFromDocument,
+		getActiveShotCamera,
+		getActiveShotCameraDocument,
+		getActiveCameraViewCamera,
+		getActiveOutputCamera,
+	});
+	uiSyncController = createUiSyncController({
+		store,
+		state,
+		sceneState,
+		viewportShell,
+		renderBox,
+		dropHint,
+		exportCanvas,
+		fpsMovement,
+		currentLocale,
+		t,
+		syncActiveShotCameraFromDocument,
+		isZoomToolActive: () => interactionController?.isZoomToolActive() ?? false,
+		updateOutputFrameOverlay,
+		getSceneAssetCounts,
+		getSceneBounds,
+		getTotalLoadedItems,
+		getActiveShotCamera,
+		getActiveCamera,
+		getProjectionState,
+		getActiveShotCameraDocument,
+	});
+	runtimeController = createRuntimeController({
+		renderer,
+		scene,
+		store,
+		state,
+		viewportShell,
+		dropHint,
+		anchorDot,
+		assetController,
+		updateDropHint,
+		updateUi,
+		updateOutputFrameOverlay,
+		setStatus,
+		startZoomToolDrag,
+		toggleZoomTool,
+		isInteractiveTextTarget,
+		isZoomInteractionMode: () =>
+			interactionController?.isZoomInteractionMode() ?? false,
+		applyNavigateInteractionMode: () =>
+			interactionController?.applyNavigateInteractionMode(),
+		isFrameSelectionActive,
+		clearFrameSelection,
+		clearOutputFrameSelection,
+		handleZoomToolDragMove,
+		handleZoomToolDragEnd,
+		handleOutputFramePanMove: outputFrameController.handleOutputFramePanMove,
+		handleOutputFramePanEnd: outputFrameController.handleOutputFramePanEnd,
+		handleOutputFrameResizeMove:
+			outputFrameController.handleOutputFrameResizeMove,
+		handleOutputFrameResizeEnd:
+			outputFrameController.handleOutputFrameResizeEnd,
+		handleOutputFrameAnchorDragMove:
+			outputFrameController.handleOutputFrameAnchorDragMove,
+		handleOutputFrameAnchorDragEnd:
+			outputFrameController.handleOutputFrameAnchorDragEnd,
+		handleFrameDragMove: frameController.handleFrameDragMove,
+		handleFrameDragEnd: frameController.handleFrameDragEnd,
+		handleFrameResizeMove: frameController.handleFrameResizeMove,
+		handleFrameResizeEnd: frameController.handleFrameResizeEnd,
+		handleFrameRotateMove: frameController.handleFrameRotateMove,
+		handleFrameRotateEnd: frameController.handleFrameRotateEnd,
+		handleFrameAnchorDragMove: frameController.handleFrameAnchorDragMove,
+		handleFrameAnchorDragEnd: frameController.handleFrameAnchorDragEnd,
+		startOutputFrameAnchorDrag:
+			outputFrameController.startOutputFrameAnchorDrag,
+		exportController,
+		handleResize,
+		fpsMovement,
+		pointerControls,
+		getActiveCamera,
+		syncViewportProjection,
+		syncShotProjection,
+		applyCameraViewProjection,
+		updateShotCameraHelpers,
+		getActiveCameraViewCamera,
+		viewportCamera,
+		updateCameraSummary,
+		t,
+		formatNumber,
+		frameAllCameras,
+		syncControlsToMode,
+		applyInitialNavigateInteractionMode: () =>
+			interactionController?.applyNavigateInteractionMode({ silent: true }),
+		loadStartupUrls: () => assetController.loadStartupUrls(),
+		setExportStatus,
+	});
+	registerShotCameraDocuments();
 
 	function formatNumber(value, digits = 2) {
 		return Number(value).toFixed(digits);
 	}
 
 	function isZoomToolActive() {
-		return (
-			state.mode === WORKSPACE_PANE_CAMERA &&
-			state.interactionMode === INTERACTION_MODE_ZOOM
-		);
+		return interactionController?.isZoomToolActive() ?? false;
 	}
 
 	function isInteractiveTextTarget(target) {
-		return (
-			target instanceof Element &&
-			target.closest(
-				'input, textarea, select, option, [contenteditable="true"]',
-			) !== null
-		);
+		return interactionController?.isInteractiveTextTarget(target) ?? false;
 	}
 
 	function clearZoomToolDrag() {
-		zoomToolDragState = null;
-		viewportShell.classList.remove("is-zoom-dragging");
+		return interactionController?.clearZoomToolDrag();
 	}
 
 	function applyInteractionMode(nextMode, { silent = false } = {}) {
-		if (state.interactionMode === nextMode) {
-			return;
-		}
-
-		state.interactionMode = nextMode;
-		clearZoomToolDrag();
-		clearControlMomentum();
-		const navigationEnabled = nextMode === INTERACTION_MODE_NAVIGATE;
-		fpsMovement.enable = navigationEnabled;
-		pointerControls.enable = navigationEnabled;
-		if (!silent) {
-			setStatus(
-				navigationEnabled
-					? t("status.navigationActive", {
-							speed: formatNumber(fpsMovement.moveSpeed, 1),
-						})
-					: t("status.zoomToolEnabled"),
-			);
-		}
-		updateUi();
+		return interactionController?.applyInteractionMode(nextMode, { silent });
 	}
 
 	function toggleZoomTool() {
-		if (state.mode !== WORKSPACE_PANE_CAMERA) {
-			setStatus(t("status.zoomToolUnavailable"));
-			return;
-		}
-
-		applyInteractionMode(
-			state.interactionMode === INTERACTION_MODE_ZOOM
-				? INTERACTION_MODE_NAVIGATE
-				: INTERACTION_MODE_ZOOM,
-		);
-	}
-
-	function setViewZoomFactor(nextZoom) {
-		return outputFrameController.setViewZoomFactor(nextZoom);
+		return interactionController?.toggleZoomTool();
 	}
 
 	function startZoomToolDrag(event) {
-		if (!isZoomToolActive() || event.button !== 0) {
-			return false;
-		}
-
-		event.preventDefault();
-		event.stopPropagation();
-		viewportShell.classList.add("is-zoom-dragging");
-		zoomToolDragState = {
-			pointerId: event.pointerId,
-			startClientX: event.clientX,
-			startViewZoom: state.outputFrame.viewZoom,
-		};
-		return true;
+		return interactionController?.startZoomToolDrag(event) ?? false;
 	}
 
 	function handleZoomToolDragMove(event) {
-		if (!zoomToolDragState || event.pointerId !== zoomToolDragState.pointerId) {
-			return;
-		}
-
-		const deltaX = event.clientX - zoomToolDragState.startClientX;
-		const nextZoom =
-			zoomToolDragState.startViewZoom * Math.exp(deltaX * 0.0045);
-		setViewZoomFactor(nextZoom);
+		return interactionController?.handleZoomToolDragMove(event);
 	}
 
 	function handleZoomToolDragEnd(event) {
-		if (!zoomToolDragState || event.pointerId !== zoomToolDragState.pointerId) {
-			return;
-		}
-
-		clearZoomToolDrag();
+		return interactionController?.handleZoomToolDragEnd(event);
 	}
 
 	function getActiveCamera() {
@@ -702,9 +612,7 @@ export function createCameraFramesController(elements, store) {
 	}
 
 	function resetLocalizedCaches() {
-		state.lastCameraSummary = "";
-		state.lastSceneSummary = "";
-		state.lastSceneScaleSummary = "";
+		return uiSyncController?.resetLocalizedCaches();
 	}
 
 	function getSceneAssetCounts() {
@@ -713,16 +621,6 @@ export function createCameraFramesController(elements, store) {
 
 	function getTotalLoadedItems() {
 		return assetController.getTotalLoadedItems();
-	}
-
-	function syncSceneAssetRows() {
-		store.sceneAssets.value = sceneState.assets.map((asset) => ({
-			id: asset.id,
-			label: asset.label,
-			kindLabelKey: getAssetKindLabelKey(asset.kind),
-			unitModeLabelKey: getAssetUnitModeLabelKey(asset.unitMode),
-			worldScale: asset.worldScale,
-		}));
 	}
 
 	function getSceneBounds() {
@@ -763,79 +661,8 @@ export function createCameraFramesController(elements, store) {
 		return outputFrameController.getOutputFrameMetrics(documentState);
 	}
 
-	function getFrameScreenSpec(frame, metrics = getOutputFrameMetrics()) {
-		return getFrameOutlineSpec(
-			frame,
-			metrics.boxWidth,
-			metrics.boxHeight,
-			metrics.exportWidth,
-			metrics.exportHeight,
-			metrics.boxLeft,
-			metrics.boxTop,
-		);
-	}
-
-	function getFramePointerLocalCoordinates(pointerX, pointerY, spec) {
-		return inverseRotateVector(
-			pointerX - spec.centerX,
-			pointerY - spec.centerY,
-			spec.rotationRadians,
-		);
-	}
-
-	function updateFrameCenterFromWorldPoint(frame, centerX, centerY, metrics) {
-		const center = getFrameDocumentCenterFromWorld(centerX, centerY, metrics);
-		frame.x = resolveFrameAxis(center.x);
-		frame.y = resolveFrameAxis(center.y);
-		return frame;
-	}
-
-	function updateFrameTransformFromWorldCenter(
-		frame,
-		metrics,
-		{
-			centerWorldX,
-			centerWorldY,
-			scale = frame.scale,
-			rotation = frame.rotation,
-		},
-	) {
-		updateFrameCenterFromWorldPoint(frame, centerWorldX, centerWorldY, metrics);
-		frame.scale = resolveFrameScale(scale);
-		frame.rotation = normalizeRotationDegrees(rotation);
-		frame.anchor = resolveFrameAnchor(frame.anchor, {
-			x: frame.x,
-			y: frame.y,
-		});
-		return frame;
-	}
-
 	function getProjectionState() {
-		syncActiveShotCameraFromDocument();
-		const shotCamera = getActiveShotCamera();
-		const outputFrameDocument =
-			getActiveShotCameraDocument()?.outputFrame ?? {};
-		const exportSize = getOutputSizeState();
-		const metrics = getOutputFrameMetrics();
-		const targetFrustum = getTargetFrustumExtents({
-			near: shotCamera.near,
-			horizontalFovDegrees: state.baseFovX,
-			widthScale: state.outputFrame.widthScale,
-			heightScale: state.outputFrame.heightScale,
-			centerX: outputFrameDocument.centerX,
-			centerY: outputFrameDocument.centerY,
-		});
-		const previewFrustum = getPreviewFrustumExtents({
-			targetFrustum,
-			metrics,
-		});
-
-		return {
-			exportSize,
-			metrics,
-			targetFrustum,
-			previewFrustum,
-		};
+		return projectionController.getProjectionState();
 	}
 
 	function updateOutputFrameOverlay() {
@@ -843,135 +670,43 @@ export function createCameraFramesController(elements, store) {
 	}
 
 	function updateDropHint() {
-		dropHint.classList.toggle("is-hidden", getTotalLoadedItems() > 0);
-	}
-
-	function setPerspectiveExtents(camera, left, right, top, bottom) {
-		camera.projectionMatrix.makePerspective(
-			left,
-			right,
-			top,
-			bottom,
-			camera.near,
-			camera.far,
-		);
-		camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
-	}
-
-	function applyCustomProjection(camera, frustum) {
-		setPerspectiveExtents(
-			camera,
-			frustum.left,
-			frustum.right,
-			frustum.top,
-			frustum.bottom,
-		);
-	}
-
-	function applySymmetricProjection(camera, aspect) {
-		camera.aspect = aspect;
-		camera.fov = horizontalToVerticalFovDegrees(state.baseFovX, aspect);
-		camera.updateProjectionMatrix();
+		return uiSyncController?.updateDropHint();
 	}
 
 	function syncShotProjection() {
-		const shotCamera = getActiveShotCamera();
-		const { targetFrustum } = getProjectionState();
-		applyCustomProjection(shotCamera, targetFrustum);
+		return projectionController.syncShotProjection();
 	}
 
 	function applyCameraViewProjection() {
-		const shotCamera = getActiveShotCamera();
-		const cameraViewCamera = getActiveCameraViewCamera();
-		const { previewFrustum } = getProjectionState();
+		return projectionController.applyCameraViewProjection();
+	}
 
-		cameraViewCamera.position.copy(shotCamera.position);
-		cameraViewCamera.quaternion.copy(shotCamera.quaternion);
-		cameraViewCamera.near = shotCamera.near;
-		cameraViewCamera.far = shotCamera.far;
-		cameraViewCamera.up.copy(shotCamera.up);
-		cameraViewCamera.updateMatrixWorld();
-
-		applyCustomProjection(cameraViewCamera, previewFrustum);
+	function syncViewportProjection() {
+		return projectionController.syncViewportProjection();
 	}
 
 	function clearControlMomentum() {
-		pointerControls.moveVelocity.set(0, 0, 0);
-		pointerControls.rotateVelocity.set(0, 0, 0);
-		pointerControls.scroll.set(0, 0, 0);
+		return interactionController?.clearControlMomentum();
 	}
 
 	function syncControlsToMode() {
-		clearControlMomentum();
-		const navigationEnabled =
-			state.interactionMode === INTERACTION_MODE_NAVIGATE;
-		fpsMovement.enable = navigationEnabled;
-		pointerControls.enable = navigationEnabled;
-		updateUi();
+		return interactionController?.syncControlsToMode();
 	}
 
 	function copyPose(sourceCamera, destinationCamera) {
-		destinationCamera.position.copy(sourceCamera.position);
-		destinationCamera.quaternion.copy(sourceCamera.quaternion);
-		destinationCamera.up.copy(sourceCamera.up);
-		destinationCamera.updateMatrixWorld();
-	}
-
-	function getSceneFraming() {
-		const bounds = getSceneBounds();
-		if (!bounds) {
-			return {
-				center: new THREE.Vector3(0, 0, 0),
-				radius: 1,
-			};
-		}
-
-		const center = bounds.box.getCenter(new THREE.Vector3());
-		const size = bounds.size;
-		return {
-			center,
-			radius: Math.max(size.length() * 0.35, 0.6),
-		};
+		return sceneFramingController.copyPose(sourceCamera, destinationCamera);
 	}
 
 	function frameCamera(camera, variant) {
-		const { center, radius } = getSceneFraming();
-		const offset =
-			variant === "camera"
-				? new THREE.Vector3(
-						radius * 0.12,
-						radius * 0.08,
-						Math.max(radius * 2.3, 2),
-					)
-				: new THREE.Vector3(
-						radius * 1.5,
-						radius * 0.9,
-						Math.max(radius * 2.6, 2.8),
-					);
-
-		camera.position.copy(center).add(offset);
-		if (variant === "viewport") {
-			const autoClip = getAutoClipRange();
-			camera.near = autoClip.near;
-			camera.far = Math.max(autoClip.far, DEFAULT_CAMERA_FAR);
-		}
-		camera.lookAt(center);
-		camera.updateMatrixWorld();
+		return sceneFramingController.frameCamera(camera, variant);
 	}
 
 	function frameAllCameras() {
-		for (const entry of shotCameraRegistry.values()) {
-			frameCamera(entry.camera, "camera");
-			syncShotCameraEntryFromDocument(entry);
-		}
-		frameCamera(viewportCamera, "viewport");
-		syncControlsToMode();
+		return sceneFramingController.frameAllCameras();
 	}
 
 	function handleResize() {
-		const { width, height } = outputFrameController.getViewportSize();
-		renderer.setSize(width, height, false);
-		outputFrameController.handleResize();
+		return projectionController.handleResize();
 	}
 
 	function disposeMaterial(material) {
@@ -1003,72 +738,7 @@ export function createCameraFramesController(elements, store) {
 	}
 
 	function syncOutputCamera() {
-		const shotCamera = getActiveShotCamera();
-		const outputCamera = getActiveOutputCamera();
-		const { targetFrustum } = getProjectionState();
-		outputCamera.position.copy(shotCamera.position);
-		outputCamera.quaternion.copy(shotCamera.quaternion);
-		outputCamera.near = shotCamera.near;
-		outputCamera.far = shotCamera.far;
-		outputCamera.up.copy(shotCamera.up);
-		applyCustomProjection(outputCamera, targetFrustum);
-		outputCamera.updateMatrixWorld();
-	}
-
-	function renderViewportFrameOverlay(metrics) {
-		const context = frameOverlayCanvas?.getContext("2d");
-		if (!context) {
-			return;
-		}
-
-		const shellWidth = Math.max(1, viewportShell.clientWidth);
-		const shellHeight = Math.max(1, viewportShell.clientHeight);
-		const dpr = Math.min(window.devicePixelRatio || 1, 2);
-		const canvasWidth = Math.max(1, Math.round(shellWidth * dpr));
-		const canvasHeight = Math.max(1, Math.round(shellHeight * dpr));
-
-		if (frameOverlayCanvas.width !== canvasWidth) {
-			frameOverlayCanvas.width = canvasWidth;
-		}
-		if (frameOverlayCanvas.height !== canvasHeight) {
-			frameOverlayCanvas.height = canvasHeight;
-		}
-
-		frameOverlayCanvas.style.left = `${-metrics.boxLeft}px`;
-		frameOverlayCanvas.style.top = `${-metrics.boxTop}px`;
-		frameOverlayCanvas.style.width = `${shellWidth}px`;
-		frameOverlayCanvas.style.height = `${shellHeight}px`;
-
-		context.setTransform(1, 0, 0, 1, 0, 0);
-		context.clearRect(
-			0,
-			0,
-			frameOverlayCanvas.width,
-			frameOverlayCanvas.height,
-		);
-		context.scale(dpr, dpr);
-		drawFramesToContext(
-			context,
-			metrics.boxWidth,
-			metrics.boxHeight,
-			getActiveFrames(),
-			{
-				logicalSpaceWidth: metrics.exportWidth,
-				logicalSpaceHeight: metrics.exportHeight,
-				offsetX: metrics.boxLeft,
-				offsetY: metrics.boxTop,
-				strokeStyle: "rgba(255, 87, 72, 0.92)",
-				selectedFrameId: isFrameSelectionActive()
-					? (getActiveShotCameraDocument()?.activeFrameId ?? null)
-					: null,
-				selectedStrokeStyle: "rgba(255, 214, 120, 0.96)",
-			},
-		);
-		context.setTransform(1, 0, 0, 1, 0, 0);
-	}
-
-	function setMode(mode) {
-		return cameraController.setMode(mode);
+		return projectionController.syncOutputCamera();
 	}
 
 	function setLocale(nextLocale) {
@@ -1090,74 +760,16 @@ export function createCameraFramesController(elements, store) {
 		);
 	}
 
-	function clearScene() {
-		return assetController.clearScene();
-	}
-
 	function setStatus(message) {
 		store.statusLine.value = message;
 	}
 
 	function updateSceneSummary() {
-		const locale = currentLocale();
-		const counts = getSceneAssetCounts();
-		const badgeText = buildAssetCountBadge(locale, counts);
-		store.sceneBadge.value = badgeText;
-
-		const bounds = getSceneBounds();
-		const summary = buildSceneSummary(locale, {
-			totalCount: counts.totalCount,
-			badgeText,
-			boundsSize: bounds?.size ?? null,
-		});
-
-		if (summary !== state.lastSceneSummary) {
-			state.lastSceneSummary = summary;
-			store.sceneSummary.value = summary;
-		}
-
-		const scaleSummary = buildSceneScaleSummary(locale, {
-			assets: sceneState.assets,
-		});
-		if (scaleSummary !== state.lastSceneScaleSummary) {
-			state.lastSceneScaleSummary = scaleSummary;
-			store.sceneScaleSummary.value = scaleSummary;
-		}
-
-		syncSceneAssetRows();
-		updateDropHint();
+		return uiSyncController?.updateSceneSummary();
 	}
 
 	function updateCameraSummary() {
-		const shotCamera = getActiveShotCamera();
-		const activeCamera = getActiveCamera();
-		const forward = activeCamera.getWorldDirection(new THREE.Vector3());
-		const { targetFrustum } = getProjectionState();
-		const targetHorizontalFov = frustumSpanToFovDegrees(
-			targetFrustum.width,
-			shotCamera.near,
-		);
-		const targetVerticalFov = frustumSpanToFovDegrees(
-			targetFrustum.height,
-			shotCamera.near,
-		);
-		const activeShotCameraDocument = getActiveShotCameraDocument();
-		const nextSummary = [
-			`${t("cameraSummary.view")} ${t(`mode.${state.mode}`)}`,
-			`${t("cameraSummary.shot")} ${activeShotCameraDocument?.name ?? "-"}`,
-			`${t("cameraSummary.pos")} ${formatNumber(activeCamera.position.x)}, ${formatNumber(activeCamera.position.y)}, ${formatNumber(activeCamera.position.z)} m`,
-			`${t("cameraSummary.fwd")} ${formatNumber(forward.x)}, ${formatNumber(forward.y)}, ${formatNumber(forward.z)}`,
-			`${t("cameraSummary.clip")} ${t(`clipMode.${store.shotCamera.clippingMode.value}`)}`,
-			`${t("cameraSummary.nearFar")} ${formatNumber(activeCamera.near, 2)} / ${formatNumber(activeCamera.far, 1)} m`,
-			`${t("cameraSummary.base")} ${formatNumber(state.baseFovX, 0)}°`,
-			`${t("cameraSummary.frame")} ${formatNumber(targetHorizontalFov, 1)}° × ${formatNumber(targetVerticalFov, 1)}°`,
-			`${t("cameraSummary.nav")} ${formatNumber(fpsMovement.moveSpeed, 1)} m/s`,
-		].join(" · ");
-
-		if (nextSummary !== state.lastCameraSummary) {
-			state.lastCameraSummary = nextSummary;
-			store.cameraSummary.value = nextSummary;
-		}
+		return uiSyncController?.updateCameraSummary();
 	}
 
 	function setExportStatus(key, busy = false) {
@@ -1168,829 +780,52 @@ export function createCameraFramesController(elements, store) {
 	}
 
 	function updateUi() {
-		syncActiveShotCameraFromDocument();
-		document.body.dataset.mode = state.mode;
-		document.body.dataset.interactionMode = state.interactionMode;
-		viewportShell.classList.toggle("is-zoom-tool", isZoomToolActive());
-		renderBox.classList.toggle("is-selected", state.outputFrameSelected);
-		exportCanvas.width = store.exportWidth.value;
-		exportCanvas.height = store.exportHeight.value;
-		exportCanvas.style.aspectRatio = `${store.exportWidth.value} / ${store.exportHeight.value}`;
-		updateOutputFrameOverlay();
-		updateSceneSummary();
-		updateDropHint();
+		return uiSyncController?.updateUi();
 	}
 
-	async function refreshOutputPreview() {
-		return exportController.refreshOutputPreview();
-	}
-
-	async function downloadPng() {
-		return exportController.downloadPng();
-	}
-
-	function setBaseFovX(nextValue) {
-		return cameraController.setBaseFovX(nextValue);
-	}
-
-	function setShotCameraClippingMode(nextValue) {
-		return cameraController.setShotCameraClippingMode(nextValue);
-	}
-
-	function setShotCameraNear(nextValue) {
-		return cameraController.setShotCameraNear(nextValue);
-	}
-
-	function setShotCameraFar(nextValue) {
-		return cameraController.setShotCameraFar(nextValue);
-	}
-
-	function setShotCameraExportName(nextValue) {
-		return cameraController.setShotCameraExportName(nextValue);
-	}
-
-	function setExportTarget(nextValue) {
-		return exportController.setExportTarget(nextValue);
-	}
-
-	function toggleExportPreset(shotCameraId) {
-		return exportController.toggleExportPreset(shotCameraId);
-	}
-
-	function selectShotCamera(shotCameraId) {
-		return cameraController.selectShotCamera(shotCameraId);
-	}
-
-	function createShotCamera() {
-		return cameraController.createShotCamera();
-	}
-
-	function duplicateActiveShotCamera() {
-		return cameraController.duplicateActiveShotCamera();
-	}
-
-	function selectFrame(frameId) {
-		const frame = activateFrameSelection(frameId);
-		if (!frame) {
-			return;
-		}
-
-		updateUi();
-		setStatus(
-			t("status.selectedFrame", {
-				name: frame.name,
-			}),
-		);
-	}
-
-	function createFrame() {
-		if (hasReachedFrameLimit()) {
-			setStatus(
-				t("status.frameLimitReached", {
-					limit: FRAME_MAX_COUNT,
-				}),
-			);
-			return;
-		}
-
-		const nextFrame = createWorkspaceFrameDocument();
-		clearOutputFrameSelection();
-		clearFrameInteraction();
-		updateActiveShotCameraDocument((documentState) => {
-			documentState.frames = [...documentState.frames, nextFrame];
-			documentState.activeFrameId = nextFrame.id;
-			return documentState;
-		});
-		store.frames.selectionActive.value = true;
-		updateUi();
-		setStatus(
-			t("status.createdFrame", {
-				name: nextFrame.name,
-			}),
-		);
-	}
-
-	function duplicateActiveFrame() {
-		const activeFrame = getActiveFrameDocument();
-		if (!activeFrame) {
-			createFrame();
-			return;
-		}
-
-		if (hasReachedFrameLimit()) {
-			setStatus(
-				t("status.frameLimitReached", {
-					limit: FRAME_MAX_COUNT,
-				}),
-			);
-			return;
-		}
-
-		const nextFrame = offsetFrameDocument(
-			createWorkspaceFrameDocument(activeFrame),
-			0.04,
-			0.04,
-		);
-		clearOutputFrameSelection();
-		clearFrameInteraction();
-		updateActiveShotCameraDocument((documentState) => {
-			documentState.frames = [...documentState.frames, nextFrame];
-			documentState.activeFrameId = nextFrame.id;
-			return documentState;
-		});
-		store.frames.selectionActive.value = true;
-		updateUi();
-		setStatus(
-			t("status.duplicatedFrame", {
-				name: nextFrame.name,
-			}),
-		);
-	}
-
-	function deleteActiveFrame() {
-		const activeFrame = getActiveFrameDocument();
-		if (!activeFrame) {
-			return;
-		}
-
-		clearFrameInteraction();
-		clearOutputFramePan();
-		updateActiveShotCameraDocument((documentState) => {
-			const remainingFrames = documentState.frames.filter(
-				(frame) => frame.id !== activeFrame.id,
-			);
-			documentState.frames = remainingFrames;
-			documentState.activeFrameId = remainingFrames[0]?.id ?? null;
-			return documentState;
-		});
-		store.frames.selectionActive.value = getActiveFrames().length > 0;
-		updateUi();
-		setStatus(
-			t("status.deletedFrame", {
-				name: activeFrame.name,
-			}),
-		);
-	}
-
-	function startFrameDrag(frameId, event) {
-		if (state.mode !== WORKSPACE_PANE_CAMERA || isZoomToolActive()) {
-			return;
-		}
-
-		const frame = getFrameDocumentById(getActiveFrames(), frameId);
-		if (!frame) {
-			return;
-		}
-
-		event.preventDefault();
-		event.stopPropagation();
-
-		if (!isFrameSelected(frameId)) {
-			activateFrameSelection(frameId);
-			updateUi();
-			return;
-		}
-
-		const bounds = renderBox.getBoundingClientRect();
-		if (bounds.width <= 0 || bounds.height <= 0) {
-			return;
-		}
-
-		clearFrameInteraction();
-		const anchor = getFrameAnchorDocument(frame);
-		frameDragState = {
-			pointerId: event.pointerId,
-			frameId: frame.id,
-			startClientX: event.clientX,
-			startClientY: event.clientY,
-			startX: frame.x,
-			startY: frame.y,
-			startAnchorX: anchor.x,
-			startAnchorY: anchor.y,
-		};
-	}
-
-	function handleFrameDragMove(event) {
-		if (!frameDragState || event.pointerId !== frameDragState.pointerId) {
-			return;
-		}
-
-		const bounds = renderBox.getBoundingClientRect();
-		if (bounds.width <= 0 || bounds.height <= 0) {
-			return;
-		}
-
-		let deltaX = (event.clientX - frameDragState.startClientX) / bounds.width;
-		let deltaY = (event.clientY - frameDragState.startClientY) / bounds.height;
-
-		if (event.shiftKey) {
-			if (Math.abs(deltaX) >= Math.abs(deltaY)) {
-				deltaY = 0;
-			} else {
-				deltaX = 0;
-			}
-		}
-
-		updateActiveShotCameraDocument((documentState) => {
-			const frame = getFrameDocumentById(
-				documentState.frames,
-				frameDragState.frameId,
-			);
-			if (!frame) {
-				return documentState;
-			}
-
-			frame.x = resolveFrameAxis(frameDragState.startX + deltaX);
-			frame.y = resolveFrameAxis(frameDragState.startY + deltaY);
-			frame.anchor = resolveFrameAnchor(
-				{
-					x: frameDragState.startAnchorX + deltaX,
-					y: frameDragState.startAnchorY + deltaY,
-				},
-				{
-					x: frame.x,
-					y: frame.y,
-				},
-			);
-			documentState.activeFrameId = frame.id;
-			return documentState;
-		});
-	}
-
-	function handleFrameDragEnd(event) {
-		if (!frameDragState || event.pointerId !== frameDragState.pointerId) {
-			return;
-		}
-
-		clearFrameDrag();
-	}
-
-	function startFrameResize(frameId, handleKey, event) {
-		if (state.mode !== WORKSPACE_PANE_CAMERA || isZoomToolActive()) {
-			return;
-		}
-
-		const frame = getFrameDocumentById(getActiveFrames(), frameId);
-		const handle = FRAME_RESIZE_HANDLES[handleKey];
-		if (!frame || !handle) {
-			return;
-		}
-
-		event.preventDefault();
-		event.stopPropagation();
-
-		if (!isFrameSelected(frameId)) {
-			activateFrameSelection(frameId);
-			updateUi();
-			return;
-		}
-
-		const metrics = getOutputFrameMetrics();
-		const spec = getFrameScreenSpec(frame, metrics);
-		const frameAnchorLocal = getFrameAnchorLocalNormalized(frame, spec, {
-			boxWidth: metrics.boxWidth,
-			boxHeight: metrics.boxHeight,
-		});
-		const useFrameAnchorPivot = event.altKey;
-		const anchorLocal = useFrameAnchorPivot
-			? frameAnchorLocal
-			: (FRAME_RESIZE_HANDLES[getOppositeFrameResizeHandleKey(handleKey)] ??
-				ANCHORS.center);
-		const anchorWorld = useFrameAnchorPivot
-			? getFrameAnchorWorldPoint(frame, metrics)
-			: getFrameWorldPointFromLocal(spec, anchorLocal);
-		const resizeAxis = getFrameResizeAxisLocal(spec, handleKey, anchorLocal);
-		const startPointerLocal = inverseRotateVector(
-			event.clientX - anchorWorld.x,
-			event.clientY - anchorWorld.y,
-			spec.rotationRadians,
-		);
-
-		clearFrameInteraction();
-		frameResizeState = {
-			pointerId: event.pointerId,
-			frameId: frame.id,
-			metrics,
-			anchorWorldX: anchorWorld.x,
-			anchorWorldY: anchorWorld.y,
-			startCenterWorldX: spec.centerX,
-			startCenterWorldY: spec.centerY,
-			rotationRadians: spec.rotationRadians,
-			resizeAxisX: resizeAxis?.x ?? 0,
-			resizeAxisY: resizeAxis?.y ?? 0,
-			startProjectionDistance: resizeAxis
-				? startPointerLocal.x * resizeAxis.x +
-					startPointerLocal.y * resizeAxis.y
-				: 0,
-			startScale: resolveFrameScale(frame.scale ?? 1),
-			startRotation: frame.rotation ?? 0,
-			fallbackScale: frame.scale ?? 1,
-			frameAnchorLocalX: frameAnchorLocal.x,
-			frameAnchorLocalY: frameAnchorLocal.y,
-			useFrameAnchorPivot,
-		};
-	}
-
-	function handleFrameResizeMove(event) {
-		if (!frameResizeState || event.pointerId !== frameResizeState.pointerId) {
-			return;
-		}
-
-		updateActiveShotCameraDocument((documentState) => {
-			const frame = getFrameDocumentById(
-				documentState.frames,
-				frameResizeState.frameId,
-			);
-			if (!frame) {
-				return documentState;
-			}
-
-			const nextScale = getUniformFrameScaleFromHandle({
-				pointerWorldX: event.clientX,
-				pointerWorldY: event.clientY,
-				anchorWorldX: frameResizeState.anchorWorldX,
-				anchorWorldY: frameResizeState.anchorWorldY,
-				rotationRadians: frameResizeState.rotationRadians,
-				axisX: frameResizeState.resizeAxisX,
-				axisY: frameResizeState.resizeAxisY,
-				startProjectionDistance: frameResizeState.startProjectionDistance,
-				startScale: frameResizeState.startScale,
-				fallbackScale: frameResizeState.fallbackScale,
-			});
-			const scaleFactor =
-				nextScale / Math.max(frameResizeState.startScale, FRAME_MIN_SCALE);
-			const nextCenterWorldX =
-				frameResizeState.anchorWorldX +
-				(frameResizeState.startCenterWorldX - frameResizeState.anchorWorldX) *
-					scaleFactor;
-			const nextCenterWorldY =
-				frameResizeState.anchorWorldY +
-				(frameResizeState.startCenterWorldY - frameResizeState.anchorWorldY) *
-					scaleFactor;
-
-			updateFrameTransformFromWorldCenter(frame, frameResizeState.metrics, {
-				centerWorldX: nextCenterWorldX,
-				centerWorldY: nextCenterWorldY,
-				scale: nextScale,
-				rotation: frameResizeState.startRotation,
-			});
-			if (!frameResizeState.useFrameAnchorPivot) {
-				const nextSpec = getFrameScreenSpec(frame, frameResizeState.metrics);
-				const nextAnchorWorld = getFrameWorldPointFromLocal(nextSpec, {
-					x: frameResizeState.frameAnchorLocalX,
-					y: frameResizeState.frameAnchorLocalY,
-				});
-				frame.anchor = resolveFrameAnchor(
-					{
-						x:
-							(nextAnchorWorld.x - frameResizeState.metrics.boxLeft) /
-							Math.max(frameResizeState.metrics.boxWidth, 1e-6),
-						y:
-							(nextAnchorWorld.y - frameResizeState.metrics.boxTop) /
-							Math.max(frameResizeState.metrics.boxHeight, 1e-6),
-					},
-					{
-						x: frame.x,
-						y: frame.y,
-					},
-				);
-			}
-			documentState.activeFrameId = frame.id;
-			return documentState;
-		});
-	}
-
-	function handleFrameResizeEnd(event) {
-		if (!frameResizeState || event.pointerId !== frameResizeState.pointerId) {
-			return;
-		}
-
-		clearFrameResize();
-	}
-
-	function startFrameRotate(frameId, event) {
-		if (state.mode !== WORKSPACE_PANE_CAMERA || isZoomToolActive()) {
-			return;
-		}
-
-		const frame = getFrameDocumentById(getActiveFrames(), frameId);
-		if (!frame) {
-			return;
-		}
-
-		event.preventDefault();
-		event.stopPropagation();
-
-		if (!isFrameSelected(frameId)) {
-			activateFrameSelection(frameId);
-			updateUi();
-			return;
-		}
-
-		const metrics = getOutputFrameMetrics();
-		const spec = getFrameScreenSpec(frame, metrics);
-		const anchorWorld = getFrameAnchorWorldPoint(frame, metrics);
-
-		clearFrameInteraction();
-		frameRotateState = {
-			pointerId: event.pointerId,
-			frameId: frame.id,
-			metrics,
-			anchorWorldX: anchorWorld.x,
-			anchorWorldY: anchorWorld.y,
-			startCenterWorldX: spec.centerX,
-			startCenterWorldY: spec.centerY,
-			startAngle: Math.atan2(
-				event.clientY - anchorWorld.y,
-				event.clientX - anchorWorld.x,
-			),
-			startRotation: frame.rotation ?? 0,
-			startScale: resolveFrameScale(frame.scale ?? 1),
-		};
-	}
-
-	function handleFrameRotateMove(event) {
-		if (!frameRotateState || event.pointerId !== frameRotateState.pointerId) {
-			return;
-		}
-
-		const pointerAngle = Math.atan2(
-			event.clientY - frameRotateState.anchorWorldY,
-			event.clientX - frameRotateState.anchorWorldX,
-		);
-		const nextRotation = normalizeRotationDegrees(
-			frameRotateState.startRotation +
-				((pointerAngle - frameRotateState.startAngle) * 180) / Math.PI,
-		);
-
-		updateActiveShotCameraDocument((documentState) => {
-			const frame = getFrameDocumentById(
-				documentState.frames,
-				frameRotateState.frameId,
-			);
-			if (!frame) {
-				return documentState;
-			}
-
-			const deltaRadians =
-				((nextRotation - frameRotateState.startRotation) * Math.PI) / 180;
-			const rotatedOffset = rotateVector(
-				frameRotateState.startCenterWorldX - frameRotateState.anchorWorldX,
-				frameRotateState.startCenterWorldY - frameRotateState.anchorWorldY,
-				deltaRadians,
-			);
-
-			updateFrameTransformFromWorldCenter(frame, frameRotateState.metrics, {
-				centerWorldX: frameRotateState.anchorWorldX + rotatedOffset.x,
-				centerWorldY: frameRotateState.anchorWorldY + rotatedOffset.y,
-				scale: frameRotateState.startScale,
-				rotation: nextRotation,
-			});
-			documentState.activeFrameId = frame.id;
-			return documentState;
-		});
-	}
-
-	function handleFrameRotateEnd(event) {
-		if (!frameRotateState || event.pointerId !== frameRotateState.pointerId) {
-			return;
-		}
-
-		clearFrameRotate();
-	}
-
-	function startFrameAnchorDrag(frameId, event) {
-		if (state.mode !== WORKSPACE_PANE_CAMERA || isZoomToolActive()) {
-			return;
-		}
-
-		const frame = getFrameDocumentById(getActiveFrames(), frameId);
-		if (!frame) {
-			return;
-		}
-
-		event.preventDefault();
-		event.stopPropagation();
-
-		if (!isFrameSelected(frameId)) {
-			activateFrameSelection(frameId);
-			updateUi();
-			return;
-		}
-
-		const metrics = getOutputFrameMetrics();
-		const anchorWorld = getFrameAnchorWorldPoint(frame, metrics);
-
-		clearFrameInteraction();
-		frameAnchorDragState = {
-			pointerId: event.pointerId,
-			frameId: frame.id,
-			metrics,
-			pointerOffsetX: event.clientX - anchorWorld.x,
-			pointerOffsetY: event.clientY - anchorWorld.y,
-		};
-	}
-
-	function handleFrameAnchorDragMove(event) {
-		if (
-			!frameAnchorDragState ||
-			event.pointerId !== frameAnchorDragState.pointerId
-		) {
-			return;
-		}
-
-		updateActiveShotCameraDocument((documentState) => {
-			const frame = getFrameDocumentById(
-				documentState.frames,
-				frameAnchorDragState.frameId,
-			);
-			if (!frame) {
-				return documentState;
-			}
-
-			const nextAnchor = getFrameDocumentCenterFromWorld(
-				event.clientX - frameAnchorDragState.pointerOffsetX,
-				event.clientY - frameAnchorDragState.pointerOffsetY,
-				frameAnchorDragState.metrics,
-			);
-			frame.anchor = resolveFrameAnchor(nextAnchor, {
-				x: frame.x,
-				y: frame.y,
-			});
-			documentState.activeFrameId = frame.id;
-			return documentState;
-		});
-	}
-
-	function handleFrameAnchorDragEnd(event) {
-		if (
-			!frameAnchorDragState ||
-			event.pointerId !== frameAnchorDragState.pointerId
-		) {
-			return;
-		}
-
-		clearFrameAnchorDrag();
-	}
-
-	function startOutputFramePan(event) {
-		return outputFrameController.startOutputFramePan(event);
-	}
-
-	function handleOutputFramePanMove(event) {
-		return outputFrameController.handleOutputFramePanMove(event);
-	}
-
-	function handleOutputFramePanEnd(event) {
-		return outputFrameController.handleOutputFramePanEnd(event);
-	}
-
-	function startOutputFrameAnchorDrag(event) {
-		return outputFrameController.startOutputFrameAnchorDrag(event);
-	}
-
-	function handleOutputFrameAnchorDragMove(event) {
-		return outputFrameController.handleOutputFrameAnchorDragMove(event);
-	}
-
-	function handleOutputFrameAnchorDragEnd(event) {
-		return outputFrameController.handleOutputFrameAnchorDragEnd(event);
-	}
-
-	function startOutputFrameResize(handleKey, event) {
-		return outputFrameController.startOutputFrameResize(handleKey, event);
-	}
-
-	function handleOutputFrameResizeMove(event) {
-		return outputFrameController.handleOutputFrameResizeMove(event);
-	}
-
-	function handleOutputFrameResizeEnd(event) {
-		return outputFrameController.handleOutputFrameResizeEnd(event);
-	}
-
-	function applyOutputFrameResize(
-		documentState,
-		nextWidthScale,
-		nextHeightScale,
-	) {
-		return outputFrameController.applyOutputFrameResize(
-			documentState,
-			nextWidthScale,
-			nextHeightScale,
-		);
-	}
-
-	function setAssetWorldScale(assetId, nextValue) {
-		return assetController.setAssetWorldScale(assetId, nextValue);
-	}
-
-	function resetAssetWorldScale(assetId) {
-		return assetController.resetAssetWorldScale(assetId);
-	}
-
-	function setBoxWidthPercent(nextValue) {
-		return outputFrameController.setBoxWidthPercent(nextValue);
-	}
-
-	function setBoxHeightPercent(nextValue) {
-		return outputFrameController.setBoxHeightPercent(nextValue);
-	}
-
-	function setViewZoomPercent(nextValue) {
-		return outputFrameController.setViewZoomPercent(nextValue);
-	}
-
-	function setAnchor(nextValue) {
-		return outputFrameController.setAnchor(nextValue);
-	}
-
-	async function loadRemoteUrls() {
-		return assetController.loadRemoteUrls();
-	}
-
-	async function handleAssetInputChange(event) {
-		return assetController.handleAssetInputChange(event);
-	}
-
-	async function loadSample() {
-		return assetController.loadSample();
-	}
-
-	function copyViewportToShotCamera() {
-		return cameraController.copyViewportToShotCamera();
-	}
-
-	function copyShotCameraToViewport() {
-		return cameraController.copyShotCameraToViewport();
-	}
-
-	function resetActiveView() {
-		return cameraController.resetActiveView();
-	}
-
-	function openFiles() {
-		return assetController.openFiles();
-	}
-
-	function listen(target, eventName, handler) {
-		target.addEventListener(eventName, handler);
-		disposers.push(() => target.removeEventListener(eventName, handler));
-	}
-
-	function bindViewportInteractions() {
-		bindInputRouter({
-			listen,
-			viewportShell,
-			dropHint,
-			anchorDot,
-			assetController,
-			updateDropHint,
-			updateUi,
-			updateOutputFrameOverlay,
-			setStatus,
-			startZoomToolDrag,
-			toggleZoomTool,
-			isInteractiveTextTarget,
-			isZoomInteractionMode: () =>
-				state.interactionMode === INTERACTION_MODE_ZOOM,
-			applyNavigateInteractionMode: () =>
-				applyInteractionMode(INTERACTION_MODE_NAVIGATE),
-			state,
-			isFrameSelectionActive,
-			clearFrameSelection,
-			clearOutputFrameSelection,
-			handleZoomToolDragMove,
-			handleZoomToolDragEnd,
-			handleOutputFramePanMove,
-			handleOutputFramePanEnd,
-			handleOutputFrameResizeMove,
-			handleOutputFrameResizeEnd,
-			handleOutputFrameAnchorDragMove,
-			handleOutputFrameAnchorDragEnd,
-			handleFrameDragMove,
-			handleFrameDragEnd,
-			handleFrameResizeMove,
-			handleFrameResizeEnd,
-			handleFrameRotateMove,
-			handleFrameRotateEnd,
-			handleFrameAnchorDragMove,
-			handleFrameAnchorDragEnd,
-			startOutputFrameAnchorDrag,
-		});
-	}
-
-	async function loadStartupUrls() {
-		return assetController.loadStartupUrls();
-	}
-
-	function animate(timeMs) {
-		handleResize();
-		if (exportController.isRenderLocked()) {
-			updateOutputFrameOverlay();
-			return;
-		}
-
-		const deltaTime =
-			lastFrameTime > 0 ? Math.min((timeMs - lastFrameTime) / 1000, 0.1) : 0;
-		lastFrameTime = timeMs;
-		const activeCamera = getActiveCamera();
-		fpsMovement.update(deltaTime, activeCamera);
-		pointerControls.update(deltaTime, activeCamera, activeCamera);
-
-		applySymmetricProjection(
-			viewportCamera,
-			Math.max(viewportShell.clientWidth, 1) /
-				Math.max(viewportShell.clientHeight, 1),
-		);
-		syncShotProjection();
-		applyCameraViewProjection();
-
-		updateShotCameraHelpers();
-
-		renderer.render(
-			scene,
-			state.mode === WORKSPACE_PANE_CAMERA
-				? getActiveCameraViewCamera()
-				: viewportCamera,
-		);
-		updateOutputFrameOverlay();
-		updateCameraSummary();
-	}
-
-	function init() {
-		document.body.dataset.mode = state.mode;
-		store.sceneSummary.value = t("scene.summaryEmpty");
-		store.sceneScaleSummary.value = t("scene.scaleDefault");
-		store.exportSummary.value = t("exportSummary.empty");
-		setStatus(t("status.ready"));
-		setExportStatus("export.idle");
-		updateUi();
-		frameAllCameras();
-		syncControlsToMode();
-		applyInteractionMode(INTERACTION_MODE_NAVIGATE, { silent: true });
-		setStatus(
-			t("status.navigationActive", {
-				speed: formatNumber(fpsMovement.moveSpeed, 1),
-			}),
-		);
-		handleResize();
-		bindViewportInteractions();
-		renderer.setAnimationLoop(animate);
-		loadStartupUrls();
-	}
-
-	init();
+	runtimeController.init();
 
 	return {
-		setMode,
+		setMode: cameraController.setMode,
 		setLocale,
-		setBaseFovX,
-		setBoxWidthPercent,
-		setBoxHeightPercent,
-		setViewZoomPercent,
-		setAnchor,
-		setShotCameraClippingMode,
-		setShotCameraNear,
-		setShotCameraFar,
-		setShotCameraExportName,
-		setExportTarget,
-		toggleExportPreset,
-		selectFrame,
-		createFrame,
-		duplicateActiveFrame,
-		deleteActiveFrame,
-		startFrameDrag,
-		startFrameResize,
-		startFrameRotate,
-		startFrameAnchorDrag,
-		startOutputFramePan,
-		startOutputFrameResize,
-		selectShotCamera,
-		createShotCamera,
-		duplicateActiveShotCamera,
-		setAssetWorldScale,
-		resetAssetWorldScale,
-		openFiles,
-		loadSample,
-		clearScene,
-		loadRemoteUrls,
-		handleAssetInputChange,
-		copyViewportToShotCamera,
-		copyShotCameraToViewport,
-		resetActiveView,
-		refreshOutputPreview,
-		downloadPng,
+		setBaseFovX: cameraController.setBaseFovX,
+		setBoxWidthPercent: outputFrameController.setBoxWidthPercent,
+		setBoxHeightPercent: outputFrameController.setBoxHeightPercent,
+		setViewZoomPercent: outputFrameController.setViewZoomPercent,
+		setAnchor: outputFrameController.setAnchor,
+		setShotCameraClippingMode: cameraController.setShotCameraClippingMode,
+		setShotCameraNear: cameraController.setShotCameraNear,
+		setShotCameraFar: cameraController.setShotCameraFar,
+		setShotCameraExportName: cameraController.setShotCameraExportName,
+		setExportTarget: exportController.setExportTarget,
+		toggleExportPreset: exportController.toggleExportPreset,
+		selectFrame: frameController.selectFrame,
+		createFrame: frameController.createFrame,
+		duplicateActiveFrame: frameController.duplicateActiveFrame,
+		deleteActiveFrame: frameController.deleteActiveFrame,
+		startFrameDrag: frameController.startFrameDrag,
+		startFrameResize: frameController.startFrameResize,
+		startFrameRotate: frameController.startFrameRotate,
+		startFrameAnchorDrag: frameController.startFrameAnchorDrag,
+		startOutputFramePan: outputFrameController.startOutputFramePan,
+		startOutputFrameResize: outputFrameController.startOutputFrameResize,
+		selectShotCamera: cameraController.selectShotCamera,
+		createShotCamera: cameraController.createShotCamera,
+		duplicateActiveShotCamera: cameraController.duplicateActiveShotCamera,
+		setAssetWorldScale: assetController.setAssetWorldScale,
+		resetAssetWorldScale: assetController.resetAssetWorldScale,
+		openFiles: assetController.openFiles,
+		loadSample: assetController.loadSample,
+		clearScene: assetController.clearScene,
+		loadRemoteUrls: assetController.loadRemoteUrls,
+		handleAssetInputChange: assetController.handleAssetInputChange,
+		copyViewportToShotCamera: cameraController.copyViewportToShotCamera,
+		copyShotCameraToViewport: cameraController.copyShotCameraToViewport,
+		resetActiveView: cameraController.resetActiveView,
+		refreshOutputPreview: exportController.refreshOutputPreview,
+		downloadPng: exportController.downloadPng,
 		dispose() {
-			renderer.setAnimationLoop(null);
-			while (disposers.length > 0) {
-				const dispose = disposers.pop();
-				dispose();
-			}
-			fpsMovement.enable = false;
-			pointerControls.enable = false;
-			exportController.dispose();
-			renderer.dispose();
+			runtimeController.dispose();
 		},
 	};
 }
