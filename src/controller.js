@@ -307,8 +307,6 @@ export function createCameraFramesController(elements, store) {
 		return cameraController.syncActiveShotCameraFromDocument();
 	}
 
-	registerShotCameraDocuments();
-
 	const fpsMovement = new FpsMovement({
 		moveSpeed: DEFAULT_FPS_MOVE_SPEED,
 	});
@@ -455,6 +453,7 @@ export function createCameraFramesController(elements, store) {
 		updateActiveShotCameraDocument,
 		updateUi,
 	});
+	registerShotCameraDocuments();
 
 	function formatNumber(value, digits = 2) {
 		return Number(value).toFixed(digits);
