@@ -81,6 +81,23 @@ npm run test
 Run lint, build, and tests.  
 コードチェック、ビルド、テストを実行します。
 
+## Versioning / バージョニング
+
+`package.json` is the single source of truth for the app version. The app footer shows the current SemVer and short git commit, and production builds emit `dist/version.json` for runtime inspection and future update checks.  
+アプリのバージョン正本は `package.json` です。アプリの footer には現在の SemVer と短縮 git commit が表示され、本番 build では runtime 確認や将来の更新検知用に `dist/version.json` も出力されます。
+
+Use standard npm version bumps for releases:  
+リリース時の version 更新は標準の npm コマンドを使います:
+
+```powershell
+npm version patch
+npm version minor
+npm version major
+```
+
+For this GitHub Pages app there is no service worker yet, so deploy updates rely on normal asset hashing plus browser refresh.  
+この GitHub Pages アプリには現時点で service worker は入っていないため、deploy 後の更新反映は通常の asset hash とブラウザ再読み込みに依存します。
+
 ## Scripts / スクリプト
 
 - `npm run develop`: start the Vite dev server / Vite の開発サーバーを起動
