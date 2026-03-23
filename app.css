@@ -286,8 +286,21 @@ input[type="range"] {
 	padding: 0 0.15rem 0.4rem;
 }
 
+.build-meta {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.55rem;
+}
+
+.build-commit {
+	color: var(--text-dim);
+	font-size: 0.78rem;
+}
+
 .footer-links {
 	display: flex;
+	flex-wrap: wrap;
 	gap: 1rem;
 }
 

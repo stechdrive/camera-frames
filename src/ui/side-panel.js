@@ -1,4 +1,5 @@
 import { html } from "htm/preact";
+import { getBuildCommitLabel, getBuildVersionLabel } from "../build-info.js";
 import {
 	FRAME_MAX_COUNT,
 	MAX_CAMERA_VIEW_ZOOM_PCT,
@@ -607,11 +608,22 @@ function renderExportSection({
 }
 
 function renderFooter({ store }) {
+	const buildVersionLabel = getBuildVersionLabel();
+	const buildCommitLabel = getBuildCommitLabel();
+
 	return html`
 		<footer class="panel-footer">
 			<p id="status-line" class="status-line">${store.statusLine.value}</p>
+			<div class="build-meta">
+				<span class="pill pill--dim">${buildVersionLabel}</span>
+				${
+					buildCommitLabel &&
+					html`<code class="build-commit">${buildCommitLabel}</code>`
+				}
+			</div>
 			<div class="footer-links">
-				<a href="https://github.com/stechdrive/spark-cameraframes">GitHub</a>
+				<a href="https://github.com/stechdrive/camera-frames">GitHub</a>
+				<a href="./version.json">version.json</a>
 			</div>
 		</footer>
 	`;
