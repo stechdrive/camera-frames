@@ -24,13 +24,10 @@ import { createExportController } from "./controllers/export-controller.js";
 import { createFrameController } from "./controllers/frame-controller.js";
 import { createInteractionController } from "./controllers/interaction-controller.js";
 import { createOutputFrameController } from "./controllers/output-frame-controller.js";
+import { createProjectionController } from "./controllers/projection-controller.js";
 import { createUiSyncController } from "./controllers/ui-sync-controller.js";
 import { drawFramesToContext } from "./engine/frame-overlay.js";
-import {
-	getPreviewFrustumExtents,
-	getTargetFrustumExtents,
-	horizontalToVerticalFovDegrees,
-} from "./engine/projection.js";
+import { horizontalToVerticalFovDegrees } from "./engine/projection.js";
 import {
 	formatAssetWorldScale,
 	getDefaultAssetUnitMode,
@@ -317,6 +314,7 @@ export function createCameraFramesController(elements, store) {
 	let lastFrameTime = 0;
 	let interactionController = null;
 	let outputFrameController = null;
+	let projectionController = null;
 	let uiSyncController = null;
 	const disposers = [];
 
@@ -460,6 +458,23 @@ export function createCameraFramesController(elements, store) {
 		setViewZoomFactor: (nextZoom) =>
 			outputFrameController.setViewZoomFactor(nextZoom),
 	});
+	projectionController = createProjectionController({
+		state,
+		viewportShell,
+		viewportCamera,
+		renderer,
+		getOutputSizeState: (documentState) =>
+			outputFrameController.getOutputSizeState(documentState),
+		getOutputFrameMetrics: (documentState) =>
+			outputFrameController.getOutputFrameMetrics(documentState),
+		getViewportSize: () => outputFrameController.getViewportSize(),
+		handleOutputFrameResize: () => outputFrameController.handleResize(),
+		syncActiveShotCameraFromDocument,
+		getActiveShotCamera,
+		getActiveShotCameraDocument,
+		getActiveCameraViewCamera,
+		getActiveOutputCamera,
+	});
 	uiSyncController = createUiSyncController({
 		store,
 		state,
@@ -577,31 +592,7 @@ export function createCameraFramesController(elements, store) {
 	}
 
 	function getProjectionState() {
-		syncActiveShotCameraFromDocument();
-		const shotCamera = getActiveShotCamera();
-		const outputFrameDocument =
-			getActiveShotCameraDocument()?.outputFrame ?? {};
-		const exportSize = getOutputSizeState();
-		const metrics = getOutputFrameMetrics();
-		const targetFrustum = getTargetFrustumExtents({
-			near: shotCamera.near,
-			horizontalFovDegrees: state.baseFovX,
-			widthScale: state.outputFrame.widthScale,
-			heightScale: state.outputFrame.heightScale,
-			centerX: outputFrameDocument.centerX,
-			centerY: outputFrameDocument.centerY,
-		});
-		const previewFrustum = getPreviewFrustumExtents({
-			targetFrustum,
-			metrics,
-		});
-
-		return {
-			exportSize,
-			metrics,
-			targetFrustum,
-			previewFrustum,
-		};
+		return projectionController.getProjectionState();
 	}
 
 	function updateOutputFrameOverlay() {
@@ -612,53 +603,16 @@ export function createCameraFramesController(elements, store) {
 		return uiSyncController?.updateDropHint();
 	}
 
-	function setPerspectiveExtents(camera, left, right, top, bottom) {
-		camera.projectionMatrix.makePerspective(
-			left,
-			right,
-			top,
-			bottom,
-			camera.near,
-			camera.far,
-		);
-		camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
-	}
-
-	function applyCustomProjection(camera, frustum) {
-		setPerspectiveExtents(
-			camera,
-			frustum.left,
-			frustum.right,
-			frustum.top,
-			frustum.bottom,
-		);
-	}
-
-	function applySymmetricProjection(camera, aspect) {
-		camera.aspect = aspect;
-		camera.fov = horizontalToVerticalFovDegrees(state.baseFovX, aspect);
-		camera.updateProjectionMatrix();
-	}
-
 	function syncShotProjection() {
-		const shotCamera = getActiveShotCamera();
-		const { targetFrustum } = getProjectionState();
-		applyCustomProjection(shotCamera, targetFrustum);
+		return projectionController.syncShotProjection();
 	}
 
 	function applyCameraViewProjection() {
-		const shotCamera = getActiveShotCamera();
-		const cameraViewCamera = getActiveCameraViewCamera();
-		const { previewFrustum } = getProjectionState();
+		return projectionController.applyCameraViewProjection();
+	}
 
-		cameraViewCamera.position.copy(shotCamera.position);
-		cameraViewCamera.quaternion.copy(shotCamera.quaternion);
-		cameraViewCamera.near = shotCamera.near;
-		cameraViewCamera.far = shotCamera.far;
-		cameraViewCamera.up.copy(shotCamera.up);
-		cameraViewCamera.updateMatrixWorld();
-
-		applyCustomProjection(cameraViewCamera, previewFrustum);
+	function syncViewportProjection() {
+		return projectionController.syncViewportProjection();
 	}
 
 	function clearControlMomentum() {
@@ -728,9 +682,7 @@ export function createCameraFramesController(elements, store) {
 	}
 
 	function handleResize() {
-		const { width, height } = outputFrameController.getViewportSize();
-		renderer.setSize(width, height, false);
-		outputFrameController.handleResize();
+		return projectionController.handleResize();
 	}
 
 	function disposeMaterial(material) {
@@ -762,16 +714,7 @@ export function createCameraFramesController(elements, store) {
 	}
 
 	function syncOutputCamera() {
-		const shotCamera = getActiveShotCamera();
-		const outputCamera = getActiveOutputCamera();
-		const { targetFrustum } = getProjectionState();
-		outputCamera.position.copy(shotCamera.position);
-		outputCamera.quaternion.copy(shotCamera.quaternion);
-		outputCamera.near = shotCamera.near;
-		outputCamera.far = shotCamera.far;
-		outputCamera.up.copy(shotCamera.up);
-		applyCustomProjection(outputCamera, targetFrustum);
-		outputCamera.updateMatrixWorld();
+		return projectionController.syncOutputCamera();
 	}
 
 	function setMode(mode) {
@@ -1101,11 +1044,7 @@ export function createCameraFramesController(elements, store) {
 		fpsMovement.update(deltaTime, activeCamera);
 		pointerControls.update(deltaTime, activeCamera, activeCamera);
 
-		applySymmetricProjection(
-			viewportCamera,
-			Math.max(viewportShell.clientWidth, 1) /
-				Math.max(viewportShell.clientHeight, 1),
-		);
+		syncViewportProjection();
 		syncShotProjection();
 		applyCameraViewProjection();
 
