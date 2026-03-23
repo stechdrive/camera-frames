@@ -89,7 +89,7 @@ Run lint, build, and tests.
 - `npm run lint`: run Biome checks / Biome によるチェックを実行
 - `npm run format`: run Biome formatting / Biome による整形を実行
 - `npm run test`: run the Node test suite / Node のテストスイートを実行
-- `npm run deploy`: reserved entry point for GitHub Pages deployment / GitHub Pages 配備用の予約エントリポイント
+- `npm run deploy`: build and publish the app to `gh-pages` for GitHub Pages / GitHub Pages 向けに `gh-pages` へ build と publish を行う
 
 ## License / ライセンス
 
