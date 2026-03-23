@@ -4,8 +4,21 @@ import {
 	getFrameAnchorHandleKey,
 	getFrameAnchorLocalNormalized,
 } from "../engine/frame-transform.js";
+import { getFrameResizeCursorCss } from "../engine/resize-cursor.js";
+import { getFrameRotateCursorCss } from "../engine/rotate-cursor.js";
 
 const FRAME_RESIZE_HANDLES = [
+	"top-left",
+	"top",
+	"top-right",
+	"right",
+	"bottom-right",
+	"bottom",
+	"bottom-left",
+	"left",
+];
+
+const FRAME_ROTATION_ZONES = [
 	"top-left",
 	"top",
 	"top-right",
@@ -101,19 +114,32 @@ export function FrameLayer({ store, controller, frameOverlayCanvasRef }) {
 								<button
 									type="button"
 									class=${`frame-item__resize-handle frame-item__resize-handle--${handle}`}
+									style=${{
+										cursor: getFrameResizeCursorCss(
+											frame.rotation ?? 0,
+											handle,
+										),
+									}}
 									aria-label=${frame.name}
 									onPointerDown=${(event) =>
 										controller()?.startFrameResize(frame.id, handle, event)}
 								></button>
 							`,
 						)}
-						<button
-							type="button"
-							class="frame-item__rotation-handle"
-							aria-label=${frame.name}
-							onPointerDown=${(event) =>
-								controller()?.startFrameRotate(frame.id, event)}
-						></button>
+						${FRAME_ROTATION_ZONES.map(
+							(zone) => html`
+								<button
+									type="button"
+									class=${`frame-item__rotation-zone frame-item__rotation-zone--${zone}`}
+									style=${{
+										cursor: getFrameRotateCursorCss(frame.rotation ?? 0, zone),
+									}}
+									aria-label=${frame.name}
+									onPointerDown=${(event) =>
+										controller()?.startFrameRotate(frame.id, zone, event)}
+								></button>
+							`,
+						)}
 						<button
 							type="button"
 							class="frame-item__anchor"

@@ -1022,8 +1022,8 @@ export function createCameraFramesController(elements, store) {
 		return frameController.handleFrameResizeEnd(event);
 	}
 
-	function startFrameRotate(frameId, event) {
-		return frameController.startFrameRotate(frameId, event);
+	function startFrameRotate(frameId, zoneKey, event) {
+		return frameController.startFrameRotate(frameId, zoneKey, event);
 	}
 
 	function handleFrameRotateMove(event) {

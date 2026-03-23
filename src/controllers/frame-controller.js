@@ -15,6 +15,7 @@ import {
 	normalizeRotationDegrees,
 	rotateVector,
 } from "../engine/frame-transform.js";
+import { getFrameRotateCursorCss } from "../engine/rotate-cursor.js";
 import {
 	createFrameDocument,
 	getFrameDisplayLabel,
@@ -43,6 +44,35 @@ export function createFrameController({
 	let frameResizeState = null;
 	let frameRotateState = null;
 	let frameAnchorDragState = null;
+
+	function setGlobalFrameCursor(cursorValue) {
+		if (typeof document === "undefined") {
+			return;
+		}
+
+		document.body.style.cursor = cursorValue;
+	}
+
+	function setGlobalRotateCursor(rotationDegrees, zoneKey) {
+		setGlobalFrameCursor(getFrameRotateCursorCss(rotationDegrees, zoneKey));
+	}
+
+	function clearGlobalFrameCursor() {
+		if (typeof document === "undefined") {
+			return;
+		}
+
+		document.body.style.removeProperty("cursor");
+	}
+
+	function getEventCursor(event, fallback) {
+		const target = event?.currentTarget;
+		if (!(target instanceof Element)) {
+			return fallback;
+		}
+
+		return getComputedStyle(target).cursor || fallback;
+	}
 
 	function buildFrameDocumentName(nextNumber) {
 		return t("frame.defaultName", { index: getFrameDisplayLabel(nextNumber) });
@@ -176,14 +206,17 @@ export function createFrameController({
 
 	function clearFrameDrag() {
 		frameDragState = null;
+		clearGlobalFrameCursor();
 	}
 
 	function clearFrameResize() {
 		frameResizeState = null;
+		clearGlobalFrameCursor();
 	}
 
 	function clearFrameRotate() {
 		frameRotateState = null;
+		clearGlobalFrameCursor();
 	}
 
 	function clearFrameAnchorDrag() {
@@ -368,6 +401,7 @@ export function createFrameController({
 			startAnchorX: anchor.x,
 			startAnchorY: anchor.y,
 		};
+		setGlobalFrameCursor(getEventCursor(event, "move"));
 	}
 
 	function handleFrameDragMove(event) {
@@ -489,6 +523,7 @@ export function createFrameController({
 			frameAnchorLocalY: frameAnchorLocal.y,
 			useFrameAnchorPivot,
 		};
+		setGlobalFrameCursor(getEventCursor(event, "ew-resize"));
 	}
 
 	function handleFrameResizeMove(event) {
@@ -568,7 +603,7 @@ export function createFrameController({
 		clearFrameResize();
 	}
 
-	function startFrameRotate(frameId, event) {
+	function startFrameRotate(frameId, zoneKey, event) {
 		if (state.mode !== workspacePaneCamera || isZoomToolActive()) {
 			return;
 		}
@@ -595,6 +630,7 @@ export function createFrameController({
 		frameRotateState = {
 			pointerId: event.pointerId,
 			frameId: frame.id,
+			zoneKey,
 			metrics,
 			anchorWorldX: anchorWorld.x,
 			anchorWorldY: anchorWorld.y,
@@ -607,6 +643,7 @@ export function createFrameController({
 			startRotation: frame.rotation ?? 0,
 			startScale: resolveFrameScale(frame.scale ?? 1),
 		};
+		setGlobalRotateCursor(frame.rotation ?? 0, zoneKey);
 	}
 
 	function handleFrameRotateMove(event) {
@@ -622,6 +659,7 @@ export function createFrameController({
 			frameRotateState.startRotation +
 				((pointerAngle - frameRotateState.startAngle) * 180) / Math.PI,
 		);
+		setGlobalRotateCursor(nextRotation, frameRotateState.zoneKey);
 
 		updateActiveShotCameraDocument((documentState) => {
 			const frame = getFrameDocumentById(
