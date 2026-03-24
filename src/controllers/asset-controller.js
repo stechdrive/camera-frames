@@ -1,5 +1,6 @@
 import { PackedSplats, unpackSplats } from "@sparkjsdev/spark";
 import * as THREE from "three";
+import { validateStartupUrls } from "../engine/import-link-policy.js";
 import { moveSceneAssetWithinKind } from "../engine/scene-asset-order.js";
 import { applyLegacyAssetState } from "../importers/legacy-ssproj.js";
 import {
@@ -118,6 +119,117 @@ export function createAssetController({
 	applyProjectPackageImport,
 	disposeObject,
 }) {
+	function setOverlay(nextOverlay) {
+		store.overlay.value = nextOverlay;
+	}
+
+	function clearOverlay() {
+		store.overlay.value = null;
+	}
+
+	function createImportSteps(activeStep) {
+		const steps = [
+			{ key: "verify", label: t("overlay.importPhaseVerify") },
+			{ key: "expand", label: t("overlay.importPhaseExpand") },
+			{ key: "load", label: t("overlay.importPhaseLoad") },
+			{ key: "apply", label: t("overlay.importPhaseApply") },
+		];
+		const activeIndex = steps.findIndex((step) => step.key === activeStep);
+		return steps.map((step, index) => ({
+			...step,
+			status:
+				index < activeIndex
+					? "done"
+					: index === activeIndex
+						? "active"
+						: "pending",
+		}));
+	}
+
+	function showImportProgress(step, detail = "") {
+		setOverlay({
+			kind: "progress",
+			title: t("overlay.importTitle"),
+			message: t("overlay.importMessage"),
+			detail,
+			steps: createImportSteps(step),
+		});
+	}
+
+	function showImportError(
+		error,
+		{
+			title = t("overlay.importErrorTitle"),
+			message = t("overlay.importErrorMessageGeneric"),
+			urls = [],
+		} = {},
+	) {
+		setOverlay({
+			kind: "error",
+			title,
+			message,
+			detail: error?.message || String(error),
+			detailLabel: t("overlay.errorDetails"),
+			urls,
+			actions: [
+				{
+					label: t("action.openFiles"),
+					onClick: () => {
+						clearOverlay();
+						openFiles();
+					},
+				},
+				{
+					label: t("action.close"),
+					primary: true,
+					onClick: () => clearOverlay(),
+				},
+			],
+		});
+	}
+
+	function getBlockedStartupReasonLabel(reason) {
+		switch (reason) {
+			case "https-only":
+				return t("overlay.blockedStartupReasonHttps");
+			case "private-host":
+				return t("overlay.blockedStartupReasonPrivate");
+			default:
+				return t("overlay.blockedStartupReasonInvalid");
+		}
+	}
+
+	function showBlockedStartupUrls(blockedUrls) {
+		const detail = blockedUrls
+			.map(
+				(entry) =>
+					`${entry.url}\n${getBlockedStartupReasonLabel(entry.reason)}`,
+			)
+			.join("\n\n");
+
+		setOverlay({
+			kind: "error",
+			title: t("overlay.blockedStartupTitle"),
+			message: t("overlay.blockedStartupMessage"),
+			detail,
+			detailLabel: t("overlay.errorDetails"),
+			actions: [
+				{
+					label: t("action.openFiles"),
+					onClick: () => {
+						clearOverlay();
+						openFiles();
+					},
+				},
+				{
+					label: t("action.close"),
+					primary: true,
+					onClick: () => clearOverlay(),
+				},
+			],
+		});
+	}
+
 	function getSceneAssetCounts() {
 		let splatCount = 0;
 		let modelCount = 0;
@@ -379,9 +491,13 @@ export function createAssetController({
 		}
 	}
 
-	async function expandProjectPackageSources(sources) {
+	async function expandProjectPackageSources(sources, onProgress = null) {
 		const expandedSources = [];
 		const importStates = [];
+		const packageSources = sources.filter((source) =>
+			isProjectPackageSource(source),
+		);
+		let expandedPackageCount = 0;
 
 		for (const source of sources) {
 			if (!isProjectPackageSource(source)) {
@@ -390,6 +506,15 @@ export function createAssetController({
 			}
 
 			const packageName = getDisplayName(source);
+			expandedPackageCount += 1;
+			onProgress?.(
+				"expand",
+				t("overlay.importDetailExpandPackage", {
+					index: expandedPackageCount,
+					count: packageSources.length,
+					name: packageName,
+				}),
+			);
 			setStatus(t("status.expandingProjectPackage", { name: packageName }));
 			const { files, importState } = await extractProjectPackageAssets(source);
 			if (files.length === 0) {
@@ -437,13 +562,20 @@ export function createAssetController({
 		);
 	}
 
-	async function loadSources(sources, replace = false) {
+	async function loadSources(
+		sources,
+		replace = false,
+		{ onProgress = null } = {},
+	) {
 		if (!sources.length) {
 			return;
 		}
 
-		const { expandedSources, importStates } =
-			await expandProjectPackageSources(sources);
+		onProgress?.("verify");
+		const { expandedSources, importStates } = await expandProjectPackageSources(
+			sources,
+			onProgress,
+		);
 		if (!expandedSources.length) {
 			return;
 		}
@@ -458,10 +590,19 @@ export function createAssetController({
 
 		let loaded = 0;
 		for (const source of expandedSources) {
+			onProgress?.(
+				"load",
+				t("overlay.importDetailLoadAsset", {
+					index: loaded + 1,
+					count: expandedSources.length,
+					name: getDisplayName(source),
+				}),
+			);
 			await loadSource(source);
 			loaded += 1;
 		}
 
+		onProgress?.("apply", t("overlay.importDetailApply"));
 		const importedProjectState =
 			(replace || !hadAssetsBeforeLoad) &&
 			importStates.length > 0 &&
@@ -475,6 +616,35 @@ export function createAssetController({
 
 		updateUi();
 		setStatus(t("status.loadedItems", { count: loaded }));
+	}
+
+	async function runImportTask(
+		sources,
+		{ replace = false, clearRemoteInput = false } = {},
+	) {
+		const remoteUrls = sources.filter((source) => typeof source === "string");
+		try {
+			showImportProgress("verify");
+			await loadSources(sources, replace, {
+				onProgress: (step, detail) => showImportProgress(step, detail),
+			});
+			clearOverlay();
+			if (clearRemoteInput) {
+				store.remoteUrl.value = "";
+			}
+			return true;
+		} catch (error) {
+			console.error(error);
+			setStatus(error.message);
+			showImportError(error, {
+				message:
+					remoteUrls.length > 0
+						? t("overlay.importErrorMessageRemote")
+						: t("overlay.importErrorMessageGeneric"),
+				urls: remoteUrls,
+			});
+			return false;
+		}
 	}
 
 	function parseInputUrls(value) {
@@ -696,13 +866,14 @@ export function createAssetController({
 			return;
 		}
 
-		try {
-			await loadSources(urls);
-			store.remoteUrl.value = "";
-		} catch (error) {
-			console.error(error);
-			setStatus(error.message);
+		await runImportTask(urls, { clearRemoteInput: true });
+	}
+
+	async function importDroppedFiles(files) {
+		if (!files?.length) {
+			return false;
 		}
+		return runImportTask(files);
 	}
 
 	async function handleAssetInputChange(event) {
@@ -712,10 +883,7 @@ export function createAssetController({
 		}
 
 		try {
-			await loadSources(files);
-		} catch (error) {
-			console.error(error);
-			setStatus(error.message);
+			await runImportTask(files);
 		} finally {
 			event.currentTarget.value = "";
 		}
@@ -727,17 +895,36 @@ export function createAssetController({
 
 	async function loadStartupUrls() {
 		const params = new URLSearchParams(window.location.search);
-		const urls = params.getAll("url").filter(Boolean);
+		const urls = params.getAll("load").filter(Boolean);
 		if (urls.length === 0) {
 			return;
 		}
 
-		try {
-			await loadSources(urls);
-		} catch (error) {
-			console.error(error);
-			setStatus(error.message);
+		const validation = validateStartupUrls(urls);
+		if (validation.blocked.length > 0) {
+			showBlockedStartupUrls(validation.blocked);
+			return;
 		}
+
+		setOverlay({
+			kind: "confirm",
+			title: t("overlay.startupImportTitle"),
+			message: t("overlay.startupImportMessage"),
+			urls: validation.allowed,
+			actions: [
+				{
+					label: t("action.cancel"),
+					onClick: () => clearOverlay(),
+				},
+				{
+					label: t("action.continueLoad"),
+					primary: true,
+					onClick: async () => {
+						await runImportTask(validation.allowed);
+					},
+				},
+			],
+		});
 	}
 
 	return {
@@ -769,6 +956,7 @@ export function createAssetController({
 		setAssetExportRole,
 		setAssetMaskGroup,
 		loadRemoteUrls,
+		importDroppedFiles,
 		handleAssetInputChange,
 		openFiles,
 		loadStartupUrls,

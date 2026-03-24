@@ -68,7 +68,7 @@ export function bindInputRouter({
 		}
 
 		try {
-			await assetController.loadSources(files);
+			await assetController.importDroppedFiles(files);
 		} catch (error) {
 			console.error(error);
 			setStatus(error.message);

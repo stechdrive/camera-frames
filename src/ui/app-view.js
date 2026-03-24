@@ -1,5 +1,6 @@
 import { html } from "htm/preact";
 import { DEFAULT_LOCALE, translate } from "../i18n.js";
+import { AppOverlay } from "./app-overlay.js";
 import { SidePanel } from "./side-panel.js";
 import { ViewportShell } from "./viewport-shell.js";
 
@@ -21,6 +22,7 @@ export function AppView({ store, controller, refs }) {
 				locale=${locale}
 				t=${t}
 			/>
+			<${AppOverlay} overlay=${store.overlay.value} />
 		</div>
 
 		<input
