@@ -279,10 +279,9 @@ function renderShotCameraSection({
 					<input
 						id="shot-camera-near"
 						type="number"
-						min="0.01"
-						step="0.01"
+						min="0.1"
+						step="0.1"
 						value=${Number(store.shotCamera.near.value).toFixed(2)}
-						disabled=${shotCameraClipMode !== "manual"}
 						onInput=${(event) =>
 							controller()?.setShotCameraNear(event.currentTarget.value)}
 					/>

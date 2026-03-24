@@ -195,12 +195,23 @@ export function createCameraController({
 		return Math.max(near + 0.01, Number(value) || DEFAULT_CAMERA_FAR);
 	}
 
-	function getResolvedShotCameraClipping(documentState) {
-		if (!documentState || documentState.clipping.mode !== "manual") {
-			return getAutoClipRange();
+	function getResolvedShotCameraClipping(
+		documentState,
+		camera = viewportCamera,
+	) {
+		if (!documentState) {
+			return getAutoClipRange(camera);
 		}
 
 		const near = clampClipNear(documentState.clipping.near);
+		if (documentState.clipping.mode !== "manual") {
+			const autoClip = getAutoClipRange(camera);
+			return {
+				near,
+				far: clampClipFar(Math.max(autoClip.far, DEFAULT_CAMERA_FAR), near),
+			};
+		}
+
 		return {
 			near,
 			far: clampClipFar(documentState.clipping.far, near),
@@ -213,7 +224,10 @@ export function createCameraController({
 			return;
 		}
 
-		const { near, far } = getResolvedShotCameraClipping(documentState);
+		const { near, far } = getResolvedShotCameraClipping(
+			documentState,
+			entry.camera,
+		);
 		entry.camera.aspect = BASE_RENDER_BOX.width / BASE_RENDER_BOX.height;
 		entry.camera.fov = horizontalToVerticalFovDegrees(
 			documentState.lens.baseFovX,

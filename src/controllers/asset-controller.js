@@ -1,4 +1,41 @@
+import { PackedSplats, unpackSplats } from "@sparkjsdev/spark";
 import * as THREE from "three";
+import { applyLegacyAssetState } from "../importers/legacy-ssproj.js";
+import {
+	isProjectPackageFileSource,
+	isProjectPackagePackedSplatSource,
+} from "../project-package.js";
+
+const SPARK_SPLAT_CORRECTION_QUATERNION = new THREE.Quaternion(1, 0, 0, 0);
+
+function getLegacySplatCorrectionEulerDegrees(fileName) {
+	const extension = String(fileName || "")
+		.split("?")[0]
+		.split("#")[0]
+		.toLowerCase()
+		.split(".")
+		.pop();
+
+	switch (extension) {
+		case "spz":
+			return [0, 0, 0];
+		case "lcc":
+			return [90, 0, 180];
+		default:
+			return [0, 0, 180];
+	}
+}
+
+function createQuaternionFromEulerDegrees([x, y, z], order = "XYZ") {
+	return new THREE.Quaternion().setFromEuler(
+		new THREE.Euler(
+			THREE.MathUtils.degToRad(x),
+			THREE.MathUtils.degToRad(y),
+			THREE.MathUtils.degToRad(z),
+			order,
+		),
+	);
+}
 
 export function createAssetController({
 	sceneState,
@@ -21,6 +58,7 @@ export function createAssetController({
 	getAssetFileURL,
 	isProjectPackageSource,
 	extractProjectPackageAssets,
+	applyProjectPackageImport,
 	disposeObject,
 }) {
 	function getSceneAssetCounts() {
@@ -46,12 +84,17 @@ export function createAssetController({
 		return sceneState.assets.length;
 	}
 
-	function registerAsset({ kind, label, object }) {
+	function getSceneAssets() {
+		return sceneState.assets;
+	}
+
+	function registerAsset({ kind, label, object, disposeTarget = null }) {
 		const asset = {
 			id: sceneState.nextAssetId++,
 			kind,
 			label,
 			object,
+			disposeTarget,
 			baseScale: object.scale.clone(),
 			unitMode: getDefaultAssetUnitMode(kind),
 			worldScale: 1,
@@ -87,13 +130,54 @@ export function createAssetController({
 	}
 
 	function getExtension(value) {
-		const raw = typeof value === "string" ? value : value.name;
+		const raw =
+			typeof value === "string"
+				? value
+				: isProjectPackageFileSource(value) ||
+						isProjectPackagePackedSplatSource(value)
+					? value.fileName
+					: value.name;
 		const clean = raw.split("?")[0].split("#")[0].toLowerCase();
 		const lastDot = clean.lastIndexOf(".");
 		return lastDot >= 0 ? clean.slice(lastDot + 1) : "";
 	}
 
+	function getLegacyState(value) {
+		if (
+			isProjectPackageFileSource(value) ||
+			isProjectPackagePackedSplatSource(value)
+		) {
+			return value.legacyState ?? null;
+		}
+
+		return null;
+	}
+
+	function getLegacySplatCorrectionQuaternion(source) {
+		const legacyState = getLegacyState(source);
+		if (!legacyState) {
+			return SPARK_SPLAT_CORRECTION_QUATERNION.clone();
+		}
+
+		const referenceName =
+			legacyState.filename ||
+			legacyState.packagePath ||
+			legacyState.path ||
+			source.path ||
+			source.fileName;
+		return createQuaternionFromEulerDegrees(
+			getLegacySplatCorrectionEulerDegrees(referenceName),
+		);
+	}
+
 	function getDisplayName(value) {
+		if (isProjectPackagePackedSplatSource(value)) {
+			return value.label || value.fileName || value.path || "meta.json";
+		}
+		if (isProjectPackageFileSource(value)) {
+			return value.label || value.fileName || value.path || "asset";
+		}
+
 		if (typeof value !== "string") {
 			return value.name;
 		}
@@ -109,46 +193,102 @@ export function createAssetController({
 
 	async function loadSplatFromSource(source) {
 		const displayName = getDisplayName(source);
+		const createSplatContainer = (mesh) => {
+			const legacyState = getLegacyState(source);
+			const object = new THREE.Group();
+			object.name = displayName;
+			const correctionGroup = new THREE.Group();
+			const correctionQuaternion = getLegacySplatCorrectionQuaternion(source);
+			correctionGroup.quaternion.copy(correctionQuaternion);
+			correctionGroup.add(mesh);
+			object.add(correctionGroup);
+			applyLegacyAssetState(object, "splat", legacyState);
+			if (legacyState) {
+				object.quaternion.multiply(correctionQuaternion.clone().invert());
+				object.updateMatrixWorld(true);
+			}
+			splatRoot.add(object);
+			registerAsset({
+				kind: "splat",
+				label: displayName,
+				object,
+				disposeTarget: mesh,
+			});
+			return object;
+		};
+
+		if (isProjectPackagePackedSplatSource(source)) {
+			const unpacked = await unpackSplats({
+				input: source.inputBytes,
+				extraFiles: source.extraFiles,
+				fileType: source.fileType,
+				pathOrUrl: source.path || source.fileName,
+			});
+			const packedSplats = new PackedSplats({
+				packedArray: unpacked.packedArray,
+				numSplats: unpacked.numSplats,
+				extra: unpacked.extra ?? {},
+				splatEncoding: unpacked.splatEncoding,
+			});
+			await packedSplats.initialized;
+
+			const mesh = new SplatMesh({
+				packedSplats,
+				fileName: source.fileName,
+				lod: true,
+			});
+			mesh.enableWorldToView = true;
+			await mesh.initialized;
+			return createSplatContainer(mesh);
+		}
+
 		const init =
 			typeof source === "string"
 				? { url: source, fileName: displayName, lod: true }
-				: {
-						fileBytes: new Uint8Array(await source.arrayBuffer()),
-						fileName: source.name,
-						lod: true,
-					};
+				: isProjectPackageFileSource(source)
+					? {
+							fileBytes: new Uint8Array(await source.file.arrayBuffer()),
+							fileName: source.fileName,
+							lod: true,
+						}
+					: {
+							fileBytes: new Uint8Array(await source.arrayBuffer()),
+							fileName: source.name,
+							lod: true,
+						};
 
 		const mesh = new SplatMesh(init);
 		mesh.enableWorldToView = true;
 		await mesh.initialized;
-		splatRoot.add(mesh);
-		registerAsset({
-			kind: "splat",
-			label: displayName,
-			object: mesh,
-		});
-		return mesh;
+		return createSplatContainer(mesh);
 	}
 
 	async function loadModelFromSource(source) {
 		let url = source;
 		let needsRevoke = false;
+		const displayName = getDisplayName(source);
 
 		if (typeof source !== "string") {
-			url = URL.createObjectURL(source);
+			const file = isProjectPackageFileSource(source) ? source.file : source;
+			url = URL.createObjectURL(file);
 			needsRevoke = true;
 		}
 
 		try {
 			const gltf = await loader.loadAsync(url);
-			const object = gltf.scene || gltf.scenes[0];
-			if (!object) {
+			const modelScene = gltf.scene || gltf.scenes[0];
+			if (!modelScene) {
 				throw new Error(t("error.emptyGltf"));
 			}
+
+			const object = new THREE.Group();
+			object.name = displayName;
+			object.add(modelScene);
+			applyLegacyAssetState(object, "model", getLegacyState(source));
 			modelRoot.add(object);
 			registerAsset({
 				kind: "model",
-				label: getDisplayName(source),
+				label: displayName,
 				object,
 			});
 			return object;
@@ -161,6 +301,7 @@ export function createAssetController({
 
 	async function expandProjectPackageSources(sources) {
 		const expandedSources = [];
+		const importStates = [];
 
 		for (const source of sources) {
 			if (!isProjectPackageSource(source)) {
@@ -170,11 +311,14 @@ export function createAssetController({
 
 			const packageName = getDisplayName(source);
 			setStatus(t("status.expandingProjectPackage", { name: packageName }));
-			const { files } = await extractProjectPackageAssets(source);
+			const { files, importState } = await extractProjectPackageAssets(source);
 			if (files.length === 0) {
 				throw new Error(t("error.emptyProjectPackage", { name: packageName }));
 			}
 			expandedSources.push(...files);
+			if (importState) {
+				importStates.push(importState);
+			}
 			setStatus(
 				t("status.expandedProjectPackage", {
 					name: packageName,
@@ -183,10 +327,17 @@ export function createAssetController({
 			);
 		}
 
-		return expandedSources;
+		return {
+			expandedSources,
+			importStates,
+		};
 	}
 
 	async function loadSource(source) {
+		if (isProjectPackagePackedSplatSource(source)) {
+			return loadSplatFromSource(source);
+		}
+
 		const extension = getExtension(source);
 		if (extension === "") {
 			throw new Error(
@@ -211,7 +362,8 @@ export function createAssetController({
 			return;
 		}
 
-		const expandedSources = await expandProjectPackageSources(sources);
+		const { expandedSources, importStates } =
+			await expandProjectPackageSources(sources);
 		if (!expandedSources.length) {
 			return;
 		}
@@ -230,7 +382,12 @@ export function createAssetController({
 			loaded += 1;
 		}
 
-		if (replace || !hadAssetsBeforeLoad) {
+		const importedProjectState =
+			(replace || !hadAssetsBeforeLoad) &&
+			importStates.length > 0 &&
+			applyProjectPackageImport(importStates.at(-1));
+
+		if (!importedProjectState && (replace || !hadAssetsBeforeLoad)) {
 			frameAllCameras();
 		} else {
 			updateCameraSummary();
@@ -259,7 +416,7 @@ export function createAssetController({
 		for (const asset of sceneState.assets) {
 			asset.object.removeFromParent();
 			if (asset.kind === "splat") {
-				asset.object.dispose();
+				asset.disposeTarget?.dispose?.();
 			} else {
 				disposeObject(asset.object);
 			}
@@ -358,6 +515,7 @@ export function createAssetController({
 	return {
 		getSceneAssetCounts,
 		getTotalLoadedItems,
+		getSceneAssets,
 		registerAsset,
 		applyAssetWorldScale,
 		getSceneAsset,

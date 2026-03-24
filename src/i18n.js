@@ -73,7 +73,7 @@ const MESSAGES = {
 			shotCameraList:
 				"Camera は document として保持します。追加は現在のビュー姿勢から、複製は現在の Camera 設定ごと作成します。",
 			shotCameraClip:
-				"自動ではシーン境界から near/far を決めます。手動では Camera ごとに固定値を持ちます。",
+				"自動では Camera ごとの Near を保持しつつ、Far をシーン境界から決めます。手動では Near/Far を Camera ごとに固定します。",
 			outputFrame:
 				"カメラビューでは off-axis projection を使い、出力フレーム内の構図を最終出力と一致させます。",
 			sceneCalibration:
@@ -279,7 +279,7 @@ const MESSAGES = {
 			shotCameraList:
 				"Cameras are stored as document objects. New cameras start from the current view pose; duplicate copies the active camera settings.",
 			shotCameraClip:
-				"Auto derives near/far from scene bounds. Manual stores fixed clip values per Camera.",
+				"Auto keeps the per-Camera near clip and derives far from scene bounds. Manual stores both near and far per Camera.",
 			outputFrame:
 				"Camera View uses off-axis projection so framing inside the Output Frame matches final output.",
 			sceneCalibration:

@@ -1,8 +1,11 @@
-import * as THREE from "three";
+import {
+	createRasterLayer,
+	renderExportBundleToCanvas,
+} from "../engine/export-bundle.js";
+import { createSparkExportViewpointManager } from "../engine/spark-export-viewpoint.js";
 
 export function createExportController({
 	scene,
-	renderer,
 	spark,
 	guides,
 	shotCameraRegistry,
@@ -15,6 +18,7 @@ export function createExportController({
 	setExportStatus,
 	updateUi,
 	getTotalLoadedItems,
+	getSceneAssets,
 	getShotCameraDocument,
 	getActiveShotCameraDocument,
 	getActiveOutputCamera,
@@ -26,8 +30,8 @@ export function createExportController({
 	syncOutputCamera,
 	updateShotCameraHelpers,
 }) {
-	let outputRenderTarget = null;
 	let exportRenderLock = false;
+	const exportViewpoint = createSparkExportViewpointManager({ spark });
 
 	function getExportTargetShotCameras() {
 		const target = store.exportOptions.target.value;
@@ -46,32 +50,12 @@ export function createExportController({
 		return activeDocument ? [activeDocument] : [];
 	}
 
-	function ensureOutputRenderTarget(
-		documentState = getActiveShotCameraDocument(),
-	) {
-		const { width, height } = getOutputSizeState(documentState);
-		const needsNewTarget =
-			!outputRenderTarget ||
-			outputRenderTarget.width !== width ||
-			outputRenderTarget.height !== height;
-
-		if (!needsNewTarget) {
-			return outputRenderTarget;
-		}
-
-		outputRenderTarget?.dispose();
-		outputRenderTarget = new THREE.WebGLRenderTarget(width, height, {
-			format: THREE.RGBAFormat,
-			type: THREE.UnsignedByteType,
-			depthBuffer: true,
-			stencilBuffer: false,
-			generateMipmaps: false,
-			minFilter: THREE.LinearFilter,
-			magFilter: THREE.LinearFilter,
-		});
-		outputRenderTarget.texture.colorSpace = THREE.SRGBColorSpace;
-
-		return outputRenderTarget;
+	function getSceneAssetExportOrder() {
+		return getSceneAssets().map((asset) => ({
+			id: asset.id,
+			kind: asset.kind,
+			label: asset.label,
+		}));
 	}
 
 	async function renderOutputSnapshotForShotCamera(shotCameraId) {
@@ -84,9 +68,7 @@ export function createExportController({
 		const shouldRestore = shotCameraId && shotCameraId !== previousShotCameraId;
 		const previousGuidesVisible = guides.visible;
 		const previousSparkAutoUpdate = spark.autoUpdate;
-		const previousSparkEncodeLinear = spark.encodeLinear;
 		const previousHelperVisibility = new Map();
-		const target = ensureOutputRenderTarget(targetDocument);
 
 		for (const [entryId, entry] of shotCameraRegistry.entries()) {
 			previousHelperVisibility.set(entryId, entry.helper.visible);
@@ -107,37 +89,25 @@ export function createExportController({
 
 			const outputCamera = getActiveOutputCamera();
 			const { width, height } = getOutputSizeState(targetDocument);
-			const pixels = new Uint8Array(width * height * 4);
-			const previousTarget = renderer.getRenderTarget();
-			const previousAutoClear = renderer.autoClear;
 			spark.autoUpdate = false;
-			spark.encodeLinear = true;
-			await spark.update({ scene, camera: outputCamera });
-
-			try {
-				renderer.setRenderTarget(target);
-				renderer.autoClear = true;
-				renderer.clear(true, true, true);
-				renderer.render(scene, outputCamera);
-			} finally {
-				renderer.setRenderTarget(previousTarget);
-				renderer.autoClear = previousAutoClear;
-			}
-
-			await renderer.readRenderTargetPixelsAsync(
-				target,
-				0,
-				0,
+			const pixels = await exportViewpoint.capturePixels({
+				scene,
+				camera: outputCamera,
 				width,
 				height,
-				pixels,
-			);
+				forceOrigin: true,
+				update: true,
+			});
 			const flipped = flipPixels(pixels, width, height);
-			return { width, height, pixels: flipped };
+			return {
+				width,
+				height,
+				pixels: flipped,
+				sceneAssets: getSceneAssetExportOrder(),
+			};
 		} finally {
 			exportRenderLock = false;
 			spark.autoUpdate = previousSparkAutoUpdate;
-			spark.encodeLinear = previousSparkEncodeLinear;
 			guides.visible = previousGuidesVisible;
 			for (const [entryId, entry] of shotCameraRegistry.entries()) {
 				entry.helper.visible = previousHelperVisibility.get(entryId) ?? false;
@@ -177,10 +147,7 @@ export function createExportController({
 		);
 	}
 
-	function renderCompositeOutputCanvas(
-		{ width, height, pixels },
-		frames = getActiveFrames(),
-	) {
+	function renderFrameOverlayLayer(width, height, frames = getActiveFrames()) {
 		const canvas = document.createElement("canvas");
 		canvas.width = width;
 		canvas.height = height;
@@ -199,7 +166,28 @@ export function createExportController({
 			strokeStyle: "#ff0000",
 		});
 
-		return canvas;
+		return createRasterLayer({
+			name: "FRAME",
+			canvas,
+			category: "frame",
+		});
+	}
+
+	function buildExportBundle(
+		{ width, height, pixels, sceneAssets = [] },
+		frames = getActiveFrames(),
+	) {
+		return {
+			width,
+			height,
+			basePixels: pixels,
+			sceneAssets,
+			layers: [renderFrameOverlayLayer(width, height, frames)],
+		};
+	}
+
+	function renderCompositeOutputCanvas(snapshot, frames = getActiveFrames()) {
+		return renderExportBundleToCanvas(buildExportBundle(snapshot, frames));
 	}
 
 	function drawOutputPreview(snapshot, frames = getActiveFrames()) {
@@ -345,14 +333,14 @@ export function createExportController({
 	}
 
 	function dispose() {
-		outputRenderTarget?.dispose();
+		exportViewpoint.dispose();
 	}
 
 	return {
 		getExportTargetShotCameras,
-		ensureOutputRenderTarget,
 		renderOutputSnapshot,
 		renderOutputSnapshotForShotCamera,
+		buildExportBundle,
 		renderCompositeOutputCanvas,
 		drawOutputPreview,
 		refreshOutputPreview,
