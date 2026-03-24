@@ -14,7 +14,6 @@ export function AppView({ store, controller, refs }) {
 				controller=${controller}
 				locale=${locale}
 				t=${t}
-				exportCanvasRef=${refs.exportCanvasRef}
 			/>
 			<${ViewportShell}
 				store=${store}

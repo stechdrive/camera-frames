@@ -1,7 +1,12 @@
 import {
+	createPixelLayer,
 	createRasterLayer,
 	renderExportBundleToCanvas,
 } from "../engine/export-bundle.js";
+import {
+	buildExportReadinessPlan,
+	finalizeExportReadiness,
+} from "../engine/export-readiness.js";
 import { createSparkExportViewpointManager } from "../engine/spark-export-viewpoint.js";
 
 export function createExportController({
@@ -10,7 +15,6 @@ export function createExportController({
 	guides,
 	shotCameraRegistry,
 	store,
-	exportCanvas,
 	flipPixels,
 	drawFramesToContext,
 	t,
@@ -32,6 +36,14 @@ export function createExportController({
 }) {
 	let exportRenderLock = false;
 	const exportViewpoint = createSparkExportViewpointManager({ spark });
+
+	function getNowMs() {
+		if (typeof performance !== "undefined" && performance.now) {
+			return performance.now();
+		}
+
+		return Date.now();
+	}
 
 	function getExportTargetShotCameras() {
 		const target = store.exportOptions.target.value;
@@ -56,6 +68,64 @@ export function createExportController({
 			kind: asset.kind,
 			label: asset.label,
 		}));
+	}
+
+	async function renderScenePixelsWithReadiness({
+		scene,
+		camera,
+		width,
+		height,
+		sceneAssets,
+	}) {
+		const readinessPlan = buildExportReadinessPlan({
+			sceneAssets,
+		});
+		const deadline = getNowMs() + readinessPlan.maxWaitMs;
+		let completedWarmupPasses = 0;
+
+		while (
+			completedWarmupPasses < readinessPlan.warmupPasses &&
+			getNowMs() <= deadline
+		) {
+			await exportViewpoint.prepareFrame({
+				scene,
+				camera,
+				width,
+				height,
+				forceOrigin: true,
+				update: true,
+			});
+			exportViewpoint.renderFrame({
+				scene,
+				camera,
+				width,
+				height,
+			});
+			completedWarmupPasses += 1;
+		}
+
+		await exportViewpoint.prepareFrame({
+			scene,
+			camera,
+			width,
+			height,
+			forceOrigin: true,
+			update: true,
+		});
+		exportViewpoint.renderFrame({
+			scene,
+			camera,
+			width,
+			height,
+		});
+
+		return {
+			pixels: await exportViewpoint.readPixels(),
+			readiness: finalizeExportReadiness(readinessPlan, {
+				completedWarmupPasses,
+				timedOut: completedWarmupPasses < readinessPlan.warmupPasses,
+			}),
+		};
 	}
 
 	async function renderOutputSnapshotForShotCamera(shotCameraId) {
@@ -89,21 +159,22 @@ export function createExportController({
 
 			const outputCamera = getActiveOutputCamera();
 			const { width, height } = getOutputSizeState(targetDocument);
+			const sceneAssets = getSceneAssetExportOrder();
 			spark.autoUpdate = false;
-			const pixels = await exportViewpoint.capturePixels({
+			const sceneCapture = await renderScenePixelsWithReadiness({
 				scene,
 				camera: outputCamera,
 				width,
 				height,
-				forceOrigin: true,
-				update: true,
+				sceneAssets,
 			});
-			const flipped = flipPixels(pixels, width, height);
+			const flipped = flipPixels(sceneCapture.pixels, width, height);
 			return {
 				width,
 				height,
 				pixels: flipped,
-				sceneAssets: getSceneAssetExportOrder(),
+				sceneAssets,
+				readiness: sceneCapture.readiness,
 			};
 		} finally {
 			exportRenderLock = false;
@@ -141,12 +212,6 @@ export function createExportController({
 		return `${baseName}${sequenceSuffix}-${snapshot.width}x${snapshot.height}.png`;
 	}
 
-	async function renderOutputSnapshot() {
-		return renderOutputSnapshotForShotCamera(
-			store.workspace.activeShotCameraId.value,
-		);
-	}
-
 	function renderFrameOverlayLayer(width, height, frames = getActiveFrames()) {
 		const canvas = document.createElement("canvas");
 		canvas.width = width;
@@ -157,9 +222,7 @@ export function createExportController({
 			throw new Error(t("error.previewContext"));
 		}
 
-		const imageData = context.createImageData(width, height);
-		imageData.data.set(pixels);
-		context.putImageData(imageData, 0, 0);
+		context.clearRect(0, 0, width, height);
 		drawFramesToContext(context, width, height, frames, {
 			logicalSpaceWidth: width,
 			logicalSpaceHeight: height,
@@ -174,55 +237,33 @@ export function createExportController({
 	}
 
 	function buildExportBundle(
-		{ width, height, pixels, sceneAssets = [] },
+		{ width, height, pixels, sceneAssets = [], readiness = null },
 		frames = getActiveFrames(),
 	) {
 		return {
 			width,
 			height,
-			basePixels: pixels,
 			sceneAssets,
-			layers: [renderFrameOverlayLayer(width, height, frames)],
+			readiness,
+			layers: [
+				createPixelLayer({
+					name: "Render",
+					pixels,
+					width,
+					height,
+					category: "render",
+					metadata: {
+						sceneAssets,
+						readiness,
+					},
+				}),
+				renderFrameOverlayLayer(width, height, frames),
+			],
 		};
 	}
 
 	function renderCompositeOutputCanvas(snapshot, frames = getActiveFrames()) {
 		return renderExportBundleToCanvas(buildExportBundle(snapshot, frames));
-	}
-
-	function drawOutputPreview(snapshot, frames = getActiveFrames()) {
-		const context = exportCanvas.getContext("2d");
-		if (!context) {
-			throw new Error(t("error.previewContext"));
-		}
-
-		const compositeCanvas = renderCompositeOutputCanvas(snapshot, frames);
-		exportCanvas.width = snapshot.width;
-		exportCanvas.height = snapshot.height;
-		exportCanvas.style.aspectRatio = `${snapshot.width} / ${snapshot.height}`;
-		context.clearRect(0, 0, snapshot.width, snapshot.height);
-		context.drawImage(compositeCanvas, 0, 0);
-		return compositeCanvas;
-	}
-
-	async function refreshOutputPreview() {
-		setExportStatus("export.rendering", true);
-
-		try {
-			const snapshot = await renderOutputSnapshot();
-			drawOutputPreview(snapshot);
-			store.exportSummary.value = t("exportSummary.refreshed", {
-				width: snapshot.width,
-				height: snapshot.height,
-			});
-			setExportStatus("export.ready");
-			setStatus(t("status.exportPreviewUpdated"));
-		} catch (error) {
-			console.error(error);
-			store.exportSummary.value = error.message;
-			setExportStatus("export.idle");
-			setStatus(error.message);
-		}
 	}
 
 	async function downloadPng() {
@@ -234,7 +275,6 @@ export function createExportController({
 				throw new Error(t("error.exportRequiresPreset"));
 			}
 
-			const activeShotCameraId = store.workspace.activeShotCameraId.value;
 			let lastSnapshot = null;
 
 			for (const [index, documentState] of targetDocuments.entries()) {
@@ -253,13 +293,6 @@ export function createExportController({
 					targetDocuments.length > 1 ? index + 1 : null,
 				);
 				link.click();
-
-				if (
-					targetDocuments.length === 1 &&
-					documentState.id === activeShotCameraId
-				) {
-					drawOutputPreview(snapshot, documentState.frames ?? []);
-				}
 
 				lastSnapshot = snapshot;
 			}
@@ -338,12 +371,9 @@ export function createExportController({
 
 	return {
 		getExportTargetShotCameras,
-		renderOutputSnapshot,
 		renderOutputSnapshotForShotCamera,
 		buildExportBundle,
 		renderCompositeOutputCanvas,
-		drawOutputPreview,
-		refreshOutputPreview,
 		downloadPng,
 		buildShotCameraExportFilename,
 		setExportTarget,
