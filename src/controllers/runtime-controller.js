@@ -61,6 +61,7 @@ export function createRuntimeController({
 	t,
 	formatNumber,
 	frameAllCameras,
+	placeAllCamerasAtHome,
 	syncControlsToMode,
 	applyInitialNavigateInteractionMode,
 	loadStartupUrls,
@@ -179,7 +180,7 @@ export function createRuntimeController({
 		setStatus("");
 		setExportStatus("export.idle");
 		updateUi();
-		frameAllCameras();
+		placeAllCamerasAtHome();
 		syncControlsToMode();
 		applyInitialNavigateInteractionMode();
 		handleResize();

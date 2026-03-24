@@ -32,6 +32,7 @@ export function createCameraController({
 	clearControlMomentum,
 	applyNavigateInteractionMode,
 	copyPose,
+	placeCameraAtHome,
 	frameCamera,
 	syncControlsToMode,
 }) {
@@ -510,11 +511,11 @@ export function createCameraController({
 	function resetActiveView() {
 		if (state.mode === WORKSPACE_PANE_CAMERA) {
 			const shotCamera = getActiveShotCamera();
-			frameCamera(shotCamera, "camera");
+			placeCameraAtHome(shotCamera, "camera");
 			syncActiveShotCameraFromDocument();
 			setStatus(t("status.resetCamera"));
 		} else {
-			frameCamera(viewportCamera, "viewport");
+			placeCameraAtHome(viewportCamera, "viewport");
 			setStatus(t("status.resetViewport"));
 		}
 		syncControlsToMode();
