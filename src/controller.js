@@ -17,6 +17,7 @@ import {
 	DEFAULT_GRID_SIZE_METERS,
 	DEFAULT_POINTER_SCROLL_SPEED,
 	DEFAULT_POINTER_SLIDE_SPEED,
+	VIEWPORT_PIXEL_RATIO,
 } from "./constants.js";
 import { createAssetController } from "./controllers/asset-controller.js";
 import { createCameraController } from "./controllers/camera-controller.js";
@@ -141,7 +142,7 @@ export function createCameraFramesController(elements, store) {
 		antialias: false,
 		alpha: false,
 	});
-	renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+	renderer.setPixelRatio(VIEWPORT_PIXEL_RATIO);
 	renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 	const scene = new THREE.Scene();

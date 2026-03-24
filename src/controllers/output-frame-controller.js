@@ -1,4 +1,9 @@
-import { ANCHORS, BASE_RENDER_BOX, DEFAULT_CAMERA_NEAR } from "../constants.js";
+import {
+	ANCHORS,
+	BASE_RENDER_BOX,
+	DEFAULT_CAMERA_NEAR,
+	VIEWPORT_PIXEL_RATIO,
+} from "../constants.js";
 import { drawFramesToContext } from "../engine/frame-overlay.js";
 import {
 	clampOutputFrameCenterPx,
@@ -174,7 +179,7 @@ export function createOutputFrameController({
 
 		const shellWidth = Math.max(1, viewportShell.clientWidth);
 		const shellHeight = Math.max(1, viewportShell.clientHeight);
-		const dpr = Math.min(window.devicePixelRatio || 1, 2);
+		const dpr = VIEWPORT_PIXEL_RATIO;
 		const canvasWidth = Math.max(1, Math.round(shellWidth * dpr));
 		const canvasHeight = Math.max(1, Math.round(shellHeight * dpr));
 

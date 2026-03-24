@@ -22,6 +22,7 @@ export const DEFAULT_POINTER_SLIDE_SPEED = 0.006;
 export const DEFAULT_POINTER_SCROLL_SPEED = 0.0015;
 export const DEFAULT_GRID_SIZE_METERS = 12;
 export const DEFAULT_GRID_DIVISIONS = 24;
+export const VIEWPORT_PIXEL_RATIO = 1;
 export const SCENE_UNIT_BADGE = "1u = 1m";
 
 export const SPLAT_EXTENSIONS = new Set([
