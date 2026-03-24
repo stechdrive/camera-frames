@@ -169,7 +169,6 @@ export function createRuntimeController({
 		renderer.setClearColor(previousClearColor, previousClearAlpha);
 		renderer.autoClear = previousAutoClear;
 		updateOutputFrameOverlay();
-		updateCameraSummary();
 	}
 
 	function init() {
