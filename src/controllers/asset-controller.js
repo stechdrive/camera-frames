@@ -1,5 +1,6 @@
 import { PackedSplats, unpackSplats } from "@sparkjsdev/spark";
 import * as THREE from "three";
+import { moveSceneAssetWithinKind } from "../engine/scene-asset-order.js";
 import { applyLegacyAssetState } from "../importers/legacy-ssproj.js";
 import {
 	isProjectPackageFileSource,
@@ -37,6 +38,63 @@ function createQuaternionFromEulerDegrees([x, y, z], order = "XYZ") {
 	);
 }
 
+function compensateWrapperForChildLocalTransform(wrapper, child) {
+	if (!wrapper || !child) {
+		return;
+	}
+
+	child.updateMatrix();
+	const childMatrix = child.matrix.clone();
+	const childMatrixInverse = childMatrix.clone().invert();
+	const wrapperMatrix = new THREE.Matrix4().compose(
+		wrapper.position,
+		wrapper.quaternion,
+		wrapper.scale,
+	);
+	const correctedWrapperMatrix = wrapperMatrix.multiply(childMatrixInverse);
+	correctedWrapperMatrix.decompose(
+		wrapper.position,
+		wrapper.quaternion,
+		wrapper.scale,
+	);
+	wrapper.updateMatrixWorld(true);
+}
+
+function findLegacyModelCompensationTarget(root) {
+	if (!root) {
+		return null;
+	}
+
+	let current = root;
+	while (
+		current &&
+		!current.isMesh &&
+		!current.isSkinnedMesh &&
+		Array.isArray(current.children) &&
+		current.children.length === 1
+	) {
+		const child = current.children[0];
+		if (!child) {
+			return null;
+		}
+		const hasNonIdentityTransform =
+			child.position.lengthSq() > 0 ||
+			Math.abs(child.quaternion.x) > 1e-8 ||
+			Math.abs(child.quaternion.y) > 1e-8 ||
+			Math.abs(child.quaternion.z) > 1e-8 ||
+			Math.abs(child.quaternion.w - 1) > 1e-8 ||
+			Math.abs(child.scale.x - 1) > 1e-8 ||
+			Math.abs(child.scale.y - 1) > 1e-8 ||
+			Math.abs(child.scale.z - 1) > 1e-8;
+		if (hasNonIdentityTransform) {
+			return child;
+		}
+		current = child;
+	}
+
+	return null;
+}
+
 export function createAssetController({
 	sceneState,
 	assetInput,
@@ -55,7 +113,6 @@ export function createAssetController({
 	t,
 	formatAssetWorldScale,
 	getDefaultAssetUnitMode,
-	getAssetFileURL,
 	isProjectPackageSource,
 	extractProjectPackageAssets,
 	applyProjectPackageImport,
@@ -115,8 +172,23 @@ export function createAssetController({
 		return sceneState.assets.find((asset) => asset.id === assetId) ?? null;
 	}
 
+	function selectSceneAsset(assetId) {
+		const asset = getSceneAsset(assetId);
+		if (!asset) {
+			return;
+		}
+
+		store.selectedSceneAssetId.value = asset.id;
+		updateUi();
+	}
+
 	function clampAssetWorldScale(value) {
 		return Math.max(0.01, Number(value) || 1);
+	}
+
+	function clampAssetTransformValue(value, fallback = 0) {
+		const nextValue = Number(value);
+		return Number.isFinite(nextValue) ? nextValue : fallback;
 	}
 
 	function getSceneBounds() {
@@ -286,7 +358,13 @@ export function createAssetController({
 			const object = new THREE.Group();
 			object.name = displayName;
 			object.add(modelScene);
-			applyLegacyAssetState(object, "model", getLegacyState(source));
+			const legacyState = getLegacyState(source);
+			applyLegacyAssetState(object, "model", legacyState);
+			if (legacyState) {
+				const compensationTarget =
+					findLegacyModelCompensationTarget(modelScene) ?? modelScene;
+				compensateWrapperForChildLocalTransform(object, compensationTarget);
+			}
 			modelRoot.add(object);
 			registerAsset({
 				kind: "model",
@@ -406,14 +484,6 @@ export function createAssetController({
 			.filter((entry) => /^https?:\/\//i.test(entry));
 	}
 
-	async function loadSampleScene() {
-		const butterflyUrl = await getAssetFileURL("butterfly.spz");
-		if (!butterflyUrl) {
-			throw new Error(t("error.sampleAsset"));
-		}
-		await loadSources([butterflyUrl], true);
-	}
-
 	function clearScene() {
 		for (const asset of sceneState.assets) {
 			asset.object.removeFromParent();
@@ -425,6 +495,7 @@ export function createAssetController({
 		}
 
 		sceneState.assets = [];
+		store.selectedSceneAssetId.value = null;
 		frameAllCameras();
 		resetLocalizedCaches();
 		updateUi();
@@ -452,6 +523,170 @@ export function createAssetController({
 
 	function resetAssetWorldScale(assetId) {
 		setAssetWorldScale(assetId, 1);
+	}
+
+	function setAssetPosition(assetId, axis, nextValue) {
+		const asset = getSceneAsset(assetId);
+		if (!asset || !["x", "y", "z"].includes(axis)) {
+			return;
+		}
+
+		asset.object.position[axis] = clampAssetTransformValue(
+			nextValue,
+			asset.object.position[axis],
+		);
+		asset.object.updateMatrixWorld(true);
+		updateUi();
+	}
+
+	function setAssetRotationDegrees(assetId, axis, nextValue) {
+		const asset = getSceneAsset(assetId);
+		if (!asset || !["x", "y", "z"].includes(axis)) {
+			return;
+		}
+
+		asset.object.rotation[axis] = THREE.MathUtils.degToRad(
+			clampAssetTransformValue(
+				nextValue,
+				THREE.MathUtils.radToDeg(asset.object.rotation[axis]),
+			),
+		);
+		asset.object.updateMatrixWorld(true);
+		updateUi();
+	}
+
+	function setAssetVisibility(assetId, nextVisible) {
+		const asset = getSceneAsset(assetId);
+		if (!asset) {
+			return;
+		}
+
+		asset.object.visible = Boolean(nextVisible);
+		updateUi();
+		setStatus(
+			t("status.assetVisibilityUpdated", {
+				name: asset.label,
+				visibility: asset.object.visible
+					? t("assetVisibility.visible")
+					: t("assetVisibility.hidden"),
+			}),
+		);
+	}
+
+	function moveAsset(assetId, direction) {
+		const asset = getSceneAsset(assetId);
+		if (!asset) {
+			return;
+		}
+
+		const kindAssets = sceneState.assets.filter(
+			(candidate) => candidate.kind === asset.kind,
+		);
+		const currentKindIndex = kindAssets.findIndex(
+			(candidate) => candidate.id === asset.id,
+		);
+		if (currentKindIndex === -1) {
+			return;
+		}
+
+		const targetKindIndex = Math.max(
+			0,
+			Math.min(kindAssets.length - 1, currentKindIndex + direction),
+		);
+		if (targetKindIndex === currentKindIndex) {
+			return;
+		}
+
+		sceneState.assets = moveSceneAssetWithinKind(
+			sceneState.assets,
+			assetId,
+			targetKindIndex,
+		);
+		updateUi();
+		setStatus(
+			t("status.assetOrderUpdated", {
+				name: asset.label,
+				index: targetKindIndex + 1,
+			}),
+		);
+	}
+
+	function moveAssetUp(assetId) {
+		moveAsset(assetId, -1);
+	}
+
+	function moveAssetDown(assetId) {
+		moveAsset(assetId, 1);
+	}
+
+	function moveAssetToIndex(assetId, nextIndex) {
+		const asset = getSceneAsset(assetId);
+		if (!asset) {
+			return;
+		}
+
+		const kindAssets = sceneState.assets.filter(
+			(candidate) => candidate.kind === asset.kind,
+		);
+		const currentKindIndex = kindAssets.findIndex(
+			(candidate) => candidate.id === asset.id,
+		);
+		if (currentKindIndex === -1) {
+			return;
+		}
+
+		const targetKindIndex = Math.max(
+			0,
+			Math.min(kindAssets.length - 1, Number(nextIndex) || 0),
+		);
+		if (targetKindIndex === currentKindIndex) {
+			return;
+		}
+
+		sceneState.assets = moveSceneAssetWithinKind(
+			sceneState.assets,
+			assetId,
+			targetKindIndex,
+		);
+		updateUi();
+		setStatus(
+			t("status.assetOrderUpdated", {
+				name: asset.label,
+				index: targetKindIndex + 1,
+			}),
+		);
+	}
+
+	function setAssetExportRole(assetId, nextRole) {
+		const asset = getSceneAsset(assetId);
+		if (!asset) {
+			return;
+		}
+
+		asset.exportRole = nextRole === "omit" ? "omit" : "beauty";
+		updateUi();
+		setStatus(
+			t("status.assetExportRoleUpdated", {
+				name: asset.label,
+				role: t(`exportRole.${asset.exportRole}`),
+			}),
+		);
+	}
+
+	function setAssetMaskGroup(assetId, nextValue) {
+		const asset = getSceneAsset(assetId);
+		if (!asset) {
+			return;
+		}
+
+		asset.maskGroup = String(nextValue ?? "").trim();
+		updateUi();
+		setStatus(
+			t("status.assetMaskGroupUpdated", {
+				name: asset.label,
+				group: asset.maskGroup || "—",
+			}),
+		);
 	}
 
 	async function loadRemoteUrls() {
@@ -486,15 +721,6 @@ export function createAssetController({
 		}
 	}
 
-	async function loadSample() {
-		try {
-			await loadSampleScene();
-		} catch (error) {
-			console.error(error);
-			setStatus(error.message);
-		}
-	}
-
 	function openFiles() {
 		assetInput.click();
 	}
@@ -521,6 +747,7 @@ export function createAssetController({
 		registerAsset,
 		applyAssetWorldScale,
 		getSceneAsset,
+		selectSceneAsset,
 		clampAssetWorldScale,
 		getSceneBounds,
 		getExtension,
@@ -530,13 +757,19 @@ export function createAssetController({
 		expandProjectPackageSources,
 		loadSource,
 		loadSources,
-		loadSampleScene,
 		clearScene,
 		setAssetWorldScale,
 		resetAssetWorldScale,
+		setAssetPosition,
+		setAssetRotationDegrees,
+		setAssetVisibility,
+		moveAssetUp,
+		moveAssetDown,
+		moveAssetToIndex,
+		setAssetExportRole,
+		setAssetMaskGroup,
 		loadRemoteUrls,
 		handleAssetInputChange,
-		loadSample,
 		openFiles,
 		loadStartupUrls,
 	};

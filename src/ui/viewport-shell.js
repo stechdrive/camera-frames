@@ -1,5 +1,4 @@
 import { html } from "htm/preact";
-import { IS_DEV_RUNTIME, getBuildDebugLabels } from "../build-info.js";
 import { FrameLayer } from "./frame-layer.js";
 
 const OUTPUT_FRAME_RESIZE_HANDLES = [
@@ -17,23 +16,10 @@ const OUTPUT_FRAME_PAN_EDGES = ["top", "right", "bottom", "left"];
 
 export function ViewportShell({ store, controller, refs, t }) {
 	const outputFrameLabel = t("section.outputFrame");
-	const buildDebugLabels = getBuildDebugLabels();
 
 	return html`
 		<main id="viewport-shell" ref=${refs.viewportShellRef} class="viewport-shell">
 			<canvas id="viewport" ref=${refs.viewportCanvasRef} tabindex="0"></canvas>
-			${
-				IS_DEV_RUNTIME &&
-				buildDebugLabels.length > 0 &&
-				html`
-					<div class="viewport-debug-meta">
-						${buildDebugLabels.map(
-							(label) =>
-								html`<code class="viewport-debug-meta__item">${label}</code>`,
-						)}
-					</div>
-				`
-			}
 			<div id="drop-hint" ref=${refs.dropHintRef} class="drop-hint">
 				<strong>${t("drop.title")}</strong>
 				<span>${t("drop.body")}</span>

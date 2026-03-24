@@ -5,6 +5,43 @@ export const LOCALE_OPTIONS = [
 	{ value: "en", labelKey: "localeName.en" },
 ];
 
+export function normalizeLocale(value) {
+	const rawValue = String(value ?? "")
+		.trim()
+		.toLowerCase();
+	if (!rawValue) {
+		return null;
+	}
+
+	const baseLocale = rawValue.split(/[-_]/)[0];
+	return LOCALE_OPTIONS.some((option) => option.value === baseLocale)
+		? baseLocale
+		: null;
+}
+
+export function resolveInitialLocale({
+	search = globalThis.location?.search ?? "",
+	navigatorLanguages = globalThis.navigator?.languages ?? [],
+	navigatorLanguage = globalThis.navigator?.language ?? "",
+} = {}) {
+	const params = new URLSearchParams(search);
+	const overrideLocale = normalizeLocale(
+		params.get("lang") ?? params.get("locale"),
+	);
+	if (overrideLocale) {
+		return overrideLocale;
+	}
+
+	for (const candidate of [...navigatorLanguages, navigatorLanguage]) {
+		const normalizedLocale = normalizeLocale(candidate);
+		if (normalizedLocale) {
+			return normalizedLocale;
+		}
+	}
+
+	return DEFAULT_LOCALE;
+}
+
 const MESSAGES = {
 	ja: {
 		app: {
@@ -16,16 +53,26 @@ const MESSAGES = {
 			language: "Language",
 			remoteUrl: "リモート URL",
 			activeShotCamera: "Camera",
-			shotCameraFov: "Camera の水平FOV",
+			shotCameraFov: "標準FRAME水平FOV",
+			shotCameraEquivalentMm: "35mm換算",
+			viewportFov: "ビューポート水平FOV",
+			viewportEquivalentMm: "ビューポート 35mm換算",
 			shotCameraClipMode: "クリップ範囲",
 			shotCameraNear: "Near",
 			shotCameraFar: "Far",
 			shotCameraExportName: "書き出し名",
+			exportFormat: "書き出し形式",
+			exportGridOverlay: "ガイドを含める",
+			exportGridLayerMode: "グリッド重ね順",
+			exportModelLayers: "GLB をレイヤー化",
+			exportSplatLayers: "3DGS をレイヤー化",
 			outputFrameWidth: "出力フレーム幅",
 			outputFrameHeight: "出力フレーム高",
 			cameraViewZoom: "カメラビューズーム",
 			anchor: "アンカー",
 			assetScale: "ワールドスケール",
+			assetPosition: "位置",
+			assetRotation: "回転",
 			activeFrame: "FRAME",
 			exportTarget: "書き出し対象",
 		},
@@ -36,6 +83,8 @@ const MESSAGES = {
 			frames: "FRAME",
 			outputFrame: "出力フレーム",
 			output: "出力",
+			export: "書き出し",
+			exportSettings: "書き出し設定",
 		},
 		mode: {
 			viewport: "ビューポート",
@@ -46,22 +95,35 @@ const MESSAGES = {
 			all: "すべての Camera",
 			selected: "選択した Camera",
 		},
+		exportFormat: {
+			png: "PNG",
+			psd: "PSD",
+		},
+		gridLayerMode: {
+			bottom: "最下層",
+			overlay: "アイレベルの下",
+		},
 		clipMode: {
 			auto: "自動",
 			manual: "手動",
 		},
 		action: {
 			openFiles: "ファイルを開く",
-			loadSample: "サンプルを読み込む",
 			clear: "クリア",
 			loadUrl: "URLを読み込む",
+			showAsset: "表示",
+			hideAsset: "非表示",
+			moveAssetUp: "上へ",
+			moveAssetDown: "下へ",
 			newShotCamera: "Camera を追加",
 			duplicateShotCamera: "複製",
 			viewportToShot: "Viewport → Camera",
 			shotToViewport: "Camera → Viewport",
 			resetActive: "現在のビューをリセット",
 			refreshPreview: "プレビューを更新",
+			downloadOutput: "書き出す",
 			downloadPng: "PNGを書き出す",
+			downloadPsd: "PSDを書き出す",
 			resetScale: "1xに戻す",
 			newFrame: "FRAME を追加",
 			duplicateFrame: "複製",
@@ -74,10 +136,14 @@ const MESSAGES = {
 				"Camera は document として保持します。追加は現在のビュー姿勢から、複製は現在の Camera 設定ごと作成します。",
 			shotCameraClip:
 				"自動では Camera ごとの Near を保持しつつ、Far をシーン境界から決めます。手動では Near/Far を Camera ごとに固定します。",
+			shotCameraExport:
+				"書き出し形式とガイド・レイヤー設定は Camera ごとに保持します。PSD の 3DGS レイヤー化は GLB レイヤー化が前提です。",
 			outputFrame:
 				"カメラビューでは off-axis projection を使い、出力フレーム内の構図を最終出力と一致させます。",
 			sceneCalibration:
 				"3DGS は raw 1x で入るので、必要に応じてワールドスケールを補正します。GLB も必要なら個別に調整できます。",
+			sceneOrder:
+				"一覧の順序は PSD のオブジェクトレイヤー順の基準です。表示の切替は viewport と export の両方に反映します。",
 			frames:
 				"FRAME は Camera View 上の 2D overlay として扱います。いまは直接選択で移動・拡縮・回転・anchor 編集まで行えます。",
 			framesEmpty: "まだ FRAME がありません。最初の FRAME を追加してください。",
@@ -99,10 +165,12 @@ const MESSAGES = {
 			exporting: "書き出し中",
 		},
 		exportSummary: {
-			empty: "オフスクリーンの Spark プレビューがここに表示されます。",
+			empty: "現在の Camera 設定で書き出します。",
 			refreshed: "プレビューを {width} × {height} で更新しました。",
 			exported: "PNG を {width} × {height} で書き出しました。",
 			exportedBatch: "PNG を {count} 件書き出しました。",
+			psdExported: "PSD を {count} 件書き出しました。",
+			exportedMixed: "{count} 件を書き出しました。",
 		},
 		status: {
 			ready: "準備完了。",
@@ -122,6 +190,8 @@ const MESSAGES = {
 			exportPreviewUpdated: "出力プレビューを更新しました。",
 			pngExported: "PNG を書き出しました。",
 			pngExportedBatch: "PNG を {count} 件書き出しました。",
+			psdExported: "PSD を {count} 件書き出しました。",
+			exportedMixed: "{count} 件を書き出しました。",
 			navigationActive:
 				"FPV ナビゲーション有効。WASD/RF で移動、ドラッグで視線、右ドラッグでスライド。基本速度 {speed} m/s。",
 			zoomToolEnabled:
@@ -129,6 +199,8 @@ const MESSAGES = {
 			zoomToolUnavailable: "ズームツールはカメラビューでのみ使えます。",
 			localeChanged: "表示言語を {language} に切り替えました。",
 			assetScaleUpdated: "{name} のワールドスケールを {scale} にしました。",
+			assetVisibilityUpdated: "{name} を {visibility} にしました。",
+			assetOrderUpdated: "{name} の順序を {index} にしました。",
 			selectedShotCamera: "Camera を {name} に切り替えました。",
 			createdShotCamera: "Camera {name} を追加しました。",
 			duplicatedShotCamera: "Camera {name} を複製しました。",
@@ -137,6 +209,7 @@ const MESSAGES = {
 			duplicatedFrame: "{name} を複製しました。",
 			deletedFrame: "{name} を削除しました。",
 			shotCameraClipMode: "Camera のクリップ範囲を {mode} にしました。",
+			shotCameraExportFormat: "Camera の書き出し形式を {format} にしました。",
 			frameLimitReached: "FRAME は最大 {limit} 枚までです。",
 			exportTargetChanged: "書き出し対象を {target} にしました。",
 			exportPresetSelection: "選択書き出しの Camera を {count} 件にしました。",
@@ -159,6 +232,10 @@ const MESSAGES = {
 		assetKind: {
 			splat: "3DGS",
 			model: "GLB / モデル",
+		},
+		assetVisibility: {
+			visible: "表示",
+			hidden: "非表示",
 		},
 		unitMode: {
 			raw: "raw 1x",
@@ -196,7 +273,6 @@ const MESSAGES = {
 			"bottom-right": "右下",
 		},
 		error: {
-			sampleAsset: "サンプルアセットの URL を解決できませんでした。",
 			exportRequiresAsset:
 				"出力プレビューの前に 3DGS かモデルを読み込んでください。",
 			exportRequiresPreset:
@@ -222,16 +298,26 @@ const MESSAGES = {
 			language: "Language",
 			remoteUrl: "Remote URL",
 			activeShotCamera: "Camera",
-			shotCameraFov: "Camera Horizontal FOV",
+			shotCameraFov: "Standard FRAME H-FOV",
+			shotCameraEquivalentMm: "35mm Equivalent",
+			viewportFov: "Viewport H-FOV",
+			viewportEquivalentMm: "Viewport 35mm Equivalent",
 			shotCameraClipMode: "Clip Range",
 			shotCameraNear: "Near",
 			shotCameraFar: "Far",
 			shotCameraExportName: "Export Name",
+			exportFormat: "Export Format",
+			exportGridOverlay: "Include Guides",
+			exportGridLayerMode: "Grid Layering",
+			exportModelLayers: "Layer GLB Models",
+			exportSplatLayers: "Layer 3DGS Objects",
 			outputFrameWidth: "Output Frame Width",
 			outputFrameHeight: "Output Frame Height",
 			cameraViewZoom: "Camera View Zoom",
 			anchor: "Anchor",
 			assetScale: "World Scale",
+			assetPosition: "Position",
+			assetRotation: "Rotation",
 			activeFrame: "FRAME",
 			exportTarget: "Export Target",
 		},
@@ -242,6 +328,8 @@ const MESSAGES = {
 			frames: "FRAME",
 			outputFrame: "Output Frame",
 			output: "Output",
+			export: "Export",
+			exportSettings: "Export Settings",
 		},
 		mode: {
 			viewport: "Viewport",
@@ -252,22 +340,35 @@ const MESSAGES = {
 			all: "All Cameras",
 			selected: "Selected Cameras",
 		},
+		exportFormat: {
+			png: "PNG",
+			psd: "PSD",
+		},
+		gridLayerMode: {
+			bottom: "Bottom-most",
+			overlay: "Below Eye Level",
+		},
 		clipMode: {
 			auto: "Auto",
 			manual: "Manual",
 		},
 		action: {
 			openFiles: "Open Files",
-			loadSample: "Load Sample",
 			clear: "Clear",
 			loadUrl: "Load URL",
+			showAsset: "Show",
+			hideAsset: "Hide",
+			moveAssetUp: "Up",
+			moveAssetDown: "Down",
 			newShotCamera: "Add Camera",
 			duplicateShotCamera: "Duplicate",
 			viewportToShot: "Viewport → Camera",
 			shotToViewport: "Camera → Viewport",
 			resetActive: "Reset Active View",
 			refreshPreview: "Refresh Preview",
+			downloadOutput: "Export",
 			downloadPng: "Download PNG",
+			downloadPsd: "Download PSD",
 			resetScale: "Reset 1x",
 			newFrame: "Add FRAME",
 			duplicateFrame: "Duplicate",
@@ -280,10 +381,14 @@ const MESSAGES = {
 				"Cameras are stored as document objects. New cameras start from the current view pose; duplicate copies the active camera settings.",
 			shotCameraClip:
 				"Auto keeps the per-Camera near clip and derives far from scene bounds. Manual stores both near and far per Camera.",
+			shotCameraExport:
+				"Export format, guide layering, and PSD layer settings are stored per Camera. 3DGS object layers in PSD require GLB layered export to be enabled.",
 			outputFrame:
 				"Camera View uses off-axis projection so framing inside the Output Frame matches final output.",
 			sceneCalibration:
 				"3DGS assets enter at raw 1x, so adjust world scale when needed. GLB assets can also be tuned per asset when necessary.",
+			sceneOrder:
+				"List order becomes the PSD object-layer order. Visibility affects both viewport and export.",
 			frames:
 				"FRAME is treated as a 2D overlay in Camera View. This slice supports direct move, resize, rotate, and anchor editing.",
 			framesEmpty:
@@ -306,10 +411,12 @@ const MESSAGES = {
 			exporting: "Exporting",
 		},
 		exportSummary: {
-			empty: "The offscreen Spark preview will appear here.",
+			empty: "Exports use the current Camera settings.",
 			refreshed: "Preview refreshed at {width} × {height}.",
 			exported: "PNG exported at {width} × {height}.",
 			exportedBatch: "Exported {count} PNG file(s).",
+			psdExported: "Exported {count} PSD file(s).",
+			exportedMixed: "Exported {count} file(s).",
 		},
 		status: {
 			ready: "Ready.",
@@ -328,6 +435,8 @@ const MESSAGES = {
 			exportPreviewUpdated: "Output preview updated.",
 			pngExported: "PNG exported.",
 			pngExportedBatch: "Exported {count} PNG file(s).",
+			psdExported: "Exported {count} PSD file(s).",
+			exportedMixed: "Exported {count} file(s).",
 			navigationActive:
 				"FPV navigation active. WASD/RF move, drag to look, right-drag to slide. Base speed {speed} m/s.",
 			zoomToolEnabled:
@@ -335,6 +444,8 @@ const MESSAGES = {
 			zoomToolUnavailable: "Zoom tool is only available in Camera View.",
 			localeChanged: "Display language switched to {language}.",
 			assetScaleUpdated: "Set {name} world scale to {scale}.",
+			assetVisibilityUpdated: "Set {name} to {visibility}.",
+			assetOrderUpdated: "Moved {name} to order {index}.",
 			selectedShotCamera: "Camera switched to {name}.",
 			createdShotCamera: "Added Camera {name}.",
 			duplicatedShotCamera: "Duplicated Camera {name}.",
@@ -343,6 +454,7 @@ const MESSAGES = {
 			duplicatedFrame: "Duplicated {name}.",
 			deletedFrame: "Deleted {name}.",
 			shotCameraClipMode: "Camera clip range set to {mode}.",
+			shotCameraExportFormat: "Camera export format set to {format}.",
 			frameLimitReached: "FRAME limit reached ({limit}).",
 			exportTargetChanged: "Export target set to {target}.",
 			exportPresetSelection:
@@ -367,6 +479,10 @@ const MESSAGES = {
 		assetKind: {
 			splat: "3DGS",
 			model: "GLB / Model",
+		},
+		assetVisibility: {
+			visible: "Visible",
+			hidden: "Hidden",
 		},
 		unitMode: {
 			raw: "raw 1x",
@@ -404,7 +520,6 @@ const MESSAGES = {
 			"bottom-right": "Bottom Right",
 		},
 		error: {
-			sampleAsset: "Could not resolve the sample asset URL.",
 			exportRequiresAsset:
 				"Load a splat or model before rendering output preview.",
 			exportRequiresPreset: "Select at least one Camera for export.",

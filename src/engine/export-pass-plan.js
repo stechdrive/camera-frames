@@ -1,32 +1,34 @@
 function getAssetMaskPassId(asset) {
-	const maskGroup = asset?.maskGroup?.trim?.();
-	return maskGroup ? `mask:${maskGroup}` : null;
+	return asset?.id != null ? `mask:asset-${asset.id}` : null;
+}
+
+function getAssetMaskPassName(asset) {
+	const label = String(asset?.label ?? "").trim();
+	return label ? `Mask ${label}` : `Mask Asset ${asset?.id ?? "?"}`;
 }
 
 export function buildExportPassPlan(sceneAssets = []) {
 	const beautyAssetIds = [];
-	const maskPasses = new Map();
+	const maskPasses = [];
 
 	for (const asset of sceneAssets) {
 		const exportRole = asset?.exportRole ?? "beauty";
 		if (exportRole !== "omit") {
 			beautyAssetIds.push(asset.id);
-		}
+			const maskPassId = getAssetMaskPassId(asset);
+			if (!maskPassId) {
+				continue;
+			}
 
-		const maskPassId = getAssetMaskPassId(asset);
-		if (!maskPassId) {
-			continue;
+			maskPasses.push({
+				id: maskPassId,
+				name: getAssetMaskPassName(asset),
+				category: "mask",
+				assetIds: [asset.id],
+				maskGroup: asset?.maskGroup ?? "",
+				assetLabel: asset?.label ?? `Asset ${asset.id}`,
+			});
 		}
-
-		const existingPass = maskPasses.get(maskPassId) ?? {
-			id: maskPassId,
-			name: `Mask ${asset.maskGroup}`,
-			category: "mask",
-			assetIds: [],
-			maskGroup: asset.maskGroup,
-		};
-		existingPass.assetIds.push(asset.id);
-		maskPasses.set(maskPassId, existingPass);
 	}
 
 	return {
@@ -36,6 +38,6 @@ export function buildExportPassPlan(sceneAssets = []) {
 			category: "render",
 			assetIds: beautyAssetIds,
 		},
-		masks: [...maskPasses.values()],
+		masks: maskPasses,
 	};
 }

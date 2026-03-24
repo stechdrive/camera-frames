@@ -48,8 +48,11 @@ assert.equal(shotCameras[0].outputFrame.fitScale, 0);
 assert.equal(shotCameras[0].outputFrame.fitViewportWidth, 0);
 assert.equal(shotCameras[0].outputFrame.fitViewportHeight, 0);
 assert.equal(shotCameras[0].exportSettings.exportName, "");
-assert.equal(shotCameras[0].exportSettings.exportFormat, "png");
-assert.equal(shotCameras[0].exportSettings.exportGridOverlay, false);
+assert.equal(shotCameras[0].exportSettings.exportFormat, "psd");
+assert.equal(shotCameras[0].exportSettings.exportGridOverlay, true);
+assert.equal(shotCameras[0].exportSettings.exportGridLayerMode, "bottom");
+assert.equal(shotCameras[0].exportSettings.exportModelLayers, true);
+assert.equal(shotCameras[0].exportSettings.exportSplatLayers, true);
 assert.equal(shotCameras[0].frames.length, 1);
 assert.equal(shotCameras[0].activeFrameId, "frame-1");
 assert.equal(shotCameras[0].frames[0].name, "FRAME A");
@@ -75,7 +78,11 @@ const duplicatedShotCamera = createShotCameraDocument({
 assert.equal(duplicatedShotCamera.id, "shot-camera-2");
 assert.equal(duplicatedShotCamera.name, "Camera 2");
 assert.equal(duplicatedShotCamera.outputFrame.anchor, "center");
-assert.equal(duplicatedShotCamera.exportSettings.exportFormat, "png");
+assert.equal(duplicatedShotCamera.exportSettings.exportFormat, "psd");
+assert.equal(duplicatedShotCamera.exportSettings.exportGridOverlay, true);
+assert.equal(duplicatedShotCamera.exportSettings.exportGridLayerMode, "bottom");
+assert.equal(duplicatedShotCamera.exportSettings.exportModelLayers, true);
+assert.equal(duplicatedShotCamera.exportSettings.exportSplatLayers, true);
 assert.notEqual(duplicatedShotCamera.outputFrame, shotCameras[0].outputFrame);
 assert.notEqual(
 	duplicatedShotCamera.exportSettings,

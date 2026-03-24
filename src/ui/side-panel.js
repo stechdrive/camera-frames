@@ -1,4 +1,5 @@
 import { html } from "htm/preact";
+import { useEffect, useState } from "preact/hooks";
 import {
 	getBuildCommitLabel,
 	getBuildVersionLabel,
@@ -12,37 +13,152 @@ import {
 	MIN_CAMERA_VIEW_ZOOM_PCT,
 	MIN_OUTPUT_FRAME_SCALE_PCT,
 } from "../constants.js";
+import {
+	MAX_STANDARD_FRAME_EQUIVALENT_MM,
+	MIN_STANDARD_FRAME_EQUIVALENT_MM,
+	clampStandardFrameEquivalentMm,
+	getBaseHorizontalFovDegreesForStandardFrameEquivalentMm,
+	snapStandardFrameEquivalentMm,
+} from "../engine/camera-lens.js";
+import { groupSceneAssetsByKind } from "../engine/scene-asset-order.js";
 import { formatAssetWorldScale } from "../engine/scene-units.js";
-import { LOCALE_OPTIONS, getAnchorOptions, translate } from "../i18n.js";
+import { getAnchorOptions } from "../i18n.js";
 
-function renderHeader({ controller, locale, t }) {
+const INSPECTOR_TAB_CAMERA = "camera";
+const INSPECTOR_TAB_EXPORT = "export";
+
+function stopUiEvent(event) {
+	event.stopPropagation();
+}
+
+function stopUiWheelEvent(event) {
+	event.preventDefault();
+	event.stopPropagation();
+}
+
+const INTERACTIVE_FIELD_PROPS = {
+	onPointerDown: stopUiEvent,
+	onClick: stopUiEvent,
+	onWheel: stopUiWheelEvent,
+	onKeyDown: stopUiEvent,
+};
+
+function NumericDraftInput({
+	value,
+	inputMode = "decimal",
+	onCommit,
+	...props
+}) {
+	const formattedValue = String(value);
+	const [draftValue, setDraftValue] = useState(formattedValue);
+	const [isEditing, setIsEditing] = useState(false);
+
+	useEffect(() => {
+		if (!isEditing) {
+			setDraftValue(formattedValue);
+		}
+	}, [formattedValue, isEditing]);
+
+	function resetDraft() {
+		setDraftValue(formattedValue);
+		setIsEditing(false);
+	}
+
+	function commitDraft(nextRawValue) {
+		const nextValue = String(nextRawValue ?? "").trim();
+		if (nextValue === "") {
+			resetDraft();
+			return;
+		}
+		onCommit?.(nextValue);
+		setIsEditing(false);
+	}
+
 	return html`
-		<header class="panel-header">
-			<div class="header-meta-row">
-				<p class="eyebrow">${t("app.previewTag")}</p>
-				<label class="locale-field">
-					<span>${t("field.language")}</span>
-					<select
-						value=${locale}
-						onChange=${(event) => controller()?.setLocale(event.currentTarget.value)}
-					>
-						${LOCALE_OPTIONS.map(
-							(option) => html`
-								<option value=${option.value}>
-									${translate(locale, option.labelKey)}
-								</option>
-							`,
-						)}
-					</select>
-				</label>
-			</div>
+		<input
+			...${props}
+			type="number"
+			inputMode=${inputMode}
+			value=${isEditing ? draftValue : formattedValue}
+			onFocus=${(event) => {
+				stopUiEvent(event);
+				setIsEditing(true);
+				setDraftValue(String(event.currentTarget.value ?? formattedValue));
+			}}
+			onInput=${(event) => {
+				stopUiEvent(event);
+				setIsEditing(true);
+				setDraftValue(event.currentTarget.value);
+			}}
+			onBlur=${(event) => {
+				commitDraft(event.currentTarget.value);
+			}}
+			onPointerDown=${stopUiEvent}
+			onClick=${stopUiEvent}
+			onWheel=${stopUiWheelEvent}
+			onKeyDown=${(event) => {
+				stopUiEvent(event);
+				if (event.key === "Enter") {
+					event.preventDefault();
+					commitDraft(event.currentTarget.value);
+					event.currentTarget.blur();
+					return;
+				}
+				if (event.key === "Escape") {
+					event.preventDefault();
+					resetDraft();
+					event.currentTarget.blur();
+				}
+			}}
+		/>
+	`;
+}
+
+function applyStandardFrameEquivalentMm(
+	setBaseFov,
+	nextValue,
+	{ snap = false } = {},
+) {
+	const numericValue = Number(nextValue);
+	if (!Number.isFinite(numericValue)) {
+		return;
+	}
+
+	const normalizedValue = snap
+		? snapStandardFrameEquivalentMm(numericValue)
+		: clampStandardFrameEquivalentMm(Math.round(numericValue));
+	setBaseFov?.(
+		getBaseHorizontalFovDegreesForStandardFrameEquivalentMm(normalizedValue),
+	);
+}
+
+function renderHeader({ t, compact = false }) {
+	const buildVersionLabel = getBuildVersionLabel();
+	const buildCommitLabel = getBuildCommitLabel();
+	const codeStampLabel = getCodeStampLabel();
+
+	return html`
+		<header class=${compact ? "panel-header panel-header--compact" : "panel-header"}>
 			<h1>CAMERA_FRAMES</h1>
-			<p class="panel-copy">${t("app.panelCopy")}</p>
+			<div class="build-meta build-meta--header">
+				<span class="pill pill--dim">${buildVersionLabel}</span>
+				${buildCommitLabel && html`<code class="build-commit">${buildCommitLabel}</code>`}
+				${codeStampLabel && html`<code class="build-commit">${codeStampLabel}</code>`}
+			</div>
 		</header>
 	`;
 }
 
-function renderViewSection({ controller, mode, modeLabel, t }) {
+function renderViewSection({
+	controller,
+	mode,
+	modeLabel,
+	store,
+	t,
+	viewportEquivalentMmLabel,
+	viewportEquivalentMmValue,
+	viewportFovLabel,
+}) {
 	return html`
 		<section class="panel-section">
 			<div class="section-heading">
@@ -67,7 +183,75 @@ function renderViewSection({ controller, mode, modeLabel, t }) {
 					${t("mode.viewport")}
 				</button>
 			</div>
-			<p class="hint">${t("hint.viewMode")}</p>
+			${
+				mode === "camera" &&
+				html`
+					<label class="field field--range">
+						<span>${t("field.cameraViewZoom")}</span>
+						<div class="range-row">
+							<input
+								id="view-zoom"
+								type="range"
+								min=${MIN_CAMERA_VIEW_ZOOM_PCT}
+								max=${MAX_CAMERA_VIEW_ZOOM_PCT}
+								step="1"
+								value=${Math.round(store.renderBox.viewZoom.value * 100)}
+								...${INTERACTIVE_FIELD_PROPS}
+								onInput=${(event) =>
+									controller()?.setViewZoomPercent(event.currentTarget.value)}
+							/>
+							<output id="view-zoom-value">${store.zoomLabel.value}</output>
+						</div>
+					</label>
+				`
+			}
+			${
+				mode === "viewport" &&
+				html`
+					<label class="field field--range">
+						<span>${t("field.viewportEquivalentMm")}</span>
+						<div class="range-row">
+							<input
+								id="viewport-fov-mm"
+								type="range"
+								min=${MIN_STANDARD_FRAME_EQUIVALENT_MM}
+								max=${MAX_STANDARD_FRAME_EQUIVALENT_MM}
+								step="1"
+								value=${viewportEquivalentMmValue}
+								...${INTERACTIVE_FIELD_PROPS}
+								onInput=${(event) =>
+									applyStandardFrameEquivalentMm(
+										(nextValue) => controller()?.setViewportBaseFovX(nextValue),
+										event.currentTarget.value,
+										{
+											snap: true,
+										},
+									)}
+							/>
+							<div class="numeric-unit">
+								<${NumericDraftInput}
+									id="viewport-fov-mm-input"
+									inputMode="numeric"
+									min=${MIN_STANDARD_FRAME_EQUIVALENT_MM}
+									max=${MAX_STANDARD_FRAME_EQUIVALENT_MM}
+									step="1"
+									value=${viewportEquivalentMmValue}
+									onCommit=${(nextValue) =>
+										applyStandardFrameEquivalentMm(
+											(nextBaseFov) =>
+												controller()?.setViewportBaseFovX(nextBaseFov),
+											nextValue,
+										)}
+								/>
+								<span>mm</span>
+							</div>
+						</div>
+						<p class="summary">
+							${t("field.viewportFov")} · ${viewportFovLabel} (${viewportEquivalentMmLabel})
+						</p>
+					</label>
+				`
+			}
 		</section>
 	`;
 }
@@ -79,9 +263,55 @@ function renderSceneSection({
 	sceneScaleSummary,
 	sceneSummary,
 	sceneUnitBadge,
+	selectedSceneAsset,
 	store,
 	t,
+	draggedAssetId,
+	setDraggedAssetId,
+	dragHoverState,
+	setDragHoverState,
 }) {
+	const sceneAssetSections = groupSceneAssetsByKind(sceneAssets);
+	const getSceneAssetById = (assetId) =>
+		sceneAssets.find((asset) => asset.id === assetId) ?? null;
+	const getDropPosition = (event) => {
+		const bounds = event.currentTarget.getBoundingClientRect();
+		return event.clientY < bounds.top + bounds.height / 2 ? "before" : "after";
+	};
+	const getDropTargetKindIndex = (draggedAsset, targetAsset, position) => {
+		if (
+			!draggedAsset ||
+			!targetAsset ||
+			draggedAsset.kind !== targetAsset.kind
+		) {
+			return null;
+		}
+		const currentKindIndex = draggedAsset.kindOrderIndex - 1;
+		const targetKindIndex = targetAsset.kindOrderIndex - 1;
+		if (position === "before") {
+			return currentKindIndex < targetKindIndex
+				? targetKindIndex - 1
+				: targetKindIndex;
+		}
+		return currentKindIndex < targetKindIndex
+			? targetKindIndex
+			: targetKindIndex + 1;
+	};
+	const getSceneAssetRowClass = (asset) => {
+		const classes = ["scene-asset-row"];
+		if (asset.id === selectedSceneAsset?.id) {
+			classes.push("scene-asset-row--selected");
+		}
+		if (dragHoverState?.assetId === asset.id) {
+			classes.push(
+				dragHoverState.position === "before"
+					? "scene-asset-row--drop-before"
+					: "scene-asset-row--drop-after",
+			);
+		}
+		return classes.join(" ");
+	};
+
 	return html`
 		<section class="panel-section">
 			<div class="section-heading">
@@ -101,14 +331,6 @@ function renderSceneSection({
 					${t("action.openFiles")}
 				</button>
 				<button
-					id="load-sample"
-					class="button"
-					type="button"
-					onClick=${() => controller()?.loadSample()}
-				>
-					${t("action.loadSample")}
-				</button>
-				<button
 					id="clear-scene"
 					class="button"
 					type="button"
@@ -124,6 +346,7 @@ function renderSceneSection({
 					type="text"
 					placeholder="https://.../scene.spz or model.glb"
 					value=${store.remoteUrl.value}
+					...${INTERACTIVE_FIELD_PROPS}
 					onInput=${(event) => {
 						store.remoteUrl.value = event.currentTarget.value;
 					}}
@@ -148,49 +371,264 @@ function renderSceneSection({
 			${
 				sceneAssets.length > 0 &&
 				html`
-					<div class="asset-calibration-list">
-						${sceneAssets.map(
-							(asset) => html`
-								<article class="asset-card">
-									<div class="asset-card__header">
-										<div class="asset-card__title-group">
-											<strong>${asset.label}</strong>
-											<span class="asset-card__meta">
-												${t(asset.kindLabelKey)} · ${t(asset.unitModeLabelKey)}
-											</span>
-										</div>
-										<span class="pill pill--dim">
-											${formatAssetWorldScale(asset.worldScale)}
-										</span>
+					<div class="scene-asset-section-list">
+						${sceneAssetSections.map(
+							(section) => html`
+								<section class="scene-asset-section">
+									<div class="section-heading scene-asset-section__heading">
+										<h2>${t(section.assets[0].kindLabelKey)}</h2>
+										<span class="pill pill--dim">${section.assets.length}</span>
 									</div>
-									<div class="asset-card__controls">
-										<label class="field">
-											<span>${t("field.assetScale")}</span>
-											<input
-												type="number"
-												min="0.01"
-												step="0.01"
-												value=${Number(asset.worldScale).toFixed(2)}
-												onInput=${(event) =>
-													controller()?.setAssetWorldScale(
-														asset.id,
-														event.currentTarget.value,
-													)}
-											/>
-										</label>
-										<button
-											class="button"
-											type="button"
-											onClick=${() => controller()?.resetAssetWorldScale(asset.id)}
-										>
-											${t("action.resetScale")}
-										</button>
+									<div class="scene-asset-list">
+										${section.assets.map(
+											(asset) => html`
+												<article
+													class=${getSceneAssetRowClass(asset)}
+													draggable="true"
+													onClick=${() =>
+														controller()?.selectSceneAsset(asset.id)}
+													onDragStart=${(event) => {
+														setDraggedAssetId(asset.id);
+														setDragHoverState(null);
+														event.dataTransfer.effectAllowed = "move";
+														event.dataTransfer.setData(
+															"text/plain",
+															String(asset.id),
+														);
+													}}
+													onDragOver=${(event) => {
+														const draggedAsset = getSceneAssetById(
+															draggedAssetId ??
+																Number(
+																	event.dataTransfer.getData("text/plain"),
+																),
+														);
+														if (draggedAsset?.kind !== asset.kind) {
+															return;
+														}
+														event.preventDefault();
+														event.dataTransfer.dropEffect = "move";
+														setDragHoverState({
+															assetId: asset.id,
+															position: getDropPosition(event),
+														});
+													}}
+													onDragLeave=${() => {
+														if (dragHoverState?.assetId === asset.id) {
+															setDragHoverState(null);
+														}
+													}}
+													onDrop=${(event) => {
+														event.preventDefault();
+														const draggedId =
+															draggedAssetId ??
+															Number(event.dataTransfer.getData("text/plain"));
+														const draggedAsset = getSceneAssetById(draggedId);
+														const dropPosition = getDropPosition(event);
+														if (
+															!Number.isFinite(draggedId) ||
+															draggedId === asset.id ||
+															draggedAsset?.kind !== asset.kind
+														) {
+															setDraggedAssetId(null);
+															setDragHoverState(null);
+															return;
+														}
+														const targetKindIndex = getDropTargetKindIndex(
+															draggedAsset,
+															asset,
+															dropPosition,
+														);
+														if (targetKindIndex !== null) {
+															controller()?.moveAssetToIndex(
+																draggedId,
+																targetKindIndex,
+															);
+														}
+														setDraggedAssetId(null);
+														setDragHoverState(null);
+													}}
+													onDragEnd=${() => {
+														setDraggedAssetId(null);
+														setDragHoverState(null);
+													}}
+												>
+													<div class="scene-asset-row__main">
+														<span class="scene-asset-row__handle">≡</span>
+														<div class="scene-asset-row__title-group">
+															<strong>${asset.label}</strong>
+															<span class="scene-asset-row__meta">
+																#${asset.kindOrderIndex} ·
+																${formatAssetWorldScale(asset.worldScale)}
+															</span>
+														</div>
+													</div>
+													<div class="scene-asset-row__toolbar">
+														<button
+															class="button button--compact"
+															type="button"
+															onClick=${(event) => {
+																event.stopPropagation();
+																controller()?.selectSceneAsset(asset.id);
+																controller()?.setAssetVisibility(
+																	asset.id,
+																	!asset.visible,
+																);
+															}}
+														>
+															${
+																asset.visible
+																	? t("action.hideAsset")
+																	: t("action.showAsset")
+															}
+														</button>
+													</div>
+												</article>
+											`,
+										)}
 									</div>
-								</article>
+								</section>
 							`,
 						)}
 					</div>
-					<p class="summary">${t("hint.sceneCalibration")}</p>
+				`
+			}
+			${
+				selectedSceneAsset &&
+				html`
+					<section class="scene-asset-inspector">
+						<div class="section-heading">
+							<h2>${selectedSceneAsset.label}</h2>
+							<span class="pill pill--dim">${t(selectedSceneAsset.kindLabelKey)}</span>
+						</div>
+						<div class="button-row">
+							<button
+								class="button button--compact"
+								type="button"
+								onClick=${() =>
+									controller()?.setAssetVisibility(
+										selectedSceneAsset.id,
+										!selectedSceneAsset.visible,
+									)}
+							>
+								${
+									selectedSceneAsset.visible
+										? t("action.hideAsset")
+										: t("action.showAsset")
+								}
+							</button>
+							<button
+								class="button button--compact"
+								type="button"
+								onClick=${() =>
+									controller()?.resetAssetWorldScale(selectedSceneAsset.id)}
+							>
+								${t("action.resetScale")}
+							</button>
+						</div>
+						<label class="field">
+							<span>${t("field.assetScale")}</span>
+							<${NumericDraftInput}
+								inputMode="decimal"
+								min="0.01"
+								step="0.01"
+								value=${Number(selectedSceneAsset.worldScale).toFixed(2)}
+								onCommit=${(nextValue) =>
+									controller()?.setAssetWorldScale(
+										selectedSceneAsset.id,
+										nextValue,
+									)}
+							/>
+						</label>
+						<div class="triple-field-row">
+							<label class="field">
+								<span>${t("field.assetPosition")} X</span>
+								<${NumericDraftInput}
+									inputMode="decimal"
+									step="0.01"
+									value=${Number(selectedSceneAsset.position.x).toFixed(2)}
+									onCommit=${(nextValue) =>
+										controller()?.setAssetPosition(
+											selectedSceneAsset.id,
+											"x",
+											nextValue,
+										)}
+								/>
+							</label>
+							<label class="field">
+								<span>${t("field.assetPosition")} Y</span>
+								<${NumericDraftInput}
+									inputMode="decimal"
+									step="0.01"
+									value=${Number(selectedSceneAsset.position.y).toFixed(2)}
+									onCommit=${(nextValue) =>
+										controller()?.setAssetPosition(
+											selectedSceneAsset.id,
+											"y",
+											nextValue,
+										)}
+								/>
+							</label>
+							<label class="field">
+								<span>${t("field.assetPosition")} Z</span>
+								<${NumericDraftInput}
+									inputMode="decimal"
+									step="0.01"
+									value=${Number(selectedSceneAsset.position.z).toFixed(2)}
+									onCommit=${(nextValue) =>
+										controller()?.setAssetPosition(
+											selectedSceneAsset.id,
+											"z",
+											nextValue,
+										)}
+								/>
+							</label>
+						</div>
+						<div class="triple-field-row">
+							<label class="field">
+								<span>${t("field.assetRotation")} X</span>
+								<${NumericDraftInput}
+									inputMode="numeric"
+									step="1"
+									value=${Number(selectedSceneAsset.rotationDegrees.x).toFixed(0)}
+									onCommit=${(nextValue) =>
+										controller()?.setAssetRotationDegrees(
+											selectedSceneAsset.id,
+											"x",
+											nextValue,
+										)}
+								/>
+							</label>
+							<label class="field">
+								<span>${t("field.assetRotation")} Y</span>
+								<${NumericDraftInput}
+									inputMode="numeric"
+									step="1"
+									value=${Number(selectedSceneAsset.rotationDegrees.y).toFixed(0)}
+									onCommit=${(nextValue) =>
+										controller()?.setAssetRotationDegrees(
+											selectedSceneAsset.id,
+											"y",
+											nextValue,
+										)}
+								/>
+							</label>
+							<label class="field">
+								<span>${t("field.assetRotation")} Z</span>
+								<${NumericDraftInput}
+									inputMode="numeric"
+									step="1"
+									value=${Number(selectedSceneAsset.rotationDegrees.z).toFixed(0)}
+									onCommit=${(nextValue) =>
+										controller()?.setAssetRotationDegrees(
+											selectedSceneAsset.id,
+											"z",
+											nextValue,
+										)}
+								/>
+							</label>
+						</div>
+					</section>
 				`
 			}
 		</section>
@@ -201,6 +639,8 @@ function renderShotCameraSection({
 	activeShotCamera,
 	cameraSummary,
 	controller,
+	equivalentMmLabel,
+	equivalentMmValue,
 	fovLabel,
 	shotCameraClipMode,
 	store,
@@ -220,6 +660,7 @@ function renderShotCameraSection({
 				<select
 					id="active-shot-camera"
 					value=${store.workspace.activeShotCameraId.value}
+					...${INTERACTIVE_FIELD_PROPS}
 					onChange=${(event) =>
 						controller()?.selectShotCamera(event.currentTarget.value)}
 				>
@@ -248,28 +689,51 @@ function renderShotCameraSection({
 					${t("action.duplicateShotCamera")}
 				</button>
 			</div>
-			<p class="summary">${t("hint.shotCameraList")}</p>
 			<label class="field field--range">
-				<span>${t("field.shotCameraFov")}</span>
+				<span>${t("field.shotCameraEquivalentMm")}</span>
 				<div class="range-row">
 					<input
-						id="fov-x"
+						id="fov-mm"
 						type="range"
-						min="35"
-						max="100"
+						min=${MIN_STANDARD_FRAME_EQUIVALENT_MM}
+						max=${MAX_STANDARD_FRAME_EQUIVALENT_MM}
 						step="1"
-						value=${Math.round(store.baseFovX.value)}
+						value=${equivalentMmValue}
+						...${INTERACTIVE_FIELD_PROPS}
 						onInput=${(event) =>
-							controller()?.setBaseFovX(event.currentTarget.value)}
+							applyStandardFrameEquivalentMm(
+								(nextValue) => controller()?.setBaseFovX(nextValue),
+								event.currentTarget.value,
+								{
+									snap: true,
+								},
+							)}
 					/>
-					<output id="fov-x-value">${fovLabel}</output>
+					<div class="numeric-unit">
+						<${NumericDraftInput}
+							id="fov-mm-input"
+							inputMode="numeric"
+							min=${MIN_STANDARD_FRAME_EQUIVALENT_MM}
+							max=${MAX_STANDARD_FRAME_EQUIVALENT_MM}
+							step="1"
+							value=${equivalentMmValue}
+							onCommit=${(nextValue) =>
+								applyStandardFrameEquivalentMm(
+									(nextBaseFov) => controller()?.setBaseFovX(nextBaseFov),
+									nextValue,
+								)}
+						/>
+						<span>mm</span>
+					</div>
 				</div>
+				<p class="summary">${t("field.shotCameraFov")} · ${fovLabel} (${equivalentMmLabel})</p>
 			</label>
 			<label class="field">
 				<span>${t("field.shotCameraClipMode")}</span>
 				<select
 					id="shot-camera-clip-mode"
 					value=${shotCameraClipMode}
+					...${INTERACTIVE_FIELD_PROPS}
 					onChange=${(event) =>
 						controller()?.setShotCameraClippingMode(event.currentTarget.value)}
 				>
@@ -277,45 +741,32 @@ function renderShotCameraSection({
 					<option value="manual">${t("clipMode.manual")}</option>
 				</select>
 			</label>
-			<div class="split-field-row">
-				<label class="field">
-					<span>${t("field.shotCameraNear")}</span>
-					<input
+				<div class="split-field-row">
+					<label class="field">
+						<span>${t("field.shotCameraNear")}</span>
+					<${NumericDraftInput}
 						id="shot-camera-near"
-						type="number"
+						inputMode="decimal"
 						min="0.1"
 						step="0.1"
 						value=${Number(store.shotCamera.near.value).toFixed(2)}
-						onInput=${(event) =>
-							controller()?.setShotCameraNear(event.currentTarget.value)}
+						onCommit=${(nextValue) =>
+							controller()?.setShotCameraNear(nextValue)}
 					/>
-				</label>
-				<label class="field">
-					<span>${t("field.shotCameraFar")}</span>
-					<input
+					</label>
+					<label class="field">
+						<span>${t("field.shotCameraFar")}</span>
+					<${NumericDraftInput}
 						id="shot-camera-far"
-						type="number"
+						inputMode="decimal"
 						min="0.1"
 						step="0.1"
 						value=${Number(store.shotCamera.far.value).toFixed(2)}
 						disabled=${shotCameraClipMode !== "manual"}
-						onInput=${(event) =>
-							controller()?.setShotCameraFar(event.currentTarget.value)}
+						onCommit=${(nextValue) => controller()?.setShotCameraFar(nextValue)}
 					/>
-				</label>
-			</div>
-			<p class="summary">${t("hint.shotCameraClip")}</p>
-			<label class="field">
-				<span>${t("field.shotCameraExportName")}</span>
-				<input
-					id="shot-camera-export-name"
-					type="text"
-					placeholder=${activeShotCamera?.name ?? "Camera"}
-					value=${store.shotCamera.exportName.value}
-					onInput=${(event) =>
-						controller()?.setShotCameraExportName(event.currentTarget.value)}
-				/>
-			</label>
+					</label>
+				</div>
 			<div class="button-row">
 				<button
 					id="copy-viewport-to-shot"
@@ -347,6 +798,105 @@ function renderShotCameraSection({
 	`;
 }
 
+function renderExportSettingsSection({
+	activeShotCamera,
+	controller,
+	exportFormat,
+	exportGridLayerMode,
+	exportGridOverlay,
+	exportModelLayers,
+	exportSplatLayers,
+	store,
+	t,
+}) {
+	return html`
+		<section class="panel-section">
+			<div class="section-heading">
+				<h2>${t("section.exportSettings")}</h2>
+				<span class="pill pill--dim">${t(`exportFormat.${exportFormat}`)}</span>
+			</div>
+			<label class="field">
+				<span>${t("field.shotCameraExportName")}</span>
+				<input
+					id="shot-camera-export-name"
+					type="text"
+					placeholder=${activeShotCamera?.name ?? "Camera"}
+					value=${store.shotCamera.exportName.value}
+					...${INTERACTIVE_FIELD_PROPS}
+					onInput=${(event) =>
+						controller()?.setShotCameraExportName(event.currentTarget.value)}
+				/>
+			</label>
+			<label class="field">
+				<span>${t("field.exportFormat")}</span>
+				<select
+					id="shot-camera-export-format"
+					value=${exportFormat}
+					...${INTERACTIVE_FIELD_PROPS}
+					onChange=${(event) =>
+						controller()?.setShotCameraExportFormat(event.currentTarget.value)}
+				>
+					<option value="png">${t("exportFormat.png")}</option>
+					<option value="psd">${t("exportFormat.psd")}</option>
+				</select>
+			</label>
+			<label class="checkbox-field">
+				<input
+					id="shot-camera-export-grid-overlay"
+					type="checkbox"
+					checked=${exportGridOverlay}
+					onChange=${(event) =>
+						controller()?.setShotCameraExportGridOverlay(
+							event.currentTarget.checked,
+						)}
+				/>
+				<span>${t("field.exportGridOverlay")}</span>
+			</label>
+			<label class="field">
+				<span>${t("field.exportGridLayerMode")}</span>
+				<select
+					id="shot-camera-export-grid-layer-mode"
+					value=${exportGridLayerMode}
+					...${INTERACTIVE_FIELD_PROPS}
+					onChange=${(event) =>
+						controller()?.setShotCameraExportGridLayerMode(
+							event.currentTarget.value,
+						)}
+				>
+					<option value="bottom">${t("gridLayerMode.bottom")}</option>
+					<option value="overlay">${t("gridLayerMode.overlay")}</option>
+				</select>
+			</label>
+			<label class="checkbox-field">
+				<input
+					id="shot-camera-export-model-layers"
+					type="checkbox"
+					checked=${exportModelLayers}
+					disabled=${exportFormat !== "psd"}
+					onChange=${(event) =>
+						controller()?.setShotCameraExportModelLayers(
+							event.currentTarget.checked,
+						)}
+				/>
+				<span>${t("field.exportModelLayers")}</span>
+			</label>
+			<label class="checkbox-field">
+				<input
+					id="shot-camera-export-splat-layers"
+					type="checkbox"
+					checked=${exportSplatLayers}
+					disabled=${exportFormat !== "psd" || !exportModelLayers}
+					onChange=${(event) =>
+						controller()?.setShotCameraExportSplatLayers(
+							event.currentTarget.checked,
+						)}
+				/>
+				<span>${t("field.exportSplatLayers")}</span>
+			</label>
+		</section>
+	`;
+}
+
 function renderFramesSection({
 	activeFrameId,
 	controller,
@@ -369,6 +919,7 @@ function renderFramesSection({
 							<select
 								id="active-frame"
 								value=${activeFrameId}
+								...${INTERACTIVE_FIELD_PROPS}
 								onChange=${(event) =>
 									controller()?.selectFrame(event.currentTarget.value)}
 							>
@@ -407,7 +958,6 @@ function renderFramesSection({
 								${t("action.deleteFrame")}
 							</button>
 						</div>
-						<p class="summary">${t("hint.frames")}</p>
 					`
 					: html`
 						<div class="button-row">
@@ -420,7 +970,6 @@ function renderFramesSection({
 								${t("action.newFrame")}
 							</button>
 						</div>
-						<p class="summary">${t("hint.framesEmpty")}</p>
 					`
 			}
 		</section>
@@ -435,7 +984,6 @@ function renderOutputFrameSection({
 	store,
 	t,
 	widthLabel,
-	zoomLabel,
 }) {
 	return html`
 		<section class="panel-section">
@@ -453,6 +1001,7 @@ function renderOutputFrameSection({
 						max=${MAX_OUTPUT_FRAME_WIDTH_PCT}
 						step="1"
 						value=${Math.round(store.renderBox.widthScale.value * 100)}
+						...${INTERACTIVE_FIELD_PROPS}
 						onInput=${(event) =>
 							controller()?.setBoxWidthPercent(event.currentTarget.value)}
 					/>
@@ -469,26 +1018,11 @@ function renderOutputFrameSection({
 						max=${MAX_OUTPUT_FRAME_HEIGHT_PCT}
 						step="1"
 						value=${Math.round(store.renderBox.heightScale.value * 100)}
+						...${INTERACTIVE_FIELD_PROPS}
 						onInput=${(event) =>
 							controller()?.setBoxHeightPercent(event.currentTarget.value)}
 					/>
 					<output id="box-height-value">${heightLabel}</output>
-				</div>
-			</label>
-			<label class="field field--range">
-				<span>${t("field.cameraViewZoom")}</span>
-				<div class="range-row">
-					<input
-						id="view-zoom"
-						type="range"
-						min=${MIN_CAMERA_VIEW_ZOOM_PCT}
-						max=${MAX_CAMERA_VIEW_ZOOM_PCT}
-						step="1"
-						value=${Math.round(store.renderBox.viewZoom.value * 100)}
-						onInput=${(event) =>
-							controller()?.setViewZoomPercent(event.currentTarget.value)}
-					/>
-					<output id="view-zoom-value">${zoomLabel}</output>
 				</div>
 			</label>
 			<label class="field">
@@ -496,6 +1030,7 @@ function renderOutputFrameSection({
 				<select
 					id="anchor-select"
 					value=${store.renderBox.anchor.value}
+					...${INTERACTIVE_FIELD_PROPS}
 					onChange=${(event) => controller()?.setAnchor(event.currentTarget.value)}
 				>
 					${anchorOptions.map(
@@ -504,7 +1039,6 @@ function renderOutputFrameSection({
 					)}
 				</select>
 			</label>
-			<p class="summary">${t("hint.outputFrame")}</p>
 		</section>
 	`;
 }
@@ -512,6 +1046,7 @@ function renderOutputFrameSection({
 function renderExportSection({
 	controller,
 	exportBusy,
+	exportFormatLabel,
 	exportPresetIds,
 	exportSelectionMissing,
 	exportStatusLabel,
@@ -527,7 +1062,7 @@ function renderExportSection({
 	return html`
 		<section class="panel-section panel-section--preview">
 			<div class="section-heading">
-				<h2>${t("section.output")}</h2>
+				<h2>${t("section.export")}</h2>
 				<span id="export-status-pill" class=${exportStatusClass}>
 					${exportStatusLabel}
 				</span>
@@ -537,6 +1072,7 @@ function renderExportSection({
 				<select
 					id="export-target"
 					value=${exportTarget}
+					...${INTERACTIVE_FIELD_PROPS}
 					onChange=${(event) =>
 						controller()?.setExportTarget(event.currentTarget.value)}
 				>
@@ -569,57 +1105,68 @@ function renderExportSection({
 							`,
 						)}
 					</div>
-					<p class="summary">
-						${t("hint.exportTargetSelection", {
-							count: store.exportOptions.presetCount.value,
-						})}
-					</p>
 				`
 			}
 			<div class="button-row">
 				<button
-					id="download-png"
+					id="download-output"
 					class="button button--primary"
 					type="button"
 					disabled=${exportBusy || exportSelectionMissing}
-					onClick=${() => controller()?.downloadPng()}
-				>
-					${t("action.downloadPng")}
-				</button>
-			</div>
-			<p id="export-summary" class="summary">${store.exportSummary.value}</p>
+					onClick=${() => controller()?.downloadOutput()}
+					>
+						${t("action.downloadOutput")}
+					</button>
+				</div>
+			<p id="export-summary" class="summary">
+				${exportFormatLabel} · ${store.exportSummary.value}
+			</p>
 		</section>
 	`;
 }
 
 function renderFooter({ store }) {
-	const buildVersionLabel = getBuildVersionLabel();
-	const buildCommitLabel = getBuildCommitLabel();
-	const codeStampLabel = getCodeStampLabel();
-
 	return html`
 		<footer class="panel-footer">
 			<p id="status-line" class="status-line">${store.statusLine.value}</p>
-			<div class="build-meta">
-				<span class="pill pill--dim">${buildVersionLabel}</span>
-				${
-					buildCommitLabel &&
-					html`<code class="build-commit">${buildCommitLabel}</code>`
-				}
-				${
-					codeStampLabel &&
-					html`<code class="build-commit">${codeStampLabel}</code>`
-				}
-			</div>
-			<div class="footer-links">
-				<a href="https://github.com/stechdrive/camera-frames">GitHub</a>
-				<a href="./version.json">version.json</a>
-			</div>
 		</footer>
 	`;
 }
 
+function renderInspectorTabs({ activeTab, setActiveTab, t }) {
+	const tabs = [
+		{ id: INSPECTOR_TAB_CAMERA, label: t("section.shotCamera") },
+		{ id: INSPECTOR_TAB_EXPORT, label: t("section.export") },
+	];
+
+	return html`
+		<div class="workbench-tabs" role="tablist" aria-label=${t("section.export")}>
+			${tabs.map(
+				(tab) => html`
+					<button
+						type="button"
+						role="tab"
+						aria-selected=${activeTab === tab.id}
+						class=${
+							activeTab === tab.id
+								? "workbench-tab workbench-tab--active"
+								: "workbench-tab"
+						}
+						onClick=${() => setActiveTab(tab.id)}
+					>
+						${tab.label}
+					</button>
+				`,
+			)}
+		</div>
+	`;
+}
+
 export function SidePanel({ store, controller, locale, t }) {
+	const [activeInspectorTab, setActiveInspectorTab] =
+		useState(INSPECTOR_TAB_CAMERA);
+	const [draggedAssetId, setDraggedAssetId] = useState(null);
+	const [dragHoverState, setDragHoverState] = useState(null);
 	const mode = store.mode.value;
 	const modeLabel = store.modeLabel.value;
 	const sceneUnitBadge = store.sceneUnitBadge.value;
@@ -627,10 +1174,21 @@ export function SidePanel({ store, controller, locale, t }) {
 	const sceneSummary = store.sceneSummary.value;
 	const sceneScaleSummary = store.sceneScaleSummary.value;
 	const sceneAssets = store.sceneAssets.value;
+	const selectedSceneAsset = store.selectedSceneAsset.value;
 	const activeShotCamera = store.workspace.activeShotCamera.value;
 	const shotCameraClipMode = store.shotCamera.clippingMode.value;
+	const exportFormat = store.shotCamera.exportFormat.value;
+	const exportGridOverlay = store.shotCamera.exportGridOverlay.value;
+	const exportGridLayerMode = store.shotCamera.exportGridLayerMode.value;
+	const exportModelLayers = store.shotCamera.exportModelLayers.value;
+	const exportSplatLayers = store.shotCamera.exportSplatLayers.value;
 	const cameraSummary = store.cameraSummary.value;
 	const fovLabel = store.fovLabel.value;
+	const equivalentMmValue = store.equivalentMmValue.value;
+	const equivalentMmLabel = store.equivalentMmLabel.value;
+	const viewportFovLabel = store.viewportFovLabel.value;
+	const viewportEquivalentMmValue = store.viewportEquivalentMmValue.value;
+	const viewportEquivalentMmLabel = store.viewportEquivalentMmLabel.value;
 	const frameDocuments = store.frames.documents.value;
 	const activeFrameId = store.frames.activeId.value;
 	const frameCount = store.frames.count.value;
@@ -638,67 +1196,124 @@ export function SidePanel({ store, controller, locale, t }) {
 	const exportSizeLabel = store.exportSizeLabel.value;
 	const widthLabel = store.widthLabel.value;
 	const heightLabel = store.heightLabel.value;
-	const zoomLabel = store.zoomLabel.value;
 	const exportBusy = store.exportBusy.value;
 	const exportStatusLabel = store.exportStatusLabel.value;
 	const exportTarget = store.exportOptions.target.value;
 	const exportPresetIds = store.exportOptions.presetIds.value;
+	const exportFormatLabel =
+		exportTarget === "current"
+			? t(`exportFormat.${exportFormat}`)
+			: t("field.exportFormat");
 	const exportSelectionMissing =
 		exportTarget === "selected" && exportPresetIds.length === 0;
 	const anchorOptions = getAnchorOptions(locale);
 
 	return html`
-		<aside class="side-panel">
-			${renderHeader({ controller, locale, t })}
-			${renderViewSection({ controller, mode, modeLabel, t })}
-			${renderSceneSection({
-				controller,
-				sceneAssets,
-				sceneBadge,
-				sceneScaleSummary,
-				sceneSummary,
-				sceneUnitBadge,
-				store,
-				t,
-			})}
-			${renderShotCameraSection({
-				activeShotCamera,
-				cameraSummary,
-				controller,
-				fovLabel,
-				shotCameraClipMode,
-				store,
-				t,
-			})}
-			${renderFramesSection({
-				activeFrameId,
-				controller,
-				frameCount,
-				frameDocuments,
-				frameLimitReached,
-				t,
-			})}
-			${renderOutputFrameSection({
-				anchorOptions,
-				controller,
-				exportSizeLabel,
-				heightLabel,
-				store,
-				t,
-				widthLabel,
-				zoomLabel,
-			})}
-			${renderExportSection({
-				controller,
-				exportBusy,
-				exportPresetIds,
-				exportSelectionMissing,
-				exportStatusLabel,
-				exportTarget,
-				store,
-				t,
-			})}
-			${renderFooter({ store })}
-		</aside>
+		<div class="workbench-shell">
+			<div class="workbench-column workbench-column--left">
+				<section class="workbench-card workbench-card--topbar">
+					${renderHeader({ t, compact: true })}
+					${renderViewSection({
+						controller,
+						mode,
+						modeLabel,
+						store,
+						t,
+						viewportEquivalentMmLabel,
+						viewportEquivalentMmValue,
+						viewportFovLabel,
+					})}
+					${renderFooter({ store })}
+				</section>
+				<section class="workbench-card workbench-card--scene">
+					${renderSceneSection({
+						controller,
+						sceneAssets,
+						sceneBadge,
+						sceneScaleSummary,
+						sceneSummary,
+						sceneUnitBadge,
+						selectedSceneAsset,
+						store,
+						t,
+						draggedAssetId,
+						setDraggedAssetId,
+						dragHoverState,
+						setDragHoverState,
+					})}
+				</section>
+			</div>
+			<div class="workbench-column workbench-column--right">
+				<section class="workbench-card workbench-card--inspector">
+					${renderInspectorTabs({
+						activeTab: activeInspectorTab,
+						setActiveTab: setActiveInspectorTab,
+						t,
+					})}
+					<div class="workbench-inspector-stack">
+						${
+							activeInspectorTab === INSPECTOR_TAB_CAMERA &&
+							html`
+								${renderShotCameraSection({
+									activeShotCamera,
+									cameraSummary,
+									controller,
+									equivalentMmLabel,
+									equivalentMmValue,
+									fovLabel,
+									shotCameraClipMode,
+									store,
+									t,
+								})}
+								${renderOutputFrameSection({
+									anchorOptions,
+									controller,
+									exportSizeLabel,
+									heightLabel,
+									store,
+									t,
+									widthLabel,
+								})}
+								${renderFramesSection({
+									activeFrameId,
+									controller,
+									frameCount,
+									frameDocuments,
+									frameLimitReached,
+									t,
+								})}
+							`
+						}
+						${
+							activeInspectorTab === INSPECTOR_TAB_EXPORT &&
+							html`
+								${renderExportSettingsSection({
+									activeShotCamera,
+									controller,
+									exportFormat,
+									exportGridLayerMode,
+									exportGridOverlay,
+									exportModelLayers,
+									exportSplatLayers,
+									store,
+									t,
+								})}
+								${renderExportSection({
+									controller,
+									exportBusy,
+									exportFormatLabel,
+									exportPresetIds,
+									exportSelectionMissing,
+									exportStatusLabel,
+									exportTarget,
+									store,
+									t,
+								})}
+							`
+						}
+					</div>
+				</section>
+			</div>
+		</div>
 	`;
 }

@@ -221,8 +221,11 @@ export function createShotCameraDocument({ id, name, source } = {}) {
 				},
 				exportSettings: {
 					exportName: "",
-					exportFormat: "png",
-					exportGridOverlay: false,
+					exportFormat: "psd",
+					exportGridOverlay: true,
+					exportGridLayerMode: "bottom",
+					exportModelLayers: true,
+					exportSplatLayers: true,
 				},
 				frames: createDefaultFrameDocuments(),
 				activeFrameId: getFrameDocumentId(1),
@@ -338,10 +341,19 @@ export function cloneShotCameraDocument(documentState) {
 		},
 		exportSettings: {
 			exportName: documentState.exportSettings?.exportName ?? "",
-			exportFormat: documentState.exportSettings?.exportFormat ?? "png",
+			exportFormat: documentState.exportSettings?.exportFormat ?? "psd",
 			exportGridOverlay: Boolean(
 				documentState.exportSettings?.exportGridOverlay,
 			),
+			exportGridLayerMode:
+				documentState.exportSettings?.exportGridLayerMode === "overlay"
+					? "overlay"
+					: "bottom",
+			exportModelLayers: Boolean(
+				documentState.exportSettings?.exportModelLayers,
+			),
+			exportSplatLayers:
+				documentState.exportSettings?.exportSplatLayers ?? true,
 		},
 		frames,
 		activeFrameId: documentState.activeFrameId ?? frames[0]?.id ?? null,

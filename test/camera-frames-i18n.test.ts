@@ -1,5 +1,10 @@
 import assert from "node:assert/strict";
-import { getAnchorLabel, getAnchorOptions, translate } from "../src/i18n.js";
+import {
+	getAnchorLabel,
+	getAnchorOptions,
+	resolveInitialLocale,
+	translate,
+} from "../src/i18n.js";
 
 assert.equal(translate("ja", "mode.viewport"), "ビューポート");
 assert.equal(translate("en", "section.outputFrame"), "Output Frame");
@@ -20,5 +25,25 @@ assert.equal(translate("ja", "frame.defaultName", { index: "C" }), "FRAME C");
 assert.equal(getAnchorLabel("ja", "center"), "中央");
 assert.equal(getAnchorOptions("en")[0].label, "Top Left");
 assert.equal(translate("en", "missing.key"), "missing.key");
+assert.equal(
+	resolveInitialLocale({ search: "?lang=en", navigatorLanguages: ["ja-JP"] }),
+	"en",
+);
+assert.equal(
+	resolveInitialLocale({
+		search: "",
+		navigatorLanguages: ["en-US", "ja-JP"],
+		navigatorLanguage: "ja-JP",
+	}),
+	"en",
+);
+assert.equal(
+	resolveInitialLocale({
+		search: "",
+		navigatorLanguages: [],
+		navigatorLanguage: "fr-FR",
+	}),
+	"ja",
+);
 
 console.log("✅ CAMERA_FRAMES i18n tests passed!");

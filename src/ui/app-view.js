@@ -9,16 +9,16 @@ export function AppView({ store, controller, refs }) {
 
 	return html`
 		<div class="app-shell">
-			<${SidePanel}
-				store=${store}
-				controller=${controller}
-				locale=${locale}
-				t=${t}
-			/>
 			<${ViewportShell}
 				store=${store}
 				controller=${controller}
 				refs=${refs}
+				t=${t}
+			/>
+			<${SidePanel}
+				store=${store}
+				controller=${controller}
+				locale=${locale}
 				t=${t}
 			/>
 		</div>

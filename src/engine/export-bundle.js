@@ -1,3 +1,5 @@
+import { renderLayersToCanvas } from "./linear-composite.js";
+
 const DEFAULT_BLEND_MODE = "source-over";
 const DEFAULT_RENDER_LAYER_NAME = "Render";
 const DEFAULT_RENDER_PASS_NAME = "Beauty";
@@ -117,8 +119,14 @@ export function createExportBundle({
 }
 
 export function getExportBundlePasses(bundle = {}) {
+	return getAllExportBundlePasses(bundle).filter(
+		(pass) => pass?.enabled !== false,
+	);
+}
+
+export function getAllExportBundlePasses(bundle = {}) {
 	if (Array.isArray(bundle.passes) && bundle.passes.length > 0) {
-		return bundle.passes.filter((pass) => pass?.enabled !== false);
+		return bundle.passes.filter(Boolean);
 	}
 
 	return createExportBundle(bundle).passes;
@@ -162,6 +170,35 @@ export function flattenExportBundleLayers(bundle = {}) {
 	);
 }
 
+export function createExportBundleManifest(bundle = {}) {
+	const resolvedBundle = createExportBundle(bundle);
+	return {
+		width: resolvedBundle.width,
+		height: resolvedBundle.height,
+		sceneAssets: resolvedBundle.sceneAssets ?? [],
+		readiness: resolvedBundle.readiness ?? null,
+		passes: getAllExportBundlePasses(resolvedBundle).map((pass) => ({
+			id: pass.id,
+			name: pass.name,
+			category: pass.category,
+			enabled: pass.enabled !== false,
+			metadata: pass.metadata ?? null,
+			layers: (pass.layers ?? []).map((layer) => ({
+				type: layer.type,
+				name: layer.name,
+				category: layer.category ?? null,
+				opacity: Number.isFinite(layer.opacity) ? layer.opacity : 1,
+				blendMode: layer.blendMode ?? DEFAULT_BLEND_MODE,
+				left: layer.left ?? 0,
+				top: layer.top ?? 0,
+				width: layer.width ?? layer.canvas?.width ?? null,
+				height: layer.height ?? layer.canvas?.height ?? null,
+				metadata: layer.metadata ?? null,
+			})),
+		})),
+	};
+}
+
 function drawPixelLayer(context, layer, bundleWidth, bundleHeight) {
 	if (!layer?.pixels) {
 		return;
@@ -173,32 +210,18 @@ function drawPixelLayer(context, layer, bundleWidth, bundleHeight) {
 	const previousBlendMode = context.globalCompositeOperation;
 	context.globalAlpha = Number.isFinite(layer.opacity) ? layer.opacity : 1;
 	context.globalCompositeOperation = layer.blendMode ?? DEFAULT_BLEND_MODE;
-
-	if (
-		layer.left === 0 &&
-		layer.top === 0 &&
-		layerWidth === bundleWidth &&
-		layerHeight === bundleHeight &&
-		context.globalAlpha === 1 &&
-		context.globalCompositeOperation === DEFAULT_BLEND_MODE
-	) {
-		const imageData = context.createImageData(layerWidth, layerHeight);
-		imageData.data.set(layer.pixels);
-		context.putImageData(imageData, 0, 0);
-	} else {
-		const layerCanvas = document.createElement("canvas");
-		layerCanvas.width = layerWidth;
-		layerCanvas.height = layerHeight;
-		const layerContext = layerCanvas.getContext("2d");
-		if (!layerContext) {
-			throw new Error("Failed to acquire the 2D context for pixel layer.");
-		}
-
-		const imageData = layerContext.createImageData(layerWidth, layerHeight);
-		imageData.data.set(layer.pixels);
-		layerContext.putImageData(imageData, 0, 0);
-		context.drawImage(layerCanvas, layer.left ?? 0, layer.top ?? 0);
+	const layerCanvas = document.createElement("canvas");
+	layerCanvas.width = layerWidth;
+	layerCanvas.height = layerHeight;
+	const layerContext = layerCanvas.getContext("2d");
+	if (!layerContext) {
+		throw new Error("Failed to acquire the 2D context for pixel layer.");
 	}
+
+	const imageData = layerContext.createImageData(layerWidth, layerHeight);
+	imageData.data.set(layer.pixels);
+	layerContext.putImageData(imageData, 0, 0);
+	context.drawImage(layerCanvas, layer.left ?? 0, layer.top ?? 0);
 
 	context.globalAlpha = previousAlpha;
 	context.globalCompositeOperation = previousBlendMode;
@@ -220,34 +243,45 @@ export function renderExportBundleToCanvas({
 	if (!context) {
 		throw new Error("Failed to acquire the 2D context for export bundle.");
 	}
+	const compositeCanvas = renderLayersToCanvas({
+		width,
+		height,
+		layers: flattenExportBundleLayers(
+			createExportBundle({
+				width,
+				height,
+				sceneAssets,
+				passes,
+				basePixels,
+				layers,
+			}),
+		),
+	});
+	context.drawImage(compositeCanvas, 0, 0);
+	return canvas;
+}
 
-	for (const layer of flattenExportBundleLayers(
-		createExportBundle({
-			width,
-			height,
-			sceneAssets,
-			passes,
-			basePixels,
-			layers,
-		}),
-	)) {
-		if (layer.type === "pixels") {
-			drawPixelLayer(context, layer, width, height);
-			continue;
-		}
-
-		if (!layer?.canvas) {
-			continue;
-		}
-
-		const previousAlpha = context.globalAlpha;
-		const previousBlendMode = context.globalCompositeOperation;
-		context.globalAlpha = Number.isFinite(layer.opacity) ? layer.opacity : 1;
-		context.globalCompositeOperation = layer.blendMode ?? DEFAULT_BLEND_MODE;
-		context.drawImage(layer.canvas, layer.left ?? 0, layer.top ?? 0);
-		context.globalAlpha = previousAlpha;
-		context.globalCompositeOperation = previousBlendMode;
+export function renderExportPassToCanvas(bundle, passOrId) {
+	const resolvedBundle = createExportBundle(bundle);
+	const pass =
+		typeof passOrId === "string"
+			? (getAllExportBundlePasses(resolvedBundle).find(
+					(entry) => entry.id === passOrId,
+				) ?? null)
+			: (passOrId ?? null);
+	if (!pass) {
+		throw new Error("Export pass was not found.");
 	}
 
-	return canvas;
+	return renderExportBundleToCanvas({
+		width: resolvedBundle.width,
+		height: resolvedBundle.height,
+		sceneAssets: resolvedBundle.sceneAssets,
+		passes: [
+			{
+				...pass,
+				enabled: true,
+			},
+		],
+	});
 }

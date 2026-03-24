@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
 	createExportBundle,
+	createExportBundleManifest,
 	createExportPass,
 	createPixelLayer,
 	createRasterLayer,
@@ -101,6 +102,32 @@ const overlayCanvas = {
 	assert.equal(flattened.length, 2);
 	assert.equal(flattened[0].name, "Render");
 	assert.equal(flattened[1].name, "FRAME");
+
+	const manifest = createExportBundleManifest(bundle);
+	assert.equal(manifest.width, 1);
+	assert.equal(manifest.height, 1);
+	assert.equal(manifest.passes.length, 2);
+	assert.deepEqual(manifest.passes[0], {
+		id: "beauty",
+		name: "Beauty",
+		category: "render",
+		enabled: true,
+		metadata: null,
+		layers: [
+			{
+				type: "pixels",
+				name: "Render",
+				category: "render",
+				opacity: 1,
+				blendMode: "source-over",
+				left: 0,
+				top: 0,
+				width: 1,
+				height: 1,
+				metadata: null,
+			},
+		],
+	});
 }
 
 console.log("✅ CAMERA_FRAMES export bundle tests passed!");

@@ -1,3 +1,5 @@
+import * as THREE from "three";
+import { GUIDE_GRID_LAYER_MODE_BOTTOM } from "../engine/guide-overlays.js";
 import { bindInputRouter } from "../interactions/input-router.js";
 import {
 	WORKSPACE_PANE_CAMERA,
@@ -47,6 +49,8 @@ export function createRuntimeController({
 	fpsMovement,
 	pointerControls,
 	getActiveCamera,
+	guideOverlay,
+	syncGuideOverlayState,
 	syncViewportProjection,
 	syncShotProjection,
 	applyCameraViewProjection,
@@ -87,6 +91,8 @@ export function createRuntimeController({
 			isZoomInteractionMode,
 			applyNavigateInteractionMode,
 			state,
+			fpsMovement,
+			pointerControls,
 			isFrameSelectionActive,
 			clearFrameSelection,
 			clearOutputFrameSelection,
@@ -127,35 +133,56 @@ export function createRuntimeController({
 		syncViewportProjection();
 		syncShotProjection();
 		applyCameraViewProjection();
+		syncGuideOverlayState();
 
 		updateShotCameraHelpers();
-
-		renderer.render(
-			scene,
+		const renderCamera =
 			state.mode === WORKSPACE_PANE_CAMERA
 				? getActiveCameraViewCamera()
-				: viewportCamera,
-		);
+				: viewportCamera;
+		const guideState = guideOverlay.captureState();
+		const previousAutoClear = renderer.autoClear;
+		const previousBackground = scene.background;
+		const previousClearAlpha = renderer.getClearAlpha();
+		const previousClearColor = renderer
+			.getClearColor(new THREE.Color())
+			.clone();
+		const clearColor = previousBackground?.isColor ? previousBackground : null;
+		renderer.autoClear = true;
+		renderer.setClearColor(clearColor ?? 0x08111d, 1);
+		renderer.clear();
+		if (
+			guideState.gridVisible &&
+			guideState.gridLayerMode === GUIDE_GRID_LAYER_MODE_BOTTOM
+		) {
+			guideOverlay.renderBackground(renderer, renderCamera);
+			renderer.autoClear = false;
+			scene.background = null;
+			renderer.render(scene, renderCamera);
+		} else {
+			scene.background = previousBackground;
+			renderer.autoClear = false;
+			renderer.render(scene, renderCamera);
+		}
+		guideOverlay.renderOverlay(renderer, renderCamera);
+		scene.background = previousBackground;
+		renderer.setClearColor(previousClearColor, previousClearAlpha);
+		renderer.autoClear = previousAutoClear;
 		updateOutputFrameOverlay();
 		updateCameraSummary();
 	}
 
 	function init() {
 		document.body.dataset.mode = state.mode;
-		store.sceneSummary.value = t("scene.summaryEmpty");
-		store.sceneScaleSummary.value = t("scene.scaleDefault");
+		store.sceneSummary.value = "";
+		store.sceneScaleSummary.value = "";
 		store.exportSummary.value = t("exportSummary.empty");
-		setStatus(t("status.ready"));
+		setStatus("");
 		setExportStatus("export.idle");
 		updateUi();
 		frameAllCameras();
 		syncControlsToMode();
 		applyInitialNavigateInteractionMode();
-		setStatus(
-			t("status.navigationActive", {
-				speed: formatNumber(fpsMovement.moveSpeed, 1),
-			}),
-		);
 		handleResize();
 		bindViewportInteractions();
 		renderer.setAnimationLoop(animate);

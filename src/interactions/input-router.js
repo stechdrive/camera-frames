@@ -14,6 +14,8 @@ export function bindInputRouter({
 	isZoomInteractionMode,
 	applyNavigateInteractionMode,
 	state,
+	fpsMovement,
+	pointerControls,
 	isFrameSelectionActive,
 	clearFrameSelection,
 	clearOutputFrameSelection,
@@ -35,6 +37,18 @@ export function bindInputRouter({
 	handleFrameAnchorDragEnd,
 	startOutputFrameAnchorDrag,
 }) {
+	function syncInteractiveInputNavigationState(isInteractiveInputFocused) {
+		if (isInteractiveInputFocused) {
+			fpsMovement.enable = false;
+			pointerControls.enable = false;
+			return;
+		}
+
+		const navigationEnabled = state.interactionMode === "navigate";
+		fpsMovement.enable = navigationEnabled;
+		pointerControls.enable = navigationEnabled;
+	}
+
 	listen(viewportShell, "dragover", (event) => {
 		event.preventDefault();
 		dropHint.classList.remove("is-hidden");
@@ -63,6 +77,24 @@ export function bindInputRouter({
 
 	listen(window, "resize", () => {
 		updateOutputFrameOverlay();
+	});
+
+	listen(window, "focusin", (event) => {
+		if (!isInteractiveTextTarget(event.target)) {
+			return;
+		}
+		syncInteractiveInputNavigationState(true);
+	});
+
+	listen(window, "focusout", (event) => {
+		if (!isInteractiveTextTarget(event.target)) {
+			return;
+		}
+		queueMicrotask(() => {
+			syncInteractiveInputNavigationState(
+				isInteractiveTextTarget(document.activeElement),
+			);
+		});
 	});
 
 	listen(viewportShell, "pointerdown", (event) => {
