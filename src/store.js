@@ -33,6 +33,7 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	const shotCameras = signal(createDefaultShotCameraDocuments());
 	const activeShotCameraId = signal(shotCameras.value[0].id);
 	const viewportBaseFovX = signal(60);
+	const workbenchCollapsed = signal(false);
 
 	const remoteUrl = signal("");
 	const sceneBadge = signal(translate(initialLocale, "scene.badgeEmpty"));
@@ -51,6 +52,7 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	);
 	const cameraSummary = signal("");
 	const statusLine = signal(translate(initialLocale, "status.ready"));
+	const overlay = signal(null);
 	const exportBusy = signal(false);
 	const exportStatusKey = signal("export.idle");
 	const exportSummary = signal(translate(initialLocale, "exportSummary.empty"));
@@ -183,6 +185,7 @@ export function createCameraFramesStore(runtimeInfo = null) {
 			activeShotCameraId,
 			activeShotCamera,
 		},
+		workbenchCollapsed,
 		viewportBaseFovX,
 		mode,
 		baseFovX,
@@ -222,6 +225,7 @@ export function createCameraFramesStore(runtimeInfo = null) {
 		selectedSceneAsset,
 		cameraSummary,
 		statusLine,
+		overlay,
 		exportBusy,
 		exportStatusKey,
 		exportStatusLabel,

@@ -61,6 +61,7 @@ export function createRuntimeController({
 	t,
 	formatNumber,
 	frameAllCameras,
+	placeAllCamerasAtHome,
 	syncControlsToMode,
 	applyInitialNavigateInteractionMode,
 	loadStartupUrls,
@@ -169,7 +170,6 @@ export function createRuntimeController({
 		renderer.setClearColor(previousClearColor, previousClearAlpha);
 		renderer.autoClear = previousAutoClear;
 		updateOutputFrameOverlay();
-		updateCameraSummary();
 	}
 
 	function init() {
@@ -180,7 +180,7 @@ export function createRuntimeController({
 		setStatus("");
 		setExportStatus("export.idle");
 		updateUi();
-		frameAllCameras();
+		placeAllCamerasAtHome();
 		syncControlsToMode();
 		applyInitialNavigateInteractionMode();
 		handleResize();

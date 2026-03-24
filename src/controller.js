@@ -405,6 +405,7 @@ export function createCameraFramesController(elements, store) {
 		updateUi,
 		updateCameraSummary,
 		frameAllCameras,
+		placeAllCamerasAtHome,
 		resetLocalizedCaches,
 		setExportStatus,
 		t,
@@ -446,11 +447,13 @@ export function createCameraFramesController(elements, store) {
 
 	sceneFramingController = createSceneFramingController({
 		getSceneBounds,
+		getSceneFramingBounds: () => assetController.getSceneFramingBounds(),
 		viewportCamera,
 		shotCameraRegistry,
 		syncShotCameraEntryFromDocument: (entry) =>
 			cameraController?.syncShotCameraEntryFromDocument(entry),
 		syncControlsToMode: () => interactionController?.syncControlsToMode(),
+		fpsMovement,
 	});
 
 	cameraController = createCameraController({
@@ -472,6 +475,8 @@ export function createCameraFramesController(elements, store) {
 		applyNavigateInteractionMode: () =>
 			interactionController?.applyNavigateInteractionMode({ silent: true }),
 		copyPose: (...args) => sceneFramingController.copyPose(...args),
+		placeCameraAtHome: (...args) =>
+			sceneFramingController.placeCameraAtHome(...args),
 		frameCamera: (...args) => sceneFramingController.frameCamera(...args),
 		syncControlsToMode: () => interactionController?.syncControlsToMode(),
 	});
@@ -618,6 +623,7 @@ export function createCameraFramesController(elements, store) {
 		t,
 		formatNumber,
 		frameAllCameras,
+		placeAllCamerasAtHome,
 		syncControlsToMode,
 		applyInitialNavigateInteractionMode: () =>
 			interactionController?.applyNavigateInteractionMode({ silent: true }),
@@ -764,6 +770,10 @@ export function createCameraFramesController(elements, store) {
 
 	function frameAllCameras() {
 		return sceneFramingController.frameAllCameras();
+	}
+
+	function placeAllCamerasAtHome() {
+		return sceneFramingController.placeAllCamerasAtHome();
 	}
 
 	function handleResize() {

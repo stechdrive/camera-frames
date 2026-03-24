@@ -157,6 +157,7 @@ export function createUiSyncController({
 		renderBox.classList.toggle("is-selected", state.outputFrameSelected);
 		updateOutputFrameOverlay();
 		updateSceneSummary();
+		updateCameraSummary();
 		updateDropHint();
 	}
 

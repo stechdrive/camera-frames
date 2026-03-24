@@ -1,5 +1,6 @@
 import { PackedSplats, unpackSplats } from "@sparkjsdev/spark";
 import * as THREE from "three";
+import { validateStartupUrls } from "../engine/import-link-policy.js";
 import { moveSceneAssetWithinKind } from "../engine/scene-asset-order.js";
 import { applyLegacyAssetState } from "../importers/legacy-ssproj.js";
 import {
@@ -108,6 +109,7 @@ export function createAssetController({
 	updateUi,
 	updateCameraSummary,
 	frameAllCameras,
+	placeAllCamerasAtHome,
 	resetLocalizedCaches,
 	setExportStatus,
 	t,
@@ -118,6 +120,136 @@ export function createAssetController({
 	applyProjectPackageImport,
 	disposeObject,
 }) {
+	const reportedSplatBoundsWarnings = new Set();
+
+	function setOverlay(nextOverlay) {
+		store.overlay.value = nextOverlay;
+	}
+
+	function clearOverlay() {
+		store.overlay.value = null;
+	}
+
+	function createImportSteps(activeStep) {
+		const steps = [
+			{ key: "verify", label: t("overlay.importPhaseVerify") },
+			{ key: "expand", label: t("overlay.importPhaseExpand") },
+			{ key: "load", label: t("overlay.importPhaseLoad") },
+			{ key: "apply", label: t("overlay.importPhaseApply") },
+		];
+		const activeIndex = steps.findIndex((step) => step.key === activeStep);
+		return steps.map((step, index) => ({
+			...step,
+			status:
+				index < activeIndex
+					? "done"
+					: index === activeIndex
+						? "active"
+						: "pending",
+		}));
+	}
+
+	function showImportProgress(step, detail = "") {
+		setOverlay({
+			kind: "progress",
+			title: t("overlay.importTitle"),
+			message: t("overlay.importMessage"),
+			detail,
+			steps: createImportSteps(step),
+		});
+	}
+
+	function reportSplatBoundsWarningOnce(asset, message, details) {
+		if (!import.meta.env.DEV || !asset) {
+			return;
+		}
+
+		const key = `${asset.id}:${message}`;
+		if (reportedSplatBoundsWarnings.has(key)) {
+			return;
+		}
+
+		reportedSplatBoundsWarnings.add(key);
+		console.warn(`[CAMERA_FRAMES] ${message}`, {
+			label: asset.label,
+			...details,
+		});
+	}
+
+	function showImportError(
+		error,
+		{
+			title = t("overlay.importErrorTitle"),
+			message = t("overlay.importErrorMessageGeneric"),
+			urls = [],
+		} = {},
+	) {
+		setOverlay({
+			kind: "error",
+			title,
+			message,
+			detail: error?.message || String(error),
+			detailLabel: t("overlay.errorDetails"),
+			urls,
+			actions: [
+				{
+					label: t("action.openFiles"),
+					onClick: () => {
+						clearOverlay();
+						openFiles();
+					},
+				},
+				{
+					label: t("action.close"),
+					primary: true,
+					onClick: () => clearOverlay(),
+				},
+			],
+		});
+	}
+
+	function getBlockedStartupReasonLabel(reason) {
+		switch (reason) {
+			case "https-only":
+				return t("overlay.blockedStartupReasonHttps");
+			case "private-host":
+				return t("overlay.blockedStartupReasonPrivate");
+			default:
+				return t("overlay.blockedStartupReasonInvalid");
+		}
+	}
+
+	function showBlockedStartupUrls(blockedUrls) {
+		const detail = blockedUrls
+			.map(
+				(entry) =>
+					`${entry.url}\n${getBlockedStartupReasonLabel(entry.reason)}`,
+			)
+			.join("\n\n");
+
+		setOverlay({
+			kind: "error",
+			title: t("overlay.blockedStartupTitle"),
+			message: t("overlay.blockedStartupMessage"),
+			detail,
+			detailLabel: t("overlay.errorDetails"),
+			actions: [
+				{
+					label: t("action.openFiles"),
+					onClick: () => {
+						clearOverlay();
+						openFiles();
+					},
+				},
+				{
+					label: t("action.close"),
+					primary: true,
+					onClick: () => clearOverlay(),
+				},
+			],
+		});
+	}
+
 	function getSceneAssetCounts() {
 		let splatCount = 0;
 		let modelCount = 0;
@@ -152,6 +284,8 @@ export function createAssetController({
 			label,
 			object,
 			disposeTarget,
+			localBoundsHint: null,
+			localCenterBoundsHint: null,
 			baseScale: object.scale.clone(),
 			unitMode: getDefaultAssetUnitMode(kind),
 			worldScale: 1,
@@ -191,10 +325,343 @@ export function createAssetController({
 		return Number.isFinite(nextValue) ? nextValue : fallback;
 	}
 
-	function getSceneBounds() {
-		const box = new THREE.Box3().setFromObject(contentRoot);
-		if (box.isEmpty()) {
+	function isFiniteBox(box) {
+		if (!box || box.isEmpty()) {
+			return false;
+		}
+
+		return [
+			box.min.x,
+			box.min.y,
+			box.min.z,
+			box.max.x,
+			box.max.y,
+			box.max.z,
+		].every(Number.isFinite);
+	}
+
+	function isFiniteVector3(vector) {
+		return (
+			vector &&
+			Number.isFinite(vector.x) &&
+			Number.isFinite(vector.y) &&
+			Number.isFinite(vector.z)
+		);
+	}
+
+	function isFiniteQuaternion(quaternion) {
+		return (
+			quaternion &&
+			Number.isFinite(quaternion.x) &&
+			Number.isFinite(quaternion.y) &&
+			Number.isFinite(quaternion.z) &&
+			Number.isFinite(quaternion.w)
+		);
+	}
+
+	function transformBoxToWorld(box, matrixWorld) {
+		if (!isFiniteBox(box)) {
 			return null;
+		}
+
+		const worldBox = box.clone();
+		worldBox.applyMatrix4(matrixWorld);
+		return isFiniteBox(worldBox) ? worldBox : null;
+	}
+
+	function describeBox(box) {
+		if (!box) {
+			return null;
+		}
+
+		return {
+			empty: box.isEmpty(),
+			min: {
+				x: box.min.x,
+				y: box.min.y,
+				z: box.min.z,
+			},
+			max: {
+				x: box.max.x,
+				y: box.max.y,
+				z: box.max.z,
+			},
+		};
+	}
+
+	function getModelAssetBounds(asset) {
+		const box = new THREE.Box3().setFromObject(asset.object);
+		return isFiniteBox(box) ? box : null;
+	}
+
+	function buildSplatLocalBoundsFromIterator(splatMesh, centersOnly = false) {
+		if (typeof splatMesh?.forEachSplat !== "function") {
+			return null;
+		}
+
+		const box = new THREE.Box3();
+		const corner = new THREE.Vector3();
+		let hasSplats = false;
+		const signs = [-1, 1];
+
+		splatMesh.forEachSplat((_index, center, scales, quaternion) => {
+			if (!isFiniteVector3(center)) {
+				return;
+			}
+
+			hasSplats = true;
+			if (centersOnly) {
+				box.expandByPoint(center);
+				return;
+			}
+
+			if (!isFiniteVector3(scales) || !isFiniteQuaternion(quaternion)) {
+				box.expandByPoint(center);
+				return;
+			}
+
+			for (const x of signs) {
+				for (const y of signs) {
+					for (const z of signs) {
+						corner.set(x * scales.x, y * scales.y, z * scales.z);
+						corner.applyQuaternion(quaternion);
+						corner.add(center);
+						if (isFiniteVector3(corner)) {
+							box.expandByPoint(corner);
+						}
+					}
+				}
+			}
+		});
+
+		return hasSplats && isFiniteBox(box) ? box : null;
+	}
+
+	function buildSplatLocalBoundsFromSource(splatSource, centersOnly = false) {
+		return buildSplatLocalBoundsFromIterator(splatSource, centersOnly);
+	}
+
+	function computeTrimmedRange(sortedValues, trimFraction = 0.01) {
+		if (!Array.isArray(sortedValues) || sortedValues.length === 0) {
+			return null;
+		}
+
+		const trimCount =
+			sortedValues.length >= 256
+				? Math.min(
+						Math.floor(sortedValues.length * trimFraction),
+						Math.floor((sortedValues.length - 1) / 2),
+					)
+				: 0;
+		return {
+			min: sortedValues[trimCount],
+			max: sortedValues[sortedValues.length - 1 - trimCount],
+		};
+	}
+
+	function expandBoxByPadding(box, paddingFactor = 0.05) {
+		if (!isFiniteBox(box)) {
+			return null;
+		}
+
+		const size = box.getSize(new THREE.Vector3());
+		const padding = new THREE.Vector3(
+			Math.max(size.x * paddingFactor, 0.05),
+			Math.max(size.y * paddingFactor, 0.05),
+			Math.max(size.z * paddingFactor, 0.05),
+		);
+		return box.clone().expandByVector(padding);
+	}
+
+	function buildSplatFramingBoundsFromSource(
+		splatSource,
+		{ maxSamples = 32768, trimFraction = 0.01 } = {},
+	) {
+		if (typeof splatSource?.forEachSplat !== "function") {
+			return null;
+		}
+
+		const sampleStep = Math.max(
+			1,
+			Math.ceil((Number(splatSource?.numSplats) || 0) / maxSamples),
+		);
+		const xs = [];
+		const ys = [];
+		const zs = [];
+
+		splatSource.forEachSplat((index, center) => {
+			if (index % sampleStep !== 0 || !isFiniteVector3(center)) {
+				return;
+			}
+			xs.push(center.x);
+			ys.push(center.y);
+			zs.push(center.z);
+		});
+
+		if (xs.length === 0) {
+			return null;
+		}
+
+		xs.sort((a, b) => a - b);
+		ys.sort((a, b) => a - b);
+		zs.sort((a, b) => a - b);
+
+		const xRange = computeTrimmedRange(xs, trimFraction);
+		const yRange = computeTrimmedRange(ys, trimFraction);
+		const zRange = computeTrimmedRange(zs, trimFraction);
+		if (!xRange || !yRange || !zRange) {
+			return null;
+		}
+
+		const trimmedBox = new THREE.Box3(
+			new THREE.Vector3(xRange.min, yRange.min, zRange.min),
+			new THREE.Vector3(xRange.max, yRange.max, zRange.max),
+		);
+		return expandBoxByPadding(trimmedBox);
+	}
+
+	function getSplatAssetBounds(asset, centersOnly = false) {
+		const splatMesh = asset.disposeTarget;
+		const hintedWorldBox = transformBoxToWorld(
+			centersOnly ? asset.localCenterBoundsHint : asset.localBoundsHint,
+			splatMesh?.matrixWorld ?? asset.object.matrixWorld,
+		);
+		if (hintedWorldBox) {
+			return hintedWorldBox;
+		}
+
+		if (typeof splatMesh?.getBoundingBox !== "function") {
+			return getModelAssetBounds(asset);
+		}
+
+		try {
+			asset.object.updateMatrixWorld(true);
+			const worldMatrix = splatMesh.matrixWorld;
+			if (centersOnly && !asset.localCenterBoundsHint) {
+				const framingLocalBox = buildSplatFramingBoundsFromSource(splatMesh);
+				const framingWorldBox = transformBoxToWorld(
+					framingLocalBox,
+					worldMatrix,
+				);
+				if (framingWorldBox) {
+					asset.localCenterBoundsHint = framingLocalBox.clone();
+					return framingWorldBox;
+				}
+			}
+
+			const directLocalBox = splatMesh.getBoundingBox(centersOnly);
+			const directWorldBox = transformBoxToWorld(directLocalBox, worldMatrix);
+			if (directWorldBox) {
+				return directWorldBox;
+			}
+
+			const centerLocalBox = centersOnly
+				? directLocalBox
+				: splatMesh.getBoundingBox(true);
+			const directCenterWorldBox = transformBoxToWorld(
+				centerLocalBox,
+				worldMatrix,
+			);
+			if (directCenterWorldBox) {
+				return directCenterWorldBox;
+			}
+
+			const iteratedLocalBox = buildSplatLocalBoundsFromIterator(
+				splatMesh,
+				centersOnly,
+			);
+			const iteratedWorldBox = transformBoxToWorld(
+				iteratedLocalBox,
+				worldMatrix,
+			);
+			if (iteratedWorldBox) {
+				return iteratedWorldBox;
+			}
+
+			const iteratedCenterLocalBox = centersOnly
+				? iteratedLocalBox
+				: buildSplatLocalBoundsFromIterator(splatMesh, true);
+			const iteratedCenterWorldBox = transformBoxToWorld(
+				iteratedCenterLocalBox,
+				worldMatrix,
+			);
+			if (iteratedCenterWorldBox) {
+				return iteratedCenterWorldBox;
+			}
+
+			reportSplatBoundsWarningOnce(asset, "splat bounds unavailable", {
+				numSplats: splatMesh.numSplats,
+				hasPackedSplats: Boolean(splatMesh.packedSplats),
+				packedNumSplats: splatMesh.packedSplats?.numSplats ?? null,
+				hasExtSplats: Boolean(splatMesh.extSplats),
+				extNumSplats: splatMesh.extSplats?.numSplats ?? null,
+				directLocalBox: describeBox(directLocalBox),
+				centerLocalBox: describeBox(centerLocalBox),
+				iteratedLocalBox: describeBox(iteratedLocalBox),
+				iteratedCenterLocalBox: describeBox(iteratedCenterLocalBox),
+			});
+
+			return getModelAssetBounds(asset);
+		} catch {
+			reportSplatBoundsWarningOnce(asset, "splat bounds threw", {
+				numSplats: splatMesh?.numSplats ?? null,
+				hasPackedSplats: Boolean(splatMesh?.packedSplats),
+				hasExtSplats: Boolean(splatMesh?.extSplats),
+			});
+			return getModelAssetBounds(asset);
+		}
+	}
+
+	function getAssetBounds(asset, { centersOnlyForSplats = false } = {}) {
+		if (!asset?.object || asset.object.visible === false) {
+			return null;
+		}
+
+		return asset.kind === "splat"
+			? getSplatAssetBounds(asset, centersOnlyForSplats)
+			: getModelAssetBounds(asset);
+	}
+
+	function getSceneBounds() {
+		const box = new THREE.Box3();
+		let hasBounds = false;
+
+		for (const asset of sceneState.assets) {
+			const assetBounds = getAssetBounds(asset);
+			if (!assetBounds) {
+				continue;
+			}
+			box.union(assetBounds);
+			hasBounds = true;
+		}
+
+		if (!hasBounds || box.isEmpty()) {
+			return null;
+		}
+
+		return {
+			box,
+			size: box.getSize(new THREE.Vector3()),
+		};
+	}
+
+	function getSceneFramingBounds() {
+		const box = new THREE.Box3();
+		let hasBounds = false;
+
+		for (const asset of sceneState.assets) {
+			const assetBounds = getAssetBounds(asset, {
+				centersOnlyForSplats: true,
+			});
+			if (!assetBounds) {
+				continue;
+			}
+			box.union(assetBounds);
+			hasBounds = true;
+		}
+
+		if (!hasBounds || box.isEmpty()) {
+			return getSceneBounds();
 		}
 
 		return {
@@ -267,7 +734,11 @@ export function createAssetController({
 
 	async function loadSplatFromSource(source) {
 		const displayName = getDisplayName(source);
-		const createSplatContainer = (mesh) => {
+		const createSplatContainer = (
+			mesh,
+			localBoundsHint = null,
+			localCenterBoundsHint = null,
+		) => {
 			const legacyState = getLegacyState(source);
 			const object = new THREE.Group();
 			object.name = displayName;
@@ -282,21 +753,30 @@ export function createAssetController({
 				object.updateMatrixWorld(true);
 			}
 			splatRoot.add(object);
-			registerAsset({
+			const asset = registerAsset({
 				kind: "splat",
 				label: displayName,
 				object,
 				disposeTarget: mesh,
 			});
+			asset.localBoundsHint = localBoundsHint?.clone?.() ?? localBoundsHint;
+			asset.localCenterBoundsHint =
+				localCenterBoundsHint?.clone?.() ?? localCenterBoundsHint;
 			return object;
 		};
 
-		if (isProjectPackagePackedSplatSource(source)) {
+		const createPackedSplatMesh = async ({
+			fileName,
+			inputBytes,
+			extraFiles = undefined,
+			fileType = undefined,
+			pathOrUrl = undefined,
+		}) => {
 			const unpacked = await unpackSplats({
-				input: source.inputBytes,
-				extraFiles: source.extraFiles,
-				fileType: source.fileType,
-				pathOrUrl: source.path || source.fileName,
+				input: inputBytes,
+				extraFiles,
+				fileType,
+				pathOrUrl,
 			});
 			const packedSplats = new PackedSplats({
 				packedArray: unpacked.packedArray,
@@ -305,33 +785,51 @@ export function createAssetController({
 				splatEncoding: unpacked.splatEncoding,
 			});
 			await packedSplats.initialized;
+			const localBoundsHint =
+				buildSplatLocalBoundsFromSource(packedSplats, false) ??
+				buildSplatLocalBoundsFromSource(packedSplats, true);
+			const localCenterBoundsHint =
+				buildSplatFramingBoundsFromSource(packedSplats) ??
+				buildSplatLocalBoundsFromSource(packedSplats, true) ??
+				localBoundsHint;
 
 			const mesh = new SplatMesh({
 				packedSplats,
-				fileName: source.fileName,
+				fileName,
 				lod: true,
 			});
 			mesh.enableWorldToView = true;
 			await mesh.initialized;
-			return createSplatContainer(mesh);
+			return createSplatContainer(mesh, localBoundsHint, localCenterBoundsHint);
+		};
+
+		if (isProjectPackagePackedSplatSource(source)) {
+			return createPackedSplatMesh({
+				fileName: source.fileName,
+				inputBytes: source.inputBytes,
+				extraFiles: source.extraFiles,
+				fileType: source.fileType,
+				pathOrUrl: source.path || source.fileName,
+			});
 		}
 
-		const init =
-			typeof source === "string"
-				? { url: source, fileName: displayName, lod: true }
-				: isProjectPackageFileSource(source)
-					? {
-							fileBytes: new Uint8Array(await source.file.arrayBuffer()),
-							fileName: source.fileName,
-							lod: true,
-						}
-					: {
-							fileBytes: new Uint8Array(await source.arrayBuffer()),
-							fileName: source.name,
-							lod: true,
-						};
+		if (typeof source !== "string") {
+			const file = isProjectPackageFileSource(source) ? source.file : source;
+			const fileName = isProjectPackageFileSource(source)
+				? source.fileName
+				: source.name;
+			return createPackedSplatMesh({
+				fileName,
+				inputBytes: new Uint8Array(await file.arrayBuffer()),
+				pathOrUrl: fileName,
+			});
+		}
 
-		const mesh = new SplatMesh(init);
+		const mesh = new SplatMesh({
+			url: source,
+			fileName: displayName,
+			lod: true,
+		});
 		mesh.enableWorldToView = true;
 		await mesh.initialized;
 		return createSplatContainer(mesh);
@@ -379,9 +877,13 @@ export function createAssetController({
 		}
 	}
 
-	async function expandProjectPackageSources(sources) {
+	async function expandProjectPackageSources(sources, onProgress = null) {
 		const expandedSources = [];
 		const importStates = [];
+		const packageSources = sources.filter((source) =>
+			isProjectPackageSource(source),
+		);
+		let expandedPackageCount = 0;
 
 		for (const source of sources) {
 			if (!isProjectPackageSource(source)) {
@@ -390,6 +892,15 @@ export function createAssetController({
 			}
 
 			const packageName = getDisplayName(source);
+			expandedPackageCount += 1;
+			onProgress?.(
+				"expand",
+				t("overlay.importDetailExpandPackage", {
+					index: expandedPackageCount,
+					count: packageSources.length,
+					name: packageName,
+				}),
+			);
 			setStatus(t("status.expandingProjectPackage", { name: packageName }));
 			const { files, importState } = await extractProjectPackageAssets(source);
 			if (files.length === 0) {
@@ -437,13 +948,20 @@ export function createAssetController({
 		);
 	}
 
-	async function loadSources(sources, replace = false) {
+	async function loadSources(
+		sources,
+		replace = false,
+		{ onProgress = null } = {},
+	) {
 		if (!sources.length) {
 			return;
 		}
 
-		const { expandedSources, importStates } =
-			await expandProjectPackageSources(sources);
+		onProgress?.("verify");
+		const { expandedSources, importStates } = await expandProjectPackageSources(
+			sources,
+			onProgress,
+		);
 		if (!expandedSources.length) {
 			return;
 		}
@@ -458,23 +976,61 @@ export function createAssetController({
 
 		let loaded = 0;
 		for (const source of expandedSources) {
+			onProgress?.(
+				"load",
+				t("overlay.importDetailLoadAsset", {
+					index: loaded + 1,
+					count: expandedSources.length,
+					name: getDisplayName(source),
+				}),
+			);
 			await loadSource(source);
 			loaded += 1;
 		}
 
+		onProgress?.("apply", t("overlay.importDetailApply"));
 		const importedProjectState =
 			(replace || !hadAssetsBeforeLoad) &&
 			importStates.length > 0 &&
 			applyProjectPackageImport(importStates.at(-1));
 
 		if (!importedProjectState && (replace || !hadAssetsBeforeLoad)) {
-			frameAllCameras();
+			placeAllCamerasAtHome();
 		} else {
 			updateCameraSummary();
 		}
 
 		updateUi();
 		setStatus(t("status.loadedItems", { count: loaded }));
+	}
+
+	async function runImportTask(
+		sources,
+		{ replace = false, clearRemoteInput = false } = {},
+	) {
+		const remoteUrls = sources.filter((source) => typeof source === "string");
+		try {
+			showImportProgress("verify");
+			await loadSources(sources, replace, {
+				onProgress: (step, detail) => showImportProgress(step, detail),
+			});
+			clearOverlay();
+			if (clearRemoteInput) {
+				store.remoteUrl.value = "";
+			}
+			return true;
+		} catch (error) {
+			console.error(error);
+			setStatus(error.message);
+			showImportError(error, {
+				message:
+					remoteUrls.length > 0
+						? t("overlay.importErrorMessageRemote")
+						: t("overlay.importErrorMessageGeneric"),
+				urls: remoteUrls,
+			});
+			return false;
+		}
 	}
 
 	function parseInputUrls(value) {
@@ -496,7 +1052,7 @@ export function createAssetController({
 
 		sceneState.assets = [];
 		store.selectedSceneAssetId.value = null;
-		frameAllCameras();
+		placeAllCamerasAtHome();
 		resetLocalizedCaches();
 		updateUi();
 		store.exportSummary.value = t("exportSummary.empty");
@@ -696,13 +1252,14 @@ export function createAssetController({
 			return;
 		}
 
-		try {
-			await loadSources(urls);
-			store.remoteUrl.value = "";
-		} catch (error) {
-			console.error(error);
-			setStatus(error.message);
+		await runImportTask(urls, { clearRemoteInput: true });
+	}
+
+	async function importDroppedFiles(files) {
+		if (!files?.length) {
+			return false;
 		}
+		return runImportTask(files);
 	}
 
 	async function handleAssetInputChange(event) {
@@ -712,10 +1269,7 @@ export function createAssetController({
 		}
 
 		try {
-			await loadSources(files);
-		} catch (error) {
-			console.error(error);
-			setStatus(error.message);
+			await runImportTask(files);
 		} finally {
 			event.currentTarget.value = "";
 		}
@@ -727,17 +1281,36 @@ export function createAssetController({
 
 	async function loadStartupUrls() {
 		const params = new URLSearchParams(window.location.search);
-		const urls = params.getAll("url").filter(Boolean);
+		const urls = params.getAll("load").filter(Boolean);
 		if (urls.length === 0) {
 			return;
 		}
 
-		try {
-			await loadSources(urls);
-		} catch (error) {
-			console.error(error);
-			setStatus(error.message);
+		const validation = validateStartupUrls(urls);
+		if (validation.blocked.length > 0) {
+			showBlockedStartupUrls(validation.blocked);
+			return;
 		}
+
+		setOverlay({
+			kind: "confirm",
+			title: t("overlay.startupImportTitle"),
+			message: t("overlay.startupImportMessage"),
+			urls: validation.allowed,
+			actions: [
+				{
+					label: t("action.cancel"),
+					onClick: () => clearOverlay(),
+				},
+				{
+					label: t("action.continueLoad"),
+					primary: true,
+					onClick: async () => {
+						await runImportTask(validation.allowed);
+					},
+				},
+			],
+		});
 	}
 
 	return {
@@ -750,6 +1323,7 @@ export function createAssetController({
 		selectSceneAsset,
 		clampAssetWorldScale,
 		getSceneBounds,
+		getSceneFramingBounds,
 		getExtension,
 		getDisplayName,
 		loadSplatFromSource,
@@ -769,6 +1343,7 @@ export function createAssetController({
 		setAssetExportRole,
 		setAssetMaskGroup,
 		loadRemoteUrls,
+		importDroppedFiles,
 		handleAssetInputChange,
 		openFiles,
 		loadStartupUrls,

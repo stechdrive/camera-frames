@@ -132,14 +132,33 @@ function applyStandardFrameEquivalentMm(
 	);
 }
 
-function renderHeader({ t, compact = false }) {
+function renderHeader({
+	t,
+	compact = false,
+	collapsed = false,
+	onToggleCollapse,
+}) {
 	const buildVersionLabel = getBuildVersionLabel();
 	const buildCommitLabel = getBuildCommitLabel();
 	const codeStampLabel = getCodeStampLabel();
 
 	return html`
 		<header class=${compact ? "panel-header panel-header--compact" : "panel-header"}>
-			<h1>CAMERA_FRAMES</h1>
+			<div class="panel-header__title-row">
+				<h1>CAMERA_FRAMES</h1>
+				<button
+					type="button"
+					class="workbench-collapse-toggle"
+					aria-label=${
+						collapsed
+							? t("action.expandWorkbench")
+							: t("action.collapseWorkbench")
+					}
+					onClick=${onToggleCollapse}
+				>
+					${collapsed ? ">" : "<"}
+				</button>
+			</div>
 			<div class="build-meta build-meta--header">
 				<span class="pill pill--dim">${buildVersionLabel}</span>
 				${buildCommitLabel && html`<code class="build-commit">${buildCommitLabel}</code>`}
@@ -1167,6 +1186,7 @@ export function SidePanel({ store, controller, locale, t }) {
 		useState(INSPECTOR_TAB_CAMERA);
 	const [draggedAssetId, setDraggedAssetId] = useState(null);
 	const [dragHoverState, setDragHoverState] = useState(null);
+	const workbenchCollapsed = store.workbenchCollapsed.value;
 	const mode = store.mode.value;
 	const modeLabel = store.modeLabel.value;
 	const sceneUnitBadge = store.sceneUnitBadge.value;
@@ -1207,12 +1227,36 @@ export function SidePanel({ store, controller, locale, t }) {
 	const exportSelectionMissing =
 		exportTarget === "selected" && exportPresetIds.length === 0;
 	const anchorOptions = getAnchorOptions(locale);
+	const toggleWorkbenchCollapsed = () => {
+		store.workbenchCollapsed.value = !store.workbenchCollapsed.value;
+	};
+
+	if (workbenchCollapsed) {
+		return html`
+			<div class="workbench-collapse-chip-wrap">
+				<button
+					type="button"
+					class="workbench-collapse-chip"
+					aria-label=${t("action.expandWorkbench")}
+					onClick=${toggleWorkbenchCollapsed}
+				>
+					<span class="workbench-collapse-chip__title">CAMERA_FRAMES</span>
+					<span class="workbench-collapse-chip__icon">></span>
+				</button>
+			</div>
+		`;
+	}
 
 	return html`
 		<div class="workbench-shell">
 			<div class="workbench-column workbench-column--left">
 				<section class="workbench-card workbench-card--topbar">
-					${renderHeader({ t, compact: true })}
+					${renderHeader({
+						t,
+						compact: true,
+						collapsed: false,
+						onToggleCollapse: toggleWorkbenchCollapsed,
+					})}
 					${renderViewSection({
 						controller,
 						mode,

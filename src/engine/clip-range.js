@@ -54,6 +54,7 @@ export function getCameraSpaceDepthRange(box, camera) {
 
 export function getAutoClipRangeFromBounds({
 	box,
+	framingBox = null,
 	camera = null,
 	cameraPosition,
 	framingRadius,
@@ -78,6 +79,7 @@ export function getAutoClipRangeFromBounds({
 		y: (Number(box.min.y) + Number(box.max.y)) * 0.5,
 		z: (Number(box.min.z) + Number(box.max.z)) * 0.5,
 	};
+	const framingDepthRange = getCameraSpaceDepthRange(framingBox ?? box, camera);
 	const farthestCornerDistance = corners.reduce((maxDistance, corner) => {
 		return Math.max(maxDistance, distance3(cameraPosition, corner));
 	}, 0);
@@ -87,20 +89,33 @@ export function getAutoClipRangeFromBounds({
 		safeRadius * 40,
 		minFar,
 	);
-	const near = Math.max(
-		defaultAutoNear,
-		(depthRange?.nearestDepth ?? 0) * AUTO_NEAR_FACTOR,
-	);
 	const farFromDepth = depthRange?.farthestDepth
 		? depthRange.farthestDepth * farPaddingFactor
 		: 0;
+	const far = Math.max(
+		farFromDepth,
+		farthestCornerDistance * farPaddingFactor,
+		fallbackFar,
+	);
+	const nearestFramingDepth = framingDepthRange?.nearestDepth ?? 0;
+	const nearFloorFromFramingRadius = safeRadius / 150;
+	const nearFloorFromFar = far / 20000;
+	const nearUpperBound =
+		nearestFramingDepth > 0
+			? Math.max(defaultNear, nearestFramingDepth * 0.5)
+			: Number.POSITIVE_INFINITY;
+	const near = Math.min(
+		nearUpperBound,
+		Math.max(
+			defaultAutoNear,
+			nearestFramingDepth * AUTO_NEAR_FACTOR,
+			nearFloorFromFramingRadius,
+			nearFloorFromFar,
+		),
+	);
 
 	return {
 		near,
-		far: Math.max(
-			farFromDepth,
-			farthestCornerDistance * farPaddingFactor,
-			fallbackFar,
-		),
+		far,
 	};
 }
