@@ -40,13 +40,47 @@ export function createUiSyncController({
 	}
 
 	function syncSceneAssetRows() {
-		store.sceneAssets.value = sceneState.assets.map((asset) => ({
-			id: asset.id,
-			label: asset.label,
-			kindLabelKey: getAssetKindLabelKey(asset.kind),
-			unitModeLabelKey: getAssetUnitModeLabelKey(asset.unitMode),
-			worldScale: asset.worldScale,
-		}));
+		const kindOrderByAssetKind = new Map();
+		const rows = sceneState.assets.map((asset, index, assets) => {
+			const kindOrderIndex = (kindOrderByAssetKind.get(asset.kind) ?? 0) + 1;
+			kindOrderByAssetKind.set(asset.kind, kindOrderIndex);
+			return {
+				id: asset.id,
+				kind: asset.kind,
+				label: asset.label,
+				kindLabelKey: getAssetKindLabelKey(asset.kind),
+				unitModeLabelKey: getAssetUnitModeLabelKey(asset.unitMode),
+				worldScale: asset.worldScale,
+				visible: asset.object.visible !== false,
+				orderIndex: index + 1,
+				kindOrderIndex,
+				canMoveUp: index > 0,
+				canMoveDown: index < assets.length - 1,
+				exportRole: asset.exportRole ?? "beauty",
+				maskGroup: asset.maskGroup ?? "",
+				position: {
+					x: asset.object.position.x,
+					y: asset.object.position.y,
+					z: asset.object.position.z,
+				},
+				rotationDegrees: {
+					x: THREE.MathUtils.radToDeg(asset.object.rotation.x),
+					y: THREE.MathUtils.radToDeg(asset.object.rotation.y),
+					z: THREE.MathUtils.radToDeg(asset.object.rotation.z),
+				},
+			};
+		});
+		store.sceneAssets.value = rows;
+		if (rows.length === 0) {
+			store.selectedSceneAssetId.value = null;
+			return;
+		}
+		const hasSelection = rows.some(
+			(asset) => asset.id === store.selectedSceneAssetId.value,
+		);
+		if (!hasSelection) {
+			store.selectedSceneAssetId.value = rows[0].id;
+		}
 	}
 
 	function updateDropHint() {

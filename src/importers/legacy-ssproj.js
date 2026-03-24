@@ -202,7 +202,7 @@ function resolveLegacyHorizontalFov(
 }
 
 function normalizeLegacyExportFormat(value) {
-	return value === "psd" ? "psd" : "png";
+	return value === "png" ? "png" : "psd";
 }
 
 function calcLegacyOrbitForward(yawDegrees, pitchDegrees) {
@@ -324,6 +324,8 @@ function buildShotCameraImport({
 						cameraFramesState?.exportFormat,
 					),
 					exportGridOverlay: Boolean(cameraFramesState?.exportGridOverlay),
+					exportModelLayers: cameraFramesState?.exportModelLayers !== false,
+					exportSplatLayers: Boolean(cameraFramesState?.exportSplatLayers),
 				},
 				frames: mappedFrames,
 				activeFrameId,

@@ -57,6 +57,10 @@ export function createCameraController({
 		return sanitizeExportName(candidate) || `camera-${fallbackIndex}`;
 	}
 
+	function normalizeShotCameraExportFormat(value) {
+		return value === "png" ? "png" : "psd";
+	}
+
 	function createWorkspaceShotCameraDocument(sourceDocument = null) {
 		const nextNumber = getNextShotCameraNumber(
 			store.workspace.shotCameras.value,
@@ -277,6 +281,11 @@ export function createCameraController({
 		updateUi();
 	}
 
+	function setViewportBaseFovX(nextValue) {
+		state.viewportBaseFovX = Number(nextValue);
+		updateUi();
+	}
+
 	function setShotCameraClippingMode(nextValue) {
 		const mode = nextValue === "manual" ? "manual" : "auto";
 		updateActiveShotCameraDocument((documentState) => {
@@ -321,6 +330,78 @@ export function createCameraController({
 			};
 			return documentState;
 		});
+	}
+
+	function setShotCameraExportFormat(nextValue) {
+		const exportFormat = normalizeShotCameraExportFormat(nextValue);
+		updateActiveShotCameraDocument((documentState) => {
+			documentState.exportSettings = {
+				...documentState.exportSettings,
+				exportFormat,
+			};
+			return documentState;
+		});
+		updateUi();
+		setStatus(
+			t("status.shotCameraExportFormat", {
+				format: t(`exportFormat.${exportFormat}`),
+			}),
+		);
+	}
+
+	function setShotCameraExportGridOverlay(nextValue) {
+		const exportGridOverlay = Boolean(nextValue);
+		updateActiveShotCameraDocument((documentState) => {
+			documentState.exportSettings = {
+				...documentState.exportSettings,
+				exportGridOverlay,
+			};
+			return documentState;
+		});
+		updateUi();
+	}
+
+	function setShotCameraExportGridLayerMode(nextValue) {
+		const exportGridLayerMode = nextValue === "overlay" ? "overlay" : "bottom";
+		updateActiveShotCameraDocument((documentState) => {
+			documentState.exportSettings = {
+				...documentState.exportSettings,
+				exportGridLayerMode,
+			};
+			return documentState;
+		});
+		updateUi();
+	}
+
+	function setShotCameraExportModelLayers(nextValue) {
+		const exportModelLayers = Boolean(nextValue);
+		updateActiveShotCameraDocument((documentState) => {
+			documentState.exportSettings = {
+				...documentState.exportSettings,
+				exportModelLayers,
+				exportSplatLayers:
+					exportModelLayers &&
+					documentState.exportSettings?.exportFormat === "psd" &&
+					Boolean(documentState.exportSettings?.exportSplatLayers),
+			};
+			return documentState;
+		});
+		updateUi();
+	}
+
+	function setShotCameraExportSplatLayers(nextValue) {
+		const exportSplatLayers = Boolean(nextValue);
+		updateActiveShotCameraDocument((documentState) => {
+			documentState.exportSettings = {
+				...documentState.exportSettings,
+				exportSplatLayers:
+					documentState.exportSettings?.exportFormat === "psd" &&
+					Boolean(documentState.exportSettings?.exportModelLayers) &&
+					exportSplatLayers,
+			};
+			return documentState;
+		});
+		updateUi();
 	}
 
 	function selectShotCamera(shotCameraId) {
@@ -455,10 +536,16 @@ export function createCameraController({
 		syncActiveShotCameraFromDocument,
 		setMode,
 		setBaseFovX,
+		setViewportBaseFovX,
 		setShotCameraClippingMode,
 		setShotCameraNear,
 		setShotCameraFar,
 		setShotCameraExportName,
+		setShotCameraExportFormat,
+		setShotCameraExportGridOverlay,
+		setShotCameraExportGridLayerMode,
+		setShotCameraExportModelLayers,
+		setShotCameraExportSplatLayers,
 		selectShotCamera,
 		createShotCamera,
 		duplicateActiveShotCamera,

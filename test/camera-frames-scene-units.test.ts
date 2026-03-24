@@ -25,8 +25,8 @@ const summary = buildSceneSummary("ja", {
 	badgeText: "3DGS 1件 + モデル 1件",
 	boundsSize: { x: 10.25, y: 3.5, z: 7.75 },
 });
+assert.match(summary, /2 件を読込: 3DGS 1件 \+ モデル 1件。/);
 assert.match(summary, /境界 10\.3 × 3\.50 × 7\.75 m。/);
-assert.match(summary, /ワールド契約 1u = 1m。/);
 
 const scaleSummary = buildSceneScaleSummary("en", {
 	assets: [
@@ -34,11 +34,6 @@ const scaleSummary = buildSceneScaleSummary("en", {
 		{ unitMode: "raw", worldScale: 1.25 },
 	],
 });
-assert.match(scaleSummary, /GLB assets are treated as meter-native\./);
-assert.match(
-	scaleSummary,
-	/3DGS assets enter at raw 1x, so scale stays provisional until calibrated\./,
-);
 assert.match(scaleSummary, /1 calibrated scale adjustment\(s\)\./);
 
 console.log("✅ CAMERA_FRAMES scene unit tests passed!");

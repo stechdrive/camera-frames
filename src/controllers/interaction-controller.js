@@ -61,13 +61,7 @@ export function createInteractionController({
 		fpsMovement.enable = navigationEnabled;
 		pointerControls.enable = navigationEnabled;
 		if (!silent) {
-			setStatus(
-				navigationEnabled
-					? t("status.navigationActive", {
-							speed: formatNumber(fpsMovement.moveSpeed, 1),
-						})
-					: t("status.zoomToolEnabled"),
-			);
+			setStatus(navigationEnabled ? "" : t("status.zoomToolEnabled"));
 		}
 		updateUi();
 	}

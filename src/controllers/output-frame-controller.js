@@ -49,6 +49,7 @@ export function createOutputFrameController({
 
 	function clearOutputFramePan() {
 		outputFramePanState = null;
+		renderBox.classList.remove("is-pan-active");
 	}
 
 	function clearOutputFrameAnchorDrag() {
@@ -321,6 +322,7 @@ export function createOutputFrameController({
 			startCenterX: metrics.boxCenterX,
 			startCenterY: metrics.boxCenterY,
 		};
+		renderBox.classList.add("is-pan-active");
 	}
 
 	function handleOutputFramePanMove(event) {

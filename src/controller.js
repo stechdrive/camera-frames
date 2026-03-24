@@ -7,14 +7,11 @@ import {
 } from "@sparkjsdev/spark";
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { getAssetFileURL } from "./asset-url.js";
 import {
 	BASE_RENDER_BOX,
 	DEFAULT_CAMERA_FAR,
 	DEFAULT_CAMERA_NEAR,
 	DEFAULT_FPS_MOVE_SPEED,
-	DEFAULT_GRID_DIVISIONS,
-	DEFAULT_GRID_SIZE_METERS,
 	DEFAULT_POINTER_SCROLL_SPEED,
 	DEFAULT_POINTER_SLIDE_SPEED,
 	VIEWPORT_PIXEL_RATIO,
@@ -30,6 +27,10 @@ import { createRuntimeController } from "./controllers/runtime-controller.js";
 import { createSceneFramingController } from "./controllers/scene-framing-controller.js";
 import { createUiSyncController } from "./controllers/ui-sync-controller.js";
 import { drawFramesToContext } from "./engine/frame-overlay.js";
+import {
+	GUIDE_GRID_LAYER_MODE_BOTTOM,
+	createGuideOverlay,
+} from "./engine/guide-overlays.js";
 import { horizontalToVerticalFovDegrees } from "./engine/projection.js";
 import {
 	formatAssetWorldScale,
@@ -110,6 +111,12 @@ export function createCameraFramesController(elements, store) {
 				return documentState;
 			});
 		},
+		get viewportBaseFovX() {
+			return store.viewportBaseFovX.value;
+		},
+		set viewportBaseFovX(value) {
+			store.viewportBaseFovX.value = Number(value);
+		},
 		outputFrame: outputFrameState,
 		exportBusy: false,
 		exportStatusKey: "export.idle",
@@ -166,17 +173,8 @@ export function createCameraFramesController(elements, store) {
 	scene.add(contentRoot);
 
 	const guides = new THREE.Group();
-	const grid = new THREE.GridHelper(
-		DEFAULT_GRID_SIZE_METERS,
-		DEFAULT_GRID_DIVISIONS,
-		0x335770,
-		0x13212e,
-	);
-	grid.position.y = -0.001;
-	grid.material.transparent = true;
-	grid.material.opacity = 0.5;
-	const axes = new THREE.AxesHelper(0.75);
-	guides.add(grid, axes);
+	const guideOverlay = createGuideOverlay();
+	guides.add(guideOverlay.group);
 	scene.add(guides);
 
 	const viewportCamera = new THREE.PerspectiveCamera(
@@ -412,7 +410,6 @@ export function createCameraFramesController(elements, store) {
 		t,
 		formatAssetWorldScale,
 		getDefaultAssetUnitMode,
-		getAssetFileURL,
 		isProjectPackageSource,
 		extractProjectPackageAssets,
 		applyProjectPackageImport,
@@ -424,6 +421,7 @@ export function createCameraFramesController(elements, store) {
 		renderer,
 		spark,
 		guides,
+		guideOverlay,
 		shotCameraRegistry,
 		store,
 		flipPixels,
@@ -608,6 +606,8 @@ export function createCameraFramesController(elements, store) {
 		fpsMovement,
 		pointerControls,
 		getActiveCamera,
+		guideOverlay,
+		syncGuideOverlayState,
 		syncViewportProjection,
 		syncShotProjection,
 		applyCameraViewProjection,
@@ -829,6 +829,20 @@ export function createCameraFramesController(elements, store) {
 		return uiSyncController?.updateSceneSummary();
 	}
 
+	function syncGuideOverlayState(
+		documentState = getActiveShotCameraDocument(),
+		{ gridVisible = true, eyeLevelVisible = true } = {},
+	) {
+		guideOverlay.applyState({
+			gridVisible,
+			eyeLevelVisible,
+			gridLayerMode:
+				documentState?.exportSettings?.exportGridLayerMode === "overlay"
+					? "overlay"
+					: GUIDE_GRID_LAYER_MODE_BOTTOM,
+		});
+	}
+
 	function updateCameraSummary() {
 		return uiSyncController?.updateCameraSummary();
 	}
@@ -850,6 +864,7 @@ export function createCameraFramesController(elements, store) {
 		setMode: cameraController.setMode,
 		setLocale,
 		setBaseFovX: cameraController.setBaseFovX,
+		setViewportBaseFovX: cameraController.setViewportBaseFovX,
 		setBoxWidthPercent: outputFrameController.setBoxWidthPercent,
 		setBoxHeightPercent: outputFrameController.setBoxHeightPercent,
 		setViewZoomPercent: outputFrameController.setViewZoomPercent,
@@ -858,6 +873,15 @@ export function createCameraFramesController(elements, store) {
 		setShotCameraNear: cameraController.setShotCameraNear,
 		setShotCameraFar: cameraController.setShotCameraFar,
 		setShotCameraExportName: cameraController.setShotCameraExportName,
+		setShotCameraExportFormat: cameraController.setShotCameraExportFormat,
+		setShotCameraExportGridOverlay:
+			cameraController.setShotCameraExportGridOverlay,
+		setShotCameraExportGridLayerMode:
+			cameraController.setShotCameraExportGridLayerMode,
+		setShotCameraExportModelLayers:
+			cameraController.setShotCameraExportModelLayers,
+		setShotCameraExportSplatLayers:
+			cameraController.setShotCameraExportSplatLayers,
 		setExportTarget: exportController.setExportTarget,
 		toggleExportPreset: exportController.toggleExportPreset,
 		selectFrame: frameController.selectFrame,
@@ -873,18 +897,29 @@ export function createCameraFramesController(elements, store) {
 		selectShotCamera: cameraController.selectShotCamera,
 		createShotCamera: cameraController.createShotCamera,
 		duplicateActiveShotCamera: cameraController.duplicateActiveShotCamera,
+		selectSceneAsset: assetController.selectSceneAsset,
 		setAssetWorldScale: assetController.setAssetWorldScale,
 		resetAssetWorldScale: assetController.resetAssetWorldScale,
+		setAssetPosition: assetController.setAssetPosition,
+		setAssetRotationDegrees: assetController.setAssetRotationDegrees,
+		setAssetVisibility: assetController.setAssetVisibility,
+		moveAssetUp: assetController.moveAssetUp,
+		moveAssetDown: assetController.moveAssetDown,
+		moveAssetToIndex: assetController.moveAssetToIndex,
+		setAssetExportRole: assetController.setAssetExportRole,
+		setAssetMaskGroup: assetController.setAssetMaskGroup,
 		openFiles: assetController.openFiles,
-		loadSample: assetController.loadSample,
 		clearScene: assetController.clearScene,
 		loadRemoteUrls: assetController.loadRemoteUrls,
 		handleAssetInputChange: assetController.handleAssetInputChange,
 		copyViewportToShotCamera: cameraController.copyViewportToShotCamera,
 		copyShotCameraToViewport: cameraController.copyShotCameraToViewport,
 		resetActiveView: cameraController.resetActiveView,
+		downloadOutput: exportController.downloadOutput,
 		downloadPng: exportController.downloadPng,
+		downloadPsd: exportController.downloadPsd,
 		dispose() {
+			guideOverlay.dispose();
 			runtimeController.dispose();
 		},
 	};

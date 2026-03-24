@@ -69,9 +69,9 @@ export function createProjectionController({
 		);
 	}
 
-	function applySymmetricProjection(camera, aspect) {
+	function applySymmetricProjection(camera, aspect, horizontalFovDegrees) {
 		camera.aspect = aspect;
-		camera.fov = horizontalToVerticalFovDegrees(state.baseFovX, aspect);
+		camera.fov = horizontalToVerticalFovDegrees(horizontalFovDegrees, aspect);
 		camera.updateProjectionMatrix();
 	}
 
@@ -80,6 +80,7 @@ export function createProjectionController({
 			viewportCamera,
 			Math.max(viewportShell.clientWidth, 1) /
 				Math.max(viewportShell.clientHeight, 1),
+			state.viewportBaseFovX,
 		);
 	}
 

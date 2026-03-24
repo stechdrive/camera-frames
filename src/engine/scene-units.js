@@ -57,7 +57,7 @@ export function buildSceneSummary(
 	{ totalCount, badgeText, boundsSize },
 ) {
 	if (totalCount === 0) {
-		return translate(locale, "scene.summaryEmpty");
+		return "";
 	}
 
 	const parts = [
@@ -75,33 +75,22 @@ export function buildSceneSummary(
 			}),
 		);
 	}
-	parts.push(translate(locale, "scene.worldContract"));
 	return parts.join(" ");
 }
 
 export function buildSceneScaleSummary(locale, { assets }) {
 	if (assets.length === 0) {
-		return translate(locale, "scene.scaleDefault");
-	}
-
-	const parts = [translate(locale, "scene.scaleDefault")];
-	if (assets.some((asset) => asset.unitMode === "meters")) {
-		parts.push(translate(locale, "scene.glbMeter"));
-	}
-	if (assets.some((asset) => asset.unitMode === "raw")) {
-		parts.push(translate(locale, "scene.splatRaw"));
+		return "";
 	}
 
 	const adjustedCount = assets.filter(
 		(asset) => Math.abs((asset.worldScale ?? 1) - 1) > 0.0001,
 	).length;
-	if (adjustedCount > 0) {
-		parts.push(
-			translate(locale, "scene.scaleAdjusted", {
-				count: adjustedCount,
-			}),
-		);
+	if (adjustedCount === 0) {
+		return "";
 	}
 
-	return parts.join(" ");
+	return translate(locale, "scene.scaleAdjusted", {
+		count: adjustedCount,
+	});
 }
