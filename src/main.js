@@ -20,7 +20,6 @@ function CameraFramesApp() {
 	const renderBoxMetaRef = useRef(null);
 	const anchorDotRef = useRef(null);
 	const dropHintRef = useRef(null);
-	const exportCanvasRef = useRef(null);
 	const assetInputRef = useRef(null);
 
 	useEffect(() => {
@@ -33,7 +32,6 @@ function CameraFramesApp() {
 				renderBoxMeta: renderBoxMetaRef.current,
 				anchorDot: anchorDotRef.current,
 				dropHint: dropHintRef.current,
-				exportCanvas: exportCanvasRef.current,
 				assetInput: assetInputRef.current,
 			},
 			store,
@@ -54,7 +52,6 @@ function CameraFramesApp() {
 		renderBoxMetaRef,
 		anchorDotRef,
 		dropHintRef,
-		exportCanvasRef,
 		assetInputRef,
 	};
 

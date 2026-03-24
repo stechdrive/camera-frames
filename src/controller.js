@@ -55,7 +55,6 @@ export function createCameraFramesController(elements, store) {
 		renderBoxMeta,
 		anchorDot,
 		dropHint,
-		exportCanvas,
 		assetInput,
 	} = elements;
 
@@ -427,7 +426,6 @@ export function createCameraFramesController(elements, store) {
 		guides,
 		shotCameraRegistry,
 		store,
-		exportCanvas,
 		flipPixels,
 		drawFramesToContext,
 		t,
@@ -546,7 +544,6 @@ export function createCameraFramesController(elements, store) {
 		viewportShell,
 		renderBox,
 		dropHint,
-		exportCanvas,
 		fpsMovement,
 		currentLocale,
 		t,
@@ -886,7 +883,6 @@ export function createCameraFramesController(elements, store) {
 		copyViewportToShotCamera: cameraController.copyViewportToShotCamera,
 		copyShotCameraToViewport: cameraController.copyShotCameraToViewport,
 		resetActiveView: cameraController.resetActiveView,
-		refreshOutputPreview: exportController.refreshOutputPreview,
 		downloadPng: exportController.downloadPng,
 		dispose() {
 			runtimeController.dispose();

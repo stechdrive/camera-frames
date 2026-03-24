@@ -15,7 +15,6 @@ export function createUiSyncController({
 	viewportShell,
 	renderBox,
 	dropHint,
-	exportCanvas,
 	fpsMovement,
 	currentLocale,
 	t,
@@ -122,9 +121,6 @@ export function createUiSyncController({
 		document.body.dataset.interactionMode = state.interactionMode;
 		viewportShell.classList.toggle("is-zoom-tool", isZoomToolActive());
 		renderBox.classList.toggle("is-selected", state.outputFrameSelected);
-		exportCanvas.width = store.exportWidth.value;
-		exportCanvas.height = store.exportHeight.value;
-		exportCanvas.style.aspectRatio = `${store.exportWidth.value} / ${store.exportHeight.value}`;
 		updateOutputFrameOverlay();
 		updateSceneSummary();
 		updateDropHint();

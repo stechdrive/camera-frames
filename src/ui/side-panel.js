@@ -508,13 +508,10 @@ function renderOutputFrameSection({
 function renderExportSection({
 	controller,
 	exportBusy,
-	exportCanvasRef,
-	exportHeight,
 	exportPresetIds,
 	exportSelectionMissing,
 	exportStatusLabel,
 	exportTarget,
-	exportWidth,
 	store,
 	t,
 }) {
@@ -577,17 +574,8 @@ function renderExportSection({
 			}
 			<div class="button-row">
 				<button
-					id="refresh-preview"
-					class="button button--primary"
-					type="button"
-					disabled=${exportBusy}
-					onClick=${() => controller()?.refreshOutputPreview()}
-				>
-					${t("action.refreshPreview")}
-				</button>
-				<button
 					id="download-png"
-					class="button"
+					class="button button--primary"
 					type="button"
 					disabled=${exportBusy || exportSelectionMissing}
 					onClick=${() => controller()?.downloadPng()}
@@ -595,12 +583,6 @@ function renderExportSection({
 					${t("action.downloadPng")}
 				</button>
 			</div>
-			<canvas
-				id="export-preview"
-				ref=${exportCanvasRef}
-				width=${exportWidth}
-				height=${exportHeight}
-			></canvas>
 			<p id="export-summary" class="summary">${store.exportSummary.value}</p>
 		</section>
 	`;
@@ -628,7 +610,7 @@ function renderFooter({ store }) {
 	`;
 }
 
-export function SidePanel({ store, controller, locale, t, exportCanvasRef }) {
+export function SidePanel({ store, controller, locale, t }) {
 	const mode = store.mode.value;
 	const modeLabel = store.modeLabel.value;
 	const sceneUnitBadge = store.sceneUnitBadge.value;
@@ -700,13 +682,10 @@ export function SidePanel({ store, controller, locale, t, exportCanvasRef }) {
 			${renderExportSection({
 				controller,
 				exportBusy,
-				exportCanvasRef,
-				exportHeight: store.exportHeight.value,
 				exportPresetIds,
 				exportSelectionMissing,
 				exportStatusLabel,
 				exportTarget,
-				exportWidth: store.exportWidth.value,
 				store,
 				t,
 			})}
