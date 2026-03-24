@@ -7,7 +7,7 @@ import {
 	buildExportReadinessPlan,
 	finalizeExportReadiness,
 } from "../engine/export-readiness.js";
-import { createSparkExportViewpointManager } from "../engine/spark-export-viewpoint.js";
+import { createSparkExportRendererManager } from "../engine/spark-export-renderer.js";
 
 export function createExportController({
 	scene,
@@ -35,7 +35,9 @@ export function createExportController({
 	updateShotCameraHelpers,
 }) {
 	let exportRenderLock = false;
-	const exportViewpoint = createSparkExportViewpointManager({ spark });
+	const exportRenderBackend = createSparkExportRendererManager({
+		sourceSpark: spark,
+	});
 
 	function getNowMs() {
 		if (typeof performance !== "undefined" && performance.now) {
@@ -87,15 +89,14 @@ export function createExportController({
 			completedWarmupPasses < readinessPlan.warmupPasses &&
 			getNowMs() <= deadline
 		) {
-			await exportViewpoint.prepareFrame({
+			await exportRenderBackend.prepareFrame({
 				scene,
 				camera,
 				width,
 				height,
-				forceOrigin: true,
 				update: true,
 			});
-			exportViewpoint.renderFrame({
+			await exportRenderBackend.renderFrame({
 				scene,
 				camera,
 				width,
@@ -104,15 +105,14 @@ export function createExportController({
 			completedWarmupPasses += 1;
 		}
 
-		await exportViewpoint.prepareFrame({
+		await exportRenderBackend.prepareFrame({
 			scene,
 			camera,
 			width,
 			height,
-			forceOrigin: true,
 			update: true,
 		});
-		exportViewpoint.renderFrame({
+		await exportRenderBackend.renderFrame({
 			scene,
 			camera,
 			width,
@@ -120,7 +120,10 @@ export function createExportController({
 		});
 
 		return {
-			pixels: await exportViewpoint.readPixels(),
+			pixels: await exportRenderBackend.readPixels({
+				width,
+				height,
+			}),
 			readiness: finalizeExportReadiness(readinessPlan, {
 				completedWarmupPasses,
 				timedOut: completedWarmupPasses < readinessPlan.warmupPasses,
@@ -366,7 +369,7 @@ export function createExportController({
 	}
 
 	function dispose() {
-		exportViewpoint.dispose();
+		exportRenderBackend.dispose();
 	}
 
 	return {

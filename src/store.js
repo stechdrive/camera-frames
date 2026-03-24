@@ -20,7 +20,7 @@ function formatNumber(value, digits = 0) {
 	return Number(value).toFixed(digits);
 }
 
-export function createCameraFramesStore() {
+export function createCameraFramesStore(runtimeInfo = null) {
 	const locale = signal(DEFAULT_LOCALE);
 	const workspaceLayout = signal(WORKSPACE_LAYOUT_SINGLE);
 	const workspacePanes = signal(createDefaultWorkspacePanes());
@@ -123,6 +123,7 @@ export function createCameraFramesStore() {
 	const zoomLabel = computed(() => `${formatNumber(viewZoom.value * 100, 0)}%`);
 
 	return {
+		runtime: runtimeInfo,
 		locale,
 		workspace: {
 			layout: workspaceLayout,
