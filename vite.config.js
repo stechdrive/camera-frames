@@ -1,5 +1,8 @@
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { readdirSync } from "node:fs";
+import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 
@@ -7,6 +10,8 @@ const packageJson = JSON.parse(
 	readFileSync(new URL("./package.json", import.meta.url), "utf8"),
 );
 const repoRoot = fileURLToPath(new URL(".", import.meta.url));
+const DEV_STAMP_VIRTUAL_ID = "virtual:camera-frames-dev-stamp";
+const RESOLVED_DEV_STAMP_VIRTUAL_ID = `\0${DEV_STAMP_VIRTUAL_ID}`;
 
 function captureGitValue(args, fallback) {
 	const result = spawnSync("git", args, {
@@ -49,12 +54,108 @@ function createVersionAssetPlugin(buildInfo) {
 	};
 }
 
+function shouldIncludeCodeStampFile(relativePath) {
+	return (
+		relativePath === "app.css" ||
+		relativePath === "index.html" ||
+		relativePath === "package.json" ||
+		relativePath.startsWith("src/")
+	);
+}
+
+function collectCodeStampFiles(rootDir, currentDir = rootDir, results = []) {
+	for (const entry of readdirSync(currentDir, { withFileTypes: true })) {
+		const fullPath = join(currentDir, entry.name);
+		const relativePath = relative(rootDir, fullPath).replace(/\\/g, "/");
+
+		if (
+			relativePath.startsWith(".git/") ||
+			relativePath.startsWith("dist/") ||
+			relativePath.startsWith("node_modules/") ||
+			relativePath.startsWith(".local/")
+		) {
+			continue;
+		}
+
+		if (entry.isDirectory()) {
+			collectCodeStampFiles(rootDir, fullPath, results);
+			continue;
+		}
+
+		if (entry.isFile() && shouldIncludeCodeStampFile(relativePath)) {
+			results.push({
+				fullPath,
+				relativePath,
+			});
+		}
+	}
+
+	return results;
+}
+
+function createCodeStamp(rootDir) {
+	const hash = createHash("sha1");
+	const files = collectCodeStampFiles(rootDir).sort((left, right) =>
+		left.relativePath.localeCompare(right.relativePath),
+	);
+
+	for (const file of files) {
+		hash.update(file.relativePath);
+		hash.update("\0");
+		hash.update(readFileSync(file.fullPath));
+		hash.update("\0");
+	}
+
+	return hash.digest("hex").slice(0, 8);
+}
+
+function createDevStampPlugin(rootDir) {
+	let currentCodeStamp = createCodeStamp(rootDir);
+
+	return {
+		name: "camera-frames-dev-stamp",
+		resolveId(id) {
+			if (id === DEV_STAMP_VIRTUAL_ID) {
+				return RESOLVED_DEV_STAMP_VIRTUAL_ID;
+			}
+
+			return null;
+		},
+		load(id) {
+			if (id !== RESOLVED_DEV_STAMP_VIRTUAL_ID) {
+				return null;
+			}
+
+			return `export const DEV_STAMP = ${JSON.stringify(currentCodeStamp)};`;
+		},
+		handleHotUpdate(context) {
+			const relativePath = relative(rootDir, context.file).replace(/\\/g, "/");
+			if (!shouldIncludeCodeStampFile(relativePath)) {
+				return;
+			}
+
+			currentCodeStamp = createCodeStamp(rootDir);
+			const module = context.server.moduleGraph.getModuleById(
+				RESOLVED_DEV_STAMP_VIRTUAL_ID,
+			);
+			if (!module) {
+				return;
+			}
+
+			context.server.moduleGraph.invalidateModule(module);
+			return [module];
+		},
+	};
+}
+
 export default defineConfig(({ command }) => {
+	const codeStamp = createCodeStamp(repoRoot);
 	const buildInfo = {
 		name: packageJson.name,
 		version: packageJson.version,
 		commit: captureGitValue(["rev-parse", "--short", "HEAD"], "unknown"),
 		branch: captureGitValue(["branch", "--show-current"], "unknown"),
+		codeStamp,
 		builtAt: new Date().toISOString(),
 	};
 
@@ -65,12 +166,17 @@ export default defineConfig(({ command }) => {
 			__APP_VERSION__: JSON.stringify(buildInfo.version),
 			__APP_BUILD_SHA__: JSON.stringify(buildInfo.commit),
 			__APP_BUILD_BRANCH__: JSON.stringify(buildInfo.branch),
+			__APP_CODE_STAMP__: JSON.stringify(buildInfo.codeStamp),
 			__APP_BUILD_TIMESTAMP__: JSON.stringify(buildInfo.builtAt),
 		},
-		plugins: [createVersionAssetPlugin(buildInfo)],
+		plugins: [
+			createDevStampPlugin(repoRoot),
+			createVersionAssetPlugin(buildInfo),
+		],
 		server: {
 			host: true,
 			port: 3000,
+			strictPort: true,
 		},
 	};
 });

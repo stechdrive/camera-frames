@@ -2,7 +2,7 @@ import { html } from "htm/preact";
 import {
 	getBuildCommitLabel,
 	getBuildVersionLabel,
-	getRuntimeLabel,
+	getCodeStampLabel,
 } from "../build-info.js";
 import {
 	FRAME_MAX_COUNT,
@@ -595,7 +595,7 @@ function renderExportSection({
 function renderFooter({ store }) {
 	const buildVersionLabel = getBuildVersionLabel();
 	const buildCommitLabel = getBuildCommitLabel();
-	const runtimeLabel = getRuntimeLabel(store.runtime);
+	const codeStampLabel = getCodeStampLabel();
 
 	return html`
 		<footer class="panel-footer">
@@ -607,12 +607,8 @@ function renderFooter({ store }) {
 					html`<code class="build-commit">${buildCommitLabel}</code>`
 				}
 				${
-					runtimeLabel &&
-					html`
-						<code class="build-commit" title=${store.runtime.startedAt}>
-							${runtimeLabel}
-						</code>
-					`
+					codeStampLabel &&
+					html`<code class="build-commit">${codeStampLabel}</code>`
 				}
 			</div>
 			<div class="footer-links">

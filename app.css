@@ -317,6 +317,28 @@ input[type="range"] {
 	overflow: hidden;
 }
 
+.viewport-debug-meta {
+	position: absolute;
+	top: 0.9rem;
+	left: 1rem;
+	z-index: 3;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.45rem;
+	pointer-events: none;
+}
+
+.viewport-debug-meta__item {
+	padding: 0.22rem 0.48rem;
+	border-radius: 999px;
+	background: rgba(7, 14, 24, 0.72);
+	border: 1px solid rgba(179, 195, 217, 0.26);
+	color: rgba(234, 240, 247, 0.88);
+	font-size: 0.75rem;
+	line-height: 1;
+	backdrop-filter: blur(10px);
+}
+
 .viewport-shell.is-zoom-tool,
 .viewport-shell.is-zoom-tool * {
 	cursor: zoom-in !important;

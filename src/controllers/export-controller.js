@@ -1,4 +1,6 @@
 import {
+	createExportBundle,
+	createExportPass,
 	createPixelLayer,
 	createRasterLayer,
 	renderExportBundleToCanvas,
@@ -243,26 +245,47 @@ export function createExportController({
 		{ width, height, pixels, sceneAssets = [], readiness = null },
 		frames = getActiveFrames(),
 	) {
-		return {
+		return createExportBundle({
 			width,
 			height,
 			sceneAssets,
 			readiness,
-			layers: [
-				createPixelLayer({
-					name: "Render",
-					pixels,
-					width,
-					height,
+			passes: [
+				createExportPass({
+					id: "beauty",
+					name: "Beauty",
 					category: "render",
 					metadata: {
 						sceneAssets,
 						readiness,
+						role: "beauty",
 					},
+					layers: [
+						createPixelLayer({
+							name: "Render",
+							pixels,
+							width,
+							height,
+							category: "render",
+							metadata: {
+								sceneAssets,
+								readiness,
+								passId: "beauty",
+							},
+						}),
+					],
 				}),
-				renderFrameOverlayLayer(width, height, frames),
+				createExportPass({
+					id: "frame-overlay",
+					name: "Frame Overlay",
+					category: "overlay",
+					metadata: {
+						role: "frame-overlay",
+					},
+					layers: [renderFrameOverlayLayer(width, height, frames)],
+				}),
 			],
-		};
+		});
 	}
 
 	function renderCompositeOutputCanvas(snapshot, frames = getActiveFrames()) {

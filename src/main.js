@@ -4,6 +4,7 @@ import {
 	BUILD_INFO,
 	clearActiveRuntimeInfo,
 	createRuntimeInfo,
+	getCodeStampValue,
 } from "./build-info.js";
 import { createCameraFramesController } from "./controller.js";
 import { DEFAULT_LOCALE, translate } from "./i18n.js";
@@ -73,6 +74,7 @@ function mountApp(runtimeInfo) {
 	console.info("[CAMERA_FRAMES] boot", {
 		version: BUILD_INFO.version,
 		commit: BUILD_INFO.commit,
+		codeStamp: getCodeStampValue(),
 		runtimeId: runtimeInfo.id,
 	});
 	render(html`<${CameraFramesApp} runtimeInfo=${runtimeInfo} />`, root);
@@ -82,6 +84,7 @@ function unmountApp(runtimeInfo) {
 	console.info("[CAMERA_FRAMES] dispose", {
 		version: BUILD_INFO.version,
 		commit: BUILD_INFO.commit,
+		codeStamp: getCodeStampValue(),
 		runtimeId: runtimeInfo.id,
 	});
 	render(null, root);

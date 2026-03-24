@@ -1,5 +1,6 @@
 const DEFAULT_BLEND_MODE = "source-over";
 const DEFAULT_RENDER_LAYER_NAME = "Render";
+const DEFAULT_RENDER_PASS_NAME = "Beauty";
 
 export function createPixelLayer({
 	name = DEFAULT_RENDER_LAYER_NAME,
@@ -51,6 +52,78 @@ export function createRasterLayer({
 	};
 }
 
+export function createExportPass({
+	id,
+	name = DEFAULT_RENDER_PASS_NAME,
+	category = "render",
+	layers = [],
+	metadata = null,
+	enabled = true,
+}) {
+	return {
+		id,
+		name,
+		category,
+		layers: layers.filter(Boolean),
+		metadata,
+		enabled,
+	};
+}
+
+export function createExportBundle({
+	width,
+	height,
+	sceneAssets = [],
+	readiness = null,
+	passes = [],
+	basePixels = null,
+	layers = [],
+}) {
+	if (passes.length > 0) {
+		return {
+			width,
+			height,
+			sceneAssets,
+			readiness,
+			passes: passes.filter(Boolean),
+		};
+	}
+
+	return {
+		width,
+		height,
+		sceneAssets,
+		readiness,
+		passes: [
+			createExportPass({
+				id: "beauty",
+				name: DEFAULT_RENDER_PASS_NAME,
+				category: "render",
+				metadata: {
+					sceneAssets,
+					readiness,
+					role: "beauty",
+				},
+				layers: getExportBundleLayers({
+					width,
+					height,
+					basePixels,
+					sceneAssets,
+					layers,
+				}),
+			}),
+		],
+	};
+}
+
+export function getExportBundlePasses(bundle = {}) {
+	if (Array.isArray(bundle.passes) && bundle.passes.length > 0) {
+		return bundle.passes.filter((pass) => pass?.enabled !== false);
+	}
+
+	return createExportBundle(bundle).passes;
+}
+
 export function getExportBundleLayers({
 	width,
 	height,
@@ -81,6 +154,12 @@ export function getExportBundleLayers({
 	}
 
 	return resolvedLayers;
+}
+
+export function flattenExportBundleLayers(bundle = {}) {
+	return getExportBundlePasses(bundle).flatMap((pass) =>
+		Array.isArray(pass.layers) ? pass.layers.filter(Boolean) : [],
+	);
 }
 
 function drawPixelLayer(context, layer, bundleWidth, bundleHeight) {
@@ -128,9 +207,10 @@ function drawPixelLayer(context, layer, bundleWidth, bundleHeight) {
 export function renderExportBundleToCanvas({
 	width,
 	height,
-	basePixels,
-	sceneAssets,
+	basePixels = null,
+	sceneAssets = [],
 	layers = [],
+	passes = [],
 }) {
 	const canvas = document.createElement("canvas");
 	canvas.width = width;
@@ -141,13 +221,16 @@ export function renderExportBundleToCanvas({
 		throw new Error("Failed to acquire the 2D context for export bundle.");
 	}
 
-	for (const layer of getExportBundleLayers({
-		width,
-		height,
-		basePixels,
-		sceneAssets,
-		layers,
-	})) {
+	for (const layer of flattenExportBundleLayers(
+		createExportBundle({
+			width,
+			height,
+			sceneAssets,
+			passes,
+			basePixels,
+			layers,
+		}),
+	)) {
 		if (layer.type === "pixels") {
 			drawPixelLayer(context, layer, width, height);
 			continue;
