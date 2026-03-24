@@ -98,6 +98,8 @@ export function createAssetController({
 			baseScale: object.scale.clone(),
 			unitMode: getDefaultAssetUnitMode(kind),
 			worldScale: 1,
+			exportRole: "beauty",
+			maskGroup: "",
 		};
 		applyAssetWorldScale(asset);
 		sceneState.assets.push(asset);

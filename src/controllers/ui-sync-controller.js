@@ -46,6 +46,8 @@ export function createUiSyncController({
 			kindLabelKey: getAssetKindLabelKey(asset.kind),
 			unitModeLabelKey: getAssetUnitModeLabelKey(asset.unitMode),
 			worldScale: asset.worldScale,
+			exportRole: asset.exportRole ?? "beauty",
+			maskGroup: asset.maskGroup ?? "",
 		}));
 	}
 

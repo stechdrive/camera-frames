@@ -5,6 +5,7 @@ import {
 	createRasterLayer,
 	renderExportBundleToCanvas,
 } from "../engine/export-bundle.js";
+import { buildExportPassPlan } from "../engine/export-pass-plan.js";
 import {
 	buildExportReadinessPlan,
 	finalizeExportReadiness,
@@ -71,6 +72,8 @@ export function createExportController({
 			id: asset.id,
 			kind: asset.kind,
 			label: asset.label,
+			exportRole: asset.exportRole ?? "beauty",
+			maskGroup: asset.maskGroup ?? "",
 		}));
 	}
 
@@ -245,6 +248,7 @@ export function createExportController({
 		{ width, height, pixels, sceneAssets = [], readiness = null },
 		frames = getActiveFrames(),
 	) {
+		const passPlan = buildExportPassPlan(sceneAssets);
 		return createExportBundle({
 			width,
 			height,
@@ -252,13 +256,14 @@ export function createExportController({
 			readiness,
 			passes: [
 				createExportPass({
-					id: "beauty",
-					name: "Beauty",
-					category: "render",
+					id: passPlan.beauty.id,
+					name: passPlan.beauty.name,
+					category: passPlan.beauty.category,
 					metadata: {
 						sceneAssets,
 						readiness,
 						role: "beauty",
+						assetIds: passPlan.beauty.assetIds,
 					},
 					layers: [
 						createPixelLayer({
@@ -271,6 +276,7 @@ export function createExportController({
 								sceneAssets,
 								readiness,
 								passId: "beauty",
+								assetIds: passPlan.beauty.assetIds,
 							},
 						}),
 					],
@@ -284,6 +290,20 @@ export function createExportController({
 					},
 					layers: [renderFrameOverlayLayer(width, height, frames)],
 				}),
+				...passPlan.masks.map((maskPass) =>
+					createExportPass({
+						id: maskPass.id,
+						name: maskPass.name,
+						category: maskPass.category,
+						metadata: {
+							role: "mask",
+							maskGroup: maskPass.maskGroup,
+							assetIds: maskPass.assetIds,
+						},
+						layers: [],
+						enabled: false,
+					}),
+				),
 			],
 		});
 	}
