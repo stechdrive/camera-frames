@@ -36,6 +36,10 @@ import {
 } from "./engine/scene-units.js";
 import { getAnchorLabel, translate } from "./i18n.js";
 import {
+	applyLegacyCameraTransform,
+	buildLegacyProjectImport,
+} from "./importers/legacy-ssproj.js";
+import {
 	extractProjectPackageAssets,
 	isProjectPackageSource,
 } from "./project-package.js";
@@ -157,7 +161,6 @@ export function createCameraFramesController(elements, store) {
 
 	const contentRoot = new THREE.Group();
 	const splatRoot = new THREE.Group();
-	splatRoot.quaternion.set(1, 0, 0, 0);
 	const modelRoot = new THREE.Group();
 	contentRoot.add(splatRoot, modelRoot);
 	scene.add(contentRoot);
@@ -321,6 +324,59 @@ export function createCameraFramesController(elements, store) {
 		return translate(currentLocale(), key, params);
 	}
 
+	function getLegacyImportSceneRadius() {
+		const box = new THREE.Box3().setFromObject(contentRoot);
+		if (box.isEmpty()) {
+			return 1;
+		}
+
+		const size = box.getSize(new THREE.Vector3());
+		return Math.max(size.length() * 0.35, 0.6);
+	}
+
+	function applyProjectPackageImport(importState) {
+		const legacyImport = buildLegacyProjectImport({
+			cameraFramesState: importState?.cameraFrames ?? null,
+			sceneRadius: getLegacyImportSceneRadius(),
+		});
+		if (!legacyImport?.shots?.length) {
+			return false;
+		}
+
+		setShotCameraDocuments(legacyImport.shots.map((shot) => shot.document));
+		store.workspace.activeShotCameraId.value =
+			legacyImport.activeShotCameraId ??
+			legacyImport.shots[0]?.document.id ??
+			store.workspace.activeShotCameraId.value;
+
+		for (const shot of legacyImport.shots) {
+			const entry = shotCameraRegistry.get(shot.document.id);
+			if (!entry) {
+				continue;
+			}
+
+			applyLegacyCameraTransform(entry.camera, shot.transform);
+			syncShotCameraEntryFromDocument(entry);
+		}
+
+		const activeEntry = getActiveShotCameraEntry();
+		if (activeEntry) {
+			sceneFramingController.copyPose(activeEntry.camera, viewportCamera);
+		}
+
+		interactionController?.clearControlMomentum();
+		interactionController?.syncControlsToMode();
+		syncViewportProjection();
+		syncShotProjection();
+		applyCameraViewProjection();
+		syncOutputCamera();
+		updateOutputFrameOverlay();
+		updateShotCameraHelpers();
+		updateCameraSummary();
+		updateUi();
+		return true;
+	}
+
 	const frameController = createFrameController({
 		store,
 		state,
@@ -359,6 +415,7 @@ export function createCameraFramesController(elements, store) {
 		getAssetFileURL,
 		isProjectPackageSource,
 		extractProjectPackageAssets,
+		applyProjectPackageImport,
 		disposeObject,
 	});
 
