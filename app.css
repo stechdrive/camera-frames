@@ -122,6 +122,13 @@ code {
 	gap: 0.45rem;
 }
 
+.panel-header__title-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.75rem;
+}
+
 .header-meta-row {
 	display: flex;
 	align-items: flex-start;
@@ -167,6 +174,65 @@ code {
 
 .panel-header--compact h1 {
 	font-size: clamp(1.4rem, 2.4vw, 1.9rem);
+}
+
+.workbench-collapse-toggle {
+	appearance: none;
+	border: 1px solid var(--line-strong);
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.05);
+	color: var(--text-dim);
+	cursor: pointer;
+	width: 2rem;
+	height: 2rem;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	font: 700 0.95rem / 1 "Consolas", "Andale Mono", monospace;
+	transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.workbench-collapse-toggle:hover {
+	border-color: rgba(255, 255, 255, 0.34);
+	color: var(--text);
+}
+
+.workbench-collapse-chip-wrap {
+	position: absolute;
+	top: 1rem;
+	left: 1rem;
+	z-index: 6;
+	pointer-events: none;
+}
+
+.workbench-collapse-chip {
+	appearance: none;
+	display: inline-flex;
+	align-items: center;
+	gap: 0.65rem;
+	padding: 0.7rem 0.9rem;
+	border: 1px solid var(--line-strong);
+	border-radius: 999px;
+	background: linear-gradient(
+		180deg,
+		var(--bg-elev-strong) 0%,
+		var(--bg-elev) 100%
+	);
+	box-shadow: var(--shadow);
+	backdrop-filter: blur(24px);
+	color: var(--text);
+	cursor: pointer;
+	pointer-events: auto;
+}
+
+.workbench-collapse-chip__title {
+	font: 700 0.82rem / 1 "Avenir Next", "Segoe UI", sans-serif;
+	letter-spacing: 0.03em;
+}
+
+.workbench-collapse-chip__icon {
+	color: var(--text-dim);
+	font: 700 0.9rem / 1 "Consolas", "Andale Mono", monospace;
 }
 
 .panel-header--compact .panel-copy {

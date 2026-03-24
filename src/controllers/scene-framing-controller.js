@@ -39,9 +39,11 @@ export function createSceneFramingController({
 
 	function getAutoClipRange(camera = viewportCamera) {
 		const bounds = getSceneBounds();
+		const framingBounds = getFramingBounds();
 		const { radius } = getSceneFraming();
 		return getAutoClipRangeFromBounds({
 			box: bounds?.box ?? null,
+			framingBox: framingBounds?.box ?? null,
 			camera,
 			cameraPosition: camera?.position ?? { x: 0, y: 0, z: 0 },
 			framingRadius: radius,

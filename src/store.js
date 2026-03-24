@@ -33,6 +33,7 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	const shotCameras = signal(createDefaultShotCameraDocuments());
 	const activeShotCameraId = signal(shotCameras.value[0].id);
 	const viewportBaseFovX = signal(60);
+	const workbenchCollapsed = signal(false);
 
 	const remoteUrl = signal("");
 	const sceneBadge = signal(translate(initialLocale, "scene.badgeEmpty"));
@@ -184,6 +185,7 @@ export function createCameraFramesStore(runtimeInfo = null) {
 			activeShotCameraId,
 			activeShotCamera,
 		},
+		workbenchCollapsed,
 		viewportBaseFovX,
 		mode,
 		baseFovX,
