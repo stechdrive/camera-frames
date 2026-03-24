@@ -1,5 +1,6 @@
 import * as THREE from "three";
-import { DEFAULT_CAMERA_FAR, DEFAULT_CAMERA_NEAR } from "../constants.js";
+import { DEFAULT_CAMERA_FAR } from "../constants.js";
+import { getAutoClipRangeFromBounds } from "../engine/clip-range.js";
 
 export function createSceneFramingController({
 	getSceneBounds,
@@ -25,12 +26,15 @@ export function createSceneFramingController({
 		};
 	}
 
-	function getAutoClipRange() {
+	function getAutoClipRange(camera = viewportCamera) {
+		const bounds = getSceneBounds();
 		const { radius } = getSceneFraming();
-		return {
-			near: Math.max(radius / 200, DEFAULT_CAMERA_NEAR),
-			far: Math.max(radius * 40, 60),
-		};
+		return getAutoClipRangeFromBounds({
+			box: bounds?.box ?? null,
+			camera,
+			cameraPosition: camera?.position ?? { x: 0, y: 0, z: 0 },
+			framingRadius: radius,
+		});
 	}
 
 	function copyPose(sourceCamera, destinationCamera) {
@@ -57,7 +61,7 @@ export function createSceneFramingController({
 
 		camera.position.copy(center).add(offset);
 		if (variant === "viewport") {
-			const autoClip = getAutoClipRange();
+			const autoClip = getAutoClipRange(camera);
 			camera.near = autoClip.near;
 			camera.far = Math.max(autoClip.far, DEFAULT_CAMERA_FAR);
 		}

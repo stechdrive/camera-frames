@@ -46,6 +46,10 @@ export function createAssetController({
 		return sceneState.assets.length;
 	}
 
+	function getSceneAssets() {
+		return sceneState.assets;
+	}
+
 	function registerAsset({ kind, label, object }) {
 		const asset = {
 			id: sceneState.nextAssetId++,
@@ -358,6 +362,7 @@ export function createAssetController({
 	return {
 		getSceneAssetCounts,
 		getTotalLoadedItems,
+		getSceneAssets,
 		registerAsset,
 		applyAssetWorldScale,
 		getSceneAsset,

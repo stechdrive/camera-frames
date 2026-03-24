@@ -275,8 +275,8 @@ export function createCameraFramesController(elements, store) {
 		return cameraController.getActiveOutputCamera();
 	}
 
-	function getAutoClipRange() {
-		return sceneFramingController.getAutoClipRange();
+	function getAutoClipRange(camera) {
+		return sceneFramingController.getAutoClipRange(camera);
 	}
 
 	function updateShotCameraHelpers() {
@@ -377,6 +377,7 @@ export function createCameraFramesController(elements, store) {
 		setExportStatus,
 		updateUi,
 		getTotalLoadedItems,
+		getSceneAssets,
 		getShotCameraDocument,
 		getActiveShotCameraDocument,
 		getActiveOutputCamera,
@@ -408,7 +409,8 @@ export function createCameraFramesController(elements, store) {
 		t,
 		setStatus,
 		updateUi,
-		getAutoClipRange: () => sceneFramingController.getAutoClipRange(),
+		getAutoClipRange: (camera) =>
+			sceneFramingController.getAutoClipRange(camera),
 		clearFrameDrag: () => frameController.clearFrameDrag(),
 		clearOutputFramePan,
 		clearOutputFrameSelection,
@@ -621,6 +623,10 @@ export function createCameraFramesController(elements, store) {
 
 	function getTotalLoadedItems() {
 		return assetController.getTotalLoadedItems();
+	}
+
+	function getSceneAssets() {
+		return assetController.getSceneAssets();
 	}
 
 	function getSceneBounds() {

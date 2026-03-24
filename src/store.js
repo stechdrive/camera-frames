@@ -87,11 +87,7 @@ export function createCameraFramesStore() {
 	const manualFar = computed(
 		() => activeShotCamera.value?.clipping.far ?? DEFAULT_CAMERA_FAR,
 	);
-	const activeNear = computed(() =>
-		clippingMode.value === "manual"
-			? manualNear.value
-			: shotCameraNearLive.value,
-	);
+	const activeNear = computed(() => manualNear.value);
 	const activeFar = computed(() =>
 		clippingMode.value === "manual" ? manualFar.value : shotCameraFarLive.value,
 	);
