@@ -44,6 +44,11 @@ import {
 	buildLegacyProjectImport,
 } from "./importers/legacy-ssproj.js";
 import {
+	buildCameraFramesProjectArchive,
+	getDefaultProjectFilename,
+	readCameraFramesProject,
+} from "./project-file.js";
+import {
 	extractProjectPackageAssets,
 	isProjectPackageSource,
 } from "./project-package.js";
@@ -66,6 +71,7 @@ export function createCameraFramesController(elements, store) {
 		anchorDot,
 		dropHint,
 		assetInput,
+		projectInput,
 	} = elements;
 
 	const outputFrameState = {
@@ -505,6 +511,161 @@ export function createCameraFramesController(elements, store) {
 		updateCameraSummary();
 		updateUi();
 		return true;
+	}
+
+	function captureProjectShotCameras() {
+		return store.workspace.shotCameras.value.map((documentState) => ({
+			...cloneShotCameraDocument(documentState),
+			pose: captureCameraPose(
+				shotCameraRegistry.get(documentState.id)?.camera ?? viewportCamera,
+			),
+		}));
+	}
+
+	function captureProjectState() {
+		return {
+			workspace: {
+				activeShotCameraId: store.workspace.activeShotCameraId.value,
+				viewport: {
+					baseFovX: store.viewportBaseFovX.value,
+					pose: captureCameraPose(viewportCamera),
+				},
+			},
+			shotCameras: captureProjectShotCameras(),
+			scene: {
+				assets: assetController?.captureProjectSceneState?.() ?? [],
+				referenceImages: [],
+			},
+		};
+	}
+
+	function buildProjectFilename() {
+		const activeDocument = getActiveShotCameraDocument();
+		if (!activeDocument) {
+			return getDefaultProjectFilename();
+		}
+
+		return `${getShotCameraExportBaseName(activeDocument, 1)}.ssproj`;
+	}
+
+	function downloadBlob(blob, filename) {
+		const url = URL.createObjectURL(blob);
+		const anchor = document.createElement("a");
+		anchor.href = url;
+		anchor.download = filename;
+		anchor.click();
+		setTimeout(() => URL.revokeObjectURL(url), 0);
+	}
+
+	async function saveProject() {
+		try {
+			const archive = await buildCameraFramesProjectArchive(
+				captureProjectState(),
+			);
+			downloadBlob(
+				new Blob([archive], {
+					type: "application/octet-stream",
+				}),
+				buildProjectFilename(),
+			);
+			setStatus(t("status.projectSaved"));
+		} catch (error) {
+			console.error(error);
+			setStatus(error.message);
+		}
+	}
+
+	function applySavedProjectState(project) {
+		const shotCameras = (project?.shotCameras ?? []).map((shotCamera) => {
+			const { pose: _pose, ...documentState } = shotCamera;
+			return cloneShotCameraDocument(documentState);
+		});
+		setShotCameraDocuments(shotCameras);
+		registerShotCameraDocuments();
+
+		store.workspace.activeShotCameraId.value = getShotCameraDocument(
+			project?.workspace?.activeShotCameraId,
+		)
+			? project.workspace.activeShotCameraId
+			: (shotCameras[0]?.id ?? store.workspace.activeShotCameraId.value);
+		store.viewportBaseFovX.value = Number.isFinite(
+			project?.workspace?.viewport?.baseFovX,
+		)
+			? project.workspace.viewport.baseFovX
+			: store.viewportBaseFovX.value;
+		restoreCameraPose(viewportCamera, project?.workspace?.viewport?.pose);
+
+		for (const shotCamera of project?.shotCameras ?? []) {
+			const entry = shotCameraRegistry.get(shotCamera.id);
+			if (!entry) {
+				continue;
+			}
+			restoreCameraPose(entry.camera, shotCamera.pose);
+			syncShotCameraEntryFromDocument(entry);
+		}
+
+		store.frames.selectionActive.value = false;
+		state.outputFrameSelected = false;
+		frameController?.clearFrameInteraction();
+		outputFrameController?.clearOutputFramePan();
+		outputFrameController?.clearOutputFrameAnchorDrag();
+		outputFrameController?.clearOutputFrameResize();
+		interactionController?.clearControlMomentum();
+		syncControlsToMode();
+		syncViewportProjection();
+		syncShotProjection();
+		applyCameraViewProjection();
+		syncOutputCamera();
+		updateOutputFrameOverlay();
+		updateShotCameraHelpers();
+		updateCameraSummary();
+		updateUi();
+	}
+
+	async function openProjectSource(source) {
+		let parsedProject = null;
+		try {
+			parsedProject = await readCameraFramesProject(source);
+		} catch (error) {
+			console.warn("[CAMERA_FRAMES] project parse fallback", error);
+		}
+
+		if (!parsedProject) {
+			return assetController.loadSources([source], true);
+		}
+
+		assetController.clearScene();
+		const projectSources = parsedProject.assetEntries.map(
+			(entry) => entry.source,
+		);
+		if (projectSources.length > 0) {
+			await assetController.loadSources(projectSources, false);
+		}
+		applySavedProjectState(parsedProject.project);
+		historyController?.clearHistory();
+		setStatus(t("status.projectLoaded"));
+		return true;
+	}
+
+	function openProject() {
+		projectInput?.click?.();
+	}
+
+	async function handleProjectInputChange(event) {
+		const files = [...(event.currentTarget.files ?? [])];
+		const projectFile = files[0] ?? null;
+		if (!projectFile) {
+			return;
+		}
+
+		try {
+			await openProjectSource(projectFile);
+		} catch (error) {
+			console.error(error);
+			setStatus(error.message);
+		} finally {
+			event.currentTarget.value = "";
+		}
 	}
 
 	historyController = createHistoryController({
@@ -1160,9 +1321,12 @@ export function createCameraFramesController(elements, store) {
 		setAssetExportRole: assetController.setAssetExportRole,
 		setAssetMaskGroup: assetController.setAssetMaskGroup,
 		openFiles: assetController.openFiles,
+		openProject,
+		saveProject,
 		clearScene,
 		loadRemoteUrls: assetController.loadRemoteUrls,
 		handleAssetInputChange: assetController.handleAssetInputChange,
+		handleProjectInputChange,
 		copyViewportToShotCamera: cameraController.copyViewportToShotCamera,
 		copyShotCameraToViewport: cameraController.copyShotCameraToViewport,
 		resetActiveView: cameraController.resetActiveView,

@@ -35,5 +35,13 @@ export function AppView({ store, controller, refs }) {
 			hidden
 			onChange=${(event) => controller()?.handleAssetInputChange(event)}
 		/>
+		<input
+			id="project-input"
+			ref=${refs.projectInputRef}
+			type="file"
+			accept=".ssproj"
+			hidden
+			onChange=${(event) => controller()?.handleProjectInputChange(event)}
+		/>
 	`;
 }

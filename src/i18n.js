@@ -123,6 +123,8 @@ const MESSAGES = {
 			manual: "手動",
 		},
 		action: {
+			openProject: "プロジェクトを開く",
+			saveProject: "プロジェクトを保存",
 			openFiles: "ファイルを開く",
 			clear: "クリア",
 			loadUrl: "URLを読み込む",
@@ -219,6 +221,8 @@ const MESSAGES = {
 		},
 		status: {
 			ready: "準備完了。",
+			projectLoaded: "プロジェクトを読み込みました。",
+			projectSaved: "プロジェクトを保存しました。",
 			viewportEnabled: "ビューポートに切り替えました。",
 			cameraEnabled: "カメラビューに切り替えました。",
 			loadingItems: "{count} 件を読み込み中...",
@@ -414,6 +418,8 @@ const MESSAGES = {
 			manual: "Manual",
 		},
 		action: {
+			openProject: "Open Project",
+			saveProject: "Save Project",
 			openFiles: "Open Files",
 			clear: "Clear",
 			loadUrl: "Load URL",
@@ -515,6 +521,8 @@ const MESSAGES = {
 		},
 		status: {
 			ready: "Ready.",
+			projectLoaded: "Project loaded.",
+			projectSaved: "Project saved.",
 			viewportEnabled: "Switched to Viewport.",
 			cameraEnabled: "Switched to Camera View.",
 			loadingItems: "Loading {count} item(s)...",
