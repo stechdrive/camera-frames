@@ -8,7 +8,7 @@ import {
 	createProjectFilePackedSplatSource,
 	isProjectFileEmbeddedFileSource,
 	isProjectFilePackedSplatSource,
-} from "../project-file.js";
+} from "../project-document.js";
 import {
 	isProjectPackageFileSource,
 	isProjectPackagePackedSplatSource,
