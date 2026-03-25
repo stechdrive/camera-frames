@@ -53,6 +53,12 @@ import {
 	isProjectPackageSource,
 } from "./project-package.js";
 import {
+	pickWorkingProjectDirectory,
+	readCameraFramesWorkingProject,
+	saveCameraFramesWorkingProject,
+	supportsWorkingProjectStorage,
+} from "./project-storage-working.js";
+import {
 	WORKSPACE_PANE_CAMERA,
 	cloneShotCameraDocument,
 } from "./workspace-model.js";
@@ -539,6 +545,9 @@ export function createCameraFramesController(elements, store) {
 		};
 	}
 
+	let workingProjectDirectoryHandle = null;
+	let workingProjectName = "";
+
 	function buildProjectFilename() {
 		const activeDocument = getActiveShotCameraDocument();
 		if (!activeDocument) {
@@ -546,6 +555,27 @@ export function createCameraFramesController(elements, store) {
 		}
 
 		return `${getShotCameraExportBaseName(activeDocument, 1)}.ssproj`;
+	}
+
+	function getProjectBaseName(value) {
+		const fileName = String(value ?? "").trim();
+		if (!fileName) {
+			return "";
+		}
+		return fileName.replace(/\.ssproj$/i, "");
+	}
+
+	function rememberWorkingProject(directoryHandle, projectName = "") {
+		workingProjectDirectoryHandle = directoryHandle ?? null;
+		workingProjectName =
+			String(projectName ?? "").trim() ||
+			directoryHandle?.name ||
+			workingProjectName;
+	}
+
+	function clearWorkingProject() {
+		workingProjectDirectoryHandle = null;
+		workingProjectName = "";
 	}
 
 	function downloadBlob(blob, filename) {
@@ -562,9 +592,9 @@ export function createCameraFramesController(elements, store) {
 		}, 0);
 	}
 
-	async function saveProject() {
+	async function exportProject() {
 		try {
-			setStatus(t("status.projectSaving"));
+			setStatus(t("status.projectExporting"));
 			await new Promise((resolve) => requestAnimationFrame(resolve));
 			const archive = await buildCameraFramesProjectArchive(
 				captureProjectState(),
@@ -575,8 +605,48 @@ export function createCameraFramesController(elements, store) {
 				}),
 				buildProjectFilename(),
 			);
-			setStatus(t("status.projectSaved"));
+			setStatus(t("status.projectExported"));
 		} catch (error) {
+			console.error(error);
+			setStatus(error.message);
+		}
+	}
+
+	async function saveProject() {
+		if (!supportsWorkingProjectStorage()) {
+			return exportProject();
+		}
+
+		try {
+			const directoryHandle =
+				workingProjectDirectoryHandle ??
+				(await pickWorkingProjectDirectory({
+					writable: true,
+				}));
+			const projectName = directoryHandle?.name || workingProjectName || "";
+			setStatus(
+				workingProjectDirectoryHandle
+					? t("status.projectSaving")
+					: t("status.projectSavingToFolder", {
+							name: projectName,
+						}),
+			);
+			await new Promise((resolve) => requestAnimationFrame(resolve));
+			const result = await saveCameraFramesWorkingProject({
+				directoryHandle,
+				projectSnapshot: captureProjectState(),
+				projectName,
+			});
+			rememberWorkingProject(result.directoryHandle, result.projectName);
+			setStatus(
+				t("status.projectSavedToFolder", {
+					name: result.projectName || result.directoryHandle?.name || "",
+				}),
+			);
+		} catch (error) {
+			if (error?.name === "AbortError") {
+				return;
+			}
 			console.error(error);
 			setStatus(error.message);
 		}
@@ -629,18 +699,14 @@ export function createCameraFramesController(elements, store) {
 		updateUi();
 	}
 
-	async function openProjectSource(source) {
-		let parsedProject = null;
-		try {
-			parsedProject = await readCameraFramesProject(source);
-		} catch (error) {
-			console.warn("[CAMERA_FRAMES] project parse fallback", error);
-		}
-
-		if (!parsedProject) {
-			return assetController.loadSources([source], true);
-		}
-
+	async function applyOpenedProject(
+		parsedProject,
+		{
+			workingDirectoryHandle = null,
+			projectName = "",
+			loadedStatus = t("status.projectLoaded"),
+		} = {},
+	) {
 		assetController.clearScene();
 		const projectSources = parsedProject.assetEntries.map(
 			(entry) => entry.source,
@@ -650,12 +716,62 @@ export function createCameraFramesController(elements, store) {
 		}
 		applySavedProjectState(parsedProject.project);
 		historyController?.clearHistory();
-		setStatus(t("status.projectLoaded"));
+		if (workingDirectoryHandle) {
+			rememberWorkingProject(workingDirectoryHandle, projectName);
+		} else {
+			clearWorkingProject();
+		}
+		setStatus(loadedStatus);
 		return true;
+	}
+
+	async function openProjectSource(source) {
+		let parsedProject = null;
+		try {
+			parsedProject = await readCameraFramesProject(source);
+		} catch (error) {
+			console.warn("[CAMERA_FRAMES] project parse fallback", error);
+		}
+
+		if (!parsedProject) {
+			clearWorkingProject();
+			return assetController.loadSources([source], true);
+		}
+
+		return applyOpenedProject(parsedProject, {
+			projectName: getProjectBaseName(source?.name),
+			loadedStatus: t("status.projectLoaded"),
+		});
 	}
 
 	function openProject() {
 		projectInput?.click?.();
+	}
+
+	async function openWorkingProject() {
+		if (!supportsWorkingProjectStorage()) {
+			setStatus(t("error.projectWorkingFolderUnsupported"));
+			return;
+		}
+
+		try {
+			const directoryHandle = await pickWorkingProjectDirectory();
+			const parsedProject =
+				await readCameraFramesWorkingProject(directoryHandle);
+			await applyOpenedProject(parsedProject, {
+				workingDirectoryHandle: parsedProject.directoryHandle,
+				projectName: parsedProject.projectName,
+				loadedStatus: t("status.projectLoadedFromFolder", {
+					name: parsedProject.projectName || directoryHandle?.name || "",
+				}),
+			});
+		} catch (error) {
+			if (error?.name === "AbortError") {
+				return;
+			}
+			console.error(error);
+			setStatus(error.message);
+		}
 	}
 
 	async function handleProjectInputChange(event) {
@@ -1330,7 +1446,9 @@ export function createCameraFramesController(elements, store) {
 		setAssetMaskGroup: assetController.setAssetMaskGroup,
 		openFiles: assetController.openFiles,
 		openProject,
+		openWorkingProject,
 		saveProject,
+		exportProject,
 		clearScene,
 		loadRemoteUrls: assetController.loadRemoteUrls,
 		handleAssetInputChange: assetController.handleAssetInputChange,

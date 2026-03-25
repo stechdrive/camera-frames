@@ -124,7 +124,9 @@ const MESSAGES = {
 		},
 		action: {
 			openProject: "プロジェクトを開く",
+			openWorkingProject: "作業フォルダを開く",
 			saveProject: "プロジェクトを保存",
+			exportProject: "プロジェクトを書き出し",
 			openFiles: "ファイルを開く",
 			clear: "クリア",
 			loadUrl: "URLを読み込む",
@@ -222,8 +224,13 @@ const MESSAGES = {
 		status: {
 			ready: "準備完了。",
 			projectSaving: "プロジェクトを保存中...",
+			projectSavingToFolder: "{name} にプロジェクトを保存中...",
 			projectLoaded: "プロジェクトを読み込みました。",
+			projectLoadedFromFolder: "{name} からプロジェクトを読み込みました。",
 			projectSaved: "プロジェクトを保存しました。",
+			projectSavedToFolder: "{name} にプロジェクトを保存しました。",
+			projectExporting: "プロジェクトを書き出し中...",
+			projectExported: "プロジェクトを書き出しました。",
 			viewportEnabled: "ビューポートに切り替えました。",
 			cameraEnabled: "カメラビューに切り替えました。",
 			loadingItems: "{count} 件を読み込み中...",
@@ -328,6 +335,8 @@ const MESSAGES = {
 				"出力プレビューの前に 3DGS かモデルを読み込んでください。",
 			exportRequiresPreset:
 				"書き出し対象の Camera を 1 つ以上選択してください。",
+			projectWorkingFolderUnsupported:
+				"この環境では作業フォルダ保存を利用できません。",
 			previewContext: "プレビュー用の 2D context を取得できませんでした。",
 			unsupportedFileType: "未対応のファイル形式です: {name}",
 			emptyProjectPackage: "{name} に読み込める 3D asset がありません。",
@@ -420,7 +429,9 @@ const MESSAGES = {
 		},
 		action: {
 			openProject: "Open Project",
+			openWorkingProject: "Open Working Folder",
 			saveProject: "Save Project",
+			exportProject: "Export Project",
 			openFiles: "Open Files",
 			clear: "Clear",
 			loadUrl: "Load URL",
@@ -523,8 +534,13 @@ const MESSAGES = {
 		status: {
 			ready: "Ready.",
 			projectSaving: "Saving project...",
+			projectSavingToFolder: "Saving project to {name}...",
 			projectLoaded: "Project loaded.",
+			projectLoadedFromFolder: "Loaded project from {name}.",
 			projectSaved: "Project saved.",
+			projectSavedToFolder: "Saved project to {name}.",
+			projectExporting: "Exporting project...",
+			projectExported: "Project exported.",
 			viewportEnabled: "Switched to Viewport.",
 			cameraEnabled: "Switched to Camera View.",
 			loadingItems: "Loading {count} item(s)...",
@@ -629,6 +645,8 @@ const MESSAGES = {
 			exportRequiresAsset:
 				"Load a splat or model before rendering output preview.",
 			exportRequiresPreset: "Select at least one Camera for export.",
+			projectWorkingFolderUnsupported:
+				"Working project folders are not supported in this environment.",
 			previewContext: "Could not get the 2D context for output preview.",
 			unsupportedFileType: "Unsupported file type: {name}",
 			emptyProjectPackage: "No supported 3D assets were found in {name}.",

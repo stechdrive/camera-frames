@@ -595,12 +595,30 @@ function renderSceneSection({
 					${t("action.openProject")}
 				</button>
 				<button
+					id="open-working-project"
+					class="button"
+					type="button"
+					onClick=${() => controller()?.openWorkingProject()}
+				>
+					${t("action.openWorkingProject")}
+				</button>
+			</div>
+			<div class="button-row">
+				<button
 					id="save-project"
 					class="button"
 					type="button"
 					onClick=${() => controller()?.saveProject()}
 				>
 					${t("action.saveProject")}
+				</button>
+				<button
+					id="export-project"
+					class="button"
+					type="button"
+					onClick=${() => controller()?.exportProject()}
+				>
+					${t("action.exportProject")}
 				</button>
 			</div>
 			<div class="button-row">
