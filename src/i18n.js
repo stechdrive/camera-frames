@@ -221,6 +221,7 @@ const MESSAGES = {
 		},
 		status: {
 			ready: "準備完了。",
+			projectSaving: "プロジェクトを保存中...",
 			projectLoaded: "プロジェクトを読み込みました。",
 			projectSaved: "プロジェクトを保存しました。",
 			viewportEnabled: "ビューポートに切り替えました。",
@@ -521,6 +522,7 @@ const MESSAGES = {
 		},
 		status: {
 			ready: "Ready.",
+			projectSaving: "Saving project...",
 			projectLoaded: "Project loaded.",
 			projectSaved: "Project saved.",
 			viewportEnabled: "Switched to Viewport.",

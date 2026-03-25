@@ -553,12 +553,19 @@ export function createCameraFramesController(elements, store) {
 		const anchor = document.createElement("a");
 		anchor.href = url;
 		anchor.download = filename;
+		anchor.style.display = "none";
+		document.body.append(anchor);
 		anchor.click();
-		setTimeout(() => URL.revokeObjectURL(url), 0);
+		setTimeout(() => {
+			anchor.remove();
+			URL.revokeObjectURL(url);
+		}, 0);
 	}
 
 	async function saveProject() {
 		try {
+			setStatus(t("status.projectSaving"));
+			await new Promise((resolve) => requestAnimationFrame(resolve));
 			const archive = await buildCameraFramesProjectArchive(
 				captureProjectState(),
 			);
