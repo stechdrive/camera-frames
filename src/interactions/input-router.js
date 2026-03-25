@@ -12,6 +12,8 @@ export function bindInputRouter({
 	toggleZoomTool,
 	undoHistory,
 	redoHistory,
+	requestNavigationHistoryCommit,
+	flushNavigationHistory,
 	isInteractiveTextTarget,
 	isZoomInteractionMode,
 	applyNavigateInteractionMode,
@@ -111,6 +113,7 @@ export function bindInputRouter({
 			return;
 		}
 		syncInteractiveInputNavigationState(true);
+		flushNavigationHistory?.();
 	});
 
 	listen(window, "focusout", (event) => {
@@ -155,6 +158,12 @@ export function bindInputRouter({
 	listen(window, "pointermove", handleZoomToolDragMove);
 	listen(window, "pointerup", handleZoomToolDragEnd);
 	listen(window, "pointercancel", handleZoomToolDragEnd);
+	listen(window, "pointerup", () => {
+		requestNavigationHistoryCommit?.();
+	});
+	listen(window, "pointercancel", () => {
+		requestNavigationHistoryCommit?.();
+	});
 	listen(window, "keydown", (event) => {
 		if (event.repeat) {
 			return;
@@ -190,6 +199,15 @@ export function bindInputRouter({
 			event.preventDefault();
 			applyNavigateInteractionMode();
 		}
+	});
+	listen(window, "keyup", (event) => {
+		if (isInteractiveTextTarget(event.target)) {
+			return;
+		}
+		requestNavigationHistoryCommit?.();
+	});
+	listen(window, "blur", () => {
+		flushNavigationHistory?.();
 	});
 
 	listen(window, "pointermove", handleOutputFramePanMove);

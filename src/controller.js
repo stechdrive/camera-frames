@@ -725,6 +725,10 @@ export function createCameraFramesController(elements, store) {
 		toggleZoomTool,
 		undoHistory: () => historyController?.undoHistory(),
 		redoHistory: () => historyController?.redoHistory(),
+		beginHistoryTransaction: (label) =>
+			historyController?.beginHistoryTransaction(label),
+		commitHistoryTransaction: (label) =>
+			historyController?.commitHistoryTransaction(label),
 		isInteractiveTextTarget,
 		isZoomInteractionMode: () =>
 			interactionController?.isZoomInteractionMode() ?? false,
