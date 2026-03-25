@@ -13,6 +13,8 @@ export function bindInputRouter({
 	toggleViewportSelectMode,
 	toggleViewportTransformMode,
 	toggleViewportPivotEditMode,
+	saveProject,
+	exportProject,
 	undoHistory,
 	redoHistory,
 	clearSceneAssetSelection,
@@ -245,6 +247,20 @@ export function bindInputRouter({
 				redoHistory?.();
 			} else {
 				undoHistory?.();
+			}
+			return;
+		}
+
+		if (
+			(event.ctrlKey || event.metaKey) &&
+			event.code === "KeyS" &&
+			!event.altKey
+		) {
+			event.preventDefault();
+			if (event.shiftKey) {
+				exportProject?.();
+			} else {
+				saveProject?.();
 			}
 			return;
 		}

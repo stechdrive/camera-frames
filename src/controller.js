@@ -1028,6 +1028,8 @@ export function createCameraFramesController(elements, store) {
 		toggleZoomTool,
 		toggleViewportSelectMode,
 		toggleViewportTransformMode,
+		saveProject,
+		exportProject,
 		undoHistory: () => historyController?.undoHistory(),
 		redoHistory: () => historyController?.redoHistory(),
 		clearSceneAssetSelection,
