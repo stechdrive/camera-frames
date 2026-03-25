@@ -697,6 +697,7 @@ export function createCameraFramesController(elements, store) {
 		isProjectPackageSource,
 		extractProjectPackageAssets,
 		applyProjectPackageImport,
+		openProjectSource,
 		disposeObject,
 		runHistoryAction: historyController.runHistoryAction,
 		clearHistory: historyController.clearHistory,

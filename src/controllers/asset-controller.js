@@ -124,6 +124,7 @@ export function createAssetController({
 	isProjectPackageSource,
 	extractProjectPackageAssets,
 	applyProjectPackageImport,
+	openProjectSource = null,
 	disposeObject,
 	runHistoryAction = (_label, applyChange) => {
 		applyChange?.();
@@ -1464,7 +1465,16 @@ export function createAssetController({
 		{ replace = false, clearRemoteInput = false } = {},
 	) {
 		const remoteUrls = sources.filter((source) => typeof source === "string");
+		const standaloneProjectSource = getStandaloneProjectSource(sources);
 		try {
+			if (standaloneProjectSource) {
+				await openProjectSource(standaloneProjectSource);
+				if (clearRemoteInput) {
+					store.remoteUrl.value = "";
+				}
+				return true;
+			}
+
 			showImportProgress("verify");
 			await loadSources(sources, replace, {
 				onProgress: (step, detail) => showImportProgress(step, detail),
@@ -1493,6 +1503,23 @@ export function createAssetController({
 			.split(/[\r\n,\s]+/)
 			.map((entry) => entry.trim())
 			.filter((entry) => /^https?:\/\//i.test(entry));
+	}
+
+	function getStandaloneProjectSource(sources) {
+		if (typeof openProjectSource !== "function" || !Array.isArray(sources)) {
+			return null;
+		}
+
+		if (sources.length !== 1) {
+			return null;
+		}
+
+		const source = sources[0];
+		if (typeof source === "string") {
+			return null;
+		}
+
+		return getExtension(source) === "ssproj" ? source : null;
 	}
 
 	function clearScene() {
