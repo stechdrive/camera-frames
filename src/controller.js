@@ -1049,20 +1049,17 @@ export function createCameraFramesController(elements, store) {
 	}
 
 	function setViewportPivotEditMode(nextEnabled) {
-		if (nextEnabled) {
-			store.viewportSelectMode.value = false;
-		}
-		store.viewportPivotEditMode.value = Boolean(nextEnabled);
 		viewportToolController.setViewportPivotEditMode(nextEnabled);
 		interactionController?.syncControlsToMode();
 	}
 
 	function setViewportSelectMode(nextEnabled) {
-		if (nextEnabled) {
-			store.viewportPivotEditMode.value = false;
-		}
-		store.viewportSelectMode.value = Boolean(nextEnabled);
 		viewportToolController.setViewportSelectMode(nextEnabled);
+		interactionController?.syncControlsToMode();
+	}
+
+	function setViewportTransformMode(nextEnabled) {
+		viewportToolController.setViewportTransformMode(nextEnabled);
 		interactionController?.syncControlsToMode();
 	}
 
@@ -1079,8 +1076,7 @@ export function createCameraFramesController(elements, store) {
 	}
 
 	function clearScene() {
-		store.viewportSelectMode.value = false;
-		store.viewportPivotEditMode.value = false;
+		viewportToolController.setViewportTransformMode(false);
 		assetController.clearScene();
 	}
 
@@ -1092,6 +1088,7 @@ export function createCameraFramesController(elements, store) {
 		setBaseFovX: cameraController.setBaseFovX,
 		setViewportBaseFovX: cameraController.setViewportBaseFovX,
 		setViewportTransformSpace: viewportToolController.setViewportTransformSpace,
+		setViewportTransformMode,
 		setViewportSelectMode,
 		toggleViewportSelectMode,
 		setViewportPivotEditMode,

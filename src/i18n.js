@@ -97,6 +97,7 @@ const MESSAGES = {
 			local: "ローカル",
 		},
 		transformMode: {
+			none: "なし",
 			select: "Select",
 			transform: "Transform",
 			pivot: "Pivot",
@@ -387,6 +388,7 @@ const MESSAGES = {
 			local: "Local",
 		},
 		transformMode: {
+			none: "None",
 			select: "Select",
 			transform: "Transform",
 			pivot: "Pivot",

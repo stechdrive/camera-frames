@@ -292,11 +292,15 @@ export function createViewportToolController({
 	let activeDrag = null;
 
 	function isPivotEditMode() {
-		return store.viewportPivotEditMode.value === true;
+		return store.viewportToolMode.value === "pivot";
 	}
 
 	function isSelectMode() {
-		return store.viewportSelectMode.value === true;
+		return store.viewportToolMode.value === "select";
+	}
+
+	function isTransformMode() {
+		return store.viewportToolMode.value === "transform";
 	}
 
 	function isViewportToolMode() {
@@ -641,6 +645,9 @@ export function createViewportToolController({
 		if (isSelectMode()) {
 			return false;
 		}
+		if (!isTransformMode() && !isPivotEditMode()) {
+			return false;
+		}
 
 		if (
 			isPivotEditMode() &&
@@ -940,12 +947,17 @@ export function createViewportToolController({
 	}
 
 	function setViewportPivotEditMode(nextEnabled) {
-		store.viewportPivotEditMode.value = Boolean(nextEnabled);
+		store.viewportToolMode.value = nextEnabled ? "pivot" : "none";
 		setHoveredHandle(null);
 	}
 
 	function setViewportSelectMode(nextEnabled) {
-		store.viewportSelectMode.value = Boolean(nextEnabled);
+		store.viewportToolMode.value = nextEnabled ? "select" : "none";
+		setHoveredHandle(null);
+	}
+
+	function setViewportTransformMode(nextEnabled) {
+		store.viewportToolMode.value = nextEnabled ? "transform" : "none";
 		setHoveredHandle(null);
 	}
 
@@ -957,6 +969,7 @@ export function createViewportToolController({
 		const asset = getSelectedTransformAsset();
 		if (
 			!isViewportToolMode() ||
+			(!isTransformMode() && !isPivotEditMode()) ||
 			isSelectMode() ||
 			!asset ||
 			asset.object.visible === false
@@ -1128,6 +1141,7 @@ export function createViewportToolController({
 		setViewportTransformSpace,
 		setViewportSelectMode,
 		setViewportPivotEditMode,
+		setViewportTransformMode,
 		setViewportTransformHover,
 		pickViewportAssetAtPointer,
 		startViewportTransformDrag,

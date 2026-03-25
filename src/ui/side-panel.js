@@ -313,6 +313,9 @@ function renderViewSection({
 	viewportFovLabel,
 }) {
 	const canUseTransformTools = mode === "viewport" || mode === "camera";
+	const showTransformControls =
+		selectedSceneAsset &&
+		(store.viewportTransformMode.value || store.viewportPivotEditMode.value);
 
 	return html`
 		<section class="panel-section">
@@ -416,6 +419,17 @@ function renderViewSection({
 							<button
 								type="button"
 								class=${
+									store.viewportToolMode.value === "none"
+										? "button button--primary button--compact"
+										: "button button--compact"
+								}
+								onClick=${() => controller()?.setViewportTransformMode(false)}
+							>
+								${t("transformMode.none")}
+							</button>
+							<button
+								type="button"
+								class=${
 									store.viewportSelectMode.value
 										? "button button--primary button--compact"
 										: "button button--compact"
@@ -427,15 +441,11 @@ function renderViewSection({
 							<button
 								type="button"
 								class=${
-									!store.viewportSelectMode.value &&
-									!store.viewportPivotEditMode.value
+									store.viewportTransformMode.value
 										? "button button--primary button--compact"
 										: "button button--compact"
 								}
-								onClick=${() => {
-									controller()?.setViewportSelectMode(false);
-									controller()?.setViewportPivotEditMode(false);
-								}}
+								onClick=${() => controller()?.setViewportTransformMode(true)}
 							>
 								${t("transformMode.transform")}
 							</button>
@@ -454,8 +464,7 @@ function renderViewSection({
 						</div>
 					</div>
 					${
-						selectedSceneAsset &&
-						!store.viewportSelectMode.value &&
+						showTransformControls &&
 						html`
 							<div class="field">
 								<span>${t("field.transformSpace")}</span>
