@@ -73,6 +73,7 @@ const MESSAGES = {
 			assetScale: "ワールドスケール",
 			assetPosition: "位置",
 			assetRotation: "回転",
+			transformSpace: "変形空間",
 			activeFrame: "FRAME",
 			exportTarget: "書き出し対象",
 		},
@@ -89,6 +90,13 @@ const MESSAGES = {
 		mode: {
 			viewport: "ビューポート",
 			camera: "カメラビュー",
+		},
+		transformSpace: {
+			world: "ワールド",
+			local: "ローカル",
+		},
+		viewportTool: {
+			moveCenter: "移動",
 		},
 		exportTarget: {
 			current: "現在の Camera",
@@ -228,6 +236,7 @@ const MESSAGES = {
 			zoomToolUnavailable: "ズームツールはカメラビューでのみ使えます。",
 			localeChanged: "表示言語を {language} に切り替えました。",
 			assetScaleUpdated: "{name} のワールドスケールを {scale} にしました。",
+			assetTransformUpdated: "{name} のトランスフォームを更新しました。",
 			assetVisibilityUpdated: "{name} を {visibility} にしました。",
 			assetOrderUpdated: "{name} の順序を {index} にしました。",
 			selectedShotCamera: "Camera を {name} に切り替えました。",
@@ -347,6 +356,7 @@ const MESSAGES = {
 			assetScale: "World Scale",
 			assetPosition: "Position",
 			assetRotation: "Rotation",
+			transformSpace: "Transform Space",
 			activeFrame: "FRAME",
 			exportTarget: "Export Target",
 		},
@@ -363,6 +373,13 @@ const MESSAGES = {
 		mode: {
 			viewport: "Viewport",
 			camera: "Camera View",
+		},
+		transformSpace: {
+			world: "World",
+			local: "Local",
+		},
+		viewportTool: {
+			moveCenter: "Move",
 		},
 		exportTarget: {
 			current: "Current Camera",
@@ -506,6 +523,7 @@ const MESSAGES = {
 			zoomToolUnavailable: "Zoom tool is only available in Camera View.",
 			localeChanged: "Display language switched to {language}.",
 			assetScaleUpdated: "Set {name} world scale to {scale}.",
+			assetTransformUpdated: "Updated {name} transform.",
 			assetVisibilityUpdated: "Set {name} to {visibility}.",
 			assetOrderUpdated: "Moved {name} to order {index}.",
 			selectedShotCamera: "Camera switched to {name}.",

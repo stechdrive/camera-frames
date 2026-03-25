@@ -100,9 +100,9 @@ const GRID_FRAGMENT_SHADER = /* glsl */ `
 		if (axisAlpha > epsilon) {
 			vec3 axisColor = vec3(1.0);
 			if (xAxisAlpha > 0.0 && zAxisAlpha <= 0.0) {
-				axisColor = vec3(0.22, 0.52, 0.98);
-			} else if (zAxisAlpha > 0.0 && xAxisAlpha <= 0.0) {
 				axisColor = vec3(0.95, 0.28, 0.28);
+			} else if (zAxisAlpha > 0.0 && xAxisAlpha <= 0.0) {
+				axisColor = vec3(0.22, 0.52, 0.98);
 			}
 			gl_FragColor = vec4(axisColor, axisAlpha * 0.76);
 			return;

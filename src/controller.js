@@ -27,6 +27,7 @@ import { createProjectionController } from "./controllers/projection-controller.
 import { createRuntimeController } from "./controllers/runtime-controller.js";
 import { createSceneFramingController } from "./controllers/scene-framing-controller.js";
 import { createUiSyncController } from "./controllers/ui-sync-controller.js";
+import { createViewportToolController } from "./controllers/viewport-tool-controller.js";
 import { drawFramesToContext } from "./engine/frame-overlay.js";
 import {
 	GUIDE_GRID_LAYER_MODE_BOTTOM,
@@ -59,6 +60,8 @@ export function createCameraFramesController(elements, store) {
 		workbenchRightColumn,
 		renderBox,
 		frameOverlayCanvas,
+		viewportGizmo,
+		viewportGizmoSvg,
 		renderBoxMeta,
 		anchorDot,
 		dropHint,
@@ -322,6 +325,7 @@ export function createCameraFramesController(elements, store) {
 	let runtimeController = null;
 	let sceneFramingController = null;
 	let uiSyncController = null;
+	let viewportToolController = null;
 
 	function currentLocale() {
 		return store.locale.value;
@@ -670,6 +674,17 @@ export function createCameraFramesController(elements, store) {
 		setViewZoomFactor: (nextZoom) =>
 			outputFrameController.setViewZoomFactor(nextZoom),
 	});
+	viewportToolController = createViewportToolController({
+		store,
+		state,
+		viewportShell,
+		viewportGizmo,
+		viewportGizmoSvg,
+		getActiveCamera,
+		assetController,
+		beginHistoryTransaction: historyController.beginHistoryTransaction,
+		commitHistoryTransaction: historyController.commitHistoryTransaction,
+	});
 	projectionController = createProjectionController({
 		state,
 		viewportShell,
@@ -757,8 +772,14 @@ export function createCameraFramesController(elements, store) {
 		handleFrameRotateEnd: frameController.handleFrameRotateEnd,
 		handleFrameAnchorDragMove: frameController.handleFrameAnchorDragMove,
 		handleFrameAnchorDragEnd: frameController.handleFrameAnchorDragEnd,
+		handleViewportTransformDragMove:
+			viewportToolController.handleViewportTransformDragMove,
+		handleViewportTransformDragEnd:
+			viewportToolController.handleViewportTransformDragEnd,
 		startOutputFrameAnchorDrag:
 			outputFrameController.startOutputFrameAnchorDrag,
+		syncViewportTransformGizmo:
+			viewportToolController.syncViewportTransformGizmo,
 		exportController,
 		handleResize,
 		fpsMovement,
@@ -1028,6 +1049,8 @@ export function createCameraFramesController(elements, store) {
 		setLocale,
 		setBaseFovX: cameraController.setBaseFovX,
 		setViewportBaseFovX: cameraController.setViewportBaseFovX,
+		setViewportTransformSpace: viewportToolController.setViewportTransformSpace,
+		setViewportTransformHover: viewportToolController.setViewportTransformHover,
 		setBoxWidthPercent: outputFrameController.setBoxWidthPercent,
 		setBoxHeightPercent: outputFrameController.setBoxHeightPercent,
 		setViewZoomPercent: outputFrameController.setViewZoomPercent,
@@ -1061,7 +1084,10 @@ export function createCameraFramesController(elements, store) {
 		createShotCamera: cameraController.createShotCamera,
 		duplicateActiveShotCamera: cameraController.duplicateActiveShotCamera,
 		selectSceneAsset: assetController.selectSceneAsset,
+		startViewportTransformDrag:
+			viewportToolController.startViewportTransformDrag,
 		setAssetWorldScale: assetController.setAssetWorldScale,
+		setAssetTransform: assetController.setAssetTransform,
 		resetAssetWorldScale: assetController.resetAssetWorldScale,
 		setAssetPosition: assetController.setAssetPosition,
 		setAssetRotationDegrees: assetController.setAssetRotationDegrees,

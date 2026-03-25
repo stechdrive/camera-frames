@@ -1178,6 +1178,52 @@ export function createAssetController({
 		);
 	}
 
+	function setAssetTransform(
+		assetId,
+		{ worldPosition = null, worldQuaternion = null, worldScale = null } = {},
+		{ historyLabel = "asset.transform", updateStatus = false } = {},
+	) {
+		const asset = getSceneAsset(assetId);
+		if (!asset) {
+			return;
+		}
+
+		runHistoryAction?.(historyLabel, () => {
+			if (worldScale !== null && worldScale !== undefined) {
+				asset.worldScale = clampAssetWorldScale(worldScale);
+				applyAssetWorldScale(asset);
+			}
+
+			if (worldPosition) {
+				const nextLocalPosition = worldPosition.clone();
+				asset.object.parent?.worldToLocal(nextLocalPosition);
+				asset.object.position.copy(nextLocalPosition);
+			}
+
+			if (worldQuaternion) {
+				const nextLocalQuaternion = worldQuaternion.clone();
+				if (asset.object.parent) {
+					const parentWorldQuaternion = asset.object.parent.getWorldQuaternion(
+						new THREE.Quaternion(),
+					);
+					nextLocalQuaternion.premultiply(parentWorldQuaternion.invert());
+				}
+				asset.object.quaternion.copy(nextLocalQuaternion);
+			}
+
+			asset.object.updateMatrixWorld(true);
+		});
+
+		updateUi();
+		if (updateStatus) {
+			setStatus(
+				t("status.assetTransformUpdated", {
+					name: asset.label,
+				}),
+			);
+		}
+	}
+
 	function resetAssetWorldScale(assetId) {
 		setAssetWorldScale(assetId, 1);
 	}
@@ -1450,6 +1496,7 @@ export function createAssetController({
 		restoreSceneAssetEditState,
 		clearScene,
 		setAssetWorldScale,
+		setAssetTransform,
 		resetAssetWorldScale,
 		setAssetPosition,
 		setAssetRotationDegrees,

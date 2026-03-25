@@ -39,6 +39,8 @@ export function bindInputRouter({
 	handleFrameRotateEnd,
 	handleFrameAnchorDragMove,
 	handleFrameAnchorDragEnd,
+	handleViewportTransformDragMove,
+	handleViewportTransformDragEnd,
 	startOutputFrameAnchorDrag,
 }) {
 	function isHistoryShortcut(event) {
@@ -231,5 +233,8 @@ export function bindInputRouter({
 	listen(window, "pointermove", handleFrameAnchorDragMove);
 	listen(window, "pointerup", handleFrameAnchorDragEnd);
 	listen(window, "pointercancel", handleFrameAnchorDragEnd);
+	listen(window, "pointermove", handleViewportTransformDragMove);
+	listen(window, "pointerup", handleViewportTransformDragEnd);
+	listen(window, "pointercancel", handleViewportTransformDragEnd);
 	listen(anchorDot, "pointerdown", startOutputFrameAnchorDrag);
 }

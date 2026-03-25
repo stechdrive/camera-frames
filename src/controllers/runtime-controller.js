@@ -45,6 +45,8 @@ export function createRuntimeController({
 	handleFrameRotateEnd,
 	handleFrameAnchorDragMove,
 	handleFrameAnchorDragEnd,
+	handleViewportTransformDragMove,
+	handleViewportTransformDragEnd,
 	startOutputFrameAnchorDrag,
 	exportController,
 	handleResize,
@@ -53,6 +55,7 @@ export function createRuntimeController({
 	getActiveCamera,
 	guideOverlay,
 	syncGuideOverlayState,
+	syncViewportTransformGizmo,
 	syncViewportProjection,
 	syncShotProjection,
 	applyCameraViewProjection,
@@ -180,6 +183,8 @@ export function createRuntimeController({
 			handleFrameRotateEnd,
 			handleFrameAnchorDragMove,
 			handleFrameAnchorDragEnd,
+			handleViewportTransformDragMove,
+			handleViewportTransformDragEnd,
 			startOutputFrameAnchorDrag,
 		});
 	}
@@ -251,6 +256,7 @@ export function createRuntimeController({
 		scene.background = previousBackground;
 		renderer.setClearColor(previousClearColor, previousClearAlpha);
 		renderer.autoClear = previousAutoClear;
+		syncViewportTransformGizmo?.();
 		updateOutputFrameOverlay();
 	}
 

@@ -402,6 +402,40 @@ function renderViewSection({
 							${t("field.viewportFov")} · ${viewportFovLabel} (${viewportEquivalentMmLabel})
 						</p>
 					</label>
+					${
+						store.selectedSceneAsset.value &&
+						html`
+							<div class="field">
+								<span>${t("field.transformSpace")}</span>
+								<div class="button-row">
+									<button
+										type="button"
+										class=${
+											store.viewportTransformSpace.value === "world"
+												? "button button--primary button--compact"
+												: "button button--compact"
+										}
+										onClick=${() =>
+											controller()?.setViewportTransformSpace("world")}
+									>
+										${t("transformSpace.world")}
+									</button>
+									<button
+										type="button"
+										class=${
+											store.viewportTransformSpace.value === "local"
+												? "button button--primary button--compact"
+												: "button button--compact"
+										}
+										onClick=${() =>
+											controller()?.setViewportTransformSpace("local")}
+									>
+										${t("transformSpace.local")}
+									</button>
+								</div>
+							</div>
+						`
+					}
 				`
 			}
 		</section>
