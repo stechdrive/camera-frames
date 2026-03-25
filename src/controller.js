@@ -20,12 +20,14 @@ import { createAssetController } from "./controllers/asset-controller.js";
 import { createCameraController } from "./controllers/camera-controller.js";
 import { createExportController } from "./controllers/export-controller.js";
 import { createFrameController } from "./controllers/frame-controller.js";
+import { createHistoryController } from "./controllers/history-controller.js";
 import { createInteractionController } from "./controllers/interaction-controller.js";
 import { createOutputFrameController } from "./controllers/output-frame-controller.js";
 import { createProjectionController } from "./controllers/projection-controller.js";
 import { createRuntimeController } from "./controllers/runtime-controller.js";
 import { createSceneFramingController } from "./controllers/scene-framing-controller.js";
 import { createUiSyncController } from "./controllers/ui-sync-controller.js";
+import { createViewportToolController } from "./controllers/viewport-tool-controller.js";
 import { drawFramesToContext } from "./engine/frame-overlay.js";
 import {
 	GUIDE_GRID_LAYER_MODE_BOTTOM,
@@ -45,14 +47,21 @@ import {
 	extractProjectPackageAssets,
 	isProjectPackageSource,
 } from "./project-package.js";
-import { WORKSPACE_PANE_CAMERA } from "./workspace-model.js";
+import {
+	WORKSPACE_PANE_CAMERA,
+	cloneShotCameraDocument,
+} from "./workspace-model.js";
 
 export function createCameraFramesController(elements, store) {
 	const {
 		viewportCanvas,
 		viewportShell,
+		workbenchLeftColumn,
+		workbenchRightColumn,
 		renderBox,
 		frameOverlayCanvas,
+		viewportGizmo,
+		viewportGizmoSvg,
 		renderBoxMeta,
 		anchorDot,
 		dropHint,
@@ -306,13 +315,17 @@ export function createCameraFramesController(elements, store) {
 	pointerControls.pointerRollScale = 0.0;
 
 	const loader = new GLTFLoader();
+	let assetController = null;
+	let frameController = null;
 	let cameraController = null;
+	let historyController = null;
 	let interactionController = null;
 	let outputFrameController = null;
 	let projectionController = null;
 	let runtimeController = null;
 	let sceneFramingController = null;
 	let uiSyncController = null;
+	let viewportToolController = null;
 
 	function currentLocale() {
 		return store.locale.value;
@@ -320,6 +333,125 @@ export function createCameraFramesController(elements, store) {
 
 	function t(key, params) {
 		return translate(currentLocale(), key, params);
+	}
+
+	function captureCameraPose(camera) {
+		return {
+			position: {
+				x: camera.position.x,
+				y: camera.position.y,
+				z: camera.position.z,
+			},
+			quaternion: {
+				x: camera.quaternion.x,
+				y: camera.quaternion.y,
+				z: camera.quaternion.z,
+				w: camera.quaternion.w,
+			},
+			up: {
+				x: camera.up.x,
+				y: camera.up.y,
+				z: camera.up.z,
+			},
+		};
+	}
+
+	function restoreCameraPose(camera, snapshot) {
+		if (!camera || !snapshot) {
+			return false;
+		}
+
+		camera.position.set(
+			Number(snapshot.position?.x ?? camera.position.x),
+			Number(snapshot.position?.y ?? camera.position.y),
+			Number(snapshot.position?.z ?? camera.position.z),
+		);
+		camera.quaternion.set(
+			Number(snapshot.quaternion?.x ?? camera.quaternion.x),
+			Number(snapshot.quaternion?.y ?? camera.quaternion.y),
+			Number(snapshot.quaternion?.z ?? camera.quaternion.z),
+			Number(snapshot.quaternion?.w ?? camera.quaternion.w),
+		);
+		camera.up.set(
+			Number(snapshot.up?.x ?? camera.up.x),
+			Number(snapshot.up?.y ?? camera.up.y),
+			Number(snapshot.up?.z ?? camera.up.z),
+		);
+		camera.updateMatrixWorld(true);
+		return true;
+	}
+
+	function captureWorkspaceState() {
+		return {
+			activeShotCameraId: store.workspace.activeShotCameraId.value,
+			viewportBaseFovX: store.viewportBaseFovX.value,
+			shotCameras: store.workspace.shotCameras.value.map((documentState) =>
+				cloneShotCameraDocument(documentState),
+			),
+			viewportPose: captureCameraPose(viewportCamera),
+			shotCameraPoses: Array.from(shotCameraRegistry.entries()).map(
+				([shotCameraId, entry]) => ({
+					id: shotCameraId,
+					pose: captureCameraPose(entry.camera),
+				}),
+			),
+			sceneAssets: assetController?.captureSceneAssetEditState?.() ?? null,
+			frameSelectionActive: store.frames.selectionActive.value,
+			outputFrameSelected: state.outputFrameSelected,
+		};
+	}
+
+	function restoreWorkspaceState(snapshot) {
+		if (!snapshot || !Array.isArray(snapshot.shotCameras)) {
+			return false;
+		}
+
+		if (!assetController?.restoreSceneAssetEditState?.(snapshot.sceneAssets)) {
+			return false;
+		}
+
+		setShotCameraDocuments(
+			snapshot.shotCameras.map((documentState) =>
+				cloneShotCameraDocument(documentState),
+			),
+		);
+		registerShotCameraDocuments();
+		if (!getShotCameraDocument(snapshot.activeShotCameraId)) {
+			return false;
+		}
+
+		store.workspace.activeShotCameraId.value = snapshot.activeShotCameraId;
+		store.viewportBaseFovX.value = Number.isFinite(snapshot.viewportBaseFovX)
+			? snapshot.viewportBaseFovX
+			: store.viewportBaseFovX.value;
+		restoreCameraPose(viewportCamera, snapshot.viewportPose);
+
+		for (const poseEntry of snapshot.shotCameraPoses ?? []) {
+			const entry = shotCameraRegistry.get(poseEntry.id);
+			if (!entry) {
+				return false;
+			}
+			restoreCameraPose(entry.camera, poseEntry.pose);
+			syncShotCameraEntryFromDocument(entry);
+		}
+
+		frameController?.clearFrameInteraction();
+		outputFrameController?.clearOutputFramePan();
+		outputFrameController?.clearOutputFrameAnchorDrag();
+		outputFrameController?.clearOutputFrameResize();
+		store.frames.selectionActive.value = Boolean(snapshot.frameSelectionActive);
+		state.outputFrameSelected =
+			!store.frames.selectionActive.value &&
+			Boolean(snapshot.outputFrameSelected);
+		interactionController?.clearControlMomentum();
+		syncControlsToMode();
+		syncViewportProjection();
+		syncShotProjection();
+		applyCameraViewProjection();
+		syncOutputCamera();
+		updateShotCameraHelpers();
+		updateCameraSummary();
+		return true;
 	}
 
 	function getLegacyImportSceneRadius() {
@@ -375,24 +507,14 @@ export function createCameraFramesController(elements, store) {
 		return true;
 	}
 
-	const frameController = createFrameController({
+	historyController = createHistoryController({
 		store,
-		state,
-		renderBox,
-		workspacePaneCamera: WORKSPACE_PANE_CAMERA,
-		isZoomToolActive: () => interactionController?.isZoomToolActive() ?? false,
-		t,
-		setStatus,
-		updateUi,
-		clearOutputFrameSelection: () =>
-			outputFrameController?.clearOutputFrameSelection(),
-		clearOutputFramePan: () => outputFrameController?.clearOutputFramePan(),
-		getActiveShotCameraDocument,
-		updateActiveShotCameraDocument,
-		getOutputFrameMetrics,
+		captureWorkspaceState,
+		restoreWorkspaceState,
+		updateUi: () => updateUi(),
 	});
 
-	const assetController = createAssetController({
+	assetController = createAssetController({
 		sceneState,
 		assetInput,
 		store,
@@ -415,6 +537,8 @@ export function createCameraFramesController(elements, store) {
 		extractProjectPackageAssets,
 		applyProjectPackageImport,
 		disposeObject,
+		runHistoryAction: historyController.runHistoryAction,
+		clearHistory: historyController.clearHistory,
 	});
 
 	const exportController = createExportController({
@@ -479,11 +603,34 @@ export function createCameraFramesController(elements, store) {
 			sceneFramingController.placeCameraAtHome(...args),
 		frameCamera: (...args) => sceneFramingController.frameCamera(...args),
 		syncControlsToMode: () => interactionController?.syncControlsToMode(),
+		runHistoryAction: historyController.runHistoryAction,
+	});
+	frameController = createFrameController({
+		store,
+		state,
+		renderBox,
+		workspacePaneCamera: WORKSPACE_PANE_CAMERA,
+		isZoomToolActive: () => interactionController?.isZoomToolActive() ?? false,
+		t,
+		setStatus,
+		updateUi,
+		clearOutputFrameSelection: () =>
+			outputFrameController?.clearOutputFrameSelection(),
+		clearOutputFramePan: () => outputFrameController?.clearOutputFramePan(),
+		getActiveShotCameraDocument,
+		updateActiveShotCameraDocument,
+		getOutputFrameMetrics,
+		runHistoryAction: historyController.runHistoryAction,
+		beginHistoryTransaction: historyController.beginHistoryTransaction,
+		commitHistoryTransaction: historyController.commitHistoryTransaction,
+		cancelHistoryTransaction: historyController.cancelHistoryTransaction,
 	});
 	outputFrameController = createOutputFrameController({
 		store,
 		state,
 		viewportShell,
+		workbenchLeftColumn,
+		workbenchRightColumn,
 		renderBox,
 		renderBoxMeta,
 		anchorDot,
@@ -509,6 +656,10 @@ export function createCameraFramesController(elements, store) {
 		getBaseFovX: () => state.baseFovX,
 		updateActiveShotCameraDocument,
 		updateUi,
+		runHistoryAction: historyController.runHistoryAction,
+		beginHistoryTransaction: historyController.beginHistoryTransaction,
+		commitHistoryTransaction: historyController.commitHistoryTransaction,
+		cancelHistoryTransaction: historyController.cancelHistoryTransaction,
 	});
 	interactionController = createInteractionController({
 		state,
@@ -522,6 +673,20 @@ export function createCameraFramesController(elements, store) {
 		getViewZoomFactor: () => state.outputFrame.viewZoom,
 		setViewZoomFactor: (nextZoom) =>
 			outputFrameController.setViewZoomFactor(nextZoom),
+	});
+	viewportToolController = createViewportToolController({
+		store,
+		state,
+		viewportShell,
+		viewportGizmo,
+		viewportGizmoSvg,
+		getActiveToolCamera: () =>
+			state.mode === WORKSPACE_PANE_CAMERA
+				? getActiveCameraViewCamera()
+				: viewportCamera,
+		assetController,
+		beginHistoryTransaction: historyController.beginHistoryTransaction,
+		commitHistoryTransaction: historyController.commitHistoryTransaction,
 	});
 	projectionController = createProjectionController({
 		state,
@@ -576,6 +741,15 @@ export function createCameraFramesController(elements, store) {
 		setStatus,
 		startZoomToolDrag,
 		toggleZoomTool,
+		toggleViewportSelectMode,
+		toggleViewportTransformMode,
+		undoHistory: () => historyController?.undoHistory(),
+		redoHistory: () => historyController?.redoHistory(),
+		clearSceneAssetSelection,
+		beginHistoryTransaction: (label) =>
+			historyController?.beginHistoryTransaction(label),
+		commitHistoryTransaction: (label) =>
+			historyController?.commitHistoryTransaction(label),
 		isInteractiveTextTarget,
 		isZoomInteractionMode: () =>
 			interactionController?.isZoomInteractionMode() ?? false,
@@ -604,8 +778,16 @@ export function createCameraFramesController(elements, store) {
 		handleFrameRotateEnd: frameController.handleFrameRotateEnd,
 		handleFrameAnchorDragMove: frameController.handleFrameAnchorDragMove,
 		handleFrameAnchorDragEnd: frameController.handleFrameAnchorDragEnd,
+		handleViewportTransformDragMove:
+			viewportToolController.handleViewportTransformDragMove,
+		handleViewportTransformDragEnd:
+			viewportToolController.handleViewportTransformDragEnd,
+		pickViewportAssetAtPointer:
+			viewportToolController.pickViewportAssetAtPointer,
 		startOutputFrameAnchorDrag:
 			outputFrameController.startOutputFrameAnchorDrag,
+		syncViewportTransformGizmo:
+			viewportToolController.syncViewportTransformGizmo,
 		exportController,
 		handleResize,
 		fpsMovement,
@@ -868,6 +1050,50 @@ export function createCameraFramesController(elements, store) {
 		return uiSyncController?.updateUi();
 	}
 
+	function setViewportPivotEditMode(nextEnabled) {
+		viewportToolController.setViewportPivotEditMode(nextEnabled);
+		interactionController?.syncControlsToMode();
+	}
+
+	function setViewportSelectMode(nextEnabled) {
+		viewportToolController.setViewportSelectMode(nextEnabled);
+		interactionController?.syncControlsToMode();
+	}
+
+	function setViewportTransformMode(nextEnabled) {
+		viewportToolController.setViewportTransformMode(nextEnabled);
+		interactionController?.syncControlsToMode();
+	}
+
+	function toggleViewportSelectMode() {
+		setViewportSelectMode(!store.viewportSelectMode.value);
+	}
+
+	function toggleViewportTransformMode() {
+		setViewportTransformMode(!store.viewportTransformMode.value);
+	}
+
+	function toggleViewportPivotEditMode() {
+		setViewportPivotEditMode(!store.viewportPivotEditMode.value);
+	}
+
+	function resetSelectedAssetWorkingPivot() {
+		const selectedAssetId = store.selectedSceneAssetId.value;
+		if (!selectedAssetId) {
+			return;
+		}
+		assetController.resetAssetWorkingPivot(selectedAssetId);
+	}
+
+	function clearSceneAssetSelection() {
+		assetController.clearSceneAssetSelection();
+	}
+
+	function clearScene() {
+		viewportToolController.setViewportTransformMode(false);
+		assetController.clearScene();
+	}
+
 	runtimeController.init();
 
 	return {
@@ -875,6 +1101,14 @@ export function createCameraFramesController(elements, store) {
 		setLocale,
 		setBaseFovX: cameraController.setBaseFovX,
 		setViewportBaseFovX: cameraController.setViewportBaseFovX,
+		setViewportTransformSpace: viewportToolController.setViewportTransformSpace,
+		setViewportTransformMode,
+		toggleViewportTransformMode,
+		setViewportSelectMode,
+		toggleViewportSelectMode,
+		setViewportPivotEditMode,
+		toggleViewportPivotEditMode,
+		setViewportTransformHover: viewportToolController.setViewportTransformHover,
 		setBoxWidthPercent: outputFrameController.setBoxWidthPercent,
 		setBoxHeightPercent: outputFrameController.setBoxHeightPercent,
 		setViewZoomPercent: outputFrameController.setViewZoomPercent,
@@ -908,8 +1142,15 @@ export function createCameraFramesController(elements, store) {
 		createShotCamera: cameraController.createShotCamera,
 		duplicateActiveShotCamera: cameraController.duplicateActiveShotCamera,
 		selectSceneAsset: assetController.selectSceneAsset,
+		clearSceneAssetSelection,
+		pickViewportAssetAtPointer:
+			viewportToolController.pickViewportAssetAtPointer,
+		startViewportTransformDrag:
+			viewportToolController.startViewportTransformDrag,
 		setAssetWorldScale: assetController.setAssetWorldScale,
+		setAssetTransform: assetController.setAssetTransform,
 		resetAssetWorldScale: assetController.resetAssetWorldScale,
+		resetSelectedAssetWorkingPivot,
 		setAssetPosition: assetController.setAssetPosition,
 		setAssetRotationDegrees: assetController.setAssetRotationDegrees,
 		setAssetVisibility: assetController.setAssetVisibility,
@@ -919,7 +1160,7 @@ export function createCameraFramesController(elements, store) {
 		setAssetExportRole: assetController.setAssetExportRole,
 		setAssetMaskGroup: assetController.setAssetMaskGroup,
 		openFiles: assetController.openFiles,
-		clearScene: assetController.clearScene,
+		clearScene,
 		loadRemoteUrls: assetController.loadRemoteUrls,
 		handleAssetInputChange: assetController.handleAssetInputChange,
 		copyViewportToShotCamera: cameraController.copyViewportToShotCamera,
@@ -928,6 +1169,14 @@ export function createCameraFramesController(elements, store) {
 		downloadOutput: exportController.downloadOutput,
 		downloadPng: exportController.downloadPng,
 		downloadPsd: exportController.downloadPsd,
+		beginHistoryTransaction: (label) =>
+			historyController?.beginHistoryTransaction(label),
+		commitHistoryTransaction: (label) =>
+			historyController?.commitHistoryTransaction(label),
+		cancelHistoryTransaction: () =>
+			historyController?.cancelHistoryTransaction(),
+		undoHistory: () => historyController?.undoHistory(),
+		redoHistory: () => historyController?.redoHistory(),
 		dispose() {
 			guideOverlay.dispose();
 			runtimeController.dispose();

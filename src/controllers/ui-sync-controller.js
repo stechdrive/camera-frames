@@ -58,6 +58,7 @@ export function createUiSyncController({
 				canMoveDown: index < assets.length - 1,
 				exportRole: asset.exportRole ?? "beauty",
 				maskGroup: asset.maskGroup ?? "",
+				hasWorkingPivot: Boolean(asset.workingPivotLocal),
 				position: {
 					x: asset.object.position.x,
 					y: asset.object.position.y,
@@ -72,15 +73,21 @@ export function createUiSyncController({
 		});
 		store.sceneAssets.value = rows;
 		if (rows.length === 0) {
+			store.selectedSceneAssetIds.value = [];
 			store.selectedSceneAssetId.value = null;
 			return;
 		}
-		const hasSelection = rows.some(
-			(asset) => asset.id === store.selectedSceneAssetId.value,
+		const rowIds = new Set(rows.map((asset) => asset.id));
+		const nextSelectedIds = store.selectedSceneAssetIds.value.filter(
+			(assetId) => rowIds.has(assetId),
 		);
-		if (!hasSelection) {
-			store.selectedSceneAssetId.value = rows[0].id;
-		}
+		const nextSelectedId =
+			rowIds.has(store.selectedSceneAssetId.value) &&
+			nextSelectedIds.includes(store.selectedSceneAssetId.value)
+				? store.selectedSceneAssetId.value
+				: (nextSelectedIds[0] ?? null);
+		store.selectedSceneAssetIds.value = [...new Set(nextSelectedIds)];
+		store.selectedSceneAssetId.value = nextSelectedId;
 	}
 
 	function updateDropHint() {

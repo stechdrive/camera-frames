@@ -210,6 +210,7 @@ export function createShotCameraDocument({ id, name, source } = {}) {
 					widthScale: 1,
 					heightScale: 1,
 					viewZoom: 1,
+					viewZoomAuto: true,
 					anchor: "center",
 					centerX: 0.5,
 					centerY: 0.5,
@@ -338,6 +339,7 @@ export function cloneShotCameraDocument(documentState) {
 			)
 				? documentState.outputFrame.fitViewportHeight
 				: 0,
+			viewZoomAuto: documentState.outputFrame?.viewZoomAuto ?? false,
 		},
 		exportSettings: {
 			exportName: documentState.exportSettings?.exportName ?? "",

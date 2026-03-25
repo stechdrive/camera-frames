@@ -20,6 +20,14 @@ export const activeCodeStamp = signal(
 	typeof DEV_STAMP === "string" && DEV_STAMP ? DEV_STAMP : buildCodeStamp,
 );
 
+function readSearchParams(search = globalThis.location?.search ?? "") {
+	try {
+		return new URLSearchParams(search);
+	} catch {
+		return new URLSearchParams();
+	}
+}
+
 export const BUILD_INFO = Object.freeze({
 	name: appName,
 	version: appVersion,
@@ -79,6 +87,31 @@ export function getCodeStampLabel() {
 
 export function getRuntimeLabel(runtimeInfo) {
 	return runtimeInfo?.id ? `rt:${runtimeInfo.id}` : null;
+}
+
+export function hasEnabledQueryFlag(
+	name,
+	{ search = globalThis.location?.search ?? "" } = {},
+) {
+	if (!name) {
+		return false;
+	}
+
+	const params = readSearchParams(search);
+	if (!params.has(name)) {
+		return false;
+	}
+
+	const rawValue = String(params.get(name) ?? "")
+		.trim()
+		.toLowerCase();
+	return (
+		rawValue === "" ||
+		rawValue === "1" ||
+		rawValue === "true" ||
+		rawValue === "yes" ||
+		rawValue === "on"
+	);
 }
 
 export function getBuildDebugLabels() {

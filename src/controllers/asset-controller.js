@@ -119,6 +119,11 @@ export function createAssetController({
 	extractProjectPackageAssets,
 	applyProjectPackageImport,
 	disposeObject,
+	runHistoryAction = (_label, applyChange) => {
+		applyChange?.();
+		return false;
+	},
+	clearHistory = () => {},
 }) {
 	const reportedSplatBoundsWarnings = new Set();
 
@@ -277,6 +282,117 @@ export function createAssetController({
 		return sceneState.assets;
 	}
 
+	function captureSceneAssetEditState() {
+		return {
+			selectedSceneAssetIds: [...store.selectedSceneAssetIds.value],
+			selectedSceneAssetId: store.selectedSceneAssetId.value,
+			assets: sceneState.assets.map((asset) => ({
+				id: asset.id,
+				kind: asset.kind,
+				worldScale: asset.worldScale,
+				unitMode: asset.unitMode,
+				exportRole: asset.exportRole ?? "beauty",
+				maskGroup: asset.maskGroup ?? "",
+				workingPivotLocal: asset.workingPivotLocal
+					? {
+							x: asset.workingPivotLocal.x,
+							y: asset.workingPivotLocal.y,
+							z: asset.workingPivotLocal.z,
+						}
+					: null,
+				visible: asset.object.visible !== false,
+				position: {
+					x: asset.object.position.x,
+					y: asset.object.position.y,
+					z: asset.object.position.z,
+				},
+				rotationDegrees: {
+					x: THREE.MathUtils.radToDeg(asset.object.rotation.x),
+					y: THREE.MathUtils.radToDeg(asset.object.rotation.y),
+					z: THREE.MathUtils.radToDeg(asset.object.rotation.z),
+				},
+			})),
+		};
+	}
+
+	function restoreSceneAssetEditState(snapshot) {
+		if (!snapshot || !Array.isArray(snapshot.assets)) {
+			return false;
+		}
+
+		if (snapshot.assets.length !== sceneState.assets.length) {
+			return false;
+		}
+
+		const currentAssetsById = new Map(
+			sceneState.assets.map((asset) => [asset.id, asset]),
+		);
+		const restoredAssets = [];
+
+		for (const item of snapshot.assets) {
+			const asset = currentAssetsById.get(item.id);
+			if (!asset || asset.kind !== item.kind) {
+				return false;
+			}
+			restoredAssets.push(asset);
+		}
+
+		sceneState.assets = restoredAssets;
+		for (const item of snapshot.assets) {
+			const asset = currentAssetsById.get(item.id);
+			asset.worldScale = clampAssetWorldScale(item.worldScale);
+			asset.unitMode = item.unitMode ?? asset.unitMode;
+			asset.exportRole = item.exportRole === "omit" ? "omit" : "beauty";
+			asset.maskGroup = String(item.maskGroup ?? "").trim();
+			asset.workingPivotLocal = normalizeWorkingPivotLocal(
+				item.workingPivotLocal,
+			);
+			asset.object.visible = item.visible !== false;
+			asset.object.position.set(
+				clampAssetTransformValue(item.position?.x, asset.object.position.x),
+				clampAssetTransformValue(item.position?.y, asset.object.position.y),
+				clampAssetTransformValue(item.position?.z, asset.object.position.z),
+			);
+			asset.object.rotation.set(
+				THREE.MathUtils.degToRad(
+					clampAssetTransformValue(
+						item.rotationDegrees?.x,
+						THREE.MathUtils.radToDeg(asset.object.rotation.x),
+					),
+				),
+				THREE.MathUtils.degToRad(
+					clampAssetTransformValue(
+						item.rotationDegrees?.y,
+						THREE.MathUtils.radToDeg(asset.object.rotation.y),
+					),
+				),
+				THREE.MathUtils.degToRad(
+					clampAssetTransformValue(
+						item.rotationDegrees?.z,
+						THREE.MathUtils.radToDeg(asset.object.rotation.z),
+					),
+				),
+			);
+			applyAssetWorldScale(asset);
+			asset.object.updateMatrixWorld(true);
+		}
+
+		const restoredSelectedIds = Array.isArray(snapshot.selectedSceneAssetIds)
+			? snapshot.selectedSceneAssetIds.filter((assetId) =>
+					snapshot.assets.some((asset) => asset.id === assetId),
+				)
+			: [];
+		store.selectedSceneAssetIds.value = [...new Set(restoredSelectedIds)];
+		store.selectedSceneAssetId.value =
+			snapshot.assets.some(
+				(asset) => asset.id === snapshot.selectedSceneAssetId,
+			) &&
+			store.selectedSceneAssetIds.value.includes(snapshot.selectedSceneAssetId)
+				? snapshot.selectedSceneAssetId
+				: (store.selectedSceneAssetIds.value[0] ?? null);
+		return true;
+	}
+
 	function registerAsset({ kind, label, object, disposeTarget = null }) {
 		const asset = {
 			id: sceneState.nextAssetId++,
@@ -291,6 +407,7 @@ export function createAssetController({
 			worldScale: 1,
 			exportRole: "beauty",
 			maskGroup: "",
+			workingPivotLocal: null,
 		};
 		applyAssetWorldScale(asset);
 		sceneState.assets.push(asset);
@@ -306,13 +423,69 @@ export function createAssetController({
 		return sceneState.assets.find((asset) => asset.id === assetId) ?? null;
 	}
 
-	function selectSceneAsset(assetId) {
+	function getSceneAssetForObject(object3d) {
+		let current = object3d;
+		while (current) {
+			const asset = sceneState.assets.find((entry) => entry.object === current);
+			if (asset) {
+				return asset;
+			}
+			current = current.parent;
+		}
+		return null;
+	}
+
+	function getSceneRaycastTargets() {
+		return sceneState.assets
+			.filter((asset) => asset.object.visible !== false)
+			.map((asset) => asset.object);
+	}
+
+	function selectSceneAsset(
+		assetId,
+		{ additive = false, toggle = false } = {},
+	) {
 		const asset = getSceneAsset(assetId);
 		if (!asset) {
 			return;
 		}
 
-		store.selectedSceneAssetId.value = asset.id;
+		const currentSelectedIds = store.selectedSceneAssetIds.value.filter((id) =>
+			Boolean(getSceneAsset(id)),
+		);
+		const alreadySelected = currentSelectedIds.includes(asset.id);
+		let nextSelectedIds = [asset.id];
+		let nextSelectedId = asset.id;
+
+		if (additive || toggle) {
+			if (alreadySelected) {
+				nextSelectedIds = currentSelectedIds.filter((id) => id !== asset.id);
+				nextSelectedId =
+					store.selectedSceneAssetId.value === asset.id
+						? (nextSelectedIds.at(-1) ?? null)
+						: (store.selectedSceneAssetId.value ??
+							nextSelectedIds.at(-1) ??
+							null);
+			} else {
+				nextSelectedIds = [...currentSelectedIds, asset.id];
+				nextSelectedId = asset.id;
+			}
+		} else if (alreadySelected && currentSelectedIds.length === 1) {
+			nextSelectedIds = [];
+			nextSelectedId = null;
+		} else if (alreadySelected && currentSelectedIds.length > 1) {
+			nextSelectedIds = [asset.id];
+			nextSelectedId = asset.id;
+		}
+
+		store.selectedSceneAssetIds.value = [...new Set(nextSelectedIds)];
+		store.selectedSceneAssetId.value = nextSelectedId;
+		updateUi();
+	}
+
+	function clearSceneAssetSelection() {
+		store.selectedSceneAssetIds.value = [];
+		store.selectedSceneAssetId.value = null;
 		updateUi();
 	}
 
@@ -323,6 +496,74 @@ export function createAssetController({
 	function clampAssetTransformValue(value, fallback = 0) {
 		const nextValue = Number(value);
 		return Number.isFinite(nextValue) ? nextValue : fallback;
+	}
+
+	function normalizeWorkingPivotLocal(value) {
+		if (!value || typeof value !== "object") {
+			return null;
+		}
+
+		const nextPivot = new THREE.Vector3(
+			clampAssetTransformValue(value.x, 0),
+			clampAssetTransformValue(value.y, 0),
+			clampAssetTransformValue(value.z, 0),
+		);
+		return nextPivot.lengthSq() <= 1e-8 ? null : nextPivot;
+	}
+
+	function getAssetWorkingPivotLocal(assetIdOrAsset) {
+		const asset =
+			typeof assetIdOrAsset === "object" && assetIdOrAsset
+				? assetIdOrAsset
+				: getSceneAsset(assetIdOrAsset);
+		if (!asset) {
+			return null;
+		}
+		return asset.workingPivotLocal?.clone() ?? new THREE.Vector3(0, 0, 0);
+	}
+
+	function getAssetWorkingPivotWorld(assetIdOrAsset) {
+		const asset =
+			typeof assetIdOrAsset === "object" && assetIdOrAsset
+				? assetIdOrAsset
+				: getSceneAsset(assetIdOrAsset);
+		if (!asset) {
+			return null;
+		}
+
+		const pivotLocal = getAssetWorkingPivotLocal(asset);
+		return asset.object.localToWorld(pivotLocal);
+	}
+
+	function setAssetWorkingPivotWorld(
+		assetId,
+		nextWorldPosition,
+		{ historyLabel = "asset.pivot" } = {},
+	) {
+		const asset = getSceneAsset(assetId);
+		if (!asset || !nextWorldPosition) {
+			return;
+		}
+
+		runHistoryAction?.(historyLabel, () => {
+			const nextLocalPivot = asset.object.worldToLocal(
+				nextWorldPosition.clone(),
+			);
+			asset.workingPivotLocal = normalizeWorkingPivotLocal(nextLocalPivot);
+		});
+		updateUi();
+	}
+
+	function resetAssetWorkingPivot(assetId) {
+		const asset = getSceneAsset(assetId);
+		if (!asset || !asset.workingPivotLocal) {
+			return;
+		}
+
+		runHistoryAction?.("asset.pivot", () => {
+			asset.workingPivotLocal = null;
+		});
+		updateUi();
 	}
 
 	function isFiniteBox(box) {
@@ -993,6 +1234,7 @@ export function createAssetController({
 			(replace || !hadAssetsBeforeLoad) &&
 			importStates.length > 0 &&
 			applyProjectPackageImport(importStates.at(-1));
+		clearHistory();
 
 		if (!importedProjectState && (replace || !hadAssetsBeforeLoad)) {
 			placeAllCamerasAtHome();
@@ -1041,6 +1283,7 @@ export function createAssetController({
 	}
 
 	function clearScene() {
+		clearHistory();
 		for (const asset of sceneState.assets) {
 			asset.object.removeFromParent();
 			if (asset.kind === "splat") {
@@ -1051,6 +1294,7 @@ export function createAssetController({
 		}
 
 		sceneState.assets = [];
+		store.selectedSceneAssetIds.value = [];
 		store.selectedSceneAssetId.value = null;
 		placeAllCamerasAtHome();
 		resetLocalizedCaches();
@@ -1066,8 +1310,10 @@ export function createAssetController({
 			return;
 		}
 
-		asset.worldScale = clampAssetWorldScale(nextValue);
-		applyAssetWorldScale(asset);
+		runHistoryAction?.("asset.scale", () => {
+			asset.worldScale = clampAssetWorldScale(nextValue);
+			applyAssetWorldScale(asset);
+		});
 		updateUi();
 		setStatus(
 			t("status.assetScaleUpdated", {
@@ -1075,6 +1321,113 @@ export function createAssetController({
 				scale: formatAssetWorldScale(asset.worldScale),
 			}),
 		);
+	}
+
+	function setAssetTransform(
+		assetId,
+		{ worldPosition = null, worldQuaternion = null, worldScale = null } = {},
+		{ historyLabel = "asset.transform", updateStatus = false } = {},
+	) {
+		const asset = getSceneAsset(assetId);
+		if (!asset) {
+			return;
+		}
+
+		runHistoryAction?.(historyLabel, () => {
+			applyAssetTransformWorld(asset, {
+				worldPosition,
+				worldQuaternion,
+				worldScale,
+			});
+		});
+
+		updateUi();
+		if (updateStatus) {
+			setStatus(
+				t("status.assetTransformUpdated", {
+					name: asset.label,
+				}),
+			);
+		}
+	}
+
+	function applyAssetTransformWorld(
+		asset,
+		{ worldPosition = null, worldQuaternion = null, worldScale = null } = {},
+	) {
+		if (!asset) {
+			return;
+		}
+
+		if (worldScale !== null && worldScale !== undefined) {
+			asset.worldScale = clampAssetWorldScale(worldScale);
+			applyAssetWorldScale(asset);
+		}
+
+		if (worldPosition) {
+			const nextLocalPosition = worldPosition.clone();
+			asset.object.parent?.worldToLocal(nextLocalPosition);
+			asset.object.position.copy(nextLocalPosition);
+		}
+
+		if (worldQuaternion) {
+			const nextLocalQuaternion = worldQuaternion.clone();
+			if (asset.object.parent) {
+				const parentWorldQuaternion = asset.object.parent.getWorldQuaternion(
+					new THREE.Quaternion(),
+				);
+				nextLocalQuaternion.premultiply(parentWorldQuaternion.invert());
+			}
+			asset.object.quaternion.copy(nextLocalQuaternion);
+		}
+
+		asset.object.updateMatrixWorld(true);
+	}
+
+	function setAssetsTransformBulk(
+		entries,
+		{ historyLabel = "asset.transform", updateStatus = false } = {},
+	) {
+		if (!Array.isArray(entries) || entries.length === 0) {
+			return;
+		}
+
+		const normalizedEntries = entries
+			.map((entry) => {
+				const asset = getSceneAsset(entry?.assetId);
+				if (!asset) {
+					return null;
+				}
+				return {
+					asset,
+					worldPosition: entry.worldPosition ?? null,
+					worldQuaternion: entry.worldQuaternion ?? null,
+					worldScale: entry.worldScale ?? null,
+				};
+			})
+			.filter(Boolean);
+
+		if (normalizedEntries.length === 0) {
+			return;
+		}
+
+		runHistoryAction?.(historyLabel, () => {
+			for (const entry of normalizedEntries) {
+				applyAssetTransformWorld(entry.asset, entry);
+			}
+		});
+
+		updateUi();
+		if (updateStatus) {
+			setStatus(
+				t("status.assetTransformUpdated", {
+					name:
+						normalizedEntries.length === 1
+							? normalizedEntries[0].asset.label
+							: `${normalizedEntries.length} assets`,
+				}),
+			);
+		}
 	}
 
 	function resetAssetWorldScale(assetId) {
@@ -1087,11 +1440,13 @@ export function createAssetController({
 			return;
 		}
 
-		asset.object.position[axis] = clampAssetTransformValue(
-			nextValue,
-			asset.object.position[axis],
-		);
-		asset.object.updateMatrixWorld(true);
+		runHistoryAction?.("asset.position", () => {
+			asset.object.position[axis] = clampAssetTransformValue(
+				nextValue,
+				asset.object.position[axis],
+			);
+			asset.object.updateMatrixWorld(true);
+		});
 		updateUi();
 	}
 
@@ -1101,13 +1456,15 @@ export function createAssetController({
 			return;
 		}
 
-		asset.object.rotation[axis] = THREE.MathUtils.degToRad(
-			clampAssetTransformValue(
-				nextValue,
-				THREE.MathUtils.radToDeg(asset.object.rotation[axis]),
-			),
-		);
-		asset.object.updateMatrixWorld(true);
+		runHistoryAction?.("asset.rotation", () => {
+			asset.object.rotation[axis] = THREE.MathUtils.degToRad(
+				clampAssetTransformValue(
+					nextValue,
+					THREE.MathUtils.radToDeg(asset.object.rotation[axis]),
+				),
+			);
+			asset.object.updateMatrixWorld(true);
+		});
 		updateUi();
 	}
 
@@ -1117,7 +1474,9 @@ export function createAssetController({
 			return;
 		}
 
-		asset.object.visible = Boolean(nextVisible);
+		runHistoryAction?.("asset.visibility", () => {
+			asset.object.visible = Boolean(nextVisible);
+		});
 		updateUi();
 		setStatus(
 			t("status.assetVisibilityUpdated", {
@@ -1153,11 +1512,13 @@ export function createAssetController({
 			return;
 		}
 
-		sceneState.assets = moveSceneAssetWithinKind(
-			sceneState.assets,
-			assetId,
-			targetKindIndex,
-		);
+		runHistoryAction?.("asset.order", () => {
+			sceneState.assets = moveSceneAssetWithinKind(
+				sceneState.assets,
+				assetId,
+				targetKindIndex,
+			);
+		});
 		updateUi();
 		setStatus(
 			t("status.assetOrderUpdated", {
@@ -1199,11 +1560,13 @@ export function createAssetController({
 			return;
 		}
 
-		sceneState.assets = moveSceneAssetWithinKind(
-			sceneState.assets,
-			assetId,
-			targetKindIndex,
-		);
+		runHistoryAction?.("asset.order", () => {
+			sceneState.assets = moveSceneAssetWithinKind(
+				sceneState.assets,
+				assetId,
+				targetKindIndex,
+			);
+		});
 		updateUi();
 		setStatus(
 			t("status.assetOrderUpdated", {
@@ -1219,7 +1582,9 @@ export function createAssetController({
 			return;
 		}
 
-		asset.exportRole = nextRole === "omit" ? "omit" : "beauty";
+		runHistoryAction?.("asset.export-role", () => {
+			asset.exportRole = nextRole === "omit" ? "omit" : "beauty";
+		});
 		updateUi();
 		setStatus(
 			t("status.assetExportRoleUpdated", {
@@ -1235,7 +1600,9 @@ export function createAssetController({
 			return;
 		}
 
-		asset.maskGroup = String(nextValue ?? "").trim();
+		runHistoryAction?.("asset.mask-group", () => {
+			asset.maskGroup = String(nextValue ?? "").trim();
+		});
 		updateUi();
 		setStatus(
 			t("status.assetMaskGroupUpdated", {
@@ -1320,7 +1687,10 @@ export function createAssetController({
 		registerAsset,
 		applyAssetWorldScale,
 		getSceneAsset,
+		getSceneAssetForObject,
+		getSceneRaycastTargets,
 		selectSceneAsset,
+		clearSceneAssetSelection,
 		clampAssetWorldScale,
 		getSceneBounds,
 		getSceneFramingBounds,
@@ -1331,8 +1701,16 @@ export function createAssetController({
 		expandProjectPackageSources,
 		loadSource,
 		loadSources,
+		captureSceneAssetEditState,
+		restoreSceneAssetEditState,
 		clearScene,
 		setAssetWorldScale,
+		setAssetTransform,
+		setAssetsTransformBulk,
+		getAssetWorkingPivotLocal,
+		getAssetWorkingPivotWorld,
+		setAssetWorkingPivotWorld,
+		resetAssetWorkingPivot,
 		resetAssetWorldScale,
 		setAssetPosition,
 		setAssetRotationDegrees,

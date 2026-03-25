@@ -33,7 +33,25 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	const shotCameras = signal(createDefaultShotCameraDocuments());
 	const activeShotCameraId = signal(shotCameras.value[0].id);
 	const viewportBaseFovX = signal(60);
-	const workbenchCollapsed = signal(false);
+	const viewportTransformSpace = signal("world");
+	const viewportToolMode = signal("none");
+	const viewportSelectMode = computed(
+		() => viewportToolMode.value === "select",
+	);
+	const viewportPivotEditMode = computed(
+		() => viewportToolMode.value === "pivot",
+	);
+	const viewportTransformMode = computed(
+		() => viewportToolMode.value === "transform",
+	);
+	const workbenchManualCollapsed = signal(false);
+	const workbenchAutoCollapsed = signal(false);
+	const workbenchManualExpanded = signal(false);
+	const workbenchCollapsed = computed(
+		() =>
+			workbenchManualCollapsed.value ||
+			(workbenchAutoCollapsed.value && !workbenchManualExpanded.value),
+	);
 
 	const remoteUrl = signal("");
 	const sceneBadge = signal(translate(initialLocale, "scene.badgeEmpty"));
@@ -43,6 +61,7 @@ export function createCameraFramesStore(runtimeInfo = null) {
 		translate(initialLocale, "scene.scaleDefault"),
 	);
 	const sceneAssets = signal([]);
+	const selectedSceneAssetIds = signal([]);
 	const selectedSceneAssetId = signal(null);
 	const selectedSceneAsset = computed(
 		() =>
@@ -68,6 +87,8 @@ export function createCameraFramesStore(runtimeInfo = null) {
 		getActiveShotCameraDocument(shotCameras.value, activeShotCameraId.value),
 	);
 	const frameSelectionActive = signal(false);
+	const historyCanUndo = signal(false);
+	const historyCanRedo = signal(false);
 	const frameDocuments = computed(() => activeShotCamera.value?.frames ?? []);
 	const activeFrame = computed(() =>
 		getActiveFrameDocument(
@@ -186,7 +207,15 @@ export function createCameraFramesStore(runtimeInfo = null) {
 			activeShotCamera,
 		},
 		workbenchCollapsed,
+		workbenchManualCollapsed,
+		workbenchAutoCollapsed,
+		workbenchManualExpanded,
 		viewportBaseFovX,
+		viewportToolMode,
+		viewportTransformSpace,
+		viewportSelectMode,
+		viewportPivotEditMode,
+		viewportTransformMode,
 		mode,
 		baseFovX,
 		renderBox: {
@@ -215,12 +244,17 @@ export function createCameraFramesStore(runtimeInfo = null) {
 			count: frameCount,
 			selectionActive: frameSelectionActive,
 		},
+		history: {
+			canUndo: historyCanUndo,
+			canRedo: historyCanRedo,
+		},
 		remoteUrl,
 		sceneBadge,
 		sceneUnitBadge,
 		sceneSummary,
 		sceneScaleSummary,
 		sceneAssets,
+		selectedSceneAssetIds,
 		selectedSceneAssetId,
 		selectedSceneAsset,
 		cameraSummary,

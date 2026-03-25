@@ -1,10 +1,8 @@
 import * as THREE from "three";
 import { GUIDE_GRID_LAYER_MODE_BOTTOM } from "../engine/guide-overlays.js";
 import { bindInputRouter } from "../interactions/input-router.js";
-import {
-	WORKSPACE_PANE_CAMERA,
-	WORKSPACE_PANE_VIEWPORT,
-} from "../workspace-model.js";
+import { WORKSPACE_PANE_CAMERA } from "../workspace-model.js";
+import { createNavigationHistoryController } from "./navigation-history.js";
 
 export function createRuntimeController({
 	renderer,
@@ -21,6 +19,14 @@ export function createRuntimeController({
 	setStatus,
 	startZoomToolDrag,
 	toggleZoomTool,
+	toggleViewportSelectMode,
+	toggleViewportTransformMode,
+	toggleViewportPivotEditMode,
+	undoHistory,
+	redoHistory,
+	clearSceneAssetSelection,
+	beginHistoryTransaction,
+	commitHistoryTransaction,
 	isInteractiveTextTarget,
 	isZoomInteractionMode,
 	applyNavigateInteractionMode,
@@ -43,6 +49,9 @@ export function createRuntimeController({
 	handleFrameRotateEnd,
 	handleFrameAnchorDragMove,
 	handleFrameAnchorDragEnd,
+	handleViewportTransformDragMove,
+	handleViewportTransformDragEnd,
+	pickViewportAssetAtPointer,
 	startOutputFrameAnchorDrag,
 	exportController,
 	handleResize,
@@ -51,6 +60,7 @@ export function createRuntimeController({
 	getActiveCamera,
 	guideOverlay,
 	syncGuideOverlayState,
+	syncViewportTransformGizmo,
 	syncViewportProjection,
 	syncShotProjection,
 	applyCameraViewProjection,
@@ -69,6 +79,67 @@ export function createRuntimeController({
 }) {
 	let lastFrameTime = 0;
 	const disposers = [];
+	const navigationHistory = createNavigationHistoryController({
+		beginHistoryTransaction,
+		commitHistoryTransaction,
+	});
+
+	function getActiveCameraHistoryTargetKey() {
+		return state.mode === WORKSPACE_PANE_CAMERA
+			? `shot:${store.workspace.activeShotCameraId.value}`
+			: "viewport";
+	}
+
+	function getActiveCameraHistoryLabel() {
+		return state.mode === WORKSPACE_PANE_CAMERA
+			? "camera.pose"
+			: "viewport.pose";
+	}
+
+	function getCameraPoseSignature(camera) {
+		if (!camera) {
+			return "none";
+		}
+
+		return [
+			camera.position.x.toFixed(6),
+			camera.position.y.toFixed(6),
+			camera.position.z.toFixed(6),
+			camera.quaternion.x.toFixed(6),
+			camera.quaternion.y.toFixed(6),
+			camera.quaternion.z.toFixed(6),
+			camera.quaternion.w.toFixed(6),
+		].join("|");
+	}
+
+	function hasKeyboardNavigationActivity() {
+		if (!fpsMovement.enable) {
+			return false;
+		}
+
+		return (
+			Object.values(fpsMovement.keydown ?? {}).some(Boolean) ||
+			Object.values(fpsMovement.keycode ?? {}).some(Boolean)
+		);
+	}
+
+	function hasPointerNavigationActivity() {
+		const EPSILON = 1e-6;
+		return (
+			Boolean(pointerControls.rotating || pointerControls.sliding) ||
+			pointerControls.moveVelocity.lengthSq() > EPSILON ||
+			pointerControls.rotateVelocity.lengthSq() > EPSILON ||
+			pointerControls.scroll.lengthSq() > EPSILON
+		);
+	}
+
+	function requestNavigationHistoryCommit() {
+		navigationHistory.requestCommit();
+	}
+
+	function flushNavigationHistory() {
+		navigationHistory.flush();
+	}
 
 	function listen(target, eventName, handler) {
 		target.addEventListener(eventName, handler);
@@ -88,7 +159,17 @@ export function createRuntimeController({
 			setStatus,
 			startZoomToolDrag,
 			toggleZoomTool,
+			toggleViewportSelectMode,
+			toggleViewportTransformMode,
+			toggleViewportPivotEditMode,
+			undoHistory,
+			redoHistory,
+			clearSceneAssetSelection,
+			requestNavigationHistoryCommit,
+			flushNavigationHistory,
 			isInteractiveTextTarget,
+			isViewportSelectMode: () => store.viewportSelectMode.value,
+			getActiveCamera,
 			isZoomInteractionMode,
 			applyNavigateInteractionMode,
 			state,
@@ -113,6 +194,9 @@ export function createRuntimeController({
 			handleFrameRotateEnd,
 			handleFrameAnchorDragMove,
 			handleFrameAnchorDragEnd,
+			handleViewportTransformDragMove,
+			handleViewportTransformDragEnd,
+			pickViewportAssetAtPointer,
 			startOutputFrameAnchorDrag,
 		});
 	}
@@ -120,6 +204,7 @@ export function createRuntimeController({
 	function animate(timeMs) {
 		handleResize();
 		if (exportController.isRenderLocked()) {
+			flushNavigationHistory();
 			updateOutputFrameOverlay();
 			return;
 		}
@@ -128,8 +213,22 @@ export function createRuntimeController({
 			lastFrameTime > 0 ? Math.min((timeMs - lastFrameTime) / 1000, 0.1) : 0;
 		lastFrameTime = timeMs;
 		const activeCamera = getActiveCamera();
+		const poseBefore = getCameraPoseSignature(activeCamera);
+		const navigationActiveBeforeUpdate =
+			hasKeyboardNavigationActivity() || hasPointerNavigationActivity();
 		fpsMovement.update(deltaTime, activeCamera);
 		pointerControls.update(deltaTime, activeCamera, activeCamera);
+		const poseAfter = getCameraPoseSignature(activeCamera);
+		navigationHistory.noteFrame({
+			targetKey: getActiveCameraHistoryTargetKey(),
+			label: getActiveCameraHistoryLabel(),
+			poseChanged: poseBefore !== poseAfter,
+			navigationActive:
+				navigationActiveBeforeUpdate ||
+				hasKeyboardNavigationActivity() ||
+				hasPointerNavigationActivity(),
+			deltaMs: deltaTime * 1000,
+		});
 
 		syncViewportProjection();
 		syncShotProjection();
@@ -169,6 +268,7 @@ export function createRuntimeController({
 		scene.background = previousBackground;
 		renderer.setClearColor(previousClearColor, previousClearAlpha);
 		renderer.autoClear = previousAutoClear;
+		syncViewportTransformGizmo?.();
 		updateOutputFrameOverlay();
 	}
 
@@ -197,6 +297,7 @@ export function createRuntimeController({
 		}
 		fpsMovement.enable = false;
 		pointerControls.enable = false;
+		flushNavigationHistory();
 		exportController.dispose();
 		renderer.dispose();
 	}

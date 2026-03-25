@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { IS_DEV_RUNTIME } from "../build-info.js";
+import { IS_DEV_RUNTIME, hasEnabledQueryFlag } from "../build-info.js";
 import {
 	createExportBundle,
 	createExportPass,
@@ -46,6 +46,8 @@ export function createExportController({
 }) {
 	const MASK_FOREGROUND_COLOR = new THREE.Color(0xffffff);
 	const MASK_BACKGROUND_COLOR = new THREE.Color(0x000000);
+	const exportDebugLayersEnabled =
+		IS_DEV_RUNTIME && hasEnabledQueryFlag("psdDebug");
 	let exportRenderLock = false;
 	const exportRenderBackend = createSparkExportRendererManager({
 		sourceSpark: spark,
@@ -754,7 +756,7 @@ export function createExportController({
 				},
 			});
 
-			if (IS_DEV_RUNTIME) {
+			if (exportDebugLayersEnabled) {
 				modelDebugGroups.push({
 					name: `__DEBUG ${modelAsset.label}`,
 					hidden: true,
@@ -893,7 +895,7 @@ export function createExportController({
 					defaultColor: 0,
 				};
 
-				if (IS_DEV_RUNTIME) {
+				if (exportDebugLayersEnabled) {
 					splatDebugGroups.push({
 						name: `__DEBUG ${splatAsset.label}`,
 						hidden: true,
@@ -1533,11 +1535,11 @@ export function createExportController({
 			? [...(bundle.splatLayers ?? [])].reverse()
 			: [];
 		const modelDebugGroups =
-			snapshotExportSettings.exportModelLayers && IS_DEV_RUNTIME
+			snapshotExportSettings.exportModelLayers && exportDebugLayersEnabled
 				? [...(bundle.modelDebugGroups ?? [])]
 				: [];
 		const splatDebugGroups =
-			snapshotExportSettings.exportSplatLayers && IS_DEV_RUNTIME
+			snapshotExportSettings.exportSplatLayers && exportDebugLayersEnabled
 				? [...(bundle.splatDebugGroups ?? [])]
 				: [];
 		const renderLayer =

@@ -21,8 +21,13 @@ function CameraFramesApp({ runtimeInfo }) {
 	const controllerRef = useRef(null);
 	const viewportCanvasRef = useRef(null);
 	const viewportShellRef = useRef(null);
+	const workbenchShellRef = useRef(null);
+	const workbenchLeftColumnRef = useRef(null);
+	const workbenchRightColumnRef = useRef(null);
 	const renderBoxRef = useRef(null);
 	const frameOverlayCanvasRef = useRef(null);
+	const viewportGizmoRef = useRef(null);
+	const viewportGizmoSvgRef = useRef(null);
 	const renderBoxMetaRef = useRef(null);
 	const anchorDotRef = useRef(null);
 	const dropHintRef = useRef(null);
@@ -33,8 +38,13 @@ function CameraFramesApp({ runtimeInfo }) {
 			{
 				viewportCanvas: viewportCanvasRef.current,
 				viewportShell: viewportShellRef.current,
+				workbenchShell: workbenchShellRef,
+				workbenchLeftColumn: workbenchLeftColumnRef,
+				workbenchRightColumn: workbenchRightColumnRef,
 				renderBox: renderBoxRef.current,
 				frameOverlayCanvas: frameOverlayCanvasRef.current,
+				viewportGizmo: viewportGizmoRef.current,
+				viewportGizmoSvg: viewportGizmoSvgRef.current,
 				renderBoxMeta: renderBoxMetaRef.current,
 				anchorDot: anchorDotRef.current,
 				dropHint: dropHintRef.current,
@@ -53,8 +63,13 @@ function CameraFramesApp({ runtimeInfo }) {
 	const refs = {
 		viewportCanvasRef,
 		viewportShellRef,
+		workbenchShellRef,
+		workbenchLeftColumnRef,
+		workbenchRightColumnRef,
 		renderBoxRef,
 		frameOverlayCanvasRef,
+		viewportGizmoRef,
+		viewportGizmoSvgRef,
 		renderBoxMetaRef,
 		anchorDotRef,
 		dropHintRef,
