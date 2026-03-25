@@ -11,8 +11,11 @@ export function bindInputRouter({
 	startZoomToolDrag,
 	toggleZoomTool,
 	toggleViewportSelectMode,
+	toggleViewportTransformMode,
+	toggleViewportPivotEditMode,
 	undoHistory,
 	redoHistory,
+	clearSceneAssetSelection,
 	requestNavigationHistoryCommit,
 	flushNavigationHistory,
 	isInteractiveTextTarget,
@@ -246,6 +249,18 @@ export function bindInputRouter({
 			return;
 		}
 
+		if (
+			(event.ctrlKey || event.metaKey) &&
+			event.code === "KeyD" &&
+			!event.altKey &&
+			!event.shiftKey &&
+			!isInteractiveTextTarget(event.target)
+		) {
+			event.preventDefault();
+			clearSceneAssetSelection?.();
+			return;
+		}
+
 		if (isInteractiveTextTarget(event.target)) {
 			return;
 		}
@@ -272,6 +287,32 @@ export function bindInputRouter({
 		) {
 			event.preventDefault();
 			toggleViewportSelectMode?.();
+			return;
+		}
+
+		if (
+			event.code === "KeyT" &&
+			(state.mode === "viewport" || state.mode === "camera") &&
+			!event.altKey &&
+			!event.ctrlKey &&
+			!event.metaKey &&
+			!event.shiftKey
+		) {
+			event.preventDefault();
+			toggleViewportTransformMode?.();
+			return;
+		}
+
+		if (
+			event.code === "KeyP" &&
+			(state.mode === "viewport" || state.mode === "camera") &&
+			!event.altKey &&
+			!event.ctrlKey &&
+			!event.metaKey &&
+			!event.shiftKey
+		) {
+			event.preventDefault();
+			toggleViewportPivotEditMode?.();
 			return;
 		}
 

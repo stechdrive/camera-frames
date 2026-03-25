@@ -967,13 +967,7 @@ export function createViewportToolController({
 		}
 
 		const asset = getSelectedTransformAsset();
-		if (
-			!isViewportToolMode() ||
-			(!isTransformMode() && !isPivotEditMode()) ||
-			isSelectMode() ||
-			!asset ||
-			asset.object.visible === false
-		) {
+		if (!isViewportToolMode() || !asset || asset.object.visible === false) {
 			hideGizmo();
 			return;
 		}
@@ -988,6 +982,14 @@ export function createViewportToolController({
 		const pivotWorld = getSelectedTransformPivotWorld(asset);
 		const projected = pivotWorld.clone().project(camera);
 		if (!isProjectedPointVisible(projected)) {
+			hideGizmo();
+			return;
+		}
+		if (
+			(!isTransformMode() && !isPivotEditMode()) ||
+			isSelectMode() ||
+			!asset
+		) {
 			hideGizmo();
 			return;
 		}

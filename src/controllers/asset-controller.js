@@ -382,15 +382,14 @@ export function createAssetController({
 					snapshot.assets.some((asset) => asset.id === assetId),
 				)
 			: [];
-		store.selectedSceneAssetIds.value =
-			restoredSelectedIds.length > 0
-				? restoredSelectedIds
-				: [restoredAssets[0]?.id].filter(Boolean);
-		store.selectedSceneAssetId.value = snapshot.assets.some(
-			(asset) => asset.id === snapshot.selectedSceneAssetId,
-		)
-			? snapshot.selectedSceneAssetId
-			: (store.selectedSceneAssetIds.value[0] ?? null);
+		store.selectedSceneAssetIds.value = [...new Set(restoredSelectedIds)];
+		store.selectedSceneAssetId.value =
+			snapshot.assets.some(
+				(asset) => asset.id === snapshot.selectedSceneAssetId,
+			) &&
+			store.selectedSceneAssetIds.value.includes(snapshot.selectedSceneAssetId)
+				? snapshot.selectedSceneAssetId
+				: (store.selectedSceneAssetIds.value[0] ?? null);
 		return true;
 	}
 
@@ -454,20 +453,39 @@ export function createAssetController({
 		const currentSelectedIds = store.selectedSceneAssetIds.value.filter((id) =>
 			Boolean(getSceneAsset(id)),
 		);
+		const alreadySelected = currentSelectedIds.includes(asset.id);
 		let nextSelectedIds = [asset.id];
+		let nextSelectedId = asset.id;
+
 		if (additive || toggle) {
-			const alreadySelected = currentSelectedIds.includes(asset.id);
-			if (toggle && alreadySelected && currentSelectedIds.length > 1) {
+			if (alreadySelected) {
 				nextSelectedIds = currentSelectedIds.filter((id) => id !== asset.id);
-			} else if (alreadySelected) {
-				nextSelectedIds = currentSelectedIds;
+				nextSelectedId =
+					store.selectedSceneAssetId.value === asset.id
+						? (nextSelectedIds.at(-1) ?? null)
+						: (store.selectedSceneAssetId.value ??
+							nextSelectedIds.at(-1) ??
+							null);
 			} else {
 				nextSelectedIds = [...currentSelectedIds, asset.id];
+				nextSelectedId = asset.id;
 			}
+		} else if (alreadySelected && currentSelectedIds.length === 1) {
+			nextSelectedIds = [];
+			nextSelectedId = null;
+		} else if (alreadySelected && currentSelectedIds.length > 1) {
+			nextSelectedIds = [asset.id];
+			nextSelectedId = asset.id;
 		}
 
 		store.selectedSceneAssetIds.value = [...new Set(nextSelectedIds)];
-		store.selectedSceneAssetId.value = asset.id;
+		store.selectedSceneAssetId.value = nextSelectedId;
+		updateUi();
+	}
+
+	function clearSceneAssetSelection() {
+		store.selectedSceneAssetIds.value = [];
+		store.selectedSceneAssetId.value = null;
 		updateUi();
 	}
 
@@ -1611,6 +1629,7 @@ export function createAssetController({
 		getSceneAssetForObject,
 		getSceneRaycastTargets,
 		selectSceneAsset,
+		clearSceneAssetSelection,
 		clampAssetWorldScale,
 		getSceneBounds,
 		getSceneFramingBounds,

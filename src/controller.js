@@ -742,8 +742,10 @@ export function createCameraFramesController(elements, store) {
 		startZoomToolDrag,
 		toggleZoomTool,
 		toggleViewportSelectMode,
+		toggleViewportTransformMode,
 		undoHistory: () => historyController?.undoHistory(),
 		redoHistory: () => historyController?.redoHistory(),
+		clearSceneAssetSelection,
 		beginHistoryTransaction: (label) =>
 			historyController?.beginHistoryTransaction(label),
 		commitHistoryTransaction: (label) =>
@@ -1067,12 +1069,24 @@ export function createCameraFramesController(elements, store) {
 		setViewportSelectMode(!store.viewportSelectMode.value);
 	}
 
+	function toggleViewportTransformMode() {
+		setViewportTransformMode(!store.viewportTransformMode.value);
+	}
+
+	function toggleViewportPivotEditMode() {
+		setViewportPivotEditMode(!store.viewportPivotEditMode.value);
+	}
+
 	function resetSelectedAssetWorkingPivot() {
 		const selectedAssetId = store.selectedSceneAssetId.value;
 		if (!selectedAssetId) {
 			return;
 		}
 		assetController.resetAssetWorkingPivot(selectedAssetId);
+	}
+
+	function clearSceneAssetSelection() {
+		assetController.clearSceneAssetSelection();
 	}
 
 	function clearScene() {
@@ -1089,9 +1103,11 @@ export function createCameraFramesController(elements, store) {
 		setViewportBaseFovX: cameraController.setViewportBaseFovX,
 		setViewportTransformSpace: viewportToolController.setViewportTransformSpace,
 		setViewportTransformMode,
+		toggleViewportTransformMode,
 		setViewportSelectMode,
 		toggleViewportSelectMode,
 		setViewportPivotEditMode,
+		toggleViewportPivotEditMode,
 		setViewportTransformHover: viewportToolController.setViewportTransformHover,
 		setBoxWidthPercent: outputFrameController.setBoxWidthPercent,
 		setBoxHeightPercent: outputFrameController.setBoxHeightPercent,
@@ -1126,6 +1142,7 @@ export function createCameraFramesController(elements, store) {
 		createShotCamera: cameraController.createShotCamera,
 		duplicateActiveShotCamera: cameraController.duplicateActiveShotCamera,
 		selectSceneAsset: assetController.selectSceneAsset,
+		clearSceneAssetSelection,
 		pickViewportAssetAtPointer:
 			viewportToolController.pickViewportAssetAtPointer,
 		startViewportTransformDrag:

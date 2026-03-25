@@ -47,6 +47,16 @@ export function createInteractionController({
 		pointerControls.moveVelocity.set(0, 0, 0);
 		pointerControls.rotateVelocity.set(0, 0, 0);
 		pointerControls.scroll.set(0, 0, 0);
+		if (fpsMovement?.keydown) {
+			for (const key of Object.keys(fpsMovement.keydown)) {
+				fpsMovement.keydown[key] = false;
+			}
+		}
+		if (fpsMovement?.keycode) {
+			for (const key of Object.keys(fpsMovement.keycode)) {
+				fpsMovement.keycode[key] = false;
+			}
+		}
 	}
 
 	function applyInteractionMode(nextMode, { silent = false } = {}) {
@@ -58,7 +68,7 @@ export function createInteractionController({
 		clearZoomToolDrag();
 		clearControlMomentum();
 		const navigationEnabled = nextMode === INTERACTION_MODE_NAVIGATE;
-		fpsMovement.enable = navigationEnabled;
+		fpsMovement.enable = false;
 		pointerControls.enable = navigationEnabled;
 		if (!silent) {
 			setStatus(navigationEnabled ? "" : t("status.zoomToolEnabled"));
@@ -122,7 +132,7 @@ export function createInteractionController({
 		clearControlMomentum();
 		const navigationEnabled =
 			state.interactionMode === INTERACTION_MODE_NAVIGATE;
-		fpsMovement.enable = navigationEnabled;
+		fpsMovement.enable = false;
 		pointerControls.enable = navigationEnabled;
 		updateUi();
 	}

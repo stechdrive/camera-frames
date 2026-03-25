@@ -78,18 +78,14 @@ export function createUiSyncController({
 			return;
 		}
 		const rowIds = new Set(rows.map((asset) => asset.id));
-		let nextSelectedIds = store.selectedSceneAssetIds.value.filter((assetId) =>
-			rowIds.has(assetId),
+		const nextSelectedIds = store.selectedSceneAssetIds.value.filter(
+			(assetId) => rowIds.has(assetId),
 		);
-		if (nextSelectedIds.length === 0) {
-			nextSelectedIds = [rows[0].id];
-		}
-		const nextSelectedId = rowIds.has(store.selectedSceneAssetId.value)
-			? store.selectedSceneAssetId.value
-			: nextSelectedIds[0];
-		if (!nextSelectedIds.includes(nextSelectedId)) {
-			nextSelectedIds = [nextSelectedId, ...nextSelectedIds];
-		}
+		const nextSelectedId =
+			rowIds.has(store.selectedSceneAssetId.value) &&
+			nextSelectedIds.includes(store.selectedSceneAssetId.value)
+				? store.selectedSceneAssetId.value
+				: (nextSelectedIds[0] ?? null);
 		store.selectedSceneAssetIds.value = [...new Set(nextSelectedIds)];
 		store.selectedSceneAssetId.value = nextSelectedId;
 	}
