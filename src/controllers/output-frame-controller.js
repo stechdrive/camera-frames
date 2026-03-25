@@ -1,8 +1,12 @@
 import {
 	ANCHORS,
+	AUTO_VIEW_ZOOM_MARGIN,
+	AUTO_WORKBENCH_MIN_SAFE_ZOOM,
 	BASE_RENDER_BOX,
 	DEFAULT_CAMERA_NEAR,
 	VIEWPORT_PIXEL_RATIO,
+	WORKBENCH_SAFE_GUTTER_PX,
+	WORKBENCH_STACK_BREAKPOINT_PX,
 } from "../constants.js";
 import { drawFramesToContext } from "../engine/frame-overlay.js";
 import {
@@ -19,6 +23,8 @@ export function createOutputFrameController({
 	store,
 	state,
 	viewportShell,
+	workbenchLeftColumn,
+	workbenchRightColumn,
 	renderBox,
 	renderBoxMeta,
 	anchorDot,
@@ -42,10 +48,18 @@ export function createOutputFrameController({
 	getBaseFovX,
 	updateActiveShotCameraDocument,
 	updateUi,
+	runHistoryAction = (_label, applyChange) => {
+		applyChange?.();
+		return false;
+	},
+	beginHistoryTransaction = () => false,
+	commitHistoryTransaction = () => false,
+	cancelHistoryTransaction = () => {},
 }) {
 	let outputFramePanState = null;
 	let outputFrameAnchorDragState = null;
 	let outputFrameResizeState = null;
+	let lastAutoLayoutSignature = "";
 
 	function clearOutputFramePan() {
 		outputFramePanState = null;
@@ -68,6 +82,7 @@ export function createOutputFrameController({
 	}
 
 	function clearOutputFrameSelection() {
+		cancelHistoryTransaction();
 		state.outputFrameSelected = false;
 		clearOutputFramePan();
 		clearOutputFrameAnchorDrag();
@@ -93,6 +108,160 @@ export function createOutputFrameController({
 			width: Math.max(viewportShell.clientWidth, 1),
 			height: Math.max(viewportShell.clientHeight, 1),
 		};
+	}
+
+	function getWorkbenchLayoutState() {
+		const viewportWidth = Math.max(viewportShell.clientWidth, 1);
+		const viewportHeight = Math.max(viewportShell.clientHeight, 1);
+		const shellRect = viewportShell.getBoundingClientRect();
+		const leftColumnElement =
+			workbenchLeftColumn?.current ?? workbenchLeftColumn;
+		const rightColumnElement =
+			workbenchRightColumn?.current ?? workbenchRightColumn;
+		const leftRect = leftColumnElement?.getBoundingClientRect?.() ?? null;
+		const rightRect = rightColumnElement?.getBoundingClientRect?.() ?? null;
+		const stackedLayout =
+			viewportWidth <= WORKBENCH_STACK_BREAKPOINT_PX ||
+			(Boolean(leftRect) &&
+				Boolean(rightRect) &&
+				Math.abs(leftRect.left - rightRect.left) < 32 &&
+				rightRect.top >= leftRect.bottom - 8);
+
+		let safeWidth = viewportWidth;
+		if (!stackedLayout && !store.workbenchCollapsed.value) {
+			const leftInset = leftRect
+				? Math.max(
+						0,
+						Math.min(
+							viewportWidth,
+							leftRect.right - shellRect.left + WORKBENCH_SAFE_GUTTER_PX,
+						),
+					)
+				: 0;
+			const rightInset = rightRect
+				? Math.max(
+						0,
+						Math.min(
+							viewportWidth,
+							shellRect.right - rightRect.left + WORKBENCH_SAFE_GUTTER_PX,
+						),
+					)
+				: 0;
+			safeWidth = Math.max(1, viewportWidth - leftInset - rightInset);
+		}
+
+		return {
+			viewportWidth,
+			viewportHeight,
+			stackedLayout,
+			safeWidth,
+			safeHeight: viewportHeight,
+		};
+	}
+
+	function resolveAutoLayout(documentState) {
+		const exportSize = getOutputSizeState(documentState);
+		const {
+			viewportWidth,
+			viewportHeight,
+			stackedLayout,
+			safeWidth,
+			safeHeight,
+		} = getWorkbenchLayoutState();
+		const fitScale = Math.min(
+			viewportWidth / exportSize.width,
+			viewportHeight / exportSize.height,
+		);
+		const safeFitScale = Math.min(
+			safeWidth / exportSize.width,
+			safeHeight / exportSize.height,
+		);
+		const expandedSafeZoom = clampViewZoom(
+			(safeFitScale / Math.max(fitScale, 1e-6)) * AUTO_VIEW_ZOOM_MARGIN,
+		);
+		const shouldAutoCollapse =
+			stackedLayout || expandedSafeZoom < AUTO_WORKBENCH_MIN_SAFE_ZOOM;
+
+		if (store.workbenchAutoCollapsed.value !== shouldAutoCollapse) {
+			store.workbenchAutoCollapsed.value = shouldAutoCollapse;
+			if (!shouldAutoCollapse) {
+				store.workbenchManualExpanded.value = false;
+			}
+		}
+
+		const actualCollapsed = store.workbenchCollapsed.value;
+		const actualSafeWidth = actualCollapsed ? viewportWidth : safeWidth;
+		const actualSafeHeight = actualCollapsed ? viewportHeight : safeHeight;
+		const recommendedZoom = clampViewZoom(
+			(Math.min(
+				actualSafeWidth / exportSize.width,
+				actualSafeHeight / exportSize.height,
+			) /
+				Math.max(fitScale, 1e-6)) *
+				AUTO_VIEW_ZOOM_MARGIN,
+		);
+
+		return {
+			viewportWidth,
+			viewportHeight,
+			exportWidth: exportSize.width,
+			exportHeight: exportSize.height,
+			actualCollapsed,
+			recommendedZoom,
+		};
+	}
+
+	function syncAutoWorkbenchLayout(
+		documentState = getActiveShotCameraDocument(),
+	) {
+		if (!documentState) {
+			store.workbenchAutoCollapsed.value = false;
+			store.workbenchManualExpanded.value = false;
+			lastAutoLayoutSignature = "";
+			return null;
+		}
+
+		return resolveAutoLayout(documentState);
+	}
+
+	function syncAutoViewZoom(
+		documentState = getActiveShotCameraDocument(),
+		layout = syncAutoWorkbenchLayout(documentState),
+	) {
+		if (!documentState?.outputFrame?.viewZoomAuto || !layout) {
+			lastAutoLayoutSignature = "";
+			return false;
+		}
+
+		const signature = [
+			documentState.id ?? "active",
+			layout.viewportWidth,
+			layout.viewportHeight,
+			layout.exportWidth,
+			layout.exportHeight,
+			layout.actualCollapsed ? "collapsed" : "expanded",
+			layout.recommendedZoom.toFixed(4),
+		].join("|");
+
+		if (signature === lastAutoLayoutSignature) {
+			return false;
+		}
+		lastAutoLayoutSignature = signature;
+
+		if (
+			Math.abs(
+				(documentState.outputFrame.viewZoom ?? 1) - layout.recommendedZoom,
+			) < 1e-4
+		) {
+			return false;
+		}
+
+		updateActiveShotCameraDocument((nextDocumentState) => {
+			nextDocumentState.outputFrame.viewZoom = layout.recommendedZoom;
+			nextDocumentState.outputFrame.viewZoomAuto = true;
+			return nextDocumentState;
+		});
+		return true;
 	}
 
 	function syncOutputFrameFitState(
@@ -152,6 +321,8 @@ export function createOutputFrameController({
 	function getOutputFrameMetrics(
 		documentState = getActiveShotCameraDocument(),
 	) {
+		const layout = syncAutoWorkbenchLayout(documentState);
+		syncAutoViewZoom(documentState, layout);
 		const { width, height } = getViewportSize();
 		const outputFrameDocument = syncOutputFrameFitState(
 			documentState,
@@ -322,6 +493,7 @@ export function createOutputFrameController({
 			startCenterX: metrics.boxCenterX,
 			startCenterY: metrics.boxCenterY,
 		};
+		beginHistoryTransaction("output-frame.pan");
 		renderBox.classList.add("is-pan-active");
 	}
 
@@ -393,6 +565,7 @@ export function createOutputFrameController({
 		}
 
 		clearOutputFramePan();
+		commitHistoryTransaction("output-frame.pan");
 	}
 
 	function startOutputFrameAnchorDrag(event) {
@@ -419,6 +592,7 @@ export function createOutputFrameController({
 		outputFrameAnchorDragState = {
 			pointerId: event.pointerId,
 		};
+		beginHistoryTransaction("output-frame.anchor");
 	}
 
 	function handleOutputFrameAnchorDragMove(event) {
@@ -461,6 +635,7 @@ export function createOutputFrameController({
 		}
 
 		clearOutputFrameAnchorDrag();
+		commitHistoryTransaction("output-frame.anchor");
 	}
 
 	function startOutputFrameResize(handleKey, event) {
@@ -510,6 +685,7 @@ export function createOutputFrameController({
 				metrics.boxHeight *
 				Math.abs(handle.affectsHeight ? handle.y - metrics.anchor.y : 0),
 		};
+		beginHistoryTransaction("output-frame.resize");
 	}
 
 	function handleOutputFrameResizeMove(event) {
@@ -563,6 +739,7 @@ export function createOutputFrameController({
 			return documentState;
 		});
 		clearOutputFrameResize();
+		commitHistoryTransaction("output-frame.resize");
 		updateUi();
 	}
 
@@ -710,37 +887,45 @@ export function createOutputFrameController({
 	}
 
 	function setBoxWidthPercent(nextValue) {
-		updateActiveShotCameraDocument((documentState) => {
-			applyOutputFrameResize(
-				documentState,
-				Number(nextValue) / 100,
-				documentState.outputFrame.heightScale,
-			);
-			return documentState;
+		runHistoryAction?.("output-frame.width", () => {
+			updateActiveShotCameraDocument((documentState) => {
+				applyOutputFrameResize(
+					documentState,
+					Number(nextValue) / 100,
+					documentState.outputFrame.heightScale,
+				);
+				return documentState;
+			});
 		});
 		updateUi();
 	}
 
 	function setBoxHeightPercent(nextValue) {
-		updateActiveShotCameraDocument((documentState) => {
-			applyOutputFrameResize(
-				documentState,
-				documentState.outputFrame.widthScale,
-				Number(nextValue) / 100,
-			);
-			return documentState;
+		runHistoryAction?.("output-frame.height", () => {
+			updateActiveShotCameraDocument((documentState) => {
+				applyOutputFrameResize(
+					documentState,
+					documentState.outputFrame.widthScale,
+					Number(nextValue) / 100,
+				);
+				return documentState;
+			});
 		});
 		updateUi();
 	}
 
 	function setViewZoomFactor(nextZoom) {
-		updateActiveShotCameraDocument((documentState) => {
-			const { width: viewportWidth, height: viewportHeight } =
-				getViewportSize();
-			syncOutputFrameFitState(documentState, viewportWidth, viewportHeight);
-			documentState.outputFrame.viewZoom = clampViewZoom(nextZoom);
-			return documentState;
+		runHistoryAction?.("output-frame.zoom", () => {
+			updateActiveShotCameraDocument((documentState) => {
+				const { width: viewportWidth, height: viewportHeight } =
+					getViewportSize();
+				syncOutputFrameFitState(documentState, viewportWidth, viewportHeight);
+				documentState.outputFrame.viewZoom = clampViewZoom(nextZoom);
+				documentState.outputFrame.viewZoomAuto = false;
+				return documentState;
+			});
 		});
+		lastAutoLayoutSignature = "";
 		updateUi();
 	}
 
@@ -750,13 +935,18 @@ export function createOutputFrameController({
 
 	function setAnchor(nextValue) {
 		selectOutputFrame();
-		state.outputFrame.anchor = nextValue;
+		runHistoryAction?.("output-frame.anchor-preset", () => {
+			state.outputFrame.anchor = nextValue;
+		});
 		updateUi();
 	}
 
 	function handleResize() {
+		const documentState = getActiveShotCameraDocument();
+		const layout = syncAutoWorkbenchLayout(documentState);
+		syncAutoViewZoom(documentState, layout);
 		const { width, height } = getViewportSize();
-		syncOutputFrameFitState(getActiveShotCameraDocument(), width, height);
+		syncOutputFrameFitState(documentState, width, height);
 	}
 
 	return {

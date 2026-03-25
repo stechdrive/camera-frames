@@ -36,11 +36,23 @@ function stopUiWheelEvent(event) {
 	event.stopPropagation();
 }
 
+function isHistoryShortcutEvent(event) {
+	const hasHistoryModifier = event.ctrlKey || event.metaKey;
+	return hasHistoryModifier && (event.code === "KeyZ" || event.code === "KeyY");
+}
+
+function stopUiEventUnlessHistoryShortcut(event) {
+	if (isHistoryShortcutEvent(event)) {
+		return;
+	}
+	stopUiEvent(event);
+}
+
 const INTERACTIVE_FIELD_PROPS = {
 	onPointerDown: stopUiEvent,
 	onClick: stopUiEvent,
 	onWheel: stopUiWheelEvent,
-	onKeyDown: stopUiEvent,
+	onKeyDown: stopUiEventUnlessHistoryShortcut,
 };
 
 function NumericDraftInput({
@@ -79,6 +91,7 @@ function NumericDraftInput({
 			...${props}
 			type="number"
 			inputMode=${inputMode}
+			data-draft-editing=${isEditing ? "true" : "false"}
 			value=${isEditing ? draftValue : formattedValue}
 			onFocus=${(event) => {
 				stopUiEvent(event);
@@ -93,10 +106,16 @@ function NumericDraftInput({
 			onBlur=${(event) => {
 				commitDraft(event.currentTarget.value);
 			}}
+			onChange=${(event) => {
+				commitDraft(event.currentTarget.value);
+			}}
 			onPointerDown=${stopUiEvent}
 			onClick=${stopUiEvent}
 			onWheel=${stopUiWheelEvent}
 			onKeyDown=${(event) => {
+				if (isHistoryShortcutEvent(event)) {
+					return;
+				}
 				stopUiEvent(event);
 				if (event.key === "Enter") {
 					event.preventDefault();
@@ -110,6 +129,120 @@ function NumericDraftInput({
 					event.currentTarget.blur();
 				}
 			}}
+		/>
+	`;
+}
+
+function HistoryRangeInput({
+	controller,
+	historyLabel,
+	onLiveChange,
+	...props
+}) {
+	const [transactionActive, setTransactionActive] = useState(false);
+
+	function beginTransaction(event) {
+		stopUiEvent(event);
+		if (transactionActive) {
+			return;
+		}
+		controller?.()?.beginHistoryTransaction?.(historyLabel);
+		setTransactionActive(true);
+	}
+
+	function commitTransaction() {
+		if (!transactionActive) {
+			return;
+		}
+		controller?.()?.commitHistoryTransaction?.(historyLabel);
+		setTransactionActive(false);
+	}
+
+	function cancelTransaction() {
+		if (!transactionActive) {
+			return;
+		}
+		controller?.()?.cancelHistoryTransaction?.();
+		setTransactionActive(false);
+	}
+
+	return html`
+		<input
+			...${props}
+			type="range"
+			data-history-scope="app"
+			onPointerDown=${(event) => {
+				beginTransaction(event);
+			}}
+			onInput=${(event) => {
+				if (!transactionActive) {
+					beginTransaction(event);
+				} else {
+					stopUiEvent(event);
+				}
+				onLiveChange?.(event);
+			}}
+			onChange=${(event) => {
+				if (!transactionActive) {
+					beginTransaction(event);
+				} else {
+					stopUiEvent(event);
+				}
+				onLiveChange?.(event);
+				commitTransaction();
+			}}
+			onPointerUp=${(event) => {
+				stopUiEvent(event);
+				commitTransaction();
+			}}
+			onPointerCancel=${(event) => {
+				stopUiEvent(event);
+				cancelTransaction();
+			}}
+			onBlur=${() => {
+				commitTransaction();
+			}}
+			onKeyDown=${(event) => {
+				if (isHistoryShortcutEvent(event)) {
+					return;
+				}
+				stopUiEvent(event);
+				if (
+					[
+						"ArrowLeft",
+						"ArrowRight",
+						"ArrowUp",
+						"ArrowDown",
+						"Home",
+						"End",
+						"PageUp",
+						"PageDown",
+					].includes(event.key)
+				) {
+					beginTransaction(event);
+				}
+			}}
+			onKeyUp=${(event) => {
+				if (isHistoryShortcutEvent(event)) {
+					return;
+				}
+				stopUiEvent(event);
+				if (
+					[
+						"ArrowLeft",
+						"ArrowRight",
+						"ArrowUp",
+						"ArrowDown",
+						"Home",
+						"End",
+						"PageUp",
+						"PageDown",
+					].includes(event.key)
+				) {
+					commitTransaction();
+				}
+			}}
+			onWheel=${stopUiWheelEvent}
 		/>
 	`;
 }
@@ -208,15 +341,15 @@ function renderViewSection({
 					<label class="field field--range">
 						<span>${t("field.cameraViewZoom")}</span>
 						<div class="range-row">
-							<input
+							<${HistoryRangeInput}
 								id="view-zoom"
-								type="range"
 								min=${MIN_CAMERA_VIEW_ZOOM_PCT}
 								max=${MAX_CAMERA_VIEW_ZOOM_PCT}
 								step="1"
 								value=${Math.round(store.renderBox.viewZoom.value * 100)}
-								...${INTERACTIVE_FIELD_PROPS}
-								onInput=${(event) =>
+								controller=${controller}
+								historyLabel="output-frame.zoom"
+								onLiveChange=${(event) =>
 									controller()?.setViewZoomPercent(event.currentTarget.value)}
 							/>
 							<output id="view-zoom-value">${store.zoomLabel.value}</output>
@@ -230,15 +363,15 @@ function renderViewSection({
 					<label class="field field--range">
 						<span>${t("field.viewportEquivalentMm")}</span>
 						<div class="range-row">
-							<input
+							<${HistoryRangeInput}
 								id="viewport-fov-mm"
-								type="range"
 								min=${MIN_STANDARD_FRAME_EQUIVALENT_MM}
 								max=${MAX_STANDARD_FRAME_EQUIVALENT_MM}
 								step="1"
 								value=${viewportEquivalentMmValue}
-								...${INTERACTIVE_FIELD_PROPS}
-								onInput=${(event) =>
+								controller=${controller}
+								historyLabel="viewport.lens"
+								onLiveChange=${(event) =>
 									applyStandardFrameEquivalentMm(
 										(nextValue) => controller()?.setViewportBaseFovX(nextValue),
 										event.currentTarget.value,
@@ -711,15 +844,15 @@ function renderShotCameraSection({
 			<label class="field field--range">
 				<span>${t("field.shotCameraEquivalentMm")}</span>
 				<div class="range-row">
-					<input
+					<${HistoryRangeInput}
 						id="fov-mm"
-						type="range"
 						min=${MIN_STANDARD_FRAME_EQUIVALENT_MM}
 						max=${MAX_STANDARD_FRAME_EQUIVALENT_MM}
 						step="1"
 						value=${equivalentMmValue}
-						...${INTERACTIVE_FIELD_PROPS}
-						onInput=${(event) =>
+						controller=${controller}
+						historyLabel="camera.lens"
+						onLiveChange=${(event) =>
 							applyStandardFrameEquivalentMm(
 								(nextValue) => controller()?.setBaseFovX(nextValue),
 								event.currentTarget.value,
@@ -1013,15 +1146,15 @@ function renderOutputFrameSection({
 			<label class="field field--range">
 				<span>${t("field.outputFrameWidth")}</span>
 				<div class="range-row">
-					<input
+					<${HistoryRangeInput}
 						id="box-width"
-						type="range"
 						min=${MIN_OUTPUT_FRAME_SCALE_PCT}
 						max=${MAX_OUTPUT_FRAME_WIDTH_PCT}
 						step="1"
 						value=${Math.round(store.renderBox.widthScale.value * 100)}
-						...${INTERACTIVE_FIELD_PROPS}
-						onInput=${(event) =>
+						controller=${controller}
+						historyLabel="output-frame.width"
+						onLiveChange=${(event) =>
 							controller()?.setBoxWidthPercent(event.currentTarget.value)}
 					/>
 					<output id="box-width-value">${widthLabel}</output>
@@ -1030,15 +1163,15 @@ function renderOutputFrameSection({
 			<label class="field field--range">
 				<span>${t("field.outputFrameHeight")}</span>
 				<div class="range-row">
-					<input
+					<${HistoryRangeInput}
 						id="box-height"
-						type="range"
 						min=${MIN_OUTPUT_FRAME_SCALE_PCT}
 						max=${MAX_OUTPUT_FRAME_HEIGHT_PCT}
 						step="1"
 						value=${Math.round(store.renderBox.heightScale.value * 100)}
-						...${INTERACTIVE_FIELD_PROPS}
-						onInput=${(event) =>
+						controller=${controller}
+						historyLabel="output-frame.height"
+						onLiveChange=${(event) =>
 							controller()?.setBoxHeightPercent(event.currentTarget.value)}
 					/>
 					<output id="box-height-value">${heightLabel}</output>
@@ -1181,7 +1314,7 @@ function renderInspectorTabs({ activeTab, setActiveTab, t }) {
 	`;
 }
 
-export function SidePanel({ store, controller, locale, t }) {
+export function SidePanel({ store, controller, locale, t, refs }) {
 	const [activeInspectorTab, setActiveInspectorTab] =
 		useState(INSPECTOR_TAB_CAMERA);
 	const [draggedAssetId, setDraggedAssetId] = useState(null);
@@ -1227,8 +1360,21 @@ export function SidePanel({ store, controller, locale, t }) {
 	const exportSelectionMissing =
 		exportTarget === "selected" && exportPresetIds.length === 0;
 	const anchorOptions = getAnchorOptions(locale);
+	const workbenchAutoCollapsed = store.workbenchAutoCollapsed.value;
+	const collapseWorkbench = () => {
+		store.workbenchManualCollapsed.value = true;
+		store.workbenchManualExpanded.value = false;
+	};
+	const expandWorkbench = () => {
+		store.workbenchManualCollapsed.value = false;
+		store.workbenchManualExpanded.value = workbenchAutoCollapsed;
+	};
 	const toggleWorkbenchCollapsed = () => {
-		store.workbenchCollapsed.value = !store.workbenchCollapsed.value;
+		if (workbenchCollapsed) {
+			expandWorkbench();
+			return;
+		}
+		collapseWorkbench();
 	};
 
 	if (workbenchCollapsed) {
@@ -1248,8 +1394,11 @@ export function SidePanel({ store, controller, locale, t }) {
 	}
 
 	return html`
-		<div class="workbench-shell">
-			<div class="workbench-column workbench-column--left">
+		<div class="workbench-shell" ref=${refs?.workbenchShellRef}>
+			<div
+				class="workbench-column workbench-column--left"
+				ref=${refs?.workbenchLeftColumnRef}
+			>
 				<section class="workbench-card workbench-card--topbar">
 					${renderHeader({
 						t,
@@ -1287,7 +1436,10 @@ export function SidePanel({ store, controller, locale, t }) {
 					})}
 				</section>
 			</div>
-			<div class="workbench-column workbench-column--right">
+			<div
+				class="workbench-column workbench-column--right"
+				ref=${refs?.workbenchRightColumnRef}
+			>
 				<section class="workbench-card workbench-card--inspector">
 					${renderInspectorTabs({
 						activeTab: activeInspectorTab,

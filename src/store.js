@@ -33,7 +33,14 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	const shotCameras = signal(createDefaultShotCameraDocuments());
 	const activeShotCameraId = signal(shotCameras.value[0].id);
 	const viewportBaseFovX = signal(60);
-	const workbenchCollapsed = signal(false);
+	const workbenchManualCollapsed = signal(false);
+	const workbenchAutoCollapsed = signal(false);
+	const workbenchManualExpanded = signal(false);
+	const workbenchCollapsed = computed(
+		() =>
+			workbenchManualCollapsed.value ||
+			(workbenchAutoCollapsed.value && !workbenchManualExpanded.value),
+	);
 
 	const remoteUrl = signal("");
 	const sceneBadge = signal(translate(initialLocale, "scene.badgeEmpty"));
@@ -68,6 +75,8 @@ export function createCameraFramesStore(runtimeInfo = null) {
 		getActiveShotCameraDocument(shotCameras.value, activeShotCameraId.value),
 	);
 	const frameSelectionActive = signal(false);
+	const historyCanUndo = signal(false);
+	const historyCanRedo = signal(false);
 	const frameDocuments = computed(() => activeShotCamera.value?.frames ?? []);
 	const activeFrame = computed(() =>
 		getActiveFrameDocument(
@@ -186,6 +195,9 @@ export function createCameraFramesStore(runtimeInfo = null) {
 			activeShotCamera,
 		},
 		workbenchCollapsed,
+		workbenchManualCollapsed,
+		workbenchAutoCollapsed,
+		workbenchManualExpanded,
 		viewportBaseFovX,
 		mode,
 		baseFovX,
@@ -214,6 +226,10 @@ export function createCameraFramesStore(runtimeInfo = null) {
 			activeId: activeFrameId,
 			count: frameCount,
 			selectionActive: frameSelectionActive,
+		},
+		history: {
+			canUndo: historyCanUndo,
+			canRedo: historyCanRedo,
 		},
 		remoteUrl,
 		sceneBadge,

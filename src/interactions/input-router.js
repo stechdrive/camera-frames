@@ -10,6 +10,8 @@ export function bindInputRouter({
 	setStatus,
 	startZoomToolDrag,
 	toggleZoomTool,
+	undoHistory,
+	redoHistory,
 	isInteractiveTextTarget,
 	isZoomInteractionMode,
 	applyNavigateInteractionMode,
@@ -37,6 +39,31 @@ export function bindInputRouter({
 	handleFrameAnchorDragEnd,
 	startOutputFrameAnchorDrag,
 }) {
+	function isHistoryShortcut(event) {
+		const hasHistoryModifier = event.ctrlKey || event.metaKey;
+		return (
+			hasHistoryModifier && (event.code === "KeyZ" || event.code === "KeyY")
+		);
+	}
+
+	function isNativeHistoryTarget(target) {
+		return (
+			target instanceof Element &&
+			target.closest(
+				[
+					"textarea",
+					'[contenteditable="true"]',
+					'input[type="text"]',
+					'input[type="search"]',
+					'input[type="url"]',
+					'input[type="email"]',
+					'input[type="password"]',
+					'input[data-draft-editing="true"]',
+				].join(", "),
+			) !== null
+		);
+	}
+
 	function syncInteractiveInputNavigationState(isInteractiveInputFocused) {
 		if (isInteractiveInputFocused) {
 			fpsMovement.enable = false;
@@ -129,11 +156,31 @@ export function bindInputRouter({
 	listen(window, "pointerup", handleZoomToolDragEnd);
 	listen(window, "pointercancel", handleZoomToolDragEnd);
 	listen(window, "keydown", (event) => {
-		if (event.repeat || isInteractiveTextTarget(event.target)) {
+		if (event.repeat) {
 			return;
 		}
 
-		if (event.code === "KeyZ") {
+		if (isHistoryShortcut(event) && !isNativeHistoryTarget(event.target)) {
+			event.preventDefault();
+			if (event.code === "KeyY" || event.shiftKey) {
+				redoHistory?.();
+			} else {
+				undoHistory?.();
+			}
+			return;
+		}
+
+		if (isInteractiveTextTarget(event.target)) {
+			return;
+		}
+
+		if (
+			event.code === "KeyZ" &&
+			!event.altKey &&
+			!event.ctrlKey &&
+			!event.metaKey &&
+			!event.shiftKey
+		) {
 			event.preventDefault();
 			toggleZoomTool();
 			return;

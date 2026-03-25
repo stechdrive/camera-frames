@@ -25,6 +25,8 @@ import {
 	getActiveFrameDocument as resolveActiveFrameDocument,
 } from "../workspace-model.js";
 
+const FRAME_DRAG_START_THRESHOLD_PX = 4;
+
 export function createFrameController({
 	store,
 	state,
@@ -39,6 +41,13 @@ export function createFrameController({
 	getActiveShotCameraDocument,
 	updateActiveShotCameraDocument,
 	getOutputFrameMetrics,
+	runHistoryAction = (_label, applyChange) => {
+		applyChange?.();
+		return false;
+	},
+	beginHistoryTransaction = () => false,
+	commitHistoryTransaction = () => false,
+	cancelHistoryTransaction = () => {},
 }) {
 	let frameDragState = null;
 	let frameResizeState = null;
@@ -224,6 +233,7 @@ export function createFrameController({
 	}
 
 	function clearFrameInteraction() {
+		cancelHistoryTransaction();
 		clearFrameDrag();
 		clearFrameResize();
 		clearFrameRotate();
@@ -289,10 +299,12 @@ export function createFrameController({
 		const nextFrame = createWorkspaceFrameDocument();
 		clearOutputFrameSelection();
 		clearFrameInteraction();
-		updateActiveShotCameraDocument((documentState) => {
-			documentState.frames = [...documentState.frames, nextFrame];
-			documentState.activeFrameId = nextFrame.id;
-			return documentState;
+		runHistoryAction?.("frame.create", () => {
+			updateActiveShotCameraDocument((documentState) => {
+				documentState.frames = [...documentState.frames, nextFrame];
+				documentState.activeFrameId = nextFrame.id;
+				return documentState;
+			});
 		});
 		store.frames.selectionActive.value = true;
 		updateUi();
@@ -326,10 +338,12 @@ export function createFrameController({
 		);
 		clearOutputFrameSelection();
 		clearFrameInteraction();
-		updateActiveShotCameraDocument((documentState) => {
-			documentState.frames = [...documentState.frames, nextFrame];
-			documentState.activeFrameId = nextFrame.id;
-			return documentState;
+		runHistoryAction?.("frame.duplicate", () => {
+			updateActiveShotCameraDocument((documentState) => {
+				documentState.frames = [...documentState.frames, nextFrame];
+				documentState.activeFrameId = nextFrame.id;
+				return documentState;
+			});
 		});
 		store.frames.selectionActive.value = true;
 		updateUi();
@@ -348,13 +362,15 @@ export function createFrameController({
 
 		clearFrameInteraction();
 		clearOutputFramePan();
-		updateActiveShotCameraDocument((documentState) => {
-			const remainingFrames = documentState.frames.filter(
-				(frame) => frame.id !== activeFrame.id,
-			);
-			documentState.frames = remainingFrames;
-			documentState.activeFrameId = remainingFrames[0]?.id ?? null;
-			return documentState;
+		runHistoryAction?.("frame.delete", () => {
+			updateActiveShotCameraDocument((documentState) => {
+				const remainingFrames = documentState.frames.filter(
+					(frame) => frame.id !== activeFrame.id,
+				);
+				documentState.frames = remainingFrames;
+				documentState.activeFrameId = remainingFrames[0]?.id ?? null;
+				return documentState;
+			});
 		});
 		store.frames.selectionActive.value = getActiveFrames().length > 0;
 		updateUi();
@@ -378,10 +394,10 @@ export function createFrameController({
 		event.preventDefault();
 		event.stopPropagation();
 
+		let dragFrame = frame;
 		if (!isFrameSelected(frameId)) {
-			activateFrameSelection(frameId);
+			dragFrame = activateFrameSelection(frameId) ?? frame;
 			updateUi();
-			return;
 		}
 
 		const bounds = renderBox.getBoundingClientRect();
@@ -390,18 +406,19 @@ export function createFrameController({
 		}
 
 		clearFrameInteraction();
-		const anchor = getFrameAnchorDocument(frame);
+		const anchor = getFrameAnchorDocument(dragFrame);
 		frameDragState = {
 			pointerId: event.pointerId,
-			frameId: frame.id,
+			frameId: dragFrame.id,
 			startClientX: event.clientX,
 			startClientY: event.clientY,
-			startX: frame.x,
-			startY: frame.y,
+			startX: dragFrame.x,
+			startY: dragFrame.y,
 			startAnchorX: anchor.x,
 			startAnchorY: anchor.y,
+			dragActivated: false,
+			cursorValue: getEventCursor(event, "move"),
 		};
-		setGlobalFrameCursor(getEventCursor(event, "move"));
 	}
 
 	function handleFrameDragMove(event) {
@@ -414,8 +431,21 @@ export function createFrameController({
 			return;
 		}
 
-		let deltaX = (event.clientX - frameDragState.startClientX) / bounds.width;
-		let deltaY = (event.clientY - frameDragState.startClientY) / bounds.height;
+		const deltaClientX = event.clientX - frameDragState.startClientX;
+		const deltaClientY = event.clientY - frameDragState.startClientY;
+		if (!frameDragState.dragActivated) {
+			if (
+				Math.hypot(deltaClientX, deltaClientY) < FRAME_DRAG_START_THRESHOLD_PX
+			) {
+				return;
+			}
+			frameDragState.dragActivated = true;
+			beginHistoryTransaction("frame.drag");
+			setGlobalFrameCursor(frameDragState.cursorValue);
+		}
+
+		let deltaX = deltaClientX / bounds.width;
+		let deltaY = deltaClientY / bounds.height;
 
 		if (event.shiftKey) {
 			if (Math.abs(deltaX) >= Math.abs(deltaY)) {
@@ -456,7 +486,11 @@ export function createFrameController({
 			return;
 		}
 
+		const shouldCommit = frameDragState.dragActivated;
 		clearFrameDrag();
+		if (shouldCommit) {
+			commitHistoryTransaction("frame.drag");
+		}
 	}
 
 	function startFrameResize(frameId, handleKey, event) {
@@ -523,6 +557,7 @@ export function createFrameController({
 			frameAnchorLocalY: frameAnchorLocal.y,
 			useFrameAnchorPivot,
 		};
+		beginHistoryTransaction("frame.resize");
 		setGlobalFrameCursor(getEventCursor(event, "ew-resize"));
 	}
 
@@ -601,6 +636,7 @@ export function createFrameController({
 		}
 
 		clearFrameResize();
+		commitHistoryTransaction("frame.resize");
 	}
 
 	function startFrameRotate(frameId, zoneKey, event) {
@@ -643,6 +679,7 @@ export function createFrameController({
 			startRotation: frame.rotation ?? 0,
 			startScale: resolveFrameScale(frame.scale ?? 1),
 		};
+		beginHistoryTransaction("frame.rotate");
 		setGlobalRotateCursor(frame.rotation ?? 0, zoneKey);
 	}
 
@@ -695,6 +732,7 @@ export function createFrameController({
 		}
 
 		clearFrameRotate();
+		commitHistoryTransaction("frame.rotate");
 	}
 
 	function startFrameAnchorDrag(frameId, event) {
@@ -727,6 +765,7 @@ export function createFrameController({
 			pointerOffsetX: event.clientX - anchorWorld.x,
 			pointerOffsetY: event.clientY - anchorWorld.y,
 		};
+		beginHistoryTransaction("frame.anchor");
 	}
 
 	function handleFrameAnchorDragMove(event) {
@@ -769,6 +808,7 @@ export function createFrameController({
 		}
 
 		clearFrameAnchorDrag();
+		commitHistoryTransaction("frame.anchor");
 	}
 
 	return {

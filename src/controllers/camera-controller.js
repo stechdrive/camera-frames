@@ -35,6 +35,10 @@ export function createCameraController({
 	placeCameraAtHome,
 	frameCamera,
 	syncControlsToMode,
+	runHistoryAction = (_label, applyChange) => {
+		applyChange?.();
+		return false;
+	},
 }) {
 	function buildShotCameraDocumentName(nextNumber) {
 		return t("shotCamera.defaultName", { index: nextNumber });
@@ -278,20 +282,26 @@ export function createCameraController({
 	}
 
 	function setBaseFovX(nextValue) {
-		state.baseFovX = Number(nextValue);
+		runHistoryAction?.("camera.lens", () => {
+			state.baseFovX = Number(nextValue);
+		});
 		updateUi();
 	}
 
 	function setViewportBaseFovX(nextValue) {
-		state.viewportBaseFovX = Number(nextValue);
+		runHistoryAction?.("viewport.lens", () => {
+			state.viewportBaseFovX = Number(nextValue);
+		});
 		updateUi();
 	}
 
 	function setShotCameraClippingMode(nextValue) {
 		const mode = nextValue === "manual" ? "manual" : "auto";
-		updateActiveShotCameraDocument((documentState) => {
-			documentState.clipping.mode = mode;
-			return documentState;
+		runHistoryAction?.("camera.clip-mode", () => {
+			updateActiveShotCameraDocument((documentState) => {
+				documentState.clipping.mode = mode;
+				return documentState;
+			});
 		});
 		updateUi();
 		setStatus(
@@ -302,45 +312,53 @@ export function createCameraController({
 	}
 
 	function setShotCameraNear(nextValue) {
-		updateActiveShotCameraDocument((documentState) => {
-			const near = clampClipNear(nextValue);
-			documentState.clipping.near = near;
-			documentState.clipping.far = clampClipFar(
-				documentState.clipping.far,
-				near,
-			);
-			return documentState;
+		runHistoryAction?.("camera.near", () => {
+			updateActiveShotCameraDocument((documentState) => {
+				const near = clampClipNear(nextValue);
+				documentState.clipping.near = near;
+				documentState.clipping.far = clampClipFar(
+					documentState.clipping.far,
+					near,
+				);
+				return documentState;
+			});
 		});
 		updateUi();
 	}
 
 	function setShotCameraFar(nextValue) {
-		updateActiveShotCameraDocument((documentState) => {
-			const near = clampClipNear(documentState.clipping.near);
-			documentState.clipping.far = clampClipFar(nextValue, near);
-			return documentState;
+		runHistoryAction?.("camera.far", () => {
+			updateActiveShotCameraDocument((documentState) => {
+				const near = clampClipNear(documentState.clipping.near);
+				documentState.clipping.far = clampClipFar(nextValue, near);
+				return documentState;
+			});
 		});
 		updateUi();
 	}
 
 	function setShotCameraExportName(nextValue) {
-		updateActiveShotCameraDocument((documentState) => {
-			documentState.exportSettings = {
-				...documentState.exportSettings,
-				exportName: String(nextValue ?? ""),
-			};
-			return documentState;
+		runHistoryAction?.("camera.export-name", () => {
+			updateActiveShotCameraDocument((documentState) => {
+				documentState.exportSettings = {
+					...documentState.exportSettings,
+					exportName: String(nextValue ?? ""),
+				};
+				return documentState;
+			});
 		});
 	}
 
 	function setShotCameraExportFormat(nextValue) {
 		const exportFormat = normalizeShotCameraExportFormat(nextValue);
-		updateActiveShotCameraDocument((documentState) => {
-			documentState.exportSettings = {
-				...documentState.exportSettings,
-				exportFormat,
-			};
-			return documentState;
+		runHistoryAction?.("camera.export-format", () => {
+			updateActiveShotCameraDocument((documentState) => {
+				documentState.exportSettings = {
+					...documentState.exportSettings,
+					exportFormat,
+				};
+				return documentState;
+			});
 		});
 		updateUi();
 		setStatus(
@@ -352,55 +370,63 @@ export function createCameraController({
 
 	function setShotCameraExportGridOverlay(nextValue) {
 		const exportGridOverlay = Boolean(nextValue);
-		updateActiveShotCameraDocument((documentState) => {
-			documentState.exportSettings = {
-				...documentState.exportSettings,
-				exportGridOverlay,
-			};
-			return documentState;
+		runHistoryAction?.("camera.export-grid", () => {
+			updateActiveShotCameraDocument((documentState) => {
+				documentState.exportSettings = {
+					...documentState.exportSettings,
+					exportGridOverlay,
+				};
+				return documentState;
+			});
 		});
 		updateUi();
 	}
 
 	function setShotCameraExportGridLayerMode(nextValue) {
 		const exportGridLayerMode = nextValue === "overlay" ? "overlay" : "bottom";
-		updateActiveShotCameraDocument((documentState) => {
-			documentState.exportSettings = {
-				...documentState.exportSettings,
-				exportGridLayerMode,
-			};
-			return documentState;
+		runHistoryAction?.("camera.export-grid-layer", () => {
+			updateActiveShotCameraDocument((documentState) => {
+				documentState.exportSettings = {
+					...documentState.exportSettings,
+					exportGridLayerMode,
+				};
+				return documentState;
+			});
 		});
 		updateUi();
 	}
 
 	function setShotCameraExportModelLayers(nextValue) {
 		const exportModelLayers = Boolean(nextValue);
-		updateActiveShotCameraDocument((documentState) => {
-			documentState.exportSettings = {
-				...documentState.exportSettings,
-				exportModelLayers,
-				exportSplatLayers:
-					exportModelLayers &&
-					documentState.exportSettings?.exportFormat === "psd" &&
-					Boolean(documentState.exportSettings?.exportSplatLayers),
-			};
-			return documentState;
+		runHistoryAction?.("camera.export-model-layers", () => {
+			updateActiveShotCameraDocument((documentState) => {
+				documentState.exportSettings = {
+					...documentState.exportSettings,
+					exportModelLayers,
+					exportSplatLayers:
+						exportModelLayers &&
+						documentState.exportSettings?.exportFormat === "psd" &&
+						Boolean(documentState.exportSettings?.exportSplatLayers),
+				};
+				return documentState;
+			});
 		});
 		updateUi();
 	}
 
 	function setShotCameraExportSplatLayers(nextValue) {
 		const exportSplatLayers = Boolean(nextValue);
-		updateActiveShotCameraDocument((documentState) => {
-			documentState.exportSettings = {
-				...documentState.exportSettings,
-				exportSplatLayers:
-					documentState.exportSettings?.exportFormat === "psd" &&
-					Boolean(documentState.exportSettings?.exportModelLayers) &&
-					exportSplatLayers,
-			};
-			return documentState;
+		runHistoryAction?.("camera.export-splat-layers", () => {
+			updateActiveShotCameraDocument((documentState) => {
+				documentState.exportSettings = {
+					...documentState.exportSettings,
+					exportSplatLayers:
+						documentState.exportSettings?.exportFormat === "psd" &&
+						Boolean(documentState.exportSettings?.exportModelLayers) &&
+						exportSplatLayers,
+				};
+				return documentState;
+			});
 		});
 		updateUi();
 	}
@@ -432,22 +458,24 @@ export function createCameraController({
 			state.mode === WORKSPACE_PANE_CAMERA
 				? getActiveShotCamera()
 				: viewportCamera;
-		setShotCameraDocuments([
-			...store.workspace.shotCameras.value,
-			nextDocument,
-		]);
+		runHistoryAction?.("camera.create", () => {
+			setShotCameraDocuments([
+				...store.workspace.shotCameras.value,
+				nextDocument,
+			]);
 
-		const entry = shotCameraRegistry.get(nextDocument.id);
-		if (entry) {
-			copyPose(sourceCamera, entry.camera);
-			syncShotCameraEntryFromDocument(entry);
-		}
+			const entry = shotCameraRegistry.get(nextDocument.id);
+			if (entry) {
+				copyPose(sourceCamera, entry.camera);
+				syncShotCameraEntryFromDocument(entry);
+			}
 
-		store.workspace.activeShotCameraId.value = nextDocument.id;
-		clearFrameDrag();
-		clearOutputFramePan();
-		clearControlMomentum();
-		updateUi();
+			store.workspace.activeShotCameraId.value = nextDocument.id;
+			clearFrameDrag();
+			clearOutputFramePan();
+			clearControlMomentum();
+			updateUi();
+		});
 		setStatus(
 			t("status.createdShotCamera", {
 				name: nextDocument.name,
@@ -464,21 +492,23 @@ export function createCameraController({
 		}
 
 		const nextDocument = createWorkspaceShotCameraDocument(activeDocument);
-		setShotCameraDocuments([
-			...store.workspace.shotCameras.value,
-			nextDocument,
-		]);
+		runHistoryAction?.("camera.duplicate", () => {
+			setShotCameraDocuments([
+				...store.workspace.shotCameras.value,
+				nextDocument,
+			]);
 
-		const entry = shotCameraRegistry.get(nextDocument.id);
-		if (entry) {
-			copyPose(activeEntry.camera, entry.camera);
-			syncShotCameraEntryFromDocument(entry);
-		}
+			const entry = shotCameraRegistry.get(nextDocument.id);
+			if (entry) {
+				copyPose(activeEntry.camera, entry.camera);
+				syncShotCameraEntryFromDocument(entry);
+			}
 
-		store.workspace.activeShotCameraId.value = nextDocument.id;
-		clearOutputFramePan();
-		clearControlMomentum();
-		updateUi();
+			store.workspace.activeShotCameraId.value = nextDocument.id;
+			clearOutputFramePan();
+			clearControlMomentum();
+			updateUi();
+		});
 		setStatus(
 			t("status.duplicatedShotCamera", {
 				name: nextDocument.name,
@@ -488,37 +518,46 @@ export function createCameraController({
 
 	function copyViewportToShotCamera() {
 		const shotCamera = getActiveShotCamera();
-		copyPose(viewportCamera, shotCamera);
-		if (state.mode === WORKSPACE_PANE_CAMERA) {
-			syncControlsToMode();
-		} else {
-			clearControlMomentum();
-		}
+		runHistoryAction?.("camera.copy-viewport", () => {
+			copyPose(viewportCamera, shotCamera);
+			if (state.mode === WORKSPACE_PANE_CAMERA) {
+				syncControlsToMode();
+			} else {
+				clearControlMomentum();
+			}
+			updateUi();
+		});
 		setStatus(t("status.copiedViewportToShot"));
 	}
 
 	function copyShotCameraToViewport() {
 		const shotCamera = getActiveShotCamera();
-		copyPose(shotCamera, viewportCamera);
-		if (state.mode === WORKSPACE_PANE_VIEWPORT) {
-			syncControlsToMode();
-		} else {
-			clearControlMomentum();
-		}
+		runHistoryAction?.("viewport.copy-shot", () => {
+			copyPose(shotCamera, viewportCamera);
+			if (state.mode === WORKSPACE_PANE_VIEWPORT) {
+				syncControlsToMode();
+			} else {
+				clearControlMomentum();
+			}
+			updateUi();
+		});
 		setStatus(t("status.copiedShotToViewport"));
 	}
 
 	function resetActiveView() {
-		if (state.mode === WORKSPACE_PANE_CAMERA) {
-			const shotCamera = getActiveShotCamera();
-			placeCameraAtHome(shotCamera, "camera");
-			syncActiveShotCameraFromDocument();
-			setStatus(t("status.resetCamera"));
-		} else {
-			placeCameraAtHome(viewportCamera, "viewport");
-			setStatus(t("status.resetViewport"));
-		}
-		syncControlsToMode();
+		runHistoryAction?.("camera.reset-view", () => {
+			if (state.mode === WORKSPACE_PANE_CAMERA) {
+				const shotCamera = getActiveShotCamera();
+				placeCameraAtHome(shotCamera, "camera");
+				syncActiveShotCameraFromDocument();
+				setStatus(t("status.resetCamera"));
+			} else {
+				placeCameraAtHome(viewportCamera, "viewport");
+				setStatus(t("status.resetViewport"));
+			}
+			syncControlsToMode();
+			updateUi();
+		});
 	}
 
 	return {

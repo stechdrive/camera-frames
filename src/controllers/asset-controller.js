@@ -119,6 +119,11 @@ export function createAssetController({
 	extractProjectPackageAssets,
 	applyProjectPackageImport,
 	disposeObject,
+	runHistoryAction = (_label, applyChange) => {
+		applyChange?.();
+		return false;
+	},
+	clearHistory = () => {},
 }) {
 	const reportedSplatBoundsWarnings = new Set();
 
@@ -275,6 +280,98 @@ export function createAssetController({
 
 	function getSceneAssets() {
 		return sceneState.assets;
+	}
+
+	function captureSceneAssetEditState() {
+		return {
+			selectedSceneAssetId: store.selectedSceneAssetId.value,
+			assets: sceneState.assets.map((asset) => ({
+				id: asset.id,
+				kind: asset.kind,
+				worldScale: asset.worldScale,
+				unitMode: asset.unitMode,
+				exportRole: asset.exportRole ?? "beauty",
+				maskGroup: asset.maskGroup ?? "",
+				visible: asset.object.visible !== false,
+				position: {
+					x: asset.object.position.x,
+					y: asset.object.position.y,
+					z: asset.object.position.z,
+				},
+				rotationDegrees: {
+					x: THREE.MathUtils.radToDeg(asset.object.rotation.x),
+					y: THREE.MathUtils.radToDeg(asset.object.rotation.y),
+					z: THREE.MathUtils.radToDeg(asset.object.rotation.z),
+				},
+			})),
+		};
+	}
+
+	function restoreSceneAssetEditState(snapshot) {
+		if (!snapshot || !Array.isArray(snapshot.assets)) {
+			return false;
+		}
+
+		if (snapshot.assets.length !== sceneState.assets.length) {
+			return false;
+		}
+
+		const currentAssetsById = new Map(
+			sceneState.assets.map((asset) => [asset.id, asset]),
+		);
+		const restoredAssets = [];
+
+		for (const item of snapshot.assets) {
+			const asset = currentAssetsById.get(item.id);
+			if (!asset || asset.kind !== item.kind) {
+				return false;
+			}
+			restoredAssets.push(asset);
+		}
+
+		sceneState.assets = restoredAssets;
+		for (const item of snapshot.assets) {
+			const asset = currentAssetsById.get(item.id);
+			asset.worldScale = clampAssetWorldScale(item.worldScale);
+			asset.unitMode = item.unitMode ?? asset.unitMode;
+			asset.exportRole = item.exportRole === "omit" ? "omit" : "beauty";
+			asset.maskGroup = String(item.maskGroup ?? "").trim();
+			asset.object.visible = item.visible !== false;
+			asset.object.position.set(
+				clampAssetTransformValue(item.position?.x, asset.object.position.x),
+				clampAssetTransformValue(item.position?.y, asset.object.position.y),
+				clampAssetTransformValue(item.position?.z, asset.object.position.z),
+			);
+			asset.object.rotation.set(
+				THREE.MathUtils.degToRad(
+					clampAssetTransformValue(
+						item.rotationDegrees?.x,
+						THREE.MathUtils.radToDeg(asset.object.rotation.x),
+					),
+				),
+				THREE.MathUtils.degToRad(
+					clampAssetTransformValue(
+						item.rotationDegrees?.y,
+						THREE.MathUtils.radToDeg(asset.object.rotation.y),
+					),
+				),
+				THREE.MathUtils.degToRad(
+					clampAssetTransformValue(
+						item.rotationDegrees?.z,
+						THREE.MathUtils.radToDeg(asset.object.rotation.z),
+					),
+				),
+			);
+			applyAssetWorldScale(asset);
+			asset.object.updateMatrixWorld(true);
+		}
+
+		store.selectedSceneAssetId.value = snapshot.assets.some(
+			(asset) => asset.id === snapshot.selectedSceneAssetId,
+		)
+			? snapshot.selectedSceneAssetId
+			: (restoredAssets[0]?.id ?? null);
+		return true;
 	}
 
 	function registerAsset({ kind, label, object, disposeTarget = null }) {
@@ -993,6 +1090,7 @@ export function createAssetController({
 			(replace || !hadAssetsBeforeLoad) &&
 			importStates.length > 0 &&
 			applyProjectPackageImport(importStates.at(-1));
+		clearHistory();
 
 		if (!importedProjectState && (replace || !hadAssetsBeforeLoad)) {
 			placeAllCamerasAtHome();
@@ -1041,6 +1139,7 @@ export function createAssetController({
 	}
 
 	function clearScene() {
+		clearHistory();
 		for (const asset of sceneState.assets) {
 			asset.object.removeFromParent();
 			if (asset.kind === "splat") {
@@ -1066,8 +1165,10 @@ export function createAssetController({
 			return;
 		}
 
-		asset.worldScale = clampAssetWorldScale(nextValue);
-		applyAssetWorldScale(asset);
+		runHistoryAction?.("asset.scale", () => {
+			asset.worldScale = clampAssetWorldScale(nextValue);
+			applyAssetWorldScale(asset);
+		});
 		updateUi();
 		setStatus(
 			t("status.assetScaleUpdated", {
@@ -1087,11 +1188,13 @@ export function createAssetController({
 			return;
 		}
 
-		asset.object.position[axis] = clampAssetTransformValue(
-			nextValue,
-			asset.object.position[axis],
-		);
-		asset.object.updateMatrixWorld(true);
+		runHistoryAction?.("asset.position", () => {
+			asset.object.position[axis] = clampAssetTransformValue(
+				nextValue,
+				asset.object.position[axis],
+			);
+			asset.object.updateMatrixWorld(true);
+		});
 		updateUi();
 	}
 
@@ -1101,13 +1204,15 @@ export function createAssetController({
 			return;
 		}
 
-		asset.object.rotation[axis] = THREE.MathUtils.degToRad(
-			clampAssetTransformValue(
-				nextValue,
-				THREE.MathUtils.radToDeg(asset.object.rotation[axis]),
-			),
-		);
-		asset.object.updateMatrixWorld(true);
+		runHistoryAction?.("asset.rotation", () => {
+			asset.object.rotation[axis] = THREE.MathUtils.degToRad(
+				clampAssetTransformValue(
+					nextValue,
+					THREE.MathUtils.radToDeg(asset.object.rotation[axis]),
+				),
+			);
+			asset.object.updateMatrixWorld(true);
+		});
 		updateUi();
 	}
 
@@ -1117,7 +1222,9 @@ export function createAssetController({
 			return;
 		}
 
-		asset.object.visible = Boolean(nextVisible);
+		runHistoryAction?.("asset.visibility", () => {
+			asset.object.visible = Boolean(nextVisible);
+		});
 		updateUi();
 		setStatus(
 			t("status.assetVisibilityUpdated", {
@@ -1153,11 +1260,13 @@ export function createAssetController({
 			return;
 		}
 
-		sceneState.assets = moveSceneAssetWithinKind(
-			sceneState.assets,
-			assetId,
-			targetKindIndex,
-		);
+		runHistoryAction?.("asset.order", () => {
+			sceneState.assets = moveSceneAssetWithinKind(
+				sceneState.assets,
+				assetId,
+				targetKindIndex,
+			);
+		});
 		updateUi();
 		setStatus(
 			t("status.assetOrderUpdated", {
@@ -1199,11 +1308,13 @@ export function createAssetController({
 			return;
 		}
 
-		sceneState.assets = moveSceneAssetWithinKind(
-			sceneState.assets,
-			assetId,
-			targetKindIndex,
-		);
+		runHistoryAction?.("asset.order", () => {
+			sceneState.assets = moveSceneAssetWithinKind(
+				sceneState.assets,
+				assetId,
+				targetKindIndex,
+			);
+		});
 		updateUi();
 		setStatus(
 			t("status.assetOrderUpdated", {
@@ -1219,7 +1330,9 @@ export function createAssetController({
 			return;
 		}
 
-		asset.exportRole = nextRole === "omit" ? "omit" : "beauty";
+		runHistoryAction?.("asset.export-role", () => {
+			asset.exportRole = nextRole === "omit" ? "omit" : "beauty";
+		});
 		updateUi();
 		setStatus(
 			t("status.assetExportRoleUpdated", {
@@ -1235,7 +1348,9 @@ export function createAssetController({
 			return;
 		}
 
-		asset.maskGroup = String(nextValue ?? "").trim();
+		runHistoryAction?.("asset.mask-group", () => {
+			asset.maskGroup = String(nextValue ?? "").trim();
+		});
 		updateUi();
 		setStatus(
 			t("status.assetMaskGroupUpdated", {
@@ -1331,6 +1446,8 @@ export function createAssetController({
 		expandProjectPackageSources,
 		loadSource,
 		loadSources,
+		captureSceneAssetEditState,
+		restoreSceneAssetEditState,
 		clearScene,
 		setAssetWorldScale,
 		resetAssetWorldScale,

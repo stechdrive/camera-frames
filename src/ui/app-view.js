@@ -21,6 +21,7 @@ export function AppView({ store, controller, refs }) {
 				controller=${controller}
 				locale=${locale}
 				t=${t}
+				refs=${refs}
 			/>
 			<${AppOverlay} overlay=${store.overlay.value} />
 		</div>

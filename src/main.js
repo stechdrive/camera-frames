@@ -21,6 +21,9 @@ function CameraFramesApp({ runtimeInfo }) {
 	const controllerRef = useRef(null);
 	const viewportCanvasRef = useRef(null);
 	const viewportShellRef = useRef(null);
+	const workbenchShellRef = useRef(null);
+	const workbenchLeftColumnRef = useRef(null);
+	const workbenchRightColumnRef = useRef(null);
 	const renderBoxRef = useRef(null);
 	const frameOverlayCanvasRef = useRef(null);
 	const renderBoxMetaRef = useRef(null);
@@ -33,6 +36,9 @@ function CameraFramesApp({ runtimeInfo }) {
 			{
 				viewportCanvas: viewportCanvasRef.current,
 				viewportShell: viewportShellRef.current,
+				workbenchShell: workbenchShellRef,
+				workbenchLeftColumn: workbenchLeftColumnRef,
+				workbenchRightColumn: workbenchRightColumnRef,
 				renderBox: renderBoxRef.current,
 				frameOverlayCanvas: frameOverlayCanvasRef.current,
 				renderBoxMeta: renderBoxMetaRef.current,
@@ -53,6 +59,9 @@ function CameraFramesApp({ runtimeInfo }) {
 	const refs = {
 		viewportCanvasRef,
 		viewportShellRef,
+		workbenchShellRef,
+		workbenchLeftColumnRef,
+		workbenchRightColumnRef,
 		renderBoxRef,
 		frameOverlayCanvasRef,
 		renderBoxMetaRef,
