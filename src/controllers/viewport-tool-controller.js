@@ -460,6 +460,57 @@ export function createViewportToolController({
 			: null;
 	}
 
+	function getSelectedTransformAssets() {
+		const selectedAssetIds = store.selectedSceneAssetIds.value;
+		const assets = selectedAssetIds
+			.map((assetId) => assetController.getSceneAsset(assetId))
+			.filter((asset) => asset && asset.object.visible !== false);
+		if (assets.length > 0) {
+			return assets;
+		}
+
+		const activeAsset = getSelectedTransformAsset();
+		return activeAsset && activeAsset.object.visible !== false
+			? [activeAsset]
+			: [];
+	}
+
+	function createTransformAssetSnapshot(asset) {
+		if (!asset) {
+			return null;
+		}
+
+		return {
+			assetId: asset.id,
+			startWorldPosition: asset.object.getWorldPosition(new THREE.Vector3()),
+			startWorldQuaternion: asset.object.getWorldQuaternion(
+				new THREE.Quaternion(),
+			),
+			startWorldScale: asset.worldScale,
+			startObjectScale: asset.object.scale.clone(),
+			startPivotLocal:
+				assetController.getAssetWorkingPivotLocal(asset) ??
+				new THREE.Vector3(0, 0, 0),
+			startPivotWorld: getSelectedTransformPivotWorld(asset),
+		};
+	}
+
+	function applySelectedAssetTransforms(
+		selectedAssets,
+		buildTransform,
+		historyLabel = "asset.transform",
+	) {
+		for (const selectedAsset of selectedAssets) {
+			const nextTransform = buildTransform(selectedAsset);
+			if (!nextTransform) {
+				continue;
+			}
+			assetController.setAssetTransform(selectedAsset.assetId, nextTransform, {
+				historyLabel,
+			});
+		}
+	}
+
 	function getSelectedTransformPivotWorld(asset) {
 		return (
 			assetController.getAssetWorkingPivotWorld(asset) ??
@@ -529,6 +580,18 @@ export function createViewportToolController({
 			transformSpace,
 		);
 		const axisKey = getHandleAxisKey(handleName);
+		const selectedAssets = isPivotEditMode()
+			? []
+			: (() => {
+					const selectedSnapshots = getSelectedTransformAssets()
+						.map((selectedAsset) => createTransformAssetSnapshot(selectedAsset))
+						.filter(Boolean);
+					if (selectedSnapshots.length > 0) {
+						return selectedSnapshots;
+					}
+					const fallbackSnapshot = createTransformAssetSnapshot(asset);
+					return fallbackSnapshot ? [fallbackSnapshot] : [];
+				})();
 
 		if (MOVE_AXIS_HANDLE_NAMES.includes(handleName) && axisKey) {
 			const axisWorld = basisWorld[axisKey].clone();
@@ -551,6 +614,7 @@ export function createViewportToolController({
 				startObjectScale: asset.object.scale.clone(),
 				startPivotLocal: startPivotLocal.clone(),
 				startPivotWorld: startPivotWorld.clone(),
+				selectedAssets,
 				pivotEditMode: isPivotEditMode(),
 				axisWorld,
 				planeNormal: planeNormal.clone(),
@@ -583,6 +647,7 @@ export function createViewportToolController({
 				startObjectScale: asset.object.scale.clone(),
 				startPivotLocal: startPivotLocal.clone(),
 				startPivotWorld: startPivotWorld.clone(),
+				selectedAssets,
 				pivotEditMode: isPivotEditMode(),
 				planeNormal: planeNormal.clone(),
 				startPoint: startPoint.clone(),
@@ -600,6 +665,7 @@ export function createViewportToolController({
 				startObjectScale: asset.object.scale.clone(),
 				startPivotLocal: startPivotLocal.clone(),
 				startPivotWorld: startPivotWorld.clone(),
+				selectedAssets,
 				startClientX: event.clientX,
 				startClientY: event.clientY,
 			};
@@ -630,6 +696,7 @@ export function createViewportToolController({
 				startObjectScale: asset.object.scale.clone(),
 				startPivotLocal: startPivotLocal.clone(),
 				startPivotWorld: startPivotWorld.clone(),
+				selectedAssets,
 				axisWorld: axisWorld.clone(),
 				startVector: startVector.clone(),
 			};
@@ -712,17 +779,29 @@ export function createViewportToolController({
 			return;
 		}
 
-		const nextWorldPosition = tempVector
-			.copy(dragState.startWorldPosition)
-			.add(nextPivotWorld.clone().sub(dragState.startPivotWorld));
-		assetController.setAssetTransform(
-			dragState.assetId,
-			{
-				worldPosition: nextWorldPosition,
-			},
-			{
-				historyLabel: "asset.transform",
-			},
+		if ((dragState.selectedAssets?.length ?? 0) <= 1) {
+			const nextWorldPosition = tempVector
+				.copy(dragState.startWorldPosition)
+				.add(nextPivotWorld.clone().sub(dragState.startPivotWorld));
+			assetController.setAssetTransform(
+				dragState.assetId,
+				{
+					worldPosition: nextWorldPosition,
+				},
+				{
+					historyLabel: "asset.transform",
+				},
+			);
+			return;
+		}
+
+		const worldDelta = nextPivotWorld.clone().sub(dragState.startPivotWorld);
+		applySelectedAssetTransforms(
+			dragState.selectedAssets,
+			(selectedAsset) => ({
+				worldPosition: selectedAsset.startWorldPosition.clone().add(worldDelta),
+			}),
+			"asset.transform",
 		);
 	}
 
@@ -751,17 +830,29 @@ export function createViewportToolController({
 			return;
 		}
 
-		const nextWorldPosition = tempVector
-			.copy(dragState.startWorldPosition)
-			.add(nextPivotWorld.clone().sub(dragState.startPivotWorld));
-		assetController.setAssetTransform(
-			dragState.assetId,
-			{
-				worldPosition: nextWorldPosition,
-			},
-			{
-				historyLabel: "asset.transform",
-			},
+		if ((dragState.selectedAssets?.length ?? 0) <= 1) {
+			const nextWorldPosition = tempVector
+				.copy(dragState.startWorldPosition)
+				.add(nextPivotWorld.clone().sub(dragState.startPivotWorld));
+			assetController.setAssetTransform(
+				dragState.assetId,
+				{
+					worldPosition: nextWorldPosition,
+				},
+				{
+					historyLabel: "asset.transform",
+				},
+			);
+			return;
+		}
+
+		const worldDelta = nextPivotWorld.clone().sub(dragState.startPivotWorld);
+		applySelectedAssetTransforms(
+			dragState.selectedAssets,
+			(selectedAsset) => ({
+				worldPosition: selectedAsset.startWorldPosition.clone().add(worldDelta),
+			}),
+			"asset.transform",
 		);
 	}
 
@@ -793,26 +884,53 @@ export function createViewportToolController({
 			dragState.axisWorld,
 			angle,
 		);
-		const nextWorldQuaternion = deltaQuaternion.multiply(
-			dragState.startWorldQuaternion.clone(),
-		);
-		const nextWorldPosition = dragState.startPivotWorld
-			.clone()
-			.sub(
-				scaleLocalPoint(
-					dragState.startPivotLocal,
-					dragState.startObjectScale,
-				).applyQuaternion(nextWorldQuaternion),
+		if ((dragState.selectedAssets?.length ?? 0) <= 1) {
+			const nextWorldQuaternion = deltaQuaternion.multiply(
+				dragState.startWorldQuaternion.clone(),
 			);
-		assetController.setAssetTransform(
-			dragState.assetId,
-			{
-				worldPosition: nextWorldPosition,
-				worldQuaternion: nextWorldQuaternion,
+			const nextWorldPosition = dragState.startPivotWorld
+				.clone()
+				.sub(
+					scaleLocalPoint(
+						dragState.startPivotLocal,
+						dragState.startObjectScale,
+					).applyQuaternion(nextWorldQuaternion),
+				);
+			assetController.setAssetTransform(
+				dragState.assetId,
+				{
+					worldPosition: nextWorldPosition,
+					worldQuaternion: nextWorldQuaternion,
+				},
+				{
+					historyLabel: "asset.transform",
+				},
+			);
+			return;
+		}
+		applySelectedAssetTransforms(
+			dragState.selectedAssets,
+			(selectedAsset) => {
+				const nextWorldQuaternion = deltaQuaternion
+					.clone()
+					.multiply(selectedAsset.startWorldQuaternion.clone());
+				const rotatedPivotWorld = selectedAsset.startPivotWorld
+					.clone()
+					.sub(dragState.startPivotWorld)
+					.applyQuaternion(deltaQuaternion)
+					.add(dragState.startPivotWorld);
+				const nextWorldPosition = rotatedPivotWorld.sub(
+					scaleLocalPoint(
+						selectedAsset.startPivotLocal,
+						selectedAsset.startObjectScale,
+					).applyQuaternion(nextWorldQuaternion),
+				);
+				return {
+					worldPosition: nextWorldPosition,
+					worldQuaternion: nextWorldQuaternion,
+				};
 			},
-			{
-				historyLabel: "asset.transform",
-			},
+			"asset.transform",
 		);
 	}
 
@@ -825,26 +943,54 @@ export function createViewportToolController({
 			dragState.startWorldScale * Math.exp(deltaPixels * 0.01);
 		const scaleFactor =
 			nextWorldScale / Math.max(dragState.startWorldScale, 0.000001);
-		const nextObjectScale = dragState.startObjectScale
-			.clone()
-			.multiplyScalar(scaleFactor);
-		const nextWorldPosition = dragState.startPivotWorld
-			.clone()
-			.sub(
-				scaleLocalPoint(
-					dragState.startPivotLocal,
-					nextObjectScale,
-				).applyQuaternion(dragState.startWorldQuaternion),
+		if ((dragState.selectedAssets?.length ?? 0) <= 1) {
+			const nextObjectScale = dragState.startObjectScale
+				.clone()
+				.multiplyScalar(scaleFactor);
+			const nextWorldPosition = dragState.startPivotWorld
+				.clone()
+				.sub(
+					scaleLocalPoint(
+						dragState.startPivotLocal,
+						nextObjectScale,
+					).applyQuaternion(dragState.startWorldQuaternion),
+				);
+			assetController.setAssetTransform(
+				dragState.assetId,
+				{
+					worldPosition: nextWorldPosition,
+					worldScale: nextWorldScale,
+				},
+				{
+					historyLabel: "asset.transform",
+				},
 			);
-		assetController.setAssetTransform(
-			dragState.assetId,
-			{
-				worldPosition: nextWorldPosition,
-				worldScale: nextWorldScale,
+			return;
+		}
+		applySelectedAssetTransforms(
+			dragState.selectedAssets,
+			(selectedAsset) => {
+				const scaledPivotWorld = selectedAsset.startPivotWorld
+					.clone()
+					.sub(dragState.startPivotWorld)
+					.multiplyScalar(scaleFactor)
+					.add(dragState.startPivotWorld);
+				const nextWorldScale = selectedAsset.startWorldScale * scaleFactor;
+				const nextObjectScale = selectedAsset.startObjectScale
+					.clone()
+					.multiplyScalar(scaleFactor);
+				const nextWorldPosition = scaledPivotWorld.sub(
+					scaleLocalPoint(
+						selectedAsset.startPivotLocal,
+						nextObjectScale,
+					).applyQuaternion(selectedAsset.startWorldQuaternion),
+				);
+				return {
+					worldPosition: nextWorldPosition,
+					worldScale: nextWorldScale,
+				};
 			},
-			{
-				historyLabel: "asset.transform",
-			},
+			"asset.transform",
 		);
 	}
 
@@ -855,7 +1001,7 @@ export function createViewportToolController({
 
 		event.preventDefault();
 		event.stopPropagation();
-		const camera = getActiveCamera();
+		const camera = getActiveToolCamera();
 		if (!camera) {
 			return;
 		}

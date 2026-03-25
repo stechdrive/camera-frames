@@ -1334,29 +1334,11 @@ export function createAssetController({
 		}
 
 		runHistoryAction?.(historyLabel, () => {
-			if (worldScale !== null && worldScale !== undefined) {
-				asset.worldScale = clampAssetWorldScale(worldScale);
-				applyAssetWorldScale(asset);
-			}
-
-			if (worldPosition) {
-				const nextLocalPosition = worldPosition.clone();
-				asset.object.parent?.worldToLocal(nextLocalPosition);
-				asset.object.position.copy(nextLocalPosition);
-			}
-
-			if (worldQuaternion) {
-				const nextLocalQuaternion = worldQuaternion.clone();
-				if (asset.object.parent) {
-					const parentWorldQuaternion = asset.object.parent.getWorldQuaternion(
-						new THREE.Quaternion(),
-					);
-					nextLocalQuaternion.premultiply(parentWorldQuaternion.invert());
-				}
-				asset.object.quaternion.copy(nextLocalQuaternion);
-			}
-
-			asset.object.updateMatrixWorld(true);
+			applyAssetTransformWorld(asset, {
+				worldPosition,
+				worldQuaternion,
+				worldScale,
+			});
 		});
 
 		updateUi();
@@ -1364,6 +1346,85 @@ export function createAssetController({
 			setStatus(
 				t("status.assetTransformUpdated", {
 					name: asset.label,
+				}),
+			);
+		}
+	}
+
+	function applyAssetTransformWorld(
+		asset,
+		{ worldPosition = null, worldQuaternion = null, worldScale = null } = {},
+	) {
+		if (!asset) {
+			return;
+		}
+
+		if (worldScale !== null && worldScale !== undefined) {
+			asset.worldScale = clampAssetWorldScale(worldScale);
+			applyAssetWorldScale(asset);
+		}
+
+		if (worldPosition) {
+			const nextLocalPosition = worldPosition.clone();
+			asset.object.parent?.worldToLocal(nextLocalPosition);
+			asset.object.position.copy(nextLocalPosition);
+		}
+
+		if (worldQuaternion) {
+			const nextLocalQuaternion = worldQuaternion.clone();
+			if (asset.object.parent) {
+				const parentWorldQuaternion = asset.object.parent.getWorldQuaternion(
+					new THREE.Quaternion(),
+				);
+				nextLocalQuaternion.premultiply(parentWorldQuaternion.invert());
+			}
+			asset.object.quaternion.copy(nextLocalQuaternion);
+		}
+
+		asset.object.updateMatrixWorld(true);
+	}
+
+	function setAssetsTransformBulk(
+		entries,
+		{ historyLabel = "asset.transform", updateStatus = false } = {},
+	) {
+		if (!Array.isArray(entries) || entries.length === 0) {
+			return;
+		}
+
+		const normalizedEntries = entries
+			.map((entry) => {
+				const asset = getSceneAsset(entry?.assetId);
+				if (!asset) {
+					return null;
+				}
+				return {
+					asset,
+					worldPosition: entry.worldPosition ?? null,
+					worldQuaternion: entry.worldQuaternion ?? null,
+					worldScale: entry.worldScale ?? null,
+				};
+			})
+			.filter(Boolean);
+
+		if (normalizedEntries.length === 0) {
+			return;
+		}
+
+		runHistoryAction?.(historyLabel, () => {
+			for (const entry of normalizedEntries) {
+				applyAssetTransformWorld(entry.asset, entry);
+			}
+		});
+
+		updateUi();
+		if (updateStatus) {
+			setStatus(
+				t("status.assetTransformUpdated", {
+					name:
+						normalizedEntries.length === 1
+							? normalizedEntries[0].asset.label
+							: `${normalizedEntries.length} assets`,
 				}),
 			);
 		}
@@ -1645,6 +1706,7 @@ export function createAssetController({
 		clearScene,
 		setAssetWorldScale,
 		setAssetTransform,
+		setAssetsTransformBulk,
 		getAssetWorkingPivotLocal,
 		getAssetWorkingPivotWorld,
 		setAssetWorkingPivotWorld,
