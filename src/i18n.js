@@ -74,7 +74,7 @@ const MESSAGES = {
 			assetPosition: "位置",
 			assetRotation: "回転",
 			transformSpace: "変形空間",
-			transformMode: "操作対象",
+			transformMode: "ツール",
 			activeFrame: "FRAME",
 			exportTarget: "書き出し対象",
 		},
@@ -97,6 +97,7 @@ const MESSAGES = {
 			local: "ローカル",
 		},
 		transformMode: {
+			select: "Select",
 			transform: "Transform",
 			pivot: "Pivot",
 		},
@@ -363,7 +364,7 @@ const MESSAGES = {
 			assetPosition: "Position",
 			assetRotation: "Rotation",
 			transformSpace: "Transform Space",
-			transformMode: "Gizmo Target",
+			transformMode: "Tool",
 			activeFrame: "FRAME",
 			exportTarget: "Export Target",
 		},
@@ -386,6 +387,7 @@ const MESSAGES = {
 			local: "Local",
 		},
 		transformMode: {
+			select: "Select",
 			transform: "Transform",
 			pivot: "Pivot",
 		},

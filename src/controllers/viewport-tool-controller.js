@@ -292,6 +292,10 @@ export function createViewportToolController({
 		return store.viewportPivotEditMode.value === true;
 	}
 
+	function isSelectMode() {
+		return store.viewportSelectMode.value === true;
+	}
+
 	function setHoveredHandle(handleName) {
 		if (!viewportGizmo) {
 			return;
@@ -624,6 +628,9 @@ export function createViewportToolController({
 		if (state.mode !== WORKSPACE_PANE_VIEWPORT) {
 			return false;
 		}
+		if (isSelectMode()) {
+			return false;
+		}
 
 		if (
 			isPivotEditMode() &&
@@ -872,6 +879,44 @@ export function createViewportToolController({
 		commitHistoryTransaction?.(historyLabel);
 	}
 
+	function pickViewportAssetAtPointer(event) {
+		if (state.mode !== WORKSPACE_PANE_VIEWPORT || !isSelectMode()) {
+			return false;
+		}
+
+		const camera = getActiveCamera();
+		if (!camera) {
+			return false;
+		}
+
+		const viewportRect = viewportShell.getBoundingClientRect();
+		const targets = assetController.getSceneRaycastTargets?.() ?? [];
+		event.preventDefault();
+		event.stopPropagation();
+		if (targets.length === 0) {
+			return true;
+		}
+
+		getNdcFromPointer(event, viewportRect, pointerNdc);
+		raycaster.setFromCamera(pointerNdc, camera);
+		const intersections = raycaster.intersectObjects(targets, true);
+		const hitAsset = intersections
+			.map((intersection) =>
+				assetController.getSceneAssetForObject?.(intersection.object),
+			)
+			.find(Boolean);
+		if (!hitAsset) {
+			return true;
+		}
+
+		const additive = event.shiftKey || event.ctrlKey || event.metaKey;
+		assetController.selectSceneAsset(hitAsset.id, {
+			additive,
+			toggle: additive,
+		});
+		return true;
+	}
+
 	function setViewportTransformHover(handleName) {
 		if (activeDrag) {
 			return;
@@ -889,6 +934,11 @@ export function createViewportToolController({
 		setHoveredHandle(null);
 	}
 
+	function setViewportSelectMode(nextEnabled) {
+		store.viewportSelectMode.value = Boolean(nextEnabled);
+		setHoveredHandle(null);
+	}
+
 	function syncViewportTransformGizmo() {
 		if (!viewportGizmo) {
 			return;
@@ -897,6 +947,7 @@ export function createViewportToolController({
 		const asset = getSelectedTransformAsset();
 		if (
 			state.mode !== WORKSPACE_PANE_VIEWPORT ||
+			isSelectMode() ||
 			!asset ||
 			asset.object.visible === false
 		) {
@@ -1065,8 +1116,10 @@ export function createViewportToolController({
 
 	return {
 		setViewportTransformSpace,
+		setViewportSelectMode,
 		setViewportPivotEditMode,
 		setViewportTransformHover,
+		pickViewportAssetAtPointer,
 		startViewportTransformDrag,
 		handleViewportTransformDragMove,
 		handleViewportTransformDragEnd,

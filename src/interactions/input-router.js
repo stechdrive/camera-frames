@@ -10,11 +10,14 @@ export function bindInputRouter({
 	setStatus,
 	startZoomToolDrag,
 	toggleZoomTool,
+	toggleViewportSelectMode,
 	undoHistory,
 	redoHistory,
 	requestNavigationHistoryCommit,
 	flushNavigationHistory,
 	isInteractiveTextTarget,
+	isViewportSelectMode,
+	getActiveCamera,
 	isZoomInteractionMode,
 	applyNavigateInteractionMode,
 	state,
@@ -41,8 +44,11 @@ export function bindInputRouter({
 	handleFrameAnchorDragEnd,
 	handleViewportTransformDragMove,
 	handleViewportTransformDragEnd,
+	pickViewportAssetAtPointer,
 	startOutputFrameAnchorDrag,
 }) {
+	let viewportSelectClickCandidate = null;
+
 	function isHistoryShortcut(event) {
 		const hasHistoryModifier = event.ctrlKey || event.metaKey;
 		return (
@@ -78,6 +84,23 @@ export function bindInputRouter({
 		const navigationEnabled = state.interactionMode === "navigate";
 		fpsMovement.enable = navigationEnabled;
 		pointerControls.enable = navigationEnabled;
+	}
+
+	function getCameraPoseSignature() {
+		const camera = getActiveCamera?.();
+		if (!camera) {
+			return "none";
+		}
+
+		return [
+			camera.position.x.toFixed(5),
+			camera.position.y.toFixed(5),
+			camera.position.z.toFixed(5),
+			camera.quaternion.x.toFixed(5),
+			camera.quaternion.y.toFixed(5),
+			camera.quaternion.z.toFixed(5),
+			camera.quaternion.w.toFixed(5),
+		].join("|");
 	}
 
 	listen(viewportShell, "dragover", (event) => {
@@ -138,6 +161,9 @@ export function bindInputRouter({
 		if (target?.closest(".frame-item")) {
 			return;
 		}
+		if (target?.closest("#viewport-gizmo")) {
+			return;
+		}
 		if (target?.closest("#render-box")) {
 			if (!isFrameSelectionActive()) {
 				return;
@@ -148,18 +174,57 @@ export function bindInputRouter({
 		}
 
 		const hadSelection = state.outputFrameSelected || isFrameSelectionActive();
-		if (!hadSelection) {
+		if (hadSelection) {
+			clearFrameSelection();
+			clearOutputFrameSelection();
+			updateUi();
+		}
+		if (
+			isViewportSelectMode?.() &&
+			event.button === 0 &&
+			target?.closest("#viewport") === null
+		) {
+			viewportSelectClickCandidate = null;
 			return;
 		}
 
-		clearFrameSelection();
-		clearOutputFrameSelection();
-		updateUi();
+		if (isViewportSelectMode?.() && event.button === 0) {
+			viewportSelectClickCandidate = {
+				pointerId: event.pointerId,
+				startClientX: event.clientX,
+				startClientY: event.clientY,
+				startPose: getCameraPoseSignature(),
+			};
+		}
 	});
 
 	listen(window, "pointermove", handleZoomToolDragMove);
 	listen(window, "pointerup", handleZoomToolDragEnd);
 	listen(window, "pointercancel", handleZoomToolDragEnd);
+	listen(window, "pointerup", (event) => {
+		if (
+			!viewportSelectClickCandidate ||
+			event.pointerId !== viewportSelectClickCandidate.pointerId
+		) {
+			return;
+		}
+		const deltaX = event.clientX - viewportSelectClickCandidate.startClientX;
+		const deltaY = event.clientY - viewportSelectClickCandidate.startClientY;
+		const isClickLike = Math.hypot(deltaX, deltaY) <= 8;
+		const cameraPoseChanged =
+			viewportSelectClickCandidate.startPose !== getCameraPoseSignature();
+		const shouldSelect = isClickLike && !cameraPoseChanged;
+		viewportSelectClickCandidate = null;
+		if (!shouldSelect) {
+			return;
+		}
+		pickViewportAssetAtPointer?.(event);
+	});
+	listen(window, "pointercancel", (event) => {
+		if (viewportSelectClickCandidate?.pointerId === event.pointerId) {
+			viewportSelectClickCandidate = null;
+		}
+	});
 	listen(window, "pointerup", () => {
 		requestNavigationHistoryCommit?.();
 	});
@@ -194,6 +259,19 @@ export function bindInputRouter({
 		) {
 			event.preventDefault();
 			toggleZoomTool();
+			return;
+		}
+
+		if (
+			event.code === "KeyV" &&
+			state.mode === "viewport" &&
+			!event.altKey &&
+			!event.ctrlKey &&
+			!event.metaKey &&
+			!event.shiftKey
+		) {
+			event.preventDefault();
+			toggleViewportSelectMode?.();
 			return;
 		}
 

@@ -284,6 +284,7 @@ export function createAssetController({
 
 	function captureSceneAssetEditState() {
 		return {
+			selectedSceneAssetIds: [...store.selectedSceneAssetIds.value],
 			selectedSceneAssetId: store.selectedSceneAssetId.value,
 			assets: sceneState.assets.map((asset) => ({
 				id: asset.id,
@@ -376,11 +377,20 @@ export function createAssetController({
 			asset.object.updateMatrixWorld(true);
 		}
 
+		const restoredSelectedIds = Array.isArray(snapshot.selectedSceneAssetIds)
+			? snapshot.selectedSceneAssetIds.filter((assetId) =>
+					snapshot.assets.some((asset) => asset.id === assetId),
+				)
+			: [];
+		store.selectedSceneAssetIds.value =
+			restoredSelectedIds.length > 0
+				? restoredSelectedIds
+				: [restoredAssets[0]?.id].filter(Boolean);
 		store.selectedSceneAssetId.value = snapshot.assets.some(
 			(asset) => asset.id === snapshot.selectedSceneAssetId,
 		)
 			? snapshot.selectedSceneAssetId
-			: (restoredAssets[0]?.id ?? null);
+			: (store.selectedSceneAssetIds.value[0] ?? null);
 		return true;
 	}
 
@@ -414,12 +424,49 @@ export function createAssetController({
 		return sceneState.assets.find((asset) => asset.id === assetId) ?? null;
 	}
 
-	function selectSceneAsset(assetId) {
+	function getSceneAssetForObject(object3d) {
+		let current = object3d;
+		while (current) {
+			const asset = sceneState.assets.find((entry) => entry.object === current);
+			if (asset) {
+				return asset;
+			}
+			current = current.parent;
+		}
+		return null;
+	}
+
+	function getSceneRaycastTargets() {
+		return sceneState.assets
+			.filter((asset) => asset.object.visible !== false)
+			.map((asset) => asset.object);
+	}
+
+	function selectSceneAsset(
+		assetId,
+		{ additive = false, toggle = false } = {},
+	) {
 		const asset = getSceneAsset(assetId);
 		if (!asset) {
 			return;
 		}
 
+		const currentSelectedIds = store.selectedSceneAssetIds.value.filter((id) =>
+			Boolean(getSceneAsset(id)),
+		);
+		let nextSelectedIds = [asset.id];
+		if (additive || toggle) {
+			const alreadySelected = currentSelectedIds.includes(asset.id);
+			if (toggle && alreadySelected && currentSelectedIds.length > 1) {
+				nextSelectedIds = currentSelectedIds.filter((id) => id !== asset.id);
+			} else if (alreadySelected) {
+				nextSelectedIds = currentSelectedIds;
+			} else {
+				nextSelectedIds = [...currentSelectedIds, asset.id];
+			}
+		}
+
+		store.selectedSceneAssetIds.value = [...new Set(nextSelectedIds)];
 		store.selectedSceneAssetId.value = asset.id;
 		updateUi();
 	}
@@ -1229,6 +1276,7 @@ export function createAssetController({
 		}
 
 		sceneState.assets = [];
+		store.selectedSceneAssetIds.value = [];
 		store.selectedSceneAssetId.value = null;
 		placeAllCamerasAtHome();
 		resetLocalizedCaches();
@@ -1560,6 +1608,8 @@ export function createAssetController({
 		registerAsset,
 		applyAssetWorldScale,
 		getSceneAsset,
+		getSceneAssetForObject,
+		getSceneRaycastTargets,
 		selectSceneAsset,
 		clampAssetWorldScale,
 		getSceneBounds,

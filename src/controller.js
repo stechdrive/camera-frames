@@ -738,6 +738,7 @@ export function createCameraFramesController(elements, store) {
 		setStatus,
 		startZoomToolDrag,
 		toggleZoomTool,
+		toggleViewportSelectMode,
 		undoHistory: () => historyController?.undoHistory(),
 		redoHistory: () => historyController?.redoHistory(),
 		beginHistoryTransaction: (label) =>
@@ -776,6 +777,8 @@ export function createCameraFramesController(elements, store) {
 			viewportToolController.handleViewportTransformDragMove,
 		handleViewportTransformDragEnd:
 			viewportToolController.handleViewportTransformDragEnd,
+		pickViewportAssetAtPointer:
+			viewportToolController.pickViewportAssetAtPointer,
 		startOutputFrameAnchorDrag:
 			outputFrameController.startOutputFrameAnchorDrag,
 		syncViewportTransformGizmo:
@@ -1043,8 +1046,25 @@ export function createCameraFramesController(elements, store) {
 	}
 
 	function setViewportPivotEditMode(nextEnabled) {
+		if (nextEnabled) {
+			store.viewportSelectMode.value = false;
+		}
 		store.viewportPivotEditMode.value = Boolean(nextEnabled);
 		viewportToolController.setViewportPivotEditMode(nextEnabled);
+		interactionController?.syncControlsToMode();
+	}
+
+	function setViewportSelectMode(nextEnabled) {
+		if (nextEnabled) {
+			store.viewportPivotEditMode.value = false;
+		}
+		store.viewportSelectMode.value = Boolean(nextEnabled);
+		viewportToolController.setViewportSelectMode(nextEnabled);
+		interactionController?.syncControlsToMode();
+	}
+
+	function toggleViewportSelectMode() {
+		setViewportSelectMode(!store.viewportSelectMode.value);
 	}
 
 	function resetSelectedAssetWorkingPivot() {
@@ -1056,6 +1076,7 @@ export function createCameraFramesController(elements, store) {
 	}
 
 	function clearScene() {
+		store.viewportSelectMode.value = false;
 		store.viewportPivotEditMode.value = false;
 		assetController.clearScene();
 	}
@@ -1068,6 +1089,8 @@ export function createCameraFramesController(elements, store) {
 		setBaseFovX: cameraController.setBaseFovX,
 		setViewportBaseFovX: cameraController.setViewportBaseFovX,
 		setViewportTransformSpace: viewportToolController.setViewportTransformSpace,
+		setViewportSelectMode,
+		toggleViewportSelectMode,
 		setViewportPivotEditMode,
 		setViewportTransformHover: viewportToolController.setViewportTransformHover,
 		setBoxWidthPercent: outputFrameController.setBoxWidthPercent,
@@ -1103,6 +1126,8 @@ export function createCameraFramesController(elements, store) {
 		createShotCamera: cameraController.createShotCamera,
 		duplicateActiveShotCamera: cameraController.duplicateActiveShotCamera,
 		selectSceneAsset: assetController.selectSceneAsset,
+		pickViewportAssetAtPointer:
+			viewportToolController.pickViewportAssetAtPointer,
 		startViewportTransformDrag:
 			viewportToolController.startViewportTransformDrag,
 		setAssetWorldScale: assetController.setAssetWorldScale,

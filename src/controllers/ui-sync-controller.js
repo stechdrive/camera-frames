@@ -73,15 +73,25 @@ export function createUiSyncController({
 		});
 		store.sceneAssets.value = rows;
 		if (rows.length === 0) {
+			store.selectedSceneAssetIds.value = [];
 			store.selectedSceneAssetId.value = null;
 			return;
 		}
-		const hasSelection = rows.some(
-			(asset) => asset.id === store.selectedSceneAssetId.value,
+		const rowIds = new Set(rows.map((asset) => asset.id));
+		let nextSelectedIds = store.selectedSceneAssetIds.value.filter((assetId) =>
+			rowIds.has(assetId),
 		);
-		if (!hasSelection) {
-			store.selectedSceneAssetId.value = rows[0].id;
+		if (nextSelectedIds.length === 0) {
+			nextSelectedIds = [rows[0].id];
 		}
+		const nextSelectedId = rowIds.has(store.selectedSceneAssetId.value)
+			? store.selectedSceneAssetId.value
+			: nextSelectedIds[0];
+		if (!nextSelectedIds.includes(nextSelectedId)) {
+			nextSelectedIds = [nextSelectedId, ...nextSelectedIds];
+		}
+		store.selectedSceneAssetIds.value = [...new Set(nextSelectedIds)];
+		store.selectedSceneAssetId.value = nextSelectedId;
 	}
 
 	function updateDropHint() {

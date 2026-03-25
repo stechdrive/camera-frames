@@ -34,6 +34,7 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	const activeShotCameraId = signal(shotCameras.value[0].id);
 	const viewportBaseFovX = signal(60);
 	const viewportTransformSpace = signal("world");
+	const viewportSelectMode = signal(false);
 	const viewportPivotEditMode = signal(false);
 	const workbenchManualCollapsed = signal(false);
 	const workbenchAutoCollapsed = signal(false);
@@ -52,6 +53,7 @@ export function createCameraFramesStore(runtimeInfo = null) {
 		translate(initialLocale, "scene.scaleDefault"),
 	);
 	const sceneAssets = signal([]);
+	const selectedSceneAssetIds = signal([]);
 	const selectedSceneAssetId = signal(null);
 	const selectedSceneAsset = computed(
 		() =>
@@ -202,6 +204,7 @@ export function createCameraFramesStore(runtimeInfo = null) {
 		workbenchManualExpanded,
 		viewportBaseFovX,
 		viewportTransformSpace,
+		viewportSelectMode,
 		viewportPivotEditMode,
 		mode,
 		baseFovX,
@@ -241,6 +244,7 @@ export function createCameraFramesStore(runtimeInfo = null) {
 		sceneSummary,
 		sceneScaleSummary,
 		sceneAssets,
+		selectedSceneAssetIds,
 		selectedSceneAssetId,
 		selectedSceneAsset,
 		cameraSummary,

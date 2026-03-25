@@ -403,8 +403,55 @@ function renderViewSection({
 							${t("field.viewportFov")} · ${viewportFovLabel} (${viewportEquivalentMmLabel})
 						</p>
 					</label>
+					${html`
+							<div class="field">
+								<span>${t("field.transformMode")}</span>
+								<div class="button-row">
+									<button
+										type="button"
+										class=${
+											store.viewportSelectMode.value
+												? "button button--primary button--compact"
+												: "button button--compact"
+										}
+										onClick=${() => controller()?.setViewportSelectMode(true)}
+									>
+										${t("transformMode.select")}
+									</button>
+									<button
+										type="button"
+										class=${
+											!store.viewportSelectMode.value &&
+											!store.viewportPivotEditMode.value
+												? "button button--primary button--compact"
+												: "button button--compact"
+										}
+										onClick=${() => {
+											controller()?.setViewportSelectMode(false);
+											controller()?.setViewportPivotEditMode(false);
+										}}
+									>
+										${t("transformMode.transform")}
+									</button>
+									<button
+										type="button"
+										disabled=${!selectedSceneAsset}
+										class=${
+											store.viewportPivotEditMode.value
+												? "button button--primary button--compact"
+												: "button button--compact"
+										}
+										onClick=${() =>
+											controller()?.setViewportPivotEditMode(true)}
+									>
+										${t("transformMode.pivot")}
+									</button>
+								</div>
+							</div>
+						`}
 					${
 						selectedSceneAsset &&
+						!store.viewportSelectMode.value &&
 						html`
 							<div class="field">
 								<span>${t("field.transformSpace")}</span>
@@ -436,32 +483,7 @@ function renderViewSection({
 								</div>
 							</div>
 							<div class="field">
-								<span>${t("field.transformMode")}</span>
 								<div class="button-row">
-									<button
-										type="button"
-										class=${
-											!store.viewportPivotEditMode.value
-												? "button button--primary button--compact"
-												: "button button--compact"
-										}
-										onClick=${() =>
-											controller()?.setViewportPivotEditMode(false)}
-									>
-										${t("transformMode.transform")}
-									</button>
-									<button
-										type="button"
-										class=${
-											store.viewportPivotEditMode.value
-												? "button button--primary button--compact"
-												: "button button--compact"
-										}
-										onClick=${() =>
-											controller()?.setViewportPivotEditMode(true)}
-									>
-										${t("transformMode.pivot")}
-									</button>
 									<button
 										type="button"
 										class="button button--compact"
@@ -497,6 +519,7 @@ function renderSceneSection({
 	setDragHoverState,
 }) {
 	const sceneAssetSections = groupSceneAssetsByKind(sceneAssets);
+	const selectedSceneAssetIds = new Set(store.selectedSceneAssetIds.value);
 	const getSceneAssetById = (assetId) =>
 		sceneAssets.find((asset) => asset.id === assetId) ?? null;
 	const getDropPosition = (event) => {
@@ -524,8 +547,11 @@ function renderSceneSection({
 	};
 	const getSceneAssetRowClass = (asset) => {
 		const classes = ["scene-asset-row"];
-		if (asset.id === selectedSceneAsset?.id) {
+		if (selectedSceneAssetIds.has(asset.id)) {
 			classes.push("scene-asset-row--selected");
+		}
+		if (asset.id === selectedSceneAsset?.id) {
+			classes.push("scene-asset-row--active");
 		}
 		if (dragHoverState?.assetId === asset.id) {
 			classes.push(
@@ -610,8 +636,17 @@ function renderSceneSection({
 												<article
 													class=${getSceneAssetRowClass(asset)}
 													draggable="true"
-													onClick=${() =>
-														controller()?.selectSceneAsset(asset.id)}
+													onClick=${(event) =>
+														controller()?.selectSceneAsset(asset.id, {
+															additive:
+																event.shiftKey ||
+																event.ctrlKey ||
+																event.metaKey,
+															toggle:
+																event.shiftKey ||
+																event.ctrlKey ||
+																event.metaKey,
+														})}
 													onDragStart=${(event) => {
 														setDraggedAssetId(asset.id);
 														setDragHoverState(null);
