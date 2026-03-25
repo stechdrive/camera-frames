@@ -1042,6 +1042,24 @@ export function createCameraFramesController(elements, store) {
 		return uiSyncController?.updateUi();
 	}
 
+	function setViewportPivotEditMode(nextEnabled) {
+		store.viewportPivotEditMode.value = Boolean(nextEnabled);
+		viewportToolController.setViewportPivotEditMode(nextEnabled);
+	}
+
+	function resetSelectedAssetWorkingPivot() {
+		const selectedAssetId = store.selectedSceneAssetId.value;
+		if (!selectedAssetId) {
+			return;
+		}
+		assetController.resetAssetWorkingPivot(selectedAssetId);
+	}
+
+	function clearScene() {
+		store.viewportPivotEditMode.value = false;
+		assetController.clearScene();
+	}
+
 	runtimeController.init();
 
 	return {
@@ -1050,6 +1068,7 @@ export function createCameraFramesController(elements, store) {
 		setBaseFovX: cameraController.setBaseFovX,
 		setViewportBaseFovX: cameraController.setViewportBaseFovX,
 		setViewportTransformSpace: viewportToolController.setViewportTransformSpace,
+		setViewportPivotEditMode,
 		setViewportTransformHover: viewportToolController.setViewportTransformHover,
 		setBoxWidthPercent: outputFrameController.setBoxWidthPercent,
 		setBoxHeightPercent: outputFrameController.setBoxHeightPercent,
@@ -1089,6 +1108,7 @@ export function createCameraFramesController(elements, store) {
 		setAssetWorldScale: assetController.setAssetWorldScale,
 		setAssetTransform: assetController.setAssetTransform,
 		resetAssetWorldScale: assetController.resetAssetWorldScale,
+		resetSelectedAssetWorkingPivot,
 		setAssetPosition: assetController.setAssetPosition,
 		setAssetRotationDegrees: assetController.setAssetRotationDegrees,
 		setAssetVisibility: assetController.setAssetVisibility,
@@ -1098,7 +1118,7 @@ export function createCameraFramesController(elements, store) {
 		setAssetExportRole: assetController.setAssetExportRole,
 		setAssetMaskGroup: assetController.setAssetMaskGroup,
 		openFiles: assetController.openFiles,
-		clearScene: assetController.clearScene,
+		clearScene,
 		loadRemoteUrls: assetController.loadRemoteUrls,
 		handleAssetInputChange: assetController.handleAssetInputChange,
 		copyViewportToShotCamera: cameraController.copyViewportToShotCamera,

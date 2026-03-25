@@ -292,6 +292,13 @@ export function createAssetController({
 				unitMode: asset.unitMode,
 				exportRole: asset.exportRole ?? "beauty",
 				maskGroup: asset.maskGroup ?? "",
+				workingPivotLocal: asset.workingPivotLocal
+					? {
+							x: asset.workingPivotLocal.x,
+							y: asset.workingPivotLocal.y,
+							z: asset.workingPivotLocal.z,
+						}
+					: null,
 				visible: asset.object.visible !== false,
 				position: {
 					x: asset.object.position.x,
@@ -336,6 +343,9 @@ export function createAssetController({
 			asset.unitMode = item.unitMode ?? asset.unitMode;
 			asset.exportRole = item.exportRole === "omit" ? "omit" : "beauty";
 			asset.maskGroup = String(item.maskGroup ?? "").trim();
+			asset.workingPivotLocal = normalizeWorkingPivotLocal(
+				item.workingPivotLocal,
+			);
 			asset.object.visible = item.visible !== false;
 			asset.object.position.set(
 				clampAssetTransformValue(item.position?.x, asset.object.position.x),
@@ -388,6 +398,7 @@ export function createAssetController({
 			worldScale: 1,
 			exportRole: "beauty",
 			maskGroup: "",
+			workingPivotLocal: null,
 		};
 		applyAssetWorldScale(asset);
 		sceneState.assets.push(asset);
@@ -420,6 +431,74 @@ export function createAssetController({
 	function clampAssetTransformValue(value, fallback = 0) {
 		const nextValue = Number(value);
 		return Number.isFinite(nextValue) ? nextValue : fallback;
+	}
+
+	function normalizeWorkingPivotLocal(value) {
+		if (!value || typeof value !== "object") {
+			return null;
+		}
+
+		const nextPivot = new THREE.Vector3(
+			clampAssetTransformValue(value.x, 0),
+			clampAssetTransformValue(value.y, 0),
+			clampAssetTransformValue(value.z, 0),
+		);
+		return nextPivot.lengthSq() <= 1e-8 ? null : nextPivot;
+	}
+
+	function getAssetWorkingPivotLocal(assetIdOrAsset) {
+		const asset =
+			typeof assetIdOrAsset === "object" && assetIdOrAsset
+				? assetIdOrAsset
+				: getSceneAsset(assetIdOrAsset);
+		if (!asset) {
+			return null;
+		}
+		return asset.workingPivotLocal?.clone() ?? new THREE.Vector3(0, 0, 0);
+	}
+
+	function getAssetWorkingPivotWorld(assetIdOrAsset) {
+		const asset =
+			typeof assetIdOrAsset === "object" && assetIdOrAsset
+				? assetIdOrAsset
+				: getSceneAsset(assetIdOrAsset);
+		if (!asset) {
+			return null;
+		}
+
+		const pivotLocal = getAssetWorkingPivotLocal(asset);
+		return asset.object.localToWorld(pivotLocal);
+	}
+
+	function setAssetWorkingPivotWorld(
+		assetId,
+		nextWorldPosition,
+		{ historyLabel = "asset.pivot" } = {},
+	) {
+		const asset = getSceneAsset(assetId);
+		if (!asset || !nextWorldPosition) {
+			return;
+		}
+
+		runHistoryAction?.(historyLabel, () => {
+			const nextLocalPivot = asset.object.worldToLocal(
+				nextWorldPosition.clone(),
+			);
+			asset.workingPivotLocal = normalizeWorkingPivotLocal(nextLocalPivot);
+		});
+		updateUi();
+	}
+
+	function resetAssetWorkingPivot(assetId) {
+		const asset = getSceneAsset(assetId);
+		if (!asset || !asset.workingPivotLocal) {
+			return;
+		}
+
+		runHistoryAction?.("asset.pivot", () => {
+			asset.workingPivotLocal = null;
+		});
+		updateUi();
 	}
 
 	function isFiniteBox(box) {
@@ -1497,6 +1576,10 @@ export function createAssetController({
 		clearScene,
 		setAssetWorldScale,
 		setAssetTransform,
+		getAssetWorkingPivotLocal,
+		getAssetWorkingPivotWorld,
+		setAssetWorkingPivotWorld,
+		resetAssetWorkingPivot,
 		resetAssetWorldScale,
 		setAssetPosition,
 		setAssetRotationDegrees,

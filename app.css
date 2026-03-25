@@ -874,6 +874,14 @@ input[type="range"] {
 	opacity: 1;
 }
 
+.viewport-gizmo[data-hovered-handle="scale-uniform"]
+	.viewport-gizmo__handle--axis,
+.viewport-gizmo[data-hovered-handle="scale-uniform"] .viewport-gizmo__plane,
+.viewport-gizmo[data-hovered-handle="scale-uniform"]
+	.viewport-gizmo__ring--axis {
+	opacity: 0.18;
+}
+
 .viewport-gizmo__handle > span {
 	display: none;
 }
@@ -902,11 +910,40 @@ input[type="range"] {
 }
 
 .viewport-gizmo__handle--scale {
-	width: 1.2rem;
-	height: 1.2rem;
+	width: 1.45rem;
+	height: 1.45rem;
 	border: 0;
-	background: transparent;
+	background:
+		linear-gradient(
+			135deg,
+			transparent calc(50% - 0.75px),
+			rgba(255, 214, 126, 0.72) calc(50% - 0.75px),
+			rgba(255, 214, 126, 0.72) calc(50% + 0.75px),
+			transparent calc(50% + 0.75px)
+		)
+		0.16rem 0.16rem / calc(100% - 0.32rem) calc(100% - 0.32rem) no-repeat,
+		linear-gradient(
+			135deg,
+			transparent calc(50% - 0.75px),
+			rgba(255, 214, 126, 0.72) calc(50% - 0.75px),
+			rgba(255, 214, 126, 0.72) calc(50% + 0.75px),
+			transparent calc(50% + 0.75px)
+		)
+		-0.16rem -0.16rem / calc(100% - 0.32rem) calc(100% - 0.32rem) no-repeat,
+		linear-gradient(
+			0deg,
+			transparent calc(100% - 1px),
+			rgba(255, 214, 126, 0.78) calc(100% - 1px)
+		)
+		0.12rem 0.12rem / 0.34rem calc(100% - 0.34rem) no-repeat,
+		linear-gradient(
+			90deg,
+			transparent calc(100% - 1px),
+			rgba(255, 214, 126, 0.78) calc(100% - 1px)
+		)
+		0.12rem 0.12rem / calc(100% - 0.34rem) 0.34rem no-repeat;
 	z-index: 5;
+	filter: drop-shadow(0 0 2px rgba(8, 17, 29, 0.9));
 }
 
 .viewport-gizmo__handle--x {
@@ -1034,8 +1071,8 @@ input[type="range"] {
 .viewport-gizmo__handle--scale::before {
 	content: "";
 	position: absolute;
-	inset: 0;
-	border: 2px solid rgba(255, 214, 126, 0.9);
+	inset: 0.18rem;
+	border: 2px solid rgba(255, 214, 126, 0.92);
 	background: rgba(8, 17, 29, 0.9);
 	box-shadow: 0 0 0 2px rgba(8, 17, 29, 0.28);
 }
@@ -1043,9 +1080,9 @@ input[type="range"] {
 .viewport-gizmo__handle--scale::after {
 	content: "";
 	position: absolute;
-	inset: 0.22rem;
-	border: 2px solid rgba(255, 214, 126, 0.82);
-	transform: translate(-0.18rem, -0.18rem);
+	inset: 0.18rem;
+	border: 2px solid rgba(255, 214, 126, 0.74);
+	transform: translate(-0.2rem, -0.2rem);
 	background: transparent;
 }
 

@@ -74,6 +74,7 @@ const MESSAGES = {
 			assetPosition: "位置",
 			assetRotation: "回転",
 			transformSpace: "変形空間",
+			transformMode: "操作対象",
 			activeFrame: "FRAME",
 			exportTarget: "書き出し対象",
 		},
@@ -94,6 +95,10 @@ const MESSAGES = {
 		transformSpace: {
 			world: "ワールド",
 			local: "ローカル",
+		},
+		transformMode: {
+			transform: "Transform",
+			pivot: "Pivot",
 		},
 		viewportTool: {
 			moveCenter: "移動",
@@ -138,6 +143,7 @@ const MESSAGES = {
 			downloadPng: "PNGを書き出す",
 			downloadPsd: "PSDを書き出す",
 			resetScale: "1xに戻す",
+			resetPivot: "Pivotを戻す",
 			newFrame: "FRAME を追加",
 			duplicateFrame: "複製",
 			deleteFrame: "削除",
@@ -357,6 +363,7 @@ const MESSAGES = {
 			assetPosition: "Position",
 			assetRotation: "Rotation",
 			transformSpace: "Transform Space",
+			transformMode: "Gizmo Target",
 			activeFrame: "FRAME",
 			exportTarget: "Export Target",
 		},
@@ -377,6 +384,10 @@ const MESSAGES = {
 		transformSpace: {
 			world: "World",
 			local: "Local",
+		},
+		transformMode: {
+			transform: "Transform",
+			pivot: "Pivot",
 		},
 		viewportTool: {
 			moveCenter: "Move",
@@ -421,6 +432,7 @@ const MESSAGES = {
 			downloadPng: "Download PNG",
 			downloadPsd: "Download PSD",
 			resetScale: "Reset 1x",
+			resetPivot: "Reset Pivot",
 			newFrame: "Add FRAME",
 			duplicateFrame: "Duplicate",
 			deleteFrame: "Delete",

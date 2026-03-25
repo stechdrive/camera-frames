@@ -255,6 +255,14 @@ function getProjectedAxisDirection({
 	return screenDirection.divideScalar(length);
 }
 
+function scaleLocalPoint(localPoint, scaleVector) {
+	return new THREE.Vector3(
+		localPoint.x * scaleVector.x,
+		localPoint.y * scaleVector.y,
+		localPoint.z * scaleVector.z,
+	);
+}
+
 export function createViewportToolController({
 	store,
 	state,
@@ -279,6 +287,10 @@ export function createViewportToolController({
 	const ringElements = new Map();
 	const planeElements = new Map();
 	let activeDrag = null;
+
+	function isPivotEditMode() {
+		return store.viewportPivotEditMode.value === true;
+	}
 
 	function setHoveredHandle(handleName) {
 		if (!viewportGizmo) {
@@ -430,6 +442,13 @@ export function createViewportToolController({
 			: null;
 	}
 
+	function getSelectedTransformPivotWorld(asset) {
+		return (
+			assetController.getAssetWorkingPivotWorld(asset) ??
+			asset.object.getWorldPosition(new THREE.Vector3())
+		);
+	}
+
 	function getTransformBasisWorld(worldQuaternion, transformSpace) {
 		if (transformSpace !== "local") {
 			return {
@@ -482,6 +501,10 @@ export function createViewportToolController({
 		const startWorldQuaternion = asset.object.getWorldQuaternion(
 			new THREE.Quaternion(),
 		);
+		const startPivotLocal =
+			assetController.getAssetWorkingPivotLocal(asset) ??
+			new THREE.Vector3(0, 0, 0);
+		const startPivotWorld = getSelectedTransformPivotWorld(asset);
 		const transformSpace = store.viewportTransformSpace.value;
 		const basisWorld = getTransformBasisWorld(
 			startWorldQuaternion,
@@ -495,7 +518,7 @@ export function createViewportToolController({
 			if (!planeNormal) {
 				return null;
 			}
-			createPlaneFromNormalAndPoint(planeNormal, startWorldPosition, plane);
+			createPlaneFromNormalAndPoint(planeNormal, startPivotWorld, plane);
 			const startPoint = pointerRay.intersectPlane(plane, new THREE.Vector3());
 			if (!startPoint) {
 				return null;
@@ -507,6 +530,10 @@ export function createViewportToolController({
 				startWorldPosition,
 				startWorldQuaternion,
 				startWorldScale: asset.worldScale,
+				startObjectScale: asset.object.scale.clone(),
+				startPivotLocal: startPivotLocal.clone(),
+				startPivotWorld: startPivotWorld.clone(),
+				pivotEditMode: isPivotEditMode(),
 				axisWorld,
 				planeNormal: planeNormal.clone(),
 				startPoint: startPoint.clone(),
@@ -523,7 +550,7 @@ export function createViewportToolController({
 			const planeNormal = new THREE.Vector3()
 				.crossVectors(planeAxes[0], planeAxes[1])
 				.normalize();
-			createPlaneFromNormalAndPoint(planeNormal, startWorldPosition, plane);
+			createPlaneFromNormalAndPoint(planeNormal, startPivotWorld, plane);
 			const startPoint = pointerRay.intersectPlane(plane, new THREE.Vector3());
 			if (!startPoint) {
 				return null;
@@ -535,12 +562,16 @@ export function createViewportToolController({
 				startWorldPosition,
 				startWorldQuaternion,
 				startWorldScale: asset.worldScale,
+				startObjectScale: asset.object.scale.clone(),
+				startPivotLocal: startPivotLocal.clone(),
+				startPivotWorld: startPivotWorld.clone(),
+				pivotEditMode: isPivotEditMode(),
 				planeNormal: planeNormal.clone(),
 				startPoint: startPoint.clone(),
 			};
 		}
 
-		if (handleName === "scale-uniform") {
+		if (handleName === "scale-uniform" && !isPivotEditMode()) {
 			return {
 				mode: "scale-uniform",
 				pointerId: event.pointerId,
@@ -548,19 +579,26 @@ export function createViewportToolController({
 				startWorldPosition,
 				startWorldQuaternion,
 				startWorldScale: asset.worldScale,
+				startObjectScale: asset.object.scale.clone(),
+				startPivotLocal: startPivotLocal.clone(),
+				startPivotWorld: startPivotWorld.clone(),
 				startClientX: event.clientX,
 				startClientY: event.clientY,
 			};
 		}
 
-		if (ROTATE_AXIS_HANDLE_NAMES.includes(handleName) && axisKey) {
+		if (
+			ROTATE_AXIS_HANDLE_NAMES.includes(handleName) &&
+			axisKey &&
+			!isPivotEditMode()
+		) {
 			const axisWorld = basisWorld[axisKey].clone();
-			createPlaneFromNormalAndPoint(axisWorld, startWorldPosition, plane);
+			createPlaneFromNormalAndPoint(axisWorld, startPivotWorld, plane);
 			const startPoint = pointerRay.intersectPlane(plane, new THREE.Vector3());
 			if (!startPoint) {
 				return null;
 			}
-			const startVector = startPoint.sub(startWorldPosition).normalize();
+			const startVector = startPoint.sub(startPivotWorld).normalize();
 			if (startVector.lengthSq() < 1e-6) {
 				return null;
 			}
@@ -571,6 +609,9 @@ export function createViewportToolController({
 				startWorldPosition,
 				startWorldQuaternion,
 				startWorldScale: asset.worldScale,
+				startObjectScale: asset.object.scale.clone(),
+				startPivotLocal: startPivotLocal.clone(),
+				startPivotWorld: startPivotWorld.clone(),
 				axisWorld: axisWorld.clone(),
 				startVector: startVector.clone(),
 			};
@@ -581,6 +622,14 @@ export function createViewportToolController({
 
 	function startViewportTransformDrag(handleName, event) {
 		if (state.mode !== WORKSPACE_PANE_VIEWPORT) {
+			return false;
+		}
+
+		if (
+			isPivotEditMode() &&
+			!MOVE_AXIS_HANDLE_NAMES.includes(handleName) &&
+			!MOVE_PLANE_HANDLE_NAMES.includes(handleName)
+		) {
 			return false;
 		}
 
@@ -601,7 +650,9 @@ export function createViewportToolController({
 
 		event.preventDefault();
 		event.stopPropagation();
-		beginHistoryTransaction?.("asset.transform");
+		beginHistoryTransaction?.(
+			nextDragState.pivotEditMode ? "asset.pivot" : "asset.transform",
+		);
 		activeDrag = nextDragState;
 		setHoveredHandle(handleName);
 		viewportGizmo?.classList.add("is-dragging");
@@ -611,7 +662,7 @@ export function createViewportToolController({
 	function applyMoveAxisDrag(dragState, pointerRay) {
 		createPlaneFromNormalAndPoint(
 			dragState.planeNormal,
-			dragState.startWorldPosition,
+			dragState.startPivotWorld,
 			plane,
 		);
 		const hitPoint = pointerRay.intersectPlane(plane, planeIntersection);
@@ -623,13 +674,27 @@ export function createViewportToolController({
 			.copy(hitPoint)
 			.sub(dragState.startPoint)
 			.dot(dragState.axisWorld);
-		const nextWorldPosition = tempVector2
-			.copy(dragState.startWorldPosition)
+		const nextPivotWorld = tempVector2
+			.copy(dragState.startPivotWorld)
 			.addScaledVector(dragState.axisWorld, projectedDistance);
+		if (dragState.pivotEditMode) {
+			assetController.setAssetWorkingPivotWorld(
+				dragState.assetId,
+				nextPivotWorld,
+				{
+					historyLabel: "asset.pivot",
+				},
+			);
+			return;
+		}
+
+		const nextWorldPosition = tempVector
+			.copy(dragState.startWorldPosition)
+			.add(nextPivotWorld.clone().sub(dragState.startPivotWorld));
 		assetController.setAssetTransform(
 			dragState.assetId,
 			{
-				worldPosition: nextWorldPosition.clone(),
+				worldPosition: nextWorldPosition,
 			},
 			{
 				historyLabel: "asset.transform",
@@ -640,7 +705,7 @@ export function createViewportToolController({
 	function applyMovePlaneDrag(dragState, pointerRay) {
 		createPlaneFromNormalAndPoint(
 			dragState.planeNormal,
-			dragState.startWorldPosition,
+			dragState.startPivotWorld,
 			plane,
 		);
 		const hitPoint = pointerRay.intersectPlane(plane, planeIntersection);
@@ -648,13 +713,27 @@ export function createViewportToolController({
 			return;
 		}
 
-		const nextWorldPosition = tempVector2
-			.copy(dragState.startWorldPosition)
+		const nextPivotWorld = tempVector2
+			.copy(dragState.startPivotWorld)
 			.add(tempVector.copy(hitPoint).sub(dragState.startPoint));
+		if (dragState.pivotEditMode) {
+			assetController.setAssetWorkingPivotWorld(
+				dragState.assetId,
+				nextPivotWorld,
+				{
+					historyLabel: "asset.pivot",
+				},
+			);
+			return;
+		}
+
+		const nextWorldPosition = tempVector
+			.copy(dragState.startWorldPosition)
+			.add(nextPivotWorld.clone().sub(dragState.startPivotWorld));
 		assetController.setAssetTransform(
 			dragState.assetId,
 			{
-				worldPosition: nextWorldPosition.clone(),
+				worldPosition: nextWorldPosition,
 			},
 			{
 				historyLabel: "asset.transform",
@@ -665,7 +744,7 @@ export function createViewportToolController({
 	function applyRotateDrag(dragState, pointerRay) {
 		createPlaneFromNormalAndPoint(
 			dragState.axisWorld,
-			dragState.startWorldPosition,
+			dragState.startPivotWorld,
 			plane,
 		);
 		const hitPoint = pointerRay.intersectPlane(plane, planeIntersection);
@@ -675,7 +754,7 @@ export function createViewportToolController({
 
 		const nextVector = tempVector
 			.copy(hitPoint)
-			.sub(dragState.startWorldPosition)
+			.sub(dragState.startPivotWorld)
 			.normalize();
 		if (nextVector.lengthSq() < 1e-6) {
 			return;
@@ -693,9 +772,18 @@ export function createViewportToolController({
 		const nextWorldQuaternion = deltaQuaternion.multiply(
 			dragState.startWorldQuaternion.clone(),
 		);
+		const nextWorldPosition = dragState.startPivotWorld
+			.clone()
+			.sub(
+				scaleLocalPoint(
+					dragState.startPivotLocal,
+					dragState.startObjectScale,
+				).applyQuaternion(nextWorldQuaternion),
+			);
 		assetController.setAssetTransform(
 			dragState.assetId,
 			{
+				worldPosition: nextWorldPosition,
 				worldQuaternion: nextWorldQuaternion,
 			},
 			{
@@ -711,9 +799,23 @@ export function createViewportToolController({
 			(event.clientY - dragState.startClientY);
 		const nextWorldScale =
 			dragState.startWorldScale * Math.exp(deltaPixels * 0.01);
+		const scaleFactor =
+			nextWorldScale / Math.max(dragState.startWorldScale, 0.000001);
+		const nextObjectScale = dragState.startObjectScale
+			.clone()
+			.multiplyScalar(scaleFactor);
+		const nextWorldPosition = dragState.startPivotWorld
+			.clone()
+			.sub(
+				scaleLocalPoint(
+					dragState.startPivotLocal,
+					nextObjectScale,
+				).applyQuaternion(dragState.startWorldQuaternion),
+			);
 		assetController.setAssetTransform(
 			dragState.assetId,
 			{
+				worldPosition: nextWorldPosition,
 				worldScale: nextWorldScale,
 			},
 			{
@@ -761,10 +863,13 @@ export function createViewportToolController({
 
 		event.preventDefault();
 		event.stopPropagation();
+		const historyLabel = activeDrag.pivotEditMode
+			? "asset.pivot"
+			: "asset.transform";
 		activeDrag = null;
 		setHoveredHandle(null);
 		viewportGizmo?.classList.remove("is-dragging");
-		commitHistoryTransaction?.("asset.transform");
+		commitHistoryTransaction?.(historyLabel);
 	}
 
 	function setViewportTransformHover(handleName) {
@@ -777,6 +882,11 @@ export function createViewportToolController({
 	function setViewportTransformSpace(nextSpace) {
 		store.viewportTransformSpace.value =
 			nextSpace === "local" ? "local" : "world";
+	}
+
+	function setViewportPivotEditMode(nextEnabled) {
+		store.viewportPivotEditMode.value = Boolean(nextEnabled);
+		setHoveredHandle(null);
 	}
 
 	function syncViewportTransformGizmo() {
@@ -801,7 +911,7 @@ export function createViewportToolController({
 		}
 
 		const viewportRect = viewportShell.getBoundingClientRect();
-		const pivotWorld = asset.object.getWorldPosition(worldPosition);
+		const pivotWorld = getSelectedTransformPivotWorld(asset);
 		const projected = pivotWorld.clone().project(camera);
 		if (!isProjectedPointVisible(projected)) {
 			hideGizmo();
@@ -817,12 +927,17 @@ export function createViewportToolController({
 		}
 
 		projectWorldToScreen(pivotWorld, camera, viewportRect, projectedPivot);
-		setHandlePosition(
-			"scale-uniform",
-			projectedPivot.x + HANDLE_OFFSETS.scale.x,
-			projectedPivot.y + HANDLE_OFFSETS.scale.y,
-		);
-		setHandleVisible("scale-uniform", true);
+		viewportGizmo.dataset.pivotMode = isPivotEditMode() ? "true" : "false";
+		if (isPivotEditMode()) {
+			setHandleVisible("scale-uniform", false);
+		} else {
+			setHandlePosition(
+				"scale-uniform",
+				projectedPivot.x + HANDLE_OFFSETS.scale.x,
+				projectedPivot.y + HANDLE_OFFSETS.scale.y,
+			);
+			setHandleVisible("scale-uniform", true);
+		}
 
 		const worldQuaternion = asset.object.getWorldQuaternion(
 			new THREE.Quaternion(),
@@ -919,6 +1034,11 @@ export function createViewportToolController({
 				setRingVisible(rotateHandleName, "back", false);
 				continue;
 			}
+			if (isPivotEditMode()) {
+				setRingVisible(rotateHandleName, "front", false);
+				setRingVisible(rotateHandleName, "back", false);
+				continue;
+			}
 			setRingPath(rotateHandleName, "front", frontPath);
 			setRingPath(rotateHandleName, "back", backPath);
 			setRingVisible(rotateHandleName, "front", true);
@@ -945,6 +1065,7 @@ export function createViewportToolController({
 
 	return {
 		setViewportTransformSpace,
+		setViewportPivotEditMode,
 		setViewportTransformHover,
 		startViewportTransformDrag,
 		handleViewportTransformDragMove,

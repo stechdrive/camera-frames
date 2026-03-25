@@ -305,6 +305,7 @@ function renderViewSection({
 	controller,
 	mode,
 	modeLabel,
+	selectedSceneAsset,
 	store,
 	t,
 	viewportEquivalentMmLabel,
@@ -403,7 +404,7 @@ function renderViewSection({
 						</p>
 					</label>
 					${
-						store.selectedSceneAsset.value &&
+						selectedSceneAsset &&
 						html`
 							<div class="field">
 								<span>${t("field.transformSpace")}</span>
@@ -431,6 +432,44 @@ function renderViewSection({
 											controller()?.setViewportTransformSpace("local")}
 									>
 										${t("transformSpace.local")}
+									</button>
+								</div>
+							</div>
+							<div class="field">
+								<span>${t("field.transformMode")}</span>
+								<div class="button-row">
+									<button
+										type="button"
+										class=${
+											!store.viewportPivotEditMode.value
+												? "button button--primary button--compact"
+												: "button button--compact"
+										}
+										onClick=${() =>
+											controller()?.setViewportPivotEditMode(false)}
+									>
+										${t("transformMode.transform")}
+									</button>
+									<button
+										type="button"
+										class=${
+											store.viewportPivotEditMode.value
+												? "button button--primary button--compact"
+												: "button button--compact"
+										}
+										onClick=${() =>
+											controller()?.setViewportPivotEditMode(true)}
+									>
+										${t("transformMode.pivot")}
+									</button>
+									<button
+										type="button"
+										class="button button--compact"
+										disabled=${!selectedSceneAsset.hasWorkingPivot}
+										onClick=${() =>
+											controller()?.resetSelectedAssetWorkingPivot()}
+									>
+										${t("action.resetPivot")}
 									</button>
 								</div>
 							</div>
@@ -1444,6 +1483,7 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 						controller,
 						mode,
 						modeLabel,
+						selectedSceneAsset,
 						store,
 						t,
 						viewportEquivalentMmLabel,

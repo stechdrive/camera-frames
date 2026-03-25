@@ -58,6 +58,7 @@ export function createUiSyncController({
 				canMoveDown: index < assets.length - 1,
 				exportRole: asset.exportRole ?? "beauty",
 				maskGroup: asset.maskGroup ?? "",
+				hasWorkingPivot: Boolean(asset.workingPivotLocal),
 				position: {
 					x: asset.object.position.x,
 					y: asset.object.position.y,

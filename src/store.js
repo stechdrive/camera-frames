@@ -34,6 +34,7 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	const activeShotCameraId = signal(shotCameras.value[0].id);
 	const viewportBaseFovX = signal(60);
 	const viewportTransformSpace = signal("world");
+	const viewportPivotEditMode = signal(false);
 	const workbenchManualCollapsed = signal(false);
 	const workbenchAutoCollapsed = signal(false);
 	const workbenchManualExpanded = signal(false);
@@ -201,6 +202,7 @@ export function createCameraFramesStore(runtimeInfo = null) {
 		workbenchManualExpanded,
 		viewportBaseFovX,
 		viewportTransformSpace,
+		viewportPivotEditMode,
 		mode,
 		baseFovX,
 		renderBox: {
