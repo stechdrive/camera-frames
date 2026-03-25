@@ -680,7 +680,10 @@ export function createCameraFramesController(elements, store) {
 		viewportShell,
 		viewportGizmo,
 		viewportGizmoSvg,
-		getActiveCamera,
+		getActiveToolCamera: () =>
+			state.mode === WORKSPACE_PANE_CAMERA
+				? getActiveCameraViewCamera()
+				: viewportCamera,
 		assetController,
 		beginHistoryTransaction: historyController.beginHistoryTransaction,
 		commitHistoryTransaction: historyController.commitHistoryTransaction,

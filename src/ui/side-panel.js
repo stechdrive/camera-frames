@@ -312,6 +312,8 @@ function renderViewSection({
 	viewportEquivalentMmValue,
 	viewportFovLabel,
 }) {
+	const canUseTransformTools = mode === "viewport" || mode === "camera";
+
 	return html`
 		<section class="panel-section">
 			<div class="section-heading">
@@ -403,52 +405,54 @@ function renderViewSection({
 							${t("field.viewportFov")} · ${viewportFovLabel} (${viewportEquivalentMmLabel})
 						</p>
 					</label>
-					${html`
-							<div class="field">
-								<span>${t("field.transformMode")}</span>
-								<div class="button-row">
-									<button
-										type="button"
-										class=${
-											store.viewportSelectMode.value
-												? "button button--primary button--compact"
-												: "button button--compact"
-										}
-										onClick=${() => controller()?.setViewportSelectMode(true)}
-									>
-										${t("transformMode.select")}
-									</button>
-									<button
-										type="button"
-										class=${
-											!store.viewportSelectMode.value &&
-											!store.viewportPivotEditMode.value
-												? "button button--primary button--compact"
-												: "button button--compact"
-										}
-										onClick=${() => {
-											controller()?.setViewportSelectMode(false);
-											controller()?.setViewportPivotEditMode(false);
-										}}
-									>
-										${t("transformMode.transform")}
-									</button>
-									<button
-										type="button"
-										disabled=${!selectedSceneAsset}
-										class=${
-											store.viewportPivotEditMode.value
-												? "button button--primary button--compact"
-												: "button button--compact"
-										}
-										onClick=${() =>
-											controller()?.setViewportPivotEditMode(true)}
-									>
-										${t("transformMode.pivot")}
-									</button>
-								</div>
-							</div>
-						`}
+				`
+			}
+			${
+				canUseTransformTools &&
+				html`
+					<div class="field">
+						<span>${t("field.transformMode")}</span>
+						<div class="button-row">
+							<button
+								type="button"
+								class=${
+									store.viewportSelectMode.value
+										? "button button--primary button--compact"
+										: "button button--compact"
+								}
+								onClick=${() => controller()?.setViewportSelectMode(true)}
+							>
+								${t("transformMode.select")}
+							</button>
+							<button
+								type="button"
+								class=${
+									!store.viewportSelectMode.value &&
+									!store.viewportPivotEditMode.value
+										? "button button--primary button--compact"
+										: "button button--compact"
+								}
+								onClick=${() => {
+									controller()?.setViewportSelectMode(false);
+									controller()?.setViewportPivotEditMode(false);
+								}}
+							>
+								${t("transformMode.transform")}
+							</button>
+							<button
+								type="button"
+								disabled=${!selectedSceneAsset}
+								class=${
+									store.viewportPivotEditMode.value
+										? "button button--primary button--compact"
+										: "button button--compact"
+								}
+								onClick=${() => controller()?.setViewportPivotEditMode(true)}
+							>
+								${t("transformMode.pivot")}
+							</button>
+						</div>
+					</div>
 					${
 						selectedSceneAsset &&
 						!store.viewportSelectMode.value &&

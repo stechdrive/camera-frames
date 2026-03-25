@@ -162,8 +162,7 @@ export function createRuntimeController({
 			requestNavigationHistoryCommit,
 			flushNavigationHistory,
 			isInteractiveTextTarget,
-			isViewportSelectMode: () =>
-				state.mode !== WORKSPACE_PANE_CAMERA && store.viewportSelectMode.value,
+			isViewportSelectMode: () => store.viewportSelectMode.value,
 			getActiveCamera,
 			isZoomInteractionMode,
 			applyNavigateInteractionMode,

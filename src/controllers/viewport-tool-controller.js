@@ -1,5 +1,8 @@
 import * as THREE from "three";
-import { WORKSPACE_PANE_VIEWPORT } from "../workspace-model.js";
+import {
+	WORKSPACE_PANE_CAMERA,
+	WORKSPACE_PANE_VIEWPORT,
+} from "../workspace-model.js";
 
 const MOVE_AXIS_HANDLE_NAMES = ["move-x", "move-y", "move-z"];
 const MOVE_PLANE_HANDLE_NAMES = ["move-xy", "move-yz", "move-zx"];
@@ -269,7 +272,7 @@ export function createViewportToolController({
 	viewportShell,
 	viewportGizmo,
 	viewportGizmoSvg,
-	getActiveCamera,
+	getActiveToolCamera,
 	assetController,
 	beginHistoryTransaction,
 	commitHistoryTransaction,
@@ -294,6 +297,13 @@ export function createViewportToolController({
 
 	function isSelectMode() {
 		return store.viewportSelectMode.value === true;
+	}
+
+	function isViewportToolMode() {
+		return (
+			state.mode === WORKSPACE_PANE_VIEWPORT ||
+			state.mode === WORKSPACE_PANE_CAMERA
+		);
 	}
 
 	function setHoveredHandle(handleName) {
@@ -625,7 +635,7 @@ export function createViewportToolController({
 	}
 
 	function startViewportTransformDrag(handleName, event) {
-		if (state.mode !== WORKSPACE_PANE_VIEWPORT) {
+		if (!isViewportToolMode()) {
 			return false;
 		}
 		if (isSelectMode()) {
@@ -645,7 +655,7 @@ export function createViewportToolController({
 			return false;
 		}
 
-		const camera = getActiveCamera();
+		const camera = getActiveToolCamera();
 		if (!camera) {
 			return false;
 		}
@@ -880,11 +890,11 @@ export function createViewportToolController({
 	}
 
 	function pickViewportAssetAtPointer(event) {
-		if (state.mode !== WORKSPACE_PANE_VIEWPORT || !isSelectMode()) {
+		if (!isViewportToolMode() || !isSelectMode()) {
 			return false;
 		}
 
-		const camera = getActiveCamera();
+		const camera = getActiveToolCamera();
 		if (!camera) {
 			return false;
 		}
@@ -946,7 +956,7 @@ export function createViewportToolController({
 
 		const asset = getSelectedTransformAsset();
 		if (
-			state.mode !== WORKSPACE_PANE_VIEWPORT ||
+			!isViewportToolMode() ||
 			isSelectMode() ||
 			!asset ||
 			asset.object.visible === false
@@ -955,7 +965,7 @@ export function createViewportToolController({
 			return;
 		}
 
-		const camera = getActiveCamera();
+		const camera = getActiveToolCamera();
 		if (!camera) {
 			hideGizmo();
 			return;

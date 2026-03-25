@@ -264,7 +264,7 @@ export function bindInputRouter({
 
 		if (
 			event.code === "KeyV" &&
-			state.mode === "viewport" &&
+			(state.mode === "viewport" || state.mode === "camera") &&
 			!event.altKey &&
 			!event.ctrlKey &&
 			!event.metaKey &&
