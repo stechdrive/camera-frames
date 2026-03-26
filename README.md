@@ -32,6 +32,8 @@ Implemented or working in the current app:
 - 複数カメラ document フローと export target 選択の骨格
 - Spark-based scene loading for supported assets
 - 対応アセットの Spark ベース scene loading
+- Portable `.ssproj` v2 project save / reopen foundation with legacy `.ssproj` read fallback
+- 旧 `.ssproj` 読み込みフォールバックを持つ、portable `.ssproj` v2 project save / reopen の基盤
 - PNG export pipeline and supporting geometry / projection logic
 - PNG export パイプラインと、そのための幾何 / 投影ロジック
 
@@ -44,8 +46,8 @@ Still in progress or not yet finished:
 - Undo / Redo 基盤
 - reference image workflow
 - reference image ワークフロー
-- project save / camera exchange formats
-- project save / camera exchange format
+- camera exchange formats and save-mode expansion
+- camera exchange formats と save mode 拡張
 - PSD export and scene-order contract work
 - PSD export と scene-order contract 周り
 

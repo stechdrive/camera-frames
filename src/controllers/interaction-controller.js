@@ -1,4 +1,16 @@
+import {
+	getBaseHorizontalFovDegreesForStandardFrameEquivalentMm,
+	getStandardFrameEquivalentMm,
+	getStandardFrameHorizontalFovDegrees,
+	snapStandardFrameEquivalentMm,
+} from "../engine/camera-lens.js";
+import {
+	buildViewportPieActions,
+	getViewportPieHoveredActionId,
+} from "../engine/viewport-pie.js";
+
 export function createInteractionController({
+	store,
 	state,
 	viewportShell,
 	fpsMovement,
@@ -9,10 +21,17 @@ export function createInteractionController({
 	updateUi,
 	getViewZoomFactor,
 	setViewZoomFactor,
+	getShotCameraBaseFovX,
+	setShotCameraBaseFovXLive,
+	beginHistoryTransaction,
+	commitHistoryTransaction,
 }) {
 	const INTERACTION_MODE_NAVIGATE = "navigate";
 	const INTERACTION_MODE_ZOOM = "zoom";
+	const INTERACTION_MODE_PIE = "pie";
+	const INTERACTION_MODE_LENS = "lens";
 	let zoomToolDragState = null;
+	let lensAdjustDragState = null;
 
 	function formatNumber(value, digits = 2) {
 		return Number(value).toFixed(digits);
@@ -29,6 +48,14 @@ export function createInteractionController({
 		return state.interactionMode === INTERACTION_MODE_ZOOM;
 	}
 
+	function isPieInteractionMode() {
+		return state.interactionMode === INTERACTION_MODE_PIE;
+	}
+
+	function isLensInteractionMode() {
+		return state.interactionMode === INTERACTION_MODE_LENS;
+	}
+
 	function isInteractiveTextTarget(target) {
 		return (
 			target instanceof Element &&
@@ -41,6 +68,35 @@ export function createInteractionController({
 	function clearZoomToolDrag() {
 		zoomToolDragState = null;
 		viewportShell.classList.remove("is-zoom-dragging");
+	}
+
+	function setViewportPieMenu(nextValue) {
+		store.viewportPieMenu.value = nextValue;
+	}
+
+	function hideLensHud() {
+		store.viewportLensHud.value = {
+			visible: false,
+			x: 0,
+			y: 0,
+			mmLabel: "",
+			fovLabel: "",
+		};
+	}
+
+	function updateLensHud(x, y, baseFovX = getShotCameraBaseFovX()) {
+		store.viewportLensHud.value = {
+			visible: true,
+			x,
+			y,
+			mmLabel: `${Math.round(getStandardFrameEquivalentMm(baseFovX))}mm`,
+			fovLabel: `${formatNumber(getStandardFrameHorizontalFovDegrees(baseFovX), 1)}°`,
+		};
+	}
+
+	function clearLensAdjustDrag() {
+		lensAdjustDragState = null;
+		viewportShell.classList.remove("is-lens-adjusting");
 	}
 
 	function clearControlMomentum() {
@@ -59,6 +115,18 @@ export function createInteractionController({
 		}
 	}
 
+	function closeViewportPieMenu({ silent = true } = {}) {
+		setViewportPieMenu({
+			open: false,
+			x: 0,
+			y: 0,
+			hoveredActionId: null,
+		});
+		if (state.interactionMode === INTERACTION_MODE_PIE) {
+			applyNavigateInteractionMode({ silent });
+		}
+	}
+
 	function applyInteractionMode(nextMode, { silent = false } = {}) {
 		if (state.interactionMode === nextMode) {
 			return;
@@ -66,12 +134,32 @@ export function createInteractionController({
 
 		state.interactionMode = nextMode;
 		clearZoomToolDrag();
+		clearLensAdjustDrag();
 		clearControlMomentum();
+		if (nextMode !== INTERACTION_MODE_PIE) {
+			setViewportPieMenu({
+				open: false,
+				x: 0,
+				y: 0,
+				hoveredActionId: null,
+			});
+		}
+		if (nextMode !== INTERACTION_MODE_LENS) {
+			hideLensHud();
+		}
 		const navigationEnabled = nextMode === INTERACTION_MODE_NAVIGATE;
 		fpsMovement.enable = false;
 		pointerControls.enable = navigationEnabled;
 		if (!silent) {
-			setStatus(navigationEnabled ? "" : t("status.zoomToolEnabled"));
+			setStatus(
+				navigationEnabled
+					? ""
+					: nextMode === INTERACTION_MODE_ZOOM
+						? t("status.zoomToolEnabled")
+						: nextMode === INTERACTION_MODE_LENS
+							? t("status.lensToolEnabled")
+							: "",
+			);
 		}
 		updateUi();
 	}
@@ -128,6 +216,122 @@ export function createInteractionController({
 		clearZoomToolDrag();
 	}
 
+	function openViewportPieMenu(event, { force = false } = {}) {
+		if (!force && event.button !== 1) {
+			return false;
+		}
+
+		const viewportRect = viewportShell.getBoundingClientRect();
+		setViewportPieMenu({
+			open: true,
+			x: event.clientX - viewportRect.left,
+			y: event.clientY - viewportRect.top,
+			hoveredActionId: null,
+		});
+		applyInteractionMode(INTERACTION_MODE_PIE, { silent: true });
+		return true;
+	}
+
+	function updateViewportPiePointer(event) {
+		if (!store.viewportPieMenu.value.open) {
+			return;
+		}
+
+		const actions = buildViewportPieActions({
+			mode: state.mode,
+			t,
+		});
+		const nextHoveredActionId = getViewportPieHoveredActionId({
+			x: event.clientX - viewportShell.getBoundingClientRect().left,
+			y: event.clientY - viewportShell.getBoundingClientRect().top,
+			centerX: store.viewportPieMenu.value.x,
+			centerY: store.viewportPieMenu.value.y,
+			actions,
+		});
+		setViewportPieMenu({
+			...store.viewportPieMenu.value,
+			hoveredActionId: nextHoveredActionId,
+		});
+	}
+
+	function finishViewportPieMenu(event) {
+		if (!store.viewportPieMenu.value.open) {
+			return null;
+		}
+
+		updateViewportPiePointer(event);
+		return store.viewportPieMenu.value.hoveredActionId;
+	}
+
+	function activateLensAdjustMode(pointerEvent = null) {
+		applyInteractionMode(INTERACTION_MODE_LENS, { silent: false });
+		const viewportRect = viewportShell.getBoundingClientRect();
+		const localX = pointerEvent
+			? pointerEvent.clientX - viewportRect.left
+			: viewportRect.width * 0.5;
+		const localY = pointerEvent
+			? pointerEvent.clientY - viewportRect.top
+			: viewportRect.height * 0.5;
+		updateLensHud(localX, localY);
+	}
+
+	function startLensAdjustDrag(event) {
+		if (!isLensInteractionMode() || event.button !== 0) {
+			return false;
+		}
+
+		event.preventDefault();
+		event.stopPropagation();
+		beginHistoryTransaction?.("camera.lens");
+		viewportShell.classList.add("is-lens-adjusting");
+		lensAdjustDragState = {
+			pointerId: event.pointerId,
+			startClientX: event.clientX,
+			startEquivalentMm: getStandardFrameEquivalentMm(getShotCameraBaseFovX()),
+		};
+		updateLensHud(
+			event.clientX - viewportShell.getBoundingClientRect().left,
+			event.clientY - viewportShell.getBoundingClientRect().top,
+		);
+		return true;
+	}
+
+	function handleLensAdjustDragMove(event) {
+		if (
+			!lensAdjustDragState ||
+			event.pointerId !== lensAdjustDragState.pointerId
+		) {
+			return;
+		}
+
+		const sensitivity = event.shiftKey ? 0.03 : 0.12;
+		const nextEquivalentMm = snapStandardFrameEquivalentMm(
+			lensAdjustDragState.startEquivalentMm +
+				(event.clientX - lensAdjustDragState.startClientX) * sensitivity,
+		);
+		const nextBaseFovX =
+			getBaseHorizontalFovDegreesForStandardFrameEquivalentMm(nextEquivalentMm);
+		setShotCameraBaseFovXLive(nextBaseFovX);
+		updateLensHud(
+			event.clientX - viewportShell.getBoundingClientRect().left,
+			event.clientY - viewportShell.getBoundingClientRect().top,
+			nextBaseFovX,
+		);
+	}
+
+	function handleLensAdjustDragEnd(event) {
+		if (
+			!lensAdjustDragState ||
+			event.pointerId !== lensAdjustDragState.pointerId
+		) {
+			return;
+		}
+
+		clearLensAdjustDrag();
+		commitHistoryTransaction?.("camera.lens");
+		applyNavigateInteractionMode({ silent: true });
+	}
+
 	function syncControlsToMode() {
 		clearControlMomentum();
 		const navigationEnabled =
@@ -140,6 +344,8 @@ export function createInteractionController({
 	return {
 		isZoomToolActive,
 		isZoomInteractionMode,
+		isPieInteractionMode,
+		isLensInteractionMode,
 		isInteractiveTextTarget,
 		clearZoomToolDrag,
 		clearControlMomentum,
@@ -149,6 +355,14 @@ export function createInteractionController({
 		startZoomToolDrag,
 		handleZoomToolDragMove,
 		handleZoomToolDragEnd,
+		openViewportPieMenu,
+		updateViewportPiePointer,
+		finishViewportPieMenu,
+		closeViewportPieMenu,
+		activateLensAdjustMode,
+		startLensAdjustDrag,
+		handleLensAdjustDragMove,
+		handleLensAdjustDragEnd,
 		syncControlsToMode,
 	};
 }

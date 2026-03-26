@@ -23,6 +23,7 @@ import { createFrameController } from "./controllers/frame-controller.js";
 import { createHistoryController } from "./controllers/history-controller.js";
 import { createInteractionController } from "./controllers/interaction-controller.js";
 import { createOutputFrameController } from "./controllers/output-frame-controller.js";
+import { createProjectController } from "./controllers/project-controller.js";
 import { createProjectionController } from "./controllers/projection-controller.js";
 import { createRuntimeController } from "./controllers/runtime-controller.js";
 import { createSceneFramingController } from "./controllers/scene-framing-controller.js";
@@ -43,12 +44,14 @@ import {
 	applyLegacyCameraTransform,
 	buildLegacyProjectImport,
 } from "./importers/legacy-ssproj.js";
+import { getDefaultProjectFilename } from "./project-file.js";
 import {
 	extractProjectPackageAssets,
 	isProjectPackageSource,
 } from "./project-package.js";
 import {
 	WORKSPACE_PANE_CAMERA,
+	WORKSPACE_PANE_VIEWPORT,
 	cloneShotCameraDocument,
 } from "./workspace-model.js";
 
@@ -66,6 +69,7 @@ export function createCameraFramesController(elements, store) {
 		anchorDot,
 		dropHint,
 		assetInput,
+		projectInput,
 	} = elements;
 
 	const outputFrameState = {
@@ -321,6 +325,7 @@ export function createCameraFramesController(elements, store) {
 	let historyController = null;
 	let interactionController = null;
 	let outputFrameController = null;
+	let projectController = null;
 	let projectionController = null;
 	let runtimeController = null;
 	let sceneFramingController = null;
@@ -507,6 +512,105 @@ export function createCameraFramesController(elements, store) {
 		return true;
 	}
 
+	function captureProjectShotCameras() {
+		return store.workspace.shotCameras.value.map((documentState) => ({
+			...cloneShotCameraDocument(documentState),
+			pose: captureCameraPose(
+				shotCameraRegistry.get(documentState.id)?.camera ?? viewportCamera,
+			),
+		}));
+	}
+
+	function captureProjectState() {
+		return {
+			workspace: {
+				activeShotCameraId: store.workspace.activeShotCameraId.value,
+				viewport: {
+					baseFovX: store.viewportBaseFovX.value,
+					pose: captureCameraPose(viewportCamera),
+				},
+			},
+			shotCameras: captureProjectShotCameras(),
+			scene: {
+				assets: assetController?.captureProjectSceneState?.() ?? [],
+				referenceImages: [],
+			},
+		};
+	}
+
+	function buildProjectFilename() {
+		const activeDocument = getActiveShotCameraDocument();
+		if (!activeDocument) {
+			return getDefaultProjectFilename();
+		}
+
+		return `${getShotCameraExportBaseName(activeDocument, 1)}.ssproj`;
+	}
+
+	function applySavedProjectState(project) {
+		const shotCameras = (project?.shotCameras ?? []).map((shotCamera) => {
+			const { pose: _pose, ...documentState } = shotCamera;
+			return cloneShotCameraDocument(documentState);
+		});
+		setShotCameraDocuments(shotCameras);
+		registerShotCameraDocuments();
+
+		store.workspace.activeShotCameraId.value = getShotCameraDocument(
+			project?.workspace?.activeShotCameraId,
+		)
+			? project.workspace.activeShotCameraId
+			: (shotCameras[0]?.id ?? store.workspace.activeShotCameraId.value);
+		store.viewportBaseFovX.value = Number.isFinite(
+			project?.workspace?.viewport?.baseFovX,
+		)
+			? project.workspace.viewport.baseFovX
+			: store.viewportBaseFovX.value;
+		restoreCameraPose(viewportCamera, project?.workspace?.viewport?.pose);
+
+		for (const shotCamera of project?.shotCameras ?? []) {
+			const entry = shotCameraRegistry.get(shotCamera.id);
+			if (!entry) {
+				continue;
+			}
+			restoreCameraPose(entry.camera, shotCamera.pose);
+			syncShotCameraEntryFromDocument(entry);
+		}
+
+		store.frames.selectionActive.value = false;
+		state.outputFrameSelected = false;
+		frameController?.clearFrameInteraction();
+		outputFrameController?.clearOutputFramePan();
+		outputFrameController?.clearOutputFrameAnchorDrag();
+		outputFrameController?.clearOutputFrameResize();
+		interactionController?.clearControlMomentum();
+		syncControlsToMode();
+		syncViewportProjection();
+		syncShotProjection();
+		applyCameraViewProjection();
+		syncOutputCamera();
+		updateOutputFrameOverlay();
+		updateShotCameraHelpers();
+		updateCameraSummary();
+		updateUi();
+	}
+
+	async function applyOpenedProject(
+		parsedProject,
+		{ projectName = "", loadedStatus = t("status.projectLoaded") } = {},
+	) {
+		assetController.clearScene();
+		const projectSources = parsedProject.assetEntries.map(
+			(entry) => entry.source,
+		);
+		if (projectSources.length > 0) {
+			await assetController.loadSources(projectSources, false);
+		}
+		applySavedProjectState(parsedProject.project);
+		historyController?.clearHistory();
+		setStatus(loadedStatus);
+		return true;
+	}
+
 	historyController = createHistoryController({
 		store,
 		captureWorkspaceState,
@@ -536,6 +640,8 @@ export function createCameraFramesController(elements, store) {
 		isProjectPackageSource,
 		extractProjectPackageAssets,
 		applyProjectPackageImport,
+		openProjectSource: (...args) =>
+			projectController?.openProjectSource?.(...args),
 		disposeObject,
 		runHistoryAction: historyController.runHistoryAction,
 		clearHistory: historyController.clearHistory,
@@ -662,6 +768,7 @@ export function createCameraFramesController(elements, store) {
 		cancelHistoryTransaction: historyController.cancelHistoryTransaction,
 	});
 	interactionController = createInteractionController({
+		store,
 		state,
 		viewportShell,
 		fpsMovement,
@@ -673,6 +780,15 @@ export function createCameraFramesController(elements, store) {
 		getViewZoomFactor: () => state.outputFrame.viewZoom,
 		setViewZoomFactor: (nextZoom) =>
 			outputFrameController.setViewZoomFactor(nextZoom),
+		getShotCameraBaseFovX: () => state.baseFovX,
+		setShotCameraBaseFovXLive: (nextValue) => {
+			state.baseFovX = Number(nextValue);
+			updateUi();
+		},
+		beginHistoryTransaction: (label) =>
+			historyController?.beginHistoryTransaction(label),
+		commitHistoryTransaction: (label) =>
+			historyController?.commitHistoryTransaction(label),
 	});
 	viewportToolController = createViewportToolController({
 		store,
@@ -726,6 +842,19 @@ export function createCameraFramesController(elements, store) {
 		getProjectionState,
 		getActiveShotCameraDocument,
 	});
+	projectController = createProjectController({
+		store,
+		projectInput,
+		assetController,
+		applySavedProjectState,
+		applyOpenedProject,
+		buildProjectFilename,
+		captureProjectState,
+		clearHistory: () => historyController?.clearHistory(),
+		updateUi,
+		setStatus,
+		t,
+	});
 	runtimeController = createRuntimeController({
 		renderer,
 		scene,
@@ -740,9 +869,14 @@ export function createCameraFramesController(elements, store) {
 		updateOutputFrameOverlay,
 		setStatus,
 		startZoomToolDrag,
+		startLensAdjustDrag: (...args) =>
+			interactionController?.startLensAdjustDrag(...args) ?? false,
 		toggleZoomTool,
 		toggleViewportSelectMode,
 		toggleViewportTransformMode,
+		toggleViewportPivotEditMode,
+		saveProject: () => projectController?.saveProject(),
+		exportProject: () => projectController?.exportProject(),
 		undoHistory: () => historyController?.undoHistory(),
 		redoHistory: () => historyController?.redoHistory(),
 		clearSceneAssetSelection,
@@ -753,13 +887,30 @@ export function createCameraFramesController(elements, store) {
 		isInteractiveTextTarget,
 		isZoomInteractionMode: () =>
 			interactionController?.isZoomInteractionMode() ?? false,
+		isPieInteractionMode: () =>
+			interactionController?.isPieInteractionMode() ?? false,
+		isLensInteractionMode: () =>
+			interactionController?.isLensInteractionMode() ?? false,
 		applyNavigateInteractionMode: () =>
 			interactionController?.applyNavigateInteractionMode(),
+		openViewportPieMenu: (...args) =>
+			interactionController?.openViewportPieMenu(...args) ?? false,
+		updateViewportPiePointer: (...args) =>
+			interactionController?.updateViewportPiePointer(...args),
+		finishViewportPieMenu: (...args) =>
+			interactionController?.finishViewportPieMenu(...args) ?? null,
+		closeViewportPieMenu: (...args) =>
+			interactionController?.closeViewportPieMenu(...args),
+		handleViewportPieAction: executeViewportPieAction,
 		isFrameSelectionActive,
 		clearFrameSelection,
 		clearOutputFrameSelection,
 		handleZoomToolDragMove,
 		handleZoomToolDragEnd,
+		handleLensAdjustDragMove: (...args) =>
+			interactionController?.handleLensAdjustDragMove(...args),
+		handleLensAdjustDragEnd: (...args) =>
+			interactionController?.handleLensAdjustDragEnd(...args),
 		handleOutputFramePanMove: outputFrameController.handleOutputFramePanMove,
 		handleOutputFramePanEnd: outputFrameController.handleOutputFramePanEnd,
 		handleOutputFrameResizeMove:
@@ -1050,19 +1201,34 @@ export function createCameraFramesController(elements, store) {
 		return uiSyncController?.updateUi();
 	}
 
-	function setViewportPivotEditMode(nextEnabled) {
-		viewportToolController.setViewportPivotEditMode(nextEnabled);
+	function setViewportToolMode(nextMode) {
+		switch (nextMode) {
+			case "select":
+				viewportToolController.setViewportSelectMode(true);
+				break;
+			case "transform":
+				viewportToolController.setViewportTransformMode(true);
+				break;
+			case "pivot":
+				viewportToolController.setViewportPivotEditMode(true);
+				break;
+			default:
+				viewportToolController.setViewportTransformMode(false);
+				break;
+		}
 		interactionController?.syncControlsToMode();
+	}
+
+	function setViewportPivotEditMode(nextEnabled) {
+		setViewportToolMode(nextEnabled ? "pivot" : "none");
 	}
 
 	function setViewportSelectMode(nextEnabled) {
-		viewportToolController.setViewportSelectMode(nextEnabled);
-		interactionController?.syncControlsToMode();
+		setViewportToolMode(nextEnabled ? "select" : "none");
 	}
 
 	function setViewportTransformMode(nextEnabled) {
-		viewportToolController.setViewportTransformMode(nextEnabled);
-		interactionController?.syncControlsToMode();
+		setViewportToolMode(nextEnabled ? "transform" : "none");
 	}
 
 	function toggleViewportSelectMode() {
@@ -1075,6 +1241,46 @@ export function createCameraFramesController(elements, store) {
 
 	function toggleViewportPivotEditMode() {
 		setViewportPivotEditMode(!store.viewportPivotEditMode.value);
+	}
+
+	function handleViewportPieAction(actionId, pointerEvent = null) {
+		switch (actionId) {
+			case "tool-none":
+				setViewportToolMode("none");
+				return true;
+			case "tool-select":
+				setViewportToolMode("select");
+				return true;
+			case "tool-transform":
+				setViewportToolMode("transform");
+				return true;
+			case "tool-pivot":
+				setViewportToolMode("pivot");
+				return true;
+			case "toggle-view-mode":
+				cameraController.setMode(
+					state.mode === WORKSPACE_PANE_CAMERA
+						? WORKSPACE_PANE_VIEWPORT
+						: WORKSPACE_PANE_CAMERA,
+				);
+				return true;
+			case "reset-view":
+				cameraController.resetActiveView();
+				return true;
+			case "frame-create":
+				frameController.createFrame();
+				return true;
+			case "adjust-lens":
+				interactionController?.activateLensAdjustMode(pointerEvent);
+				return true;
+			default:
+				return false;
+		}
+	}
+
+	function executeViewportPieAction(actionId, pointerEvent = null) {
+		interactionController?.closeViewportPieMenu({ silent: true });
+		return handleViewportPieAction(actionId, pointerEvent);
 	}
 
 	function resetSelectedAssetWorkingPivot() {
@@ -1092,6 +1298,26 @@ export function createCameraFramesController(elements, store) {
 	function clearScene() {
 		viewportToolController.setViewportTransformMode(false);
 		assetController.clearScene();
+	}
+
+	function openProject() {
+		return projectController?.openProject();
+	}
+
+	function openWorkingProject() {
+		return projectController?.openWorkingProject();
+	}
+
+	function saveProject() {
+		return projectController?.saveProject();
+	}
+
+	function exportProject() {
+		return projectController?.exportProject();
+	}
+
+	function handleProjectInputChange(event) {
+		return projectController?.handleProjectInputChange(event);
 	}
 
 	runtimeController.init();
@@ -1160,12 +1386,20 @@ export function createCameraFramesController(elements, store) {
 		setAssetExportRole: assetController.setAssetExportRole,
 		setAssetMaskGroup: assetController.setAssetMaskGroup,
 		openFiles: assetController.openFiles,
+		openProject,
+		openWorkingProject,
+		saveProject,
+		exportProject,
 		clearScene,
 		loadRemoteUrls: assetController.loadRemoteUrls,
 		handleAssetInputChange: assetController.handleAssetInputChange,
+		handleProjectInputChange,
 		copyViewportToShotCamera: cameraController.copyViewportToShotCamera,
 		copyShotCameraToViewport: cameraController.copyShotCameraToViewport,
 		resetActiveView: cameraController.resetActiveView,
+		executeViewportPieAction,
+		closeViewportPieMenu: (...args) =>
+			interactionController?.closeViewportPieMenu(...args),
 		downloadOutput: exportController.downloadOutput,
 		downloadPng: exportController.downloadPng,
 		downloadPsd: exportController.downloadPsd,

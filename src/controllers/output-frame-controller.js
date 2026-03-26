@@ -159,6 +159,19 @@ export function createOutputFrameController({
 		};
 	}
 
+	function isPhoneLikeTouchViewport(viewportWidth) {
+		if (
+			typeof window === "undefined" ||
+			typeof window.matchMedia !== "function"
+		) {
+			return false;
+		}
+
+		const coarsePointer = window.matchMedia("(pointer: coarse)").matches;
+		const noHover = window.matchMedia("(hover: none)").matches;
+		return coarsePointer && noHover && viewportWidth <= 900;
+	}
+
 	function resolveAutoLayout(documentState) {
 		const exportSize = getOutputSizeState(documentState);
 		const {
@@ -179,8 +192,11 @@ export function createOutputFrameController({
 		const expandedSafeZoom = clampViewZoom(
 			(safeFitScale / Math.max(fitScale, 1e-6)) * AUTO_VIEW_ZOOM_MARGIN,
 		);
+		const phoneLikeTouchViewport = isPhoneLikeTouchViewport(viewportWidth);
 		const shouldAutoCollapse =
-			stackedLayout || expandedSafeZoom < AUTO_WORKBENCH_MIN_SAFE_ZOOM;
+			phoneLikeTouchViewport ||
+			stackedLayout ||
+			expandedSafeZoom < AUTO_WORKBENCH_MIN_SAFE_ZOOM;
 
 		if (store.workbenchAutoCollapsed.value !== shouldAutoCollapse) {
 			store.workbenchAutoCollapsed.value = shouldAutoCollapse;

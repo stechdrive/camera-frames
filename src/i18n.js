@@ -79,8 +79,10 @@ const MESSAGES = {
 			exportTarget: "書き出し対象",
 		},
 		section: {
+			file: "ファイル",
 			view: "ビュー",
 			scene: "シーン",
+			project: "プロジェクト",
 			shotCamera: "Camera",
 			frames: "FRAME",
 			outputFrame: "出力フレーム",
@@ -123,6 +125,12 @@ const MESSAGES = {
 			manual: "手動",
 		},
 		action: {
+			openProject: "プロジェクトを開く",
+			openWorkingProject: "作業フォルダを開く",
+			saveProject: "作業状態を保存",
+			exportProject: "パッケージ保存",
+			savePackageAs: "別名で保存",
+			overwritePackage: "上書き保存",
 			openFiles: "ファイルを開く",
 			clear: "クリア",
 			loadUrl: "URLを読み込む",
@@ -146,6 +154,8 @@ const MESSAGES = {
 			downloadPsd: "PSDを書き出す",
 			resetScale: "1xに戻す",
 			resetPivot: "Pivotを戻す",
+			adjustLens: "焦点距離調整",
+			quickMenu: "クイックメニュー",
 			newFrame: "FRAME を追加",
 			duplicateFrame: "複製",
 			deleteFrame: "削除",
@@ -208,6 +218,34 @@ const MESSAGES = {
 			importErrorMessageGeneric: "このデータは読み込めませんでした。",
 			importErrorMessageRemote: "このリンクはアプリから直接開けませんでした。",
 			errorDetails: "詳細",
+			packageSaveTitle: "パッケージ保存",
+			packageSaveMessage:
+				"共有・受け渡し用の .ssproj を保存します。必要なら 3DGS を SOG 圧縮できます。",
+			packageSaveMessageWithOverwrite:
+				"共有・受け渡し用の .ssproj を保存します。現在のファイル {name} に上書き保存するか、別名で保存するかを選んでください。",
+			packagePhaseCollect: "状態を収集",
+			packagePhaseResolve: "asset を解決",
+			packagePhaseCompress: "3DGS を圧縮",
+			packagePhaseWrite: "パッケージを書き込み",
+			packageDetailCollect: "保存対象を収集中…",
+			packageDetailAsset: "{index}/{total} asset: {name}",
+			packageDetailWrite: "ファイルを書き込み中…",
+			packageFieldCompressSplats: "3DGS を SOG 圧縮で保存",
+			packageFieldSogShBands: "SOG の SH バンド",
+			packageFieldSogIterations: "SOG 圧縮 iterations",
+			packageSogShBands: {
+				0: "0 bands",
+				1: "1 band",
+				2: "2 bands",
+				3: "3 bands",
+			},
+			packageSogIterations: {
+				4: "4 iterations",
+				8: "8 iterations",
+				10: "10 iterations",
+				12: "12 iterations",
+				16: "16 iterations",
+			},
 		},
 		exportSummary: {
 			empty: "現在の Camera 設定で書き出します。",
@@ -219,6 +257,17 @@ const MESSAGES = {
 		},
 		status: {
 			ready: "準備完了。",
+			projectSaving: "プロジェクトを保存中...",
+			projectSavingToFolder: "{name} にプロジェクトを保存中...",
+			projectLoaded: "プロジェクトを読み込みました。",
+			projectLoadedFromFolder: "{name} からプロジェクトを読み込みました。",
+			projectSaved: "プロジェクトを保存しました。",
+			projectSavedToFolder: "{name} にプロジェクトを保存しました。",
+			workingStateSaved: "{name} の作業状態を保存しました。",
+			workingStateRestored: "{name} の作業状態を復元しました。",
+			packageSaved: "{name} をパッケージ保存しました。",
+			projectExporting: "プロジェクトを書き出し中...",
+			projectExported: "プロジェクトを書き出しました。",
 			viewportEnabled: "ビューポートに切り替えました。",
 			cameraEnabled: "カメラビューに切り替えました。",
 			loadingItems: "{count} 件を読み込み中...",
@@ -242,6 +291,7 @@ const MESSAGES = {
 			zoomToolEnabled:
 				"ズームツール有効。カメラビュー上でドラッグして拡縮、Z か Esc で解除。",
 			zoomToolUnavailable: "ズームツールはカメラビューでのみ使えます。",
+			lensToolEnabled: "焦点距離調整。ドラッグで 35mm換算を変更、Esc で解除。",
 			localeChanged: "表示言語を {language} に切り替えました。",
 			assetScaleUpdated: "{name} のワールドスケールを {scale} にしました。",
 			assetTransformUpdated: "{name} のトランスフォームを更新しました。",
@@ -323,6 +373,14 @@ const MESSAGES = {
 				"出力プレビューの前に 3DGS かモデルを読み込んでください。",
 			exportRequiresPreset:
 				"書き出し対象の Camera を 1 つ以上選択してください。",
+			projectWorkingFolderUnsupported:
+				"この環境では作業フォルダ保存を利用できません。",
+			projectPackageSaveUnsupported:
+				"この環境ではパッケージ保存ダイアログを利用できません。",
+			projectPackageSaveUnavailable:
+				"パッケージの保存先を取得できませんでした。",
+			projectPackageOverwriteUnavailable:
+				"上書き保存できるパッケージファイルがありません。",
 			previewContext: "プレビュー用の 2D context を取得できませんでした。",
 			unsupportedFileType: "未対応のファイル形式です: {name}",
 			emptyProjectPackage: "{name} に読み込める 3D asset がありません。",
@@ -370,8 +428,10 @@ const MESSAGES = {
 			exportTarget: "Export Target",
 		},
 		section: {
+			file: "File",
 			view: "View",
 			scene: "Scene",
+			project: "Project",
 			shotCamera: "Camera",
 			frames: "FRAME",
 			outputFrame: "Output Frame",
@@ -414,6 +474,12 @@ const MESSAGES = {
 			manual: "Manual",
 		},
 		action: {
+			openProject: "Open Project",
+			openWorkingProject: "Open Working Folder",
+			saveProject: "Save Working State",
+			exportProject: "Save Package",
+			savePackageAs: "Save As",
+			overwritePackage: "Overwrite",
 			openFiles: "Open Files",
 			clear: "Clear",
 			loadUrl: "Load URL",
@@ -437,6 +503,8 @@ const MESSAGES = {
 			downloadPsd: "Download PSD",
 			resetScale: "Reset 1x",
 			resetPivot: "Reset Pivot",
+			adjustLens: "Adjust Lens",
+			quickMenu: "Quick Menu",
 			newFrame: "Add FRAME",
 			duplicateFrame: "Duplicate",
 			deleteFrame: "Delete",
@@ -504,6 +572,34 @@ const MESSAGES = {
 			importErrorMessageRemote:
 				"This link could not be opened directly from the app.",
 			errorDetails: "Details",
+			packageSaveTitle: "Save Package",
+			packageSaveMessage:
+				"Save a portable .ssproj package for sharing or handoff. 3DGS assets can be compressed to SOG when needed.",
+			packageSaveMessageWithOverwrite:
+				"Save a portable .ssproj package for sharing or handoff. Choose whether to overwrite {name} or save to a new file.",
+			packagePhaseCollect: "Collecting state",
+			packagePhaseResolve: "Resolving assets",
+			packagePhaseCompress: "Compressing 3DGS",
+			packagePhaseWrite: "Writing package",
+			packageDetailCollect: "Collecting save data…",
+			packageDetailAsset: "Asset {index}/{total}: {name}",
+			packageDetailWrite: "Writing package file…",
+			packageFieldCompressSplats: "Compress 3DGS to SOG",
+			packageFieldSogShBands: "SOG SH Bands",
+			packageFieldSogIterations: "SOG Compression Iterations",
+			packageSogShBands: {
+				0: "0 bands",
+				1: "1 band",
+				2: "2 bands",
+				3: "3 bands",
+			},
+			packageSogIterations: {
+				4: "4 iterations",
+				8: "8 iterations",
+				10: "10 iterations",
+				12: "12 iterations",
+				16: "16 iterations",
+			},
 		},
 		exportSummary: {
 			empty: "Exports use the current Camera settings.",
@@ -515,6 +611,17 @@ const MESSAGES = {
 		},
 		status: {
 			ready: "Ready.",
+			projectSaving: "Saving project...",
+			projectSavingToFolder: "Saving project to {name}...",
+			projectLoaded: "Project loaded.",
+			projectLoadedFromFolder: "Loaded project from {name}.",
+			projectSaved: "Project saved.",
+			projectSavedToFolder: "Saved project to {name}.",
+			workingStateSaved: "Saved working state for {name}.",
+			workingStateRestored: "Restored working state for {name}.",
+			packageSaved: "Saved package {name}.",
+			projectExporting: "Exporting project...",
+			projectExported: "Project exported.",
 			viewportEnabled: "Switched to Viewport.",
 			cameraEnabled: "Switched to Camera View.",
 			loadingItems: "Loading {count} item(s)...",
@@ -537,6 +644,8 @@ const MESSAGES = {
 			zoomToolEnabled:
 				"Zoom tool active. Drag in Camera View to zoom, press Z or Esc to exit.",
 			zoomToolUnavailable: "Zoom tool is only available in Camera View.",
+			lensToolEnabled:
+				"Lens adjust active. Drag to change 35mm equivalent, press Esc to exit.",
 			localeChanged: "Display language switched to {language}.",
 			assetScaleUpdated: "Set {name} world scale to {scale}.",
 			assetTransformUpdated: "Updated {name} transform.",
@@ -619,6 +728,14 @@ const MESSAGES = {
 			exportRequiresAsset:
 				"Load a splat or model before rendering output preview.",
 			exportRequiresPreset: "Select at least one Camera for export.",
+			projectWorkingFolderUnsupported:
+				"Working project folders are not supported in this environment.",
+			projectPackageSaveUnsupported:
+				"Package save dialogs are not supported in this environment.",
+			projectPackageSaveUnavailable:
+				"Could not get a destination for package save.",
+			projectPackageOverwriteUnavailable:
+				"There is no project package available to overwrite.",
 			previewContext: "Could not get the 2D context for output preview.",
 			unsupportedFileType: "Unsupported file type: {name}",
 			emptyProjectPackage: "No supported 3D assets were found in {name}.",

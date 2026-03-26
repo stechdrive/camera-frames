@@ -4,6 +4,13 @@ import { validateStartupUrls } from "../engine/import-link-policy.js";
 import { moveSceneAssetWithinKind } from "../engine/scene-asset-order.js";
 import { applyLegacyAssetState } from "../importers/legacy-ssproj.js";
 import {
+	createProjectFileEmbeddedFileSource,
+	createProjectFilePackedSplatSource,
+	getProjectSourceStableKey,
+	isProjectFileEmbeddedFileSource,
+	isProjectFilePackedSplatSource,
+} from "../project-document.js";
+import {
 	isProjectPackageFileSource,
 	isProjectPackagePackedSplatSource,
 } from "../project-package.js";
@@ -118,6 +125,7 @@ export function createAssetController({
 	isProjectPackageSource,
 	extractProjectPackageAssets,
 	applyProjectPackageImport,
+	openProjectSource = null,
 	disposeObject,
 	runHistoryAction = (_label, applyChange) => {
 		applyChange?.();
@@ -315,6 +323,18 @@ export function createAssetController({
 		};
 	}
 
+	function getSceneAssetSourceKey(asset) {
+		return getProjectSourceStableKey(asset?.source);
+	}
+
+	function getWorkingSceneAssetKey(asset, index = 0) {
+		return (
+			getSceneAssetSourceKey(asset) ??
+			asset?.source?.workingStateKey ??
+			`working-asset:${asset?.kind ?? "asset"}:${asset?.label ?? index}:${index}`
+		);
+	}
+
 	function restoreSceneAssetEditState(snapshot) {
 		if (!snapshot || !Array.isArray(snapshot.assets)) {
 			return false;
@@ -393,13 +413,132 @@ export function createAssetController({
 		return true;
 	}
 
-	function registerAsset({ kind, label, object, disposeTarget = null }) {
+	function captureWorkingProjectSceneState() {
+		const selectedIds = new Set(store.selectedSceneAssetIds.value.map(String));
+		let activeAssetKey = null;
+		const assets = captureProjectSceneState().map((asset, index) => {
+			const sceneAsset = sceneState.assets[index] ?? null;
+			const assetKey = getWorkingSceneAssetKey(sceneAsset, index);
+			const persistedSource = getProjectSourceStableKey(asset.source)
+				? null
+				: asset.source;
+			if (
+				selectedIds.has(String(asset.id)) &&
+				String(asset.id) === String(store.selectedSceneAssetId.value)
+			) {
+				activeAssetKey = assetKey;
+			}
+			return {
+				...asset,
+				workingAssetKey: assetKey,
+				source: persistedSource,
+			};
+		});
+
+		const selectedAssetKeys = assets
+			.filter((asset) => selectedIds.has(String(asset.id)))
+			.map((asset) => asset.workingAssetKey);
+
+		return {
+			assets,
+			selectedAssetKeys,
+			activeAssetKey,
+		};
+	}
+
+	async function applyWorkingProjectSceneState(snapshot) {
+		if (!snapshot || !Array.isArray(snapshot.assets)) {
+			return false;
+		}
+
+		const existingAssetsByKey = new Map();
+		for (let index = 0; index < sceneState.assets.length; index += 1) {
+			const asset = sceneState.assets[index];
+			const assetKey = getWorkingSceneAssetKey(asset, index);
+			if (!existingAssetsByKey.has(assetKey)) {
+				existingAssetsByKey.set(assetKey, asset);
+			}
+		}
+
+		const missingSources = [];
+		for (const item of snapshot.assets) {
+			if (existingAssetsByKey.has(item.workingAssetKey)) {
+				continue;
+			}
+			if (!item.source) {
+				continue;
+			}
+			item.source.workingStateKey = item.workingAssetKey;
+			if (
+				isProjectFileEmbeddedFileSource(item.source) ||
+				isProjectFilePackedSplatSource(item.source)
+			) {
+				item.source.projectAssetState = item;
+			}
+			missingSources.push(item.source);
+		}
+
+		if (missingSources.length > 0) {
+			await loadSources(missingSources, false);
+		}
+
+		const refreshedAssetsByKey = new Map();
+		for (let index = 0; index < sceneState.assets.length; index += 1) {
+			const asset = sceneState.assets[index];
+			const assetKey = getWorkingSceneAssetKey(asset, index);
+			if (!refreshedAssetsByKey.has(assetKey)) {
+				refreshedAssetsByKey.set(assetKey, asset);
+			}
+		}
+
+		const orderedAssets = [];
+		const selectedAssetIds = [];
+		let activeAssetId = null;
+
+		for (const item of snapshot.assets) {
+			const asset = refreshedAssetsByKey.get(item.workingAssetKey);
+			if (!asset) {
+				continue;
+			}
+			applyProjectAssetState(asset, item);
+			orderedAssets.push(asset);
+			if (snapshot.selectedAssetKeys?.includes(item.workingAssetKey)) {
+				selectedAssetIds.push(asset.id);
+			}
+			if (item.workingAssetKey === snapshot.activeAssetKey) {
+				activeAssetId = asset.id;
+			}
+		}
+
+		for (const asset of sceneState.assets) {
+			if (!orderedAssets.includes(asset)) {
+				orderedAssets.push(asset);
+			}
+		}
+
+		sceneState.assets = orderedAssets;
+		store.selectedSceneAssetIds.value = [...new Set(selectedAssetIds)];
+		store.selectedSceneAssetId.value =
+			activeAssetId && store.selectedSceneAssetIds.value.includes(activeAssetId)
+				? activeAssetId
+				: (store.selectedSceneAssetIds.value[0] ?? null);
+		return true;
+	}
+
+	function registerAsset({
+		kind,
+		label,
+		object,
+		disposeTarget = null,
+		source = null,
+	}) {
 		const asset = {
 			id: sceneState.nextAssetId++,
 			kind,
 			label,
 			object,
 			disposeTarget,
+			source,
 			localBoundsHint: null,
 			localCenterBoundsHint: null,
 			baseScale: object.scale.clone(),
@@ -915,10 +1054,13 @@ export function createAssetController({
 		const raw =
 			typeof value === "string"
 				? value
-				: isProjectPackageFileSource(value) ||
-						isProjectPackagePackedSplatSource(value)
+				: isProjectFileEmbeddedFileSource(value) ||
+						isProjectFilePackedSplatSource(value)
 					? value.fileName
-					: value.name;
+					: isProjectPackageFileSource(value) ||
+							isProjectPackagePackedSplatSource(value)
+						? value.fileName
+						: value.name;
 		const clean = raw.split("?")[0].split("#")[0].toLowerCase();
 		const lastDot = clean.lastIndexOf(".");
 		return lastDot >= 0 ? clean.slice(lastDot + 1) : "";
@@ -927,9 +1069,22 @@ export function createAssetController({
 	function getLegacyState(value) {
 		if (
 			isProjectPackageFileSource(value) ||
-			isProjectPackagePackedSplatSource(value)
+			isProjectPackagePackedSplatSource(value) ||
+			isProjectFileEmbeddedFileSource(value) ||
+			isProjectFilePackedSplatSource(value)
 		) {
 			return value.legacyState ?? null;
+		}
+
+		return null;
+	}
+
+	function getProjectAssetState(value) {
+		if (
+			isProjectFileEmbeddedFileSource(value) ||
+			isProjectFilePackedSplatSource(value)
+		) {
+			return value.projectAssetState ?? null;
 		}
 
 		return null;
@@ -953,6 +1108,12 @@ export function createAssetController({
 	}
 
 	function getDisplayName(value) {
+		if (isProjectFilePackedSplatSource(value)) {
+			return value.fileName || "meta.json";
+		}
+		if (isProjectFileEmbeddedFileSource(value)) {
+			return value.fileName || value.file?.name || "asset";
+		}
 		if (isProjectPackagePackedSplatSource(value)) {
 			return value.label || value.fileName || value.path || "meta.json";
 		}
@@ -973,14 +1134,125 @@ export function createAssetController({
 		}
 	}
 
+	async function fetchUrlAsFile(url, fallbackName = "asset.bin") {
+		const response = await fetch(url);
+		if (!response.ok) {
+			throw new Error(`Failed to fetch ${url}: ${response.status}`);
+		}
+
+		const blob = await response.blob();
+		let fileName = fallbackName;
+		try {
+			const parsedUrl = new URL(url);
+			fileName = decodeURIComponent(
+				parsedUrl.pathname.split("/").pop() || fallbackName,
+			);
+		} catch {
+			fileName = fallbackName;
+		}
+		return new File([blob], fileName, {
+			type: blob.type || undefined,
+		});
+	}
+
+	function applyProjectAssetState(asset, projectAssetState) {
+		if (!asset || !projectAssetState) {
+			return;
+		}
+
+		asset.label = String(projectAssetState.label ?? asset.label);
+		asset.object.name = asset.label;
+		asset.worldScale = clampAssetWorldScale(projectAssetState.worldScale);
+		asset.unitMode = projectAssetState.unitMode ?? asset.unitMode;
+		asset.exportRole =
+			projectAssetState.exportRole === "omit" ? "omit" : "beauty";
+		asset.maskGroup = String(projectAssetState.maskGroup ?? "").trim();
+		asset.workingPivotLocal = normalizeWorkingPivotLocal(
+			projectAssetState.workingPivotLocal,
+		);
+		asset.object.visible = projectAssetState.visible !== false;
+		asset.object.position.set(
+			clampAssetTransformValue(
+				projectAssetState.transform?.position?.x,
+				asset.object.position.x,
+			),
+			clampAssetTransformValue(
+				projectAssetState.transform?.position?.y,
+				asset.object.position.y,
+			),
+			clampAssetTransformValue(
+				projectAssetState.transform?.position?.z,
+				asset.object.position.z,
+			),
+		);
+		asset.object.quaternion.set(
+			clampAssetTransformValue(
+				projectAssetState.transform?.quaternion?.x,
+				asset.object.quaternion.x,
+			),
+			clampAssetTransformValue(
+				projectAssetState.transform?.quaternion?.y,
+				asset.object.quaternion.y,
+			),
+			clampAssetTransformValue(
+				projectAssetState.transform?.quaternion?.z,
+				asset.object.quaternion.z,
+			),
+			clampAssetTransformValue(
+				projectAssetState.transform?.quaternion?.w,
+				asset.object.quaternion.w,
+			),
+		);
+		applyAssetWorldScale(asset);
+		asset.object.updateMatrixWorld(true);
+	}
+
+	function captureProjectSceneState() {
+		return sceneState.assets.map((asset, index) => ({
+			id: String(asset.id),
+			kind: asset.kind,
+			label: asset.label,
+			source: asset.source,
+			transform: {
+				position: {
+					x: asset.object.position.x,
+					y: asset.object.position.y,
+					z: asset.object.position.z,
+				},
+				quaternion: {
+					x: asset.object.quaternion.x,
+					y: asset.object.quaternion.y,
+					z: asset.object.quaternion.z,
+					w: asset.object.quaternion.w,
+				},
+			},
+			worldScale: asset.worldScale,
+			unitMode: asset.unitMode,
+			visible: asset.object.visible !== false,
+			exportRole: asset.exportRole ?? "beauty",
+			maskGroup: asset.maskGroup ?? "",
+			workingPivotLocal: asset.workingPivotLocal
+				? {
+						x: asset.workingPivotLocal.x,
+						y: asset.workingPivotLocal.y,
+						z: asset.workingPivotLocal.z,
+					}
+				: null,
+			legacyState: getLegacyState(asset.source),
+			order: index,
+		}));
+	}
+
 	async function loadSplatFromSource(source) {
 		const displayName = getDisplayName(source);
 		const createSplatContainer = (
 			mesh,
 			localBoundsHint = null,
 			localCenterBoundsHint = null,
+			persistentSource = null,
 		) => {
 			const legacyState = getLegacyState(source);
+			const projectAssetState = getProjectAssetState(source);
 			const object = new THREE.Group();
 			object.name = displayName;
 			const correctionGroup = new THREE.Group();
@@ -999,10 +1271,12 @@ export function createAssetController({
 				label: displayName,
 				object,
 				disposeTarget: mesh,
+				source: persistentSource,
 			});
 			asset.localBoundsHint = localBoundsHint?.clone?.() ?? localBoundsHint;
 			asset.localCenterBoundsHint =
 				localCenterBoundsHint?.clone?.() ?? localCenterBoundsHint;
+			applyProjectAssetState(asset, projectAssetState);
 			return object;
 		};
 
@@ -1012,6 +1286,7 @@ export function createAssetController({
 			extraFiles = undefined,
 			fileType = undefined,
 			pathOrUrl = undefined,
+			persistentSource = null,
 		}) => {
 			const unpacked = await unpackSplats({
 				input: inputBytes,
@@ -1041,8 +1316,24 @@ export function createAssetController({
 			});
 			mesh.enableWorldToView = true;
 			await mesh.initialized;
-			return createSplatContainer(mesh, localBoundsHint, localCenterBoundsHint);
+			return createSplatContainer(
+				mesh,
+				localBoundsHint,
+				localCenterBoundsHint,
+				persistentSource,
+			);
 		};
+
+		if (isProjectFilePackedSplatSource(source)) {
+			return createPackedSplatMesh({
+				fileName: source.fileName,
+				inputBytes: source.inputBytes,
+				extraFiles: source.extraFiles,
+				fileType: source.fileType,
+				pathOrUrl: source.fileName,
+				persistentSource: source,
+			});
+		}
 
 		if (isProjectPackagePackedSplatSource(source)) {
 			return createPackedSplatMesh({
@@ -1051,40 +1342,93 @@ export function createAssetController({
 				extraFiles: source.extraFiles,
 				fileType: source.fileType,
 				pathOrUrl: source.path || source.fileName,
+				persistentSource: createProjectFilePackedSplatSource({
+					fileName: source.fileName,
+					inputBytes: source.inputBytes,
+					extraFiles: source.extraFiles,
+					fileType: source.fileType,
+					projectAssetState: getProjectAssetState(source),
+					legacyState: getLegacyState(source),
+				}),
 			});
 		}
 
 		if (typeof source !== "string") {
-			const file = isProjectPackageFileSource(source) ? source.file : source;
-			const fileName = isProjectPackageFileSource(source)
+			const file = isProjectFileEmbeddedFileSource(source)
+				? source.file
+				: isProjectPackageFileSource(source)
+					? source.file
+					: source;
+			const fileName = isProjectFileEmbeddedFileSource(source)
 				? source.fileName
-				: source.name;
+				: isProjectPackageFileSource(source)
+					? source.fileName
+					: source.name;
+			const persistentSource = isProjectFileEmbeddedFileSource(source)
+				? source
+				: createProjectFileEmbeddedFileSource({
+						kind: "splat",
+						file,
+						fileName,
+						projectAssetState: getProjectAssetState(source),
+						legacyState: getLegacyState(source),
+					});
 			return createPackedSplatMesh({
 				fileName,
 				inputBytes: new Uint8Array(await file.arrayBuffer()),
 				pathOrUrl: fileName,
+				persistentSource,
 			});
 		}
 
-		const mesh = new SplatMesh({
-			url: source,
-			fileName: displayName,
-			lod: true,
+		const fetchedFile = await fetchUrlAsFile(source, displayName);
+		const persistentSource = createProjectFileEmbeddedFileSource({
+			kind: "splat",
+			file: fetchedFile,
+			fileName: fetchedFile.name,
 		});
-		mesh.enableWorldToView = true;
-		await mesh.initialized;
-		return createSplatContainer(mesh);
+		return createPackedSplatMesh({
+			fileName: fetchedFile.name,
+			inputBytes: new Uint8Array(await fetchedFile.arrayBuffer()),
+			pathOrUrl: source,
+			persistentSource,
+		});
 	}
 
 	async function loadModelFromSource(source) {
 		let url = source;
 		let needsRevoke = false;
 		const displayName = getDisplayName(source);
+		const projectAssetState = getProjectAssetState(source);
+		let persistentSource = null;
 
-		if (typeof source !== "string") {
+		if (isProjectFileEmbeddedFileSource(source)) {
+			url = URL.createObjectURL(source.file);
+			needsRevoke = true;
+			persistentSource = source;
+		} else if (typeof source !== "string") {
 			const file = isProjectPackageFileSource(source) ? source.file : source;
 			url = URL.createObjectURL(file);
 			needsRevoke = true;
+			persistentSource = createProjectFileEmbeddedFileSource({
+				kind: "model",
+				file,
+				fileName: isProjectPackageFileSource(source)
+					? source.fileName
+					: source.name,
+				projectAssetState,
+				legacyState: getLegacyState(source),
+			});
+		} else {
+			const file = await fetchUrlAsFile(source, displayName);
+			url = URL.createObjectURL(file);
+			needsRevoke = true;
+			persistentSource = createProjectFileEmbeddedFileSource({
+				kind: "model",
+				file,
+				fileName: file.name,
+				legacyState: getLegacyState(source),
+			});
 		}
 
 		try {
@@ -1105,11 +1449,13 @@ export function createAssetController({
 				compensateWrapperForChildLocalTransform(object, compensationTarget);
 			}
 			modelRoot.add(object);
-			registerAsset({
+			const asset = registerAsset({
 				kind: "model",
 				label: displayName,
 				object,
+				source: persistentSource,
 			});
+			applyProjectAssetState(asset, projectAssetState);
 			return object;
 		} finally {
 			if (needsRevoke) {
@@ -1251,7 +1597,16 @@ export function createAssetController({
 		{ replace = false, clearRemoteInput = false } = {},
 	) {
 		const remoteUrls = sources.filter((source) => typeof source === "string");
+		const standaloneProjectSource = getStandaloneProjectSource(sources);
 		try {
+			if (standaloneProjectSource) {
+				await openProjectSource(standaloneProjectSource);
+				if (clearRemoteInput) {
+					store.remoteUrl.value = "";
+				}
+				return true;
+			}
+
 			showImportProgress("verify");
 			await loadSources(sources, replace, {
 				onProgress: (step, detail) => showImportProgress(step, detail),
@@ -1280,6 +1635,23 @@ export function createAssetController({
 			.split(/[\r\n,\s]+/)
 			.map((entry) => entry.trim())
 			.filter((entry) => /^https?:\/\//i.test(entry));
+	}
+
+	function getStandaloneProjectSource(sources) {
+		if (typeof openProjectSource !== "function" || !Array.isArray(sources)) {
+			return null;
+		}
+
+		if (sources.length !== 1) {
+			return null;
+		}
+
+		const source = sources[0];
+		if (typeof source === "string") {
+			return null;
+		}
+
+		return getExtension(source) === "ssproj" ? source : null;
 	}
 
 	function clearScene() {
@@ -1702,6 +2074,9 @@ export function createAssetController({
 		loadSource,
 		loadSources,
 		captureSceneAssetEditState,
+		captureProjectSceneState,
+		captureWorkingProjectSceneState,
+		applyWorkingProjectSceneState,
 		restoreSceneAssetEditState,
 		clearScene,
 		setAssetWorldScale,
