@@ -6,6 +6,7 @@ import { applyLegacyAssetState } from "../importers/legacy-ssproj.js";
 import {
 	createProjectFileEmbeddedFileSource,
 	createProjectFilePackedSplatSource,
+	getProjectSourceStableKey,
 	isProjectFileEmbeddedFileSource,
 	isProjectFilePackedSplatSource,
 } from "../project-document.js";
@@ -322,6 +323,18 @@ export function createAssetController({
 		};
 	}
 
+	function getSceneAssetSourceKey(asset) {
+		return getProjectSourceStableKey(asset?.source);
+	}
+
+	function getWorkingSceneAssetKey(asset, index = 0) {
+		return (
+			getSceneAssetSourceKey(asset) ??
+			asset?.source?.workingStateKey ??
+			`working-asset:${asset?.kind ?? "asset"}:${asset?.label ?? index}:${index}`
+		);
+	}
+
 	function restoreSceneAssetEditState(snapshot) {
 		if (!snapshot || !Array.isArray(snapshot.assets)) {
 			return false;
@@ -396,6 +409,118 @@ export function createAssetController({
 			) &&
 			store.selectedSceneAssetIds.value.includes(snapshot.selectedSceneAssetId)
 				? snapshot.selectedSceneAssetId
+				: (store.selectedSceneAssetIds.value[0] ?? null);
+		return true;
+	}
+
+	function captureWorkingProjectSceneState() {
+		const selectedIds = new Set(store.selectedSceneAssetIds.value.map(String));
+		let activeAssetKey = null;
+		const assets = captureProjectSceneState().map((asset, index) => {
+			const sceneAsset = sceneState.assets[index] ?? null;
+			const assetKey = getWorkingSceneAssetKey(sceneAsset, index);
+			const persistedSource = getProjectSourceStableKey(asset.source)
+				? null
+				: asset.source;
+			if (
+				selectedIds.has(String(asset.id)) &&
+				String(asset.id) === String(store.selectedSceneAssetId.value)
+			) {
+				activeAssetKey = assetKey;
+			}
+			return {
+				...asset,
+				workingAssetKey: assetKey,
+				source: persistedSource,
+			};
+		});
+
+		const selectedAssetKeys = assets
+			.filter((asset) => selectedIds.has(String(asset.id)))
+			.map((asset) => asset.workingAssetKey);
+
+		return {
+			assets,
+			selectedAssetKeys,
+			activeAssetKey,
+		};
+	}
+
+	async function applyWorkingProjectSceneState(snapshot) {
+		if (!snapshot || !Array.isArray(snapshot.assets)) {
+			return false;
+		}
+
+		const existingAssetsByKey = new Map();
+		for (let index = 0; index < sceneState.assets.length; index += 1) {
+			const asset = sceneState.assets[index];
+			const assetKey = getWorkingSceneAssetKey(asset, index);
+			if (!existingAssetsByKey.has(assetKey)) {
+				existingAssetsByKey.set(assetKey, asset);
+			}
+		}
+
+		const missingSources = [];
+		for (const item of snapshot.assets) {
+			if (existingAssetsByKey.has(item.workingAssetKey)) {
+				continue;
+			}
+			if (!item.source) {
+				continue;
+			}
+			item.source.workingStateKey = item.workingAssetKey;
+			if (
+				isProjectFileEmbeddedFileSource(item.source) ||
+				isProjectFilePackedSplatSource(item.source)
+			) {
+				item.source.projectAssetState = item;
+			}
+			missingSources.push(item.source);
+		}
+
+		if (missingSources.length > 0) {
+			await loadSources(missingSources, false);
+		}
+
+		const refreshedAssetsByKey = new Map();
+		for (let index = 0; index < sceneState.assets.length; index += 1) {
+			const asset = sceneState.assets[index];
+			const assetKey = getWorkingSceneAssetKey(asset, index);
+			if (!refreshedAssetsByKey.has(assetKey)) {
+				refreshedAssetsByKey.set(assetKey, asset);
+			}
+		}
+
+		const orderedAssets = [];
+		const selectedAssetIds = [];
+		let activeAssetId = null;
+
+		for (const item of snapshot.assets) {
+			const asset = refreshedAssetsByKey.get(item.workingAssetKey);
+			if (!asset) {
+				continue;
+			}
+			applyProjectAssetState(asset, item);
+			orderedAssets.push(asset);
+			if (snapshot.selectedAssetKeys?.includes(item.workingAssetKey)) {
+				selectedAssetIds.push(asset.id);
+			}
+			if (item.workingAssetKey === snapshot.activeAssetKey) {
+				activeAssetId = asset.id;
+			}
+		}
+
+		for (const asset of sceneState.assets) {
+			if (!orderedAssets.includes(asset)) {
+				orderedAssets.push(asset);
+			}
+		}
+
+		sceneState.assets = orderedAssets;
+		store.selectedSceneAssetIds.value = [...new Set(selectedAssetIds)];
+		store.selectedSceneAssetId.value =
+			activeAssetId && store.selectedSceneAssetIds.value.includes(activeAssetId)
+				? activeAssetId
 				: (store.selectedSceneAssetIds.value[0] ?? null);
 		return true;
 	}
@@ -944,7 +1069,9 @@ export function createAssetController({
 	function getLegacyState(value) {
 		if (
 			isProjectPackageFileSource(value) ||
-			isProjectPackagePackedSplatSource(value)
+			isProjectPackagePackedSplatSource(value) ||
+			isProjectFileEmbeddedFileSource(value) ||
+			isProjectFilePackedSplatSource(value)
 		) {
 			return value.legacyState ?? null;
 		}
@@ -1081,7 +1208,7 @@ export function createAssetController({
 	}
 
 	function captureProjectSceneState() {
-		return sceneState.assets.map((asset) => ({
+		return sceneState.assets.map((asset, index) => ({
 			id: String(asset.id),
 			kind: asset.kind,
 			label: asset.label,
@@ -1111,6 +1238,7 @@ export function createAssetController({
 						z: asset.workingPivotLocal.z,
 					}
 				: null,
+			legacyState: getLegacyState(asset.source),
 			order: index,
 		}));
 	}
@@ -1220,6 +1348,7 @@ export function createAssetController({
 					extraFiles: source.extraFiles,
 					fileType: source.fileType,
 					projectAssetState: getProjectAssetState(source),
+					legacyState: getLegacyState(source),
 				}),
 			});
 		}
@@ -1242,6 +1371,7 @@ export function createAssetController({
 						file,
 						fileName,
 						projectAssetState: getProjectAssetState(source),
+						legacyState: getLegacyState(source),
 					});
 			return createPackedSplatMesh({
 				fileName,
@@ -1287,6 +1417,7 @@ export function createAssetController({
 					? source.fileName
 					: source.name,
 				projectAssetState,
+				legacyState: getLegacyState(source),
 			});
 		} else {
 			const file = await fetchUrlAsFile(source, displayName);
@@ -1296,6 +1427,7 @@ export function createAssetController({
 				kind: "model",
 				file,
 				fileName: file.name,
+				legacyState: getLegacyState(source),
 			});
 		}
 
@@ -1943,6 +2075,8 @@ export function createAssetController({
 		loadSources,
 		captureSceneAssetEditState,
 		captureProjectSceneState,
+		captureWorkingProjectSceneState,
+		applyWorkingProjectSceneState,
 		restoreSceneAssetEditState,
 		clearScene,
 		setAssetWorldScale,

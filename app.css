@@ -129,6 +129,30 @@ code {
 	gap: 0.75rem;
 }
 
+.panel-header__brand {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.65rem;
+	min-width: 0;
+}
+
+.panel-header__brand-mark {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 2rem;
+	height: 2rem;
+	border-radius: 999px;
+	border: 1px solid var(--line);
+	background: rgba(255, 255, 255, 0.05);
+	color: var(--accent-cool);
+	flex: 0 0 auto;
+}
+
+.panel-header__brand--compact {
+	gap: 0.55rem;
+}
+
 .header-meta-row {
 	display: flex;
 	align-items: flex-start;
@@ -188,7 +212,6 @@ code {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	font: 700 0.95rem / 1 "Consolas", "Andale Mono", monospace;
 	transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
 
@@ -209,7 +232,7 @@ code {
 	appearance: none;
 	display: inline-flex;
 	align-items: center;
-	gap: 0.65rem;
+	gap: 0.8rem;
 	padding: 0.7rem 0.9rem;
 	border: 1px solid var(--line-strong);
 	border-radius: 999px;
@@ -225,14 +248,16 @@ code {
 	pointer-events: auto;
 }
 
-.workbench-collapse-chip__title {
-	font: 700 0.82rem / 1 "Avenir Next", "Segoe UI", sans-serif;
-	letter-spacing: 0.03em;
+.workbench-collapse-chip .panel-header__brand h1 {
+	font-size: 0.92rem;
+	letter-spacing: 0.02em;
 }
 
 .workbench-collapse-chip__icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
 	color: var(--text-dim);
-	font: 700 0.9rem / 1 "Consolas", "Andale Mono", monospace;
 }
 
 .panel-header--compact .panel-copy {
@@ -264,6 +289,34 @@ code {
 	align-items: center;
 	justify-content: space-between;
 	gap: 0.75rem;
+}
+
+.section-heading__title {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.55rem;
+	min-width: 0;
+}
+
+.section-heading__icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 1.5rem;
+	height: 1.5rem;
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.05);
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	color: var(--accent-cool);
+	flex: 0 0 auto;
+}
+
+.section-heading__meta {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35rem;
+	flex-wrap: wrap;
+	justify-content: flex-end;
 }
 
 .section-heading h2 {
@@ -338,6 +391,19 @@ code {
 	min-height: 2.2rem;
 	padding: 0.45rem 0.7rem;
 	font-size: 0.8rem;
+}
+
+.button--icon {
+	min-width: 2.6rem;
+	padding: 0;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0;
+}
+
+.button--icon.button--compact {
+	min-width: 2.2rem;
 }
 
 .button--wide {
@@ -506,6 +572,56 @@ input[type="range"] {
 	margin-bottom: 10px;
 }
 
+.overlay-field-list {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	margin-top: 14px;
+}
+
+.overlay-field {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	color: rgb(214 222 239 / 88%);
+	font-size: 13px;
+}
+
+.overlay-field input,
+.overlay-field select {
+	width: 100%;
+	min-height: 40px;
+	padding: 10px 12px;
+	border: 1px solid rgb(255 255 255 / 12%);
+	border-radius: 12px;
+	background: rgb(255 255 255 / 5%);
+	color: rgb(245 247 251 / 96%);
+	font: 500 13px / 1.3 "Consolas", "Andale Mono", monospace;
+}
+
+.overlay-checkbox-field {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr);
+	align-items: center;
+	gap: 10px;
+	padding: 10px 12px;
+	border: 1px solid rgb(255 255 255 / 10%);
+	border-radius: 12px;
+	background: rgb(255 255 255 / 4%);
+	color: rgb(245 247 251 / 92%);
+	font-size: 13px;
+}
+
+.overlay-checkbox-field input {
+	margin: 0;
+}
+
+.overlay-field input:disabled,
+.overlay-field select:disabled,
+.overlay-checkbox-field:has(input:disabled) {
+	opacity: 0.6;
+}
+
 .overlay-url-list,
 .overlay-step-list {
 	margin: 14px 0 0;
@@ -610,6 +726,19 @@ input[type="range"] {
 	transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
 
+.workbench-tab__content {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.45rem;
+}
+
+.workbench-tab__icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--accent-cool);
+}
+
 .workbench-tab:hover {
 	border-color: rgba(255, 255, 255, 0.34);
 	color: var(--text);
@@ -619,6 +748,15 @@ input[type="range"] {
 	background: var(--accent-soft);
 	border-color: rgba(255, 103, 77, 0.4);
 	color: var(--accent);
+}
+
+.workbench-icon {
+	display: block;
+	flex: 0 0 auto;
+}
+
+.scene-asset-row__icon-button {
+	min-width: 2rem;
 }
 
 .workbench-inspector-stack {

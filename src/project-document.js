@@ -28,6 +28,14 @@ export function normalizeProjectFileName(value, fallback = "asset.bin") {
 	return candidate || fallback;
 }
 
+export function generateProjectId() {
+	if (typeof globalThis.crypto?.randomUUID === "function") {
+		return globalThis.crypto.randomUUID();
+	}
+
+	return `camera-frames-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export function getProjectPathExtension(path) {
 	const clean = String(path || "")
 		.replace(/\\/g, "/")
@@ -196,6 +204,10 @@ export function sanitizeProjectAssetState(asset, index = 0) {
 						z: Number(asset.workingPivotLocal.z ?? 0),
 					}
 				: null,
+		legacyState:
+			asset?.legacyState && typeof asset.legacyState === "object"
+				? JSON.parse(JSON.stringify(asset.legacyState))
+				: null,
 	};
 }
 
@@ -254,6 +266,12 @@ export function normalizeProjectDocument(project = {}) {
 	return {
 		schema: PROJECT_FORMAT,
 		version: PROJECT_VERSION,
+		projectId:
+			typeof project.projectId === "string" ? project.projectId.trim() : "",
+		packageRevision:
+			Number.isFinite(project.packageRevision) && project.packageRevision >= 0
+				? Math.floor(project.packageRevision)
+				: 0,
 		workspace: {
 			activeShotCameraId,
 			viewport: {
@@ -342,11 +360,62 @@ export function getProjectSourceResource(source) {
 	return source?.resource ?? null;
 }
 
+export function getProjectResourceStableKey(resource) {
+	if (!resource || typeof resource !== "object") {
+		return null;
+	}
+
+	if (resource.type === "file" && typeof resource.sha256 === "string") {
+		return `file:${resource.sha256}:${resource.originalName ?? ""}`;
+	}
+
+	if (
+		resource.type === "packed-splat" &&
+		typeof resource.manifest?.sha256 === "string"
+	) {
+		return `packed-splat:${resource.manifest.sha256}:${resource.originalName ?? ""}`;
+	}
+
+	return null;
+}
+
+export function getProjectSourceStableKey(source) {
+	return getProjectResourceStableKey(getProjectSourceResource(source));
+}
+
+function buildProjectFingerprintPayload(project) {
+	const normalizedProject = normalizeProjectDocument(project);
+	const resourceEntries = Object.entries(normalizedProject.resources ?? {})
+		.map(([resourceId, resource]) => ({
+			resourceId,
+			resourceKey: getProjectResourceStableKey(resource),
+		}))
+		.sort((left, right) => left.resourceId.localeCompare(right.resourceId));
+
+	return {
+		projectId: normalizedProject.projectId || "",
+		packageRevision: normalizedProject.packageRevision ?? 0,
+		resourceEntries,
+		sceneAssets: normalizedProject.scene.assets.map((asset) => ({
+			id: asset.id,
+			kind: asset.kind,
+			label: asset.label,
+			resourceId: asset.source?.resourceId ?? null,
+		})),
+	};
+}
+
+export async function buildProjectFingerprint(project) {
+	const payload = buildProjectFingerprintPayload(project);
+	return sha256Hex(new TextEncoder().encode(JSON.stringify(payload)));
+}
+
 export function createProjectFileEmbeddedFileSource({
 	kind,
 	file,
 	fileName,
 	projectAssetState = null,
+	legacyState = null,
 	resource = null,
 } = {}) {
 	return {
@@ -355,6 +424,7 @@ export function createProjectFileEmbeddedFileSource({
 		file,
 		fileName: normalizeProjectFileName(fileName ?? file?.name, "asset.bin"),
 		projectAssetState,
+		legacyState,
 		resource,
 	};
 }
@@ -365,6 +435,7 @@ export function createProjectFilePackedSplatSource({
 	extraFiles = {},
 	fileType = null,
 	projectAssetState = null,
+	legacyState = null,
 	resource = null,
 } = {}) {
 	return {
@@ -377,6 +448,7 @@ export function createProjectFilePackedSplatSource({
 		),
 		fileType: fileType ? String(fileType) : null,
 		projectAssetState,
+		legacyState,
 		resource,
 	};
 }

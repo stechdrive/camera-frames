@@ -69,6 +69,14 @@ const projectSnapshot = {
 				id: "asset-model",
 				kind: "model",
 				label: "Layout",
+				legacyState: {
+					filename: "models/layout.glb",
+					transform: {
+						position: [10, 20, 30],
+						rotation: [0, 0, 0, 1],
+						scale: [1, 1, 1],
+					},
+				},
 				source: createProjectFileEmbeddedFileSource({
 					kind: "model",
 					file: new File([new Uint8Array([1, 2, 3, 4])], "layout.glb", {
@@ -91,6 +99,12 @@ const projectSnapshot = {
 				id: "asset-splat",
 				kind: "splat",
 				label: "Packed Splat",
+				legacyState: {
+					filename: "splats/meta.json",
+					position: [1, 2, 3],
+					rotation: [0, 0, 0, 1],
+					scale: [1, 1, 1],
+				},
 				source: createProjectFilePackedSplatSource({
 					fileName: "meta.json",
 					inputBytes: new TextEncoder().encode('{"files":["means.bin"]}'),
@@ -153,6 +167,10 @@ assert.equal(
 );
 assert.equal(result.assetEntries[0].source.file.name, "layout.glb");
 assert.equal(result.assetEntries[0].source.projectAssetState.label, "Layout");
+assert.equal(
+	result.assetEntries[0].source.legacyState.filename,
+	"models/layout.glb",
+);
 
 assert.equal(
 	isProjectFilePackedSplatSource(result.assetEntries[1].source),
@@ -165,6 +183,10 @@ assert.deepEqual(Object.keys(result.assetEntries[1].source.extraFiles), [
 assert.equal(
 	result.assetEntries[1].source.projectAssetState.exportRole,
 	"omit",
+);
+assert.equal(
+	result.assetEntries[1].source.legacyState.filename,
+	"splats/meta.json",
 );
 
 console.log("✅ CAMERA_FRAMES project file tests passed!");

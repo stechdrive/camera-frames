@@ -23,6 +23,7 @@ import { createFrameController } from "./controllers/frame-controller.js";
 import { createHistoryController } from "./controllers/history-controller.js";
 import { createInteractionController } from "./controllers/interaction-controller.js";
 import { createOutputFrameController } from "./controllers/output-frame-controller.js";
+import { createProjectController } from "./controllers/project-controller.js";
 import { createProjectionController } from "./controllers/projection-controller.js";
 import { createRuntimeController } from "./controllers/runtime-controller.js";
 import { createSceneFramingController } from "./controllers/scene-framing-controller.js";
@@ -43,21 +44,11 @@ import {
 	applyLegacyCameraTransform,
 	buildLegacyProjectImport,
 } from "./importers/legacy-ssproj.js";
-import {
-	buildCameraFramesProjectArchive,
-	getDefaultProjectFilename,
-	readCameraFramesProject,
-} from "./project-file.js";
+import { getDefaultProjectFilename } from "./project-file.js";
 import {
 	extractProjectPackageAssets,
 	isProjectPackageSource,
 } from "./project-package.js";
-import {
-	pickWorkingProjectDirectory,
-	readCameraFramesWorkingProject,
-	saveCameraFramesWorkingProject,
-	supportsWorkingProjectStorage,
-} from "./project-storage-working.js";
 import {
 	WORKSPACE_PANE_CAMERA,
 	cloneShotCameraDocument,
@@ -333,6 +324,7 @@ export function createCameraFramesController(elements, store) {
 	let historyController = null;
 	let interactionController = null;
 	let outputFrameController = null;
+	let projectController = null;
 	let projectionController = null;
 	let runtimeController = null;
 	let sceneFramingController = null;
@@ -545,9 +537,6 @@ export function createCameraFramesController(elements, store) {
 		};
 	}
 
-	let workingProjectDirectoryHandle = null;
-	let workingProjectName = "";
-
 	function buildProjectFilename() {
 		const activeDocument = getActiveShotCameraDocument();
 		if (!activeDocument) {
@@ -555,101 +544,6 @@ export function createCameraFramesController(elements, store) {
 		}
 
 		return `${getShotCameraExportBaseName(activeDocument, 1)}.ssproj`;
-	}
-
-	function getProjectBaseName(value) {
-		const fileName = String(value ?? "").trim();
-		if (!fileName) {
-			return "";
-		}
-		return fileName.replace(/\.ssproj$/i, "");
-	}
-
-	function rememberWorkingProject(directoryHandle, projectName = "") {
-		workingProjectDirectoryHandle = directoryHandle ?? null;
-		workingProjectName =
-			String(projectName ?? "").trim() ||
-			directoryHandle?.name ||
-			workingProjectName;
-	}
-
-	function clearWorkingProject() {
-		workingProjectDirectoryHandle = null;
-		workingProjectName = "";
-	}
-
-	function downloadBlob(blob, filename) {
-		const url = URL.createObjectURL(blob);
-		const anchor = document.createElement("a");
-		anchor.href = url;
-		anchor.download = filename;
-		anchor.style.display = "none";
-		document.body.append(anchor);
-		anchor.click();
-		setTimeout(() => {
-			anchor.remove();
-			URL.revokeObjectURL(url);
-		}, 0);
-	}
-
-	async function exportProject() {
-		try {
-			setStatus(t("status.projectExporting"));
-			await new Promise((resolve) => requestAnimationFrame(resolve));
-			const archive = await buildCameraFramesProjectArchive(
-				captureProjectState(),
-			);
-			downloadBlob(
-				new Blob([archive], {
-					type: "application/octet-stream",
-				}),
-				buildProjectFilename(),
-			);
-			setStatus(t("status.projectExported"));
-		} catch (error) {
-			console.error(error);
-			setStatus(error.message);
-		}
-	}
-
-	async function saveProject() {
-		if (!supportsWorkingProjectStorage()) {
-			return exportProject();
-		}
-
-		try {
-			const directoryHandle =
-				workingProjectDirectoryHandle ??
-				(await pickWorkingProjectDirectory({
-					writable: true,
-				}));
-			const projectName = directoryHandle?.name || workingProjectName || "";
-			setStatus(
-				workingProjectDirectoryHandle
-					? t("status.projectSaving")
-					: t("status.projectSavingToFolder", {
-							name: projectName,
-						}),
-			);
-			await new Promise((resolve) => requestAnimationFrame(resolve));
-			const result = await saveCameraFramesWorkingProject({
-				directoryHandle,
-				projectSnapshot: captureProjectState(),
-				projectName,
-			});
-			rememberWorkingProject(result.directoryHandle, result.projectName);
-			setStatus(
-				t("status.projectSavedToFolder", {
-					name: result.projectName || result.directoryHandle?.name || "",
-				}),
-			);
-		} catch (error) {
-			if (error?.name === "AbortError") {
-				return;
-			}
-			console.error(error);
-			setStatus(error.message);
-		}
 	}
 
 	function applySavedProjectState(project) {
@@ -701,11 +595,7 @@ export function createCameraFramesController(elements, store) {
 
 	async function applyOpenedProject(
 		parsedProject,
-		{
-			workingDirectoryHandle = null,
-			projectName = "",
-			loadedStatus = t("status.projectLoaded"),
-		} = {},
+		{ projectName = "", loadedStatus = t("status.projectLoaded") } = {},
 	) {
 		assetController.clearScene();
 		const projectSources = parsedProject.assetEntries.map(
@@ -716,79 +606,8 @@ export function createCameraFramesController(elements, store) {
 		}
 		applySavedProjectState(parsedProject.project);
 		historyController?.clearHistory();
-		if (workingDirectoryHandle) {
-			rememberWorkingProject(workingDirectoryHandle, projectName);
-		} else {
-			clearWorkingProject();
-		}
 		setStatus(loadedStatus);
 		return true;
-	}
-
-	async function openProjectSource(source) {
-		let parsedProject = null;
-		try {
-			parsedProject = await readCameraFramesProject(source);
-		} catch (error) {
-			console.warn("[CAMERA_FRAMES] project parse fallback", error);
-		}
-
-		if (!parsedProject) {
-			clearWorkingProject();
-			return assetController.loadSources([source], true);
-		}
-
-		return applyOpenedProject(parsedProject, {
-			projectName: getProjectBaseName(source?.name),
-			loadedStatus: t("status.projectLoaded"),
-		});
-	}
-
-	function openProject() {
-		projectInput?.click?.();
-	}
-
-	async function openWorkingProject() {
-		if (!supportsWorkingProjectStorage()) {
-			setStatus(t("error.projectWorkingFolderUnsupported"));
-			return;
-		}
-
-		try {
-			const directoryHandle = await pickWorkingProjectDirectory();
-			const parsedProject =
-				await readCameraFramesWorkingProject(directoryHandle);
-			await applyOpenedProject(parsedProject, {
-				workingDirectoryHandle: parsedProject.directoryHandle,
-				projectName: parsedProject.projectName,
-				loadedStatus: t("status.projectLoadedFromFolder", {
-					name: parsedProject.projectName || directoryHandle?.name || "",
-				}),
-			});
-		} catch (error) {
-			if (error?.name === "AbortError") {
-				return;
-			}
-			console.error(error);
-			setStatus(error.message);
-		}
-	}
-
-	async function handleProjectInputChange(event) {
-		const files = [...(event.currentTarget.files ?? [])];
-		const projectFile = files[0] ?? null;
-		if (!projectFile) {
-			return;
-		}
-
-		try {
-			await openProjectSource(projectFile);
-		} catch (error) {
-			console.error(error);
-			setStatus(error.message);
-		} finally {
-			event.currentTarget.value = "";
-		}
 	}
 
 	historyController = createHistoryController({
@@ -820,7 +639,8 @@ export function createCameraFramesController(elements, store) {
 		isProjectPackageSource,
 		extractProjectPackageAssets,
 		applyProjectPackageImport,
-		openProjectSource,
+		openProjectSource: (...args) =>
+			projectController?.openProjectSource?.(...args),
 		disposeObject,
 		runHistoryAction: historyController.runHistoryAction,
 		clearHistory: historyController.clearHistory,
@@ -1011,6 +831,19 @@ export function createCameraFramesController(elements, store) {
 		getProjectionState,
 		getActiveShotCameraDocument,
 	});
+	projectController = createProjectController({
+		store,
+		projectInput,
+		assetController,
+		applySavedProjectState,
+		applyOpenedProject,
+		buildProjectFilename,
+		captureProjectState,
+		clearHistory: () => historyController?.clearHistory(),
+		updateUi,
+		setStatus,
+		t,
+	});
 	runtimeController = createRuntimeController({
 		renderer,
 		scene,
@@ -1028,8 +861,8 @@ export function createCameraFramesController(elements, store) {
 		toggleZoomTool,
 		toggleViewportSelectMode,
 		toggleViewportTransformMode,
-		saveProject,
-		exportProject,
+		saveProject: () => projectController?.saveProject(),
+		exportProject: () => projectController?.exportProject(),
 		undoHistory: () => historyController?.undoHistory(),
 		redoHistory: () => historyController?.redoHistory(),
 		clearSceneAssetSelection,
@@ -1379,6 +1212,26 @@ export function createCameraFramesController(elements, store) {
 	function clearScene() {
 		viewportToolController.setViewportTransformMode(false);
 		assetController.clearScene();
+	}
+
+	function openProject() {
+		return projectController?.openProject();
+	}
+
+	function openWorkingProject() {
+		return projectController?.openWorkingProject();
+	}
+
+	function saveProject() {
+		return projectController?.saveProject();
+	}
+
+	function exportProject() {
+		return projectController?.exportProject();
+	}
+
+	function handleProjectInputChange(event) {
+		return projectController?.handleProjectInputChange(event);
 	}
 
 	runtimeController.init();
