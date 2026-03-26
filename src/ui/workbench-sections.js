@@ -22,6 +22,7 @@ import {
 } from "./workbench-controls.js";
 import { WorkbenchIcon } from "./workbench-icons.js";
 import {
+	HeaderMenu,
 	HeaderWordmark,
 	IconButton,
 	SectionHeading,
@@ -36,6 +37,12 @@ export function WorkbenchHeader({
 	compact = false,
 	collapsed = false,
 	onToggleCollapse,
+	projectMenuItems = [],
+	menuChildren = null,
+	remoteUrl = "",
+	onRemoteUrlInput,
+	onLoadRemoteUrls,
+	onOpenFiles,
 }) {
 	const buildVersionLabel = getBuildVersionLabel();
 	const buildCommitLabel = getBuildCommitLabel();
@@ -44,7 +51,61 @@ export function WorkbenchHeader({
 	return html`
 		<header class=${compact ? "panel-header panel-header--compact" : "panel-header"}>
 			<div class="panel-header__title-row">
-				<${HeaderWordmark} title="CAMERA_FRAMES" compact=${compact} />
+				<div class="panel-header__title-main">
+					<${HeaderMenu}
+						label=${t("section.file")}
+						items=${projectMenuItems}
+					>
+						${
+							menuChildren ??
+							html`
+								<div class="workbench-menu__group">
+									<button
+										id="open-files"
+										type="button"
+										class="workbench-menu__item"
+										onClick=${() => onOpenFiles?.()}
+									>
+										<span class="workbench-menu__item-icon">
+											<${WorkbenchIcon} name="folder-open" size=${14} />
+										</span>
+										<span>${t("action.openFiles")}</span>
+									</button>
+									<div class="workbench-menu__field">
+										<label for="header-url-input">${t("field.remoteUrl")}</label>
+										<input
+											id="header-url-input"
+											type="text"
+											placeholder="https://.../scene.spz or model.glb"
+											value=${remoteUrl}
+											...${INTERACTIVE_FIELD_PROPS}
+											onInput=${(event) =>
+												onRemoteUrlInput?.(event.currentTarget.value)}
+											onKeyDown=${(event) => {
+												if (event.key === "Enter") {
+													event.preventDefault();
+													onLoadRemoteUrls?.();
+												}
+											}}
+										/>
+									</div>
+									<button
+										id="load-url"
+										type="button"
+										class="workbench-menu__item"
+										onClick=${() => onLoadRemoteUrls?.()}
+									>
+										<span class="workbench-menu__item-icon">
+											<${WorkbenchIcon} name="folder-open" size=${14} />
+										</span>
+										<span>${t("action.loadUrl")}</span>
+									</button>
+								</div>
+							`
+						}
+					<//>
+					<${HeaderWordmark} title="CAMERA_FRAMES" compact=${compact} />
+				</div>
 				<button
 					type="button"
 					class="workbench-collapse-toggle"
@@ -330,86 +391,7 @@ export function SceneSection({
 				</div>
 			<//>
 			<div class="button-row">
-				<button
-					id="open-project"
-					class="button"
-					type="button"
-					onClick=${() => controller()?.openProject()}
-				>
-					${t("action.openProject")}
-				</button>
-				<button
-					id="open-working-project"
-					class="button"
-					type="button"
-					onClick=${() => controller()?.openWorkingProject()}
-				>
-					${t("action.openWorkingProject")}
-				</button>
 			</div>
-			<div class="button-row">
-				<button
-					id="save-project"
-					class="button"
-					type="button"
-					onClick=${() => controller()?.saveProject()}
-				>
-					${t("action.saveProject")}
-				</button>
-				<button
-					id="export-project"
-					class="button"
-					type="button"
-					onClick=${() => controller()?.exportProject()}
-				>
-					${t("action.exportProject")}
-				</button>
-			</div>
-			<div class="button-row">
-				<button
-					id="open-files"
-					class="button button--primary"
-					type="button"
-					onClick=${() => controller()?.openFiles()}
-				>
-					${t("action.openFiles")}
-				</button>
-				<button
-					id="clear-scene"
-					class="button"
-					type="button"
-					onClick=${() => controller()?.clearScene()}
-				>
-					${t("action.clear")}
-				</button>
-			</div>
-			<label class="field">
-				<span>${t("field.remoteUrl")}</span>
-				<input
-					id="url-input"
-					type="text"
-					placeholder="https://.../scene.spz or model.glb"
-					value=${store.remoteUrl.value}
-					...${INTERACTIVE_FIELD_PROPS}
-					onInput=${(event) => {
-						store.remoteUrl.value = event.currentTarget.value;
-					}}
-					onKeyDown=${(event) => {
-						if (event.key === "Enter") {
-							event.preventDefault();
-							controller()?.loadRemoteUrls();
-						}
-					}}
-				/>
-			</label>
-			<button
-				id="load-url"
-				class="button button--wide"
-				type="button"
-				onClick=${() => controller()?.loadRemoteUrls()}
-			>
-				${t("action.loadUrl")}
-			</button>
 			<p id="scene-summary" class="summary">${sceneSummary}</p>
 			<p id="scene-scale-summary" class="summary">${sceneScaleSummary}</p>
 			${
@@ -735,31 +717,35 @@ export function ShotCameraSection({
 					<option value="manual">${t("clipMode.manual")}</option>
 				</select>
 			</label>
-			<div class="split-field-row">
-				<label class="field">
-					<span>${t("field.shotCameraNear")}</span>
-					<${NumericDraftInput}
-						id="shot-camera-near"
-						inputMode="decimal"
-						min="0.1"
-						step="0.1"
-						value=${Number(store.shotCamera.near.value).toFixed(2)}
-						onCommit=${(nextValue) => controller()?.setShotCameraNear(nextValue)}
-					/>
-				</label>
-				<label class="field">
-					<span>${t("field.shotCameraFar")}</span>
-					<${NumericDraftInput}
-						id="shot-camera-far"
-						inputMode="decimal"
-						min="0.1"
-						step="0.1"
-						value=${Number(store.shotCamera.far.value).toFixed(2)}
-						disabled=${shotCameraClipMode !== "manual"}
-						onCommit=${(nextValue) => controller()?.setShotCameraFar(nextValue)}
-					/>
-				</label>
-			</div>
+			${
+				shotCameraClipMode === "manual" &&
+				html`
+					<div class="split-field-row">
+						<label class="field">
+							<span>${t("field.shotCameraNear")}</span>
+							<${NumericDraftInput}
+								id="shot-camera-near"
+								inputMode="decimal"
+								min="0.1"
+								step="0.1"
+								value=${Number(store.shotCamera.near.value).toFixed(2)}
+								onCommit=${(nextValue) => controller()?.setShotCameraNear(nextValue)}
+							/>
+						</label>
+						<label class="field">
+							<span>${t("field.shotCameraFar")}</span>
+							<${NumericDraftInput}
+								id="shot-camera-far"
+								inputMode="decimal"
+								min="0.1"
+								step="0.1"
+								value=${Number(store.shotCamera.far.value).toFixed(2)}
+								onCommit=${(nextValue) => controller()?.setShotCameraFar(nextValue)}
+							/>
+						</label>
+					</div>
+				`
+			}
 			<div class="button-row">
 				<button
 					id="copy-viewport-to-shot"
@@ -844,47 +830,56 @@ export function ExportSettingsSection({
 				/>
 				<span>${t("field.exportGridOverlay")}</span>
 			</label>
-			<label class="field">
-				<span>${t("field.exportGridLayerMode")}</span>
-				<select
-					id="shot-camera-export-grid-layer-mode"
-					value=${exportGridLayerMode}
-					...${INTERACTIVE_FIELD_PROPS}
-					onChange=${(event) =>
-						controller()?.setShotCameraExportGridLayerMode(
-							event.currentTarget.value,
-						)}
-				>
-					<option value="bottom">${t("gridLayerMode.bottom")}</option>
-					<option value="overlay">${t("gridLayerMode.overlay")}</option>
-				</select>
-			</label>
-			<label class="checkbox-field">
-				<input
-					id="shot-camera-export-model-layers"
-					type="checkbox"
-					checked=${exportModelLayers}
-					disabled=${exportFormat !== "psd"}
-					onChange=${(event) =>
-						controller()?.setShotCameraExportModelLayers(
-							event.currentTarget.checked,
-						)}
-				/>
-				<span>${t("field.exportModelLayers")}</span>
-			</label>
-			<label class="checkbox-field">
-				<input
-					id="shot-camera-export-splat-layers"
-					type="checkbox"
-					checked=${exportSplatLayers}
-					disabled=${exportFormat !== "psd" || !exportModelLayers}
-					onChange=${(event) =>
-						controller()?.setShotCameraExportSplatLayers(
-							event.currentTarget.checked,
-						)}
-				/>
-				<span>${t("field.exportSplatLayers")}</span>
-			</label>
+			${
+				exportGridOverlay &&
+				html`
+					<label class="field">
+						<span>${t("field.exportGridLayerMode")}</span>
+						<select
+							id="shot-camera-export-grid-layer-mode"
+							value=${exportGridLayerMode}
+							...${INTERACTIVE_FIELD_PROPS}
+							onChange=${(event) =>
+								controller()?.setShotCameraExportGridLayerMode(
+									event.currentTarget.value,
+								)}
+						>
+							<option value="bottom">${t("gridLayerMode.bottom")}</option>
+							<option value="overlay">${t("gridLayerMode.overlay")}</option>
+						</select>
+					</label>
+				`
+			}
+			${
+				exportFormat === "psd" &&
+				html`
+					<label class="checkbox-field">
+						<input
+							id="shot-camera-export-model-layers"
+							type="checkbox"
+							checked=${exportModelLayers}
+							onChange=${(event) =>
+								controller()?.setShotCameraExportModelLayers(
+									event.currentTarget.checked,
+								)}
+						/>
+						<span>${t("field.exportModelLayers")}</span>
+					</label>
+					<label class="checkbox-field">
+						<input
+							id="shot-camera-export-splat-layers"
+							type="checkbox"
+							checked=${exportSplatLayers}
+							disabled=${!exportModelLayers}
+							onChange=${(event) =>
+								controller()?.setShotCameraExportSplatLayers(
+									event.currentTarget.checked,
+								)}
+						/>
+						<span>${t("field.exportSplatLayers")}</span>
+					</label>
+				`
+			}
 		</section>
 	`;
 }

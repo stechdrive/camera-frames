@@ -51,6 +51,7 @@ import {
 } from "./project-package.js";
 import {
 	WORKSPACE_PANE_CAMERA,
+	WORKSPACE_PANE_VIEWPORT,
 	cloneShotCameraDocument,
 } from "./workspace-model.js";
 
@@ -767,6 +768,7 @@ export function createCameraFramesController(elements, store) {
 		cancelHistoryTransaction: historyController.cancelHistoryTransaction,
 	});
 	interactionController = createInteractionController({
+		store,
 		state,
 		viewportShell,
 		fpsMovement,
@@ -778,6 +780,15 @@ export function createCameraFramesController(elements, store) {
 		getViewZoomFactor: () => state.outputFrame.viewZoom,
 		setViewZoomFactor: (nextZoom) =>
 			outputFrameController.setViewZoomFactor(nextZoom),
+		getShotCameraBaseFovX: () => state.baseFovX,
+		setShotCameraBaseFovXLive: (nextValue) => {
+			state.baseFovX = Number(nextValue);
+			updateUi();
+		},
+		beginHistoryTransaction: (label) =>
+			historyController?.beginHistoryTransaction(label),
+		commitHistoryTransaction: (label) =>
+			historyController?.commitHistoryTransaction(label),
 	});
 	viewportToolController = createViewportToolController({
 		store,
@@ -858,9 +869,12 @@ export function createCameraFramesController(elements, store) {
 		updateOutputFrameOverlay,
 		setStatus,
 		startZoomToolDrag,
+		startLensAdjustDrag: (...args) =>
+			interactionController?.startLensAdjustDrag(...args) ?? false,
 		toggleZoomTool,
 		toggleViewportSelectMode,
 		toggleViewportTransformMode,
+		toggleViewportPivotEditMode,
 		saveProject: () => projectController?.saveProject(),
 		exportProject: () => projectController?.exportProject(),
 		undoHistory: () => historyController?.undoHistory(),
@@ -873,13 +887,30 @@ export function createCameraFramesController(elements, store) {
 		isInteractiveTextTarget,
 		isZoomInteractionMode: () =>
 			interactionController?.isZoomInteractionMode() ?? false,
+		isPieInteractionMode: () =>
+			interactionController?.isPieInteractionMode() ?? false,
+		isLensInteractionMode: () =>
+			interactionController?.isLensInteractionMode() ?? false,
 		applyNavigateInteractionMode: () =>
 			interactionController?.applyNavigateInteractionMode(),
+		openViewportPieMenu: (...args) =>
+			interactionController?.openViewportPieMenu(...args) ?? false,
+		updateViewportPiePointer: (...args) =>
+			interactionController?.updateViewportPiePointer(...args),
+		finishViewportPieMenu: (...args) =>
+			interactionController?.finishViewportPieMenu(...args) ?? null,
+		closeViewportPieMenu: (...args) =>
+			interactionController?.closeViewportPieMenu(...args),
+		handleViewportPieAction: executeViewportPieAction,
 		isFrameSelectionActive,
 		clearFrameSelection,
 		clearOutputFrameSelection,
 		handleZoomToolDragMove,
 		handleZoomToolDragEnd,
+		handleLensAdjustDragMove: (...args) =>
+			interactionController?.handleLensAdjustDragMove(...args),
+		handleLensAdjustDragEnd: (...args) =>
+			interactionController?.handleLensAdjustDragEnd(...args),
 		handleOutputFramePanMove: outputFrameController.handleOutputFramePanMove,
 		handleOutputFramePanEnd: outputFrameController.handleOutputFramePanEnd,
 		handleOutputFrameResizeMove:
@@ -1170,19 +1201,34 @@ export function createCameraFramesController(elements, store) {
 		return uiSyncController?.updateUi();
 	}
 
-	function setViewportPivotEditMode(nextEnabled) {
-		viewportToolController.setViewportPivotEditMode(nextEnabled);
+	function setViewportToolMode(nextMode) {
+		switch (nextMode) {
+			case "select":
+				viewportToolController.setViewportSelectMode(true);
+				break;
+			case "transform":
+				viewportToolController.setViewportTransformMode(true);
+				break;
+			case "pivot":
+				viewportToolController.setViewportPivotEditMode(true);
+				break;
+			default:
+				viewportToolController.setViewportTransformMode(false);
+				break;
+		}
 		interactionController?.syncControlsToMode();
+	}
+
+	function setViewportPivotEditMode(nextEnabled) {
+		setViewportToolMode(nextEnabled ? "pivot" : "none");
 	}
 
 	function setViewportSelectMode(nextEnabled) {
-		viewportToolController.setViewportSelectMode(nextEnabled);
-		interactionController?.syncControlsToMode();
+		setViewportToolMode(nextEnabled ? "select" : "none");
 	}
 
 	function setViewportTransformMode(nextEnabled) {
-		viewportToolController.setViewportTransformMode(nextEnabled);
-		interactionController?.syncControlsToMode();
+		setViewportToolMode(nextEnabled ? "transform" : "none");
 	}
 
 	function toggleViewportSelectMode() {
@@ -1195,6 +1241,46 @@ export function createCameraFramesController(elements, store) {
 
 	function toggleViewportPivotEditMode() {
 		setViewportPivotEditMode(!store.viewportPivotEditMode.value);
+	}
+
+	function handleViewportPieAction(actionId, pointerEvent = null) {
+		switch (actionId) {
+			case "tool-none":
+				setViewportToolMode("none");
+				return true;
+			case "tool-select":
+				setViewportToolMode("select");
+				return true;
+			case "tool-transform":
+				setViewportToolMode("transform");
+				return true;
+			case "tool-pivot":
+				setViewportToolMode("pivot");
+				return true;
+			case "toggle-view-mode":
+				cameraController.setMode(
+					state.mode === WORKSPACE_PANE_CAMERA
+						? WORKSPACE_PANE_VIEWPORT
+						: WORKSPACE_PANE_CAMERA,
+				);
+				return true;
+			case "reset-view":
+				cameraController.resetActiveView();
+				return true;
+			case "frame-create":
+				frameController.createFrame();
+				return true;
+			case "adjust-lens":
+				interactionController?.activateLensAdjustMode(pointerEvent);
+				return true;
+			default:
+				return false;
+		}
+	}
+
+	function executeViewportPieAction(actionId, pointerEvent = null) {
+		interactionController?.closeViewportPieMenu({ silent: true });
+		return handleViewportPieAction(actionId, pointerEvent);
 	}
 
 	function resetSelectedAssetWorkingPivot() {
@@ -1311,6 +1397,9 @@ export function createCameraFramesController(elements, store) {
 		copyViewportToShotCamera: cameraController.copyViewportToShotCamera,
 		copyShotCameraToViewport: cameraController.copyShotCameraToViewport,
 		resetActiveView: cameraController.resetActiveView,
+		executeViewportPieAction,
+		closeViewportPieMenu: (...args) =>
+			interactionController?.closeViewportPieMenu(...args),
 		downloadOutput: exportController.downloadOutput,
 		downloadPng: exportController.downloadPng,
 		downloadPsd: exportController.downloadPsd,

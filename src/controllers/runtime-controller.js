@@ -18,6 +18,7 @@ export function createRuntimeController({
 	updateOutputFrameOverlay,
 	setStatus,
 	startZoomToolDrag,
+	startLensAdjustDrag,
 	toggleZoomTool,
 	toggleViewportSelectMode,
 	toggleViewportTransformMode,
@@ -31,12 +32,21 @@ export function createRuntimeController({
 	commitHistoryTransaction,
 	isInteractiveTextTarget,
 	isZoomInteractionMode,
+	isPieInteractionMode,
+	isLensInteractionMode,
 	applyNavigateInteractionMode,
+	openViewportPieMenu,
+	updateViewportPiePointer,
+	finishViewportPieMenu,
+	closeViewportPieMenu,
+	handleViewportPieAction,
 	isFrameSelectionActive,
 	clearFrameSelection,
 	clearOutputFrameSelection,
 	handleZoomToolDragMove,
 	handleZoomToolDragEnd,
+	handleLensAdjustDragMove,
+	handleLensAdjustDragEnd,
 	handleOutputFramePanMove,
 	handleOutputFramePanEnd,
 	handleOutputFrameResizeMove,
@@ -143,9 +153,11 @@ export function createRuntimeController({
 		navigationHistory.flush();
 	}
 
-	function listen(target, eventName, handler) {
-		target.addEventListener(eventName, handler);
-		disposers.push(() => target.removeEventListener(eventName, handler));
+	function listen(target, eventName, handler, options = false) {
+		target.addEventListener(eventName, handler, options);
+		disposers.push(() =>
+			target.removeEventListener(eventName, handler, options),
+		);
 	}
 
 	function bindViewportInteractions() {
@@ -160,6 +172,7 @@ export function createRuntimeController({
 			updateOutputFrameOverlay,
 			setStatus,
 			startZoomToolDrag,
+			startLensAdjustDrag,
 			toggleZoomTool,
 			toggleViewportSelectMode,
 			toggleViewportTransformMode,
@@ -175,7 +188,14 @@ export function createRuntimeController({
 			isViewportSelectMode: () => store.viewportSelectMode.value,
 			getActiveCamera,
 			isZoomInteractionMode,
+			isPieInteractionMode,
+			isLensInteractionMode,
 			applyNavigateInteractionMode,
+			openViewportPieMenu,
+			updateViewportPiePointer,
+			finishViewportPieMenu,
+			closeViewportPieMenu,
+			handleViewportPieAction,
 			state,
 			fpsMovement,
 			pointerControls,
@@ -184,6 +204,8 @@ export function createRuntimeController({
 			clearOutputFrameSelection,
 			handleZoomToolDragMove,
 			handleZoomToolDragEnd,
+			handleLensAdjustDragMove,
+			handleLensAdjustDragEnd,
 			handleOutputFramePanMove,
 			handleOutputFramePanEnd,
 			handleOutputFrameResizeMove,

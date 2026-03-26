@@ -3,7 +3,7 @@ import { useState } from "preact/hooks";
 import { FRAME_MAX_COUNT } from "../constants.js";
 import { getAnchorOptions } from "../i18n.js";
 import { WorkbenchIcon } from "./workbench-icons.js";
-import { HeaderWordmark } from "./workbench-primitives.js";
+import { HeaderMenu, HeaderWordmark } from "./workbench-primitives.js";
 import {
 	ExportSection,
 	ExportSettingsSection,
@@ -81,10 +81,93 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 		}
 		collapseWorkbench();
 	};
+	const projectMenuItems = [
+		{
+			id: "open-project",
+			icon: "folder-open",
+			label: t("action.openProject"),
+			onClick: () => controller()?.openProject(),
+		},
+		{
+			id: "open-working-project",
+			icon: "folder-open",
+			label: t("action.openWorkingProject"),
+			onClick: () => controller()?.openWorkingProject(),
+		},
+		{
+			id: "save-project",
+			icon: "save",
+			label: t("action.saveProject"),
+			onClick: () => controller()?.saveProject(),
+		},
+		{
+			id: "export-project",
+			icon: "package",
+			label: t("action.exportProject"),
+			onClick: () => controller()?.exportProject(),
+		},
+		{
+			id: "clear-scene",
+			icon: "trash",
+			label: t("action.clear"),
+			destructive: true,
+			onClick: () => controller()?.clearScene(),
+		},
+	];
+	const fileMenuChildren = html`
+		<div class="workbench-menu__group">
+			<button
+				id="open-files"
+				type="button"
+				class="workbench-menu__item"
+				onClick=${() => controller()?.openFiles()}
+			>
+				<span class="workbench-menu__item-icon">
+					<${WorkbenchIcon} name="folder-open" size=${14} />
+				</span>
+				<span>${t("action.openFiles")}</span>
+			</button>
+			<div class="workbench-menu__field">
+				<label for="header-url-input">${t("field.remoteUrl")}</label>
+				<input
+					id="header-url-input"
+					type="text"
+					placeholder="https://.../scene.spz or model.glb"
+					value=${store.remoteUrl.value}
+					onInput=${(event) => {
+						store.remoteUrl.value = event.currentTarget.value;
+					}}
+					onKeyDown=${(event) => {
+						if (event.key === "Enter") {
+							event.preventDefault();
+							controller()?.loadRemoteUrls();
+						}
+					}}
+				/>
+			</div>
+			<button
+				id="load-url"
+				type="button"
+				class="workbench-menu__item"
+				onClick=${() => controller()?.loadRemoteUrls()}
+			>
+				<span class="workbench-menu__item-icon">
+					<${WorkbenchIcon} name="folder-open" size=${14} />
+				</span>
+				<span>${t("action.loadUrl")}</span>
+			</button>
+		</div>
+	`;
 
 	if (workbenchCollapsed) {
 		return html`
 			<div class="workbench-collapse-chip-wrap">
+				<${HeaderMenu}
+					label=${t("section.file")}
+					items=${projectMenuItems}
+				>
+					${fileMenuChildren}
+				<//>
 				<button
 					type="button"
 					class="workbench-collapse-chip"
@@ -112,6 +195,14 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 						compact=${true}
 						collapsed=${false}
 						onToggleCollapse=${toggleWorkbenchCollapsed}
+						projectMenuItems=${projectMenuItems}
+						remoteUrl=${store.remoteUrl.value}
+						onRemoteUrlInput=${(value) => {
+							store.remoteUrl.value = value;
+						}}
+						onLoadRemoteUrls=${() => controller()?.loadRemoteUrls()}
+						onOpenFiles=${() => controller()?.openFiles()}
+						menuChildren=${fileMenuChildren}
 					/>
 					<${ViewSection}
 						controller=${controller}

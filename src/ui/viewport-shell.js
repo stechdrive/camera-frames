@@ -1,5 +1,10 @@
 import { html } from "htm/preact";
+import {
+	VIEWPORT_PIE_RADIUS,
+	buildViewportPieActions,
+} from "../engine/viewport-pie.js";
 import { FrameLayer } from "./frame-layer.js";
+import { WorkbenchIcon } from "./workbench-icons.js";
 
 const OUTPUT_FRAME_RESIZE_HANDLES = [
 	"top-left",
@@ -16,6 +21,31 @@ const OUTPUT_FRAME_PAN_EDGES = ["top", "right", "bottom", "left"];
 
 export function ViewportShell({ store, controller, refs, t }) {
 	const outputFrameLabel = t("section.outputFrame");
+	const pieState = store.viewportPieMenu.value;
+	const lensHud = store.viewportLensHud.value;
+	const pieActions = pieState.open
+		? buildViewportPieActions({ mode: store.mode.value, t })
+		: [];
+	const hoveredPieAction =
+		pieActions.find((action) => action.id === pieState.hoveredActionId) ?? null;
+	const handlePieCenterPointerDown = (event) => {
+		event.preventDefault();
+		event.stopPropagation();
+	};
+	const handlePieCenterClick = (event) => {
+		event.preventDefault();
+		event.stopPropagation();
+		controller()?.closeViewportPieMenu?.();
+	};
+	const handlePieActionPointerDown = (event) => {
+		event.preventDefault();
+		event.stopPropagation();
+	};
+	const handlePieActionClick = (actionId, event) => {
+		event.preventDefault();
+		event.stopPropagation();
+		controller()?.executeViewportPieAction?.(actionId, event);
+	};
 	const transformHandleConfigs = [
 		{
 			id: "move-x",
@@ -49,6 +79,69 @@ export function ViewportShell({ store, controller, refs, t }) {
 				<strong>${t("drop.title")}</strong>
 				<span>${t("drop.body")}</span>
 			</div>
+			${
+				pieState.open &&
+				html`
+					<div
+						class="viewport-pie"
+						style=${{
+							left: `${pieState.x}px`,
+							top: `${pieState.y}px`,
+						}}
+					>
+						<button
+							type="button"
+							class="viewport-pie__center"
+							onPointerDown=${handlePieCenterPointerDown}
+							onClick=${handlePieCenterClick}
+						>
+							<span class="viewport-pie__center-label">
+								${hoveredPieAction?.label ?? t("action.quickMenu")}
+							</span>
+						</button>
+						${pieActions.map((action) => {
+							const offsetX = Math.cos(action.angle) * VIEWPORT_PIE_RADIUS;
+							const offsetY = Math.sin(action.angle) * VIEWPORT_PIE_RADIUS;
+							return html`
+								<button
+									key=${action.id}
+									type="button"
+									class=${
+										action.id === pieState.hoveredActionId
+											? "viewport-pie__item viewport-pie__item--active"
+											: "viewport-pie__item"
+									}
+									style=${{
+										left: `${offsetX}px`,
+										top: `${offsetY}px`,
+									}}
+									onPointerDown=${handlePieActionPointerDown}
+									onClick=${(event) => handlePieActionClick(action.id, event)}
+								>
+									<span class="viewport-pie__item-icon">
+										<${WorkbenchIcon} name=${action.icon} size=${18} />
+									</span>
+								</button>
+							`;
+						})}
+					</div>
+				`
+			}
+			${
+				lensHud.visible &&
+				html`
+					<div
+						class="viewport-lens-hud"
+						style=${{
+							left: `${lensHud.x}px`,
+							top: `${lensHud.y}px`,
+						}}
+					>
+						<strong>${lensHud.mmLabel}</strong>
+						<span>${lensHud.fovLabel}</span>
+					</div>
+				`
+			}
 			<div id="render-box" ref=${refs.renderBoxRef} class="render-box">
 				<${FrameLayer}
 					store=${store}

@@ -54,6 +54,19 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	);
 
 	const remoteUrl = signal("");
+	const viewportPieMenu = signal({
+		open: false,
+		x: 0,
+		y: 0,
+		hoveredActionId: null,
+	});
+	const viewportLensHud = signal({
+		visible: false,
+		x: 0,
+		y: 0,
+		mmLabel: "",
+		fovLabel: "",
+	});
 	const sceneBadge = signal(translate(initialLocale, "scene.badgeEmpty"));
 	const sceneUnitBadge = signal(SCENE_UNIT_BADGE);
 	const sceneSummary = signal(translate(initialLocale, "scene.summaryEmpty"));
@@ -210,6 +223,8 @@ export function createCameraFramesStore(runtimeInfo = null) {
 		workbenchManualCollapsed,
 		workbenchAutoCollapsed,
 		workbenchManualExpanded,
+		viewportPieMenu,
+		viewportLensHud,
 		viewportBaseFovX,
 		viewportToolMode,
 		viewportTransformSpace,

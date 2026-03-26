@@ -25,6 +25,15 @@ function renderIconPath(name) {
 				<path d="M4 8.5h11l2.5-2.5h2v12h-2L15 15.5H4z"></path>
 				<circle cx="10" cy="12" r="2.5"></circle>
 			`;
+		case "lens":
+			return html`
+				<circle cx="12" cy="12" r="7"></circle>
+				<circle cx="12" cy="12" r="3"></circle>
+				<path d="M12 5V3"></path>
+				<path d="M12 21v-2"></path>
+				<path d="M19 12h2"></path>
+				<path d="M3 12h2"></path>
+			`;
 		case "frame":
 			return html`
 				<rect x="4" y="5" width="16" height="14" rx="2"></rect>
@@ -45,6 +54,29 @@ function renderIconPath(name) {
 				<path d="M5 21h14"></path>
 				<path d="M7.5 17.5v3.5"></path>
 				<path d="M16.5 17.5v3.5"></path>
+			`;
+		case "folder-open":
+			return html`
+				<path d="M3 8.5h6l2 2H21v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+				<path d="M3 8V6a2 2 0 0 1 2-2h4l2 2h3"></path>
+			`;
+		case "save":
+			return html`
+				<path d="M5 4h12l2 2v14H5z"></path>
+				<path d="M8 4v5h7V4"></path>
+				<rect x="8" y="14" width="8" height="5" rx="1"></rect>
+			`;
+		case "menu":
+			return html`
+				<path d="M4 7h16"></path>
+				<path d="M4 12h16"></path>
+				<path d="M4 17h16"></path>
+			`;
+		case "package":
+			return html`
+				<path d="M12 3l8 4.5-8 4.5-8-4.5 8-4.5z"></path>
+				<path d="M4 7.5V16.5L12 21l8-4.5V7.5"></path>
+				<path d="M12 12v9"></path>
 			`;
 		case "plus":
 			return html`

@@ -58,11 +58,54 @@ export function WorkbenchTabs({ tabs, activeTab, setActiveTab, ariaLabel }) {
 export function HeaderWordmark({ title, compact = false }) {
 	return html`
 		<div class=${compact ? "panel-header__brand panel-header__brand--compact" : "panel-header__brand"}>
-			<span class="panel-header__brand-mark">
-				<${WorkbenchIcon} name="camera-frames" size=${compact ? 16 : 18} />
-			</span>
 			<h1>${title}</h1>
 		</div>
+	`;
+}
+
+export function HeaderMenu({ icon = "menu", label, items = [], children }) {
+	const visibleItems = items.filter(Boolean);
+	return html`
+		<details class="workbench-menu">
+			<summary
+				class="workbench-menu__trigger"
+				aria-label=${label}
+				title=${label}
+			>
+				<${WorkbenchIcon} name=${icon} size=${16} />
+			</summary>
+			<div class="workbench-menu__panel">
+				${children}
+				${visibleItems.map(
+					(item) => html`
+						<button
+							key=${item.id ?? item.label}
+							type="button"
+							class=${
+								item.destructive
+									? "workbench-menu__item workbench-menu__item--destructive"
+									: "workbench-menu__item"
+							}
+							onClick=${(event) => {
+								const details = event.currentTarget.closest("details");
+								details?.removeAttribute("open");
+								item.onClick?.();
+							}}
+						>
+							${
+								item.icon &&
+								html`
+									<span class="workbench-menu__item-icon">
+										<${WorkbenchIcon} name=${item.icon} size=${14} />
+									</span>
+								`
+							}
+							<span>${item.label}</span>
+						</button>
+					`,
+				)}
+			</div>
+		</details>
 	`;
 }
 
@@ -98,5 +141,29 @@ export function IconButton({
 		>
 			<${WorkbenchIcon} name=${icon} size=${15} />
 		</button>
+	`;
+}
+
+export function DisclosureBlock({ icon, label, children, open = false }) {
+	return html`
+		<details class="panel-disclosure" open=${open}>
+			<summary class="panel-disclosure__summary">
+				<span class="panel-disclosure__summary-main">
+					${
+						icon &&
+						html`
+							<span class="panel-disclosure__icon">
+								<${WorkbenchIcon} name=${icon} size=${14} />
+							</span>
+						`
+					}
+					<span>${label}</span>
+				</span>
+				<span class="panel-disclosure__chevron">
+					<${WorkbenchIcon} name="chevron-right" size=${12} />
+				</span>
+			</summary>
+			<div class="panel-disclosure__body">${children}</div>
+		</details>
 	`;
 }

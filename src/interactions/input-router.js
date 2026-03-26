@@ -9,6 +9,7 @@ export function bindInputRouter({
 	updateOutputFrameOverlay,
 	setStatus,
 	startZoomToolDrag,
+	startLensAdjustDrag,
 	toggleZoomTool,
 	toggleViewportSelectMode,
 	toggleViewportTransformMode,
@@ -24,7 +25,14 @@ export function bindInputRouter({
 	isViewportSelectMode,
 	getActiveCamera,
 	isZoomInteractionMode,
+	isPieInteractionMode,
+	isLensInteractionMode,
 	applyNavigateInteractionMode,
+	openViewportPieMenu,
+	updateViewportPiePointer,
+	finishViewportPieMenu,
+	closeViewportPieMenu,
+	handleViewportPieAction,
 	state,
 	fpsMovement,
 	pointerControls,
@@ -33,6 +41,8 @@ export function bindInputRouter({
 	clearOutputFrameSelection,
 	handleZoomToolDragMove,
 	handleZoomToolDragEnd,
+	handleLensAdjustDragMove,
+	handleLensAdjustDragEnd,
 	handleOutputFramePanMove,
 	handleOutputFramePanEnd,
 	handleOutputFrameResizeMove,
@@ -53,6 +63,9 @@ export function bindInputRouter({
 	startOutputFrameAnchorDrag,
 }) {
 	let viewportSelectClickCandidate = null;
+	let viewportPieTouchHoldState = null;
+	const VIEWPORT_PIE_TOUCH_HOLD_MS = 320;
+	const VIEWPORT_PIE_TOUCH_HOLD_DISTANCE_PX = 12;
 
 	function isHistoryShortcut(event) {
 		const hasHistoryModifier = event.ctrlKey || event.metaKey;
@@ -108,6 +121,131 @@ export function bindInputRouter({
 		].join("|");
 	}
 
+	function isMiddleMouseButton(event) {
+		return event.button === 1;
+	}
+
+	function shouldOpenViewportPie(event) {
+		if (!isMiddleMouseButton(event)) {
+			return false;
+		}
+		if (isInteractiveTextTarget(event.target)) {
+			return false;
+		}
+		return true;
+	}
+
+	function isViewportPieTarget(target) {
+		return (
+			target instanceof Element &&
+			target.closest(".viewport-pie__item, .viewport-pie__center") !== null
+		);
+	}
+
+	function clearViewportPieTouchHold() {
+		if (!viewportPieTouchHoldState) {
+			return;
+		}
+		window.clearTimeout(viewportPieTouchHoldState.timeoutId);
+		viewportPieTouchHoldState = null;
+	}
+
+	function isTouchViewportPieCandidate(event) {
+		if (event.pointerType !== "touch" || event.button !== 0) {
+			return false;
+		}
+		if (isInteractiveTextTarget(event.target)) {
+			return false;
+		}
+		const target = event.target instanceof Element ? event.target : null;
+		if (
+			target?.closest(
+				".viewport-pie, .frame-item, #viewport-gizmo, .workbench-shell",
+			)
+		) {
+			return false;
+		}
+		return (
+			target?.closest("#viewport") !== null ||
+			target?.closest("#render-box") !== null
+		);
+	}
+
+	listen(
+		viewportShell,
+		"pointerdown",
+		(event) => {
+			if (!isPieInteractionMode?.()) {
+				return;
+			}
+			if (isViewportPieTarget(event.target)) {
+				return;
+			}
+			event.preventDefault();
+			event.stopPropagation();
+			event.stopImmediatePropagation?.();
+			closeViewportPieMenu?.();
+		},
+		{ capture: true },
+	);
+
+	listen(
+		viewportShell,
+		"pointerdown",
+		(event) => {
+			if (!shouldOpenViewportPie(event)) {
+				return;
+			}
+			event.preventDefault();
+			event.stopPropagation();
+			event.stopImmediatePropagation?.();
+			openViewportPieMenu?.(event);
+		},
+		{ capture: true },
+	);
+
+	listen(
+		viewportShell,
+		"pointerdown",
+		(event) => {
+			if (!isTouchViewportPieCandidate(event)) {
+				return;
+			}
+			clearViewportPieTouchHold();
+			viewportPieTouchHoldState = {
+				pointerId: event.pointerId,
+				startClientX: event.clientX,
+				startClientY: event.clientY,
+				timeoutId: window.setTimeout(() => {
+					openViewportPieMenu?.(
+						{
+							button: event.button,
+							clientX: event.clientX,
+							clientY: event.clientY,
+						},
+						{ force: true },
+					);
+					viewportPieTouchHoldState = null;
+				}, VIEWPORT_PIE_TOUCH_HOLD_MS),
+			};
+		},
+		{ capture: true },
+	);
+
+	listen(
+		viewportShell,
+		"auxclick",
+		(event) => {
+			if (!isMiddleMouseButton(event)) {
+				return;
+			}
+			event.preventDefault();
+			event.stopPropagation();
+			event.stopImmediatePropagation?.();
+		},
+		{ capture: true },
+	);
+
 	listen(viewportShell, "dragover", (event) => {
 		event.preventDefault();
 		dropHint.classList.remove("is-hidden");
@@ -158,11 +296,22 @@ export function bindInputRouter({
 	});
 
 	listen(viewportShell, "pointerdown", (event) => {
+		const target = event.target instanceof Element ? event.target : null;
+		if (target?.closest(".viewport-pie")) {
+			return;
+		}
+		if (viewportPieTouchHoldState?.pointerId === event.pointerId) {
+			return;
+		}
+
+		if (startLensAdjustDrag?.(event)) {
+			return;
+		}
+
 		if (startZoomToolDrag(event)) {
 			return;
 		}
 
-		const target = event.target instanceof Element ? event.target : null;
 		if (target?.closest(".frame-item")) {
 			return;
 		}
@@ -206,6 +355,54 @@ export function bindInputRouter({
 	listen(window, "pointermove", handleZoomToolDragMove);
 	listen(window, "pointerup", handleZoomToolDragEnd);
 	listen(window, "pointercancel", handleZoomToolDragEnd);
+	listen(window, "pointermove", handleLensAdjustDragMove);
+	listen(window, "pointerup", handleLensAdjustDragEnd);
+	listen(window, "pointercancel", handleLensAdjustDragEnd);
+	listen(window, "pointermove", (event) => {
+		if (
+			!viewportPieTouchHoldState ||
+			event.pointerId !== viewportPieTouchHoldState.pointerId
+		) {
+			return;
+		}
+		const deltaX = event.clientX - viewportPieTouchHoldState.startClientX;
+		const deltaY = event.clientY - viewportPieTouchHoldState.startClientY;
+		if (Math.hypot(deltaX, deltaY) > VIEWPORT_PIE_TOUCH_HOLD_DISTANCE_PX) {
+			clearViewportPieTouchHold();
+		}
+	});
+	listen(window, "pointermove", (event) => {
+		if (!isPieInteractionMode?.()) {
+			return;
+		}
+		updateViewportPiePointer?.(event);
+	});
+	listen(window, "pointerup", (event) => {
+		if (!isPieInteractionMode?.() || !isMiddleMouseButton(event)) {
+			return;
+		}
+		event.preventDefault();
+		const actionId = finishViewportPieMenu?.(event);
+		if (actionId) {
+			handleViewportPieAction?.(actionId, event);
+		}
+	});
+	listen(window, "pointercancel", () => {
+		if (!isPieInteractionMode?.()) {
+			return;
+		}
+		closeViewportPieMenu?.();
+	});
+	listen(window, "pointerup", (event) => {
+		if (viewportPieTouchHoldState?.pointerId === event.pointerId) {
+			clearViewportPieTouchHold();
+		}
+	});
+	listen(window, "pointercancel", (event) => {
+		if (viewportPieTouchHoldState?.pointerId === event.pointerId) {
+			clearViewportPieTouchHold();
+		}
+	});
 	listen(window, "pointerup", (event) => {
 		if (
 			!viewportSelectClickCandidate ||
@@ -277,6 +474,18 @@ export function bindInputRouter({
 			return;
 		}
 
+		if (event.code === "Escape" && isPieInteractionMode?.()) {
+			event.preventDefault();
+			closeViewportPieMenu?.();
+			return;
+		}
+
+		if (event.code === "Escape" && isLensInteractionMode?.()) {
+			event.preventDefault();
+			applyNavigateInteractionMode();
+			return;
+		}
+
 		if (isInteractiveTextTarget(event.target)) {
 			return;
 		}
@@ -344,6 +553,8 @@ export function bindInputRouter({
 		requestNavigationHistoryCommit?.();
 	});
 	listen(window, "blur", () => {
+		clearViewportPieTouchHold();
+		closeViewportPieMenu?.();
 		flushNavigationHistory?.();
 	});
 

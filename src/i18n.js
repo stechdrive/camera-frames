@@ -79,8 +79,10 @@ const MESSAGES = {
 			exportTarget: "書き出し対象",
 		},
 		section: {
+			file: "ファイル",
 			view: "ビュー",
 			scene: "シーン",
+			project: "プロジェクト",
 			shotCamera: "Camera",
 			frames: "FRAME",
 			outputFrame: "出力フレーム",
@@ -152,6 +154,8 @@ const MESSAGES = {
 			downloadPsd: "PSDを書き出す",
 			resetScale: "1xに戻す",
 			resetPivot: "Pivotを戻す",
+			adjustLens: "焦点距離調整",
+			quickMenu: "クイックメニュー",
 			newFrame: "FRAME を追加",
 			duplicateFrame: "複製",
 			deleteFrame: "削除",
@@ -287,6 +291,7 @@ const MESSAGES = {
 			zoomToolEnabled:
 				"ズームツール有効。カメラビュー上でドラッグして拡縮、Z か Esc で解除。",
 			zoomToolUnavailable: "ズームツールはカメラビューでのみ使えます。",
+			lensToolEnabled: "焦点距離調整。ドラッグで 35mm換算を変更、Esc で解除。",
 			localeChanged: "表示言語を {language} に切り替えました。",
 			assetScaleUpdated: "{name} のワールドスケールを {scale} にしました。",
 			assetTransformUpdated: "{name} のトランスフォームを更新しました。",
@@ -423,8 +428,10 @@ const MESSAGES = {
 			exportTarget: "Export Target",
 		},
 		section: {
+			file: "File",
 			view: "View",
 			scene: "Scene",
+			project: "Project",
 			shotCamera: "Camera",
 			frames: "FRAME",
 			outputFrame: "Output Frame",
@@ -496,6 +503,8 @@ const MESSAGES = {
 			downloadPsd: "Download PSD",
 			resetScale: "Reset 1x",
 			resetPivot: "Reset Pivot",
+			adjustLens: "Adjust Lens",
+			quickMenu: "Quick Menu",
 			newFrame: "Add FRAME",
 			duplicateFrame: "Duplicate",
 			deleteFrame: "Delete",
@@ -635,6 +644,8 @@ const MESSAGES = {
 			zoomToolEnabled:
 				"Zoom tool active. Drag in Camera View to zoom, press Z or Esc to exit.",
 			zoomToolUnavailable: "Zoom tool is only available in Camera View.",
+			lensToolEnabled:
+				"Lens adjust active. Drag to change 35mm equivalent, press Esc to exit.",
 			localeChanged: "Display language switched to {language}.",
 			assetScaleUpdated: "Set {name} world scale to {scale}.",
 			assetTransformUpdated: "Updated {name} transform.",
