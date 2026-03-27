@@ -106,7 +106,12 @@ async function isLegacyCameraFramesProjectSource(source) {
 	}
 }
 
-function buildPackageProgressOverlay(t, phase, detail = "") {
+function buildPackageProgressOverlay(
+	t,
+	phase,
+	detail = "",
+	{ startedAt = 0 } = {},
+) {
 	const steps = [
 		{
 			id: "collect-state",
@@ -132,6 +137,7 @@ function buildPackageProgressOverlay(t, phase, detail = "") {
 		title: t("overlay.packageSaveTitle"),
 		message: t("overlay.packageSaveMessage"),
 		detail,
+		startedAt,
 		steps: steps.map((step, index) => ({
 			label: step.label,
 			status:
@@ -142,6 +148,75 @@ function buildPackageProgressOverlay(t, phase, detail = "") {
 						: "pending",
 		})),
 	};
+}
+
+function buildPackageErrorOverlay(t, error) {
+	const detail = String(
+		error?.stack ??
+			error?.message ??
+			error ??
+			t("overlay.packageSaveErrorMessage"),
+	).trim();
+	return {
+		kind: "error",
+		title: t("overlay.packageSaveErrorTitle"),
+		message: t("overlay.packageSaveErrorMessage"),
+		detail,
+		detailLabel: t("overlay.errorDetails"),
+		actions: [
+			{
+				label: t("action.close"),
+				primary: true,
+				onClick: () => {},
+			},
+		],
+	};
+}
+
+async function waitForOverlayFrame() {
+	if (typeof globalThis.requestAnimationFrame === "function") {
+		await new Promise((resolve) => globalThis.requestAnimationFrame(resolve));
+		return;
+	}
+	await new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+function buildPackageProgressDetail(
+	t,
+	{
+		phase,
+		stage = "",
+		index = 0,
+		total = 0,
+		assetLabel = "",
+		message = "",
+		percent = null,
+	} = {},
+) {
+	const assetDetail =
+		assetLabel && total
+			? t("overlay.packageDetailAsset", {
+					index,
+					total,
+					name: assetLabel,
+				})
+			: "";
+	const stageKey =
+		phase === "compress-splats"
+			? `overlay.packageCompressStage.${stage}`
+			: `overlay.packageResolveStage.${stage}`;
+	const stageDetail = message
+		? percent == null
+			? message
+			: `${message} (${Math.max(0, Math.min(100, Math.round(percent)))}%)`
+		: stage
+			? t(stageKey)
+			: "";
+	const resolvedStageDetail = stageDetail !== stageKey ? stageDetail : "";
+	if (assetDetail && resolvedStageDetail) {
+		return `${assetDetail} · ${resolvedStageDetail}`;
+	}
+	return assetDetail || resolvedStageDetail;
 }
 
 function buildWorkingSaveRecord({
@@ -490,6 +565,7 @@ export function createProjectController({
 		values,
 		{ saveMode = "auto", saveTarget = null } = {},
 	) {
+		const progressStartedAt = Date.now();
 		const compressSplatsToSog = values.compressSplatsToSog === true;
 		const sogMaxShBands = Number.parseInt(values.sogMaxShBands ?? "", 10);
 		const sogIterations = Number.parseInt(values.sogIterations ?? "", 10);
@@ -522,6 +598,7 @@ export function createProjectController({
 				t,
 				"collect-state",
 				t("overlay.packageDetailCollect"),
+				{ startedAt: progressStartedAt },
 			),
 		);
 		await new Promise((resolve) => requestAnimationFrame(resolve));
@@ -533,16 +610,14 @@ export function createProjectController({
 					compressSplatsToSog: preferredPackageSaveOptions.compressSplatsToSog,
 					sogMaxShBands: preferredPackageSaveOptions.sogMaxShBands,
 					sogIterations: preferredPackageSaveOptions.sogIterations,
-					onProgress: ({ phase, index, total, assetLabel }) => {
-						const detail =
-							assetLabel && total
-								? t("overlay.packageDetailAsset", {
-										index,
-										total,
-										name: assetLabel,
-									})
-								: "";
-						setOverlay(buildPackageProgressOverlay(t, phase, detail));
+					onProgress: async (progress) => {
+						const detail = buildPackageProgressDetail(t, progress);
+						setOverlay(
+							buildPackageProgressOverlay(t, progress.phase, detail, {
+								startedAt: progressStartedAt,
+							}),
+						);
+						await waitForOverlayFrame();
 					},
 				},
 			);
@@ -552,6 +627,7 @@ export function createProjectController({
 					t,
 					"write-package",
 					t("overlay.packageDetailWrite"),
+					{ startedAt: progressStartedAt },
 				),
 			);
 			const saveResult = await writePackageArchive(
@@ -574,11 +650,14 @@ export function createProjectController({
 				}),
 			);
 		} catch (error) {
-			clearOverlay();
 			if (error?.name === "AbortError") {
+				clearOverlay();
 				return;
 			}
 			console.error(error);
+			const overlay = buildPackageErrorOverlay(t, error);
+			overlay.actions[0].onClick = () => clearOverlay();
+			setOverlay(overlay);
 			setStatus(error.message);
 		}
 	}

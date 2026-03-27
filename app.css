@@ -728,6 +728,45 @@ input[type="range"] {
 	line-height: 1.5;
 }
 
+.overlay-card__heartbeat {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin-top: 10px;
+	color: rgb(214 222 239 / 62%);
+	font-size: 12px;
+}
+
+.overlay-card__heartbeat-dots {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.overlay-card__heartbeat-dots span {
+	width: 6px;
+	height: 6px;
+	border-radius: 999px;
+	background: rgb(252 191 73 / 22%);
+	transition: background-color 120ms ease;
+}
+
+.overlay-card__heartbeat[data-dot-count="1"]
+	.overlay-card__heartbeat-dots
+	span:nth-child(-n + 1),
+.overlay-card__heartbeat[data-dot-count="2"]
+	.overlay-card__heartbeat-dots
+	span:nth-child(-n + 2),
+.overlay-card__heartbeat[data-dot-count="3"]
+	.overlay-card__heartbeat-dots
+	span:nth-child(-n + 3) {
+	background: rgb(252 191 73 / 88%);
+}
+
+.overlay-card__heartbeat-time {
+	font-variant-numeric: tabular-nums;
+}
+
 .overlay-card__error-detail {
 	margin: 12px 0 0;
 	padding: 12px;
