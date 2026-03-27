@@ -113,12 +113,16 @@ function renderOverlayButtonsWithState(
 	`;
 }
 
-function renderProgressBody(overlay) {
+function renderProgressBody(overlay, progressTick = Date.now()) {
 	const stepCount = overlay.steps?.length ?? 0;
 	const completedSteps =
 		overlay.steps?.filter((step) => step.status === "done").length ?? 0;
 	const activeProgress =
 		stepCount > 0 ? ((completedSteps + 0.5) / stepCount) * 100 : null;
+	const elapsedSeconds = overlay.startedAt
+		? Math.max(0, Math.floor((progressTick - overlay.startedAt) / 1000))
+		: null;
+	const activeDotCount = ((Math.floor(progressTick / 400) % 3) + 1).toString();
 
 	return html`
 		${
@@ -141,6 +145,23 @@ function renderProgressBody(overlay) {
 		${
 			overlay.detail &&
 			html`<p class="overlay-card__detail">${overlay.detail}</p>`
+		}
+		${
+			elapsedSeconds != null &&
+			html`
+				<div
+					class="overlay-card__heartbeat"
+					data-dot-count=${activeDotCount}
+					aria-hidden="true"
+				>
+					<span class="overlay-card__heartbeat-dots">
+						<span></span>
+						<span></span>
+						<span></span>
+					</span>
+					<span class="overlay-card__heartbeat-time">${elapsedSeconds}s</span>
+				</div>
+			`
 		}
 		${
 			overlay.steps?.length > 0 &&
@@ -194,11 +215,23 @@ export function AppOverlay({ overlay }) {
 		buildOverlayFieldState(overlay?.fields),
 	);
 	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [progressTick, setProgressTick] = useState(() => Date.now());
 
 	useEffect(() => {
 		setFieldValues(buildOverlayFieldState(overlay?.fields));
 		setIsSubmitting(false);
 	}, [overlay]);
+
+	useEffect(() => {
+		if (overlay?.kind !== "progress" || !overlay?.startedAt) {
+			return;
+		}
+
+		const timer = globalThis.setInterval(() => {
+			setProgressTick(Date.now());
+		}, 400);
+		return () => globalThis.clearInterval(timer);
+	}, [overlay?.kind, overlay?.startedAt]);
 
 	if (!overlay) {
 		return null;
@@ -249,7 +282,11 @@ export function AppOverlay({ overlay }) {
 					`
 				}
 				${renderOverlayFields(overlay, fieldValues, setFieldValues)}
-				${overlay.kind === "progress" ? renderProgressBody(overlay) : null}
+				${
+					overlay.kind === "progress"
+						? renderProgressBody(overlay, progressTick)
+						: null
+				}
 				${overlay.kind === "error" ? renderErrorBody(overlay) : null}
 				${renderOverlayButtonsWithState(
 					overlayWithActions,

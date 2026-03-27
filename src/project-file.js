@@ -1,5 +1,11 @@
 import { strToU8, zipSync } from "fflate";
 import { SPLAT_EXTENSIONS } from "./constants.js";
+import { splatTransform, webpWasmUrl } from "./engine/sog-compress-runtime.js";
+import { compressEmbeddedSplatSourceAsSogInWorker } from "./engine/sog-compress-worker-client.js";
+import {
+	buildDataTableFromSerializedSogColumns,
+	readSerializedSogColumnsFromInput,
+} from "./engine/sog-data-table.js";
 import {
 	PROJECT_DOCUMENT_PATH,
 	PROJECT_FORMAT,
@@ -24,9 +30,133 @@ import { ZipReader } from "./project-package.js";
 
 const DEFAULT_SOG_ITERATIONS = 10;
 const DEFAULT_SOG_MAX_SH_BANDS = 2;
+const SOG_SERIALIZABLE_EXTENSIONS = new Set(["ply", "spz"]);
 
 function getPackageSaveOptionValue(value, fallback) {
 	return Number.isFinite(value) ? value : fallback;
+}
+
+async function notifyPackageProgress(onProgress, payload) {
+	if (typeof onProgress !== "function") {
+		return;
+	}
+	await onProgress(payload);
+}
+
+function reportSplatTransformProgress(onProgress, progress, text, percent = 0) {
+	if (!progress) {
+		return;
+	}
+	void notifyPackageProgress(onProgress, {
+		...progress,
+		stage: "worker-progress",
+		message: text,
+		percent,
+	});
+}
+
+function reportExplicitSplatStage(onProgress, progress, text, percent = 0) {
+	reportSplatTransformProgress(onProgress, progress, text, percent);
+}
+
+function createSplatTransformProgressLogger(onProgress, progress) {
+	let lastText = "";
+	let lastPercent = -1;
+	return {
+		log: () => {},
+		warn: console.warn,
+		error: console.error,
+		debug: () => {},
+		output: () => {},
+		onProgress: (node) => {
+			if (node.depth === 0) {
+				if (node.step <= 0) {
+					return;
+				}
+				const text = node.stepName
+					? `Step ${node.step}/${node.totalSteps}: ${node.stepName}`
+					: `Step ${node.step}/${node.totalSteps}`;
+				if (text === lastText) {
+					return;
+				}
+				lastText = text;
+				lastPercent = -1;
+				reportSplatTransformProgress(onProgress, progress, text, 0);
+				return;
+			}
+
+			const parentStep = node.parent?.step ?? node.step;
+			const parentTotal = node.parent?.totalSteps ?? node.totalSteps;
+			const parentName = node.parent?.stepName ?? node.stepName ?? "";
+			const roundedPercent = Math.max(
+				0,
+				Math.min(
+					100,
+					Math.round((100 * node.step) / Math.max(1, node.totalSteps)),
+				),
+			);
+			const text = parentName
+				? `Step ${parentStep}/${parentTotal}: ${parentName}`
+				: `Step ${parentStep}/${parentTotal}`;
+			if (text === lastText && roundedPercent === lastPercent) {
+				return;
+			}
+			lastText = text;
+			lastPercent = roundedPercent;
+			reportSplatTransformProgress(onProgress, progress, text, roundedPercent);
+		},
+	};
+}
+
+async function compressEmbeddedSplatSourceAsSogOnMainThread(
+	outputFileName,
+	serializedColumns,
+	{
+		sogIterations = DEFAULT_SOG_ITERATIONS,
+		onProgress = null,
+		progress = null,
+	} = {},
+) {
+	if (progress) {
+		reportExplicitSplatStage(
+			onProgress,
+			progress,
+			"Running SOG compression on the main thread…",
+			0,
+		);
+	}
+	splatTransform.logger?.setLogger?.(
+		createSplatTransformProgressLogger(onProgress, progress),
+	);
+	splatTransform.WebPCodec.wasmUrl ??= webpWasmUrl;
+	reportExplicitSplatStage(
+		onProgress,
+		progress,
+		"Building SOG data table on the main thread…",
+		0,
+	);
+	const filteredDataTable = buildDataTableFromSerializedSogColumns(
+		serializedColumns,
+		{
+			Column: splatTransform.Column,
+			DataTable: splatTransform.DataTable,
+		},
+	);
+	const outputFileSystem = new splatTransform.MemoryFileSystem();
+	reportExplicitSplatStage(onProgress, progress, "Writing SOG on CPU…", 0);
+	await splatTransform.writeSog(
+		{
+			filename: outputFileName,
+			dataTable: filteredDataTable,
+			bundle: true,
+			iterations: getPackageSaveOptionValue(
+				sogIterations,
+				DEFAULT_SOG_ITERATIONS,
+			),
+		},
+		outputFileSystem,
+	);
+	return outputFileSystem.results.get(outputFileName) ?? null;
 }
 
 function canCompressEmbeddedSplatSourceAsSog(source) {
@@ -38,7 +168,11 @@ function canCompressEmbeddedSplatSourceAsSog(source) {
 		.split(".")
 		.pop()
 		?.toLowerCase();
-	return Boolean(sourceExtension && SPLAT_EXTENSIONS.has(sourceExtension));
+	return Boolean(
+		sourceExtension &&
+			SPLAT_EXTENSIONS.has(sourceExtension) &&
+			SOG_SERIALIZABLE_EXTENSIONS.has(sourceExtension),
+	);
 }
 
 function cloneFileResource(resource, assetKind) {
@@ -73,7 +207,18 @@ function clonePackedSplatResource(resource) {
 	};
 }
 
-async function serializeEmbeddedProjectSource(source, assetKind, index) {
+async function serializeEmbeddedProjectSource(
+	source,
+	assetKind,
+	index,
+	{ onProgress = null, progress = null } = {},
+) {
+	if (progress) {
+		await notifyPackageProgress(onProgress, {
+			...progress,
+			stage: "copy-source",
+		});
+	}
 	const file = source.file;
 	const fileName = normalizeProjectFileName(
 		source.fileName ?? file?.name,
@@ -110,6 +255,8 @@ async function serializeEmbeddedSplatProjectSourceAsSog(
 	{
 		sogMaxShBands = DEFAULT_SOG_MAX_SH_BANDS,
 		sogIterations = DEFAULT_SOG_ITERATIONS,
+		onProgress = null,
+		progress = null,
 	} = {},
 ) {
 	const file = source.file;
@@ -119,70 +266,145 @@ async function serializeEmbeddedSplatProjectSourceAsSog(
 	);
 	const baseName = originalFileName.replace(/\.[^./\\]+$/, "");
 	const outputFileName = `${baseName || `splat-${index + 1}`}.sog`;
+	if (progress) {
+		await notifyPackageProgress(onProgress, {
+			...progress,
+			stage: "read-input",
+		});
+	}
 	const inputBytes = new Uint8Array(await file.arrayBuffer());
-	const splatTransform = await import("@playcanvas/splat-transform");
-	const readFileSystem = new splatTransform.MemoryReadFileSystem();
-	readFileSystem.set(originalFileName, inputBytes);
-	const dataTables = await splatTransform.readFile({
-		filename: originalFileName,
-		inputFormat: splatTransform.getInputFormat(originalFileName),
-		options: {
-			iterations: getPackageSaveOptionValue(
+	const readSerializedColumns = async () =>
+		await readSerializedSogColumnsFromInput(
+			{
+				inputBytes,
+				inputFileName: originalFileName,
+				sogMaxShBands: getPackageSaveOptionValue(
+					sogMaxShBands,
+					DEFAULT_SOG_MAX_SH_BANDS,
+				),
+			},
+			{
+				onStage: (stage) => {
+					switch (stage) {
+						case "parse-header":
+							reportExplicitSplatStage(
+								onProgress,
+								progress,
+								"Inspecting splat source…",
+								0,
+							);
+							break;
+						case "parse-ply":
+							reportExplicitSplatStage(
+								onProgress,
+								progress,
+								"Extracting PLY columns…",
+								0,
+							);
+							break;
+						case "parse-spz":
+							reportExplicitSplatStage(
+								onProgress,
+								progress,
+								"Extracting SPZ columns…",
+								0,
+							);
+							break;
+						default:
+							break;
+					}
+				},
+			},
+		);
+	let serializedColumns = await readSerializedColumns();
+	if (progress) {
+		await notifyPackageProgress(onProgress, {
+			...progress,
+			stage: "start-worker",
+		});
+	}
+	let outputBytes = null;
+	let workerError = null;
+	let cpuWorkerError = null;
+	try {
+		outputBytes = await compressEmbeddedSplatSourceAsSogInWorker({
+			serializedColumns,
+			outputFileName,
+			sogIterations: getPackageSaveOptionValue(
 				sogIterations,
 				DEFAULT_SOG_ITERATIONS,
 			),
-			lodSelect: [],
-			unbundled: false,
-			lodChunkCount: 512,
-			lodChunkExtent: 16,
-		},
-		params: [],
-		fileSystem: readFileSystem,
-	});
-	const mergedDataTable =
-		dataTables.length > 1 ? splatTransform.combine(dataTables) : dataTables[0];
-	const filteredDataTable =
-		getPackageSaveOptionValue(sogMaxShBands, DEFAULT_SOG_MAX_SH_BANDS) < 3
-			? splatTransform.processDataTable(mergedDataTable, [
-					{
-						kind: "filterBands",
-						value: Math.max(
-							0,
-							Math.min(
-								3,
-								getPackageSaveOptionValue(
-									sogMaxShBands,
-									DEFAULT_SOG_MAX_SH_BANDS,
-								),
-							),
-						),
-					},
-				])
-			: mergedDataTable;
-	const outputFileSystem = new splatTransform.MemoryFileSystem();
-	await splatTransform.writeFile(
-		{
-			filename: outputFileName,
-			outputFormat: "sog-bundle",
-			dataTable: filteredDataTable,
-			options: {
-				iterations: getPackageSaveOptionValue(
+			onProgress: ({ text, progress: percent }) => {
+				reportSplatTransformProgress(onProgress, progress, text, percent);
+			},
+		});
+	} catch (error) {
+		workerError = error;
+		console.warn(
+			`SOG worker compression failed for "${originalFileName}", retrying on CPU worker.`,
+			error,
+		);
+		try {
+			if (progress) {
+				await notifyPackageProgress(onProgress, {
+					...progress,
+					stage: "retry-cpu-worker",
+				});
+			}
+			serializedColumns = await readSerializedColumns();
+			outputBytes = await compressEmbeddedSplatSourceAsSogInWorker({
+				serializedColumns,
+				outputFileName,
+				sogIterations: getPackageSaveOptionValue(
 					sogIterations,
 					DEFAULT_SOG_ITERATIONS,
 				),
-				lodSelect: [],
-				unbundled: false,
-				lodChunkCount: 512,
-				lodChunkExtent: 16,
-			},
-		},
-		outputFileSystem,
-	);
-	const outputBytes = outputFileSystem.results.get(outputFileName);
+				forceCpu: true,
+				onProgress: ({ text, progress: percent }) => {
+					reportSplatTransformProgress(onProgress, progress, text, percent);
+				},
+			});
+		} catch (retryError) {
+			cpuWorkerError = retryError;
+			if (progress) {
+				await notifyPackageProgress(onProgress, {
+					...progress,
+					stage: "fallback-main-thread",
+				});
+			}
+			try {
+				serializedColumns = await readSerializedColumns();
+				outputBytes = await compressEmbeddedSplatSourceAsSogOnMainThread(
+					outputFileName,
+					serializedColumns,
+					{
+						sogIterations,
+						onProgress,
+						progress,
+					},
+				);
+			} catch (fallbackError) {
+				throw new Error(
+					[
+						`SOG worker compression failed for "${originalFileName}".`,
+						`Worker error: ${String(workerError?.message ?? workerError ?? "unknown")}`,
+						`CPU worker retry error: ${String(cpuWorkerError?.message ?? cpuWorkerError ?? "unknown")}`,
+						`Fallback error: ${String(fallbackError?.message ?? fallbackError ?? "unknown")}`,
+					].join("\n"),
+				);
+			}
+		}
+	}
 	if (!outputBytes) {
 		throw new Error(`Failed to compress "${originalFileName}" as SOG.`);
 	}
 
+	if (progress) {
+		await notifyPackageProgress(onProgress, {
+			...progress,
+			stage: "finalize",
+		});
+	}
 	const hash = await sha256Hex(outputBytes);
 	const resource = cloneFileResource(
 		{
@@ -205,7 +427,16 @@ async function serializeEmbeddedSplatProjectSourceAsSog(
 	};
 }
 
-async function serializePackedSplatProjectSource(source) {
+async function serializePackedSplatProjectSource(
+	source,
+	{ onProgress = null, progress = null } = {},
+) {
+	if (progress) {
+		await notifyPackageProgress(onProgress, {
+			...progress,
+			stage: "copy-packed-splat",
+		});
+	}
 	const manifestBytes = toUint8Array(source.inputBytes);
 	const manifestHash = await sha256Hex(manifestBytes);
 	const manifestResource = {
@@ -271,7 +502,7 @@ export async function buildCameraFramesProjectPackage(
 	const totalAssets = normalizedProject.scene.assets.length;
 
 	for (const [index, asset] of normalizedProject.scene.assets.entries()) {
-		onProgress?.({
+		const progress = {
 			phase:
 				compressSplatsToSog &&
 				asset.kind === "splat" &&
@@ -281,7 +512,7 @@ export async function buildCameraFramesProjectPackage(
 			index: index + 1,
 			total: totalAssets,
 			assetLabel: asset.label,
-		});
+		};
 
 		const resourceId = `resource-${index + 1}`;
 		let serializedSource = null;
@@ -297,6 +528,8 @@ export async function buildCameraFramesProjectPackage(
 				{
 					sogMaxShBands,
 					sogIterations,
+					onProgress,
+					progress,
 				},
 			);
 		}
@@ -306,9 +539,16 @@ export async function buildCameraFramesProjectPackage(
 				asset.source,
 				asset.kind,
 				index,
+				{
+					onProgress,
+					progress,
+				},
 			);
 		} else if (isProjectFilePackedSplatSource(asset.source)) {
-			serializedSource = await serializePackedSplatProjectSource(asset.source);
+			serializedSource = await serializePackedSplatProjectSource(asset.source, {
+				onProgress,
+				progress,
+			});
 		}
 
 		if (!serializedSource) {

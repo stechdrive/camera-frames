@@ -173,10 +173,16 @@ export default defineConfig(({ command }) => {
 			createDevStampPlugin(repoRoot),
 			createVersionAssetPlugin(buildInfo),
 		],
+		optimizeDeps: {
+			exclude: ["playcanvas", "@playcanvas/splat-transform"],
+		},
 		server: {
 			host: true,
 			port: 3000,
 			strictPort: true,
+		},
+		worker: {
+			format: "es",
 		},
 	};
 });
