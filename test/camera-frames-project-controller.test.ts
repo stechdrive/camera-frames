@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { createProjectController } from "../src/controllers/project-controller.js";
+import { buildZipArchiveBytes } from "../src/project-archive.js";
 import { buildCameraFramesProjectArchive } from "../src/project-file.js";
+import { createDefaultReferenceImageDocument } from "../src/reference-image-model.js";
 
 function t(key, values = {}) {
 	switch (key) {
@@ -31,6 +33,7 @@ function createHarness(overrides = {}) {
 	};
 	const statusEvents = [];
 	const applyOpenedProjectCalls = [];
+	const clearProjectSidecarsCalls = [];
 	const projectController = createProjectController({
 		store,
 		projectInput: null,
@@ -49,6 +52,10 @@ function createHarness(overrides = {}) {
 			applyOpenedProjectCalls.push(args);
 			await overrides.applyOpenedProject?.(...args);
 		},
+		clearProjectSidecars: () => {
+			clearProjectSidecarsCalls.push(true);
+			overrides.clearProjectSidecars?.();
+		},
 		buildProjectFilename: () => "test-project.ssproj",
 		captureProjectState: () => ({
 			workspace: {
@@ -65,7 +72,7 @@ function createHarness(overrides = {}) {
 			shotCameras: [],
 			scene: {
 				assets: [],
-				referenceImages: [],
+				referenceImages: createDefaultReferenceImageDocument(),
 			},
 		}),
 		clearHistory: () => {},
@@ -81,6 +88,7 @@ function createHarness(overrides = {}) {
 		store,
 		statusEvents,
 		applyOpenedProjectCalls,
+		clearProjectSidecarsCalls,
 	};
 }
 
@@ -113,7 +121,7 @@ function createHarness(overrides = {}) {
 		shotCameras: [],
 		scene: {
 			assets: [],
-			referenceImages: [],
+			referenceImages: createDefaultReferenceImageDocument(),
 		},
 	};
 	const archive = await buildCameraFramesProjectArchive(projectSnapshot);
@@ -121,6 +129,21 @@ function createHarness(overrides = {}) {
 	await harness.projectController.openProjectSource(projectFile);
 	assert.equal(harness.store.overlay.value, null);
 	assert.equal(harness.applyOpenedProjectCalls.length, 1);
+}
+
+{
+	const harness = createHarness({
+		assetController: {
+			loadSources: async () => {},
+		},
+	});
+	const legacyArchive = await buildZipArchiveBytes({
+		"document.json": new TextEncoder().encode("{}"),
+	});
+	const legacyProjectFile = new File([legacyArchive], "legacy.ssproj");
+	await harness.projectController.openProjectSource(legacyProjectFile);
+	assert.equal(harness.store.overlay.value, null);
+	assert.equal(harness.clearProjectSidecarsCalls.length, 1);
 }
 
 console.log("✅ CAMERA_FRAMES project controller tests passed!");

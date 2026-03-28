@@ -2,6 +2,19 @@ import assert from "node:assert/strict";
 import { buildExportPassPlan } from "../src/engine/export-pass-plan.js";
 
 {
+	const emptyPlan = buildExportPassPlan([]);
+	assert.deepEqual(emptyPlan, {
+		beauty: {
+			id: "beauty",
+			name: "Beauty",
+			category: "render",
+			assetIds: [],
+		},
+		masks: [],
+	});
+}
+
+{
 	const plan = buildExportPassPlan([
 		{ id: 1, label: "GLB A", exportRole: "beauty", maskGroup: "" },
 		{ id: 2, label: "SPLAT B", exportRole: "beauty", maskGroup: "Characters" },

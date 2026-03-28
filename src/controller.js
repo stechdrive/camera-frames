@@ -22,9 +22,12 @@ import { createExportController } from "./controllers/export-controller.js";
 import { createFrameController } from "./controllers/frame-controller.js";
 import { createHistoryController } from "./controllers/history-controller.js";
 import { createInteractionController } from "./controllers/interaction-controller.js";
+import { createLightingController } from "./controllers/lighting-controller.js";
 import { createOutputFrameController } from "./controllers/output-frame-controller.js";
 import { createProjectController } from "./controllers/project-controller.js";
 import { createProjectionController } from "./controllers/projection-controller.js";
+import { createReferenceImageController } from "./controllers/reference-image-controller.js";
+import { createReferenceImageRenderController } from "./controllers/reference-image-render-controller.js";
 import { createRuntimeController } from "./controllers/runtime-controller.js";
 import { createSceneFramingController } from "./controllers/scene-framing-controller.js";
 import { createUiSyncController } from "./controllers/ui-sync-controller.js";
@@ -70,6 +73,7 @@ export function createCameraFramesController(elements, store) {
 		dropHint,
 		assetInput,
 		projectInput,
+		referenceImageInput,
 	} = elements;
 
 	const outputFrameState = {
@@ -173,11 +177,6 @@ export function createCameraFramesController(elements, store) {
 		lodSplatScale: 1.1,
 	});
 	scene.add(spark);
-
-	const ambientLight = new THREE.AmbientLight(0xffffff, 0.55);
-	const keyLight = new THREE.DirectionalLight(0xffffff, 1.4);
-	keyLight.position.set(3, 5, 4);
-	scene.add(ambientLight, keyLight);
 
 	const contentRoot = new THREE.Group();
 	const splatRoot = new THREE.Group();
@@ -324,9 +323,12 @@ export function createCameraFramesController(elements, store) {
 	let cameraController = null;
 	let historyController = null;
 	let interactionController = null;
+	let lightingController = null;
 	let outputFrameController = null;
 	let projectController = null;
 	let projectionController = null;
+	let referenceImageController = null;
+	let referenceImageRenderController = null;
 	let runtimeController = null;
 	let sceneFramingController = null;
 	let uiSyncController = null;
@@ -401,6 +403,12 @@ export function createCameraFramesController(elements, store) {
 				}),
 			),
 			sceneAssets: assetController?.captureSceneAssetEditState?.() ?? null,
+			sceneLighting: lightingController?.captureLightingState?.() ?? null,
+			sceneReferenceImages:
+				referenceImageController?.captureProjectReferenceImagesState?.() ??
+				null,
+			referenceImageEditor:
+				referenceImageController?.captureReferenceImageEditorState?.() ?? null,
 			frameSelectionActive: store.frames.selectionActive.value,
 			outputFrameSelected: state.outputFrameSelected,
 		};
@@ -414,6 +422,7 @@ export function createCameraFramesController(elements, store) {
 		if (!assetController?.restoreSceneAssetEditState?.(snapshot.sceneAssets)) {
 			return false;
 		}
+		lightingController?.applyLightingState(snapshot.sceneLighting ?? null);
 
 		setShotCameraDocuments(
 			snapshot.shotCameras.map((documentState) =>
@@ -430,6 +439,10 @@ export function createCameraFramesController(elements, store) {
 			? snapshot.viewportBaseFovX
 			: store.viewportBaseFovX.value;
 		restoreCameraPose(viewportCamera, snapshot.viewportPose);
+		referenceImageController?.applyProjectReferenceImagesState?.(
+			snapshot.sceneReferenceImages ?? null,
+			{ editorState: snapshot.referenceImageEditor ?? null },
+		);
 
 		for (const poseEntry of snapshot.shotCameraPoses ?? []) {
 			const entry = shotCameraRegistry.get(poseEntry.id);
@@ -533,7 +546,10 @@ export function createCameraFramesController(elements, store) {
 			shotCameras: captureProjectShotCameras(),
 			scene: {
 				assets: assetController?.captureProjectSceneState?.() ?? [],
-				referenceImages: [],
+				lighting: lightingController?.captureLightingState?.() ?? null,
+				referenceImages:
+					referenceImageController?.captureProjectReferenceImagesState?.() ??
+					null,
 			},
 		};
 	}
@@ -575,6 +591,10 @@ export function createCameraFramesController(elements, store) {
 			restoreCameraPose(entry.camera, shotCamera.pose);
 			syncShotCameraEntryFromDocument(entry);
 		}
+		referenceImageController?.applyProjectReferenceImagesState?.(
+			project?.scene?.referenceImages,
+		);
+		lightingController?.applyLightingState(project?.scene?.lighting ?? null);
 
 		store.frames.selectionActive.value = false;
 		state.outputFrameSelected = false;
@@ -774,6 +794,29 @@ export function createCameraFramesController(elements, store) {
 		commitHistoryTransaction: historyController.commitHistoryTransaction,
 		cancelHistoryTransaction: historyController.cancelHistoryTransaction,
 	});
+	referenceImageController = createReferenceImageController({
+		store,
+		referenceImageInput,
+		renderBox,
+		t,
+		setStatus,
+		updateUi,
+		ensureCameraMode: () => cameraController.setMode(WORKSPACE_PANE_CAMERA),
+		getActiveShotCameraDocument,
+		updateActiveShotCameraDocument,
+		getOutputSizeState,
+		runHistoryAction: historyController.runHistoryAction,
+		beginHistoryTransaction: historyController.beginHistoryTransaction,
+		commitHistoryTransaction: historyController.commitHistoryTransaction,
+		cancelHistoryTransaction: historyController.cancelHistoryTransaction,
+	});
+	referenceImageRenderController = createReferenceImageRenderController({
+		store,
+		renderBox,
+		viewportShell,
+		getActiveShotCameraDocument,
+		getOutputSizeState,
+	});
 	interactionController = createInteractionController({
 		store,
 		state,
@@ -849,12 +892,22 @@ export function createCameraFramesController(elements, store) {
 		getProjectionState,
 		getActiveShotCameraDocument,
 	});
+	lightingController = createLightingController({
+		store,
+		scene,
+		updateUi,
+		runHistoryAction: historyController.runHistoryAction,
+	});
 	projectController = createProjectController({
 		store,
 		projectInput,
 		assetController,
 		applySavedProjectState,
 		applyOpenedProject,
+		clearProjectSidecars: () => {
+			referenceImageController?.clearReferenceImages?.();
+			lightingController?.resetLighting?.();
+		},
 		buildProjectFilename,
 		captureProjectState,
 		clearHistory: () => historyController?.clearHistory(),
@@ -871,6 +924,10 @@ export function createCameraFramesController(elements, store) {
 		dropHint,
 		anchorDot,
 		assetController,
+		importReferenceImageFiles:
+			referenceImageController.importReferenceImageFiles,
+		supportsReferenceImageFile:
+			referenceImageController.supportsReferenceImageFile,
 		updateDropHint,
 		updateUi,
 		updateOutputFrameOverlay,
@@ -880,6 +937,7 @@ export function createCameraFramesController(elements, store) {
 			interactionController?.startLensAdjustDrag(...args) ?? false,
 		toggleZoomTool,
 		toggleViewportSelectMode,
+		toggleViewportReferenceImageEditMode,
 		toggleViewportTransformMode,
 		toggleViewportPivotEditMode,
 		saveProject: () => projectController?.saveProject(),
@@ -910,7 +968,11 @@ export function createCameraFramesController(elements, store) {
 			interactionController?.closeViewportPieMenu(...args),
 		handleViewportPieAction: executeViewportPieAction,
 		isFrameSelectionActive,
+		isReferenceImageSelectionActive: () =>
+			referenceImageController?.isReferenceImageSelectionActive?.() ?? false,
 		clearFrameSelection,
+		clearReferenceImageSelection: () =>
+			referenceImageController?.clearReferenceImageSelection?.(),
 		clearOutputFrameSelection,
 		handleZoomToolDragMove,
 		handleZoomToolDragEnd,
@@ -1014,6 +1076,21 @@ export function createCameraFramesController(elements, store) {
 			: viewportCamera;
 	}
 
+	function getActiveCameraHeadingDeg() {
+		const camera = getActiveCamera();
+		if (!camera) {
+			return 0;
+		}
+
+		const forward = camera.getWorldDirection(new THREE.Vector3());
+		forward.y = 0;
+		if (forward.lengthSq() <= 1e-8) {
+			return 0;
+		}
+		forward.normalize();
+		return THREE.MathUtils.radToDeg(Math.atan2(forward.x, forward.z));
+	}
+
 	function resetLocalizedCaches() {
 		return uiSyncController?.resetLocalizedCaches();
 	}
@@ -1073,7 +1150,9 @@ export function createCameraFramesController(elements, store) {
 	}
 
 	function updateOutputFrameOverlay() {
-		return outputFrameController.updateOutputFrameOverlay();
+		const result = outputFrameController.updateOutputFrameOverlay();
+		safeSyncReferenceImagePreview();
+		return result;
 	}
 
 	function updateDropHint() {
@@ -1175,6 +1254,45 @@ export function createCameraFramesController(elements, store) {
 		store.statusLine.value = message;
 	}
 
+	let lastReferenceImageUiError = "";
+	let lastReferenceImagePreviewError = "";
+
+	function safeSyncReferenceImageUi() {
+		try {
+			referenceImageController?.syncUiState?.();
+			lastReferenceImageUiError = "";
+		} catch (error) {
+			const nextMessage =
+				error instanceof Error
+					? error.message
+					: String(error ?? "Unknown error");
+			if (nextMessage !== lastReferenceImageUiError) {
+				lastReferenceImageUiError = nextMessage;
+				console.error("[CAMERA_FRAMES] reference-image ui sync failed", error);
+			}
+		}
+	}
+
+	function safeSyncReferenceImagePreview() {
+		try {
+			referenceImageRenderController?.syncPreviewLayers?.();
+			lastReferenceImagePreviewError = "";
+		} catch (error) {
+			const nextMessage =
+				error instanceof Error
+					? error.message
+					: String(error ?? "Unknown error");
+			if (nextMessage !== lastReferenceImagePreviewError) {
+				lastReferenceImagePreviewError = nextMessage;
+				console.error(
+					"[CAMERA_FRAMES] reference-image preview sync failed",
+					error,
+				);
+			}
+			referenceImageRenderController?.clearPreviewLayers?.();
+		}
+	}
+
 	function updateSceneSummary() {
 		return uiSyncController?.updateSceneSummary();
 	}
@@ -1205,6 +1323,8 @@ export function createCameraFramesController(elements, store) {
 	}
 
 	function updateUi() {
+		safeSyncReferenceImageUi();
+		safeSyncReferenceImagePreview();
 		return uiSyncController?.updateUi();
 	}
 
@@ -1212,6 +1332,9 @@ export function createCameraFramesController(elements, store) {
 		switch (nextMode) {
 			case "select":
 				viewportToolController.setViewportSelectMode(true);
+				break;
+			case "reference":
+				viewportToolController.setViewportReferenceImageEditMode(true);
 				break;
 			case "transform":
 				viewportToolController.setViewportTransformMode(true);
@@ -1234,6 +1357,10 @@ export function createCameraFramesController(elements, store) {
 		setViewportToolMode(nextEnabled ? "select" : "none");
 	}
 
+	function setViewportReferenceImageEditMode(nextEnabled) {
+		setViewportToolMode(nextEnabled ? "reference" : "none");
+	}
+
 	function setViewportTransformMode(nextEnabled) {
 		setViewportToolMode(nextEnabled ? "transform" : "none");
 	}
@@ -1244,6 +1371,12 @@ export function createCameraFramesController(elements, store) {
 
 	function toggleViewportTransformMode() {
 		setViewportTransformMode(!store.viewportTransformMode.value);
+	}
+
+	function toggleViewportReferenceImageEditMode() {
+		setViewportReferenceImageEditMode(
+			!store.viewportReferenceImageEditMode.value,
+		);
 	}
 
 	function toggleViewportPivotEditMode() {
@@ -1304,6 +1437,8 @@ export function createCameraFramesController(elements, store) {
 
 	function clearScene() {
 		viewportToolController.setViewportTransformMode(false);
+		referenceImageController?.clearReferenceImages?.();
+		lightingController?.resetLighting?.();
 		assetController.clearScene();
 	}
 
@@ -1339,6 +1474,8 @@ export function createCameraFramesController(elements, store) {
 		toggleViewportTransformMode,
 		setViewportSelectMode,
 		toggleViewportSelectMode,
+		setViewportReferenceImageEditMode,
+		toggleViewportReferenceImageEditMode,
 		setViewportPivotEditMode,
 		toggleViewportPivotEditMode,
 		setViewportTransformHover: viewportToolController.setViewportTransformHover,
@@ -1361,6 +1498,8 @@ export function createCameraFramesController(elements, store) {
 			cameraController.setShotCameraExportSplatLayers,
 		setExportTarget: exportController.setExportTarget,
 		toggleExportPreset: exportController.toggleExportPreset,
+		setReferenceImageExportSessionEnabled:
+			exportController.setReferenceImageExportSessionEnabled,
 		selectFrame: frameController.selectFrame,
 		createFrame: frameController.createFrame,
 		duplicateActiveFrame: frameController.duplicateActiveFrame,
@@ -1392,7 +1531,20 @@ export function createCameraFramesController(elements, store) {
 		moveAssetToIndex: assetController.moveAssetToIndex,
 		setAssetExportRole: assetController.setAssetExportRole,
 		setAssetMaskGroup: assetController.setAssetMaskGroup,
+		setLightingAmbient: lightingController.setAmbient,
+		setModelLightEnabled: lightingController.setModelLightEnabled,
+		setModelLightIntensity: lightingController.setModelLightIntensity,
+		setModelLightAzimuthDeg: lightingController.setModelLightAzimuthDeg,
+		setModelLightElevationDeg: lightingController.setModelLightElevationDeg,
+		setModelLightDirection: lightingController.setModelLightDirection,
+		resetModelLightDirection: lightingController.resetModelLightDirection,
+		getActiveCameraHeadingDeg,
 		openFiles: assetController.openFiles,
+		openReferenceImageFiles: referenceImageController.openReferenceImageFiles,
+		importReferenceImageFiles:
+			referenceImageController.importReferenceImageFiles,
+		supportsReferenceImageFile:
+			referenceImageController.supportsReferenceImageFile,
 		openProject,
 		openWorkingProject,
 		saveProject,
@@ -1400,7 +1552,40 @@ export function createCameraFramesController(elements, store) {
 		clearScene,
 		loadRemoteUrls: assetController.loadRemoteUrls,
 		handleAssetInputChange: assetController.handleAssetInputChange,
+		handleReferenceImageInputChange:
+			referenceImageController.handleReferenceImageInputChange,
 		handleProjectInputChange,
+		setReferenceImagePreviewSessionVisible:
+			referenceImageController.setPreviewSessionVisible,
+		setActiveReferenceImagePreset:
+			referenceImageController.setActiveReferenceImagePreset,
+		duplicateActiveReferenceImagePreset:
+			referenceImageController.duplicateActiveReferenceImagePreset,
+		clearReferenceImageSelection:
+			referenceImageController.clearReferenceImageSelection,
+		selectReferenceImageAsset:
+			referenceImageController.selectReferenceImageAsset,
+		selectReferenceImageItem: referenceImageController.selectReferenceImageItem,
+		setReferenceImagePreviewVisible:
+			referenceImageController.setReferenceImagePreviewVisible,
+		setReferenceImageExportEnabled:
+			referenceImageController.setReferenceImageExportEnabled,
+		setReferenceImageOpacity: referenceImageController.setReferenceImageOpacity,
+		setReferenceImageScalePct:
+			referenceImageController.setReferenceImageScalePct,
+		setReferenceImageRotationDeg:
+			referenceImageController.setReferenceImageRotationDeg,
+		setReferenceImageOffsetPx:
+			referenceImageController.setReferenceImageOffsetPx,
+		setReferenceImageGroup: referenceImageController.setReferenceImageGroup,
+		setReferenceImageOrder: referenceImageController.setReferenceImageOrder,
+		startReferenceImageMove: referenceImageController.startReferenceImageMove,
+		startReferenceImageResize:
+			referenceImageController.startReferenceImageResize,
+		startReferenceImageRotate:
+			referenceImageController.startReferenceImageRotate,
+		startReferenceImageAnchorDrag:
+			referenceImageController.startReferenceImageAnchorDrag,
 		copyViewportToShotCamera: cameraController.copyViewportToShotCamera,
 		copyShotCameraToViewport: cameraController.copyShotCameraToViewport,
 		resetActiveView: cameraController.resetActiveView,
@@ -1420,6 +1605,7 @@ export function createCameraFramesController(elements, store) {
 		redoHistory: () => historyController?.redoHistory(),
 		dispose() {
 			guideOverlay.dispose();
+			lightingController?.dispose?.();
 			runtimeController.dispose();
 		},
 	};

@@ -6,6 +6,10 @@ import {
 	DEFAULT_CAMERA_NEAR,
 	FRAME_MAX_COUNT,
 } from "./constants.js";
+import {
+	cloneShotCameraReferenceImagesState,
+	createShotCameraReferenceImagesState,
+} from "./reference-image-model.js";
 
 export const WORKSPACE_LAYOUT_SINGLE = "single";
 export const WORKSPACE_LAYOUT_QUAD = "quad";
@@ -228,6 +232,7 @@ export function createShotCameraDocument({ id, name, source } = {}) {
 					exportModelLayers: true,
 					exportSplatLayers: true,
 				},
+				referenceImages: createShotCameraReferenceImagesState(),
 				frames: createDefaultFrameDocuments(),
 				activeFrameId: getFrameDocumentId(1),
 			};
@@ -357,6 +362,9 @@ export function cloneShotCameraDocument(documentState) {
 			exportSplatLayers:
 				documentState.exportSettings?.exportSplatLayers ?? true,
 		},
+		referenceImages: cloneShotCameraReferenceImagesState(
+			documentState.referenceImages,
+		),
 		frames,
 		activeFrameId: documentState.activeFrameId ?? frames[0]?.id ?? null,
 	};

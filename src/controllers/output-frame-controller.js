@@ -95,6 +95,13 @@ export function createOutputFrameController({
 		return documentState?.outputFrame ?? {};
 	}
 
+	function getFrameOverlayCanvasOffset(metrics) {
+		return {
+			left: -(metrics.boxLeft + Math.max(renderBox?.clientLeft ?? 0, 0)),
+			top: -(metrics.boxTop + Math.max(renderBox?.clientTop ?? 0, 0)),
+		};
+	}
+
 	function getOutputSizeState(documentState = getActiveShotCameraDocument()) {
 		const outputFrameDocument = getOutputFrameDocumentState(documentState);
 		return getExportSize({
@@ -378,8 +385,9 @@ export function createOutputFrameController({
 			frameOverlayCanvas.height = canvasHeight;
 		}
 
-		frameOverlayCanvas.style.left = `${-metrics.boxLeft}px`;
-		frameOverlayCanvas.style.top = `${-metrics.boxTop}px`;
+		const overlayCanvasOffset = getFrameOverlayCanvasOffset(metrics);
+		frameOverlayCanvas.style.left = `${overlayCanvasOffset.left}px`;
+		frameOverlayCanvas.style.top = `${overlayCanvasOffset.top}px`;
 		frameOverlayCanvas.style.width = `${shellWidth}px`;
 		frameOverlayCanvas.style.height = `${shellHeight}px`;
 
@@ -401,6 +409,7 @@ export function createOutputFrameController({
 				logicalSpaceHeight: metrics.exportHeight,
 				offsetX: metrics.boxLeft,
 				offsetY: metrics.boxTop,
+				pixelSnapAxisAligned: false,
 				strokeStyle: "rgba(255, 87, 72, 0.92)",
 				selectedFrameId: isFrameSelectionActive()
 					? (getActiveShotCameraDocument()?.activeFrameId ?? null)

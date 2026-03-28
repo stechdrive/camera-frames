@@ -303,6 +303,10 @@ export function createViewportToolController({
 		return store.viewportToolMode.value === "transform";
 	}
 
+	function isReferenceImageEditMode() {
+		return store.viewportToolMode.value === "reference";
+	}
+
 	function isViewportToolMode() {
 		return (
 			state.mode === WORKSPACE_PANE_VIEWPORT ||
@@ -1107,6 +1111,11 @@ export function createViewportToolController({
 		setHoveredHandle(null);
 	}
 
+	function setViewportReferenceImageEditMode(nextEnabled) {
+		store.viewportToolMode.value = nextEnabled ? "reference" : "none";
+		setHoveredHandle(null);
+	}
+
 	function syncViewportTransformGizmo() {
 		if (!viewportGizmo) {
 			return;
@@ -1288,6 +1297,7 @@ export function createViewportToolController({
 	return {
 		setViewportTransformSpace,
 		setViewportSelectMode,
+		setViewportReferenceImageEditMode,
 		setViewportPivotEditMode,
 		setViewportTransformMode,
 		setViewportTransformHover,

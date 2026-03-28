@@ -12,7 +12,9 @@ import {
 	INSPECTOR_TAB_CAMERA,
 	INSPECTOR_TAB_EXPORT,
 	InspectorTabs,
+	LightingSection,
 	OutputFrameSection,
+	ReferenceSection,
 	SceneSection,
 	ShotCameraSection,
 	ViewSection,
@@ -233,6 +235,11 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 						dragHoverState=${dragHoverState}
 						setDragHoverState=${setDragHoverState}
 					/>
+					<${LightingSection}
+						controller=${controller}
+						store=${store}
+						t=${t}
+					/>
 				</section>
 			</div>
 			<div
@@ -268,6 +275,11 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 									store=${store}
 									t=${t}
 									widthLabel=${widthLabel}
+								/>
+								<${ReferenceSection}
+									controller=${controller}
+									store=${store}
+									t=${t}
 								/>
 								<${FramesSection}
 									activeFrameId=${activeFrameId}

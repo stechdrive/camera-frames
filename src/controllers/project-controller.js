@@ -371,6 +371,7 @@ export function createProjectController({
 	assetController,
 	applySavedProjectState,
 	applyOpenedProject,
+	clearProjectSidecars = () => {},
 	buildProjectFilename = () => getDefaultProjectFilename(),
 	captureProjectState,
 	clearHistory,
@@ -443,6 +444,9 @@ export function createProjectController({
 		applySavedProjectState({
 			workspace: record.snapshot.workspace,
 			shotCameras: record.snapshot.shotCameras,
+			scene: {
+				referenceImages: record.snapshot.scene?.referenceImages ?? null,
+			},
 		});
 		await assetController.applyWorkingProjectSceneState(record.snapshot.scene);
 		updateUi?.();
@@ -567,6 +571,7 @@ export function createProjectController({
 						setOverlay(buildImportProgressOverlay(t, step, detail));
 					},
 				});
+				clearProjectSidecars?.();
 				clearOverlay();
 			} catch (legacyError) {
 				clearOverlay();

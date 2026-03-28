@@ -44,22 +44,12 @@ export function createCameraController({
 		return t("shotCamera.defaultName", { index: nextNumber });
 	}
 
-	function sanitizeExportName(value) {
-		return String(value ?? "")
-			.trim()
-			.replace(/[\\/:*?"<>|]+/g, "-")
-			.replace(/\s+/g, "-")
-			.replace(/-+/g, "-")
-			.replace(/^-|-$/g, "");
-	}
-
 	function getShotCameraExportBaseName(documentState, fallbackIndex = 1) {
-		const candidate =
-			documentState?.exportSettings?.exportName?.trim() ||
-			documentState?.name ||
-			buildShotCameraDocumentName(fallbackIndex);
-
-		return sanitizeExportName(candidate) || `camera-${fallbackIndex}`;
+		return getShotCameraExportBaseNameForDocument(
+			documentState,
+			fallbackIndex,
+			buildShotCameraDocumentName,
+		);
 	}
 
 	function normalizeShotCameraExportFormat(value) {
@@ -337,6 +327,19 @@ export function createCameraController({
 		updateUi();
 	}
 
+	function setShotCameraName(nextValue) {
+		runHistoryAction?.("camera.name", () => {
+			updateActiveShotCameraDocument((documentState) => {
+				const normalizedName = String(nextValue ?? "").trim();
+				if (!normalizedName) {
+					return documentState;
+				}
+				documentState.name = normalizedName;
+				return documentState;
+			});
+		});
+	}
+
 	function setShotCameraExportName(nextValue) {
 		runHistoryAction?.("camera.export-name", () => {
 			updateActiveShotCameraDocument((documentState) => {
@@ -580,6 +583,7 @@ export function createCameraController({
 		setShotCameraClippingMode,
 		setShotCameraNear,
 		setShotCameraFar,
+		setShotCameraName,
 		setShotCameraExportName,
 		setShotCameraExportFormat,
 		setShotCameraExportGridOverlay,
@@ -593,4 +597,43 @@ export function createCameraController({
 		copyShotCameraToViewport,
 		resetActiveView,
 	};
+}
+
+export function sanitizeExportName(value) {
+	return String(value ?? "")
+		.trim()
+		.replace(/[\\/:*?"<>|]+/g, "-")
+		.replace(/\s+/g, "-")
+		.replace(/-+/g, "-")
+		.replace(/^-|-$/g, "");
+}
+
+export function resolveShotCameraExportNameTemplate(
+	templateValue,
+	shotCameraName = "",
+) {
+	const template = String(templateValue ?? "").trim();
+	if (!template) {
+		return "";
+	}
+	const replacement = String(shotCameraName ?? "").trim() || "Camera";
+	return template.replace(/%cam/g, replacement);
+}
+
+export function getShotCameraExportBaseNameForDocument(
+	documentState,
+	fallbackIndex = 1,
+	buildShotCameraDocumentName = (nextNumber) => `Camera ${nextNumber}`,
+) {
+	const shotCameraName =
+		documentState?.name || buildShotCameraDocumentName(fallbackIndex);
+	const candidate =
+		resolveShotCameraExportNameTemplate(
+			documentState?.exportSettings?.exportName,
+			shotCameraName,
+		) ||
+		documentState?.name ||
+		buildShotCameraDocumentName(fallbackIndex);
+
+	return sanitizeExportName(candidate) || `camera-${fallbackIndex}`;
 }

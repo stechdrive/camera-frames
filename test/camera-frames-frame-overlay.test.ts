@@ -65,4 +65,23 @@ const shifted = getFrameOutlineSpec(baseFrame, 400, 200, 400, 200, 30, 40);
 assert.equal(shifted.centerX, 230);
 assert.equal(shifted.centerY, 140);
 
+const unsnapped = getFrameOutlineSpec(
+	{
+		...baseFrame,
+		x: 0.5003,
+		y: 0.5007,
+	},
+	400,
+	200,
+	400,
+	200,
+	0,
+	0,
+	{ pixelSnapAxisAligned: false },
+);
+assert.equal(unsnapped.axisAligned, true);
+assert.equal(unsnapped.snappedRect, null);
+assert.ok(Math.abs(unsnapped.centerX - 200.12) < 1e-9);
+assert.ok(Math.abs(unsnapped.centerY - 100.14) < 1e-9);
+
 console.log("✅ CAMERA_FRAMES frame overlay tests passed!");

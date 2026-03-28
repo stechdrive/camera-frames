@@ -39,6 +39,32 @@ function renderIconPath(name) {
 				<rect x="4" y="5" width="16" height="14" rx="2"></rect>
 				<path d="M8 5v14M16 5v14M4 9h16M4 15h16"></path>
 			`;
+		case "image":
+			return html`
+				<rect x="4" y="5" width="16" height="14" rx="2"></rect>
+				<circle cx="9" cy="10" r="1.5"></circle>
+				<path d="M6.5 17l4.5-4.5 2.8 2.8 2.2-2.2 1.5 1.5"></path>
+			`;
+		case "reference":
+			return html`
+				<rect x="5" y="6" width="14" height="12" rx="2"></rect>
+				<path d="M5 10h14"></path>
+				<path d="M9 6v12"></path>
+				<circle cx="5" cy="6" r="1.25"></circle>
+				<circle cx="19" cy="18" r="1.25"></circle>
+			`;
+		case "light":
+			return html`
+				<circle cx="12" cy="12" r="4"></circle>
+				<path d="M12 2.5v3"></path>
+				<path d="M12 18.5v3"></path>
+				<path d="M2.5 12h3"></path>
+				<path d="M18.5 12h3"></path>
+				<path d="M5.2 5.2l2.2 2.2"></path>
+				<path d="M16.6 16.6l2.2 2.2"></path>
+				<path d="M18.8 5.2l-2.2 2.2"></path>
+				<path d="M7.4 16.6l-2.2 2.2"></path>
+			`;
 		case "render-box":
 			return html`
 				<path d="M5 9V5h4"></path>
@@ -122,6 +148,14 @@ function renderIconPath(name) {
 				<path d="M3 12h18"></path>
 				<path d="M12 3l-2 2M12 3l2 2M12 21l-2-2M12 21l2-2"></path>
 				<path d="M3 12l2-2M3 12l2 2M21 12l-2-2M21 12l-2 2"></path>
+			`;
+		case "scrub":
+			return html`
+				<path d="M4 12h16"></path>
+				<path d="M4 12l3-3"></path>
+				<path d="M4 12l3 3"></path>
+				<path d="M20 12l-3-3"></path>
+				<path d="M20 12l-3 3"></path>
 			`;
 		case "pivot":
 			return html`

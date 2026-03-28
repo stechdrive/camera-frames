@@ -33,6 +33,7 @@ function CameraFramesApp({ runtimeInfo }) {
 	const dropHintRef = useRef(null);
 	const assetInputRef = useRef(null);
 	const projectInputRef = useRef(null);
+	const referenceImageInputRef = useRef(null);
 
 	useEffect(() => {
 		controllerRef.current = createCameraFramesController(
@@ -51,6 +52,7 @@ function CameraFramesApp({ runtimeInfo }) {
 				dropHint: dropHintRef.current,
 				assetInput: assetInputRef.current,
 				projectInput: projectInputRef.current,
+				referenceImageInput: referenceImageInputRef.current,
 			},
 			store,
 		);
@@ -77,6 +79,7 @@ function CameraFramesApp({ runtimeInfo }) {
 		dropHintRef,
 		assetInputRef,
 		projectInputRef,
+		referenceImageInputRef,
 	};
 
 	return html`<${AppView} store=${store} controller=${controller} refs=${refs} />`;

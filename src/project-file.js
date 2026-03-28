@@ -26,6 +26,10 @@ import {
 	toUint8Array,
 } from "./project-document.js";
 import { ZipReader } from "./project-package.js";
+import {
+	REFERENCE_IMAGE_ASSET_KIND,
+	normalizeReferenceImageDocument,
+} from "./reference-image-model.js";
 
 const DEFAULT_SOG_ITERATIONS = 10;
 const DEFAULT_SOG_MAX_SH_BANDS = 2;
@@ -94,6 +98,17 @@ function getProjectSourceFileLabel(source) {
 		return normalizeProjectFileName(source.fileName, "") || "meta.json";
 	}
 	return "asset";
+}
+
+function getReferenceImageSourceFileLabel(asset) {
+	return (
+		normalizeProjectFileName(
+			asset?.sourceMeta?.filename ??
+				asset?.source?.fileName ??
+				asset?.source?.file?.name,
+			"",
+		) || "reference.png"
+	);
 }
 
 function getProjectResourceFileLabel(resource) {
@@ -480,6 +495,35 @@ async function serializeProjectAssetSource(
 	throw new Error(`Asset "${asset.label}" is missing a serializable source.`);
 }
 
+async function serializeReferenceImageAssetSource(
+	referenceAsset,
+	index,
+	totalAssets,
+	{ onProgress = null } = {},
+) {
+	if (!isProjectFileEmbeddedFileSource(referenceAsset.source)) {
+		throw new Error(
+			`Reference image "${referenceAsset.label}" is missing a serializable source.`,
+		);
+	}
+
+	return await serializeEmbeddedProjectSource(
+		referenceAsset.source,
+		REFERENCE_IMAGE_ASSET_KIND,
+		index,
+		{
+			onProgress,
+			progress: {
+				phase: "resolve-assets",
+				index: index + 1,
+				total: totalAssets,
+				assetLabel: referenceAsset.label,
+				fileLabel: getReferenceImageSourceFileLabel(referenceAsset),
+			},
+		},
+	);
+}
+
 async function serializeCameraFramesProjectPackageContents(
 	projectSnapshot,
 	{
@@ -494,6 +538,11 @@ async function serializeCameraFramesProjectPackageContents(
 	const resources = {};
 	const serializedAssets = [];
 	const totalAssets = normalizedProject.scene.assets.length;
+	const serializedReferenceImageAssets = [];
+	const normalizedReferenceImages = normalizeReferenceImageDocument(
+		normalizedProject.scene.referenceImages,
+	);
+	const totalReferenceImageAssets = normalizedReferenceImages.assets.length;
 
 	for (const [index, asset] of normalizedProject.scene.assets.entries()) {
 		const resourceId = `resource-${index + 1}`;
@@ -517,12 +566,37 @@ async function serializeCameraFramesProjectPackageContents(
 		});
 	}
 
+	for (const [
+		index,
+		referenceAsset,
+	] of normalizedReferenceImages.assets.entries()) {
+		const resourceId = `reference-image-resource-${index + 1}`;
+		const serializedSource = await serializeReferenceImageAssetSource(
+			referenceAsset,
+			index,
+			totalReferenceImageAssets,
+			{
+				onProgress,
+			},
+		);
+		Object.assign(archiveEntries, serializedSource.archiveEntries);
+		resources[resourceId] = serializedSource.resource;
+		serializedReferenceImageAssets.push({
+			...referenceAsset,
+			source: createProjectAssetResourceRef(resourceId),
+		});
+	}
+
 	const serializedProject = {
 		...normalizedProject,
 		resources,
 		scene: {
 			...normalizedProject.scene,
 			assets: serializedAssets,
+			referenceImages: {
+				...normalizedReferenceImages,
+				assets: serializedReferenceImageAssets,
+			},
 		},
 	};
 
@@ -556,7 +630,14 @@ function countProjectArchiveEntries(project) {
 		project.scene.assets.reduce(
 			(total, asset) => total + countSerializedSourceEntries(asset.source),
 			0,
-		) + 2
+		) +
+		normalizeReferenceImageDocument(
+			project.scene.referenceImages,
+		).assets.reduce(
+			(total, asset) => total + countSerializedSourceEntries(asset.source),
+			0,
+		) +
+		2
 	);
 }
 
@@ -574,7 +655,12 @@ export async function writeCameraFramesProjectPackageToWritable(
 	const normalizedProject = normalizeProjectDocument(projectSnapshot);
 	const resources = {};
 	const serializedAssets = [];
+	const normalizedReferenceImages = normalizeReferenceImageDocument(
+		normalizedProject.scene.referenceImages,
+	);
+	const serializedReferenceImageAssets = [];
 	const totalAssets = normalizedProject.scene.assets.length;
+	const totalReferenceImageAssets = normalizedReferenceImages.assets.length;
 	const totalEntries = countProjectArchiveEntries(normalizedProject);
 	let writtenEntries = 0;
 	const zipWriter = createArchiveWritableStream(writable, {
@@ -617,12 +703,52 @@ export async function writeCameraFramesProjectPackageToWritable(
 		});
 	}
 
+	for (const [
+		index,
+		referenceAsset,
+	] of normalizedReferenceImages.assets.entries()) {
+		const resourceId = `reference-image-resource-${index + 1}`;
+		const serializedSource = await serializeReferenceImageAssetSource(
+			referenceAsset,
+			index,
+			totalReferenceImageAssets,
+			{
+				onProgress,
+			},
+		);
+		for (const [path, bytes] of Object.entries(
+			serializedSource.archiveEntries,
+		)) {
+			writtenEntries += 1;
+			await notifyPackageProgress(onProgress, {
+				phase: "write-package",
+				stage: "zipEntries",
+				index: writtenEntries,
+				total: totalEntries,
+				assetLabel: referenceAsset.label,
+				fileLabel:
+					serializedSource.archiveEntryLabels?.[path] ??
+					getProjectResourceFileLabel(serializedSource.resource),
+			});
+			zipWriter.addEntry(path, bytes);
+		}
+		resources[resourceId] = serializedSource.resource;
+		serializedReferenceImageAssets.push({
+			...referenceAsset,
+			source: createProjectAssetResourceRef(resourceId),
+		});
+	}
+
 	const serializedProject = {
 		...normalizedProject,
 		resources,
 		scene: {
 			...normalizedProject.scene,
 			assets: serializedAssets,
+			referenceImages: {
+				...normalizedReferenceImages,
+				assets: serializedReferenceImageAssets,
+			},
 		},
 	};
 	const manifest = buildProjectManifest();
@@ -716,6 +842,9 @@ export async function readCameraFramesProject(
 		const project = normalizeProjectDocument(
 			JSON.parse(await reader.text(projectPath)),
 		);
+		const normalizedReferenceImages = normalizeReferenceImageDocument(
+			project.scene.referenceImages,
+		);
 		const assetEntries = [];
 		const totalAssets = project.scene.assets.length;
 
@@ -779,6 +908,38 @@ export async function readCameraFramesProject(
 
 			throw new Error(`Unsupported project resource type "${resource.type}".`);
 		}
+
+		const reconstructedReferenceImageAssets = [];
+		for (const referenceAsset of normalizedReferenceImages.assets) {
+			const resourceId = referenceAsset.source?.resourceId;
+			const resource = project.resources?.[resourceId];
+			if (!resource) {
+				throw new Error(
+					`Missing project resource for reference image "${referenceAsset.label}".`,
+				);
+			}
+			if (resource.type !== "file") {
+				throw new Error(
+					`Unsupported project resource type "${resource.type}" for reference image "${referenceAsset.label}".`,
+				);
+			}
+			const blob = await reader.blob(resource.path);
+			reconstructedReferenceImageAssets.push({
+				...referenceAsset,
+				source: createProjectFileEmbeddedFileSource({
+					kind: REFERENCE_IMAGE_ASSET_KIND,
+					file: new File([blob], resource.originalName, {
+						type: resource.mediaType || blob.type || undefined,
+					}),
+					fileName: resource.originalName,
+					resource: cloneFileResource(resource, REFERENCE_IMAGE_ASSET_KIND),
+				}),
+			});
+		}
+		project.scene.referenceImages = {
+			...normalizedReferenceImages,
+			assets: reconstructedReferenceImageAssets,
+		};
 
 		return {
 			manifest:

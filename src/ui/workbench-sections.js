@@ -17,7 +17,9 @@ import { formatAssetWorldScale } from "../engine/scene-units.js";
 import {
 	HistoryRangeInput,
 	INTERACTIVE_FIELD_PROPS,
+	LightingDirectionControl,
 	NumericDraftInput,
+	TextDraftInput,
 	applyStandardFrameEquivalentMm,
 } from "./workbench-controls.js";
 import { WorkbenchIcon } from "./workbench-icons.js";
@@ -214,11 +216,13 @@ export function ViewSection({
 							<div class="numeric-unit">
 								<${NumericDraftInput}
 									id="viewport-fov-mm-input"
-									inputMode="numeric"
+									inputMode="decimal"
 									min=${14}
 									max=${200}
-									step="1"
+									step="0.01"
 									value=${viewportEquivalentMmValue}
+									controller=${controller}
+									historyLabel="viewport.lens"
 									onCommit=${(nextValue) =>
 										applyStandardFrameEquivalentMm(
 											(nextBaseFov) =>
@@ -254,6 +258,14 @@ export function ViewSection({
 								active=${store.viewportSelectMode.value}
 								compact=${true}
 								onClick=${() => controller()?.setViewportSelectMode(true)}
+							/>
+							<${IconButton}
+								icon="reference"
+								label=${t("transformMode.reference")}
+								active=${store.viewportReferenceImageEditMode.value}
+								compact=${true}
+								onClick=${() =>
+									controller()?.setViewportReferenceImageEditMode(true)}
 							/>
 							<${IconButton}
 								icon="move"
@@ -390,8 +402,6 @@ export function SceneSection({
 					<span id="scene-badge" class="pill pill--dim">${sceneBadge}</span>
 				</div>
 			<//>
-			<div class="button-row">
-			</div>
 			<p id="scene-summary" class="summary">${sceneSummary}</p>
 			<p id="scene-scale-summary" class="summary">${sceneScaleSummary}</p>
 			${
@@ -499,12 +509,13 @@ export function SceneSection({
 													</div>
 													<div class="scene-asset-row__toolbar">
 														<${IconButton}
-															icon=${asset.visible ? "eye-off" : "eye"}
-															label=${
+															icon=${asset.visible ? "eye" : "eye-off"}
+															label=${t(
 																asset.visible
-																	? t("action.hideAsset")
-																	: t("action.showAsset")
-															}
+																	? "assetVisibility.visible"
+																	: "assetVisibility.hidden",
+															)}
+															active=${asset.visible}
 															compact=${true}
 															className="scene-asset-row__icon-button"
 															onClick=${(event) => {
@@ -536,12 +547,13 @@ export function SceneSection({
 						<//>
 						<div class="button-row">
 							<${IconButton}
-								icon=${selectedSceneAsset.visible ? "eye-off" : "eye"}
-								label=${
+								icon=${selectedSceneAsset.visible ? "eye" : "eye-off"}
+								label=${t(
 									selectedSceneAsset.visible
-										? t("action.hideAsset")
-										: t("action.showAsset")
-								}
+										? "assetVisibility.visible"
+										: "assetVisibility.hidden",
+								)}
+								active=${selectedSceneAsset.visible}
 								compact=${true}
 								onClick=${() =>
 									controller()?.setAssetVisibility(
@@ -564,6 +576,8 @@ export function SceneSection({
 								min="0.01"
 								step="0.01"
 								value=${Number(selectedSceneAsset.worldScale).toFixed(2)}
+								controller=${controller}
+								historyLabel="asset.scale"
 								onCommit=${(nextValue) =>
 									controller()?.setAssetWorldScale(
 										selectedSceneAsset.id,
@@ -580,6 +594,8 @@ export function SceneSection({
 											inputMode="decimal"
 											step="0.01"
 											value=${Number(selectedSceneAsset.position[axis]).toFixed(2)}
+											controller=${controller}
+											historyLabel=${`asset.position.${axis}`}
 											onCommit=${(nextValue) =>
 												controller()?.setAssetPosition(
 													selectedSceneAsset.id,
@@ -597,9 +613,11 @@ export function SceneSection({
 									<label class="field">
 										<span>${t("field.assetRotation")} ${axis.toUpperCase()}</span>
 										<${NumericDraftInput}
-											inputMode="numeric"
-											step="1"
-											value=${Number(selectedSceneAsset.rotationDegrees[axis]).toFixed(0)}
+											inputMode="decimal"
+											step="0.01"
+											value=${Number(selectedSceneAsset.rotationDegrees[axis]).toFixed(2)}
+											controller=${controller}
+											historyLabel=${`asset.rotation.${axis}`}
 											onCommit=${(nextValue) =>
 												controller()?.setAssetRotationDegrees(
 													selectedSceneAsset.id,
@@ -614,6 +632,94 @@ export function SceneSection({
 					</section>
 				`
 			}
+		</section>
+	`;
+}
+
+export function LightingSection({ controller, store, t }) {
+	const ambient = store.lighting.ambient.value;
+	const modelLightIntensity = store.lighting.modelLightIntensity.value;
+	const modelLightAzimuthDeg = store.lighting.modelLightAzimuthDeg.value;
+	const modelLightElevationDeg = store.lighting.modelLightElevationDeg.value;
+	const activeCameraHeadingDeg =
+		controller?.()?.getActiveCameraHeadingDeg?.() ?? 0;
+
+	return html`
+		<section class="panel-section">
+			<${SectionHeading} icon="light" title=${t("section.lighting")}>
+				<span class="pill pill--dim">${t("assetKind.model")}</span>
+			<//>
+			<label class="field">
+				<span>${t("field.lightDirection")}</span>
+				<${LightingDirectionControl}
+					controller=${controller}
+					azimuthDeg=${modelLightAzimuthDeg}
+					elevationDeg=${modelLightElevationDeg}
+					viewAzimuthDeg=${activeCameraHeadingDeg}
+					onLiveChange=${(nextDirection) =>
+						controller()?.setModelLightDirection?.(nextDirection)}
+				/>
+			</label>
+			<label class="field field--range">
+				<span>${t("field.lightIntensity")}</span>
+				<div class="range-row">
+					<${HistoryRangeInput}
+						id="lighting-intensity"
+						min=${0}
+						max=${2}
+						step=${0.01}
+						value=${Number(modelLightIntensity.toFixed(2))}
+						controller=${controller}
+						historyLabel="lighting.model.intensity"
+						onLiveChange=${(event) =>
+							controller()?.setModelLightIntensity?.(event.currentTarget.value)}
+					/>
+					<div class="numeric-unit">
+						<${NumericDraftInput}
+							id="lighting-intensity-input"
+							inputMode="decimal"
+							min=${0}
+							max=${2}
+							step=${0.01}
+							value=${Number(modelLightIntensity).toFixed(2)}
+							controller=${controller}
+							historyLabel="lighting.model.intensity"
+							onCommit=${(nextValue) =>
+								controller()?.setModelLightIntensity?.(nextValue)}
+						/>
+					</div>
+				</div>
+			</label>
+			<label class="field field--range">
+				<span>${t("field.lightAmbient")}</span>
+				<div class="range-row">
+					<${HistoryRangeInput}
+						id="lighting-ambient"
+						min=${0}
+						max=${2}
+						step=${0.01}
+						value=${Number(ambient.toFixed(2))}
+						controller=${controller}
+						historyLabel="lighting.ambient"
+						onLiveChange=${(event) =>
+							controller()?.setLightingAmbient?.(event.currentTarget.value)}
+					/>
+					<div class="numeric-unit">
+						<${NumericDraftInput}
+							id="lighting-ambient-input"
+							inputMode="decimal"
+							min=${0}
+							max=${2}
+							step=${0.01}
+							value=${Number(ambient).toFixed(2)}
+							controller=${controller}
+							historyLabel="lighting.ambient"
+							onCommit=${(nextValue) =>
+								controller()?.setLightingAmbient?.(nextValue)}
+						/>
+					</div>
+				</div>
+			</label>
 		</section>
 	`;
 }
@@ -653,6 +759,14 @@ export function ShotCameraSection({
 					)}
 				</select>
 			</label>
+			<label class="field">
+				<span>${t("field.shotCameraName")}</span>
+				<${TextDraftInput}
+					id="shot-camera-name"
+					value=${activeShotCamera?.name ?? ""}
+					onCommit=${(nextValue) => controller()?.setShotCameraName(nextValue)}
+				/>
+			</label>
 			<div class="button-row">
 				<${IconButton}
 					id="new-shot-camera"
@@ -688,11 +802,13 @@ export function ShotCameraSection({
 					<div class="numeric-unit">
 						<${NumericDraftInput}
 							id="fov-mm-input"
-							inputMode="numeric"
+							inputMode="decimal"
 							min=${14}
 							max=${200}
-							step="1"
+							step="0.01"
 							value=${equivalentMmValue}
+							controller=${controller}
+							historyLabel="camera.lens"
 							onCommit=${(nextValue) =>
 								applyStandardFrameEquivalentMm(
 									(nextBaseFov) => controller()?.setBaseFovX(nextBaseFov),
@@ -729,6 +845,8 @@ export function ShotCameraSection({
 								min="0.1"
 								step="0.1"
 								value=${Number(store.shotCamera.near.value).toFixed(2)}
+								controller=${controller}
+								historyLabel="camera.near"
 								onCommit=${(nextValue) => controller()?.setShotCameraNear(nextValue)}
 							/>
 						</label>
@@ -740,6 +858,8 @@ export function ShotCameraSection({
 								min="0.1"
 								step="0.1"
 								value=${Number(store.shotCamera.far.value).toFixed(2)}
+								controller=${controller}
+								historyLabel="camera.far"
 								onCommit=${(nextValue) => controller()?.setShotCameraFar(nextValue)}
 							/>
 						</label>
@@ -795,14 +915,12 @@ export function ExportSettingsSection({
 			<//>
 			<label class="field">
 				<span>${t("field.shotCameraExportName")}</span>
-				<input
+				<${TextDraftInput}
 					id="shot-camera-export-name"
-					type="text"
 					placeholder=${activeShotCamera?.name ?? "Camera"}
 					value=${store.shotCamera.exportName.value}
-					...${INTERACTIVE_FIELD_PROPS}
-					onInput=${(event) =>
-						controller()?.setShotCameraExportName(event.currentTarget.value)}
+					onCommit=${(nextValue) =>
+						controller()?.setShotCameraExportName(nextValue)}
 				/>
 			</label>
 			<label class="field">
@@ -954,6 +1072,381 @@ export function FramesSection({
 	`;
 }
 
+export function ReferenceSection({ controller, store, t }) {
+	const assets = store.referenceImages.assets.value;
+	const items = store.referenceImages.items.value;
+	const itemsForDisplay = [...items].reverse();
+	const presets = store.referenceImages.presets.value;
+	const previewSessionVisible =
+		store.referenceImages.previewSessionVisible.value;
+	const selectedAssetId = store.referenceImages.selectedAssetId.value;
+	const selectedItemId = store.referenceImages.selectedItemId.value;
+	const selectedItemIds = new Set(
+		store.referenceImages.selectedItemIds.value ?? [],
+	);
+	const panelPresetId = store.referenceImages.panelPresetId.value;
+	const selectedItem = items.find((item) => item.id === selectedItemId) ?? null;
+	const selectedAsset =
+		assets.find(
+			(asset) => asset.id === (selectedItem?.assetId ?? selectedAssetId),
+		) ?? null;
+
+	function getReferenceRowClass({ selected = false, active = false }) {
+		const classes = ["scene-asset-row"];
+		if (selected) {
+			classes.push("scene-asset-row--selected");
+		}
+		if (active) {
+			classes.push("scene-asset-row--active");
+		}
+		return classes.join(" ");
+	}
+
+	return html`
+		<section class="panel-section">
+			<${SectionHeading} icon="image" title=${t("section.referenceImages")}>
+				<span class="pill pill--dim">${items.length}</span>
+			<//>
+			<div class="button-row">
+				<button
+					type="button"
+					class="button button--compact"
+					onClick=${() => controller()?.openReferenceImageFiles?.()}
+				>
+					${t("action.openReferenceImages")}
+				</button>
+				<button
+					type="button"
+					class=${
+						previewSessionVisible
+							? "button button--primary button--compact"
+							: "button button--compact"
+					}
+					onClick=${() =>
+						controller()?.setReferenceImagePreviewSessionVisible?.(
+							!previewSessionVisible,
+						)}
+				>
+					${
+						previewSessionVisible
+							? t("action.hideReferenceImages")
+							: t("action.showReferenceImages")
+					}
+				</button>
+			</div>
+			<div class="split-field-row">
+				<label class="field">
+					<span>${t("referenceImage.activePreset")}</span>
+					<select
+						value=${panelPresetId}
+						...${INTERACTIVE_FIELD_PROPS}
+						onChange=${(event) =>
+							controller()?.setActiveReferenceImagePreset?.(
+								event.currentTarget.value,
+							)}
+					>
+						${presets.map(
+							(preset) => html`
+								<option key=${preset.id} value=${preset.id}>
+									${preset.name}
+								</option>
+							`,
+						)}
+					</select>
+				</label>
+				<div class="field field--action">
+					<span>${t("referenceImage.activePresetItems", { count: items.length })}</span>
+					<button
+						type="button"
+						class="button button--compact"
+						onClick=${() => controller()?.duplicateActiveReferenceImagePreset?.()}
+					>
+						${t("action.duplicateReferencePreset")}
+					</button>
+				</div>
+			</div>
+			<div class="reference-panel-stack">
+				<section class="reference-panel-group">
+					<${SectionHeading}
+						title=${t("referenceImage.currentPresetSection")}
+					>
+						<span class="pill pill--dim">${items.length}</span>
+					<//>
+					${
+						items.length > 0
+							? html`
+									<div class="scene-asset-list">
+										${itemsForDisplay.map(
+											(item) => html`
+												<article
+													class=${getReferenceRowClass({
+														selected: selectedItemIds.has(item.id),
+														active: item.id === selectedItemId,
+													})}
+													onClick=${(event) =>
+														controller()?.selectReferenceImageItem?.(
+															item.id,
+															event,
+														)}
+												>
+													<div class="scene-asset-row__main scene-asset-row__main--flat">
+														<div class="scene-asset-row__title-group">
+															<strong>${item.name}</strong>
+															<span class="scene-asset-row__meta">
+																${item.fileName || t("referenceImage.untitled")} ·
+																${t(`referenceImage.group.${item.group}`)} ·
+																${t("referenceImage.orderLabel", {
+																	order: item.order + 1,
+																})}
+															</span>
+														</div>
+													</div>
+													<div class="scene-asset-row__toolbar">
+														<${IconButton}
+															icon=${item.previewVisible ? "eye" : "eye-off"}
+															label=${t(
+																item.previewVisible
+																	? "assetVisibility.visible"
+																	: "assetVisibility.hidden",
+															)}
+															active=${item.previewVisible}
+															compact=${true}
+															className="scene-asset-row__icon-button"
+															onClick=${(event) => {
+																event.stopPropagation();
+																controller()?.setReferenceImagePreviewVisible?.(
+																	item.id,
+																	!item.previewVisible,
+																);
+															}}
+														/>
+														<${IconButton}
+															icon=${item.exportEnabled ? "export" : "slash-circle"}
+															label=${
+																item.exportEnabled
+																	? t("action.excludeReferenceImageFromExport")
+																	: t("action.includeReferenceImageInExport")
+															}
+															compact=${true}
+															className="scene-asset-row__icon-button"
+															onClick=${(event) => {
+																event.stopPropagation();
+																controller()?.setReferenceImageExportEnabled?.(
+																	item.id,
+																	!item.exportEnabled,
+																);
+															}}
+														/>
+													</div>
+												</article>
+											`,
+										)}
+									</div>
+								`
+							: html`<p class="summary">${t("referenceImage.currentCameraEmpty")}</p>`
+					}
+				</section>
+				<section class="reference-panel-group">
+					<${SectionHeading}
+						title=${t("referenceImage.selectedSection")}
+					>
+					<//>
+					${
+						selectedItem && selectedAsset
+							? html`
+									<div class="reference-selected-panel">
+										<p class="summary">
+											${selectedItem.name} ·
+											${selectedAsset.fileName || t("referenceImage.untitled")}
+										</p>
+										<div class="split-field-row">
+											<label class="field">
+												<span>${t("field.referenceImageOpacity")}</span>
+												<div class="numeric-unit">
+													<${NumericDraftInput}
+														inputMode="decimal"
+														min="0"
+														max="100"
+														step="1"
+														value=${Math.round(selectedItem.opacity * 100)}
+														controller=${controller}
+														historyLabel="reference-image.opacity"
+														onCommit=${(nextValue) =>
+															controller()?.setReferenceImageOpacity?.(
+																selectedItem.id,
+																nextValue,
+															)}
+													/>
+													<span>%</span>
+												</div>
+											</label>
+											<label class="field">
+												<span>${t("field.referenceImageScale")}</span>
+												<div class="numeric-unit">
+													<${NumericDraftInput}
+														inputMode="decimal"
+														min="0.1"
+														step="0.01"
+														value=${Number(selectedItem.scalePct).toFixed(2)}
+														controller=${controller}
+														historyLabel="reference-image.scale"
+														onCommit=${(nextValue) =>
+															controller()?.setReferenceImageScalePct?.(
+																selectedItem.id,
+																nextValue,
+															)}
+													/>
+													<span>%</span>
+												</div>
+											</label>
+										</div>
+										<div class="split-field-row">
+											<label class="field">
+												<span>${t("field.referenceImageOffsetX")}</span>
+												<div class="numeric-unit">
+													<${NumericDraftInput}
+														inputMode="decimal"
+														step="1"
+														value=${Number(selectedItem.offsetPx?.x ?? 0).toFixed(0)}
+														controller=${controller}
+														historyLabel="reference-image.offset.x"
+														onCommit=${(nextValue) =>
+															controller()?.setReferenceImageOffsetPx?.(
+																selectedItem.id,
+																"x",
+																nextValue,
+															)}
+													/>
+													<span>px</span>
+												</div>
+											</label>
+											<label class="field">
+												<span>${t("field.referenceImageOffsetY")}</span>
+												<div class="numeric-unit">
+													<${NumericDraftInput}
+														inputMode="decimal"
+														step="1"
+														value=${Number(selectedItem.offsetPx?.y ?? 0).toFixed(0)}
+														controller=${controller}
+														historyLabel="reference-image.offset.y"
+														onCommit=${(nextValue) =>
+															controller()?.setReferenceImageOffsetPx?.(
+																selectedItem.id,
+																"y",
+																nextValue,
+															)}
+													/>
+													<span>px</span>
+												</div>
+											</label>
+										</div>
+										<div class="split-field-row">
+											<label class="field">
+												<span>${t("field.referenceImageRotation")}</span>
+												<div class="numeric-unit">
+													<${NumericDraftInput}
+														inputMode="decimal"
+														step="0.01"
+														value=${Number(selectedItem.rotationDeg).toFixed(2)}
+														controller=${controller}
+														historyLabel="reference-image.rotation"
+														onCommit=${(nextValue) =>
+															controller()?.setReferenceImageRotationDeg?.(
+																selectedItem.id,
+																nextValue,
+															)}
+													/>
+													<span>deg</span>
+												</div>
+											</label>
+											<label class="field">
+												<span>${t("field.referenceImageOrder")}</span>
+												<${NumericDraftInput}
+													inputMode="numeric"
+													min="1"
+													step="1"
+													value=${selectedItem.order + 1}
+													controller=${controller}
+													historyLabel="reference-image.order"
+													onCommit=${(nextValue) =>
+														controller()?.setReferenceImageOrder?.(
+															selectedItem.id,
+															Math.max(0, Number(nextValue) - 1),
+														)}
+												/>
+											</label>
+										</div>
+										<div class="split-field-row">
+											<label class="field">
+												<span>${t("field.referenceImageGroup")}</span>
+												<select
+													value=${selectedItem.group}
+													...${INTERACTIVE_FIELD_PROPS}
+													onChange=${(event) =>
+														controller()?.setReferenceImageGroup?.(
+															selectedItem.id,
+															event.currentTarget.value,
+														)}
+												>
+													<option value="back">
+														${t("referenceImage.group.back")}
+													</option>
+													<option value="front">
+														${t("referenceImage.group.front")}
+													</option>
+												</select>
+											</label>
+										</div>
+										<div class="button-row">
+											<button
+												type="button"
+												class=${
+													selectedItem.previewVisible
+														? "button button--primary button--compact"
+														: "button button--compact"
+												}
+												onClick=${() =>
+													controller()?.setReferenceImagePreviewVisible?.(
+														selectedItem.id,
+														!selectedItem.previewVisible,
+													)}
+											>
+												${
+													selectedItem.previewVisible
+														? t("action.hideReferenceImage")
+														: t("action.showReferenceImage")
+												}
+											</button>
+											<button
+												type="button"
+												class=${
+													selectedItem.exportEnabled
+														? "button button--primary button--compact"
+														: "button button--compact"
+												}
+												onClick=${() =>
+													controller()?.setReferenceImageExportEnabled?.(
+														selectedItem.id,
+														!selectedItem.exportEnabled,
+													)}
+											>
+												${
+													selectedItem.exportEnabled
+														? t("action.excludeReferenceImageFromExport")
+														: t("action.includeReferenceImageInExport")
+												}
+											</button>
+										</div>
+									</div>
+								`
+							: html`<p class="summary">${t("referenceImage.selectedEmpty")}</p>`
+					}
+				</section>
+			</div>
+		</section>
+	`;
+}
+
 export function OutputFrameSection({
 	anchorOptions,
 	controller,
@@ -1035,6 +1528,8 @@ export function ExportSection({
 		exportBusy || exportStatusLabel !== t("export.idle")
 			? "pill"
 			: "pill pill--dim";
+	const exportReferenceImagesEnabled =
+		store.referenceImages.exportSessionEnabled.value !== false;
 
 	return html`
 		<section class="panel-section panel-section--preview">
@@ -1083,6 +1578,17 @@ export function ExportSection({
 					</div>
 				`
 			}
+			<label class="checkbox-field">
+				<input
+					type="checkbox"
+					checked=${exportReferenceImagesEnabled}
+					onChange=${(event) =>
+						controller()?.setReferenceImageExportSessionEnabled?.(
+							event.currentTarget.checked,
+						)}
+				/>
+				<span>${t("field.exportReferenceImages")}</span>
+			</label>
 			<div class="button-row">
 				<button
 					id="download-output"

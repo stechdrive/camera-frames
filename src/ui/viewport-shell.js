@@ -1,4 +1,7 @@
 import { html } from "htm/preact";
+import { getFrameAnchorHandleKey } from "../engine/frame-transform.js";
+import { getFrameResizeCursorCss } from "../engine/resize-cursor.js";
+import { getFrameRotateCursorCss } from "../engine/rotate-cursor.js";
 import {
 	VIEWPORT_PIE_RADIUS,
 	buildViewportPieActions,
@@ -18,9 +21,112 @@ const OUTPUT_FRAME_RESIZE_HANDLES = [
 ];
 
 const OUTPUT_FRAME_PAN_EDGES = ["top", "right", "bottom", "left"];
+const REFERENCE_IMAGE_TRANSFORM_HANDLES = [
+	"top-left",
+	"top",
+	"top-right",
+	"right",
+	"bottom-right",
+	"bottom",
+	"bottom-left",
+	"left",
+];
+const REFERENCE_IMAGE_ROTATION_ZONES = [
+	"top-left",
+	"top",
+	"top-right",
+	"right",
+	"bottom-right",
+	"bottom",
+	"bottom-left",
+	"left",
+];
+
+function getReferenceImageAnchorHandleKey(anchorAx, anchorAy) {
+	if (
+		!Number.isFinite(anchorAx) ||
+		!Number.isFinite(anchorAy) ||
+		anchorAx < 0 ||
+		anchorAx > 1 ||
+		anchorAy < 0 ||
+		anchorAy > 1
+	) {
+		return "";
+	}
+	return getFrameAnchorHandleKey({ x: anchorAx, y: anchorAy });
+}
 
 export function ViewportShell({ store, controller, refs, t }) {
+	const referenceImageEditMode = store.viewportReferenceImageEditMode.value;
 	const outputFrameLabel = t("section.outputFrame");
+	const referenceImageLayers = store.referenceImages.previewLayers.value;
+	const selectedReferenceImageIds = new Set(
+		store.referenceImages.selectedItemIds.value ?? [],
+	);
+	const backReferenceImageLayers = referenceImageLayers.filter(
+		(layer) => layer.group === "back",
+	);
+	const frontReferenceImageLayers = referenceImageLayers.filter(
+		(layer) => layer.group !== "back",
+	);
+	const selectedReferenceImageLayers = referenceImageLayers.filter((layer) =>
+		selectedReferenceImageIds.has(layer.id),
+	);
+	const activeReferenceImageLayer =
+		selectedReferenceImageLayers.find(
+			(layer) => layer.id === store.referenceImages.selectedItemId.value,
+		) ??
+		selectedReferenceImageLayers[selectedReferenceImageLayers.length - 1] ??
+		null;
+	const selectionAnchor = store.referenceImages.selectionAnchor.value;
+	const multiSelectionBox = store.referenceImages.selectionBoxScreen.value;
+	const referenceImageSelectionBox = (() => {
+		if (selectedReferenceImageLayers.length === 0) {
+			return null;
+		}
+		if (
+			selectedReferenceImageLayers.length === 1 &&
+			activeReferenceImageLayer
+		) {
+			return {
+				leftPx: activeReferenceImageLayer.leftPx,
+				topPx: activeReferenceImageLayer.topPx,
+				widthPx: activeReferenceImageLayer.widthPx,
+				heightPx: activeReferenceImageLayer.heightPx,
+				rotationDeg: activeReferenceImageLayer.rotationDeg,
+				anchorAx: activeReferenceImageLayer.anchorAx,
+				anchorAy: activeReferenceImageLayer.anchorAy,
+				anchorHandleKey: getReferenceImageAnchorHandleKey(
+					activeReferenceImageLayer.anchorAx,
+					activeReferenceImageLayer.anchorAy,
+				),
+			};
+		}
+		if (!multiSelectionBox) {
+			return null;
+		}
+		return {
+			leftPx: multiSelectionBox.left,
+			topPx: multiSelectionBox.top,
+			widthPx: multiSelectionBox.width,
+			heightPx: multiSelectionBox.height,
+			rotationDeg: multiSelectionBox.rotationDeg ?? 0,
+			anchorAx: Number.isFinite(selectionAnchor?.x)
+				? selectionAnchor.x
+				: (multiSelectionBox.anchorX ?? 0.5),
+			anchorAy: Number.isFinite(selectionAnchor?.y)
+				? selectionAnchor.y
+				: (multiSelectionBox.anchorY ?? 0.5),
+			anchorHandleKey: getReferenceImageAnchorHandleKey(
+				Number.isFinite(selectionAnchor?.x)
+					? selectionAnchor.x
+					: (multiSelectionBox.anchorX ?? 0.5),
+				Number.isFinite(selectionAnchor?.y)
+					? selectionAnchor.y
+					: (multiSelectionBox.anchorY ?? 0.5),
+			),
+		};
+	})();
 	const pieState = store.viewportPieMenu.value;
 	const lensHud = store.viewportLensHud.value;
 	const pieActions = pieState.open
@@ -46,6 +152,38 @@ export function ViewportShell({ store, controller, refs, t }) {
 		event.stopPropagation();
 		controller()?.executeViewportPieAction?.(actionId, event);
 	};
+	const getReferenceImageContainerStyle = (layer) => ({
+		left: `${layer.leftPx}px`,
+		top: `${layer.topPx}px`,
+		width: `${layer.widthPx}px`,
+		height: `${layer.heightPx}px`,
+		opacity: layer.opacity,
+		transform: `rotate(${layer.rotationDeg}deg)`,
+		transformOrigin: `${layer.anchorAx * 100}% ${layer.anchorAy * 100}%`,
+	});
+	const getReferenceImageImageStyle = (layer) => ({
+		imageRendering: layer.pixelPerfect ? "pixelated" : "auto",
+	});
+	const getReferenceImageSelectionBoxStyle = (selectionBox) => ({
+		left: `${selectionBox.leftPx}px`,
+		top: `${selectionBox.topPx}px`,
+		width: `${selectionBox.widthPx}px`,
+		height: `${selectionBox.heightPx}px`,
+		transform: `rotate(${selectionBox.rotationDeg}deg)`,
+		transformOrigin: `${selectionBox.anchorAx * 100}% ${selectionBox.anchorAy * 100}%`,
+	});
+	const getReferenceImageSelectionAnchorStyle = (selectionBox) => ({
+		left: `${selectionBox.anchorAx * 100}%`,
+		top: `${selectionBox.anchorAy * 100}%`,
+	});
+	const startReferenceImageMove = (itemId, event) =>
+		controller()?.startReferenceImageMove?.(itemId, event);
+	const startReferenceImageResize = (handleKey, event) =>
+		controller()?.startReferenceImageResize?.(handleKey, event);
+	const startReferenceImageRotate = (zoneKey, event) =>
+		controller()?.startReferenceImageRotate?.(zoneKey, event);
+	const startReferenceImageAnchorDrag = (event) =>
+		controller()?.startReferenceImageAnchorDrag?.(event);
 	const transformHandleConfigs = [
 		{
 			id: "move-x",
@@ -78,6 +216,43 @@ export function ViewportShell({ store, controller, refs, t }) {
 			<div id="drop-hint" ref=${refs.dropHintRef} class="drop-hint">
 				<strong>${t("drop.title")}</strong>
 				<span>${t("drop.body")}</span>
+			</div>
+			<div class="reference-image-layer reference-image-layer--back">
+				${backReferenceImageLayers.map(
+					(layer) => html`
+						<div
+							key=${layer.id}
+							class=${
+								selectedReferenceImageIds.has(layer.id)
+									? referenceImageEditMode
+										? "reference-image-layer__entry reference-image-layer__entry--selected reference-image-layer__entry--interactive"
+										: "reference-image-layer__entry reference-image-layer__entry--selected"
+									: referenceImageEditMode
+										? "reference-image-layer__entry reference-image-layer__entry--interactive"
+										: "reference-image-layer__entry"
+							}
+							style=${getReferenceImageContainerStyle(layer)}
+							onPointerDown=${
+								referenceImageEditMode
+									? (event) => startReferenceImageMove(layer.id, event)
+									: undefined
+							}
+						>
+							<img
+								class=${
+									layer.pixelPerfect
+										? "reference-image-layer__item reference-image-layer__item--pixelated"
+										: "reference-image-layer__item"
+								}
+								src=${layer.sourceUrl}
+								alt=${layer.name}
+								title=${layer.fileName || layer.name}
+								draggable="false"
+								style=${getReferenceImageImageStyle(layer)}
+							/>
+						</div>
+					`,
+				)}
 			</div>
 			${
 				pieState.open &&
@@ -183,6 +358,114 @@ export function ViewportShell({ store, controller, refs, t }) {
 					class="render-box__anchor"
 				></div>
 			</div>
+			<div class="reference-image-layer reference-image-layer--front">
+				${frontReferenceImageLayers.map(
+					(layer) => html`
+						<div
+							key=${layer.id}
+							class=${
+								selectedReferenceImageIds.has(layer.id)
+									? referenceImageEditMode
+										? "reference-image-layer__entry reference-image-layer__entry--selected reference-image-layer__entry--interactive"
+										: "reference-image-layer__entry reference-image-layer__entry--selected"
+									: referenceImageEditMode
+										? "reference-image-layer__entry reference-image-layer__entry--interactive"
+										: "reference-image-layer__entry"
+							}
+							style=${getReferenceImageContainerStyle(layer)}
+							onPointerDown=${
+								referenceImageEditMode
+									? (event) => startReferenceImageMove(layer.id, event)
+									: undefined
+							}
+						>
+							<img
+								class=${
+									layer.pixelPerfect
+										? "reference-image-layer__item reference-image-layer__item--pixelated"
+										: "reference-image-layer__item"
+								}
+								src=${layer.sourceUrl}
+								alt=${layer.name}
+								title=${layer.fileName || layer.name}
+								draggable="false"
+								style=${getReferenceImageImageStyle(layer)}
+							/>
+						</div>
+					`,
+				)}
+			</div>
+			${
+				referenceImageEditMode &&
+				referenceImageSelectionBox &&
+				html`
+					<div class="reference-image-selection-layer">
+						<div
+							class="frame-item frame-item--selected reference-image-transform-box"
+							data-anchor-handle=${referenceImageSelectionBox.anchorHandleKey}
+							style=${getReferenceImageSelectionBoxStyle(
+								referenceImageSelectionBox,
+							)}
+						>
+							${OUTPUT_FRAME_PAN_EDGES.map(
+								(edge) => html`
+									<button
+										type="button"
+										class=${`frame-item__edge frame-item__edge--${edge}`}
+										onPointerDown=${(event) =>
+											startReferenceImageMove(
+												activeReferenceImageLayer?.id ?? "",
+												event,
+											)}
+									></button>
+								`,
+							)}
+							${REFERENCE_IMAGE_TRANSFORM_HANDLES.map(
+								(handle) => html`
+									<button
+										key=${handle}
+										type="button"
+										class=${`frame-item__resize-handle frame-item__resize-handle--${handle}`}
+										style=${{
+											cursor: getFrameResizeCursorCss(
+												referenceImageSelectionBox.rotationDeg,
+												handle,
+											),
+										}}
+										onPointerDown=${(event) =>
+											startReferenceImageResize(handle, event)}
+									></button>
+								`,
+							)}
+							${REFERENCE_IMAGE_ROTATION_ZONES.map(
+								(zone) => html`
+									<button
+										key=${zone}
+										type="button"
+										class=${`frame-item__rotation-zone frame-item__rotation-zone--${zone}`}
+										style=${{
+											cursor: getFrameRotateCursorCss(
+												referenceImageSelectionBox.rotationDeg,
+												zone,
+											),
+										}}
+										onPointerDown=${(event) =>
+											startReferenceImageRotate(zone, event)}
+									></button>
+								`,
+							)}
+							<button
+								type="button"
+								class="frame-item__anchor"
+								style=${getReferenceImageSelectionAnchorStyle(
+									referenceImageSelectionBox,
+								)}
+								onPointerDown=${startReferenceImageAnchorDrag}
+							></button>
+						</div>
+					</div>
+				`
+			}
 			<div
 				id="viewport-gizmo"
 				ref=${refs.viewportGizmoRef}

@@ -43,5 +43,15 @@ export function AppView({ store, controller, refs }) {
 			hidden
 			onChange=${(event) => controller()?.handleProjectInputChange(event)}
 		/>
+		<input
+			id="reference-image-input"
+			ref=${refs.referenceImageInputRef}
+			type="file"
+			accept=".png,.jpg,.jpeg,.webp,.psd"
+			multiple
+			hidden
+			onChange=${(event) =>
+				controller()?.handleReferenceImageInputChange(event)}
+		/>
 	`;
 }

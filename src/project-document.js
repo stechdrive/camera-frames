@@ -1,3 +1,10 @@
+import { normalizeLightingState } from "./lighting-model.js";
+import {
+	REFERENCE_IMAGE_ASSET_KIND,
+	createDefaultReferenceImageDocument,
+	normalizeReferenceImageDocument,
+	sanitizeShotCameraReferenceImagesState,
+} from "./reference-image-model.js";
 import {
 	createDefaultShotCameraDocuments,
 	createShotCameraDocument,
@@ -55,6 +62,8 @@ export function getProjectMediaTypeFromFileName(
 			return "model/gltf-binary";
 		case "gltf":
 			return "model/gltf+json";
+		case "psd":
+			return "image/vnd.adobe.photoshop";
 		case "png":
 			return "image/png";
 		case "jpg":
@@ -112,7 +121,10 @@ function sanitizeOutputFrame(outputFrame = {}) {
 	};
 }
 
-export function sanitizeShotCameraDocument(documentState) {
+export function sanitizeShotCameraDocument(
+	documentState,
+	{ availablePresetIds = [] } = {},
+) {
 	const normalized = createShotCameraDocument({
 		id: documentState?.id,
 		name: documentState?.name,
@@ -145,6 +157,10 @@ export function sanitizeShotCameraDocument(documentState) {
 				normalized.exportSettings?.exportModelLayers !== false &&
 				Boolean(normalized.exportSettings?.exportSplatLayers),
 		},
+		referenceImages: sanitizeShotCameraReferenceImagesState(
+			normalized.referenceImages,
+			{ availablePresetIds },
+		),
 		frames: (normalized.frames ?? []).map((frame) => ({
 			id: frame.id,
 			name: frame.name,
@@ -211,48 +227,28 @@ export function sanitizeProjectAssetState(asset, index = 0) {
 	};
 }
 
-export function sanitizeReferenceImageState(referenceImage, index = 0) {
-	return {
-		id: String(referenceImage?.id ?? `reference-image-${index + 1}`),
-		label: String(referenceImage?.label ?? `Reference ${index + 1}`),
-		source: referenceImage?.source ?? null,
-		space: referenceImage?.space === "viewport" ? "viewport" : "shot-camera",
-		shotCameraId:
-			typeof referenceImage?.shotCameraId === "string"
-				? referenceImage.shotCameraId
-				: null,
-		placement: {
-			x: clampNormalizedValue(referenceImage?.placement?.x, 0.5),
-			y: clampNormalizedValue(referenceImage?.placement?.y, 0.5),
-			scale:
-				isFiniteNumber(referenceImage?.placement?.scale) &&
-				referenceImage.placement.scale > 0
-					? referenceImage.placement.scale
-					: 1,
-			rotation: Number(referenceImage?.placement?.rotation ?? 0),
-		},
-		opacity: Math.max(0, Math.min(1, Number(referenceImage?.opacity ?? 1))),
-		blendMode:
-			typeof referenceImage?.blendMode === "string" && referenceImage.blendMode
-				? referenceImage.blendMode
-				: "normal",
-		visible: referenceImage?.visible !== false,
-		locked: Boolean(referenceImage?.locked),
-	};
-}
-
 export function normalizeProjectDocument(project = {}) {
+	const normalizedReferenceImages = normalizeReferenceImageDocument(
+		project.scene?.referenceImages ?? createDefaultReferenceImageDocument(),
+	);
+	const availablePresetIds = normalizedReferenceImages.presets.map(
+		(preset) => preset.id,
+	);
 	const rawShotCameras = Array.isArray(project.shotCameras)
 		? project.shotCameras
 		: [];
 	const normalizedShotCameras =
 		rawShotCameras.length > 0
 			? rawShotCameras.map((shotCamera) => ({
-					...sanitizeShotCameraDocument(shotCamera),
+					...sanitizeShotCameraDocument(shotCamera, {
+						availablePresetIds,
+					}),
 					pose: toSerializableCameraPose(shotCamera.pose),
 				}))
 			: createDefaultShotCameraDocuments().map((shotCamera) => ({
-					...sanitizeShotCameraDocument(shotCamera),
+					...sanitizeShotCameraDocument(shotCamera, {
+						availablePresetIds,
+					}),
 					pose: toSerializableCameraPose(null),
 				}));
 	const activeShotCameraId =
@@ -288,12 +284,8 @@ export function normalizeProjectDocument(project = {}) {
 				? project.scene.assets
 				: []
 			).map((asset, index) => sanitizeProjectAssetState(asset, index)),
-			referenceImages: (Array.isArray(project.scene?.referenceImages)
-				? project.scene.referenceImages
-				: []
-			).map((referenceImage, index) =>
-				sanitizeReferenceImageState(referenceImage, index),
-			),
+			lighting: normalizeLightingState(project.scene?.lighting),
+			referenceImages: normalizedReferenceImages,
 		},
 		shotCameras: normalizedShotCameras,
 	};
@@ -312,7 +304,12 @@ export function buildProjectManifest({
 		entries: {
 			project: projectPath,
 		},
-		features: ["scene-assets", "shot-cameras", "reference-images"],
+		features: [
+			"scene-assets",
+			"scene-lighting",
+			"shot-cameras",
+			"reference-images",
+		],
 	};
 }
 
@@ -402,6 +399,24 @@ function buildProjectFingerprintPayload(project) {
 			label: asset.label,
 			resourceId: asset.source?.resourceId ?? null,
 		})),
+		referenceImageAssets: normalizedProject.scene.referenceImages.assets.map(
+			(asset) => ({
+				id: asset.id,
+				label: asset.label,
+				resourceId: asset.source?.resourceId ?? null,
+			}),
+		),
+		referenceImagePresets: normalizedProject.scene.referenceImages.presets.map(
+			(preset) => ({
+				id: preset.id,
+				name: preset.name,
+				itemCount: preset.items.length,
+			}),
+		),
+		referenceImageBindings: normalizedProject.shotCameras.map((shotCamera) => ({
+			id: shotCamera.id,
+			presetId: shotCamera.referenceImages?.presetId ?? null,
+		})),
 	};
 }
 
@@ -418,9 +433,13 @@ export function createProjectFileEmbeddedFileSource({
 	legacyState = null,
 	resource = null,
 } = {}) {
+	const normalizedKind =
+		kind === "model" || kind === "splat" || kind === REFERENCE_IMAGE_ASSET_KIND
+			? kind
+			: "splat";
 	return {
 		sourceType: PROJECT_FILE_EMBEDDED_FILE_SOURCE,
-		kind: kind === "model" ? "model" : "splat",
+		kind: normalizedKind,
 		file,
 		fileName: normalizeProjectFileName(fileName ?? file?.name, "asset.bin"),
 		projectAssetState,

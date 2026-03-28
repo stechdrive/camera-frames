@@ -10,6 +10,8 @@ import {
 	getStandardFrameHorizontalFovDegrees,
 } from "./engine/camera-lens.js";
 import { resolveInitialLocale, translate } from "./i18n.js";
+import { createDefaultLightingState } from "./lighting-model.js";
+import { createDefaultReferenceImageDocument } from "./reference-image-model.js";
 import {
 	WORKSPACE_LAYOUT_SINGLE,
 	createDefaultShotCameraDocuments,
@@ -37,6 +39,9 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	const viewportToolMode = signal("none");
 	const viewportSelectMode = computed(
 		() => viewportToolMode.value === "select",
+	);
+	const viewportReferenceImageEditMode = computed(
+		() => viewportToolMode.value === "reference",
 	);
 	const viewportPivotEditMode = computed(
 		() => viewportToolMode.value === "pivot",
@@ -74,6 +79,23 @@ export function createCameraFramesStore(runtimeInfo = null) {
 		translate(initialLocale, "scene.scaleDefault"),
 	);
 	const sceneAssets = signal([]);
+	const sceneLighting = signal(createDefaultLightingState());
+	const referenceImageDocument = signal(createDefaultReferenceImageDocument());
+	const referenceImagePreviewSessionVisible = signal(true);
+	const referenceImageExportSessionEnabled = signal(true);
+	const referenceImagePanelPresetId = signal("");
+	const referenceImagePanelPresetName = signal("");
+	const referenceImagePresets = signal([]);
+	const referenceImageItems = signal([]);
+	const referenceImageAssets = signal([]);
+	const referenceImageAssetCount = signal(0);
+	const referenceImagePreviewLayers = signal([]);
+	const referenceImageSelectedAssetId = signal("");
+	const referenceImageSelectedItemId = signal("");
+	const referenceImageSelectedItemIds = signal([]);
+	const referenceImageSelectionAnchor = signal(null);
+	const referenceImageSelectionBoxLogical = signal(null);
+	const referenceImageSelectionBoxScreen = signal(null);
 	const selectedSceneAssetIds = signal([]);
 	const selectedSceneAssetId = signal(null);
 	const selectedSceneAsset = computed(
@@ -169,6 +191,19 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	const exportSizeLabel = computed(
 		() => `${exportWidth.value} × ${exportHeight.value}`,
 	);
+	const lightingAmbient = computed(() => sceneLighting.value.ambient);
+	const modelLightEnabled = computed(
+		() => sceneLighting.value.modelLight.enabled,
+	);
+	const modelLightIntensity = computed(
+		() => sceneLighting.value.modelLight.intensity,
+	);
+	const modelLightAzimuthDeg = computed(
+		() => sceneLighting.value.modelLight.azimuthDeg,
+	);
+	const modelLightElevationDeg = computed(
+		() => sceneLighting.value.modelLight.elevationDeg,
+	);
 	const exportPresetCount = computed(() => exportPresetIds.value.length);
 	const modeLabel = computed(() =>
 		translate(
@@ -184,21 +219,21 @@ export function createCameraFramesStore(runtimeInfo = null) {
 			`${formatNumber(getStandardFrameHorizontalFovDegrees(baseFovX.value), 1)}°`,
 	);
 	const equivalentMmValue = computed(() =>
-		Math.round(getStandardFrameEquivalentMm(baseFovX.value)),
+		Number(getStandardFrameEquivalentMm(baseFovX.value).toFixed(2)),
 	);
 	const equivalentMmLabel = computed(
-		() => `${formatNumber(getStandardFrameEquivalentMm(baseFovX.value), 1)}mm`,
+		() => `${formatNumber(getStandardFrameEquivalentMm(baseFovX.value), 2)}mm`,
 	);
 	const viewportFovLabel = computed(
 		() =>
 			`${formatNumber(getStandardFrameHorizontalFovDegrees(viewportBaseFovX.value), 1)}°`,
 	);
 	const viewportEquivalentMmValue = computed(() =>
-		Math.round(getStandardFrameEquivalentMm(viewportBaseFovX.value)),
+		Number(getStandardFrameEquivalentMm(viewportBaseFovX.value).toFixed(2)),
 	);
 	const viewportEquivalentMmLabel = computed(
 		() =>
-			`${formatNumber(getStandardFrameEquivalentMm(viewportBaseFovX.value), 1)}mm`,
+			`${formatNumber(getStandardFrameEquivalentMm(viewportBaseFovX.value), 2)}mm`,
 	);
 	const widthLabel = computed(
 		() => `${formatNumber(widthScale.value * 100, 0)}%`,
@@ -229,6 +264,7 @@ export function createCameraFramesStore(runtimeInfo = null) {
 		viewportToolMode,
 		viewportTransformSpace,
 		viewportSelectMode,
+		viewportReferenceImageEditMode,
 		viewportPivotEditMode,
 		viewportTransformMode,
 		mode,
@@ -269,6 +305,32 @@ export function createCameraFramesStore(runtimeInfo = null) {
 		sceneSummary,
 		sceneScaleSummary,
 		sceneAssets,
+		lighting: {
+			state: sceneLighting,
+			ambient: lightingAmbient,
+			modelLightEnabled,
+			modelLightIntensity,
+			modelLightAzimuthDeg,
+			modelLightElevationDeg,
+		},
+		referenceImages: {
+			document: referenceImageDocument,
+			previewSessionVisible: referenceImagePreviewSessionVisible,
+			exportSessionEnabled: referenceImageExportSessionEnabled,
+			panelPresetId: referenceImagePanelPresetId,
+			panelPresetName: referenceImagePanelPresetName,
+			presets: referenceImagePresets,
+			items: referenceImageItems,
+			assets: referenceImageAssets,
+			assetCount: referenceImageAssetCount,
+			previewLayers: referenceImagePreviewLayers,
+			selectedAssetId: referenceImageSelectedAssetId,
+			selectedItemId: referenceImageSelectedItemId,
+			selectedItemIds: referenceImageSelectedItemIds,
+			selectionAnchor: referenceImageSelectionAnchor,
+			selectionBoxLogical: referenceImageSelectionBoxLogical,
+			selectionBoxScreen: referenceImageSelectionBoxScreen,
+		},
 		selectedSceneAssetIds,
 		selectedSceneAssetId,
 		selectedSceneAsset,
