@@ -736,6 +736,18 @@ code {
 	color: var(--accent-cool);
 }
 
+.pill--micro {
+	min-height: 1.05rem;
+	padding: 0 0.35rem;
+	font-size: 0.58rem;
+	line-height: 1;
+	letter-spacing: 0.04em;
+}
+
+.pill--literal {
+	text-transform: none;
+}
+
 .button-row {
 	display: flex;
 	flex-wrap: wrap;
@@ -888,6 +900,14 @@ code {
 	justify-content: space-between;
 	gap: 0.4rem;
 	min-height: 1.35rem;
+}
+
+.field__label-inline {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.3rem;
+	line-height: 1;
+	min-width: 0;
 }
 
 .field__label-action {

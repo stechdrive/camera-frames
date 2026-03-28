@@ -1024,12 +1024,6 @@ export function ShotCameraSection({
 				icon="move"
 				label=${t("section.pose")}
 				open=${true}
-				summaryMeta=${html`
-					<span class="pill-row">
-						<span class="pill pill--cool">m</span>
-						<span class="pill pill--cool">°</span>
-					</span>
-				`}
 			>
 				<div class="pose-action-row">
 					<${IconButton}
@@ -1071,7 +1065,12 @@ export function ShotCameraSection({
 				</div>
 				<div class="pose-grid">
 					<label class="field">
-						<span>${t("field.positionX")}</span>
+						<div class="field__label-row">
+							<span class="field__label-inline">
+								<span>${t("field.positionX")}</span>
+								<span class="pill pill--cool pill--micro pill--literal">m</span>
+							</span>
+						</div>
 						<${NumericDraftInput}
 							id="shot-camera-position-x"
 							inputMode="decimal"
@@ -1084,7 +1083,12 @@ export function ShotCameraSection({
 						/>
 					</label>
 					<label class="field">
-						<span>${t("field.positionY")}</span>
+						<div class="field__label-row">
+							<span class="field__label-inline">
+								<span>${t("field.positionY")}</span>
+								<span class="pill pill--cool pill--micro pill--literal">m</span>
+							</span>
+						</div>
 						<${NumericDraftInput}
 							id="shot-camera-position-y"
 							inputMode="decimal"
@@ -1097,7 +1101,12 @@ export function ShotCameraSection({
 						/>
 					</label>
 					<label class="field">
-						<span>${t("field.positionZ")}</span>
+						<div class="field__label-row">
+							<span class="field__label-inline">
+								<span>${t("field.positionZ")}</span>
+								<span class="pill pill--cool pill--micro pill--literal">m</span>
+							</span>
+						</div>
 						<${NumericDraftInput}
 							id="shot-camera-position-z"
 							inputMode="decimal"
@@ -1113,7 +1122,10 @@ export function ShotCameraSection({
 				<div class="pose-grid">
 					<label class="field">
 						<div class="field__label-row">
-							<span>${t("field.shotCameraYaw")}</span>
+							<span class="field__label-inline">
+								<span>${t("field.shotCameraYaw")}</span>
+								<span class="pill pill--cool pill--micro pill--literal">°</span>
+							</span>
 							<span class="field__label-placeholder" aria-hidden="true"></span>
 						</div>
 						<${NumericDraftInput}
@@ -1129,7 +1141,10 @@ export function ShotCameraSection({
 					</label>
 					<label class="field">
 						<div class="field__label-row">
-							<span>${t("field.shotCameraPitch")}</span>
+							<span class="field__label-inline">
+								<span>${t("field.shotCameraPitch")}</span>
+								<span class="pill pill--cool pill--micro pill--literal">°</span>
+							</span>
 							<span class="field__label-placeholder" aria-hidden="true"></span>
 						</div>
 						<${NumericDraftInput}
@@ -1148,7 +1163,10 @@ export function ShotCameraSection({
 					</label>
 					<label class="field">
 						<div class="field__label-row">
-							<span>${t("field.shotCameraRoll")}</span>
+							<span class="field__label-inline">
+								<span>${t("field.shotCameraRoll")}</span>
+								<span class="pill pill--cool pill--micro pill--literal">°</span>
+							</span>
 						<${IconButton}
 							icon=${shotCameraRollLock ? "lock" : "lock-open"}
 							label=${t("field.shotCameraRollLock")}
@@ -1197,7 +1215,10 @@ export function ShotCameraSection({
 					</label>
 					<label class="field">
 						<div class="field__label-row">
-							<span>${t("field.shotCameraNear")}</span>
+							<span class="field__label-inline">
+								<span>${t("field.shotCameraNear")}</span>
+								<span class="pill pill--cool pill--micro pill--literal">m</span>
+							</span>
 						</div>
 						<${NumericDraftInput}
 							id="shot-camera-near"
@@ -1218,7 +1239,10 @@ export function ShotCameraSection({
 					</label>
 					<label class="field">
 						<div class="field__label-row">
-							<span>${t("field.shotCameraFar")}</span>
+							<span class="field__label-inline">
+								<span>${t("field.shotCameraFar")}</span>
+								<span class="pill pill--cool pill--micro pill--literal">m</span>
+							</span>
 						</div>
 						<${NumericDraftInput}
 							id="shot-camera-far"
