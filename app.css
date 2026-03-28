@@ -177,6 +177,106 @@ code {
 	overflow: visible;
 }
 
+.workbench-shell--mobile {
+	inset: 0;
+	display: block;
+}
+
+.workbench-mobile-backdrop {
+	position: absolute;
+	inset: 0;
+	background: rgba(4, 8, 14, 0.12);
+	pointer-events: auto;
+}
+
+.workbench-mobile-dock {
+	position: absolute;
+	left: 50%;
+	bottom: calc(env(safe-area-inset-bottom, 0px) + 0.75rem);
+	transform: translateX(-50%);
+	z-index: 12;
+	display: flex;
+	justify-content: center;
+	width: calc(100% - 1rem);
+	pointer-events: none;
+}
+
+.workbench-card--mobile-dock {
+	width: auto;
+	max-width: 100%;
+	padding: 0.45rem;
+	border-radius: 22px;
+}
+
+.workbench-shell--mobile .workbench-tool-rail {
+	flex-direction: row;
+	flex-wrap: nowrap;
+	align-items: center;
+	gap: 0.4rem;
+	width: auto;
+	max-width: min(calc(100vw - 1rem), 48rem);
+	overflow-x: auto;
+	overflow-y: hidden;
+	scrollbar-width: none;
+	-webkit-overflow-scrolling: touch;
+}
+
+.workbench-shell--mobile .workbench-tool-rail::-webkit-scrollbar {
+	display: none;
+}
+
+.workbench-shell--mobile .workbench-tool-rail__group {
+	flex-direction: row;
+	width: auto;
+}
+
+.workbench-shell--mobile .workbench-tool-rail__divider {
+	width: 1px;
+	height: 2rem;
+	flex: 0 0 auto;
+	background: linear-gradient(
+		180deg,
+		transparent 0%,
+		rgba(255, 255, 255, 0.12) 22%,
+		rgba(255, 255, 255, 0.12) 78%,
+		transparent 100%
+	);
+}
+
+.workbench-shell--mobile .workbench-tool-rail__button,
+.workbench-shell--mobile .workbench-tool-rail .workbench-menu__trigger {
+	width: 2.7rem;
+	min-width: 2.7rem;
+	height: 2.7rem;
+	min-height: 2.7rem;
+	border-radius: 14px;
+}
+
+.workbench-mobile-drawer-wrap {
+	position: absolute;
+	inset: 0;
+	z-index: 11;
+	display: flex;
+	align-items: flex-end;
+	justify-content: flex-end;
+	padding: 0.75rem;
+	padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 4.8rem);
+	pointer-events: none;
+}
+
+.workbench-card--mobile-drawer {
+	width: min(420px, calc(100vw - 1.5rem));
+	max-height: min(70vh, calc(100% - 5.6rem));
+	padding: 0.65rem;
+	border-radius: 22px;
+	pointer-events: auto;
+}
+
+.workbench-inspector-stack--mobile {
+	overflow: auto;
+	min-height: 0;
+}
+
 .panel-header {
 	display: flex;
 	flex-direction: column;
@@ -360,6 +460,11 @@ code {
 	);
 	box-shadow: var(--shadow);
 	backdrop-filter: blur(20px);
+}
+
+.workbench-menu__panel--up {
+	top: auto;
+	bottom: calc(100% + 0.6rem);
 }
 
 .workbench-menu__group {
@@ -1565,6 +1670,11 @@ input[type="range"] {
 	cursor: ew-resize !important;
 }
 
+.viewport-shell.is-roll-adjusting,
+.viewport-shell.is-roll-adjusting * {
+	cursor: ew-resize !important;
+}
+
 #viewport {
 	width: 100%;
 	height: 100%;
@@ -1659,6 +1769,26 @@ input[type="range"] {
 	justify-content: center;
 }
 
+.viewport-pie--coarse .viewport-pie__center {
+	min-width: 6.6rem;
+	min-height: 6.6rem;
+	padding: 0.95rem 1.05rem;
+}
+
+.viewport-pie--coarse .viewport-pie__center-label {
+	font-size: 0.74rem;
+}
+
+.viewport-pie--coarse .viewport-pie__item {
+	width: 3.45rem;
+	height: 3.45rem;
+}
+
+.viewport-pie--coarse .viewport-pie__item-icon .workbench-icon {
+	width: 20px;
+	height: 20px;
+}
+
 .viewport-lens-hud {
 	position: absolute;
 	left: 0;
@@ -1690,7 +1820,8 @@ input[type="range"] {
 }
 
 body[data-interaction-mode="pie"] .viewport-gizmo,
-body[data-interaction-mode="lens"] .viewport-gizmo {
+body[data-interaction-mode="lens"] .viewport-gizmo,
+body[data-interaction-mode="roll"] .viewport-gizmo {
 	opacity: 0.26;
 }
 
@@ -2514,6 +2645,11 @@ body[data-interaction-mode="lens"] .viewport-gizmo {
 		gap: 0.75rem;
 	}
 
+	.workbench-shell--mobile {
+		inset: 0;
+		display: block;
+	}
+
 	.workbench-column {
 		gap: 0.75rem;
 	}
@@ -2604,6 +2740,22 @@ body[data-interaction-mode="lens"] .viewport-gizmo {
 	display: grid;
 	grid-template-columns: repeat(3, minmax(0, 1fr));
 	gap: 10px;
+}
+
+.pose-grid {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 10px;
+}
+
+.pose-nudge-grid {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 8px;
+}
+
+.pose-nudge-grid .button {
+	width: 100%;
 }
 
 .asset-calibration-list {

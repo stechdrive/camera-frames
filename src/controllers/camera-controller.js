@@ -327,6 +327,19 @@ export function createCameraController({
 		updateUi();
 	}
 
+	function setShotCameraRollLock(nextValue) {
+		runHistoryAction?.("camera.roll-lock", () => {
+			updateActiveShotCameraDocument((documentState) => {
+				documentState.navigation = {
+					...documentState.navigation,
+					rollLock: Boolean(nextValue),
+				};
+				return documentState;
+			});
+		});
+		updateUi();
+	}
+
 	function setShotCameraName(nextValue) {
 		runHistoryAction?.("camera.name", () => {
 			updateActiveShotCameraDocument((documentState) => {
@@ -337,6 +350,72 @@ export function createCameraController({
 				documentState.name = normalizedName;
 				return documentState;
 			});
+		});
+	}
+
+	function setActiveShotCameraPositionAxis(axis, nextValue) {
+		const numericValue = Number(nextValue);
+		if (!["x", "y", "z"].includes(axis) || !Number.isFinite(numericValue)) {
+			return false;
+		}
+
+		return runHistoryAction?.(`camera.position.${axis}`, () => {
+			const shotCamera = getActiveShotCamera();
+			shotCamera.position[axis] = numericValue;
+			shotCamera.updateMatrixWorld(true);
+			updateUi();
+		});
+	}
+
+	function nudgeActiveShotCameraLocal(direction, distance) {
+		const numericDistance = Number(distance);
+		if (
+			!Number.isFinite(numericDistance) ||
+			Math.abs(numericDistance) <= 1e-8
+		) {
+			return false;
+		}
+
+		const shotCamera = getActiveShotCamera();
+		if (!shotCamera) {
+			return false;
+		}
+
+		const forward = shotCamera
+			.getWorldDirection(new THREE.Vector3())
+			.normalize();
+		const right = new THREE.Vector3()
+			.crossVectors(forward, shotCamera.up)
+			.normalize();
+		const up = new THREE.Vector3().crossVectors(right, forward).normalize();
+		let directionVector = null;
+		switch (direction) {
+			case "left":
+				directionVector = right.clone().multiplyScalar(-1);
+				break;
+			case "right":
+				directionVector = right;
+				break;
+			case "up":
+				directionVector = up;
+				break;
+			case "down":
+				directionVector = up.clone().multiplyScalar(-1);
+				break;
+			case "forward":
+				directionVector = forward;
+				break;
+			case "back":
+				directionVector = forward.clone().multiplyScalar(-1);
+				break;
+			default:
+				return false;
+		}
+
+		return runHistoryAction?.(`camera.nudge.${direction}`, () => {
+			shotCamera.position.addScaledVector(directionVector, numericDistance);
+			shotCamera.updateMatrixWorld(true);
+			updateUi();
 		});
 	}
 
@@ -563,6 +642,32 @@ export function createCameraController({
 		});
 	}
 
+	function applyActiveShotCameraRoll(axisWorld, deltaRadians) {
+		if (state.mode !== WORKSPACE_PANE_CAMERA) {
+			return false;
+		}
+
+		const shotCamera = getActiveShotCamera();
+		if (
+			!shotCamera ||
+			!(axisWorld instanceof THREE.Vector3) ||
+			axisWorld.lengthSq() <= 1e-6 ||
+			!Number.isFinite(deltaRadians) ||
+			Math.abs(deltaRadians) <= 1e-7
+		) {
+			return false;
+		}
+
+		const deltaQuaternion = new THREE.Quaternion().setFromAxisAngle(
+			axisWorld.clone().normalize(),
+			deltaRadians,
+		);
+		shotCamera.quaternion.premultiply(deltaQuaternion);
+		shotCamera.up.applyQuaternion(deltaQuaternion).normalize();
+		shotCamera.updateMatrixWorld(true);
+		return true;
+	}
+
 	return {
 		registerShotCameraDocuments,
 		getActiveShotCameraEntry,
@@ -583,6 +688,9 @@ export function createCameraController({
 		setShotCameraClippingMode,
 		setShotCameraNear,
 		setShotCameraFar,
+		setShotCameraRollLock,
+		setActiveShotCameraPositionAxis,
+		nudgeActiveShotCameraLocal,
 		setShotCameraName,
 		setShotCameraExportName,
 		setShotCameraExportFormat,
@@ -596,6 +704,7 @@ export function createCameraController({
 		copyViewportToShotCamera,
 		copyShotCameraToViewport,
 		resetActiveView,
+		applyActiveShotCameraRoll,
 	};
 }
 

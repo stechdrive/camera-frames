@@ -177,7 +177,10 @@ export function ToolRailSection({
 	menuChildren = null,
 	projectMenuItems = [],
 	store,
+	tailContent = null,
 	t,
+	tooltipPlacement = "right",
+	menuPanelPlacement = "down",
 }) {
 	const canUseTransformTools = mode === "viewport" || mode === "camera";
 	const clearSelectionAndExitTool = () => {
@@ -200,14 +203,26 @@ export function ToolRailSection({
 			<${HeaderMenu}
 				label=${t("section.file")}
 				items=${projectMenuItems}
+				panelPlacement=${menuPanelPlacement}
 				tooltip=${{
 					title: t("section.file"),
 					description: t("tooltip.fileMenu"),
-					placement: "right",
+					placement: tooltipPlacement,
 				}}
 			>
 				${menuChildren}
 			<//>
+			<${IconButton}
+				icon="pie-menu"
+				label=${t("action.quickMenu")}
+				className="workbench-tool-rail__button"
+				tooltip=${{
+					title: t("action.quickMenu"),
+					description: t("tooltip.quickMenu"),
+					placement: tooltipPlacement,
+				}}
+				onClick=${() => controller()?.openViewportPieMenuAtCenter?.()}
+			/>
 			<div class="workbench-tool-rail__divider"></div>
 			<div class="workbench-tool-rail__group">
 				<${IconButton}
@@ -219,7 +234,7 @@ export function ToolRailSection({
 					tooltip=${{
 						title: t("mode.camera"),
 						description: t("tooltip.modeCamera"),
-						placement: "right",
+						placement: tooltipPlacement,
 					}}
 					onClick=${() => controller()?.setMode("camera")}
 				/>
@@ -232,7 +247,7 @@ export function ToolRailSection({
 					tooltip=${{
 						title: t("mode.viewport"),
 						description: t("tooltip.modeViewport"),
-						placement: "right",
+						placement: tooltipPlacement,
 					}}
 					onClick=${() => controller()?.setMode("viewport")}
 				/>
@@ -251,7 +266,7 @@ export function ToolRailSection({
 									title: t("transformMode.select"),
 									description: t("tooltip.toolSelect"),
 									shortcut: "V",
-									placement: "right",
+									placement: tooltipPlacement,
 								}}
 								onClick=${() =>
 									toggleTool(store.viewportSelectMode.value, () =>
@@ -267,7 +282,7 @@ export function ToolRailSection({
 									title: t("transformMode.reference"),
 									description: t("tooltip.toolReference"),
 									shortcut: "R",
-									placement: "right",
+									placement: tooltipPlacement,
 								}}
 								onClick=${() =>
 									toggleTool(store.viewportReferenceImageEditMode.value, () =>
@@ -283,7 +298,7 @@ export function ToolRailSection({
 									title: t("transformMode.transform"),
 									description: t("tooltip.toolTransform"),
 									shortcut: "T",
-									placement: "right",
+									placement: tooltipPlacement,
 								}}
 								onClick=${() =>
 									toggleTool(store.viewportTransformMode.value, () =>
@@ -299,7 +314,7 @@ export function ToolRailSection({
 									title: t("transformMode.pivot"),
 									description: t("tooltip.toolPivot"),
 									shortcut: "Q",
-									placement: "right",
+									placement: tooltipPlacement,
 								}}
 								onClick=${() =>
 									toggleTool(store.viewportPivotEditMode.value, () =>
@@ -317,13 +332,14 @@ export function ToolRailSection({
 								title: t("action.clearSelection"),
 								description: t("tooltip.clearSelection"),
 								shortcut: "Ctrl+D",
-								placement: "right",
+								placement: tooltipPlacement,
 							}}
 							onClick=${() => clearSelectionAndExitTool()}
 						/>
 					</div>
 				`
 			}
+			${tailContent}
 		</section>
 	`;
 }
@@ -906,6 +922,23 @@ export function ShotCameraSection({
 	store,
 	t,
 }) {
+	const shotCameraPositionX = Number(store.shotCamera.positionX.value).toFixed(
+		3,
+	);
+	const shotCameraPositionY = Number(store.shotCamera.positionY.value).toFixed(
+		3,
+	);
+	const shotCameraPositionZ = Number(store.shotCamera.positionZ.value).toFixed(
+		3,
+	);
+	const shotCameraYawDeg = Number(store.shotCamera.yawDeg.value).toFixed(2);
+	const shotCameraPitchDeg = Number(store.shotCamera.pitchDeg.value).toFixed(2);
+	const shotCameraRollDeg = Number(store.shotCamera.rollDeg.value).toFixed(2);
+	const shotCameraRollLock = store.shotCamera.rollLock.value;
+	const shotCameraLocalMoveStep = Number(
+		store.shotCamera.localMoveStep.value,
+	).toFixed(3);
+
 	return html`
 		<section class="panel-section">
 			<${SectionHeading} icon="camera" title=${t("section.shotCamera")} />
@@ -992,6 +1025,203 @@ export function ShotCameraSection({
 				<p class="summary">${t("field.shotCameraFov")} · ${fovLabel} (${equivalentMmLabel})</p>
 			</label>
 			<${DisclosureBlock}
+				icon="move"
+				label=${t("section.pose")}
+				open=${true}
+			>
+				<div class="pose-grid">
+					<label class="field">
+						<span>${t("field.positionX")}</span>
+						<div class="numeric-unit">
+							<${NumericDraftInput}
+								id="shot-camera-position-x"
+								inputMode="decimal"
+								step="0.01"
+								value=${shotCameraPositionX}
+								controller=${controller}
+								historyLabel="camera.position.x"
+								onCommit=${(nextValue) =>
+									controller()?.setActiveShotCameraPositionAxis?.(
+										"x",
+										nextValue,
+									)}
+							/>
+							<${NumericUnitLabel} value="m" title=${t("unit.meter")} />
+						</div>
+					</label>
+					<label class="field">
+						<span>${t("field.positionY")}</span>
+						<div class="numeric-unit">
+							<${NumericDraftInput}
+								id="shot-camera-position-y"
+								inputMode="decimal"
+								step="0.01"
+								value=${shotCameraPositionY}
+								controller=${controller}
+								historyLabel="camera.position.y"
+								onCommit=${(nextValue) =>
+									controller()?.setActiveShotCameraPositionAxis?.(
+										"y",
+										nextValue,
+									)}
+							/>
+							<${NumericUnitLabel} value="m" title=${t("unit.meter")} />
+						</div>
+					</label>
+					<label class="field">
+						<span>${t("field.positionZ")}</span>
+						<div class="numeric-unit">
+							<${NumericDraftInput}
+								id="shot-camera-position-z"
+								inputMode="decimal"
+								step="0.01"
+								value=${shotCameraPositionZ}
+								controller=${controller}
+								historyLabel="camera.position.z"
+								onCommit=${(nextValue) =>
+									controller()?.setActiveShotCameraPositionAxis?.(
+										"z",
+										nextValue,
+									)}
+							/>
+							<${NumericUnitLabel} value="m" title=${t("unit.meter")} />
+						</div>
+					</label>
+				</div>
+				<div class="pose-grid">
+					<label class="field">
+						<span>${t("field.shotCameraYaw")}</span>
+						<div class="numeric-unit">
+							<${NumericDraftInput}
+								id="shot-camera-yaw"
+								inputMode="decimal"
+								step="0.01"
+								value=${shotCameraYawDeg}
+								controller=${controller}
+								historyLabel="camera.rotation.yaw"
+								onCommit=${(nextValue) =>
+									controller()?.setActiveShotCameraPoseAngle?.(
+										"yaw",
+										nextValue,
+									)}
+							/>
+							<${NumericUnitLabel} value="deg" title=${t("unit.degree")} />
+						</div>
+					</label>
+					<label class="field">
+						<span>${t("field.shotCameraPitch")}</span>
+						<div class="numeric-unit">
+							<${NumericDraftInput}
+								id="shot-camera-pitch"
+								inputMode="decimal"
+								step="0.01"
+								value=${shotCameraPitchDeg}
+								controller=${controller}
+								historyLabel="camera.rotation.pitch"
+								onCommit=${(nextValue) =>
+									controller()?.setActiveShotCameraPoseAngle?.(
+										"pitch",
+										nextValue,
+									)}
+							/>
+							<${NumericUnitLabel} value="deg" title=${t("unit.degree")} />
+						</div>
+					</label>
+					<label class="field">
+						<span>${t("field.shotCameraRoll")}</span>
+						<div class="numeric-unit">
+							<${NumericDraftInput}
+								id="shot-camera-roll"
+								inputMode="decimal"
+								step="0.01"
+								value=${shotCameraRollDeg}
+								controller=${controller}
+								historyLabel="camera.rotation.roll"
+								onCommit=${(nextValue) =>
+									controller()?.setActiveShotCameraPoseAngle?.(
+										"roll",
+										nextValue,
+									)}
+							/>
+							<${NumericUnitLabel} value="deg" title=${t("unit.degree")} />
+						</div>
+					</label>
+				</div>
+				<div class="split-field-row">
+					<label class="field">
+						<span>${t("field.shotCameraNudgeStep")}</span>
+						<div class="numeric-unit">
+							<${NumericDraftInput}
+								id="shot-camera-nudge-step"
+								inputMode="decimal"
+								min="0.001"
+								step="0.001"
+								value=${shotCameraLocalMoveStep}
+								onCommit=${(nextValue) =>
+									controller()?.setShotCameraNudgeStep?.(nextValue)}
+							/>
+							<${NumericUnitLabel} value="m" title=${t("unit.meter")} />
+						</div>
+					</label>
+					<label class="checkbox-field">
+						<input
+							type="checkbox"
+							checked=${shotCameraRollLock}
+							onChange=${(event) =>
+								controller()?.setShotCameraRollLock?.(
+									event.currentTarget.checked,
+								)}
+						/>
+						<span>${t("field.shotCameraRollLock")}</span>
+					</label>
+				</div>
+				<div class="pose-nudge-grid">
+					<button
+						type="button"
+						class="button button--compact"
+						onClick=${() => controller()?.nudgeActiveShotCameraLocal?.("left")}
+					>
+						${t("action.nudgeLeft")}
+					</button>
+					<button
+						type="button"
+						class="button button--compact"
+						onClick=${() => controller()?.nudgeActiveShotCameraLocal?.("up")}
+					>
+						${t("action.nudgeUp")}
+					</button>
+					<button
+						type="button"
+						class="button button--compact"
+						onClick=${() =>
+							controller()?.nudgeActiveShotCameraLocal?.("forward")}
+					>
+						${t("action.nudgeForward")}
+					</button>
+					<button
+						type="button"
+						class="button button--compact"
+						onClick=${() => controller()?.nudgeActiveShotCameraLocal?.("right")}
+					>
+						${t("action.nudgeRight")}
+					</button>
+					<button
+						type="button"
+						class="button button--compact"
+						onClick=${() => controller()?.nudgeActiveShotCameraLocal?.("down")}
+					>
+						${t("action.nudgeDown")}
+					</button>
+					<button
+						type="button"
+						class="button button--compact"
+						onClick=${() => controller()?.nudgeActiveShotCameraLocal?.("back")}
+					>
+						${t("action.nudgeBack")}
+					</button>
+				</div>
+			<//>
+			<${DisclosureBlock}
 				icon="camera"
 				label=${t("section.tools")}
 				open=${shotCameraClipMode === "manual"}
@@ -1060,6 +1290,14 @@ export function ShotCameraSection({
 						onClick=${() => controller()?.copyShotCameraToViewport()}
 					>
 						${t("action.shotToViewport")}
+					</button>
+					<button
+						id="adjust-shot-roll"
+						class="button button--compact"
+						type="button"
+						onClick=${() => controller()?.activateShotCameraRollMode?.()}
+					>
+						${t("action.adjustRoll")}
 					</button>
 					<button
 						id="reset-active-view"

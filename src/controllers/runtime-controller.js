@@ -21,6 +21,7 @@ export function createRuntimeController({
 	setStatus,
 	startZoomToolDrag,
 	startLensAdjustDrag,
+	startShotCameraRollDrag,
 	toggleZoomTool,
 	toggleViewportSelectMode,
 	toggleViewportReferenceImageEditMode,
@@ -37,6 +38,7 @@ export function createRuntimeController({
 	isZoomInteractionMode,
 	isPieInteractionMode,
 	isLensInteractionMode,
+	isRollInteractionMode,
 	applyNavigateInteractionMode,
 	openViewportPieMenu,
 	updateViewportPiePointer,
@@ -52,6 +54,8 @@ export function createRuntimeController({
 	handleZoomToolDragEnd,
 	handleLensAdjustDragMove,
 	handleLensAdjustDragEnd,
+	handleShotCameraRollDragMove,
+	handleShotCameraRollDragEnd,
 	handleOutputFramePanMove,
 	handleOutputFramePanEnd,
 	handleOutputFrameResizeMove,
@@ -75,6 +79,8 @@ export function createRuntimeController({
 	fpsMovement,
 	pointerControls,
 	getActiveCamera,
+	getShotCameraRollLock,
+	setShotCameraRollAngleDegrees,
 	guideOverlay,
 	syncGuideOverlayState,
 	syncViewportTransformGizmo,
@@ -180,6 +186,7 @@ export function createRuntimeController({
 			setStatus,
 			startZoomToolDrag,
 			startLensAdjustDrag,
+			startShotCameraRollDrag,
 			toggleZoomTool,
 			toggleViewportSelectMode,
 			toggleViewportReferenceImageEditMode,
@@ -198,6 +205,7 @@ export function createRuntimeController({
 			isZoomInteractionMode,
 			isPieInteractionMode,
 			isLensInteractionMode,
+			isRollInteractionMode,
 			applyNavigateInteractionMode,
 			openViewportPieMenu,
 			updateViewportPiePointer,
@@ -216,6 +224,8 @@ export function createRuntimeController({
 			handleZoomToolDragEnd,
 			handleLensAdjustDragMove,
 			handleLensAdjustDragEnd,
+			handleShotCameraRollDragMove,
+			handleShotCameraRollDragEnd,
 			handleOutputFramePanMove,
 			handleOutputFramePanEnd,
 			handleOutputFrameResizeMove,
@@ -249,11 +259,18 @@ export function createRuntimeController({
 			lastFrameTime > 0 ? Math.min((timeMs - lastFrameTime) / 1000, 0.1) : 0;
 		lastFrameTime = timeMs;
 		const activeCamera = getActiveCamera();
+		const lockedRollDegrees =
+			state.mode === WORKSPACE_PANE_CAMERA && getShotCameraRollLock?.()
+				? Number(store.shotCamera.rollDeg.value)
+				: null;
 		const poseBefore = getCameraPoseSignature(activeCamera);
 		const navigationActiveBeforeUpdate =
 			hasKeyboardNavigationActivity() || hasPointerNavigationActivity();
 		fpsMovement.update(deltaTime, activeCamera);
 		pointerControls.update(deltaTime, activeCamera, activeCamera);
+		if (Number.isFinite(lockedRollDegrees)) {
+			setShotCameraRollAngleDegrees?.(lockedRollDegrees);
+		}
 		const poseAfter = getCameraPoseSignature(activeCamera);
 		navigationHistory.noteFrame({
 			targetKey: getActiveCameraHistoryTargetKey(),

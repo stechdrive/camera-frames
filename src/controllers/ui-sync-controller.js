@@ -27,6 +27,7 @@ export function createUiSyncController({
 	getActiveShotCamera,
 	getActiveCamera,
 	getProjectionState,
+	getShotCameraPoseAngles,
 	getActiveShotCameraDocument,
 }) {
 	function formatNumber(value, digits = 2) {
@@ -127,6 +128,7 @@ export function createUiSyncController({
 	function updateCameraSummary() {
 		const shotCamera = getActiveShotCamera();
 		const activeCamera = getActiveCamera();
+		const shotPoseAngles = getShotCameraPoseAngles();
 		const forward = activeCamera.getWorldDirection(new THREE.Vector3());
 		const { targetFrustum } = getProjectionState();
 		const targetHorizontalFov = frustumSpanToFovDegrees(
@@ -154,6 +156,13 @@ export function createUiSyncController({
 			state.lastCameraSummary = nextSummary;
 			store.cameraSummary.value = nextSummary;
 		}
+
+		store.shotCamera.positionX.value = shotCamera.position.x;
+		store.shotCamera.positionY.value = shotCamera.position.y;
+		store.shotCamera.positionZ.value = shotCamera.position.z;
+		store.shotCamera.yawDeg.value = shotPoseAngles.yawDeg;
+		store.shotCamera.pitchDeg.value = shotPoseAngles.pitchDeg;
+		store.shotCamera.rollDeg.value = shotPoseAngles.rollDeg;
 	}
 
 	function updateUi() {

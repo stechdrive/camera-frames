@@ -133,6 +133,18 @@ function renderIconPath(name) {
 				<path d="M4 12h16"></path>
 				<path d="M4 17h16"></path>
 			`;
+		case "pie-menu":
+			return html`
+				<circle cx="12" cy="12" r="2"></circle>
+				<path d="M12 3.5v3"></path>
+				<path d="M20.5 12h-3"></path>
+				<path d="M12 20.5v-3"></path>
+				<path d="M3.5 12h3"></path>
+				<path d="M17.8 6.2l-2.1 2.1"></path>
+				<path d="M17.8 17.8l-2.1-2.1"></path>
+				<path d="M6.2 17.8l2.1-2.1"></path>
+				<path d="M6.2 6.2l2.1 2.1"></path>
+			`;
 		case "package":
 			return html`
 				<path d="M12 3l8 4.5-8 4.5-8-4.5 8-4.5z"></path>

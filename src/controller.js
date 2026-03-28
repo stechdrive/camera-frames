@@ -833,6 +833,12 @@ export function createCameraFramesController(elements, store) {
 			state.baseFovX = Number(nextValue);
 			updateUi();
 		},
+		getShotCameraRollAxisWorld: () =>
+			projectionController?.getShotCameraRollAxisWorld?.() ?? null,
+		getShotCameraRollAngleDegrees: () =>
+			projectionController?.getShotCameraRollAngleDegrees?.() ?? 0,
+		applyActiveShotCameraRoll: (...args) =>
+			cameraController?.applyActiveShotCameraRoll?.(...args),
 		beginHistoryTransaction: (label) =>
 			historyController?.beginHistoryTransaction(label),
 		commitHistoryTransaction: (label) =>
@@ -888,6 +894,12 @@ export function createCameraFramesController(elements, store) {
 		getActiveShotCamera,
 		getActiveCamera,
 		getProjectionState,
+		getShotCameraPoseAngles: () =>
+			projectionController?.getShotCameraPoseAngles?.() ?? {
+				yawDeg: 0,
+				pitchDeg: 0,
+				rollDeg: 0,
+			},
 		getActiveShotCameraDocument,
 	});
 	lightingController = createLightingController({
@@ -933,6 +945,8 @@ export function createCameraFramesController(elements, store) {
 		startZoomToolDrag,
 		startLensAdjustDrag: (...args) =>
 			interactionController?.startLensAdjustDrag(...args) ?? false,
+		startShotCameraRollDrag: (...args) =>
+			interactionController?.startShotCameraRollDrag(...args) ?? false,
 		toggleZoomTool,
 		toggleViewportSelectMode,
 		toggleViewportReferenceImageEditMode,
@@ -954,10 +968,14 @@ export function createCameraFramesController(elements, store) {
 			interactionController?.isPieInteractionMode() ?? false,
 		isLensInteractionMode: () =>
 			interactionController?.isLensInteractionMode() ?? false,
+		isRollInteractionMode: () =>
+			interactionController?.isRollInteractionMode() ?? false,
 		applyNavigateInteractionMode: () =>
 			interactionController?.applyNavigateInteractionMode(),
 		openViewportPieMenu: (...args) =>
 			interactionController?.openViewportPieMenu(...args) ?? false,
+		openViewportPieMenuAtCenter: (...args) =>
+			interactionController?.openViewportPieMenuAtCenter(...args) ?? false,
 		updateViewportPiePointer: (...args) =>
 			interactionController?.updateViewportPiePointer(...args),
 		finishViewportPieMenu: (...args) =>
@@ -978,6 +996,10 @@ export function createCameraFramesController(elements, store) {
 			interactionController?.handleLensAdjustDragMove(...args),
 		handleLensAdjustDragEnd: (...args) =>
 			interactionController?.handleLensAdjustDragEnd(...args),
+		handleShotCameraRollDragMove: (...args) =>
+			interactionController?.handleShotCameraRollDragMove(...args),
+		handleShotCameraRollDragEnd: (...args) =>
+			interactionController?.handleShotCameraRollDragEnd(...args),
 		handleOutputFramePanMove: outputFrameController.handleOutputFramePanMove,
 		handleOutputFramePanEnd: outputFrameController.handleOutputFramePanEnd,
 		handleOutputFrameResizeMove:
@@ -1029,6 +1051,9 @@ export function createCameraFramesController(elements, store) {
 			interactionController?.applyNavigateInteractionMode({ silent: true }),
 		loadStartupUrls: () => assetController.loadStartupUrls(),
 		setExportStatus,
+		getShotCameraRollLock: () => store.shotCamera.rollLock.value,
+		setShotCameraRollAngleDegrees: (nextValue) =>
+			projectionController?.setShotCameraRollAngleDegrees?.(nextValue),
 	});
 	registerShotCameraDocuments();
 
@@ -1087,6 +1112,65 @@ export function createCameraFramesController(elements, store) {
 		}
 		forward.normalize();
 		return THREE.MathUtils.radToDeg(Math.atan2(forward.x, forward.z));
+	}
+
+	function getActiveShotCameraPoseState() {
+		const shotCamera = getActiveShotCamera();
+		const poseAngles = projectionController?.getShotCameraPoseAngles?.() ?? {
+			yawDeg: 0,
+			pitchDeg: 0,
+			rollDeg: 0,
+		};
+
+		return {
+			position: {
+				x: shotCamera.position.x,
+				y: shotCamera.position.y,
+				z: shotCamera.position.z,
+			},
+			rotation: poseAngles,
+		};
+	}
+
+	function setActiveShotCameraPoseAngle(axis, nextValue) {
+		const numericValue = Number(nextValue);
+		if (
+			!["yaw", "pitch", "roll"].includes(axis) ||
+			!Number.isFinite(numericValue)
+		) {
+			return false;
+		}
+
+		return historyController?.runHistoryAction?.(
+			`camera.rotation.${axis}`,
+			() => {
+				const nextAngles =
+					axis === "yaw"
+						? { yawDeg: numericValue }
+						: axis === "pitch"
+							? { pitchDeg: numericValue }
+							: { rollDeg: numericValue };
+				projectionController?.setShotCameraPoseAngles?.(nextAngles);
+				updateUi();
+			},
+		);
+	}
+
+	function setShotCameraNudgeStep(nextValue) {
+		const numericValue = Number(nextValue);
+		if (!Number.isFinite(numericValue) || numericValue <= 0) {
+			return false;
+		}
+
+		store.shotCamera.localMoveStep.value = numericValue;
+		return true;
+	}
+
+	function nudgeActiveShotCameraLocal(direction) {
+		return cameraController?.nudgeActiveShotCameraLocal?.(
+			direction,
+			store.shotCamera.localMoveStep.value,
+		);
 	}
 
 	function resetLocalizedCaches() {
@@ -1498,6 +1582,12 @@ export function createCameraFramesController(elements, store) {
 		setShotCameraClippingMode: cameraController.setShotCameraClippingMode,
 		setShotCameraNear: cameraController.setShotCameraNear,
 		setShotCameraFar: cameraController.setShotCameraFar,
+		setShotCameraRollLock: cameraController.setShotCameraRollLock,
+		setActiveShotCameraPositionAxis:
+			cameraController.setActiveShotCameraPositionAxis,
+		setActiveShotCameraPoseAngle,
+		setShotCameraNudgeStep,
+		nudgeActiveShotCameraLocal,
 		setShotCameraExportName: cameraController.setShotCameraExportName,
 		setShotCameraExportFormat: cameraController.setShotCameraExportFormat,
 		setShotCameraExportGridOverlay:
@@ -1598,9 +1688,18 @@ export function createCameraFramesController(elements, store) {
 			referenceImageController.startReferenceImageRotate,
 		startReferenceImageAnchorDrag:
 			referenceImageController.startReferenceImageAnchorDrag,
+		activateShotCameraRollMode: (...args) => {
+			if (state.mode !== WORKSPACE_PANE_CAMERA) {
+				cameraController.setMode(WORKSPACE_PANE_CAMERA);
+			}
+			return (
+				interactionController?.activateShotCameraRollMode?.(...args) ?? false
+			);
+		},
 		copyViewportToShotCamera: cameraController.copyViewportToShotCamera,
 		copyShotCameraToViewport: cameraController.copyShotCameraToViewport,
 		resetActiveView: cameraController.resetActiveView,
+		getActiveShotCameraPoseState,
 		executeViewportPieAction,
 		closeViewportPieMenu: (...args) =>
 			interactionController?.closeViewportPieMenu(...args),

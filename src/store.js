@@ -64,6 +64,10 @@ export function createCameraFramesStore(runtimeInfo = null) {
 		x: 0,
 		y: 0,
 		hoveredActionId: null,
+		coarse: false,
+		radius: 88,
+		innerRadius: 28,
+		outerRadius: 126,
 	});
 	const viewportLensHud = signal({
 		visible: false,
@@ -71,6 +75,12 @@ export function createCameraFramesStore(runtimeInfo = null) {
 		y: 0,
 		mmLabel: "",
 		fovLabel: "",
+	});
+	const viewportRollHud = signal({
+		visible: false,
+		x: 0,
+		y: 0,
+		angleLabel: "",
 	});
 	const sceneBadge = signal(translate(initialLocale, "scene.badgeEmpty"));
 	const sceneUnitBadge = signal(SCENE_UNIT_BADGE);
@@ -114,6 +124,13 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	const exportPresetIds = signal([]);
 	const shotCameraNearLive = signal(DEFAULT_CAMERA_NEAR);
 	const shotCameraFarLive = signal(DEFAULT_CAMERA_FAR);
+	const shotCameraPositionX = signal(0);
+	const shotCameraPositionY = signal(0);
+	const shotCameraPositionZ = signal(0);
+	const shotCameraYawDeg = signal(0);
+	const shotCameraPitchDeg = signal(0);
+	const shotCameraRollDeg = signal(0);
+	const shotCameraLocalMoveStep = signal(0.05);
 
 	const activeWorkspacePane = computed(() =>
 		getActiveWorkspacePane(workspacePanes.value, activePaneId.value),
@@ -181,6 +198,9 @@ export function createCameraFramesStore(runtimeInfo = null) {
 		() =>
 			Boolean(activeShotCamera.value?.exportSettings?.exportModelLayers) &&
 			Boolean(activeShotCamera.value?.exportSettings?.exportSplatLayers),
+	);
+	const activeRollLock = computed(() =>
+		Boolean(activeShotCamera.value?.navigation?.rollLock),
 	);
 	const exportWidth = computed(() =>
 		Math.max(64, Math.round(BASE_RENDER_BOX.width * widthScale.value)),
@@ -260,6 +280,7 @@ export function createCameraFramesStore(runtimeInfo = null) {
 		workbenchManualExpanded,
 		viewportPieMenu,
 		viewportLensHud,
+		viewportRollHud,
 		viewportBaseFovX,
 		viewportToolMode,
 		viewportTransformSpace,
@@ -281,6 +302,14 @@ export function createCameraFramesStore(runtimeInfo = null) {
 			far: activeFar,
 			nearLive: shotCameraNearLive,
 			farLive: shotCameraFarLive,
+			positionX: shotCameraPositionX,
+			positionY: shotCameraPositionY,
+			positionZ: shotCameraPositionZ,
+			yawDeg: shotCameraYawDeg,
+			pitchDeg: shotCameraPitchDeg,
+			rollDeg: shotCameraRollDeg,
+			rollLock: activeRollLock,
+			localMoveStep: shotCameraLocalMoveStep,
 			exportName: activeExportName,
 			exportFormat: activeExportFormat,
 			exportGridOverlay: activeExportGridOverlay,

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { FRAME_MAX_COUNT } from "../constants.js";
 import { getAnchorOptions } from "../i18n.js";
 import { WorkbenchIcon } from "./workbench-icons.js";
-import { HeaderMenu } from "./workbench-primitives.js";
+import { HeaderMenu, IconButton } from "./workbench-primitives.js";
 import {
 	ExportSection,
 	ExportSettingsSection,
@@ -43,6 +43,7 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 	const [activeInspectorTab, setActiveInspectorTab] =
 		useState(INSPECTOR_TAB_CAMERA);
 	const [inspectorPeekTab, setInspectorPeekTab] = useState(null);
+	const [isMobileWorkbench, setIsMobileWorkbench] = useState(false);
 	const [draggedAssetId, setDraggedAssetId] = useState(null);
 	const [dragHoverState, setDragHoverState] = useState(null);
 	const [toolRailPosition, setToolRailPosition] = useState({ x: 0, y: 0 });
@@ -113,6 +114,13 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 		setInspectorPeekTab((currentTabId) =>
 			currentTabId === tabId ? null : tabId,
 		);
+	};
+	const toggleMobileInspector = (tabId) => {
+		if (!workbenchCollapsed && activeInspectorTab === tabId) {
+			collapseWorkbench();
+			return;
+		}
+		openInspectorFull(tabId);
 	};
 	const projectMenuItems = [
 		{
@@ -200,7 +208,7 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 	}, [workbenchCollapsed]);
 
 	useEffect(() => {
-		if (workbenchCollapsed) {
+		if (workbenchCollapsed || isMobileWorkbench) {
 			return undefined;
 		}
 		const shellElement = refs?.workbenchShellRef?.current ?? null;
@@ -218,9 +226,51 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 		return () => {
 			window.removeEventListener("resize", syncWithinBounds);
 		};
-	}, [refs, workbenchCollapsed]);
+	}, [isMobileWorkbench, refs, workbenchCollapsed]);
+
+	useEffect(() => {
+		if (
+			typeof window === "undefined" ||
+			typeof window.matchMedia !== "function"
+		) {
+			return undefined;
+		}
+
+		const widthQuery = window.matchMedia("(max-width: 960px)");
+		const coarseQuery = window.matchMedia("(pointer: coarse)");
+		const hoverQuery = window.matchMedia("(hover: none)");
+		const syncMobileWorkbench = () => {
+			setIsMobileWorkbench(
+				widthQuery.matches && (coarseQuery.matches || hoverQuery.matches),
+			);
+		};
+
+		syncMobileWorkbench();
+		const addChangeListener = (query, listener) => {
+			if (typeof query.addEventListener === "function") {
+				query.addEventListener("change", listener);
+				return () => query.removeEventListener("change", listener);
+			}
+			query.addListener(listener);
+			return () => query.removeListener(listener);
+		};
+
+		const cleanups = [
+			addChangeListener(widthQuery, syncMobileWorkbench),
+			addChangeListener(coarseQuery, syncMobileWorkbench),
+			addChangeListener(hoverQuery, syncMobileWorkbench),
+		];
+		return () => {
+			for (const cleanup of cleanups) {
+				cleanup();
+			}
+		};
+	}, []);
 
 	const handleToolRailPointerDown = (event) => {
+		if (isMobileWorkbench) {
+			return;
+		}
 		if (event.button !== 0) {
 			return;
 		}
@@ -250,6 +300,9 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 	};
 
 	const handleToolRailPointerMove = (event) => {
+		if (isMobileWorkbench) {
+			return;
+		}
 		const dragState = toolRailDragStateRef.current;
 		if (!dragState || dragState.pointerId !== event.pointerId) {
 			return;
@@ -271,6 +324,9 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 	};
 
 	const finishToolRailDrag = (event) => {
+		if (isMobileWorkbench) {
+			return;
+		}
 		const dragState = toolRailDragStateRef.current;
 		if (!dragState || dragState.pointerId !== event.pointerId) {
 			return;
@@ -377,6 +433,91 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 			/>
 		`;
 	};
+
+	const mobileInspectorDock = html`
+		<div class="workbench-tool-rail__divider"></div>
+		<div class="workbench-tool-rail__group">
+			${inspectorTabs.map(
+				(tab) => html`
+					<${IconButton}
+						key=${tab.id}
+						icon=${tab.icon}
+						label=${tab.label}
+						active=${!workbenchCollapsed && activeInspectorTab === tab.id}
+						className="workbench-tool-rail__button"
+						tooltip=${{
+							title: tab.tooltip?.title ?? tab.label,
+							description: tab.tooltip?.description ?? "",
+							placement: "top",
+						}}
+						onClick=${() => toggleMobileInspector(tab.id)}
+					/>
+				`,
+			)}
+		</div>
+	`;
+
+	if (isMobileWorkbench) {
+		return html`
+			<div class="workbench-shell workbench-shell--mobile" ref=${refs?.workbenchShellRef}>
+				${
+					!workbenchCollapsed &&
+					html`
+						<div
+							class="workbench-mobile-backdrop"
+							onClick=${() => collapseWorkbench()}
+						></div>
+					`
+				}
+				<div class="workbench-mobile-dock">
+					<section class="workbench-card workbench-card--mobile-dock">
+						<${ToolRailSection}
+							controller=${controller}
+							mode=${mode}
+							menuChildren=${fileMenuChildren}
+							projectMenuItems=${projectMenuItems}
+							store=${store}
+							t=${t}
+							tooltipPlacement="top"
+							menuPanelPlacement="up"
+							tailContent=${mobileInspectorDock}
+						/>
+					</section>
+				</div>
+				${
+					!workbenchCollapsed &&
+					html`
+						<div
+							class="workbench-mobile-drawer-wrap"
+							ref=${refs?.workbenchRightColumnRef}
+						>
+							<section class="workbench-card workbench-card--inspector workbench-card--mobile-drawer">
+								<div class="workbench-inspector-header">
+									<${InspectorTabs}
+										activeTab=${activeInspectorTab}
+										setActiveTab=${setActiveInspectorTab}
+										t=${t}
+									/>
+									<button
+										type="button"
+										class="workbench-inspector-toggle"
+										aria-label=${t("action.close")}
+										onClick=${collapseWorkbench}
+									>
+										<${WorkbenchIcon} name="close" size=${14} />
+									</button>
+								</div>
+								<div class="workbench-inspector-stack workbench-inspector-stack--mobile">
+									${renderInspectorContent(activeInspectorTab)}
+								</div>
+								<${FooterSection} store=${store} />
+							</section>
+						</div>
+					`
+				}
+			</div>
+		`;
+	}
 
 	return html`
 		<div

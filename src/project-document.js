@@ -157,6 +157,9 @@ export function sanitizeShotCameraDocument(
 				normalized.exportSettings?.exportModelLayers !== false &&
 				Boolean(normalized.exportSettings?.exportSplatLayers),
 		},
+		navigation: {
+			rollLock: Boolean(normalized.navigation?.rollLock),
+		},
 		referenceImages: sanitizeShotCameraReferenceImagesState(
 			normalized.referenceImages,
 			{ availablePresetIds },

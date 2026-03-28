@@ -105,6 +105,7 @@ export function HeaderMenu({
 	items = [],
 	children,
 	tooltip = null,
+	panelPlacement = "down",
 }) {
 	const visibleItems = items.filter(Boolean);
 	const [open, setOpen] = useState(false);
@@ -162,7 +163,13 @@ export function HeaderMenu({
 					placement=${tooltip?.placement ?? "right"}
 				/>
 			</summary>
-			<div class="workbench-menu__panel">
+			<div
+				class=${
+					panelPlacement === "up"
+						? "workbench-menu__panel workbench-menu__panel--up"
+						: "workbench-menu__panel"
+				}
+			>
 				${children}
 				${visibleItems.map(
 					(item) => html`

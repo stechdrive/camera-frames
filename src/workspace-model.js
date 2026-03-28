@@ -232,6 +232,9 @@ export function createShotCameraDocument({ id, name, source } = {}) {
 					exportModelLayers: true,
 					exportSplatLayers: true,
 				},
+				navigation: {
+					rollLock: false,
+				},
 				referenceImages: createShotCameraReferenceImagesState(),
 				frames: createDefaultFrameDocuments(),
 				activeFrameId: getFrameDocumentId(1),
@@ -361,6 +364,9 @@ export function cloneShotCameraDocument(documentState) {
 			),
 			exportSplatLayers:
 				documentState.exportSettings?.exportSplatLayers ?? true,
+		},
+		navigation: {
+			rollLock: Boolean(documentState.navigation?.rollLock),
 		},
 		referenceImages: cloneShotCameraReferenceImagesState(
 			documentState.referenceImages,

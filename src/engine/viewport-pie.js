@@ -3,6 +3,7 @@ const FULL_TURN = Math.PI * 2;
 export const VIEWPORT_PIE_RADIUS = 88;
 export const VIEWPORT_PIE_INNER_RADIUS = 28;
 export const VIEWPORT_PIE_OUTER_RADIUS = 126;
+const VIEWPORT_PIE_COARSE_SCALE = 1.28;
 
 const VIEWPORT_PIE_ACTION_ORDER = Object.freeze([
 	"tool-select",
@@ -26,6 +27,16 @@ function createViewportPieLayout(actionIds) {
 const VIEWPORT_PIE_LAYOUT = Object.freeze(
 	createViewportPieLayout(VIEWPORT_PIE_ACTION_ORDER),
 );
+
+export function getViewportPieMetrics({ coarse = false } = {}) {
+	const scale = coarse ? VIEWPORT_PIE_COARSE_SCALE : 1;
+	return {
+		coarse,
+		radius: VIEWPORT_PIE_RADIUS * scale,
+		innerRadius: VIEWPORT_PIE_INNER_RADIUS * scale,
+		outerRadius: VIEWPORT_PIE_OUTER_RADIUS * scale,
+	};
+}
 
 export function buildViewportPieActions({ mode, t }) {
 	return VIEWPORT_PIE_LAYOUT.map((entry) => {
@@ -111,14 +122,13 @@ export function getViewportPieHoveredActionId({
 	centerX,
 	centerY,
 	actions,
+	innerRadius = VIEWPORT_PIE_INNER_RADIUS,
+	outerRadius = VIEWPORT_PIE_OUTER_RADIUS,
 }) {
 	const dx = x - centerX;
 	const dy = y - centerY;
 	const distance = Math.hypot(dx, dy);
-	if (
-		distance < VIEWPORT_PIE_INNER_RADIUS ||
-		distance > VIEWPORT_PIE_OUTER_RADIUS
-	) {
+	if (distance < innerRadius || distance > outerRadius) {
 		return null;
 	}
 
