@@ -1351,6 +1351,7 @@ export function createReferenceImageController({
 		setDocument(documentState ?? createDefaultReferenceImageDocument());
 		store.referenceImages.previewSessionVisible.value =
 			editorState?.previewSessionVisible !== false;
+		store.referenceImages.exportSessionEnabled.value = true;
 		clearSelection();
 		syncUiState();
 		restoreReferenceImageEditorState(editorState);
@@ -1365,6 +1366,7 @@ export function createReferenceImageController({
 	function clearReferenceImages() {
 		setDocument(createDefaultReferenceImageDocument());
 		store.referenceImages.previewSessionVisible.value = true;
+		store.referenceImages.exportSessionEnabled.value = true;
 		clearSelection();
 		syncUiState();
 		updateUi?.();

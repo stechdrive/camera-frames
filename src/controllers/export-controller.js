@@ -279,7 +279,7 @@ export function createExportController({
 		height,
 		{ applyOpacity = true } = {},
 	) {
-		if (store.referenceImages.exportDialogVisible.value === false) {
+		if (store.referenceImages.exportSessionEnabled.value === false) {
 			return [];
 		}
 
@@ -1885,7 +1885,7 @@ export function createExportController({
 		)
 			? {
 					name: `${t("section.referenceImages")} ${t("referenceImage.group.back")}`,
-					opened: true,
+					opened: false,
 					children: getPsdReferenceImageGroupLayers(
 						referenceImageLayers,
 						REFERENCE_IMAGE_GROUP_BACK,
@@ -1903,7 +1903,7 @@ export function createExportController({
 		)
 			? {
 					name: `${t("section.referenceImages")} ${t("referenceImage.group.front")}`,
-					opened: true,
+					opened: false,
 					children: getPsdReferenceImageGroupLayers(
 						referenceImageLayers,
 						REFERENCE_IMAGE_GROUP_FRONT,
@@ -1919,7 +1919,7 @@ export function createExportController({
 		const frameOverlayLayerDocument = frameOverlayPass
 			? {
 					name: t("section.frames"),
-					opened: true,
+					opened: false,
 					children: (frameOverlayPass.layers ?? []).map((layer) => ({
 						name: layer.name,
 						canvas: layer.canvas,
@@ -2219,6 +2219,10 @@ export function createExportController({
 		);
 	}
 
+	function setReferenceImageExportSessionEnabled(nextEnabled) {
+		store.referenceImages.exportSessionEnabled.value = nextEnabled !== false;
+	}
+
 	function isRenderLocked() {
 		return exportRenderLock;
 	}
@@ -2238,6 +2242,7 @@ export function createExportController({
 		buildShotCameraExportFilename,
 		setExportTarget,
 		toggleExportPreset,
+		setReferenceImageExportSessionEnabled,
 		isRenderLocked,
 		dispose,
 	};

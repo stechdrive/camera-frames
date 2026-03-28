@@ -1528,6 +1528,8 @@ export function ExportSection({
 		exportBusy || exportStatusLabel !== t("export.idle")
 			? "pill"
 			: "pill pill--dim";
+	const exportReferenceImagesEnabled =
+		store.referenceImages.exportSessionEnabled.value !== false;
 
 	return html`
 		<section class="panel-section panel-section--preview">
@@ -1576,6 +1578,17 @@ export function ExportSection({
 					</div>
 				`
 			}
+			<label class="checkbox-field">
+				<input
+					type="checkbox"
+					checked=${exportReferenceImagesEnabled}
+					onChange=${(event) =>
+						controller()?.setReferenceImageExportSessionEnabled?.(
+							event.currentTarget.checked,
+						)}
+				/>
+				<span>${t("field.exportReferenceImages")}</span>
+			</label>
 			<div class="button-row">
 				<button
 					id="download-output"

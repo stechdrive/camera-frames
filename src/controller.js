@@ -1498,6 +1498,8 @@ export function createCameraFramesController(elements, store) {
 			cameraController.setShotCameraExportSplatLayers,
 		setExportTarget: exportController.setExportTarget,
 		toggleExportPreset: exportController.toggleExportPreset,
+		setReferenceImageExportSessionEnabled:
+			exportController.setReferenceImageExportSessionEnabled,
 		selectFrame: frameController.selectFrame,
 		createFrame: frameController.createFrame,
 		duplicateActiveFrame: frameController.duplicateActiveFrame,

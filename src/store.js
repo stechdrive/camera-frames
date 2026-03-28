@@ -82,7 +82,7 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	const sceneLighting = signal(createDefaultLightingState());
 	const referenceImageDocument = signal(createDefaultReferenceImageDocument());
 	const referenceImagePreviewSessionVisible = signal(true);
-	const referenceImageExportDialogVisible = signal(true);
+	const referenceImageExportSessionEnabled = signal(true);
 	const referenceImagePanelPresetId = signal("");
 	const referenceImagePanelPresetName = signal("");
 	const referenceImagePresets = signal([]);
@@ -316,7 +316,7 @@ export function createCameraFramesStore(runtimeInfo = null) {
 		referenceImages: {
 			document: referenceImageDocument,
 			previewSessionVisible: referenceImagePreviewSessionVisible,
-			exportDialogVisible: referenceImageExportDialogVisible,
+			exportSessionEnabled: referenceImageExportSessionEnabled,
 			panelPresetId: referenceImagePanelPresetId,
 			panelPresetName: referenceImagePanelPresetName,
 			presets: referenceImagePresets,
