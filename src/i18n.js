@@ -116,6 +116,7 @@ const MESSAGES = {
 		transformMode: {
 			none: "なし",
 			select: "Select",
+			reference: "Reference",
 			transform: "Transform",
 			pivot: "Pivot",
 		},
@@ -148,6 +149,7 @@ const MESSAGES = {
 			overwritePackage: "上書き保存",
 			openFiles: "ファイルを開く",
 			openReferenceImages: "下絵を開く",
+			duplicateReferencePreset: "プリセットを複製",
 			clear: "クリア",
 			loadUrl: "URLを読み込む",
 			collapseWorkbench: "UIを折りたたむ",
@@ -448,15 +450,15 @@ const MESSAGES = {
 		},
 		referenceImage: {
 			activePreset: "現在のプリセット",
+			activePresetItems: "{count} item",
 			blankPreset: "(blank)",
 			untitled: "名称未設定",
 			sizeUnknown: "サイズ不明",
-			sourcesSection: "Sources",
-			currentCameraSection: "Current Camera",
+			currentPresetSection: "Current Preset",
 			selectedSection: "Selected",
 			selectedEmpty: "選択中の下絵がありません。",
 			currentCameraEmpty:
-				"この Camera にはまだ下絵 item がありません。下絵を読み込んでください。",
+				"このプリセットにはまだ下絵 item がありません。下絵を読み込んでください。",
 			currentCameraUsage: "この Camera に {count} 件",
 			orderLabel: "#{order}",
 			group: {
@@ -542,6 +544,7 @@ const MESSAGES = {
 		transformMode: {
 			none: "None",
 			select: "Select",
+			reference: "Reference",
 			transform: "Transform",
 			pivot: "Pivot",
 		},
@@ -574,6 +577,7 @@ const MESSAGES = {
 			overwritePackage: "Overwrite",
 			openFiles: "Open Files",
 			openReferenceImages: "Open Reference Images",
+			duplicateReferencePreset: "Duplicate Preset",
 			clear: "Clear",
 			loadUrl: "Load URL",
 			collapseWorkbench: "Collapse UI",
@@ -882,15 +886,15 @@ const MESSAGES = {
 		},
 		referenceImage: {
 			activePreset: "Active Preset",
+			activePresetItems: "{count} item(s)",
 			blankPreset: "(blank)",
 			untitled: "Untitled",
 			sizeUnknown: "Unknown size",
-			sourcesSection: "Sources",
-			currentCameraSection: "Current Camera",
+			currentPresetSection: "Current Preset",
 			selectedSection: "Selected",
 			selectedEmpty: "No reference image is selected.",
 			currentCameraEmpty:
-				"There are no reference items on this Camera yet. Load a reference image to begin.",
+				"There are no reference items in this preset yet. Load a reference image to begin.",
 			currentCameraUsage: "{count} item(s) on this Camera",
 			orderLabel: "#{order}",
 			group: {

@@ -22,6 +22,14 @@ import {
 }
 
 {
+	const item = createReferenceImageItem({
+		anchor: { ax: -0.25, ay: 1.75 },
+	});
+	assert.equal(item.anchor.ax, -0.25);
+	assert.equal(item.anchor.ay, 1.75);
+}
+
+{
 	const preset = createReferenceImagePreset(null);
 	assert.equal(preset.items.length, 0);
 	assert.equal(preset.baseRenderBox.w > 0, true);

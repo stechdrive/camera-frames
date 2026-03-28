@@ -14,6 +14,7 @@ export function bindInputRouter({
 	startLensAdjustDrag,
 	toggleZoomTool,
 	toggleViewportSelectMode,
+	toggleViewportReferenceImageEditMode,
 	toggleViewportTransformMode,
 	toggleViewportPivotEditMode,
 	saveProject,
@@ -39,7 +40,9 @@ export function bindInputRouter({
 	fpsMovement,
 	pointerControls,
 	isFrameSelectionActive,
+	isReferenceImageSelectionActive,
 	clearFrameSelection,
+	clearReferenceImageSelection,
 	clearOutputFrameSelection,
 	handleZoomToolDragMove,
 	handleZoomToolDragEnd,
@@ -331,10 +334,22 @@ export function bindInputRouter({
 		if (target?.closest(".frame-item")) {
 			return;
 		}
+		if (
+			target?.closest(
+				".reference-image-layer__entry, .reference-image-selection-layer",
+			)
+		) {
+			return;
+		}
 		if (target?.closest("#viewport-gizmo")) {
 			return;
 		}
 		if (target?.closest("#render-box")) {
+			if (isReferenceImageSelectionActive?.()) {
+				clearReferenceImageSelection?.();
+				updateUi();
+				return;
+			}
 			if (!isFrameSelectionActive()) {
 				return;
 			}
@@ -343,8 +358,12 @@ export function bindInputRouter({
 			return;
 		}
 
-		const hadSelection = state.outputFrameSelected || isFrameSelectionActive();
+		const hadSelection =
+			state.outputFrameSelected ||
+			isFrameSelectionActive() ||
+			isReferenceImageSelectionActive?.();
 		if (hadSelection) {
+			clearReferenceImageSelection?.();
 			clearFrameSelection();
 			clearOutputFrameSelection();
 			updateUi();
@@ -528,6 +547,19 @@ export function bindInputRouter({
 		) {
 			event.preventDefault();
 			toggleViewportSelectMode?.();
+			return;
+		}
+
+		if (
+			event.code === "KeyR" &&
+			(state.mode === "viewport" || state.mode === "camera") &&
+			!event.altKey &&
+			!event.ctrlKey &&
+			!event.metaKey &&
+			!event.shiftKey
+		) {
+			event.preventDefault();
+			toggleViewportReferenceImageEditMode?.();
 			return;
 		}
 

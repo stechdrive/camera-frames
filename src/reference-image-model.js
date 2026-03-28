@@ -87,20 +87,12 @@ export function normalizeReferenceImageAnchor(
 	value,
 	fallback = { ax: 0.5, ay: 0.5 },
 ) {
-	const ax = clamp(
-		isFiniteNumber(value?.ax ?? value?.x)
-			? Number(value.ax ?? value.x)
-			: fallback.ax,
-		0,
-		1,
-	);
-	const ay = clamp(
-		isFiniteNumber(value?.ay ?? value?.y)
-			? Number(value.ay ?? value.y)
-			: fallback.ay,
-		0,
-		1,
-	);
+	const ax = isFiniteNumber(value?.ax ?? value?.x)
+		? Number(value.ax ?? value.x)
+		: fallback.ax;
+	const ay = isFiniteNumber(value?.ay ?? value?.y)
+		? Number(value.ay ?? value.y)
+		: fallback.ay;
 	return { ax, ay };
 }
 

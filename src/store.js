@@ -40,6 +40,9 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	const viewportSelectMode = computed(
 		() => viewportToolMode.value === "select",
 	);
+	const viewportReferenceImageEditMode = computed(
+		() => viewportToolMode.value === "reference",
+	);
 	const viewportPivotEditMode = computed(
 		() => viewportToolMode.value === "pivot",
 	);
@@ -82,12 +85,15 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	const referenceImageExportDialogVisible = signal(true);
 	const referenceImagePanelPresetId = signal("");
 	const referenceImagePanelPresetName = signal("");
+	const referenceImagePresets = signal([]);
 	const referenceImageItems = signal([]);
 	const referenceImageAssets = signal([]);
 	const referenceImageAssetCount = signal(0);
 	const referenceImagePreviewLayers = signal([]);
 	const referenceImageSelectedAssetId = signal("");
 	const referenceImageSelectedItemId = signal("");
+	const referenceImageSelectedItemIds = signal([]);
+	const referenceImageSelectionAnchor = signal(null);
 	const selectedSceneAssetIds = signal([]);
 	const selectedSceneAssetId = signal(null);
 	const selectedSceneAsset = computed(
@@ -256,6 +262,7 @@ export function createCameraFramesStore(runtimeInfo = null) {
 		viewportToolMode,
 		viewportTransformSpace,
 		viewportSelectMode,
+		viewportReferenceImageEditMode,
 		viewportPivotEditMode,
 		viewportTransformMode,
 		mode,
@@ -310,12 +317,15 @@ export function createCameraFramesStore(runtimeInfo = null) {
 			exportDialogVisible: referenceImageExportDialogVisible,
 			panelPresetId: referenceImagePanelPresetId,
 			panelPresetName: referenceImagePanelPresetName,
+			presets: referenceImagePresets,
 			items: referenceImageItems,
 			assets: referenceImageAssets,
 			assetCount: referenceImageAssetCount,
 			previewLayers: referenceImagePreviewLayers,
 			selectedAssetId: referenceImageSelectedAssetId,
 			selectedItemId: referenceImageSelectedItemId,
+			selectedItemIds: referenceImageSelectedItemIds,
+			selectionAnchor: referenceImageSelectionAnchor,
 		},
 		selectedSceneAssetIds,
 		selectedSceneAssetId,

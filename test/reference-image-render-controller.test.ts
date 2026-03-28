@@ -10,6 +10,8 @@ import { getReferenceImagePreviewRenderBoxMetrics } from "../src/controllers/ref
 		viewportShellRect: {
 			left: 20,
 			top: 10,
+			width: 1400,
+			height: 900,
 		},
 		clientWidth: 800,
 		clientHeight: 600,
@@ -22,6 +24,8 @@ import { getReferenceImagePreviewRenderBoxMetrics } from "../src/controllers/ref
 		height: 600,
 		left: 82,
 		top: 42,
+		viewportShellWidth: 1400,
+		viewportShellHeight: 900,
 	});
 }
 

@@ -27,6 +27,8 @@ export function getReferenceImagePreviewRenderBoxMetrics({
 		height: Math.max(clientHeight, 0),
 		left: renderBoxRect.left - viewportShellRect.left + Math.max(clientLeft, 0),
 		top: renderBoxRect.top - viewportShellRect.top + Math.max(clientTop, 0),
+		viewportShellWidth: Math.max(viewportShellRect.width, 0),
+		viewportShellHeight: Math.max(viewportShellRect.height, 0),
 	};
 }
 
@@ -193,6 +195,12 @@ export function createReferenceImageRenderController({
 				order: item.order,
 				opacity: item.opacity,
 				rotationDeg: item.rotationDeg,
+				anchorAx: item.anchor.ax,
+				anchorAy: item.anchor.ay,
+				leftPx: renderBoxLeft + logicalLeft * renderScaleX,
+				topPx: renderBoxTop + logicalTop * renderScaleY,
+				widthPx: logicalWidth * renderScaleX,
+				heightPx: logicalHeight * renderScaleY,
 				pixelPerfect: Math.abs(item.scalePct - 100) < 1e-6,
 				sourceUrl: getAssetObjectUrl(asset),
 				fileName: asset.sourceMeta.filename,

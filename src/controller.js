@@ -788,6 +788,7 @@ export function createCameraFramesController(elements, store) {
 	referenceImageController = createReferenceImageController({
 		store,
 		referenceImageInput,
+		renderBox,
 		t,
 		setStatus,
 		updateUi,
@@ -795,6 +796,10 @@ export function createCameraFramesController(elements, store) {
 		getActiveShotCameraDocument,
 		updateActiveShotCameraDocument,
 		getOutputSizeState,
+		runHistoryAction: historyController.runHistoryAction,
+		beginHistoryTransaction: historyController.beginHistoryTransaction,
+		commitHistoryTransaction: historyController.commitHistoryTransaction,
+		cancelHistoryTransaction: historyController.cancelHistoryTransaction,
 	});
 	referenceImageRenderController = createReferenceImageRenderController({
 		store,
@@ -923,6 +928,7 @@ export function createCameraFramesController(elements, store) {
 			interactionController?.startLensAdjustDrag(...args) ?? false,
 		toggleZoomTool,
 		toggleViewportSelectMode,
+		toggleViewportReferenceImageEditMode,
 		toggleViewportTransformMode,
 		toggleViewportPivotEditMode,
 		saveProject: () => projectController?.saveProject(),
@@ -953,7 +959,11 @@ export function createCameraFramesController(elements, store) {
 			interactionController?.closeViewportPieMenu(...args),
 		handleViewportPieAction: executeViewportPieAction,
 		isFrameSelectionActive,
+		isReferenceImageSelectionActive: () =>
+			referenceImageController?.isReferenceImageSelectionActive?.() ?? false,
 		clearFrameSelection,
+		clearReferenceImageSelection: () =>
+			referenceImageController?.clearReferenceImageSelection?.(),
 		clearOutputFrameSelection,
 		handleZoomToolDragMove,
 		handleZoomToolDragEnd,
@@ -1314,6 +1324,9 @@ export function createCameraFramesController(elements, store) {
 			case "select":
 				viewportToolController.setViewportSelectMode(true);
 				break;
+			case "reference":
+				viewportToolController.setViewportReferenceImageEditMode(true);
+				break;
 			case "transform":
 				viewportToolController.setViewportTransformMode(true);
 				break;
@@ -1335,6 +1348,10 @@ export function createCameraFramesController(elements, store) {
 		setViewportToolMode(nextEnabled ? "select" : "none");
 	}
 
+	function setViewportReferenceImageEditMode(nextEnabled) {
+		setViewportToolMode(nextEnabled ? "reference" : "none");
+	}
+
 	function setViewportTransformMode(nextEnabled) {
 		setViewportToolMode(nextEnabled ? "transform" : "none");
 	}
@@ -1345,6 +1362,12 @@ export function createCameraFramesController(elements, store) {
 
 	function toggleViewportTransformMode() {
 		setViewportTransformMode(!store.viewportTransformMode.value);
+	}
+
+	function toggleViewportReferenceImageEditMode() {
+		setViewportReferenceImageEditMode(
+			!store.viewportReferenceImageEditMode.value,
+		);
 	}
 
 	function toggleViewportPivotEditMode() {
@@ -1442,6 +1465,8 @@ export function createCameraFramesController(elements, store) {
 		toggleViewportTransformMode,
 		setViewportSelectMode,
 		toggleViewportSelectMode,
+		setViewportReferenceImageEditMode,
+		toggleViewportReferenceImageEditMode,
 		setViewportPivotEditMode,
 		toggleViewportPivotEditMode,
 		setViewportTransformHover: viewportToolController.setViewportTransformHover,
@@ -1521,6 +1546,12 @@ export function createCameraFramesController(elements, store) {
 		handleProjectInputChange,
 		setReferenceImagePreviewSessionVisible:
 			referenceImageController.setPreviewSessionVisible,
+		setActiveReferenceImagePreset:
+			referenceImageController.setActiveReferenceImagePreset,
+		duplicateActiveReferenceImagePreset:
+			referenceImageController.duplicateActiveReferenceImagePreset,
+		clearReferenceImageSelection:
+			referenceImageController.clearReferenceImageSelection,
 		selectReferenceImageAsset:
 			referenceImageController.selectReferenceImageAsset,
 		selectReferenceImageItem: referenceImageController.selectReferenceImageItem,
@@ -1537,6 +1568,13 @@ export function createCameraFramesController(elements, store) {
 			referenceImageController.setReferenceImageOffsetPx,
 		setReferenceImageGroup: referenceImageController.setReferenceImageGroup,
 		setReferenceImageOrder: referenceImageController.setReferenceImageOrder,
+		startReferenceImageMove: referenceImageController.startReferenceImageMove,
+		startReferenceImageResize:
+			referenceImageController.startReferenceImageResize,
+		startReferenceImageRotate:
+			referenceImageController.startReferenceImageRotate,
+		startReferenceImageAnchorDrag:
+			referenceImageController.startReferenceImageAnchorDrag,
 		copyViewportToShotCamera: cameraController.copyViewportToShotCamera,
 		copyShotCameraToViewport: cameraController.copyShotCameraToViewport,
 		resetActiveView: cameraController.resetActiveView,

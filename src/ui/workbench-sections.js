@@ -260,6 +260,14 @@ export function ViewSection({
 								onClick=${() => controller()?.setViewportSelectMode(true)}
 							/>
 							<${IconButton}
+								icon="reference"
+								label=${t("transformMode.reference")}
+								active=${store.viewportReferenceImageEditMode.value}
+								compact=${true}
+								onClick=${() =>
+									controller()?.setViewportReferenceImageEditMode(true)}
+							/>
+							<${IconButton}
 								icon="move"
 								label=${t("transformMode.transform")}
 								active=${store.viewportTransformMode.value}
@@ -1068,14 +1076,15 @@ export function ReferenceSection({ controller, store, t }) {
 	const assets = store.referenceImages.assets.value;
 	const items = store.referenceImages.items.value;
 	const itemsForDisplay = [...items].reverse();
-	const assetCount = store.referenceImages.assetCount.value;
+	const presets = store.referenceImages.presets.value;
 	const previewSessionVisible =
 		store.referenceImages.previewSessionVisible.value;
 	const selectedAssetId = store.referenceImages.selectedAssetId.value;
 	const selectedItemId = store.referenceImages.selectedItemId.value;
-	const presetName =
-		store.referenceImages.panelPresetName.value ||
-		t("referenceImage.blankPreset");
+	const selectedItemIds = new Set(
+		store.referenceImages.selectedItemIds.value ?? [],
+	);
+	const panelPresetId = store.referenceImages.panelPresetId.value;
 	const selectedItem = items.find((item) => item.id === selectedItemId) ?? null;
 	const selectedAsset =
 		assets.find(
@@ -1096,7 +1105,7 @@ export function ReferenceSection({ controller, store, t }) {
 	return html`
 		<section class="panel-section">
 			<${SectionHeading} icon="image" title=${t("section.referenceImages")}>
-				<span class="pill pill--dim">${assetCount}</span>
+				<span class="pill pill--dim">${items.length}</span>
 			<//>
 			<div class="button-row">
 				<button
@@ -1125,61 +1134,41 @@ export function ReferenceSection({ controller, store, t }) {
 					}
 				</button>
 			</div>
-			<p class="summary">
-				${t("referenceImage.activePreset")} · ${presetName}
-			</p>
+			<div class="split-field-row">
+				<label class="field">
+					<span>${t("referenceImage.activePreset")}</span>
+					<select
+						value=${panelPresetId}
+						...${INTERACTIVE_FIELD_PROPS}
+						onChange=${(event) =>
+							controller()?.setActiveReferenceImagePreset?.(
+								event.currentTarget.value,
+							)}
+					>
+						${presets.map(
+							(preset) => html`
+								<option key=${preset.id} value=${preset.id}>
+									${preset.name}
+								</option>
+							`,
+						)}
+					</select>
+				</label>
+				<div class="field field--action">
+					<span>${t("referenceImage.activePresetItems", { count: items.length })}</span>
+					<button
+						type="button"
+						class="button button--compact"
+						onClick=${() => controller()?.duplicateActiveReferenceImagePreset?.()}
+					>
+						${t("action.duplicateReferencePreset")}
+					</button>
+				</div>
+			</div>
 			<div class="reference-panel-stack">
 				<section class="reference-panel-group">
 					<${SectionHeading}
-						title=${t("referenceImage.sourcesSection")}
-					>
-						<span class="pill pill--dim">${assetCount}</span>
-					<//>
-					${
-						assets.length > 0
-							? html`
-									<div class="scene-asset-list">
-										${assets.map(
-											(asset) => html`
-												<article
-													class=${getReferenceRowClass({
-														selected: asset.id === selectedAssetId,
-													})}
-													onClick=${() =>
-														controller()?.selectReferenceImageAsset?.(asset.id)}
-												>
-													<div class="scene-asset-row__main scene-asset-row__main--flat">
-														<div class="scene-asset-row__title-group">
-															<strong>${asset.label || t("referenceImage.untitled")}</strong>
-															<span class="scene-asset-row__meta">
-																${asset.fileName || t("referenceImage.untitled")}
-																${
-																	asset.sizeLabel ? ` · ${asset.sizeLabel}` : ""
-																}
-																${
-																	asset.currentCameraCount > 0
-																		? ` · ${t(
-																				"referenceImage.currentCameraUsage",
-																				{
-																					count: asset.currentCameraCount,
-																				},
-																			)}`
-																		: ""
-																}
-															</span>
-														</div>
-													</div>
-												</article>
-											`,
-										)}
-									</div>
-								`
-							: html`<p class="summary">${t("hint.referenceImagesEmpty")}</p>`
-					}
-				</section>
-				<section class="reference-panel-group">
-					<${SectionHeading}
-						title=${t("referenceImage.currentCameraSection")}
+						title=${t("referenceImage.currentPresetSection")}
 					>
 						<span class="pill pill--dim">${items.length}</span>
 					<//>
@@ -1191,11 +1180,14 @@ export function ReferenceSection({ controller, store, t }) {
 											(item) => html`
 												<article
 													class=${getReferenceRowClass({
-														selected: item.id === selectedItemId,
+														selected: selectedItemIds.has(item.id),
 														active: item.id === selectedItemId,
 													})}
-													onClick=${() =>
-														controller()?.selectReferenceImageItem?.(item.id)}
+													onClick=${(event) =>
+														controller()?.selectReferenceImageItem?.(
+															item.id,
+															event,
+														)}
 												>
 													<div class="scene-asset-row__main scene-asset-row__main--flat">
 														<div class="scene-asset-row__title-group">

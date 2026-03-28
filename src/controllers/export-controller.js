@@ -1327,10 +1327,6 @@ export function createExportController({
 	}
 
 	async function renderOutputSnapshotForShotCamera(shotCameraId) {
-		if (getTotalLoadedItems() === 0) {
-			throw new Error(t("error.exportRequiresAsset"));
-		}
-
 		const targetDocument = getShotCameraDocument(shotCameraId);
 		const previousShotCameraId = store.workspace.activeShotCameraId.value;
 		const shouldRestore = shotCameraId && shotCameraId !== previousShotCameraId;
