@@ -19,11 +19,41 @@ import {
 	remapPointBetweenRenderBoxes,
 } from "../engine/projection.js";
 
+export function computeWorkbenchLayoutState({
+	viewportWidth,
+	viewportHeight,
+	shellRect,
+	rightRect,
+	workbenchCollapsed,
+}) {
+	const stackedLayout = viewportWidth <= WORKBENCH_STACK_BREAKPOINT_PX;
+	let safeWidth = viewportWidth;
+	if (!stackedLayout && !workbenchCollapsed) {
+		const rightInset = rightRect
+			? Math.max(
+					0,
+					Math.min(
+						viewportWidth,
+						shellRect.right - rightRect.left + WORKBENCH_SAFE_GUTTER_PX,
+					),
+				)
+			: 0;
+		safeWidth = Math.max(1, viewportWidth - rightInset);
+	}
+
+	return {
+		viewportWidth,
+		viewportHeight,
+		stackedLayout,
+		safeWidth,
+		safeHeight: viewportHeight,
+	};
+}
+
 export function createOutputFrameController({
 	store,
 	state,
 	viewportShell,
-	workbenchLeftColumn,
 	workbenchRightColumn,
 	renderBox,
 	renderBoxMeta,
@@ -121,49 +151,16 @@ export function createOutputFrameController({
 		const viewportWidth = Math.max(viewportShell.clientWidth, 1);
 		const viewportHeight = Math.max(viewportShell.clientHeight, 1);
 		const shellRect = viewportShell.getBoundingClientRect();
-		const leftColumnElement =
-			workbenchLeftColumn?.current ?? workbenchLeftColumn;
 		const rightColumnElement =
 			workbenchRightColumn?.current ?? workbenchRightColumn;
-		const leftRect = leftColumnElement?.getBoundingClientRect?.() ?? null;
 		const rightRect = rightColumnElement?.getBoundingClientRect?.() ?? null;
-		const stackedLayout =
-			viewportWidth <= WORKBENCH_STACK_BREAKPOINT_PX ||
-			(Boolean(leftRect) &&
-				Boolean(rightRect) &&
-				Math.abs(leftRect.left - rightRect.left) < 32 &&
-				rightRect.top >= leftRect.bottom - 8);
-
-		let safeWidth = viewportWidth;
-		if (!stackedLayout && !store.workbenchCollapsed.value) {
-			const leftInset = leftRect
-				? Math.max(
-						0,
-						Math.min(
-							viewportWidth,
-							leftRect.right - shellRect.left + WORKBENCH_SAFE_GUTTER_PX,
-						),
-					)
-				: 0;
-			const rightInset = rightRect
-				? Math.max(
-						0,
-						Math.min(
-							viewportWidth,
-							shellRect.right - rightRect.left + WORKBENCH_SAFE_GUTTER_PX,
-						),
-					)
-				: 0;
-			safeWidth = Math.max(1, viewportWidth - leftInset - rightInset);
-		}
-
-		return {
+		return computeWorkbenchLayoutState({
 			viewportWidth,
 			viewportHeight,
-			stackedLayout,
-			safeWidth,
-			safeHeight: viewportHeight,
-		};
+			shellRect,
+			rightRect,
+			workbenchCollapsed: store.workbenchCollapsed.value,
+		});
 	}
 
 	function isPhoneLikeTouchViewport(viewportWidth) {

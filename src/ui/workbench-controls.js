@@ -1,9 +1,9 @@
 import { html } from "htm/preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import {
-	clampStandardFrameEquivalentMm,
-	getBaseHorizontalFovDegreesForStandardFrameEquivalentMm,
-	snapStandardFrameEquivalentMm,
+	clampStandardFrameHorizontalEquivalentMm,
+	getBaseHorizontalFovDegreesForStandardFrameHorizontalEquivalentMm,
+	snapStandardFrameHorizontalEquivalentMm,
 } from "../engine/camera-lens.js";
 import { WorkbenchIcon } from "./workbench-icons.js";
 
@@ -41,6 +41,14 @@ export const DEFAULT_NUMERIC_SCRUB_MODIFIERS = Object.freeze({
 	alt: 0.1,
 	altShift: 0.025,
 });
+const NUMERIC_SCRUB_EDGE_MARGIN_PX = 12;
+const NUMERIC_SCRUB_REARM_DISTANCE_PX = 24;
+
+export function NumericUnitLabel({ value, title = "" }) {
+	return html`
+		<span class="numeric-unit__label" aria-label=${title || value}>${value}</span>
+	`;
+}
 
 const LIGHT_DIRECTION_WIDGET_SIZE = 132;
 const LIGHT_DIRECTION_WIDGET_RADIUS = 46;
@@ -168,16 +176,22 @@ export function NumericDraftInput({
 	value,
 	inputMode = "decimal",
 	onCommit,
+	onScrubStart = null,
 	controller = null,
 	historyLabel = "",
 	scrubModifiers = null,
+	scrubHandleSide = "auto",
 	...props
 }) {
 	const formattedValue = String(value);
 	const [draftValue, setDraftValue] = useState(formattedValue);
 	const [isEditing, setIsEditing] = useState(false);
 	const [isScrubbing, setIsScrubbing] = useState(false);
+	const [resolvedHandleSide, setResolvedHandleSide] = useState(
+		scrubHandleSide === "start" ? "start" : "end",
+	);
 	const scrubStateRef = useRef(null);
+	const inputRef = useRef(null);
 	const resolvedScrubModifiers = resolveNumericScrubModifiers(scrubModifiers);
 
 	useEffect(() => {
@@ -186,9 +200,38 @@ export function NumericDraftInput({
 		}
 	}, [formattedValue, isEditing, isScrubbing]);
 
+	useEffect(() => {
+		if (scrubHandleSide !== "auto") {
+			setResolvedHandleSide(scrubHandleSide === "start" ? "start" : "end");
+			return;
+		}
+
+		if (!inputRef.current) {
+			return;
+		}
+
+		const nextTextAlign = globalThis
+			.getComputedStyle(inputRef.current)
+			.getPropertyValue("text-align")
+			.trim()
+			.toLowerCase();
+		const nextSide =
+			nextTextAlign === "right" || nextTextAlign === "end" ? "start" : "end";
+		setResolvedHandleSide((currentSide) =>
+			currentSide === nextSide ? currentSide : nextSide,
+		);
+	}, [scrubHandleSide]);
+
 	function resetDraft() {
 		setDraftValue(formattedValue);
 		setIsEditing(false);
+	}
+
+	function focusAndSelectInput() {
+		requestAnimationFrame(() => {
+			inputRef.current?.focus?.({ preventScroll: true });
+			inputRef.current?.select?.();
+		});
 	}
 
 	function commitDraft(nextRawValue) {
@@ -237,6 +280,11 @@ export function NumericDraftInput({
 		return Number.isFinite(step) && step > 0 ? step : 1;
 	}
 
+	function getViewportClientWidth() {
+		const width = Number(globalThis.innerWidth);
+		return Number.isFinite(width) && width > 0 ? width : null;
+	}
+
 	function finishScrub(mode = "commit") {
 		const scrubState = scrubStateRef.current;
 		if (!scrubState) {
@@ -265,26 +313,74 @@ export function NumericDraftInput({
 			return;
 		}
 
+		onScrubStart?.();
 		controller?.()?.beginHistoryTransaction?.(historyLabel);
 		setIsEditing(false);
 		setIsScrubbing(true);
 		const handle = event.currentTarget;
 		handle.setPointerCapture?.(event.pointerId);
+		const scrubState = {
+			pointerId: event.pointerId,
+			handle,
+			lastClientX: event.clientX,
+			appliedValue: startValue,
+			edgeClampDirection: 0,
+			edgeRearmDistance: 0,
+			onMove: null,
+			onUp: null,
+			onCancel: null,
+		};
 
 		const onMove = (moveEvent) => {
-			if (moveEvent.pointerId !== event.pointerId) {
+			if (moveEvent.pointerId !== scrubState.pointerId) {
 				return;
 			}
 			stopUiEvent(moveEvent);
 			moveEvent.preventDefault();
-			const deltaPixels = Math.round(moveEvent.clientX - event.clientX);
+			const currentClientX = moveEvent.clientX;
+			const deltaPixels = currentClientX - scrubState.lastClientX;
+			const viewportWidth = getViewportClientWidth();
+			const hitLeftEdge = currentClientX <= NUMERIC_SCRUB_EDGE_MARGIN_PX;
+			const hitRightEdge =
+				viewportWidth !== null &&
+				currentClientX >= viewportWidth - NUMERIC_SCRUB_EDGE_MARGIN_PX;
+
+			if (scrubState.edgeClampDirection !== 0) {
+				const movingAwayFromEdge =
+					deltaPixels * scrubState.edgeClampDirection < 0;
+				scrubState.lastClientX = currentClientX;
+				if (!movingAwayFromEdge || Math.abs(deltaPixels) <= 0) {
+					return;
+				}
+				scrubState.edgeRearmDistance += Math.abs(deltaPixels);
+				if (scrubState.edgeRearmDistance >= NUMERIC_SCRUB_REARM_DISTANCE_PX) {
+					scrubState.edgeClampDirection = 0;
+					scrubState.edgeRearmDistance = 0;
+				}
+				return;
+			}
+
+			if (Math.abs(deltaPixels) <= 0) {
+				return;
+			}
+
 			const nextValue = clampValue(
-				startValue +
+				scrubState.appliedValue +
 					deltaPixels * getStepValue() * getScrubMultiplier(moveEvent),
 			);
 			const nextDraftValue = String(nextValue);
+			scrubState.appliedValue = nextValue;
+			scrubState.lastClientX = currentClientX;
 			setDraftValue(nextDraftValue);
 			onCommit?.(nextDraftValue);
+
+			if (deltaPixels < 0 && hitLeftEdge) {
+				scrubState.edgeClampDirection = -1;
+				scrubState.edgeRearmDistance = 0;
+			} else if (deltaPixels > 0 && hitRightEdge) {
+				scrubState.edgeClampDirection = 1;
+				scrubState.edgeRearmDistance = 0;
+			}
 		};
 
 		const onUp = (upEvent) => {
@@ -305,13 +401,10 @@ export function NumericDraftInput({
 			finishScrub("cancel");
 		};
 
-		scrubStateRef.current = {
-			pointerId: event.pointerId,
-			handle,
-			onMove,
-			onUp,
-			onCancel,
-		};
+		scrubState.onMove = onMove;
+		scrubState.onUp = onUp;
+		scrubState.onCancel = onCancel;
+		scrubStateRef.current = scrubState;
 		handle.addEventListener("pointermove", onMove);
 		handle.addEventListener("pointerup", onUp);
 		handle.addEventListener("pointercancel", onCancel);
@@ -319,13 +412,20 @@ export function NumericDraftInput({
 
 	return html`
 		<div
-			class=${isScrubbing ? "numeric-scrub is-scrubbing" : "numeric-scrub"}
+			class=${
+				isScrubbing
+					? `numeric-scrub numeric-scrub--handle-${resolvedHandleSide} is-scrubbing`
+					: `numeric-scrub numeric-scrub--handle-${resolvedHandleSide}`
+			}
 			data-history-scope="app"
 		>
 			<input
+				ref=${inputRef}
 				...${props}
-				type="number"
+				type="text"
 				inputMode=${inputMode}
+				spellcheck="false"
+				autocomplete="off"
 				data-draft-editing=${isEditing ? "true" : "false"}
 				value=${isEditing ? draftValue : formattedValue}
 				onFocus=${(event) => {
@@ -341,10 +441,14 @@ export function NumericDraftInput({
 				onBlur=${(event) => {
 					commitDraft(event.currentTarget.value);
 				}}
-				onChange=${(event) => {
-					commitDraft(event.currentTarget.value);
+				onChange=${stopUiEvent}
+				onPointerDown=${(event) => {
+					stopUiEvent(event);
+					event.preventDefault();
+					setIsEditing(true);
+					setDraftValue(String(inputRef.current?.value ?? formattedValue));
+					focusAndSelectInput();
 				}}
-				onPointerDown=${stopUiEvent}
 				onClick=${stopUiEvent}
 				onWheel=${stopUiWheelEvent}
 				onKeyDown=${(event) => {
@@ -377,6 +481,165 @@ export function NumericDraftInput({
 				}}
 			>
 				<${WorkbenchIcon} name="scrub" size=${13} />
+			</button>
+		</div>
+	`;
+}
+
+export function DirectionalScrubControl({
+	controller = null,
+	historyLabel = "",
+	ariaLabel = "",
+	step = 0.02,
+	scrubModifiers = null,
+	onDelta,
+}) {
+	const [isScrubbing, setIsScrubbing] = useState(false);
+	const scrubStateRef = useRef(null);
+	const resolvedScrubModifiers = resolveNumericScrubModifiers(scrubModifiers);
+
+	function getScrubMultiplier(event) {
+		if (event.altKey && event.shiftKey) {
+			return resolvedScrubModifiers.altShift;
+		}
+		if (event.altKey) {
+			return resolvedScrubModifiers.alt;
+		}
+		if (event.shiftKey) {
+			return resolvedScrubModifiers.shift;
+		}
+		return resolvedScrubModifiers.normal;
+	}
+
+	function getStepValue() {
+		const numericStep = Number(step);
+		return Number.isFinite(numericStep) && numericStep > 0 ? numericStep : 0.02;
+	}
+
+	function finishScrub(mode = "commit") {
+		const scrubState = scrubStateRef.current;
+		if (!scrubState) {
+			return;
+		}
+
+		scrubState.surface.removeEventListener("pointermove", scrubState.onMove);
+		scrubState.surface.removeEventListener("pointerup", scrubState.onUp);
+		scrubState.surface.removeEventListener(
+			"pointercancel",
+			scrubState.onCancel,
+		);
+		scrubState.surface.releasePointerCapture?.(scrubState.pointerId);
+		scrubState.surface.style.setProperty("--directional-scrub-offset", "0px");
+		scrubStateRef.current = null;
+		setIsScrubbing(false);
+		if (mode === "cancel") {
+			controller?.()?.cancelHistoryTransaction?.();
+			return;
+		}
+		controller?.()?.commitHistoryTransaction?.(historyLabel);
+	}
+
+	function beginScrub(event) {
+		stopUiEvent(event);
+		event.preventDefault();
+
+		controller?.()?.beginHistoryTransaction?.(historyLabel);
+		setIsScrubbing(true);
+		const surface = event.currentTarget;
+		surface.setPointerCapture?.(event.pointerId);
+		const scrubState = {
+			pointerId: event.pointerId,
+			surface,
+			startClientX: event.clientX,
+			appliedDistance: 0,
+			onMove: null,
+			onUp: null,
+			onCancel: null,
+		};
+
+		const onMove = (moveEvent) => {
+			if (moveEvent.pointerId !== scrubState.pointerId) {
+				return;
+			}
+			stopUiEvent(moveEvent);
+			moveEvent.preventDefault();
+			const thumbTravelMax = Math.max(
+				10,
+				Math.min(20, (scrubState.surface.clientWidth - 34) * 0.5),
+			);
+			const thumbOffsetPixels = Math.max(
+				-thumbTravelMax,
+				Math.min(thumbTravelMax, moveEvent.clientX - scrubState.startClientX),
+			);
+			scrubState.surface.style.setProperty(
+				"--directional-scrub-offset",
+				`${thumbOffsetPixels}px`,
+			);
+			const nextDistance =
+				(moveEvent.clientX - scrubState.startClientX) *
+				getStepValue() *
+				getScrubMultiplier(moveEvent);
+			const deltaDistance = nextDistance - scrubState.appliedDistance;
+			if (!Number.isFinite(deltaDistance) || Math.abs(deltaDistance) <= 1e-8) {
+				return;
+			}
+			scrubState.appliedDistance = nextDistance;
+			onDelta?.(deltaDistance);
+		};
+
+		const onUp = (upEvent) => {
+			if (upEvent.pointerId !== scrubState.pointerId) {
+				return;
+			}
+			stopUiEvent(upEvent);
+			upEvent.preventDefault();
+			finishScrub("commit");
+		};
+
+		const onCancel = (cancelEvent) => {
+			if (cancelEvent.pointerId !== scrubState.pointerId) {
+				return;
+			}
+			stopUiEvent(cancelEvent);
+			cancelEvent.preventDefault();
+			finishScrub("cancel");
+		};
+
+		scrubState.onMove = onMove;
+		scrubState.onUp = onUp;
+		scrubState.onCancel = onCancel;
+		scrubStateRef.current = scrubState;
+
+		surface.addEventListener("pointermove", onMove);
+		surface.addEventListener("pointerup", onUp);
+		surface.addEventListener("pointercancel", onCancel);
+	}
+
+	return html`
+		<div
+			class=${isScrubbing ? "directional-scrub is-scrubbing" : "directional-scrub"}
+			data-history-scope="app"
+		>
+			<button
+				type="button"
+				class="directional-scrub__surface"
+				aria-label=${ariaLabel}
+				onPointerDown=${beginScrub}
+				onClick=${(clickEvent) => {
+					stopUiEvent(clickEvent);
+					clickEvent.preventDefault();
+				}}
+			>
+				<span class="directional-scrub__chevron directional-scrub__chevron--start">
+					<${WorkbenchIcon} name="chevron-left" size=${16} />
+				</span>
+				<span class="directional-scrub__track" aria-hidden="true"></span>
+				<span class="directional-scrub__thumb" aria-hidden="true">
+					<span class="directional-scrub__thumb-bar"></span>
+				</span>
+				<span class="directional-scrub__chevron directional-scrub__chevron--end">
+					<${WorkbenchIcon} name="chevron-right" size=${16} />
+				</span>
 			</button>
 		</div>
 	`;
@@ -791,7 +1054,7 @@ export function HistoryRangeInput({
 	`;
 }
 
-export function applyStandardFrameEquivalentMm(
+export function applyStandardFrameHorizontalEquivalentMm(
 	setBaseFov,
 	nextValue,
 	{ snap = false } = {},
@@ -802,9 +1065,11 @@ export function applyStandardFrameEquivalentMm(
 	}
 
 	const normalizedValue = snap
-		? snapStandardFrameEquivalentMm(numericValue)
-		: clampStandardFrameEquivalentMm(numericValue);
+		? snapStandardFrameHorizontalEquivalentMm(numericValue)
+		: clampStandardFrameHorizontalEquivalentMm(numericValue);
 	setBaseFov?.(
-		getBaseHorizontalFovDegreesForStandardFrameEquivalentMm(normalizedValue),
+		getBaseHorizontalFovDegreesForStandardFrameHorizontalEquivalentMm(
+			normalizedValue,
+		),
 	);
 }

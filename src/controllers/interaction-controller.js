@@ -1,12 +1,14 @@
+import * as THREE from "three";
 import {
-	getBaseHorizontalFovDegreesForStandardFrameEquivalentMm,
-	getStandardFrameEquivalentMm,
+	getBaseHorizontalFovDegreesForStandardFrameHorizontalEquivalentMm,
+	getStandardFrameHorizontalEquivalentMm,
 	getStandardFrameHorizontalFovDegrees,
-	snapStandardFrameEquivalentMm,
+	snapStandardFrameHorizontalEquivalentMm,
 } from "../engine/camera-lens.js";
 import {
 	buildViewportPieActions,
 	getViewportPieHoveredActionId,
+	getViewportPieMetrics,
 } from "../engine/viewport-pie.js";
 
 export function createInteractionController({
@@ -23,6 +25,9 @@ export function createInteractionController({
 	setViewZoomFactor,
 	getShotCameraBaseFovX,
 	setShotCameraBaseFovXLive,
+	getShotCameraRollAxisWorld,
+	getShotCameraRollAngleDegrees,
+	applyActiveShotCameraRoll,
 	beginHistoryTransaction,
 	commitHistoryTransaction,
 }) {
@@ -30,8 +35,10 @@ export function createInteractionController({
 	const INTERACTION_MODE_ZOOM = "zoom";
 	const INTERACTION_MODE_PIE = "pie";
 	const INTERACTION_MODE_LENS = "lens";
+	const INTERACTION_MODE_ROLL = "roll";
 	let zoomToolDragState = null;
 	let lensAdjustDragState = null;
+	let rollAdjustDragState = null;
 
 	function formatNumber(value, digits = 2) {
 		return Number(value).toFixed(digits);
@@ -54,6 +61,10 @@ export function createInteractionController({
 
 	function isLensInteractionMode() {
 		return state.interactionMode === INTERACTION_MODE_LENS;
+	}
+
+	function isRollInteractionMode() {
+		return state.interactionMode === INTERACTION_MODE_ROLL;
 	}
 
 	function isInteractiveTextTarget(target) {
@@ -84,19 +95,47 @@ export function createInteractionController({
 		};
 	}
 
+	function hideRollHud() {
+		store.viewportRollHud.value = {
+			visible: false,
+			x: 0,
+			y: 0,
+			angleLabel: "",
+		};
+	}
+
 	function updateLensHud(x, y, baseFovX = getShotCameraBaseFovX()) {
 		store.viewportLensHud.value = {
 			visible: true,
 			x,
 			y,
-			mmLabel: `${Math.round(getStandardFrameEquivalentMm(baseFovX))}mm`,
+			mmLabel: `${Math.round(getStandardFrameHorizontalEquivalentMm(baseFovX))}mm`,
 			fovLabel: `${formatNumber(getStandardFrameHorizontalFovDegrees(baseFovX), 1)}°`,
+		};
+	}
+
+	function updateRollHud(
+		x,
+		y,
+		rollDegrees = getShotCameraRollAngleDegrees?.() ?? 0,
+	) {
+		const roundedRoll = Number.isFinite(rollDegrees) ? rollDegrees : 0;
+		store.viewportRollHud.value = {
+			visible: true,
+			x,
+			y,
+			angleLabel: `${roundedRoll >= 0 ? "+" : ""}${formatNumber(roundedRoll, 1)}°`,
 		};
 	}
 
 	function clearLensAdjustDrag() {
 		lensAdjustDragState = null;
 		viewportShell.classList.remove("is-lens-adjusting");
+	}
+
+	function clearRollAdjustDrag() {
+		rollAdjustDragState = null;
+		viewportShell.classList.remove("is-roll-adjusting");
 	}
 
 	function clearControlMomentum() {
@@ -121,6 +160,10 @@ export function createInteractionController({
 			x: 0,
 			y: 0,
 			hoveredActionId: null,
+			coarse: false,
+			radius: getViewportPieMetrics().radius,
+			innerRadius: getViewportPieMetrics().innerRadius,
+			outerRadius: getViewportPieMetrics().outerRadius,
 		});
 		if (state.interactionMode === INTERACTION_MODE_PIE) {
 			applyNavigateInteractionMode({ silent });
@@ -135,6 +178,7 @@ export function createInteractionController({
 		state.interactionMode = nextMode;
 		clearZoomToolDrag();
 		clearLensAdjustDrag();
+		clearRollAdjustDrag();
 		clearControlMomentum();
 		if (nextMode !== INTERACTION_MODE_PIE) {
 			setViewportPieMenu({
@@ -147,6 +191,9 @@ export function createInteractionController({
 		if (nextMode !== INTERACTION_MODE_LENS) {
 			hideLensHud();
 		}
+		if (nextMode !== INTERACTION_MODE_ROLL) {
+			hideRollHud();
+		}
 		const navigationEnabled = nextMode === INTERACTION_MODE_NAVIGATE;
 		fpsMovement.enable = false;
 		pointerControls.enable = navigationEnabled;
@@ -158,7 +205,9 @@ export function createInteractionController({
 						? t("status.zoomToolEnabled")
 						: nextMode === INTERACTION_MODE_LENS
 							? t("status.lensToolEnabled")
-							: "",
+							: nextMode === INTERACTION_MODE_ROLL
+								? t("status.rollToolEnabled")
+								: "",
 			);
 		}
 		updateUi();
@@ -216,20 +265,38 @@ export function createInteractionController({
 		clearZoomToolDrag();
 	}
 
-	function openViewportPieMenu(event, { force = false } = {}) {
+	function openViewportPieMenu(event, { force = false, coarse = false } = {}) {
 		if (!force && event.button !== 1) {
 			return false;
 		}
 
 		const viewportRect = viewportShell.getBoundingClientRect();
+		const metrics = getViewportPieMetrics({ coarse });
 		setViewportPieMenu({
 			open: true,
 			x: event.clientX - viewportRect.left,
 			y: event.clientY - viewportRect.top,
 			hoveredActionId: null,
+			coarse: metrics.coarse,
+			radius: metrics.radius,
+			innerRadius: metrics.innerRadius,
+			outerRadius: metrics.outerRadius,
 		});
 		applyInteractionMode(INTERACTION_MODE_PIE, { silent: true });
 		return true;
+	}
+
+	function openViewportPieMenuAtCenter() {
+		const viewportRect = viewportShell.getBoundingClientRect();
+		const coarse = window.matchMedia?.("(pointer: coarse)")?.matches ?? false;
+		return openViewportPieMenu(
+			{
+				button: 0,
+				clientX: viewportRect.left + viewportRect.width * 0.5,
+				clientY: viewportRect.top + viewportRect.height * 0.5,
+			},
+			{ force: true, coarse },
+		);
 	}
 
 	function updateViewportPiePointer(event) {
@@ -247,6 +314,8 @@ export function createInteractionController({
 			centerX: store.viewportPieMenu.value.x,
 			centerY: store.viewportPieMenu.value.y,
 			actions,
+			innerRadius: store.viewportPieMenu.value.innerRadius,
+			outerRadius: store.viewportPieMenu.value.outerRadius,
 		});
 		setViewportPieMenu({
 			...store.viewportPieMenu.value,
@@ -275,6 +344,24 @@ export function createInteractionController({
 		updateLensHud(localX, localY);
 	}
 
+	function activateShotCameraRollMode(pointerEvent = null) {
+		if (state.mode !== workspacePaneCamera) {
+			setStatus(t("status.rollToolUnavailable"));
+			return false;
+		}
+
+		applyInteractionMode(INTERACTION_MODE_ROLL, { silent: false });
+		const viewportRect = viewportShell.getBoundingClientRect();
+		const localX = pointerEvent
+			? pointerEvent.clientX - viewportRect.left
+			: viewportRect.width * 0.5;
+		const localY = pointerEvent
+			? pointerEvent.clientY - viewportRect.top
+			: viewportRect.height * 0.5;
+		updateRollHud(localX, localY);
+		return true;
+	}
+
 	function startLensAdjustDrag(event) {
 		if (!isLensInteractionMode() || event.button !== 0) {
 			return false;
@@ -287,7 +374,9 @@ export function createInteractionController({
 		lensAdjustDragState = {
 			pointerId: event.pointerId,
 			startClientX: event.clientX,
-			startEquivalentMm: getStandardFrameEquivalentMm(getShotCameraBaseFovX()),
+			startEquivalentMm: getStandardFrameHorizontalEquivalentMm(
+				getShotCameraBaseFovX(),
+			),
 		};
 		updateLensHud(
 			event.clientX - viewportShell.getBoundingClientRect().left,
@@ -305,12 +394,14 @@ export function createInteractionController({
 		}
 
 		const sensitivity = event.shiftKey ? 0.03 : 0.12;
-		const nextEquivalentMm = snapStandardFrameEquivalentMm(
+		const nextEquivalentMm = snapStandardFrameHorizontalEquivalentMm(
 			lensAdjustDragState.startEquivalentMm +
 				(event.clientX - lensAdjustDragState.startClientX) * sensitivity,
 		);
 		const nextBaseFovX =
-			getBaseHorizontalFovDegreesForStandardFrameEquivalentMm(nextEquivalentMm);
+			getBaseHorizontalFovDegreesForStandardFrameHorizontalEquivalentMm(
+				nextEquivalentMm,
+			);
 		setShotCameraBaseFovXLive(nextBaseFovX);
 		updateLensHud(
 			event.clientX - viewportShell.getBoundingClientRect().left,
@@ -332,6 +423,87 @@ export function createInteractionController({
 		applyNavigateInteractionMode({ silent: true });
 	}
 
+	function startShotCameraRollDrag(event) {
+		if (!isRollInteractionMode() || event.button !== 0) {
+			return false;
+		}
+
+		const axisWorld = getShotCameraRollAxisWorld?.();
+		if (!(axisWorld instanceof THREE.Vector3) || axisWorld.lengthSq() <= 1e-6) {
+			return false;
+		}
+
+		event.preventDefault();
+		event.stopPropagation();
+		beginHistoryTransaction?.("camera.roll");
+		viewportShell.classList.add("is-roll-adjusting");
+		rollAdjustDragState = {
+			pointerId: event.pointerId,
+			startClientX: event.clientX,
+			axisWorld: axisWorld.clone(),
+			appliedDeltaRadians: 0,
+		};
+		updateRollHud(
+			event.clientX - viewportShell.getBoundingClientRect().left,
+			event.clientY - viewportShell.getBoundingClientRect().top,
+		);
+		return true;
+	}
+
+	function getRollSensitivityDegrees(event) {
+		if (event.altKey && event.shiftKey) {
+			return 0.015;
+		}
+		if (event.altKey) {
+			return 0.035;
+		}
+		if (event.shiftKey) {
+			return 0.08;
+		}
+		return 0.18;
+	}
+
+	function handleShotCameraRollDragMove(event) {
+		if (
+			!rollAdjustDragState ||
+			event.pointerId !== rollAdjustDragState.pointerId
+		) {
+			return;
+		}
+
+		const totalDeltaRadians = THREE.MathUtils.degToRad(
+			(event.clientX - rollAdjustDragState.startClientX) *
+				getRollSensitivityDegrees(event),
+		);
+		const nextDeltaRadians =
+			totalDeltaRadians - rollAdjustDragState.appliedDeltaRadians;
+		if (Math.abs(nextDeltaRadians) > 1e-7) {
+			applyActiveShotCameraRoll?.(
+				rollAdjustDragState.axisWorld,
+				nextDeltaRadians,
+			);
+			rollAdjustDragState.appliedDeltaRadians = totalDeltaRadians;
+		}
+
+		updateRollHud(
+			event.clientX - viewportShell.getBoundingClientRect().left,
+			event.clientY - viewportShell.getBoundingClientRect().top,
+		);
+	}
+
+	function handleShotCameraRollDragEnd(event) {
+		if (
+			!rollAdjustDragState ||
+			event.pointerId !== rollAdjustDragState.pointerId
+		) {
+			return;
+		}
+
+		clearRollAdjustDrag();
+		commitHistoryTransaction?.("camera.roll");
+		applyNavigateInteractionMode({ silent: true });
+	}
+
 	function syncControlsToMode() {
 		clearControlMomentum();
 		const navigationEnabled =
@@ -346,6 +518,7 @@ export function createInteractionController({
 		isZoomInteractionMode,
 		isPieInteractionMode,
 		isLensInteractionMode,
+		isRollInteractionMode,
 		isInteractiveTextTarget,
 		clearZoomToolDrag,
 		clearControlMomentum,
@@ -356,13 +529,18 @@ export function createInteractionController({
 		handleZoomToolDragMove,
 		handleZoomToolDragEnd,
 		openViewportPieMenu,
+		openViewportPieMenuAtCenter,
 		updateViewportPiePointer,
 		finishViewportPieMenu,
 		closeViewportPieMenu,
 		activateLensAdjustMode,
+		activateShotCameraRollMode,
 		startLensAdjustDrag,
 		handleLensAdjustDragMove,
 		handleLensAdjustDragEnd,
+		startShotCameraRollDrag,
+		handleShotCameraRollDragMove,
+		handleShotCameraRollDragEnd,
 		syncControlsToMode,
 	};
 }

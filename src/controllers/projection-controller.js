@@ -1,4 +1,10 @@
+import * as THREE from "three";
 import {
+	composeCameraQuaternionFromPoseAngles,
+	decomposeCameraPoseAngles,
+} from "../engine/camera-pose.js";
+import {
+	getFrustumCenterRayDirection,
 	getPreviewFrustumExtents,
 	getTargetFrustumExtents,
 	horizontalToVerticalFovDegrees,
@@ -118,6 +124,98 @@ export function createProjectionController({
 		outputCamera.updateMatrixWorld();
 	}
 
+	function getShotCameraRollAxisWorld() {
+		const shotCamera = getActiveShotCamera();
+		if (!shotCamera) {
+			return null;
+		}
+
+		const localDirection = getShotCameraCenterRayLocalDirection();
+		if (!localDirection) {
+			return null;
+		}
+
+		return localDirection.applyQuaternion(shotCamera.quaternion).normalize();
+	}
+
+	function getShotCameraCenterRayLocalDirection() {
+		const shotCamera = getActiveShotCamera();
+		if (!shotCamera) {
+			return null;
+		}
+
+		const { targetFrustum } = getProjectionState();
+		const centerRay = getFrustumCenterRayDirection({
+			near: shotCamera.near,
+			frustum: targetFrustum,
+		});
+
+		return new THREE.Vector3(centerRay.x, centerRay.y, centerRay.z).normalize();
+	}
+
+	function applyShotCameraQuaternion(nextQuaternion) {
+		const shotCamera = getActiveShotCamera();
+		if (!shotCamera || !(nextQuaternion instanceof THREE.Quaternion)) {
+			return false;
+		}
+
+		shotCamera.quaternion.copy(nextQuaternion).normalize();
+		shotCamera.up
+			.set(0, 1, 0)
+			.applyQuaternion(shotCamera.quaternion)
+			.normalize();
+		shotCamera.updateMatrixWorld(true);
+		return true;
+	}
+
+	function getShotCameraPoseAngles() {
+		const shotCamera = getActiveShotCamera();
+		const axisLocal = getShotCameraCenterRayLocalDirection();
+		if (!shotCamera || !axisLocal) {
+			return {
+				yawDeg: 0,
+				pitchDeg: 0,
+				rollDeg: 0,
+			};
+		}
+
+		return decomposeCameraPoseAngles({
+			quaternion: shotCamera.quaternion,
+			axisLocal,
+		});
+	}
+
+	function setShotCameraPoseAngles(nextAngles) {
+		const shotCamera = getActiveShotCamera();
+		const axisLocal = getShotCameraCenterRayLocalDirection();
+		if (!shotCamera || !axisLocal) {
+			return false;
+		}
+
+		const currentAngles = getShotCameraPoseAngles();
+		const nextQuaternion = composeCameraQuaternionFromPoseAngles({
+			axisLocal,
+			yawDeg: Number.isFinite(nextAngles?.yawDeg)
+				? nextAngles.yawDeg
+				: currentAngles.yawDeg,
+			pitchDeg: Number.isFinite(nextAngles?.pitchDeg)
+				? nextAngles.pitchDeg
+				: currentAngles.pitchDeg,
+			rollDeg: Number.isFinite(nextAngles?.rollDeg)
+				? nextAngles.rollDeg
+				: currentAngles.rollDeg,
+		});
+		return applyShotCameraQuaternion(nextQuaternion);
+	}
+
+	function getShotCameraRollAngleDegrees() {
+		return getShotCameraPoseAngles().rollDeg;
+	}
+
+	function setShotCameraRollAngleDegrees(nextRollDeg) {
+		return setShotCameraPoseAngles({ rollDeg: nextRollDeg });
+	}
+
 	function handleResize() {
 		const { width, height } = getViewportSize();
 		renderer.setSize(width, height, false);
@@ -130,6 +228,11 @@ export function createProjectionController({
 		syncShotProjection,
 		applyCameraViewProjection,
 		syncOutputCamera,
+		getShotCameraPoseAngles,
+		setShotCameraPoseAngles,
+		getShotCameraRollAxisWorld,
+		getShotCameraRollAngleDegrees,
+		setShotCameraRollAngleDegrees,
 		handleResize,
 	};
 }

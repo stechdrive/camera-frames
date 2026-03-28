@@ -1,9 +1,9 @@
 import { html } from "htm/preact";
-import { useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { FRAME_MAX_COUNT } from "../constants.js";
 import { getAnchorOptions } from "../i18n.js";
 import { WorkbenchIcon } from "./workbench-icons.js";
-import { HeaderMenu, HeaderWordmark } from "./workbench-primitives.js";
+import { HeaderMenu, IconButton } from "./workbench-primitives.js";
 import {
 	ExportSection,
 	ExportSettingsSection,
@@ -11,24 +11,47 @@ import {
 	FramesSection,
 	INSPECTOR_TAB_CAMERA,
 	INSPECTOR_TAB_EXPORT,
+	INSPECTOR_TAB_SCENE,
+	InspectorRailSection,
 	InspectorTabs,
 	LightingSection,
 	OutputFrameSection,
 	ReferenceSection,
 	SceneSection,
 	ShotCameraSection,
-	ViewSection,
-	WorkbenchHeader,
+	ToolRailSection,
+	ViewSettingsSection,
+	getInspectorTabs,
 } from "./workbench-sections.js";
+
+function clampToolRailPosition({ x, y }, shellElement, railElement) {
+	if (!shellElement || !railElement) {
+		return { x, y };
+	}
+	const maxX = Math.max(0, shellElement.clientWidth - railElement.offsetWidth);
+	const maxY = Math.max(
+		0,
+		shellElement.clientHeight - railElement.offsetHeight,
+	);
+	return {
+		x: Math.min(Math.max(0, x), maxX),
+		y: Math.min(Math.max(0, y), maxY),
+	};
+}
 
 export function SidePanel({ store, controller, locale, t, refs }) {
 	const [activeInspectorTab, setActiveInspectorTab] =
 		useState(INSPECTOR_TAB_CAMERA);
+	const [inspectorPeekTab, setInspectorPeekTab] = useState(null);
+	const [isMobileWorkbench, setIsMobileWorkbench] = useState(false);
 	const [draggedAssetId, setDraggedAssetId] = useState(null);
 	const [dragHoverState, setDragHoverState] = useState(null);
+	const [toolRailPosition, setToolRailPosition] = useState({ x: 0, y: 0 });
+	const [toolRailDragging, setToolRailDragging] = useState(false);
+	const toolRailRef = useRef(null);
+	const toolRailDragStateRef = useRef(null);
 	const workbenchCollapsed = store.workbenchCollapsed.value;
 	const mode = store.mode.value;
-	const modeLabel = store.modeLabel.value;
 	const sceneUnitBadge = store.sceneUnitBadge.value;
 	const sceneBadge = store.sceneBadge.value;
 	const sceneSummary = store.sceneSummary.value;
@@ -42,13 +65,10 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 	const exportGridLayerMode = store.shotCamera.exportGridLayerMode.value;
 	const exportModelLayers = store.shotCamera.exportModelLayers.value;
 	const exportSplatLayers = store.shotCamera.exportSplatLayers.value;
-	const cameraSummary = store.cameraSummary.value;
 	const fovLabel = store.fovLabel.value;
 	const equivalentMmValue = store.equivalentMmValue.value;
-	const equivalentMmLabel = store.equivalentMmLabel.value;
 	const viewportFovLabel = store.viewportFovLabel.value;
 	const viewportEquivalentMmValue = store.viewportEquivalentMmValue.value;
-	const viewportEquivalentMmLabel = store.viewportEquivalentMmLabel.value;
 	const frameDocuments = store.frames.documents.value;
 	const activeFrameId = store.frames.activeId.value;
 	const frameCount = store.frames.count.value;
@@ -68,6 +88,9 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 		exportTarget === "selected" && exportPresetIds.length === 0;
 	const anchorOptions = getAnchorOptions(locale);
 	const workbenchAutoCollapsed = store.workbenchAutoCollapsed.value;
+	const inspectorTabs = getInspectorTabs(t);
+	const peekInspectorTabDefinition =
+		inspectorTabs.find((tab) => tab.id === inspectorPeekTab) ?? null;
 	const collapseWorkbench = () => {
 		store.workbenchManualCollapsed.value = true;
 		store.workbenchManualExpanded.value = false;
@@ -76,23 +99,36 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 		store.workbenchManualCollapsed.value = false;
 		store.workbenchManualExpanded.value = workbenchAutoCollapsed;
 	};
-	const toggleWorkbenchCollapsed = () => {
-		if (workbenchCollapsed) {
-			expandWorkbench();
+	const openInspectorFull = (tabId = activeInspectorTab) => {
+		if (tabId) {
+			setActiveInspectorTab(tabId);
+		}
+		setInspectorPeekTab(null);
+		expandWorkbench();
+	};
+	const toggleInspectorPeek = (tabId) => {
+		setActiveInspectorTab(tabId);
+		setInspectorPeekTab((currentTabId) =>
+			currentTabId === tabId ? null : tabId,
+		);
+	};
+	const toggleMobileInspector = (tabId) => {
+		if (!workbenchCollapsed && activeInspectorTab === tabId) {
+			collapseWorkbench();
 			return;
 		}
-		collapseWorkbench();
+		openInspectorFull(tabId);
 	};
 	const projectMenuItems = [
 		{
 			id: "open-project",
-			icon: "folder-open",
+			icon: "package-open",
 			label: t("action.openProject"),
 			onClick: () => controller()?.openProject(),
 		},
 		{
 			id: "open-working-project",
-			icon: "folder-open",
+			icon: "clock",
 			label: t("action.openWorkingProject"),
 			onClick: () => controller()?.openWorkingProject(),
 		},
@@ -154,172 +190,451 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 				onClick=${() => controller()?.loadRemoteUrls()}
 			>
 				<span class="workbench-menu__item-icon">
-					<${WorkbenchIcon} name="folder-open" size=${14} />
+					<${WorkbenchIcon} name="link" size=${14} />
 				</span>
 				<span>${t("action.loadUrl")}</span>
 			</button>
 		</div>
 	`;
 
-	if (workbenchCollapsed) {
+	useEffect(() => {
+		if (!workbenchCollapsed) {
+			setInspectorPeekTab(null);
+		}
+		return undefined;
+	}, [workbenchCollapsed]);
+
+	useEffect(() => {
+		if (workbenchCollapsed || isMobileWorkbench) {
+			return undefined;
+		}
+		const shellElement = refs?.workbenchShellRef?.current ?? null;
+		const railElement = toolRailRef.current;
+		if (!shellElement || !railElement) {
+			return undefined;
+		}
+		const syncWithinBounds = () => {
+			setToolRailPosition((currentPosition) =>
+				clampToolRailPosition(currentPosition, shellElement, railElement),
+			);
+		};
+		syncWithinBounds();
+		window.addEventListener("resize", syncWithinBounds);
+		return () => {
+			window.removeEventListener("resize", syncWithinBounds);
+		};
+	}, [isMobileWorkbench, refs, workbenchCollapsed]);
+
+	useEffect(() => {
+		if (
+			typeof window === "undefined" ||
+			typeof window.matchMedia !== "function"
+		) {
+			return undefined;
+		}
+
+		const widthQuery = window.matchMedia("(max-width: 960px)");
+		const coarseQuery = window.matchMedia("(pointer: coarse)");
+		const hoverQuery = window.matchMedia("(hover: none)");
+		const syncMobileWorkbench = () => {
+			setIsMobileWorkbench(
+				widthQuery.matches && (coarseQuery.matches || hoverQuery.matches),
+			);
+		};
+
+		syncMobileWorkbench();
+		const addChangeListener = (query, listener) => {
+			if (typeof query.addEventListener === "function") {
+				query.addEventListener("change", listener);
+				return () => query.removeEventListener("change", listener);
+			}
+			query.addListener(listener);
+			return () => query.removeListener(listener);
+		};
+
+		const cleanups = [
+			addChangeListener(widthQuery, syncMobileWorkbench),
+			addChangeListener(coarseQuery, syncMobileWorkbench),
+			addChangeListener(hoverQuery, syncMobileWorkbench),
+		];
+		return () => {
+			for (const cleanup of cleanups) {
+				cleanup();
+			}
+		};
+	}, []);
+
+	const handleToolRailPointerDown = (event) => {
+		if (isMobileWorkbench) {
+			return;
+		}
+		if (event.button !== 0) {
+			return;
+		}
+		const interactiveTarget =
+			event.target instanceof Element ? event.target : null;
+		if (
+			interactiveTarget?.closest(
+				"button, summary, details, input, select, textarea, a, [role='tab']",
+			)
+		) {
+			return;
+		}
+		const shellElement = refs?.workbenchShellRef?.current ?? null;
+		const railElement = toolRailRef.current;
+		if (!shellElement || !railElement) {
+			return;
+		}
+		toolRailDragStateRef.current = {
+			pointerId: event.pointerId,
+			startClientX: event.clientX,
+			startClientY: event.clientY,
+			startX: toolRailPosition.x,
+			startY: toolRailPosition.y,
+		};
+		event.currentTarget.setPointerCapture?.(event.pointerId);
+		setToolRailDragging(true);
+	};
+
+	const handleToolRailPointerMove = (event) => {
+		if (isMobileWorkbench) {
+			return;
+		}
+		const dragState = toolRailDragStateRef.current;
+		if (!dragState || dragState.pointerId !== event.pointerId) {
+			return;
+		}
+		const shellElement = refs?.workbenchShellRef?.current ?? null;
+		const railElement = toolRailRef.current;
+		if (!shellElement || !railElement) {
+			return;
+		}
+		const nextPosition = clampToolRailPosition(
+			{
+				x: dragState.startX + (event.clientX - dragState.startClientX),
+				y: dragState.startY + (event.clientY - dragState.startClientY),
+			},
+			shellElement,
+			railElement,
+		);
+		setToolRailPosition(nextPosition);
+	};
+
+	const finishToolRailDrag = (event) => {
+		if (isMobileWorkbench) {
+			return;
+		}
+		const dragState = toolRailDragStateRef.current;
+		if (!dragState || dragState.pointerId !== event.pointerId) {
+			return;
+		}
+		event.currentTarget.releasePointerCapture?.(event.pointerId);
+		toolRailDragStateRef.current = null;
+		setToolRailDragging(false);
+	};
+
+	const renderInspectorContent = (tabId) => {
+		if (tabId === INSPECTOR_TAB_SCENE) {
+			return html`
+				<${SceneSection}
+					controller=${controller}
+					sceneAssets=${sceneAssets}
+					sceneBadge=${sceneBadge}
+					sceneScaleSummary=${sceneScaleSummary}
+					sceneSummary=${sceneSummary}
+					sceneUnitBadge=${sceneUnitBadge}
+					selectedSceneAsset=${selectedSceneAsset}
+					store=${store}
+					t=${t}
+					draggedAssetId=${draggedAssetId}
+					setDraggedAssetId=${setDraggedAssetId}
+					dragHoverState=${dragHoverState}
+					setDragHoverState=${setDragHoverState}
+				/>
+				<${LightingSection}
+					controller=${controller}
+					store=${store}
+					t=${t}
+				/>
+			`;
+		}
+		if (tabId === INSPECTOR_TAB_CAMERA) {
+			return html`
+				<${ViewSettingsSection}
+					controller=${controller}
+					mode=${mode}
+					selectedSceneAsset=${selectedSceneAsset}
+					store=${store}
+					t=${t}
+					viewportEquivalentMmValue=${viewportEquivalentMmValue}
+					viewportFovLabel=${viewportFovLabel}
+				/>
+				<${ShotCameraSection}
+					activeShotCamera=${activeShotCamera}
+					controller=${controller}
+					equivalentMmValue=${equivalentMmValue}
+					fovLabel=${fovLabel}
+					shotCameraClipMode=${shotCameraClipMode}
+					store=${store}
+					t=${t}
+				/>
+				<${OutputFrameSection}
+					anchorOptions=${anchorOptions}
+					controller=${controller}
+					exportSizeLabel=${exportSizeLabel}
+					heightLabel=${heightLabel}
+					store=${store}
+					t=${t}
+					widthLabel=${widthLabel}
+				/>
+				<${ReferenceSection}
+					controller=${controller}
+					store=${store}
+					t=${t}
+				/>
+				<${FramesSection}
+					activeFrameId=${activeFrameId}
+					controller=${controller}
+					frameCount=${frameCount}
+					frameDocuments=${frameDocuments}
+					frameLimitReached=${frameLimitReached}
+					t=${t}
+				/>
+			`;
+		}
 		return html`
-			<div class="workbench-collapse-chip-wrap">
-				<${HeaderMenu}
-					label=${t("section.file")}
-					items=${projectMenuItems}
-				>
-					${fileMenuChildren}
-				<//>
-				<button
-					type="button"
-					class="workbench-collapse-chip"
-					aria-label=${t("action.expandWorkbench")}
-					onClick=${toggleWorkbenchCollapsed}
-				>
-					<${HeaderWordmark} title="CAMERA_FRAMES" compact=${true} />
-					<span class="workbench-collapse-chip__icon">
-						<${WorkbenchIcon} name="chevron-right" size=${14} />
-					</span>
-				</button>
+			<${ExportSection}
+				controller=${controller}
+				exportBusy=${exportBusy}
+				exportFormatLabel=${exportFormatLabel}
+				exportPresetIds=${exportPresetIds}
+				exportSelectionMissing=${exportSelectionMissing}
+				exportStatusLabel=${exportStatusLabel}
+				exportTarget=${exportTarget}
+				store=${store}
+				t=${t}
+			/>
+			<${ExportSettingsSection}
+				activeShotCamera=${activeShotCamera}
+				controller=${controller}
+				exportFormat=${exportFormat}
+				exportGridLayerMode=${exportGridLayerMode}
+				exportGridOverlay=${exportGridOverlay}
+				exportModelLayers=${exportModelLayers}
+				exportSplatLayers=${exportSplatLayers}
+				store=${store}
+				t=${t}
+			/>
+		`;
+	};
+
+	const mobileInspectorDock = html`
+		<div class="workbench-tool-rail__divider"></div>
+		<div class="workbench-tool-rail__group">
+			${inspectorTabs.map(
+				(tab) => html`
+					<${IconButton}
+						key=${tab.id}
+						icon=${tab.icon}
+						label=${tab.label}
+						active=${!workbenchCollapsed && activeInspectorTab === tab.id}
+						className="workbench-tool-rail__button"
+						tooltip=${{
+							title: tab.tooltip?.title ?? tab.label,
+							description: tab.tooltip?.description ?? "",
+							placement: "top",
+						}}
+						onClick=${() => toggleMobileInspector(tab.id)}
+					/>
+				`,
+			)}
+		</div>
+	`;
+
+	if (isMobileWorkbench) {
+		return html`
+			<div class="workbench-shell workbench-shell--mobile" ref=${refs?.workbenchShellRef}>
+				${
+					!workbenchCollapsed &&
+					html`
+						<div
+							class="workbench-mobile-backdrop"
+							onClick=${() => collapseWorkbench()}
+						></div>
+					`
+				}
+				<div class="workbench-mobile-dock">
+					<section class="workbench-card workbench-card--mobile-dock">
+						<${ToolRailSection}
+							controller=${controller}
+							mode=${mode}
+							menuChildren=${fileMenuChildren}
+							projectMenuItems=${projectMenuItems}
+							store=${store}
+							t=${t}
+							tooltipPlacement="top"
+							menuPanelPlacement="up"
+							tailContent=${mobileInspectorDock}
+						/>
+					</section>
+				</div>
+				${
+					!workbenchCollapsed &&
+					html`
+						<div
+							class="workbench-mobile-drawer-wrap"
+							ref=${refs?.workbenchRightColumnRef}
+						>
+							<section class="workbench-card workbench-card--inspector workbench-card--mobile-drawer">
+								<div class="workbench-inspector-header">
+									<${InspectorTabs}
+										activeTab=${activeInspectorTab}
+										setActiveTab=${setActiveInspectorTab}
+										t=${t}
+									/>
+									<button
+										type="button"
+										class="workbench-inspector-toggle"
+										aria-label=${t("action.close")}
+										onClick=${collapseWorkbench}
+									>
+										<${WorkbenchIcon} name="close" size=${14} />
+									</button>
+								</div>
+								<div class="workbench-inspector-stack workbench-inspector-stack--mobile">
+									${renderInspectorContent(activeInspectorTab)}
+								</div>
+								<${FooterSection} store=${store} />
+							</section>
+						</div>
+					`
+				}
 			</div>
 		`;
 	}
 
 	return html`
-		<div class="workbench-shell" ref=${refs?.workbenchShellRef}>
+		<div
+			class=${
+				workbenchCollapsed
+					? "workbench-shell workbench-shell--inspector-rail"
+					: "workbench-shell"
+			}
+			ref=${refs?.workbenchShellRef}
+		>
 			<div
 				class="workbench-column workbench-column--left"
 				ref=${refs?.workbenchLeftColumnRef}
+				style=${{
+					left: `${toolRailPosition.x}px`,
+					top: `${toolRailPosition.y}px`,
+				}}
 			>
-				<section class="workbench-card workbench-card--topbar">
-					<${WorkbenchHeader}
-						t=${t}
-						compact=${true}
-						collapsed=${false}
-						onToggleCollapse=${toggleWorkbenchCollapsed}
-						projectMenuItems=${projectMenuItems}
-						remoteUrl=${store.remoteUrl.value}
-						onRemoteUrlInput=${(value) => {
-							store.remoteUrl.value = value;
-						}}
-						onLoadRemoteUrls=${() => controller()?.loadRemoteUrls()}
-						onOpenFiles=${() => controller()?.openFiles()}
-						menuChildren=${fileMenuChildren}
-					/>
-					<${ViewSection}
+				<section
+					ref=${toolRailRef}
+					class=${
+						toolRailDragging
+							? "workbench-card workbench-card--tool-rail is-dragging"
+							: "workbench-card workbench-card--tool-rail"
+					}
+					onPointerDown=${handleToolRailPointerDown}
+					onPointerMove=${handleToolRailPointerMove}
+					onPointerUp=${finishToolRailDrag}
+					onPointerCancel=${finishToolRailDrag}
+				>
+					<${ToolRailSection}
 						controller=${controller}
 						mode=${mode}
-						modeLabel=${modeLabel}
-						selectedSceneAsset=${selectedSceneAsset}
-						store=${store}
-						t=${t}
-						viewportEquivalentMmLabel=${viewportEquivalentMmLabel}
-						viewportEquivalentMmValue=${viewportEquivalentMmValue}
-						viewportFovLabel=${viewportFovLabel}
-					/>
-					<${FooterSection} store=${store} />
-				</section>
-				<section class="workbench-card workbench-card--scene">
-					<${SceneSection}
-						controller=${controller}
-						sceneAssets=${sceneAssets}
-						sceneBadge=${sceneBadge}
-						sceneScaleSummary=${sceneScaleSummary}
-						sceneSummary=${sceneSummary}
-						sceneUnitBadge=${sceneUnitBadge}
-						selectedSceneAsset=${selectedSceneAsset}
-						store=${store}
-						t=${t}
-						draggedAssetId=${draggedAssetId}
-						setDraggedAssetId=${setDraggedAssetId}
-						dragHoverState=${dragHoverState}
-						setDragHoverState=${setDragHoverState}
-					/>
-					<${LightingSection}
-						controller=${controller}
+						menuChildren=${fileMenuChildren}
+						projectMenuItems=${projectMenuItems}
 						store=${store}
 						t=${t}
 					/>
 				</section>
 			</div>
 			<div
-				class="workbench-column workbench-column--right"
+				class=${
+					workbenchCollapsed
+						? "workbench-column workbench-column--right workbench-column--right-collapsed"
+						: "workbench-column workbench-column--right"
+				}
 				ref=${refs?.workbenchRightColumnRef}
 			>
-				<section class="workbench-card workbench-card--inspector">
-					<${InspectorTabs}
-						activeTab=${activeInspectorTab}
-						setActiveTab=${setActiveInspectorTab}
-						t=${t}
-					/>
-					<div class="workbench-inspector-stack">
-						${
-							activeInspectorTab === INSPECTOR_TAB_CAMERA &&
-							html`
-								<${ShotCameraSection}
-									activeShotCamera=${activeShotCamera}
-									cameraSummary=${cameraSummary}
-									controller=${controller}
-									equivalentMmLabel=${equivalentMmLabel}
-									equivalentMmValue=${equivalentMmValue}
-									fovLabel=${fovLabel}
-									shotCameraClipMode=${shotCameraClipMode}
-									store=${store}
-									t=${t}
-								/>
-								<${OutputFrameSection}
-									anchorOptions=${anchorOptions}
-									controller=${controller}
-									exportSizeLabel=${exportSizeLabel}
-									heightLabel=${heightLabel}
-									store=${store}
-									t=${t}
-									widthLabel=${widthLabel}
-								/>
-								<${ReferenceSection}
-									controller=${controller}
-									store=${store}
-									t=${t}
-								/>
-								<${FramesSection}
-									activeFrameId=${activeFrameId}
-									controller=${controller}
-									frameCount=${frameCount}
-									frameDocuments=${frameDocuments}
-									frameLimitReached=${frameLimitReached}
-									t=${t}
-								/>
+				${
+					workbenchCollapsed
+						? html`
+								<section class="workbench-card workbench-card--inspector-rail">
+									<${InspectorRailSection}
+										activeTab=${inspectorPeekTab ?? activeInspectorTab}
+										onTogglePeek=${toggleInspectorPeek}
+										t=${t}
+									/>
+								</section>
+								${
+									peekInspectorTabDefinition &&
+									html`
+										<section class="workbench-card workbench-card--inspector-peek">
+											<div class="workbench-inspector-peek__header">
+												<div class="workbench-inspector-peek__title">
+													<span class="workbench-inspector-peek__title-icon">
+														<${WorkbenchIcon}
+															name=${peekInspectorTabDefinition.icon}
+															size=${14}
+														/>
+													</span>
+													<strong>${peekInspectorTabDefinition.label}</strong>
+												</div>
+												<div class="workbench-inspector-peek__actions">
+													<button
+														type="button"
+														class="workbench-inspector-toggle"
+														aria-label=${t("action.expandWorkbench")}
+														onClick=${() =>
+															openInspectorFull(peekInspectorTabDefinition.id)}
+													>
+														<${WorkbenchIcon} name="pin" size=${14} />
+													</button>
+													<button
+														type="button"
+														class="workbench-inspector-toggle"
+														aria-label=${t("action.close")}
+														onClick=${() => setInspectorPeekTab(null)}
+													>
+														<${WorkbenchIcon} name="close" size=${14} />
+													</button>
+												</div>
+											</div>
+											<div class="workbench-inspector-stack workbench-inspector-stack--peek">
+												${renderInspectorContent(peekInspectorTabDefinition.id)}
+											</div>
+										</section>
+									`
+								}
 							`
-						}
-						${
-							activeInspectorTab === INSPECTOR_TAB_EXPORT &&
-							html`
-								<${ExportSettingsSection}
-									activeShotCamera=${activeShotCamera}
-									controller=${controller}
-									exportFormat=${exportFormat}
-									exportGridLayerMode=${exportGridLayerMode}
-									exportGridOverlay=${exportGridOverlay}
-									exportModelLayers=${exportModelLayers}
-									exportSplatLayers=${exportSplatLayers}
-									store=${store}
-									t=${t}
-								/>
-								<${ExportSection}
-									controller=${controller}
-									exportBusy=${exportBusy}
-									exportFormatLabel=${exportFormatLabel}
-									exportPresetIds=${exportPresetIds}
-									exportSelectionMissing=${exportSelectionMissing}
-									exportStatusLabel=${exportStatusLabel}
-									exportTarget=${exportTarget}
-									store=${store}
-									t=${t}
-								/>
+						: html`
+								<section class="workbench-card workbench-card--inspector">
+									<div class="workbench-inspector-header">
+										<${InspectorTabs}
+											activeTab=${activeInspectorTab}
+											setActiveTab=${setActiveInspectorTab}
+											t=${t}
+										/>
+										<button
+											type="button"
+											class="workbench-inspector-toggle"
+											aria-label=${t("action.collapseWorkbench")}
+											onClick=${collapseWorkbench}
+										>
+											<${WorkbenchIcon} name="chevron-right" size=${14} />
+										</button>
+									</div>
+									<div class="workbench-inspector-stack">
+										${renderInspectorContent(activeInspectorTab)}
+									</div>
+									<${FooterSection} store=${store} />
+								</section>
 							`
-						}
-					</div>
-				</section>
+				}
 			</div>
 		</div>
 	`;

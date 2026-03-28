@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { DEFAULT_CAMERA_FAR, DEFAULT_CAMERA_NEAR } from "../src/constants.js";
+import { DEFAULT_SHOT_CAMERA_BASE_FOVX } from "../src/engine/camera-lens.js";
 import {
 	WORKSPACE_PANE_CAMERA,
 	WORKSPACE_PANE_VIEWPORT,
@@ -34,7 +35,7 @@ assert.equal(
 const shotCameras = createDefaultShotCameraDocuments();
 assert.equal(shotCameras.length, 1);
 assert.equal(shotCameras[0].id, "shot-camera-1");
-assert.equal(shotCameras[0].lens.baseFovX, 60);
+assert.equal(shotCameras[0].lens.baseFovX, DEFAULT_SHOT_CAMERA_BASE_FOVX);
 assert.equal(shotCameras[0].clipping.mode, "auto");
 assert.equal(shotCameras[0].clipping.near, DEFAULT_CAMERA_NEAR);
 assert.equal(shotCameras[0].clipping.far, DEFAULT_CAMERA_FAR);
@@ -53,6 +54,7 @@ assert.equal(shotCameras[0].exportSettings.exportGridOverlay, true);
 assert.equal(shotCameras[0].exportSettings.exportGridLayerMode, "bottom");
 assert.equal(shotCameras[0].exportSettings.exportModelLayers, true);
 assert.equal(shotCameras[0].exportSettings.exportSplatLayers, true);
+assert.equal(shotCameras[0].navigation.rollLock, false);
 assert.equal(shotCameras[0].frames.length, 1);
 assert.equal(shotCameras[0].activeFrameId, "frame-1");
 assert.equal(shotCameras[0].frames[0].name, "FRAME A");
@@ -83,11 +85,13 @@ assert.equal(duplicatedShotCamera.exportSettings.exportGridOverlay, true);
 assert.equal(duplicatedShotCamera.exportSettings.exportGridLayerMode, "bottom");
 assert.equal(duplicatedShotCamera.exportSettings.exportModelLayers, true);
 assert.equal(duplicatedShotCamera.exportSettings.exportSplatLayers, true);
+assert.equal(duplicatedShotCamera.navigation.rollLock, false);
 assert.notEqual(duplicatedShotCamera.outputFrame, shotCameras[0].outputFrame);
 assert.notEqual(
 	duplicatedShotCamera.exportSettings,
 	shotCameras[0].exportSettings,
 );
+assert.notEqual(duplicatedShotCamera.navigation, shotCameras[0].navigation);
 assert.notEqual(duplicatedShotCamera.frames, shotCameras[0].frames);
 assert.equal(duplicatedShotCamera.frames[0].id, "frame-1");
 assert.deepEqual(duplicatedShotCamera.frames[0].anchor, { x: 0.5, y: 0.5 });

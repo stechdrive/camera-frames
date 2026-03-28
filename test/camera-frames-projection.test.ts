@@ -3,6 +3,7 @@ import {
 	clampOutputFrameCenterPx,
 	getBaseFrustumExtents,
 	getExportSize,
+	getFrustumCenterRayDirection,
 	getMaxOutputFrameScalePct,
 	getPreviewFrustumExtents,
 	getRenderBoxMetrics,
@@ -71,6 +72,22 @@ function almostEqual(actual, expected, message) {
 		0,
 		"centered target should preserve vertical center",
 	);
+
+	const centerRay = getFrustumCenterRayDirection({
+		near: 0.1,
+		frustum: target,
+	});
+	almostEqual(
+		centerRay.x,
+		0,
+		"centered frustum ray should keep horizontal center",
+	);
+	almostEqual(
+		centerRay.y,
+		0,
+		"centered frustum ray should keep vertical center",
+	);
+	almostEqual(centerRay.z, -1, "centered frustum ray should point forward");
 }
 
 {
@@ -93,6 +110,19 @@ function almostEqual(actual, expected, message) {
 		target.bottom,
 		base.bottom - base.height * 0.75 * 0.5,
 		"off-center target should shift vertically toward the requested center",
+	);
+
+	const centerRay = getFrustumCenterRayDirection({
+		near: 0.1,
+		frustum: target,
+	});
+	assert.ok(
+		centerRay.x > 0,
+		"off-center frustum ray should tilt toward the shifted horizontal center",
+	);
+	assert.ok(
+		centerRay.y < 0,
+		"off-center frustum ray should tilt toward the shifted vertical center",
 	);
 }
 

@@ -1,4 +1,5 @@
 import { html } from "htm/preact";
+import { getBuildVersionLabel } from "../build-info.js";
 import { getFrameAnchorHandleKey } from "../engine/frame-transform.js";
 import { getFrameResizeCursorCss } from "../engine/resize-cursor.js";
 import { getFrameRotateCursorCss } from "../engine/rotate-cursor.js";
@@ -129,6 +130,7 @@ export function ViewportShell({ store, controller, refs, t }) {
 	})();
 	const pieState = store.viewportPieMenu.value;
 	const lensHud = store.viewportLensHud.value;
+	const rollHud = store.viewportRollHud.value;
 	const pieActions = pieState.open
 		? buildViewportPieActions({ mode: store.mode.value, t })
 		: [];
@@ -214,6 +216,9 @@ export function ViewportShell({ store, controller, refs, t }) {
 		<main id="viewport-shell" ref=${refs.viewportShellRef} class="viewport-shell">
 			<canvas id="viewport" ref=${refs.viewportCanvasRef} tabindex="0"></canvas>
 			<div id="drop-hint" ref=${refs.dropHintRef} class="drop-hint">
+				<span class="drop-hint__meta">
+					${`CAMERA_FRAMES ${getBuildVersionLabel()}`}
+				</span>
 				<strong>${t("drop.title")}</strong>
 				<span>${t("drop.body")}</span>
 			</div>
@@ -258,7 +263,11 @@ export function ViewportShell({ store, controller, refs, t }) {
 				pieState.open &&
 				html`
 					<div
-						class="viewport-pie"
+						class=${
+							pieState.coarse
+								? "viewport-pie viewport-pie--coarse"
+								: "viewport-pie"
+						}
 						style=${{
 							left: `${pieState.x}px`,
 							top: `${pieState.y}px`,
@@ -275,8 +284,12 @@ export function ViewportShell({ store, controller, refs, t }) {
 							</span>
 						</button>
 						${pieActions.map((action) => {
-							const offsetX = Math.cos(action.angle) * VIEWPORT_PIE_RADIUS;
-							const offsetY = Math.sin(action.angle) * VIEWPORT_PIE_RADIUS;
+							const offsetX =
+								Math.cos(action.angle) *
+								(pieState.radius ?? VIEWPORT_PIE_RADIUS);
+							const offsetY =
+								Math.sin(action.angle) *
+								(pieState.radius ?? VIEWPORT_PIE_RADIUS);
 							return html`
 								<button
 									key=${action.id}
@@ -314,6 +327,21 @@ export function ViewportShell({ store, controller, refs, t }) {
 					>
 						<strong>${lensHud.mmLabel}</strong>
 						<span>${lensHud.fovLabel}</span>
+					</div>
+				`
+			}
+			${
+				rollHud.visible &&
+				html`
+					<div
+						class="viewport-lens-hud viewport-roll-hud"
+						style=${{
+							left: `${rollHud.x}px`,
+							top: `${rollHud.y}px`,
+						}}
+					>
+						<strong>${rollHud.angleLabel}</strong>
+						<span>${t("action.adjustRoll")}</span>
 					</div>
 				`
 			}

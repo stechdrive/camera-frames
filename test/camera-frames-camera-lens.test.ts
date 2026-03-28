@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import {
-	clampStandardFrameEquivalentMm,
-	getBaseHorizontalFovDegreesForStandardFrameEquivalentMm,
+	clampStandardFrameHorizontalEquivalentMm,
+	getBaseHorizontalFovDegreesForStandardFrameHorizontalEquivalentMm,
 	getStandardFrameCropFactor,
-	getStandardFrameEquivalentMm,
+	getStandardFrameHorizontalEquivalentMm,
 	getStandardFrameHorizontalFovDegrees,
-	snapStandardFrameEquivalentMm,
+	snapStandardFrameHorizontalEquivalentMm,
 } from "../src/engine/camera-lens.js";
 
 assert.ok(Math.abs(getStandardFrameCropFactor() - 1.1419270833333333) < 1e-9);
@@ -13,18 +13,19 @@ assert.ok(
 	Math.abs(getStandardFrameHorizontalFovDegrees(60) - 53.64167726482178) < 1e-9,
 );
 assert.ok(
-	Math.abs(getStandardFrameEquivalentMm(60) - 37.292968938796356) < 1e-9,
+	Math.abs(getStandardFrameHorizontalEquivalentMm(60) - 35.60176308370091) <
+		1e-9,
 );
 assert.ok(
 	Math.abs(
-		getBaseHorizontalFovDegreesForStandardFrameEquivalentMm(
-			getStandardFrameEquivalentMm(60),
+		getBaseHorizontalFovDegreesForStandardFrameHorizontalEquivalentMm(
+			getStandardFrameHorizontalEquivalentMm(60),
 		) - 60,
 	) < 1e-9,
 );
-assert.equal(clampStandardFrameEquivalentMm(10), 14);
-assert.equal(clampStandardFrameEquivalentMm(240), 200);
-assert.equal(snapStandardFrameEquivalentMm(74), 75);
-assert.equal(snapStandardFrameEquivalentMm(72), 72);
+assert.equal(clampStandardFrameHorizontalEquivalentMm(10), 14);
+assert.equal(clampStandardFrameHorizontalEquivalentMm(240), 200);
+assert.equal(snapStandardFrameHorizontalEquivalentMm(74), 75);
+assert.equal(snapStandardFrameHorizontalEquivalentMm(72), 72);
 
 console.log("✅ CAMERA_FRAMES camera lens tests passed!");

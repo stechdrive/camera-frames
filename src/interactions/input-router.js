@@ -12,6 +12,7 @@ export function bindInputRouter({
 	setStatus,
 	startZoomToolDrag,
 	startLensAdjustDrag,
+	startShotCameraRollDrag,
 	toggleZoomTool,
 	toggleViewportSelectMode,
 	toggleViewportReferenceImageEditMode,
@@ -30,6 +31,7 @@ export function bindInputRouter({
 	isZoomInteractionMode,
 	isPieInteractionMode,
 	isLensInteractionMode,
+	isRollInteractionMode,
 	applyNavigateInteractionMode,
 	openViewportPieMenu,
 	updateViewportPiePointer,
@@ -48,6 +50,8 @@ export function bindInputRouter({
 	handleZoomToolDragEnd,
 	handleLensAdjustDragMove,
 	handleLensAdjustDragEnd,
+	handleShotCameraRollDragMove,
+	handleShotCameraRollDragEnd,
 	handleOutputFramePanMove,
 	handleOutputFramePanEnd,
 	handleOutputFrameResizeMove,
@@ -156,24 +160,7 @@ export function bindInputRouter({
 	}
 
 	function isTouchViewportPieCandidate(event) {
-		if (event.pointerType !== "touch" || event.button !== 0) {
-			return false;
-		}
-		if (isInteractiveTextTarget(event.target)) {
-			return false;
-		}
-		const target = event.target instanceof Element ? event.target : null;
-		if (
-			target?.closest(
-				".viewport-pie, .frame-item, #viewport-gizmo, .workbench-shell",
-			)
-		) {
-			return false;
-		}
-		return (
-			target?.closest("#viewport") !== null ||
-			target?.closest("#render-box") !== null
-		);
+		return false;
 	}
 
 	listen(
@@ -190,6 +177,18 @@ export function bindInputRouter({
 			event.stopPropagation();
 			event.stopImmediatePropagation?.();
 			closeViewportPieMenu?.();
+		},
+		{ capture: true },
+	);
+
+	listen(
+		viewportShell,
+		"contextmenu",
+		(event) => {
+			const target = event.target instanceof Element ? event.target : null;
+			if (target?.closest("#viewport, #render-box, .viewport-pie") !== null) {
+				event.preventDefault();
+			}
 		},
 		{ capture: true },
 	);
@@ -327,6 +326,10 @@ export function bindInputRouter({
 			return;
 		}
 
+		if (startShotCameraRollDrag?.(event)) {
+			return;
+		}
+
 		if (startZoomToolDrag(event)) {
 			return;
 		}
@@ -393,6 +396,9 @@ export function bindInputRouter({
 	listen(window, "pointermove", handleLensAdjustDragMove);
 	listen(window, "pointerup", handleLensAdjustDragEnd);
 	listen(window, "pointercancel", handleLensAdjustDragEnd);
+	listen(window, "pointermove", handleShotCameraRollDragMove);
+	listen(window, "pointerup", handleShotCameraRollDragEnd);
+	listen(window, "pointercancel", handleShotCameraRollDragEnd);
 	listen(window, "pointermove", (event) => {
 		if (
 			!viewportPieTouchHoldState ||
@@ -521,6 +527,12 @@ export function bindInputRouter({
 			return;
 		}
 
+		if (event.code === "Escape" && isRollInteractionMode?.()) {
+			event.preventDefault();
+			applyNavigateInteractionMode();
+			return;
+		}
+
 		if (isInteractiveTextTarget(event.target)) {
 			return;
 		}
@@ -577,7 +589,7 @@ export function bindInputRouter({
 		}
 
 		if (
-			event.code === "KeyP" &&
+			event.code === "KeyQ" &&
 			(state.mode === "viewport" || state.mode === "camera") &&
 			!event.altKey &&
 			!event.ctrlKey &&

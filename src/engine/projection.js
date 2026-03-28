@@ -206,6 +206,19 @@ export function getTargetFrustumExtents({
 	return withFrustumSize({ left, right, top, bottom });
 }
 
+export function getFrustumCenterRayDirection({ near, frustum }) {
+	const depth = Math.max(Math.abs(Number(near)) || 0, 1e-6);
+	const centerX = ((frustum?.left ?? 0) + (frustum?.right ?? 0)) * 0.5;
+	const centerY = ((frustum?.top ?? 0) + (frustum?.bottom ?? 0)) * 0.5;
+	const length = Math.hypot(centerX, centerY, depth);
+
+	return {
+		x: centerX / length,
+		y: centerY / length,
+		z: -depth / length,
+	};
+}
+
 export function getPreviewFrustumExtents({ targetFrustum, metrics }) {
 	const fullWidth =
 		targetFrustum.width * (metrics.viewportWidth / metrics.boxWidth);

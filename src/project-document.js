@@ -1,3 +1,4 @@
+import { DEFAULT_SHOT_CAMERA_BASE_FOVX } from "./engine/camera-lens.js";
 import { normalizeLightingState } from "./lighting-model.js";
 import {
 	REFERENCE_IMAGE_ASSET_KIND,
@@ -135,7 +136,9 @@ export function sanitizeShotCameraDocument(
 		id: normalized.id,
 		name: normalized.name,
 		lens: {
-			baseFovX: Number(normalized.lens?.baseFovX ?? 60),
+			baseFovX: Number(
+				normalized.lens?.baseFovX ?? DEFAULT_SHOT_CAMERA_BASE_FOVX,
+			),
 		},
 		clipping: {
 			mode: normalized.clipping?.mode === "manual" ? "manual" : "auto",
@@ -156,6 +159,9 @@ export function sanitizeShotCameraDocument(
 			exportSplatLayers:
 				normalized.exportSettings?.exportModelLayers !== false &&
 				Boolean(normalized.exportSettings?.exportSplatLayers),
+		},
+		navigation: {
+			rollLock: Boolean(normalized.navigation?.rollLock),
 		},
 		referenceImages: sanitizeShotCameraReferenceImagesState(
 			normalized.referenceImages,
@@ -272,6 +278,11 @@ export function normalizeProjectDocument(project = {}) {
 			activeShotCameraId,
 			viewport: {
 				baseFovX: Number(project.workspace?.viewport?.baseFovX ?? 60),
+				baseFovXDirty:
+					typeof project.workspace?.viewport?.baseFovXDirty === "boolean"
+						? project.workspace.viewport.baseFovXDirty
+						: Number.isFinite(project.workspace?.viewport?.baseFovX) &&
+							project.workspace.viewport.baseFovX !== 60,
 				pose: toSerializableCameraPose(project.workspace?.viewport?.pose),
 			},
 		},

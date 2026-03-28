@@ -6,6 +6,7 @@ import {
 	DEFAULT_CAMERA_NEAR,
 	FRAME_MAX_COUNT,
 } from "./constants.js";
+import { DEFAULT_SHOT_CAMERA_BASE_FOVX } from "./engine/camera-lens.js";
 import {
 	cloneShotCameraReferenceImagesState,
 	createShotCameraReferenceImagesState,
@@ -203,7 +204,7 @@ export function createShotCameraDocument({ id, name, source } = {}) {
 		? cloneShotCameraDocument(source)
 		: {
 				lens: {
-					baseFovX: 60,
+					baseFovX: DEFAULT_SHOT_CAMERA_BASE_FOVX,
 				},
 				clipping: {
 					mode: "auto",
@@ -231,6 +232,9 @@ export function createShotCameraDocument({ id, name, source } = {}) {
 					exportGridLayerMode: "bottom",
 					exportModelLayers: true,
 					exportSplatLayers: true,
+				},
+				navigation: {
+					rollLock: false,
 				},
 				referenceImages: createShotCameraReferenceImagesState(),
 				frames: createDefaultFrameDocuments(),
@@ -361,6 +365,9 @@ export function cloneShotCameraDocument(documentState) {
 			),
 			exportSplatLayers:
 				documentState.exportSettings?.exportSplatLayers ?? true,
+		},
+		navigation: {
+			rollLock: Boolean(documentState.navigation?.rollLock),
 		},
 		referenceImages: cloneShotCameraReferenceImagesState(
 			documentState.referenceImages,
