@@ -1057,6 +1057,21 @@ export function createCameraFramesController(elements, store) {
 			: viewportCamera;
 	}
 
+	function getActiveCameraHeadingDeg() {
+		const camera = getActiveCamera();
+		if (!camera) {
+			return 0;
+		}
+
+		const forward = camera.getWorldDirection(new THREE.Vector3());
+		forward.y = 0;
+		if (forward.lengthSq() <= 1e-8) {
+			return 0;
+		}
+		forward.normalize();
+		return THREE.MathUtils.radToDeg(Math.atan2(forward.x, forward.z));
+	}
+
 	function resetLocalizedCaches() {
 		return uiSyncController?.resetLocalizedCaches();
 	}
@@ -1485,7 +1500,9 @@ export function createCameraFramesController(elements, store) {
 		setModelLightIntensity: lightingController.setModelLightIntensity,
 		setModelLightAzimuthDeg: lightingController.setModelLightAzimuthDeg,
 		setModelLightElevationDeg: lightingController.setModelLightElevationDeg,
+		setModelLightDirection: lightingController.setModelLightDirection,
 		resetModelLightDirection: lightingController.resetModelLightDirection,
+		getActiveCameraHeadingDeg,
 		openFiles: assetController.openFiles,
 		openReferenceImageFiles: referenceImageController.openReferenceImageFiles,
 		importReferenceImageFiles:

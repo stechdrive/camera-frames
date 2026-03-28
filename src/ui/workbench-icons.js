@@ -141,6 +141,14 @@ function renderIconPath(name) {
 				<path d="M12 3l-2 2M12 3l2 2M12 21l-2-2M12 21l2-2"></path>
 				<path d="M3 12l2-2M3 12l2 2M21 12l-2-2M21 12l-2 2"></path>
 			`;
+		case "scrub":
+			return html`
+				<path d="M4 12h16"></path>
+				<path d="M4 12l3-3"></path>
+				<path d="M4 12l3 3"></path>
+				<path d="M20 12l-3-3"></path>
+				<path d="M20 12l-3 3"></path>
+			`;
 		case "pivot":
 			return html`
 				<circle cx="12" cy="12" r="2.5"></circle>

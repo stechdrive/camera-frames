@@ -87,6 +87,7 @@ const MESSAGES = {
 			referenceImageGroup: "前後",
 			lightIntensity: "ライト強度",
 			lightAmbient: "アンビエント",
+			lightDirection: "ライト方向",
 			lightAzimuth: "方位",
 			lightElevation: "仰角",
 		},
@@ -197,6 +198,8 @@ const MESSAGES = {
 				"3DGS は raw 1x で入るので、必要に応じてワールドスケールを補正します。GLB も必要なら個別に調整できます。",
 			sceneOrder:
 				"一覧の順序は PSD のオブジェクトレイヤー順の基準です。表示の切替は viewport と export の両方に反映します。",
+			lightDirection:
+				"球体上のハンドルをドラッグして、いま見ているカメラ基準でライト方向を回します。",
 			frames:
 				"FRAME は Camera View 上の 2D overlay として扱います。いまは直接選択で移動・拡縮・回転・anchor 編集まで行えます。",
 			framesEmpty: "まだ FRAME がありません。最初の FRAME を追加してください。",
@@ -510,6 +513,7 @@ const MESSAGES = {
 			referenceImageGroup: "Layer Side",
 			lightIntensity: "Light Intensity",
 			lightAmbient: "Ambient",
+			lightDirection: "Light Direction",
 			lightAzimuth: "Azimuth",
 			lightElevation: "Elevation",
 		},
@@ -620,6 +624,8 @@ const MESSAGES = {
 				"3DGS assets enter at raw 1x, so adjust world scale when needed. GLB assets can also be tuned per asset when necessary.",
 			sceneOrder:
 				"List order becomes the PSD object-layer order. Visibility affects both viewport and export.",
+			lightDirection:
+				"Drag the handle on the sphere to rotate the light direction relative to the camera you are currently viewing.",
 			frames:
 				"FRAME is treated as a 2D overlay in Camera View. This slice supports direct move, resize, rotate, and anchor editing.",
 			framesEmpty:

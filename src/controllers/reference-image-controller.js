@@ -722,7 +722,7 @@ export function createReferenceImageController({
 	}
 
 	function setReferenceImageOpacity(itemId, nextOpacityPercent) {
-		const numericValue = Number(nextOpacityPercent);
+		const numericValue = Math.round(Number(nextOpacityPercent));
 		if (!Number.isFinite(numericValue)) {
 			return;
 		}
@@ -753,7 +753,7 @@ export function createReferenceImageController({
 
 	function setReferenceImageOffsetPx(itemId, axis, nextOffsetPx) {
 		const normalizedAxis = axis === "y" ? "y" : "x";
-		const numericValue = Number(nextOffsetPx);
+		const numericValue = Math.round(Number(nextOffsetPx));
 		if (!Number.isFinite(numericValue)) {
 			return;
 		}

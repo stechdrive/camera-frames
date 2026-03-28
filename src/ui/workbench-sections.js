@@ -17,6 +17,7 @@ import { formatAssetWorldScale } from "../engine/scene-units.js";
 import {
 	HistoryRangeInput,
 	INTERACTIVE_FIELD_PROPS,
+	LightingDirectionControl,
 	NumericDraftInput,
 	TextDraftInput,
 	applyStandardFrameEquivalentMm,
@@ -215,11 +216,13 @@ export function ViewSection({
 							<div class="numeric-unit">
 								<${NumericDraftInput}
 									id="viewport-fov-mm-input"
-									inputMode="numeric"
+									inputMode="decimal"
 									min=${14}
 									max=${200}
-									step="1"
+									step="0.01"
 									value=${viewportEquivalentMmValue}
+									controller=${controller}
+									historyLabel="viewport.lens"
 									onCommit=${(nextValue) =>
 										applyStandardFrameEquivalentMm(
 											(nextBaseFov) =>
@@ -565,6 +568,8 @@ export function SceneSection({
 								min="0.01"
 								step="0.01"
 								value=${Number(selectedSceneAsset.worldScale).toFixed(2)}
+								controller=${controller}
+								historyLabel="asset.scale"
 								onCommit=${(nextValue) =>
 									controller()?.setAssetWorldScale(
 										selectedSceneAsset.id,
@@ -581,6 +586,8 @@ export function SceneSection({
 											inputMode="decimal"
 											step="0.01"
 											value=${Number(selectedSceneAsset.position[axis]).toFixed(2)}
+											controller=${controller}
+											historyLabel=${`asset.position.${axis}`}
 											onCommit=${(nextValue) =>
 												controller()?.setAssetPosition(
 													selectedSceneAsset.id,
@@ -598,9 +605,11 @@ export function SceneSection({
 									<label class="field">
 										<span>${t("field.assetRotation")} ${axis.toUpperCase()}</span>
 										<${NumericDraftInput}
-											inputMode="numeric"
-											step="1"
-											value=${Number(selectedSceneAsset.rotationDegrees[axis]).toFixed(0)}
+											inputMode="decimal"
+											step="0.01"
+											value=${Number(selectedSceneAsset.rotationDegrees[axis]).toFixed(2)}
+											controller=${controller}
+											historyLabel=${`asset.rotation.${axis}`}
 											onCommit=${(nextValue) =>
 												controller()?.setAssetRotationDegrees(
 													selectedSceneAsset.id,
@@ -625,6 +634,8 @@ export function LightingSection({ controller, store, t }) {
 	const modelLightIntensity = store.lighting.modelLightIntensity.value;
 	const modelLightAzimuthDeg = store.lighting.modelLightAzimuthDeg.value;
 	const modelLightElevationDeg = store.lighting.modelLightElevationDeg.value;
+	const activeCameraHeadingDeg =
+		controller?.()?.getActiveCameraHeadingDeg?.() ?? 0;
 
 	return html`
 		<section class="panel-section">
@@ -652,6 +663,18 @@ export function LightingSection({ controller, store, t }) {
 					${t("action.resetLightDirection")}
 				</button>
 			</div>
+			<label class="field">
+				<span>${t("field.lightDirection")}</span>
+				<${LightingDirectionControl}
+					controller=${controller}
+					azimuthDeg=${modelLightAzimuthDeg}
+					elevationDeg=${modelLightElevationDeg}
+					viewAzimuthDeg=${activeCameraHeadingDeg}
+					onLiveChange=${(nextDirection) =>
+						controller()?.setModelLightDirection?.(nextDirection)}
+				/>
+				<p class="summary">${t("hint.lightDirection")}</p>
+			</label>
 			<label class="field field--range">
 				<span>${t("field.lightIntensity")}</span>
 				<div class="range-row">
@@ -674,6 +697,8 @@ export function LightingSection({ controller, store, t }) {
 							max=${2}
 							step=${0.01}
 							value=${Number(modelLightIntensity).toFixed(2)}
+							controller=${controller}
+							historyLabel="lighting.model.intensity"
 							onCommit=${(nextValue) =>
 								controller()?.setModelLightIntensity?.(nextValue)}
 						/>
@@ -702,6 +727,8 @@ export function LightingSection({ controller, store, t }) {
 							max=${2}
 							step=${0.01}
 							value=${Number(ambient).toFixed(2)}
+							controller=${controller}
+							historyLabel="lighting.ambient"
 							onCommit=${(nextValue) =>
 								controller()?.setLightingAmbient?.(nextValue)}
 						/>
@@ -715,8 +742,10 @@ export function LightingSection({ controller, store, t }) {
 						inputMode="decimal"
 						min=${-180}
 						max=${180}
-						step=${1}
-						value=${Number(modelLightAzimuthDeg).toFixed(0)}
+						step=${0.01}
+						value=${Number(modelLightAzimuthDeg).toFixed(2)}
+						controller=${controller}
+						historyLabel="lighting.model.azimuth"
 						onCommit=${(nextValue) =>
 							controller()?.setModelLightAzimuthDeg?.(nextValue)}
 					/>
@@ -727,8 +756,10 @@ export function LightingSection({ controller, store, t }) {
 						inputMode="decimal"
 						min=${-89}
 						max=${89}
-						step=${1}
-						value=${Number(modelLightElevationDeg).toFixed(0)}
+						step=${0.01}
+						value=${Number(modelLightElevationDeg).toFixed(2)}
+						controller=${controller}
+						historyLabel="lighting.model.elevation"
 						onCommit=${(nextValue) =>
 							controller()?.setModelLightElevationDeg?.(nextValue)}
 					/>
@@ -816,11 +847,13 @@ export function ShotCameraSection({
 					<div class="numeric-unit">
 						<${NumericDraftInput}
 							id="fov-mm-input"
-							inputMode="numeric"
+							inputMode="decimal"
 							min=${14}
 							max=${200}
-							step="1"
+							step="0.01"
 							value=${equivalentMmValue}
+							controller=${controller}
+							historyLabel="camera.lens"
 							onCommit=${(nextValue) =>
 								applyStandardFrameEquivalentMm(
 									(nextBaseFov) => controller()?.setBaseFovX(nextBaseFov),
@@ -857,6 +890,8 @@ export function ShotCameraSection({
 								min="0.1"
 								step="0.1"
 								value=${Number(store.shotCamera.near.value).toFixed(2)}
+								controller=${controller}
+								historyLabel="camera.near"
 								onCommit=${(nextValue) => controller()?.setShotCameraNear(nextValue)}
 							/>
 						</label>
@@ -868,6 +903,8 @@ export function ShotCameraSection({
 								min="0.1"
 								step="0.1"
 								value=${Number(store.shotCamera.far.value).toFixed(2)}
+								controller=${controller}
+								historyLabel="camera.far"
 								onCommit=${(nextValue) => controller()?.setShotCameraFar(nextValue)}
 							/>
 						</label>
@@ -1293,6 +1330,8 @@ export function ReferenceSection({ controller, store, t }) {
 														max="100"
 														step="1"
 														value=${Math.round(selectedItem.opacity * 100)}
+														controller=${controller}
+														historyLabel="reference-image.opacity"
 														onCommit=${(nextValue) =>
 															controller()?.setReferenceImageOpacity?.(
 																selectedItem.id,
@@ -1308,8 +1347,10 @@ export function ReferenceSection({ controller, store, t }) {
 													<${NumericDraftInput}
 														inputMode="decimal"
 														min="0.1"
-														step="0.1"
-														value=${Number(selectedItem.scalePct).toFixed(1)}
+														step="0.01"
+														value=${Number(selectedItem.scalePct).toFixed(2)}
+														controller=${controller}
+														historyLabel="reference-image.scale"
 														onCommit=${(nextValue) =>
 															controller()?.setReferenceImageScalePct?.(
 																selectedItem.id,
@@ -1328,6 +1369,8 @@ export function ReferenceSection({ controller, store, t }) {
 														inputMode="decimal"
 														step="1"
 														value=${Number(selectedItem.offsetPx?.x ?? 0).toFixed(0)}
+														controller=${controller}
+														historyLabel="reference-image.offset.x"
 														onCommit=${(nextValue) =>
 															controller()?.setReferenceImageOffsetPx?.(
 																selectedItem.id,
@@ -1345,6 +1388,8 @@ export function ReferenceSection({ controller, store, t }) {
 														inputMode="decimal"
 														step="1"
 														value=${Number(selectedItem.offsetPx?.y ?? 0).toFixed(0)}
+														controller=${controller}
+														historyLabel="reference-image.offset.y"
 														onCommit=${(nextValue) =>
 															controller()?.setReferenceImageOffsetPx?.(
 																selectedItem.id,
@@ -1362,8 +1407,10 @@ export function ReferenceSection({ controller, store, t }) {
 												<div class="numeric-unit">
 													<${NumericDraftInput}
 														inputMode="decimal"
-														step="1"
-														value=${Number(selectedItem.rotationDeg).toFixed(0)}
+														step="0.01"
+														value=${Number(selectedItem.rotationDeg).toFixed(2)}
+														controller=${controller}
+														historyLabel="reference-image.rotation"
 														onCommit=${(nextValue) =>
 															controller()?.setReferenceImageRotationDeg?.(
 																selectedItem.id,
@@ -1380,6 +1427,8 @@ export function ReferenceSection({ controller, store, t }) {
 													min="1"
 													step="1"
 													value=${selectedItem.order + 1}
+													controller=${controller}
+													historyLabel="reference-image.order"
 													onCommit=${(nextValue) =>
 														controller()?.setReferenceImageOrder?.(
 															selectedItem.id,

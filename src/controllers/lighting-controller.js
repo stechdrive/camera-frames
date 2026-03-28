@@ -163,6 +163,14 @@ export function createLightingController({
 		});
 	}
 
+	function setModelLightDirection({ azimuthDeg, elevationDeg }) {
+		return updateLightingState("lighting.model.direction", (state) => {
+			state.modelLight.azimuthDeg = Number(azimuthDeg);
+			state.modelLight.elevationDeg = Number(elevationDeg);
+			return state;
+		});
+	}
+
 	function resetModelLightDirection() {
 		return updateLightingState("lighting.model.resetDirection", (state) => {
 			state.modelLight.azimuthDeg = DEFAULT_MODEL_LIGHT_AZIMUTH_DEG;
@@ -190,6 +198,7 @@ export function createLightingController({
 		setModelLightIntensity,
 		setModelLightAzimuthDeg,
 		setModelLightElevationDeg,
+		setModelLightDirection,
 		resetModelLightDirection,
 		resetLighting,
 		applyLightingState,

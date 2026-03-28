@@ -211,21 +211,21 @@ export function createCameraFramesStore(runtimeInfo = null) {
 			`${formatNumber(getStandardFrameHorizontalFovDegrees(baseFovX.value), 1)}°`,
 	);
 	const equivalentMmValue = computed(() =>
-		Math.round(getStandardFrameEquivalentMm(baseFovX.value)),
+		Number(getStandardFrameEquivalentMm(baseFovX.value).toFixed(2)),
 	);
 	const equivalentMmLabel = computed(
-		() => `${formatNumber(getStandardFrameEquivalentMm(baseFovX.value), 1)}mm`,
+		() => `${formatNumber(getStandardFrameEquivalentMm(baseFovX.value), 2)}mm`,
 	);
 	const viewportFovLabel = computed(
 		() =>
 			`${formatNumber(getStandardFrameHorizontalFovDegrees(viewportBaseFovX.value), 1)}°`,
 	);
 	const viewportEquivalentMmValue = computed(() =>
-		Math.round(getStandardFrameEquivalentMm(viewportBaseFovX.value)),
+		Number(getStandardFrameEquivalentMm(viewportBaseFovX.value).toFixed(2)),
 	);
 	const viewportEquivalentMmLabel = computed(
 		() =>
-			`${formatNumber(getStandardFrameEquivalentMm(viewportBaseFovX.value), 1)}mm`,
+			`${formatNumber(getStandardFrameEquivalentMm(viewportBaseFovX.value), 2)}mm`,
 	);
 	const widthLabel = computed(
 		() => `${formatNumber(widthScale.value * 100, 0)}%`,
