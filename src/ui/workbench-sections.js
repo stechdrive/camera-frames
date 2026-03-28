@@ -630,7 +630,6 @@ export function SceneSection({
 
 export function LightingSection({ controller, store, t }) {
 	const ambient = store.lighting.ambient.value;
-	const modelLightEnabled = store.lighting.modelLightEnabled.value;
 	const modelLightIntensity = store.lighting.modelLightIntensity.value;
 	const modelLightAzimuthDeg = store.lighting.modelLightAzimuthDeg.value;
 	const modelLightElevationDeg = store.lighting.modelLightElevationDeg.value;
@@ -642,27 +641,6 @@ export function LightingSection({ controller, store, t }) {
 			<${SectionHeading} icon="light" title=${t("section.lighting")}>
 				<span class="pill pill--dim">${t("assetKind.model")}</span>
 			<//>
-			<div class="button-row">
-				<${IconButton}
-					icon=${modelLightEnabled ? "eye" : "eye-off"}
-					label=${t(
-						modelLightEnabled
-							? "assetVisibility.visible"
-							: "assetVisibility.hidden",
-					)}
-					active=${modelLightEnabled}
-					compact=${true}
-					onClick=${() =>
-						controller()?.setModelLightEnabled?.(!modelLightEnabled)}
-				/>
-				<button
-					type="button"
-					class="button button--compact"
-					onClick=${() => controller()?.resetModelLightDirection?.()}
-				>
-					${t("action.resetLightDirection")}
-				</button>
-			</div>
 			<label class="field">
 				<span>${t("field.lightDirection")}</span>
 				<${LightingDirectionControl}
@@ -673,7 +651,6 @@ export function LightingSection({ controller, store, t }) {
 					onLiveChange=${(nextDirection) =>
 						controller()?.setModelLightDirection?.(nextDirection)}
 				/>
-				<p class="summary">${t("hint.lightDirection")}</p>
 			</label>
 			<label class="field field--range">
 				<span>${t("field.lightIntensity")}</span>
@@ -735,36 +712,6 @@ export function LightingSection({ controller, store, t }) {
 					</div>
 				</div>
 			</label>
-			<div class="split-field-row">
-				<label class="field">
-					<span>${t("field.lightAzimuth")}</span>
-					<${NumericDraftInput}
-						inputMode="decimal"
-						min=${-180}
-						max=${180}
-						step=${0.01}
-						value=${Number(modelLightAzimuthDeg).toFixed(2)}
-						controller=${controller}
-						historyLabel="lighting.model.azimuth"
-						onCommit=${(nextValue) =>
-							controller()?.setModelLightAzimuthDeg?.(nextValue)}
-					/>
-				</label>
-				<label class="field">
-					<span>${t("field.lightElevation")}</span>
-					<${NumericDraftInput}
-						inputMode="decimal"
-						min=${-89}
-						max=${89}
-						step=${0.01}
-						value=${Number(modelLightElevationDeg).toFixed(2)}
-						controller=${controller}
-						historyLabel="lighting.model.elevation"
-						onCommit=${(nextValue) =>
-							controller()?.setModelLightElevationDeg?.(nextValue)}
-					/>
-				</label>
-			</div>
 		</section>
 	`;
 }
