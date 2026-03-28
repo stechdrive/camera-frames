@@ -97,6 +97,7 @@ const MESSAGES = {
 			view: "ビュー",
 			scene: "シーン",
 			lighting: "Lighting",
+			tools: "ツール",
 			project: "プロジェクト",
 			shotCamera: "Camera",
 			referenceImages: "下絵",
@@ -153,8 +154,8 @@ const MESSAGES = {
 			duplicateReferencePreset: "プリセットを複製",
 			clear: "クリア",
 			loadUrl: "URLを読み込む",
-			collapseWorkbench: "UIを折りたたむ",
-			expandWorkbench: "UIを開く",
+			collapseWorkbench: "パネルを最小化",
+			expandWorkbench: "パネルを開く",
 			cancel: "キャンセル",
 			close: "閉じる",
 			continueLoad: "読み込む",
@@ -164,6 +165,7 @@ const MESSAGES = {
 			hideReferenceImages: "下絵を非表示",
 			showReferenceImage: "下絵を表示",
 			hideReferenceImage: "下絵を非表示",
+			clearSelection: "選択を解除",
 			includeReferenceImageInExport: "書き出しに含める",
 			excludeReferenceImageFromExport: "書き出しから外す",
 			moveAssetUp: "上へ",
@@ -185,6 +187,21 @@ const MESSAGES = {
 			newFrame: "FRAME を追加",
 			duplicateFrame: "複製",
 			deleteFrame: "削除",
+		},
+		tooltip: {
+			fileMenu: "開く・保存・パッケージ保存などのプロジェクト操作です。",
+			collapseWorkbench: "右パネルを最小化して、必要な時だけ呼び出します。",
+			modeCamera: "ショットカメラで構図と下絵を確認します。",
+			modeViewport: "作業用カメラでシーンを自由に見回します。",
+			toolSelect: "3D オブジェクトの選択モードです。もう一度押すと解除します。",
+			toolReference: "下絵の選択と変形モードです。もう一度押すと解除します。",
+			toolTransform:
+				"3D オブジェクトの変形モードです。もう一度押すと解除します。",
+			toolPivot:
+				"3D オブジェクトのピボット編集モードです。もう一度押すと解除します。",
+			tabScene: "シーン、アセット、ライティングを管理します。",
+			tabCamera: "ショットカメラ、FRAME、下絵を編集します。",
+			tabExport: "書き出し設定と出力を管理します。",
 		},
 		hint: {
 			viewMode:
@@ -526,6 +543,7 @@ const MESSAGES = {
 			view: "View",
 			scene: "Scene",
 			lighting: "Lighting",
+			tools: "Tools",
 			project: "Project",
 			shotCamera: "Camera",
 			referenceImages: "Reference Images",
@@ -582,8 +600,8 @@ const MESSAGES = {
 			duplicateReferencePreset: "Duplicate Preset",
 			clear: "Clear",
 			loadUrl: "Load URL",
-			collapseWorkbench: "Collapse UI",
-			expandWorkbench: "Expand UI",
+			collapseWorkbench: "Minimize panel",
+			expandWorkbench: "Open panel",
 			cancel: "Cancel",
 			close: "Close",
 			continueLoad: "Load",
@@ -593,6 +611,7 @@ const MESSAGES = {
 			hideReferenceImages: "Hide References",
 			showReferenceImage: "Show Reference",
 			hideReferenceImage: "Hide Reference",
+			clearSelection: "Clear Selection",
 			includeReferenceImageInExport: "Include in Export",
 			excludeReferenceImageFromExport: "Exclude from Export",
 			moveAssetUp: "Up",
@@ -614,6 +633,25 @@ const MESSAGES = {
 			newFrame: "Add FRAME",
 			duplicateFrame: "Duplicate",
 			deleteFrame: "Delete",
+		},
+		tooltip: {
+			fileMenu: "Open, save, and package-level project commands live here.",
+			collapseWorkbench:
+				"Minimize the right panel and bring it back only when needed.",
+			modeCamera:
+				"Use the shot camera to frame the scene and align references.",
+			modeViewport:
+				"Use the working camera to inspect and navigate the scene freely.",
+			toolSelect: "Select 3D objects. Press again to return to no active tool.",
+			toolReference:
+				"Edit reference images. Press again to return to no active tool.",
+			toolTransform:
+				"Transform 3D objects. Press again to return to no active tool.",
+			toolPivot:
+				"Edit 3D object pivots. Press again to return to no active tool.",
+			tabScene: "Manage scene assets and lighting.",
+			tabCamera: "Edit the active Camera, FRAME, and reference setup.",
+			tabExport: "Adjust export options and run output.",
 		},
 		hint: {
 			viewMode:

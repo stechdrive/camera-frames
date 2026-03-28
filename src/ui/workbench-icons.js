@@ -178,6 +178,17 @@ function renderIconPath(name) {
 			return html`<path d="M15 5l-6 7 6 7"></path>`;
 		case "chevron-right":
 			return html`<path d="M9 5l6 7-6 7"></path>`;
+		case "close":
+			return html`
+				<path d="M6 6l12 12"></path>
+				<path d="M18 6l-12 12"></path>
+			`;
+		case "pin":
+			return html`
+				<path d="M8 5h8"></path>
+				<path d="M10 5v5l-2 3h8l-2-3V5"></path>
+				<path d="M12 13v6"></path>
+			`;
 		default:
 			return html`<circle cx="12" cy="12" r="8"></circle>`;
 	}

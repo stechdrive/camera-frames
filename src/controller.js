@@ -62,7 +62,6 @@ export function createCameraFramesController(elements, store) {
 	const {
 		viewportCanvas,
 		viewportShell,
-		workbenchLeftColumn,
 		workbenchRightColumn,
 		renderBox,
 		frameOverlayCanvas,
@@ -762,7 +761,6 @@ export function createCameraFramesController(elements, store) {
 		store,
 		state,
 		viewportShell,
-		workbenchLeftColumn,
 		workbenchRightColumn,
 		renderBox,
 		renderBoxMeta,

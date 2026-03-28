@@ -1,6 +1,35 @@
 import { html } from "htm/preact";
 import { WorkbenchIcon } from "./workbench-icons.js";
 
+export function TooltipBubble({
+	title,
+	description = "",
+	shortcut = "",
+	placement = "right",
+}) {
+	if (!title && !description && !shortcut) {
+		return null;
+	}
+
+	return html`
+		<span class=${`workbench-tooltip workbench-tooltip--${placement}`}>
+			${title && html`<strong class="workbench-tooltip__title">${title}</strong>`}
+			${
+				description &&
+				html`<span class="workbench-tooltip__description">${description}</span>`
+			}
+			${
+				shortcut &&
+				html`
+					<span class="workbench-tooltip__shortcut">
+						<kbd>${shortcut}</kbd>
+					</span>
+				`
+			}
+		</span>
+	`;
+}
+
 export function SectionHeading({ icon, title, children }) {
 	return html`
 		<div class="section-heading">
@@ -32,8 +61,8 @@ export function WorkbenchTabs({ tabs, activeTab, setActiveTab, ariaLabel }) {
 						aria-selected=${activeTab === tab.id}
 						class=${
 							activeTab === tab.id
-								? "workbench-tab workbench-tab--active"
-								: "workbench-tab"
+								? "workbench-tab workbench-tab--active workbench-tab--tooltip"
+								: "workbench-tab workbench-tab--tooltip"
 						}
 						onClick=${() => setActiveTab(tab.id)}
 					>
@@ -48,6 +77,12 @@ export function WorkbenchTabs({ tabs, activeTab, setActiveTab, ariaLabel }) {
 							}
 							<span>${tab.label}</span>
 						</span>
+						<${TooltipBubble}
+							title=${tab.tooltip?.title ?? tab.label}
+							description=${tab.tooltip?.description ?? ""}
+							shortcut=${tab.tooltip?.shortcut ?? ""}
+							placement=${tab.tooltip?.placement ?? "bottom"}
+						/>
 					</button>
 				`,
 			)}
@@ -63,16 +98,27 @@ export function HeaderWordmark({ title, compact = false }) {
 	`;
 }
 
-export function HeaderMenu({ icon = "menu", label, items = [], children }) {
+export function HeaderMenu({
+	icon = "menu",
+	label,
+	items = [],
+	children,
+	tooltip = null,
+}) {
 	const visibleItems = items.filter(Boolean);
 	return html`
 		<details class="workbench-menu">
 			<summary
-				class="workbench-menu__trigger"
+				class="workbench-menu__trigger workbench-menu__trigger--tooltip"
 				aria-label=${label}
-				title=${label}
 			>
 				<${WorkbenchIcon} name=${icon} size=${16} />
+				<${TooltipBubble}
+					title=${tooltip?.title ?? label}
+					description=${tooltip?.description ?? ""}
+					shortcut=${tooltip?.shortcut ?? ""}
+					placement=${tooltip?.placement ?? "right"}
+				/>
 			</summary>
 			<div class="workbench-menu__panel">
 				${children}
@@ -119,10 +165,12 @@ export function IconButton({
 	id,
 	onClick,
 	type = "button",
+	tooltip = null,
 }) {
 	const classes = [
 		"button",
 		"button--icon",
+		"button--tooltip",
 		compact ? "button--compact" : "",
 		active ? "button--primary" : "",
 		className,
@@ -135,11 +183,16 @@ export function IconButton({
 			type=${type}
 			class=${classes}
 			aria-label=${label}
-			title=${label}
 			disabled=${disabled}
 			onClick=${onClick}
 		>
 			<${WorkbenchIcon} name=${icon} size=${15} />
+			<${TooltipBubble}
+				title=${tooltip?.title ?? label}
+				description=${tooltip?.description ?? ""}
+				shortcut=${tooltip?.shortcut ?? ""}
+				placement=${tooltip?.placement ?? "bottom"}
+			/>
 		</button>
 	`;
 }

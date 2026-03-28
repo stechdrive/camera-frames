@@ -24,6 +24,7 @@ import {
 } from "./workbench-controls.js";
 import { WorkbenchIcon } from "./workbench-icons.js";
 import {
+	DisclosureBlock,
 	HeaderMenu,
 	HeaderWordmark,
 	IconButton,
@@ -31,8 +32,44 @@ import {
 	WorkbenchTabs,
 } from "./workbench-primitives.js";
 
+export const INSPECTOR_TAB_SCENE = "scene";
 export const INSPECTOR_TAB_CAMERA = "camera";
 export const INSPECTOR_TAB_EXPORT = "export";
+
+export function getInspectorTabs(t) {
+	return [
+		{
+			id: INSPECTOR_TAB_SCENE,
+			label: t("section.scene"),
+			icon: "scene",
+			tooltip: {
+				title: t("section.scene"),
+				description: t("tooltip.tabScene"),
+				placement: "bottom",
+			},
+		},
+		{
+			id: INSPECTOR_TAB_CAMERA,
+			label: t("section.shotCamera"),
+			icon: "camera",
+			tooltip: {
+				title: t("section.shotCamera"),
+				description: t("tooltip.tabCamera"),
+				placement: "bottom",
+			},
+		},
+		{
+			id: INSPECTOR_TAB_EXPORT,
+			label: t("section.export"),
+			icon: "export",
+			tooltip: {
+				title: t("section.export"),
+				description: t("tooltip.tabExport"),
+				placement: "bottom",
+			},
+		},
+	];
+}
 
 export function WorkbenchHeader({
 	t,
@@ -133,33 +170,56 @@ export function WorkbenchHeader({
 	`;
 }
 
-export function ViewSection({
+export function ToolRailSection({
 	controller,
 	mode,
-	modeLabel,
-	selectedSceneAsset,
+	menuChildren = null,
+	projectMenuItems = [],
 	store,
 	t,
-	viewportEquivalentMmLabel,
-	viewportEquivalentMmValue,
-	viewportFovLabel,
 }) {
 	const canUseTransformTools = mode === "viewport" || mode === "camera";
-	const showTransformControls =
-		selectedSceneAsset &&
-		(store.viewportTransformMode.value || store.viewportPivotEditMode.value);
+	const clearSelectionAndExitTool = () => {
+		controller()?.clearSceneAssetSelection?.();
+		controller()?.clearReferenceImageSelection?.();
+		controller()?.clearFrameSelection?.();
+		controller()?.clearOutputFrameSelection?.();
+		controller()?.setViewportTransformMode(false);
+	};
+	const toggleTool = (isActive, enableTool) => {
+		if (isActive) {
+			clearSelectionAndExitTool();
+			return;
+		}
+		enableTool?.();
+	};
 
 	return html`
-		<section class="panel-section">
-			<${SectionHeading} icon="view" title=${t("section.view")}>
-				<span id="mode-pill" class="pill">${modeLabel}</span>
+		<section class="workbench-tool-rail" aria-label=${t("section.view")}>
+			<${HeaderMenu}
+				label=${t("section.file")}
+				items=${projectMenuItems}
+				tooltip=${{
+					title: t("section.file"),
+					description: t("tooltip.fileMenu"),
+					placement: "right",
+				}}
+			>
+				${menuChildren}
 			<//>
-			<div class="button-row">
+			<div class="workbench-tool-rail__divider"></div>
+			<div class="workbench-tool-rail__group">
 				<${IconButton}
 					id="mode-camera"
 					icon="camera"
 					label=${t("mode.camera")}
 					active=${mode === "camera"}
+					className="workbench-tool-rail__button"
+					tooltip=${{
+						title: t("mode.camera"),
+						description: t("tooltip.modeCamera"),
+						placement: "right",
+					}}
 					onClick=${() => controller()?.setMode("camera")}
 				/>
 				<${IconButton}
@@ -167,9 +227,137 @@ export function ViewSection({
 					icon="viewport"
 					label=${t("mode.viewport")}
 					active=${mode === "viewport"}
+					className="workbench-tool-rail__button"
+					tooltip=${{
+						title: t("mode.viewport"),
+						description: t("tooltip.modeViewport"),
+						placement: "right",
+					}}
 					onClick=${() => controller()?.setMode("viewport")}
 				/>
 			</div>
+			${
+				canUseTransformTools &&
+				html`
+					<div class="workbench-tool-rail__divider"></div>
+					<div class="workbench-tool-rail__group">
+							<${IconButton}
+								icon="cursor"
+								label=${t("transformMode.select")}
+								active=${store.viewportSelectMode.value}
+								className="workbench-tool-rail__button"
+								tooltip=${{
+									title: t("transformMode.select"),
+									description: t("tooltip.toolSelect"),
+									shortcut: "V",
+									placement: "right",
+								}}
+								onClick=${() =>
+									toggleTool(store.viewportSelectMode.value, () =>
+										controller()?.setViewportSelectMode(true),
+									)}
+							/>
+							<${IconButton}
+								icon="reference"
+								label=${t("transformMode.reference")}
+								active=${store.viewportReferenceImageEditMode.value}
+								className="workbench-tool-rail__button"
+								tooltip=${{
+									title: t("transformMode.reference"),
+									description: t("tooltip.toolReference"),
+									shortcut: "R",
+									placement: "right",
+								}}
+								onClick=${() =>
+									toggleTool(store.viewportReferenceImageEditMode.value, () =>
+										controller()?.setViewportReferenceImageEditMode(true),
+									)}
+							/>
+							<${IconButton}
+								icon="move"
+								label=${t("transformMode.transform")}
+								active=${store.viewportTransformMode.value}
+								className="workbench-tool-rail__button"
+								tooltip=${{
+									title: t("transformMode.transform"),
+									description: t("tooltip.toolTransform"),
+									shortcut: "T",
+									placement: "right",
+								}}
+								onClick=${() =>
+									toggleTool(store.viewportTransformMode.value, () =>
+										controller()?.setViewportTransformMode(true),
+									)}
+							/>
+							<${IconButton}
+								icon="pivot"
+								label=${t("transformMode.pivot")}
+								active=${store.viewportPivotEditMode.value}
+								className="workbench-tool-rail__button"
+								tooltip=${{
+									title: t("transformMode.pivot"),
+									description: t("tooltip.toolPivot"),
+									shortcut: "P",
+									placement: "right",
+								}}
+								onClick=${() =>
+									toggleTool(store.viewportPivotEditMode.value, () =>
+										controller()?.setViewportPivotEditMode(true),
+									)}
+							/>
+					</div>
+				`
+			}
+		</section>
+	`;
+}
+
+export function InspectorRailSection({ activeTab, onTogglePeek, t }) {
+	const tabs = getInspectorTabs(t);
+	return html`
+		<section class="workbench-inspector-rail" aria-label=${t("section.project")}>
+			${tabs.map(
+				(tab) => html`
+					<${IconButton}
+						key=${tab.id}
+						icon=${tab.icon}
+						label=${tab.label}
+						active=${activeTab === tab.id}
+						compact=${true}
+						className="workbench-inspector-rail__button"
+						tooltip=${{
+							title: tab.tooltip?.title ?? tab.label,
+							description: tab.tooltip?.description ?? "",
+							shortcut: tab.tooltip?.shortcut ?? "",
+							placement: "left",
+						}}
+						onClick=${() => onTogglePeek?.(tab.id)}
+					/>
+				`,
+			)}
+		</section>
+	`;
+}
+
+export function ViewSettingsSection({
+	controller,
+	mode,
+	selectedSceneAsset,
+	store,
+	t,
+	viewportEquivalentMmLabel,
+	viewportEquivalentMmValue,
+	viewportFovLabel,
+}) {
+	const showTransformControls =
+		selectedSceneAsset &&
+		(store.viewportTransformMode.value || store.viewportPivotEditMode.value);
+
+	return html`
+		<section class="panel-section">
+			<${SectionHeading} icon="view" title=${t("section.view")}>
+				<span id="mode-pill" class="pill">${mode === "camera" ? t("mode.camera") : t("mode.viewport")}</span>
+			<//>
 			${
 				mode === "camera" &&
 				html`
@@ -240,94 +428,52 @@ export function ViewSection({
 				`
 			}
 			${
-				canUseTransformTools &&
+				showTransformControls &&
 				html`
-					<div class="field">
-						<span>${t("field.transformMode")}</span>
+					<${DisclosureBlock}
+						icon="move"
+						label=${t("field.transformSpace")}
+						open=${true}
+					>
 						<div class="button-row">
-							<${IconButton}
-								icon="slash-circle"
-								label=${t("transformMode.none")}
-								active=${store.viewportToolMode.value === "none"}
-								compact=${true}
-								onClick=${() => controller()?.setViewportTransformMode(false)}
-							/>
-							<${IconButton}
-								icon="cursor"
-								label=${t("transformMode.select")}
-								active=${store.viewportSelectMode.value}
-								compact=${true}
-								onClick=${() => controller()?.setViewportSelectMode(true)}
-							/>
-							<${IconButton}
-								icon="reference"
-								label=${t("transformMode.reference")}
-								active=${store.viewportReferenceImageEditMode.value}
-								compact=${true}
-								onClick=${() =>
-									controller()?.setViewportReferenceImageEditMode(true)}
-							/>
-							<${IconButton}
-								icon="move"
-								label=${t("transformMode.transform")}
-								active=${store.viewportTransformMode.value}
-								compact=${true}
-								onClick=${() => controller()?.setViewportTransformMode(true)}
-							/>
-							<${IconButton}
-								icon="pivot"
-								label=${t("transformMode.pivot")}
-								active=${store.viewportPivotEditMode.value}
-								compact=${true}
-								disabled=${!selectedSceneAsset}
-								onClick=${() => controller()?.setViewportPivotEditMode(true)}
-							/>
+							<button
+								type="button"
+								class=${
+									store.viewportTransformSpace.value === "world"
+										? "button button--primary button--compact"
+										: "button button--compact"
+								}
+								onClick=${() => controller()?.setViewportTransformSpace("world")}
+							>
+								${t("transformSpace.world")}
+							</button>
+							<button
+								type="button"
+								class=${
+									store.viewportTransformSpace.value === "local"
+										? "button button--primary button--compact"
+										: "button button--compact"
+								}
+								onClick=${() => controller()?.setViewportTransformSpace("local")}
+							>
+								${t("transformSpace.local")}
+							</button>
 						</div>
-					</div>
-					${
-						showTransformControls &&
-						html`
-							<div class="field">
-								<span>${t("field.transformSpace")}</span>
-								<div class="button-row">
-									<button
-										type="button"
-										class=${
-											store.viewportTransformSpace.value === "world"
-												? "button button--primary button--compact"
-												: "button button--compact"
-										}
-										onClick=${() => controller()?.setViewportTransformSpace("world")}
-									>
-										${t("transformSpace.world")}
-									</button>
-									<button
-										type="button"
-										class=${
-											store.viewportTransformSpace.value === "local"
-												? "button button--primary button--compact"
-												: "button button--compact"
-										}
-										onClick=${() => controller()?.setViewportTransformSpace("local")}
-									>
-										${t("transformSpace.local")}
-									</button>
-								</div>
-							</div>
-							<div class="field">
+						${
+							selectedSceneAsset?.hasWorkingPivot &&
+							html`
 								<div class="button-row">
 									<button
 										type="button"
 										class="button button--compact"
-										disabled=${!selectedSceneAsset.hasWorkingPivot}
 										onClick=${() => controller()?.resetSelectedAssetWorkingPivot()}
 									>
 										${t("action.resetPivot")}
 									</button>
 								</div>
-							</div>
-						`
-					}
+							`
+						}
+					<//>
 				`
 			}
 		</section>
@@ -393,6 +539,7 @@ export function SceneSection({
 		}
 		return classes.join(" ");
 	};
+	const sceneSummaryParts = [sceneSummary, sceneScaleSummary].filter(Boolean);
 
 	return html`
 		<section class="panel-section">
@@ -402,8 +549,14 @@ export function SceneSection({
 					<span id="scene-badge" class="pill pill--dim">${sceneBadge}</span>
 				</div>
 			<//>
-			<p id="scene-summary" class="summary">${sceneSummary}</p>
-			<p id="scene-scale-summary" class="summary">${sceneScaleSummary}</p>
+			${
+				sceneSummaryParts.length > 0 &&
+				html`
+					<p id="scene-summary" class="summary">
+						${sceneSummaryParts.join(" · ")}
+					</p>
+				`
+			}
 			${
 				sceneAssets.length > 0 &&
 				html`
@@ -541,10 +694,10 @@ export function SceneSection({
 			${
 				selectedSceneAsset &&
 				html`
-					<section class="scene-asset-inspector">
-						<${SectionHeading} title=${selectedSceneAsset.label}>
-							<span class="pill pill--dim">${t(selectedSceneAsset.kindLabelKey)}</span>
-						<//>
+					<${DisclosureBlock}
+						icon="scene"
+						label=${selectedSceneAsset.label}
+					>
 						<div class="button-row">
 							<${IconButton}
 								icon=${selectedSceneAsset.visible ? "eye" : "eye-off"}
@@ -629,7 +782,7 @@ export function SceneSection({
 								`,
 							)}
 						</div>
-					</section>
+					<//>
 				`
 			}
 		</section>
@@ -645,10 +798,10 @@ export function LightingSection({ controller, store, t }) {
 		controller?.()?.getActiveCameraHeadingDeg?.() ?? 0;
 
 	return html`
-		<section class="panel-section">
-			<${SectionHeading} icon="light" title=${t("section.lighting")}>
-				<span class="pill pill--dim">${t("assetKind.model")}</span>
-			<//>
+		<${DisclosureBlock}
+			icon="light"
+			label=${t("section.lighting")}
+		>
 			<label class="field">
 				<span>${t("field.lightDirection")}</span>
 				<${LightingDirectionControl}
@@ -720,7 +873,7 @@ export function LightingSection({ controller, store, t }) {
 					</div>
 				</div>
 			</label>
-		</section>
+		<//>
 	`;
 }
 
@@ -737,28 +890,42 @@ export function ShotCameraSection({
 }) {
 	return html`
 		<section class="panel-section">
-			<${SectionHeading} icon="camera" title=${t("section.shotCamera")}>
-				<div class="pill-row">
-					<span class="pill pill--dim">${t("badge.horizontalFov")}</span>
-					<span class="pill pill--dim">${t("badge.clipRange")}</span>
+			<${SectionHeading} icon="camera" title=${t("section.shotCamera")} />
+			<div class="split-field-row split-field-row--wide-action">
+				<label class="field">
+					<span>${t("field.activeShotCamera")}</span>
+					<select
+						id="active-shot-camera"
+						value=${store.workspace.activeShotCameraId.value}
+						...${INTERACTIVE_FIELD_PROPS}
+						onChange=${(event) =>
+							controller()?.selectShotCamera(event.currentTarget.value)}
+					>
+						${store.workspace.shotCameras.value.map(
+							(shotCamera) => html`
+								<option value=${shotCamera.id}>${shotCamera.name}</option>
+							`,
+						)}
+					</select>
+				</label>
+				<div class="field field--action field--action-end">
+					<span>${t("section.shotCamera")}</span>
+					<div class="button-row">
+						<${IconButton}
+							id="new-shot-camera"
+							icon="plus"
+							label=${t("action.newShotCamera")}
+							onClick=${() => controller()?.createShotCamera()}
+						/>
+						<${IconButton}
+							id="duplicate-shot-camera"
+							icon="duplicate"
+							label=${t("action.duplicateShotCamera")}
+							onClick=${() => controller()?.duplicateActiveShotCamera()}
+						/>
+					</div>
 				</div>
-			<//>
-			<label class="field">
-				<span>${t("field.activeShotCamera")}</span>
-				<select
-					id="active-shot-camera"
-					value=${store.workspace.activeShotCameraId.value}
-					...${INTERACTIVE_FIELD_PROPS}
-					onChange=${(event) =>
-						controller()?.selectShotCamera(event.currentTarget.value)}
-				>
-					${store.workspace.shotCameras.value.map(
-						(shotCamera) => html`
-							<option value=${shotCamera.id}>${shotCamera.name}</option>
-						`,
-					)}
-				</select>
-			</label>
+			</div>
 			<label class="field">
 				<span>${t("field.shotCameraName")}</span>
 				<${TextDraftInput}
@@ -767,20 +934,6 @@ export function ShotCameraSection({
 					onCommit=${(nextValue) => controller()?.setShotCameraName(nextValue)}
 				/>
 			</label>
-			<div class="button-row">
-				<${IconButton}
-					id="new-shot-camera"
-					icon="plus"
-					label=${t("action.newShotCamera")}
-					onClick=${() => controller()?.createShotCamera()}
-				/>
-				<${IconButton}
-					id="duplicate-shot-camera"
-					icon="duplicate"
-					label=${t("action.duplicateShotCamera")}
-					onClick=${() => controller()?.duplicateActiveShotCamera()}
-				/>
-			</div>
 			<label class="field field--range">
 				<span>${t("field.shotCameraEquivalentMm")}</span>
 				<div class="range-row">
@@ -820,79 +973,87 @@ export function ShotCameraSection({
 				</div>
 				<p class="summary">${t("field.shotCameraFov")} · ${fovLabel} (${equivalentMmLabel})</p>
 			</label>
-			<label class="field">
-				<span>${t("field.shotCameraClipMode")}</span>
-				<select
-					id="shot-camera-clip-mode"
-					value=${shotCameraClipMode}
-					...${INTERACTIVE_FIELD_PROPS}
-					onChange=${(event) =>
-						controller()?.setShotCameraClippingMode(event.currentTarget.value)}
-				>
-					<option value="auto">${t("clipMode.auto")}</option>
-					<option value="manual">${t("clipMode.manual")}</option>
-				</select>
-			</label>
-			${
-				shotCameraClipMode === "manual" &&
-				html`
-					<div class="split-field-row">
-						<label class="field">
-							<span>${t("field.shotCameraNear")}</span>
-							<${NumericDraftInput}
-								id="shot-camera-near"
-								inputMode="decimal"
-								min="0.1"
-								step="0.1"
-								value=${Number(store.shotCamera.near.value).toFixed(2)}
-								controller=${controller}
-								historyLabel="camera.near"
-								onCommit=${(nextValue) => controller()?.setShotCameraNear(nextValue)}
-							/>
-						</label>
-						<label class="field">
-							<span>${t("field.shotCameraFar")}</span>
-							<${NumericDraftInput}
-								id="shot-camera-far"
-								inputMode="decimal"
-								min="0.1"
-								step="0.1"
-								value=${Number(store.shotCamera.far.value).toFixed(2)}
-								controller=${controller}
-								historyLabel="camera.far"
-								onCommit=${(nextValue) => controller()?.setShotCameraFar(nextValue)}
-							/>
-						</label>
-					</div>
-				`
-			}
-			<div class="button-row">
-				<button
-					id="copy-viewport-to-shot"
-					class="button"
-					type="button"
-					onClick=${() => controller()?.copyViewportToShotCamera()}
-				>
-					${t("action.viewportToShot")}
-				</button>
-				<button
-					id="copy-shot-to-viewport"
-					class="button"
-					type="button"
-					onClick=${() => controller()?.copyShotCameraToViewport()}
-				>
-					${t("action.shotToViewport")}
-				</button>
-				<button
-					id="reset-active-view"
-					class="button"
-					type="button"
-					onClick=${() => controller()?.resetActiveView()}
-				>
-					${t("action.resetActive")}
-				</button>
-			</div>
-			<p id="camera-summary" class="summary">${cameraSummary}</p>
+			<${DisclosureBlock}
+				icon="camera"
+				label=${t("section.tools")}
+				open=${shotCameraClipMode === "manual"}
+			>
+				<label class="field">
+					<span>${t("field.shotCameraClipMode")}</span>
+					<select
+						id="shot-camera-clip-mode"
+						value=${shotCameraClipMode}
+						...${INTERACTIVE_FIELD_PROPS}
+						onChange=${(event) =>
+							controller()?.setShotCameraClippingMode(
+								event.currentTarget.value,
+							)}
+					>
+						<option value="auto">${t("clipMode.auto")}</option>
+						<option value="manual">${t("clipMode.manual")}</option>
+					</select>
+				</label>
+				${
+					shotCameraClipMode === "manual" &&
+					html`
+						<div class="split-field-row">
+							<label class="field">
+								<span>${t("field.shotCameraNear")}</span>
+								<${NumericDraftInput}
+									id="shot-camera-near"
+									inputMode="decimal"
+									min="0.1"
+									step="0.1"
+									value=${Number(store.shotCamera.near.value).toFixed(2)}
+									controller=${controller}
+									historyLabel="camera.near"
+									onCommit=${(nextValue) => controller()?.setShotCameraNear(nextValue)}
+								/>
+							</label>
+							<label class="field">
+								<span>${t("field.shotCameraFar")}</span>
+								<${NumericDraftInput}
+									id="shot-camera-far"
+									inputMode="decimal"
+									min="0.1"
+									step="0.1"
+									value=${Number(store.shotCamera.far.value).toFixed(2)}
+									controller=${controller}
+									historyLabel="camera.far"
+									onCommit=${(nextValue) => controller()?.setShotCameraFar(nextValue)}
+								/>
+							</label>
+						</div>
+					`
+				}
+				<div class="button-row">
+					<button
+						id="copy-viewport-to-shot"
+						class="button button--compact"
+						type="button"
+						onClick=${() => controller()?.copyViewportToShotCamera()}
+					>
+						${t("action.viewportToShot")}
+					</button>
+					<button
+						id="copy-shot-to-viewport"
+						class="button button--compact"
+						type="button"
+						onClick=${() => controller()?.copyShotCameraToViewport()}
+					>
+						${t("action.shotToViewport")}
+					</button>
+					<button
+						id="reset-active-view"
+						class="button button--compact"
+						type="button"
+						onClick=${() => controller()?.resetActiveView()}
+					>
+						${t("action.resetActive")}
+					</button>
+				</div>
+				<p id="camera-summary" class="summary">${cameraSummary}</p>
+			<//>
 		</section>
 	`;
 }
@@ -909,10 +1070,10 @@ export function ExportSettingsSection({
 	t,
 }) {
 	return html`
-		<section class="panel-section">
-			<${SectionHeading} icon="export" title=${t("section.exportSettings")}>
-				<span class="pill pill--dim">${t(`exportFormat.${exportFormat}`)}</span>
-			<//>
+		<${DisclosureBlock}
+			icon="export"
+			label=${t("section.exportSettings")}
+		>
 			<label class="field">
 				<span>${t("field.shotCameraExportName")}</span>
 				<${TextDraftInput}
@@ -998,7 +1159,7 @@ export function ExportSettingsSection({
 					</label>
 				`
 			}
-		</section>
+		<//>
 	`;
 }
 
@@ -1011,10 +1172,10 @@ export function FramesSection({
 	t,
 }) {
 	return html`
-		<section class="panel-section">
-			<${SectionHeading} icon="frame" title=${t("section.frames")}>
-				<span class="pill pill--dim">${frameCount} / ${FRAME_MAX_COUNT}</span>
-			<//>
+		<${DisclosureBlock}
+			icon="frame"
+			label=${`${t("section.frames")} · ${frameCount}/${FRAME_MAX_COUNT}`}
+		>
 			${
 				frameDocuments.length > 0
 					? html`
@@ -1068,7 +1229,7 @@ export function FramesSection({
 						</div>
 					`
 			}
-		</section>
+		<//>
 	`;
 }
 
@@ -1167,11 +1328,10 @@ export function ReferenceSection({ controller, store, t }) {
 			</div>
 			<div class="reference-panel-stack">
 				<section class="reference-panel-group">
-					<${SectionHeading}
-						title=${t("referenceImage.currentPresetSection")}
-					>
+					<div class="panel-inline-header">
+						<strong>${t("referenceImage.currentPresetSection")}</strong>
 						<span class="pill pill--dim">${items.length}</span>
-					<//>
+					</div>
 					${
 						items.length > 0
 							? html`
@@ -1246,14 +1406,14 @@ export function ReferenceSection({ controller, store, t }) {
 							: html`<p class="summary">${t("referenceImage.currentCameraEmpty")}</p>`
 					}
 				</section>
-				<section class="reference-panel-group">
-					<${SectionHeading}
-						title=${t("referenceImage.selectedSection")}
-					>
-					<//>
-					${
-						selectedItem && selectedAsset
-							? html`
+				${
+					selectedItem && selectedAsset
+						? html`
+								<${DisclosureBlock}
+									icon="image"
+									label=${selectedItem.name}
+									open=${true}
+								>
 									<div class="reference-selected-panel">
 										<p class="summary">
 											${selectedItem.name} ·
@@ -1438,10 +1598,10 @@ export function ReferenceSection({ controller, store, t }) {
 											</button>
 										</div>
 									</div>
-								`
-							: html`<p class="summary">${t("referenceImage.selectedEmpty")}</p>`
-					}
-				</section>
+								<//>
+							`
+						: html`<p class="summary">${t("referenceImage.selectedEmpty")}</p>`
+				}
 			</div>
 		</section>
 	`;
@@ -1616,21 +1776,14 @@ export function FooterSection({ store }) {
 }
 
 export function InspectorTabs({ activeTab, setActiveTab, t }) {
-	const tabs = [
-		{
-			id: INSPECTOR_TAB_CAMERA,
-			label: t("section.shotCamera"),
-			icon: "camera",
-		},
-		{ id: INSPECTOR_TAB_EXPORT, label: t("section.export"), icon: "export" },
-	];
+	const tabs = getInspectorTabs(t);
 
 	return html`
 		<${WorkbenchTabs}
 			tabs=${tabs}
 			activeTab=${activeTab}
 			setActiveTab=${setActiveTab}
-			ariaLabel=${t("section.export")}
+			ariaLabel=${t("section.project")}
 		/>
 	`;
 }
