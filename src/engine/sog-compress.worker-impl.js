@@ -61,9 +61,10 @@ async function writeSogBundle({
 	return outputFileSystem.results.get(outputFileName) ?? null;
 }
 
-function createProgressLogger(token) {
+function createProgressLogger(token, modeLabel = "") {
 	let lastText = "";
 	let lastPercent = -1;
+	const prefix = modeLabel ? `${modeLabel} · ` : "";
 	return {
 		log: () => {},
 		warn: console.warn,
@@ -86,7 +87,7 @@ function createProgressLogger(token) {
 				globalThis.postMessage({
 					type: "progress",
 					token,
-					text,
+					text: `${prefix}${text}`,
 					progress: 0,
 				});
 				return;
@@ -110,9 +111,11 @@ function createProgressLogger(token) {
 			globalThis.postMessage({
 				type: "progress",
 				token,
-				text: parentName
-					? `Step ${parentStep}/${parentTotal}: ${parentName}`
-					: `Step ${parentStep}/${parentTotal}`,
+				text: `${prefix}${
+					parentName
+						? `Step ${parentStep}/${parentTotal}: ${parentName}`
+						: `Step ${parentStep}/${parentTotal}`
+				}`,
 				progress: roundedPercent,
 			});
 		},
@@ -133,9 +136,13 @@ async function compressToSog({
 	outputFileName,
 	serializedColumns,
 	sogIterations,
-	forceCpu = false,
 }) {
-	splatTransform.logger.setLogger(createProgressLogger(token));
+	if (!globalThis.navigator?.gpu) {
+		throw new Error(
+			"SOG compression requires WebGPU in this browser. Save again with SOG compression disabled.",
+		);
+	}
+
 	postWorkerProgress(token, "Building SOG data table…", 0);
 	const filteredDataTable = buildDataTableFromSerializedSogColumns(
 		serializedColumns,
@@ -145,48 +152,14 @@ async function compressToSog({
 		},
 	);
 
-	const useGpu = !forceCpu && Boolean(globalThis.navigator?.gpu);
-	let outputBytes = null;
-	if (!useGpu) {
-		if (forceCpu) {
-			postWorkerProgress(token, "CPU mode forced after worker retry.", 0);
-		}
-		postWorkerProgress(token, "WebGPU unavailable. Using CPU compression.", 0);
-		postWorkerProgress(token, "Writing SOG on CPU…", 0);
-		outputBytes = await writeSogBundle({
-			outputFileName,
-			filteredDataTable,
-			sogIterations,
-			createDevice: undefined,
-		});
-	} else {
-		try {
-			postWorkerProgress(
-				token,
-				"WebGPU detected. Preparing GPU compression…",
-				0,
-			);
-			outputBytes = await writeSogBundle({
-				outputFileName,
-				filteredDataTable,
-				sogIterations,
-				createDevice: createGpuDevice,
-			});
-		} catch (error) {
-			postWorkerProgress(
-				token,
-				`Worker GPU path failed, retrying on CPU. ${String(error?.message ?? error ?? "")}`.trim(),
-				0,
-			);
-			postWorkerProgress(token, "Writing SOG on CPU…", 0);
-			outputBytes = await writeSogBundle({
-				outputFileName,
-				filteredDataTable,
-				sogIterations,
-				createDevice: undefined,
-			});
-		}
-	}
+	splatTransform.logger.setLogger(createProgressLogger(token, "GPU"));
+	postWorkerProgress(token, "WebGPU detected. Preparing GPU compression…", 0);
+	const outputBytes = await writeSogBundle({
+		outputFileName,
+		filteredDataTable,
+		sogIterations,
+		createDevice: createGpuDevice,
+	});
 
 	if (!outputBytes) {
 		throw new Error(`Failed to write "${outputFileName}" as SOG.`);
@@ -227,7 +200,6 @@ globalThis.addEventListener("message", async (event) => {
 					: [],
 			},
 			sogIterations: Number(message.sogIterations ?? 10),
-			forceCpu: message.forceCpu === true,
 		});
 	} catch (error) {
 		globalThis.postMessage({

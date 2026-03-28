@@ -1,12 +1,13 @@
+import { prewarmSogCompressionWorker } from "../engine/sog-compress-worker-client.js";
 import {
 	buildProjectFingerprint,
 	generateProjectId,
 	normalizeProjectDocument,
 } from "../project-document.js";
 import {
-	buildCameraFramesProjectPackage,
 	getDefaultProjectFilename,
 	readCameraFramesProject,
+	writeCameraFramesProjectPackageToWritable,
 } from "../project-file.js";
 import { ZipReader } from "../project-package.js";
 import {
@@ -49,6 +50,10 @@ function supportsProjectFileOpen() {
 
 function supportsProjectFileSave() {
 	return typeof globalThis.showSaveFilePicker === "function";
+}
+
+function supportsSogCompression() {
+	return Boolean(globalThis.navigator?.gpu);
 }
 
 function getProjectPickerTypes() {
@@ -150,6 +155,66 @@ function buildPackageProgressOverlay(
 	};
 }
 
+function buildImportProgressOverlay(t, step, detail = "") {
+	const steps = [
+		{ key: "verify", label: t("overlay.importPhaseVerify") },
+		{ key: "expand", label: t("overlay.importPhaseExpand") },
+		{ key: "load", label: t("overlay.importPhaseLoad") },
+		{ key: "apply", label: t("overlay.importPhaseApply") },
+	];
+	const activeIndex = steps.findIndex((entry) => entry.key === step);
+	return {
+		kind: "progress",
+		title: t("overlay.importTitle"),
+		message: t("overlay.importMessage"),
+		detail,
+		steps: steps.map((entry, index) => ({
+			label: entry.label,
+			status:
+				index < activeIndex
+					? "done"
+					: index === activeIndex
+						? "active"
+						: "pending",
+		})),
+	};
+}
+
+function buildImportProgressDetail(
+	t,
+	{ stage = "", index = 0, total = 0, assetLabel = "", fileLabel = "" } = {},
+) {
+	if (stage === "inspect-archive") {
+		return t("overlay.importDetailInspectProjectArchive");
+	}
+	if (stage === "read-manifest") {
+		return t("overlay.importDetailReadProjectManifest", {
+			file: fileLabel || PROJECT_MANIFEST_PATH,
+		});
+	}
+	if (stage === "read-project-document") {
+		return t("overlay.importDetailReadProjectDocument", {
+			file: fileLabel || PROJECT_DOCUMENT_PATH,
+		});
+	}
+	if (stage === "extract-project-asset") {
+		if (assetLabel && fileLabel && assetLabel !== fileLabel) {
+			return t("overlay.importDetailExpandProjectAssetWithFile", {
+				index,
+				count: total,
+				name: assetLabel,
+				file: fileLabel,
+			});
+		}
+		return t("overlay.importDetailExpandProjectAsset", {
+			index,
+			count: total,
+			name: assetLabel || fileLabel,
+		});
+	}
+	return "";
+}
+
 function buildPackageErrorOverlay(t, error) {
 	const detail = String(
 		error?.stack ??
@@ -189,22 +254,36 @@ function buildPackageProgressDetail(
 		index = 0,
 		total = 0,
 		assetLabel = "",
+		fileLabel = "",
 		message = "",
 		percent = null,
 	} = {},
 ) {
+	const normalizedAssetLabel = String(assetLabel ?? "").trim();
+	const normalizedFileLabel = String(fileLabel ?? "").trim();
 	const assetDetail =
-		assetLabel && total
-			? t("overlay.packageDetailAsset", {
-					index,
-					total,
-					name: assetLabel,
-				})
+		total && (normalizedAssetLabel || normalizedFileLabel)
+			? normalizedAssetLabel &&
+				normalizedFileLabel &&
+				normalizedAssetLabel !== normalizedFileLabel
+				? t("overlay.packageDetailAssetWithFile", {
+						index,
+						total,
+						name: normalizedAssetLabel,
+						file: normalizedFileLabel,
+					})
+				: t("overlay.packageDetailAsset", {
+						index,
+						total,
+						name: normalizedAssetLabel || normalizedFileLabel,
+					})
 			: "";
 	const stageKey =
 		phase === "compress-splats"
 			? `overlay.packageCompressStage.${stage}`
-			: `overlay.packageResolveStage.${stage}`;
+			: phase === "write-package"
+				? `overlay.packageWriteStage.${stage}`
+				: `overlay.packageResolveStage.${stage}`;
 	const stageDetail = message
 		? percent == null
 			? message
@@ -416,6 +495,8 @@ export function createProjectController({
 			loadedStatus = t("status.projectLoaded"),
 		} = {},
 	) {
+		setOverlay(buildImportProgressOverlay(t, "verify"));
+		await waitForOverlayFrame();
 		const packageFingerprint = await buildProjectFingerprint(
 			parsedProject.project,
 		);
@@ -423,40 +504,74 @@ export function createProjectController({
 			parsedProject.project,
 			packageFingerprint,
 		);
-		await applyOpenedProject(parsedProject, {
-			projectName,
-			loadedStatus,
-		});
-		rememberProjectContext({
-			projectId: projectIdentity.projectId,
-			packageRevision: projectIdentity.packageRevision,
-			packageFingerprint,
-			projectName,
-			fileHandle,
-		});
-		await tryApplyCompatibleWorkingState({
-			projectId: projectIdentity.projectId,
-			packageRevision: projectIdentity.packageRevision,
-			packageFingerprint,
-			projectName,
-		});
+		try {
+			await applyOpenedProject(parsedProject, {
+				projectName,
+				loadedStatus,
+				onAssetProgress: (step, detail = "") => {
+					setOverlay(buildImportProgressOverlay(t, step, detail));
+				},
+			});
+			clearOverlay();
+			rememberProjectContext({
+				projectId: projectIdentity.projectId,
+				packageRevision: projectIdentity.packageRevision,
+				packageFingerprint,
+				projectName,
+				fileHandle,
+			});
+			await tryApplyCompatibleWorkingState({
+				projectId: projectIdentity.projectId,
+				packageRevision: projectIdentity.packageRevision,
+				packageFingerprint,
+				projectName,
+			});
+		} catch (error) {
+			clearOverlay();
+			throw error;
+		}
 		return true;
 	}
 
 	async function openProjectSource(source, { fileHandle = null } = {}) {
 		const projectName = getProjectBaseName(source?.name || fileHandle?.name);
 		try {
-			const parsedProject = await readCameraFramesProject(source);
+			setOverlay(buildImportProgressOverlay(t, "verify"));
+			await waitForOverlayFrame();
+			const parsedProject = await readCameraFramesProject(source, {
+				onProgress: (progress) => {
+					setOverlay(
+						buildImportProgressOverlay(
+							t,
+							progress?.phase || "verify",
+							buildImportProgressDetail(t, progress),
+						),
+					);
+				},
+			});
 			return openParsedProject(parsedProject, {
 				projectName,
 				fileHandle,
 			});
 		} catch (error) {
 			if (!(await isLegacyCameraFramesProjectSource(source))) {
+				clearOverlay();
 				throw error;
 			}
 
-			await assetController.loadSources([source], true);
+			setOverlay(buildImportProgressOverlay(t, "verify"));
+			await waitForOverlayFrame();
+			try {
+				await assetController.loadSources([source], true, {
+					onProgress: (step, detail = "") => {
+						setOverlay(buildImportProgressOverlay(t, step, detail));
+					},
+				});
+				clearOverlay();
+			} catch (legacyError) {
+				clearOverlay();
+				throw legacyError;
+			}
 			const projectSnapshot = captureProjectState();
 			const normalizedProject = normalizeProjectDocument(projectSnapshot);
 			const projectId =
@@ -555,18 +670,15 @@ export function createProjectController({
 		};
 	}
 
-	async function writePackageArchive(archiveBytes, saveTarget) {
-		await writeProjectFileHandle(saveTarget.fileHandle, archiveBytes);
-		projectFileHandle = saveTarget.fileHandle;
-		return saveTarget;
-	}
-
 	async function performPackageSave(
 		values,
 		{ saveMode = "auto", saveTarget = null } = {},
 	) {
 		const progressStartedAt = Date.now();
 		const compressSplatsToSog = values.compressSplatsToSog === true;
+		if (compressSplatsToSog && !supportsSogCompression()) {
+			throw new Error(t("error.sogCompressionRequiresWebGpu"));
+		}
 		const sogMaxShBands = Number.parseInt(values.sogMaxShBands ?? "", 10);
 		const sogIterations = Number.parseInt(values.sogIterations ?? "", 10);
 		preferredPackageSaveOptions = {
@@ -604,36 +716,37 @@ export function createProjectController({
 		await new Promise((resolve) => requestAnimationFrame(resolve));
 
 		try {
-			const packageResult = await buildCameraFramesProjectPackage(
-				normalizedProject,
-				{
-					compressSplatsToSog: preferredPackageSaveOptions.compressSplatsToSog,
-					sogMaxShBands: preferredPackageSaveOptions.sogMaxShBands,
-					sogIterations: preferredPackageSaveOptions.sogIterations,
-					onProgress: async (progress) => {
-						const detail = buildPackageProgressDetail(t, progress);
-						setOverlay(
-							buildPackageProgressOverlay(t, progress.phase, detail, {
-								startedAt: progressStartedAt,
-							}),
-						);
-						await waitForOverlayFrame();
+			const writable = await resolvedSaveTarget.fileHandle.createWritable();
+			let packageResult = null;
+			try {
+				packageResult = await writeCameraFramesProjectPackageToWritable(
+					normalizedProject,
+					writable,
+					{
+						compressSplatsToSog:
+							preferredPackageSaveOptions.compressSplatsToSog,
+						sogMaxShBands: preferredPackageSaveOptions.sogMaxShBands,
+						sogIterations: preferredPackageSaveOptions.sogIterations,
+						onProgress: async (progress) => {
+							const detail = buildPackageProgressDetail(t, progress);
+							setOverlay(
+								buildPackageProgressOverlay(t, progress.phase, detail, {
+									startedAt: progressStartedAt,
+								}),
+							);
+							await waitForOverlayFrame();
+						},
 					},
-				},
-			);
+				);
+				await writable.close();
+			} catch (error) {
+				try {
+					await writable.abort?.();
+				} catch {}
+				throw error;
+			}
 
-			setOverlay(
-				buildPackageProgressOverlay(
-					t,
-					"write-package",
-					t("overlay.packageDetailWrite"),
-					{ startedAt: progressStartedAt },
-				),
-			);
-			const saveResult = await writePackageArchive(
-				packageResult.archive,
-				resolvedSaveTarget,
-			);
+			projectFileHandle = resolvedSaveTarget.fileHandle;
 			await deleteCameraFramesWorkingState(normalizedProject.projectId);
 			await runWorkingStateCleanup();
 			clearOverlay();
@@ -641,12 +754,12 @@ export function createProjectController({
 				projectId: normalizedProject.projectId,
 				packageRevision: normalizedProject.packageRevision,
 				packageFingerprint: packageResult.packageFingerprint,
-				projectName: getProjectBaseName(saveResult.fileName),
-				fileHandle: saveResult.fileHandle,
+				projectName: getProjectBaseName(resolvedSaveTarget.fileName),
+				fileHandle: resolvedSaveTarget.fileHandle,
 			});
 			setStatus(
 				t("status.packageSaved", {
-					name: saveResult.fileName || suggestedName,
+					name: resolvedSaveTarget.fileName || suggestedName,
 				}),
 			);
 		} catch (error) {
@@ -665,6 +778,18 @@ export function createProjectController({
 	async function exportProject() {
 		const showOverwriteActions = Boolean(projectFileHandle);
 		const suggestedName = getSuggestedPackageFilename();
+		const canCompressSplatsToSog = supportsSogCompression();
+		const compressSplatsDefault = canCompressSplatsToSog
+			? preferredPackageSaveOptions.compressSplatsToSog
+			: false;
+		if (canCompressSplatsToSog) {
+			void prewarmSogCompressionWorker().catch((error) => {
+				console.warn(
+					"[CAMERA_FRAMES] SOG worker warmup failed while opening package save.",
+					error,
+				);
+			});
+		}
 		setOverlay({
 			kind: "confirm",
 			title: t("overlay.packageSaveTitle"),
@@ -677,15 +802,19 @@ export function createProjectController({
 				{
 					id: "compressSplatsToSog",
 					type: "checkbox",
-					label: t("overlay.packageFieldCompressSplats"),
-					value: preferredPackageSaveOptions.compressSplatsToSog,
+					label: canCompressSplatsToSog
+						? t("overlay.packageFieldCompressSplats")
+						: t("overlay.packageFieldCompressSplatsDisabled"),
+					value: compressSplatsDefault,
+					disabled: !canCompressSplatsToSog,
 				},
 				{
 					id: "sogMaxShBands",
 					type: "select",
 					label: t("overlay.packageFieldSogShBands"),
 					value: String(preferredPackageSaveOptions.sogMaxShBands),
-					disabled: (values) => values.compressSplatsToSog !== true,
+					disabled: (values) =>
+						!canCompressSplatsToSog || values.compressSplatsToSog !== true,
 					options: [0, 1, 2, 3].map((value) => ({
 						value: String(value),
 						label: t(`overlay.packageSogShBands.${value}`),
@@ -696,7 +825,8 @@ export function createProjectController({
 					type: "select",
 					label: t("overlay.packageFieldSogIterations"),
 					value: String(preferredPackageSaveOptions.sogIterations),
-					disabled: (values) => values.compressSplatsToSog !== true,
+					disabled: (values) =>
+						!canCompressSplatsToSog || values.compressSplatsToSog !== true,
 					options: PACKAGE_SOG_ITERATION_OPTIONS.map((value) => ({
 						value: String(value),
 						label: t(`overlay.packageSogIterations.${value}`),

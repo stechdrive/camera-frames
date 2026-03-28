@@ -205,6 +205,13 @@ const MESSAGES = {
 			importPhaseExpand: "パッケージを展開",
 			importPhaseLoad: "3D アセットを読込",
 			importPhaseApply: "シーンへ反映",
+			importDetailInspectProjectArchive: "プロジェクトパッケージを確認中…",
+			importDetailReadProjectManifest: "manifest を読込中… ({file})",
+			importDetailReadProjectDocument: "プロジェクト設定を読込中… ({file})",
+			importDetailExpandProjectAsset:
+				"{index}/{count} プロジェクト asset を展開: {name}",
+			importDetailExpandProjectAssetWithFile:
+				"{index}/{count} プロジェクト asset を展開: {name} ({file})",
 			importDetailExpandPackage: "{index}/{count} パッケージ: {name}",
 			importDetailLoadAsset: "{index}/{count} アセット: {name}",
 			importDetailApply: "Camera / FRAME / シーン状態を反映",
@@ -219,8 +226,7 @@ const MESSAGES = {
 			importErrorMessageRemote: "このリンクはアプリから直接開けませんでした。",
 			errorDetails: "詳細",
 			packageSaveTitle: "パッケージ保存",
-			packageSaveMessage:
-				"共有・受け渡し用の .ssproj を保存します。必要なら 3DGS を SOG 圧縮できます。",
+			packageSaveMessage: "共有・受け渡し用の .ssproj を保存します。",
 			packageSaveMessageWithOverwrite:
 				"共有・受け渡し用の .ssproj を保存します。現在のファイル {name} に上書き保存するか、別名で保存するかを選んでください。",
 			packageSaveErrorTitle: "パッケージ保存に失敗しました",
@@ -232,7 +238,11 @@ const MESSAGES = {
 			packagePhaseWrite: "パッケージを書き込み",
 			packageDetailCollect: "保存対象を収集中…",
 			packageDetailAsset: "{index}/{total} asset: {name}",
+			packageDetailAssetWithFile: "{index}/{total} asset: {name} ({file})",
 			packageDetailWrite: "ファイルを書き込み中…",
+			packageWriteStage: {
+				zipEntries: "ZIPアーカイブを書き込み中…",
+			},
 			packageResolveStage: {
 				"copy-source": "元の asset を収集中…",
 				"copy-packed-splat": "packed 3DGS を収集中…",
@@ -246,10 +256,11 @@ const MESSAGES = {
 				"merge-tables": "複数テーブルを結合中…",
 				"filter-bands": "SH バンドを調整中…",
 				"write-sog": "SOG を書き出し中…",
-				"fallback-main-thread": "worker に失敗したため main thread に切替…",
 				finalize: "出力を確定中…",
 			},
 			packageFieldCompressSplats: "3DGS を SOG 圧縮で保存",
+			packageFieldCompressSplatsDisabled:
+				"3DGS を SOG 圧縮で保存 (WebGPU 必須)",
 			packageFieldSogShBands: "SOG の SH バンド",
 			packageFieldSogIterations: "SOG 圧縮 iterations",
 			packageSogShBands: {
@@ -398,6 +409,8 @@ const MESSAGES = {
 				"この環境ではパッケージ保存ダイアログを利用できません。",
 			projectPackageSaveUnavailable:
 				"パッケージの保存先を取得できませんでした。",
+			sogCompressionRequiresWebGpu:
+				"この環境では WebGPU が使えないため、SOG 圧縮保存は利用できません。",
 			projectPackageOverwriteUnavailable:
 				"上書き保存できるパッケージファイルがありません。",
 			previewContext: "プレビュー用の 2D context を取得できませんでした。",
@@ -575,6 +588,13 @@ const MESSAGES = {
 			importPhaseExpand: "Expanding packages",
 			importPhaseLoad: "Loading 3D assets",
 			importPhaseApply: "Applying scene state",
+			importDetailInspectProjectArchive: "Inspecting project package…",
+			importDetailReadProjectManifest: "Reading manifest… ({file})",
+			importDetailReadProjectDocument: "Reading project document… ({file})",
+			importDetailExpandProjectAsset:
+				"Expanding project asset {index}/{count}: {name}",
+			importDetailExpandProjectAssetWithFile:
+				"Expanding project asset {index}/{count}: {name} ({file})",
 			importDetailExpandPackage: "Package {index}/{count}: {name}",
 			importDetailLoadAsset: "Asset {index}/{count}: {name}",
 			importDetailApply: "Applying Camera / FRAME / scene state",
@@ -593,7 +613,7 @@ const MESSAGES = {
 			errorDetails: "Details",
 			packageSaveTitle: "Save Package",
 			packageSaveMessage:
-				"Save a portable .ssproj package for sharing or handoff. 3DGS assets can be compressed to SOG when needed.",
+				"Save a portable .ssproj package for sharing or handoff.",
 			packageSaveMessageWithOverwrite:
 				"Save a portable .ssproj package for sharing or handoff. Choose whether to overwrite {name} or save to a new file.",
 			packageSaveErrorTitle: "Package save failed",
@@ -605,7 +625,11 @@ const MESSAGES = {
 			packagePhaseWrite: "Writing package",
 			packageDetailCollect: "Collecting save data…",
 			packageDetailAsset: "Asset {index}/{total}: {name}",
+			packageDetailAssetWithFile: "Asset {index}/{total}: {name} ({file})",
 			packageDetailWrite: "Writing package file…",
+			packageWriteStage: {
+				zipEntries: "Writing ZIP archive…",
+			},
 			packageResolveStage: {
 				"copy-source": "Copying original asset data…",
 				"copy-packed-splat": "Collecting packed 3DGS data…",
@@ -619,10 +643,11 @@ const MESSAGES = {
 				"merge-tables": "Merging splat tables…",
 				"filter-bands": "Filtering SH bands…",
 				"write-sog": "Writing SOG output…",
-				"fallback-main-thread": "Worker failed, switching to main thread…",
 				finalize: "Finalizing output…",
 			},
 			packageFieldCompressSplats: "Compress 3DGS to SOG",
+			packageFieldCompressSplatsDisabled:
+				"Compress 3DGS to SOG (WebGPU required)",
 			packageFieldSogShBands: "SOG SH Bands",
 			packageFieldSogIterations: "SOG Compression Iterations",
 			packageSogShBands: {
@@ -772,6 +797,8 @@ const MESSAGES = {
 				"Package save dialogs are not supported in this environment.",
 			projectPackageSaveUnavailable:
 				"Could not get a destination for package save.",
+			sogCompressionRequiresWebGpu:
+				"SOG compression save requires WebGPU in this environment.",
 			projectPackageOverwriteUnavailable:
 				"There is no project package available to overwrite.",
 			previewContext: "Could not get the 2D context for output preview.",

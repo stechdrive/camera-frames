@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { strToU8, zipSync } from "fflate";
+import { buildZipArchiveBytes } from "../src/project-archive.js";
 import {
 	extractProjectPackageAssets,
 	isImportableProjectPackageAssetPath,
@@ -10,6 +10,12 @@ import {
 	isSupportedProjectPackageAssetPath,
 	resolveProjectPackageAssetPaths,
 } from "../src/project-package.js";
+
+const textEncoder = new TextEncoder();
+
+function jsonBytes(value) {
+	return textEncoder.encode(JSON.stringify(value));
+}
 
 assert.equal(isProjectPackageSource("example.ssproj"), true);
 assert.equal(isProjectPackageSource("https://example.com/test.ssproj"), true);
@@ -80,21 +86,17 @@ assert.equal(isImportableProjectPackageAssetPath("splats/meta.json"), true);
 }
 
 {
-	const archive = zipSync({
-		"document.json": strToU8(
-			JSON.stringify({
-				splats: [{ filename: "splats/meta.json" }],
-				models: [{ filename: "models/set.glb" }],
-			}),
-		),
-		"splats/meta.json": strToU8(
-			JSON.stringify({
-				means: { files: ["means.bin"] },
-				scales: { files: ["scales.bin"] },
-				quats: { files: ["quats.bin"] },
-				sh0: { files: ["sh0.bin"] },
-			}),
-		),
+	const archive = await buildZipArchiveBytes({
+		"document.json": jsonBytes({
+			splats: [{ filename: "splats/meta.json" }],
+			models: [{ filename: "models/set.glb" }],
+		}),
+		"splats/meta.json": jsonBytes({
+			means: { files: ["means.bin"] },
+			scales: { files: ["scales.bin"] },
+			quats: { files: ["quats.bin"] },
+			sh0: { files: ["sh0.bin"] },
+		}),
 		"splats/means.bin": new Uint8Array([1]),
 		"splats/scales.bin": new Uint8Array([2]),
 		"splats/quats.bin": new Uint8Array([3]),
@@ -130,21 +132,19 @@ assert.equal(isImportableProjectPackageAssetPath("splats/meta.json"), true);
 }
 
 {
-	const archive = zipSync({
-		"document.json": strToU8(
-			JSON.stringify({
-				models: [
-					{
-						filename: "layout.glb",
-						transform: {
-							position: [1, 2, 3],
-							rotation: [0, 0, 0, 1],
-							scale: [2, 2, 2],
-						},
+	const archive = await buildZipArchiveBytes({
+		"document.json": jsonBytes({
+			models: [
+				{
+					filename: "layout.glb",
+					transform: {
+						position: [1, 2, 3],
+						rotation: [0, 0, 0, 1],
+						scale: [2, 2, 2],
 					},
-				],
-			}),
-		),
+				},
+			],
+		}),
 		"models/layout.glb": new Uint8Array([1, 2, 3]),
 	});
 
@@ -157,18 +157,16 @@ assert.equal(isImportableProjectPackageAssetPath("splats/meta.json"), true);
 }
 
 {
-	const archive = zipSync({
-		"document.json": strToU8(
-			JSON.stringify({
-				splats: [
-					{
-						position: [17.5, -4.65, 0],
-						rotation: [0, 0, 1, 0],
-						scale: [3.6, 3.6, 3.6],
-					},
-				],
-			}),
-		),
+	const archive = await buildZipArchiveBytes({
+		"document.json": jsonBytes({
+			splats: [
+				{
+					position: [17.5, -4.65, 0],
+					rotation: [0, 0, 1, 0],
+					scale: [3.6, 3.6, 3.6],
+				},
+			],
+		}),
 		"splat_0.ply": new Uint8Array([1, 2, 3]),
 	});
 
