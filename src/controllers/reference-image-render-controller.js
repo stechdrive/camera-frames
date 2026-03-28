@@ -14,6 +14,22 @@ function revokeObjectUrl(url) {
 	}
 }
 
+export function getReferenceImagePreviewRenderBoxMetrics({
+	renderBoxRect,
+	viewportShellRect,
+	clientWidth,
+	clientHeight,
+	clientLeft = 0,
+	clientTop = 0,
+}) {
+	return {
+		width: Math.max(clientWidth, 0),
+		height: Math.max(clientHeight, 0),
+		left: renderBoxRect.left - viewportShellRect.left + Math.max(clientLeft, 0),
+		top: renderBoxRect.top - viewportShellRect.top + Math.max(clientTop, 0),
+	};
+}
+
 export function createReferenceImageRenderController({
 	store,
 	renderBox,
@@ -77,12 +93,18 @@ export function createReferenceImageRenderController({
 		}
 
 		const outputSize = getOutputSizeState?.();
-		const renderBoxWidth = Math.max(renderBoxElement.clientWidth, 0);
-		const renderBoxHeight = Math.max(renderBoxElement.clientHeight, 0);
-		const renderBoxRect = renderBoxElement.getBoundingClientRect();
-		const viewportShellRect = viewportShellElement.getBoundingClientRect();
-		const renderBoxLeft = renderBoxRect.left - viewportShellRect.left;
-		const renderBoxTop = renderBoxRect.top - viewportShellRect.top;
+		const previewMetrics = getReferenceImagePreviewRenderBoxMetrics({
+			renderBoxRect: renderBoxElement.getBoundingClientRect(),
+			viewportShellRect: viewportShellElement.getBoundingClientRect(),
+			clientWidth: renderBoxElement.clientWidth,
+			clientHeight: renderBoxElement.clientHeight,
+			clientLeft: renderBoxElement.clientLeft,
+			clientTop: renderBoxElement.clientTop,
+		});
+		const renderBoxWidth = previewMetrics.width;
+		const renderBoxHeight = previewMetrics.height;
+		const renderBoxLeft = previewMetrics.left;
+		const renderBoxTop = previewMetrics.top;
 		if (
 			!isFinitePositive(outputSize?.width) ||
 			!isFinitePositive(outputSize?.height) ||

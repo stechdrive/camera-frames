@@ -59,7 +59,9 @@ export function getFrameOutlineSpec(
 	logicalSpaceHeight = drawSpaceHeight,
 	offsetX = 0,
 	offsetY = 0,
+	options = {},
 ) {
+	const { pixelSnapAxisAligned = true } = options;
 	const { width, height } = getFrameOutlineSize(
 		frame,
 		drawSpaceWidth,
@@ -73,14 +75,15 @@ export function getFrameOutlineSpec(
 	const nearestQuarterTurn = Math.round(rotationRadians / QUARTER_TURN_RADIANS);
 	const axisAligned = isAxisAlignedRotation(rotationRadians);
 	const swapAxes = axisAligned && Math.abs(nearestQuarterTurn) % 2 === 1;
-	const snappedRect = axisAligned
-		? snapAxisAlignedFrameRect(
-				centerX,
-				centerY,
-				swapAxes ? height : width,
-				swapAxes ? width : height,
-			)
-		: null;
+	const snappedRect =
+		axisAligned && pixelSnapAxisAligned
+			? snapAxisAlignedFrameRect(
+					centerX,
+					centerY,
+					swapAxes ? height : width,
+					swapAxes ? width : height,
+				)
+			: null;
 
 	return {
 		centerX,
@@ -157,6 +160,7 @@ export function drawFramesToContext(
 		logicalSpaceHeight = drawSpaceHeight,
 		offsetX = 0,
 		offsetY = 0,
+		pixelSnapAxisAligned = true,
 	} = options;
 
 	const framesSorted = [...frames].sort(
@@ -172,6 +176,7 @@ export function drawFramesToContext(
 			logicalSpaceHeight,
 			offsetX,
 			offsetY,
+			{ pixelSnapAxisAligned },
 		);
 
 		context.save();
