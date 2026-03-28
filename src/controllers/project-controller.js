@@ -555,6 +555,7 @@ export function createProjectController({
 			});
 		} catch (error) {
 			if (!(await isLegacyCameraFramesProjectSource(source))) {
+				clearOverlay();
 				throw error;
 			}
 
