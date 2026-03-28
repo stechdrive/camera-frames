@@ -386,7 +386,13 @@ export function IconButton({
 	`;
 }
 
-export function DisclosureBlock({ icon, label, children, open = false }) {
+export function DisclosureBlock({
+	icon,
+	label,
+	children,
+	open = false,
+	summaryMeta = null,
+}) {
 	return html`
 		<details class="panel-disclosure" open=${open}>
 			<summary class="panel-disclosure__summary">
@@ -401,6 +407,10 @@ export function DisclosureBlock({ icon, label, children, open = false }) {
 					}
 					<span>${label}</span>
 				</span>
+				${
+					summaryMeta &&
+					html`<span class="panel-disclosure__summary-meta">${summaryMeta}</span>`
+				}
 				<span class="panel-disclosure__chevron">
 					<${WorkbenchIcon} name="chevron-right" size=${12} />
 				</span>

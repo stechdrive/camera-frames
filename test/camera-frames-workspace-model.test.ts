@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { DEFAULT_CAMERA_FAR, DEFAULT_CAMERA_NEAR } from "../src/constants.js";
+import { DEFAULT_SHOT_CAMERA_BASE_FOVX } from "../src/engine/camera-lens.js";
 import {
 	WORKSPACE_PANE_CAMERA,
 	WORKSPACE_PANE_VIEWPORT,
@@ -34,7 +35,7 @@ assert.equal(
 const shotCameras = createDefaultShotCameraDocuments();
 assert.equal(shotCameras.length, 1);
 assert.equal(shotCameras[0].id, "shot-camera-1");
-assert.equal(shotCameras[0].lens.baseFovX, 60);
+assert.equal(shotCameras[0].lens.baseFovX, DEFAULT_SHOT_CAMERA_BASE_FOVX);
 assert.equal(shotCameras[0].clipping.mode, "auto");
 assert.equal(shotCameras[0].clipping.near, DEFAULT_CAMERA_NEAR);
 assert.equal(shotCameras[0].clipping.far, DEFAULT_CAMERA_FAR);

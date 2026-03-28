@@ -610,6 +610,7 @@ export function createCameraController({
 		const shotCamera = getActiveShotCamera();
 		runHistoryAction?.("camera.copy-viewport", () => {
 			copyPose(viewportCamera, shotCamera);
+			state.baseFovX = state.viewportBaseFovX;
 			if (state.mode === WORKSPACE_PANE_CAMERA) {
 				syncControlsToMode();
 			} else {

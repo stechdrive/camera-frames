@@ -1,3 +1,4 @@
+import { DEFAULT_SHOT_CAMERA_BASE_FOVX } from "./engine/camera-lens.js";
 import { normalizeLightingState } from "./lighting-model.js";
 import {
 	REFERENCE_IMAGE_ASSET_KIND,
@@ -135,7 +136,9 @@ export function sanitizeShotCameraDocument(
 		id: normalized.id,
 		name: normalized.name,
 		lens: {
-			baseFovX: Number(normalized.lens?.baseFovX ?? 60),
+			baseFovX: Number(
+				normalized.lens?.baseFovX ?? DEFAULT_SHOT_CAMERA_BASE_FOVX,
+			),
 		},
 		clipping: {
 			mode: normalized.clipping?.mode === "manual" ? "manual" : "auto",

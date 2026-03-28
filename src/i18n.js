@@ -232,7 +232,7 @@ const MESSAGES = {
 			tabCamera: "ショットカメラ、FRAME、下絵を編集します。",
 			tabExport: "書き出し設定と出力を管理します。",
 			copyViewportPoseToShot:
-				"Viewport の位置と向きを Camera へコピーします。焦点距離とクリップ範囲は変えません。",
+				"Viewport の位置、向き、焦点距離を Camera へコピーします。クリップ範囲は変えません。",
 			copyShotPoseToViewport:
 				"Camera の位置と視線方向を Viewport へコピーします。ロール、焦点距離、クリップ範囲は変えません。",
 			resetActiveView:
@@ -721,7 +721,7 @@ const MESSAGES = {
 			tabCamera: "Edit the active Camera, FRAME, and reference setup.",
 			tabExport: "Adjust export options and run output.",
 			copyViewportPoseToShot:
-				"Copy the Viewport position and orientation into the Camera. Lens and clip range stay unchanged.",
+				"Copy the Viewport position, orientation, and lens into the Camera. The clip range stays unchanged.",
 			copyShotPoseToViewport:
 				"Copy the Camera position and view direction into the Viewport. Roll, lens, and clip range stay unchanged.",
 			resetActiveView:

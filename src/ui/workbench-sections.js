@@ -1024,6 +1024,12 @@ export function ShotCameraSection({
 				icon="move"
 				label=${t("section.pose")}
 				open=${true}
+				summaryMeta=${html`
+					<span class="pill-row">
+						<span class="pill pill--cool">m</span>
+						<span class="pill pill--cool">°</span>
+					</span>
+				`}
 			>
 				<div class="pose-action-row">
 					<${IconButton}

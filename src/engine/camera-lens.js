@@ -73,3 +73,6 @@ export function getBaseHorizontalFovDegreesForStandardFrameHorizontalEquivalentM
 		DEG_TO_RAD
 	);
 }
+
+export const DEFAULT_SHOT_CAMERA_BASE_FOVX =
+	getBaseHorizontalFovDegreesForStandardFrameHorizontalEquivalentMm(35);

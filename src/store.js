@@ -6,6 +6,7 @@ import {
 	SCENE_UNIT_BADGE,
 } from "./constants.js";
 import {
+	DEFAULT_SHOT_CAMERA_BASE_FOVX,
 	MIN_STANDARD_FRAME_HORIZONTAL_EQUIVALENT_MM,
 	getBaseHorizontalFovDegreesForStandardFrameHorizontalEquivalentMm,
 	getStandardFrameHorizontalEquivalentMm,
@@ -158,7 +159,10 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	const activeFrameId = computed(() => activeFrame.value?.id ?? "");
 	const frameCount = computed(() => frameDocuments.value.length);
 	const mode = computed(() => activeWorkspacePane.value.role);
-	const baseFovX = computed(() => activeShotCamera.value?.lens.baseFovX ?? 60);
+	const baseFovX = computed(
+		() =>
+			activeShotCamera.value?.lens.baseFovX ?? DEFAULT_SHOT_CAMERA_BASE_FOVX,
+	);
 	const widthScale = computed(
 		() => activeShotCamera.value?.outputFrame.widthScale ?? 1,
 	);
