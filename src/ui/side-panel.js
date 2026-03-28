@@ -13,6 +13,7 @@ import {
 	INSPECTOR_TAB_EXPORT,
 	InspectorTabs,
 	OutputFrameSection,
+	ReferenceSection,
 	SceneSection,
 	ShotCameraSection,
 	ViewSection,
@@ -268,6 +269,11 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 									store=${store}
 									t=${t}
 									widthLabel=${widthLabel}
+								/>
+								<${ReferenceSection}
+									controller=${controller}
+									store=${store}
+									t=${t}
 								/>
 								<${FramesSection}
 									activeFrameId=${activeFrameId}

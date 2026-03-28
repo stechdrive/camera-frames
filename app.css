@@ -1617,6 +1617,7 @@ body[data-interaction-mode="lens"] .viewport-gizmo {
 
 .render-box {
 	position: absolute;
+	z-index: 3;
 	border: 2px solid rgba(255, 103, 77, 0.52);
 	border-radius: 0;
 	pointer-events: none;
@@ -1624,6 +1625,34 @@ body[data-interaction-mode="lens"] .viewport-gizmo {
 
 .render-box.is-selected {
 	border-color: rgba(255, 103, 77, 0.92);
+}
+
+.reference-image-layer {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	overflow: visible;
+}
+
+.reference-image-layer--back {
+	z-index: 1;
+}
+
+.reference-image-layer--front {
+	z-index: 2;
+}
+
+.reference-image-layer__item {
+	position: absolute;
+	display: block;
+	max-width: none;
+	user-select: none;
+	pointer-events: none;
+	transform-box: fill-box;
+}
+
+.reference-image-layer__item--pixelated {
+	image-rendering: pixelated;
 }
 
 .render-box__resize-handle {
@@ -1987,6 +2016,10 @@ body[data-interaction-mode="lens"] .viewport-gizmo {
 	min-width: 0;
 }
 
+.scene-asset-row__main--flat {
+	grid-template-columns: minmax(0, 1fr);
+}
+
 .scene-asset-row__handle {
 	color: var(--text-dim);
 	font: 600 0.92rem / 1 "Consolas", "Andale Mono", monospace;
@@ -2034,6 +2067,28 @@ body[data-interaction-mode="lens"] .viewport-gizmo {
 	border: 1px solid var(--line);
 	border-radius: 14px;
 	background: rgba(2, 8, 16, 0.34);
+}
+
+.reference-panel-stack {
+	display: flex;
+	flex-direction: column;
+	gap: 0.95rem;
+}
+
+.reference-panel-group {
+	display: flex;
+	flex-direction: column;
+	gap: 0.55rem;
+}
+
+.reference-selected-panel {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+	padding: 1rem;
+	border: 1px solid var(--line);
+	border-radius: 14px;
+	background: rgba(255, 255, 255, 0.03);
 }
 
 .asset-card__header {
@@ -2118,6 +2173,7 @@ body[data-interaction-mode="lens"] .viewport-gizmo {
 .frame-layer {
 	position: absolute;
 	inset: 0;
+	z-index: 2;
 	pointer-events: none;
 }
 

@@ -21,6 +21,13 @@ const OUTPUT_FRAME_PAN_EDGES = ["top", "right", "bottom", "left"];
 
 export function ViewportShell({ store, controller, refs, t }) {
 	const outputFrameLabel = t("section.outputFrame");
+	const referenceImageLayers = store.referenceImages.previewLayers.value;
+	const backReferenceImageLayers = referenceImageLayers.filter(
+		(layer) => layer.group === "back",
+	);
+	const frontReferenceImageLayers = referenceImageLayers.filter(
+		(layer) => layer.group !== "back",
+	);
 	const pieState = store.viewportPieMenu.value;
 	const lensHud = store.viewportLensHud.value;
 	const pieActions = pieState.open
@@ -78,6 +85,25 @@ export function ViewportShell({ store, controller, refs, t }) {
 			<div id="drop-hint" ref=${refs.dropHintRef} class="drop-hint">
 				<strong>${t("drop.title")}</strong>
 				<span>${t("drop.body")}</span>
+			</div>
+			<div class="reference-image-layer reference-image-layer--back">
+				${backReferenceImageLayers.map(
+					(layer) => html`
+						<img
+							key=${layer.id}
+							class=${
+								layer.pixelPerfect
+									? "reference-image-layer__item reference-image-layer__item--pixelated"
+									: "reference-image-layer__item"
+							}
+							src=${layer.sourceUrl}
+							alt=${layer.name}
+							title=${layer.fileName || layer.name}
+							draggable="false"
+							style=${layer.style}
+						/>
+					`,
+				)}
 			</div>
 			${
 				pieState.open &&
@@ -182,6 +208,25 @@ export function ViewportShell({ store, controller, refs, t }) {
 					ref=${refs.anchorDotRef}
 					class="render-box__anchor"
 				></div>
+			</div>
+			<div class="reference-image-layer reference-image-layer--front">
+				${frontReferenceImageLayers.map(
+					(layer) => html`
+						<img
+							key=${layer.id}
+							class=${
+								layer.pixelPerfect
+									? "reference-image-layer__item reference-image-layer__item--pixelated"
+									: "reference-image-layer__item"
+							}
+							src=${layer.sourceUrl}
+							alt=${layer.name}
+							title=${layer.fileName || layer.name}
+							draggable="false"
+							style=${layer.style}
+						/>
+					`,
+				)}
 			</div>
 			<div
 				id="viewport-gizmo"

@@ -4,6 +4,8 @@ export function bindInputRouter({
 	dropHint,
 	anchorDot,
 	assetController,
+	importReferenceImageFiles,
+	supportsReferenceImageFile,
 	updateDropHint,
 	updateUi,
 	updateOutputFrameOverlay,
@@ -264,8 +266,22 @@ export function bindInputRouter({
 			return;
 		}
 
+		const referenceImageFiles =
+			typeof supportsReferenceImageFile === "function"
+				? files.filter((file) => supportsReferenceImageFile(file))
+				: [];
+		const assetFiles =
+			referenceImageFiles.length > 0
+				? files.filter((file) => !referenceImageFiles.includes(file))
+				: files;
+
 		try {
-			await assetController.importDroppedFiles(files);
+			if (referenceImageFiles.length > 0) {
+				await importReferenceImageFiles?.(referenceImageFiles);
+			}
+			if (assetFiles.length > 0) {
+				await assetController.importDroppedFiles(assetFiles);
+			}
 		} catch (error) {
 			console.error(error);
 			setStatus(error.message);

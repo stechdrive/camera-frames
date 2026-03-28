@@ -25,6 +25,8 @@ import { createInteractionController } from "./controllers/interaction-controlle
 import { createOutputFrameController } from "./controllers/output-frame-controller.js";
 import { createProjectController } from "./controllers/project-controller.js";
 import { createProjectionController } from "./controllers/projection-controller.js";
+import { createReferenceImageController } from "./controllers/reference-image-controller.js";
+import { createReferenceImageRenderController } from "./controllers/reference-image-render-controller.js";
 import { createRuntimeController } from "./controllers/runtime-controller.js";
 import { createSceneFramingController } from "./controllers/scene-framing-controller.js";
 import { createUiSyncController } from "./controllers/ui-sync-controller.js";
@@ -70,6 +72,7 @@ export function createCameraFramesController(elements, store) {
 		dropHint,
 		assetInput,
 		projectInput,
+		referenceImageInput,
 	} = elements;
 
 	const outputFrameState = {
@@ -327,6 +330,8 @@ export function createCameraFramesController(elements, store) {
 	let outputFrameController = null;
 	let projectController = null;
 	let projectionController = null;
+	let referenceImageController = null;
+	let referenceImageRenderController = null;
 	let runtimeController = null;
 	let sceneFramingController = null;
 	let uiSyncController = null;
@@ -533,7 +538,9 @@ export function createCameraFramesController(elements, store) {
 			shotCameras: captureProjectShotCameras(),
 			scene: {
 				assets: assetController?.captureProjectSceneState?.() ?? [],
-				referenceImages: [],
+				referenceImages:
+					referenceImageController?.captureProjectReferenceImagesState?.() ??
+					null,
 			},
 		};
 	}
@@ -575,6 +582,9 @@ export function createCameraFramesController(elements, store) {
 			restoreCameraPose(entry.camera, shotCamera.pose);
 			syncShotCameraEntryFromDocument(entry);
 		}
+		referenceImageController?.applyProjectReferenceImagesState?.(
+			project?.scene?.referenceImages,
+		);
 
 		store.frames.selectionActive.value = false;
 		state.outputFrameSelected = false;
@@ -774,6 +784,24 @@ export function createCameraFramesController(elements, store) {
 		commitHistoryTransaction: historyController.commitHistoryTransaction,
 		cancelHistoryTransaction: historyController.cancelHistoryTransaction,
 	});
+	referenceImageController = createReferenceImageController({
+		store,
+		referenceImageInput,
+		t,
+		setStatus,
+		updateUi,
+		ensureCameraMode: () => cameraController.setMode(WORKSPACE_PANE_CAMERA),
+		getActiveShotCameraDocument,
+		updateActiveShotCameraDocument,
+		getOutputSizeState,
+	});
+	referenceImageRenderController = createReferenceImageRenderController({
+		store,
+		renderBox,
+		viewportShell,
+		getActiveShotCameraDocument,
+		getOutputSizeState,
+	});
 	interactionController = createInteractionController({
 		store,
 		state,
@@ -871,6 +899,10 @@ export function createCameraFramesController(elements, store) {
 		dropHint,
 		anchorDot,
 		assetController,
+		importReferenceImageFiles:
+			referenceImageController.importReferenceImageFiles,
+		supportsReferenceImageFile:
+			referenceImageController.supportsReferenceImageFile,
 		updateDropHint,
 		updateUi,
 		updateOutputFrameOverlay,
@@ -1073,7 +1105,9 @@ export function createCameraFramesController(elements, store) {
 	}
 
 	function updateOutputFrameOverlay() {
-		return outputFrameController.updateOutputFrameOverlay();
+		const result = outputFrameController.updateOutputFrameOverlay();
+		safeSyncReferenceImagePreview();
+		return result;
 	}
 
 	function updateDropHint() {
@@ -1175,6 +1209,45 @@ export function createCameraFramesController(elements, store) {
 		store.statusLine.value = message;
 	}
 
+	let lastReferenceImageUiError = "";
+	let lastReferenceImagePreviewError = "";
+
+	function safeSyncReferenceImageUi() {
+		try {
+			referenceImageController?.syncUiState?.();
+			lastReferenceImageUiError = "";
+		} catch (error) {
+			const nextMessage =
+				error instanceof Error
+					? error.message
+					: String(error ?? "Unknown error");
+			if (nextMessage !== lastReferenceImageUiError) {
+				lastReferenceImageUiError = nextMessage;
+				console.error("[CAMERA_FRAMES] reference-image ui sync failed", error);
+			}
+		}
+	}
+
+	function safeSyncReferenceImagePreview() {
+		try {
+			referenceImageRenderController?.syncPreviewLayers?.();
+			lastReferenceImagePreviewError = "";
+		} catch (error) {
+			const nextMessage =
+				error instanceof Error
+					? error.message
+					: String(error ?? "Unknown error");
+			if (nextMessage !== lastReferenceImagePreviewError) {
+				lastReferenceImagePreviewError = nextMessage;
+				console.error(
+					"[CAMERA_FRAMES] reference-image preview sync failed",
+					error,
+				);
+			}
+			referenceImageRenderController?.clearPreviewLayers?.();
+		}
+	}
+
 	function updateSceneSummary() {
 		return uiSyncController?.updateSceneSummary();
 	}
@@ -1205,6 +1278,8 @@ export function createCameraFramesController(elements, store) {
 	}
 
 	function updateUi() {
+		safeSyncReferenceImageUi();
+		safeSyncReferenceImagePreview();
 		return uiSyncController?.updateUi();
 	}
 
@@ -1304,6 +1379,7 @@ export function createCameraFramesController(elements, store) {
 
 	function clearScene() {
 		viewportToolController.setViewportTransformMode(false);
+		referenceImageController?.clearReferenceImages?.();
 		assetController.clearScene();
 	}
 
@@ -1393,6 +1469,11 @@ export function createCameraFramesController(elements, store) {
 		setAssetExportRole: assetController.setAssetExportRole,
 		setAssetMaskGroup: assetController.setAssetMaskGroup,
 		openFiles: assetController.openFiles,
+		openReferenceImageFiles: referenceImageController.openReferenceImageFiles,
+		importReferenceImageFiles:
+			referenceImageController.importReferenceImageFiles,
+		supportsReferenceImageFile:
+			referenceImageController.supportsReferenceImageFile,
 		openProject,
 		openWorkingProject,
 		saveProject,
@@ -1400,7 +1481,27 @@ export function createCameraFramesController(elements, store) {
 		clearScene,
 		loadRemoteUrls: assetController.loadRemoteUrls,
 		handleAssetInputChange: assetController.handleAssetInputChange,
+		handleReferenceImageInputChange:
+			referenceImageController.handleReferenceImageInputChange,
 		handleProjectInputChange,
+		setReferenceImagePreviewSessionVisible:
+			referenceImageController.setPreviewSessionVisible,
+		selectReferenceImageAsset:
+			referenceImageController.selectReferenceImageAsset,
+		selectReferenceImageItem: referenceImageController.selectReferenceImageItem,
+		setReferenceImagePreviewVisible:
+			referenceImageController.setReferenceImagePreviewVisible,
+		setReferenceImageExportEnabled:
+			referenceImageController.setReferenceImageExportEnabled,
+		setReferenceImageOpacity: referenceImageController.setReferenceImageOpacity,
+		setReferenceImageScalePct:
+			referenceImageController.setReferenceImageScalePct,
+		setReferenceImageRotationDeg:
+			referenceImageController.setReferenceImageRotationDeg,
+		setReferenceImageOffsetPx:
+			referenceImageController.setReferenceImageOffsetPx,
+		setReferenceImageGroup: referenceImageController.setReferenceImageGroup,
+		setReferenceImageOrder: referenceImageController.setReferenceImageOrder,
 		copyViewportToShotCamera: cameraController.copyViewportToShotCamera,
 		copyShotCameraToViewport: cameraController.copyShotCameraToViewport,
 		resetActiveView: cameraController.resetActiveView,

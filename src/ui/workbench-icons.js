@@ -39,6 +39,12 @@ function renderIconPath(name) {
 				<rect x="4" y="5" width="16" height="14" rx="2"></rect>
 				<path d="M8 5v14M16 5v14M4 9h16M4 15h16"></path>
 			`;
+		case "image":
+			return html`
+				<rect x="4" y="5" width="16" height="14" rx="2"></rect>
+				<circle cx="9" cy="10" r="1.5"></circle>
+				<path d="M6.5 17l4.5-4.5 2.8 2.8 2.2-2.2 1.5 1.5"></path>
+			`;
 		case "render-box":
 			return html`
 				<path d="M5 9V5h4"></path>

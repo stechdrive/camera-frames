@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { createProjectController } from "../src/controllers/project-controller.js";
 import { buildCameraFramesProjectArchive } from "../src/project-file.js";
+import { createDefaultReferenceImageDocument } from "../src/reference-image-model.js";
 
 function t(key, values = {}) {
 	switch (key) {
@@ -65,7 +66,7 @@ function createHarness(overrides = {}) {
 			shotCameras: [],
 			scene: {
 				assets: [],
-				referenceImages: [],
+				referenceImages: createDefaultReferenceImageDocument(),
 			},
 		}),
 		clearHistory: () => {},
@@ -113,7 +114,7 @@ function createHarness(overrides = {}) {
 		shotCameras: [],
 		scene: {
 			assets: [],
-			referenceImages: [],
+			referenceImages: createDefaultReferenceImageDocument(),
 		},
 	};
 	const archive = await buildCameraFramesProjectArchive(projectSnapshot);

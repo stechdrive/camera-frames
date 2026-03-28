@@ -10,6 +10,7 @@ import {
 	getStandardFrameHorizontalFovDegrees,
 } from "./engine/camera-lens.js";
 import { resolveInitialLocale, translate } from "./i18n.js";
+import { createDefaultReferenceImageDocument } from "./reference-image-model.js";
 import {
 	WORKSPACE_LAYOUT_SINGLE,
 	createDefaultShotCameraDocuments,
@@ -74,6 +75,17 @@ export function createCameraFramesStore(runtimeInfo = null) {
 		translate(initialLocale, "scene.scaleDefault"),
 	);
 	const sceneAssets = signal([]);
+	const referenceImageDocument = signal(createDefaultReferenceImageDocument());
+	const referenceImagePreviewSessionVisible = signal(true);
+	const referenceImageExportDialogVisible = signal(true);
+	const referenceImagePanelPresetId = signal("");
+	const referenceImagePanelPresetName = signal("");
+	const referenceImageItems = signal([]);
+	const referenceImageAssets = signal([]);
+	const referenceImageAssetCount = signal(0);
+	const referenceImagePreviewLayers = signal([]);
+	const referenceImageSelectedAssetId = signal("");
+	const referenceImageSelectedItemId = signal("");
 	const selectedSceneAssetIds = signal([]);
 	const selectedSceneAssetId = signal(null);
 	const selectedSceneAsset = computed(
@@ -269,6 +281,19 @@ export function createCameraFramesStore(runtimeInfo = null) {
 		sceneSummary,
 		sceneScaleSummary,
 		sceneAssets,
+		referenceImages: {
+			document: referenceImageDocument,
+			previewSessionVisible: referenceImagePreviewSessionVisible,
+			exportDialogVisible: referenceImageExportDialogVisible,
+			panelPresetId: referenceImagePanelPresetId,
+			panelPresetName: referenceImagePanelPresetName,
+			items: referenceImageItems,
+			assets: referenceImageAssets,
+			assetCount: referenceImageAssetCount,
+			previewLayers: referenceImagePreviewLayers,
+			selectedAssetId: referenceImageSelectedAssetId,
+			selectedItemId: referenceImageSelectedItemId,
+		},
 		selectedSceneAssetIds,
 		selectedSceneAssetId,
 		selectedSceneAsset,

@@ -443,6 +443,9 @@ export function createProjectController({
 		applySavedProjectState({
 			workspace: record.snapshot.workspace,
 			shotCameras: record.snapshot.shotCameras,
+			scene: {
+				referenceImages: record.snapshot.scene?.referenceImages ?? null,
+			},
 		});
 		await assetController.applyWorkingProjectSceneState(record.snapshot.scene);
 		updateUi?.();

@@ -8,6 +8,7 @@ import {
 	readCameraFramesWorkingProject,
 	saveCameraFramesWorkingProject,
 } from "../src/project-storage-working.js";
+import { createDefaultReferenceImageDocument } from "../src/reference-image-model.js";
 
 function createNotFoundError(message = "Not found") {
 	const error = new Error(message);
@@ -179,7 +180,7 @@ const baseProjectSnapshot = {
 				workingPivotLocal: { x: 0.1, y: 0.2, z: 0.3 },
 			},
 		],
-		referenceImages: [],
+		referenceImages: createDefaultReferenceImageDocument(),
 	},
 };
 

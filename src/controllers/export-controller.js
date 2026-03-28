@@ -16,6 +16,13 @@ import {
 } from "../engine/export-readiness.js";
 import { downloadPsdDocument } from "../engine/psd-export.js";
 import { createSparkExportRendererManager } from "../engine/spark-export-renderer.js";
+import {
+	REFERENCE_IMAGE_GROUP_BACK,
+	REFERENCE_IMAGE_GROUP_FRONT,
+	applyRenderBoxOffsetCorrection,
+	getReferenceImageRenderBoxAnchor,
+	resolveReferenceImageItemsForShot,
+} from "../reference-image-model.js";
 
 export function createExportController({
 	scene,
@@ -158,6 +165,209 @@ export function createExportController({
 		context.fillStyle = color;
 		context.fillRect(0, 0, width, height);
 		return canvas;
+	}
+
+	async function loadReferenceImageDrawable(blob) {
+		try {
+			const imageBitmap = await createImageBitmap(blob);
+			return {
+				drawable: imageBitmap,
+				cleanup: () => {
+					try {
+						imageBitmap.close?.();
+					} catch {
+						// ignore
+					}
+				},
+			};
+		} catch {
+			const objectUrl = URL.createObjectURL(blob);
+			const image = await new Promise((resolve, reject) => {
+				const element = new Image();
+				element.onload = () => resolve(element);
+				element.onerror = (error) => reject(error);
+				element.src = objectUrl;
+			});
+			return {
+				drawable: image,
+				cleanup: () => {
+					URL.revokeObjectURL(objectUrl);
+				},
+			};
+		}
+	}
+
+	function rotateReferencePoint(point, angleRad) {
+		const cos = Math.cos(angleRad);
+		const sin = Math.sin(angleRad);
+		return {
+			x: point.x * cos - point.y * sin,
+			y: point.x * sin + point.y * cos,
+		};
+	}
+
+	function buildReferenceImageExportCanvas({
+		drawable,
+		width,
+		height,
+		anchor,
+		anchorPoint,
+		rotationDeg,
+		pixelPerfect,
+		opacity,
+		applyOpacity = true,
+	}) {
+		const angleRad = (rotationDeg * Math.PI) / 180;
+		const localCorners = [
+			{ x: -anchor.ax * width, y: -anchor.ay * height },
+			{ x: (1 - anchor.ax) * width, y: -anchor.ay * height },
+			{ x: (1 - anchor.ax) * width, y: (1 - anchor.ay) * height },
+			{ x: -anchor.ax * width, y: (1 - anchor.ay) * height },
+		];
+		const worldCorners = localCorners.map((corner) => {
+			const rotated = rotateReferencePoint(corner, angleRad);
+			return {
+				x: rotated.x + anchorPoint.x,
+				y: rotated.y + anchorPoint.y,
+			};
+		});
+		const minX = Math.min(...worldCorners.map((corner) => corner.x));
+		const maxX = Math.max(...worldCorners.map((corner) => corner.x));
+		const minY = Math.min(...worldCorners.map((corner) => corner.y));
+		const maxY = Math.max(...worldCorners.map((corner) => corner.y));
+		const left = Math.floor(minX);
+		const top = Math.floor(minY);
+		const right = Math.ceil(maxX);
+		const bottom = Math.ceil(maxY);
+		const canvas = document.createElement("canvas");
+		canvas.width = Math.max(1, right - left);
+		canvas.height = Math.max(1, bottom - top);
+		const context = canvas.getContext("2d");
+		if (!context) {
+			throw new Error(t("error.previewContext"));
+		}
+		context.imageSmoothingEnabled = !pixelPerfect;
+		context.translate(-left, -top);
+		context.translate(anchorPoint.x, anchorPoint.y);
+		context.rotate(angleRad);
+		if (applyOpacity) {
+			context.globalAlpha = opacity;
+		}
+		context.drawImage(
+			drawable,
+			-anchor.ax * width,
+			-anchor.ay * height,
+			width,
+			height,
+		);
+		return {
+			canvas,
+			opacity: applyOpacity ? 1 : opacity,
+			bounds: {
+				left,
+				top,
+				right,
+				bottom,
+			},
+		};
+	}
+
+	async function renderReferenceImageLayersForShotCamera(
+		documentState,
+		width,
+		height,
+		{ applyOpacity = true } = {},
+	) {
+		if (store.referenceImages.exportDialogVisible.value === false) {
+			return [];
+		}
+
+		const resolved = resolveReferenceImageItemsForShot(
+			store.referenceImages.document.value,
+			documentState?.referenceImages ?? null,
+		);
+		if (!resolved.preset) {
+			return [];
+		}
+
+		const renderBoxAnchor = getReferenceImageRenderBoxAnchor(
+			documentState?.outputFrame?.anchor ?? "center",
+		);
+		const renderAnchorPx = {
+			x: width * renderBoxAnchor.ax,
+			y: height * renderBoxAnchor.ay,
+		};
+		const assetDrawableCache = new Map();
+		const layers = [];
+		const candidates = resolved.items
+			.filter((item) => item.exportEnabled !== false)
+			.sort((left, right) => {
+				if (left.group !== right.group) {
+					return left.group === REFERENCE_IMAGE_GROUP_BACK ? -1 : 1;
+				}
+				return left.order - right.order || left.id.localeCompare(right.id);
+			});
+
+		try {
+			for (const item of candidates) {
+				const asset = resolved.assetsById.get(item.assetId) ?? null;
+				const sourceFile = asset?.source?.file ?? null;
+				if (!(sourceFile instanceof Blob) || !asset?.sourceMeta) {
+					continue;
+				}
+
+				let cacheEntry = assetDrawableCache.get(asset.id) ?? null;
+				if (!cacheEntry) {
+					cacheEntry = await loadReferenceImageDrawable(sourceFile);
+					assetDrawableCache.set(asset.id, cacheEntry);
+				}
+
+				const effectiveOffset = applyRenderBoxOffsetCorrection(
+					item.offsetPx,
+					item.anchor,
+					resolved.preset.baseRenderBox,
+					{ w: width, h: height },
+					renderBoxAnchor,
+					resolved.override?.renderBoxCorrection ?? null,
+				);
+				const logicalWidth =
+					asset.sourceMeta.appliedSize.w * (item.scalePct / 100);
+				const logicalHeight =
+					asset.sourceMeta.appliedSize.h * (item.scalePct / 100);
+				const anchorPoint = {
+					x: renderAnchorPx.x - effectiveOffset.x,
+					y: renderAnchorPx.y - effectiveOffset.y,
+				};
+				const renderedLayer = buildReferenceImageExportCanvas({
+					drawable: cacheEntry.drawable,
+					width: logicalWidth,
+					height: logicalHeight,
+					anchor: item.anchor,
+					anchorPoint,
+					rotationDeg: item.rotationDeg,
+					pixelPerfect: Math.abs(item.scalePct - 100) < 1e-6,
+					opacity: item.opacity,
+					applyOpacity,
+				});
+
+				layers.push({
+					id: item.id,
+					assetId: asset.id,
+					name: item.name,
+					group: item.group,
+					order: item.order,
+					opacity: renderedLayer.opacity,
+					canvas: renderedLayer.canvas,
+					bounds: renderedLayer.bounds,
+				});
+			}
+		} finally {
+			for (const cacheEntry of assetDrawableCache.values()) {
+				cacheEntry.cleanup?.();
+			}
+		}
+
+		return layers;
 	}
 
 	function createAlphaPreviewPixels(pixels) {
@@ -1239,6 +1449,15 @@ export function createExportController({
 							exportSettings: targetExportSettings,
 						})
 					: { layers: [], debugGroups: [] };
+			const referenceImageLayers =
+				await renderReferenceImageLayersForShotCamera(
+					targetDocument,
+					width,
+					height,
+					{
+						applyOpacity: targetExportSettings.exportFormat !== "psd",
+					},
+				);
 			return {
 				width,
 				height,
@@ -1250,6 +1469,7 @@ export function createExportController({
 				backgroundCanvas,
 				gridGuidePixels,
 				eyeLevelPixels,
+				referenceImageLayers,
 				psdBasePixels,
 				modelLayers: modelLayers.layers,
 				modelDebugGroups: modelLayers.debugGroups,
@@ -1329,6 +1549,7 @@ export function createExportController({
 			maskPasses: renderedMaskPasses = [],
 			gridGuidePixels = null,
 			eyeLevelPixels = null,
+			referenceImageLayers = [],
 			psdBasePixels = null,
 			backgroundCanvas = null,
 			modelLayers = [],
@@ -1409,6 +1630,68 @@ export function createExportController({
 						],
 					})
 				: null;
+		const referenceBackPass =
+			referenceImageLayers.filter(
+				(layer) => layer.group === REFERENCE_IMAGE_GROUP_BACK,
+			).length > 0
+				? createExportPass({
+						id: "reference-images-back",
+						name: "Reference Images Back",
+						category: "reference-image",
+						metadata: {
+							role: "reference-images-back",
+						},
+						layers: referenceImageLayers
+							.filter((layer) => layer.group === REFERENCE_IMAGE_GROUP_BACK)
+							.map((layer) =>
+								createRasterLayer({
+									name: layer.name,
+									canvas: layer.canvas,
+									left: layer.bounds?.left ?? 0,
+									top: layer.bounds?.top ?? 0,
+									opacity: layer.opacity,
+									category: "reference-image",
+									metadata: {
+										group: layer.group,
+										order: layer.order,
+										itemId: layer.id,
+										assetId: layer.assetId,
+									},
+								}),
+							),
+					})
+				: null;
+		const referenceFrontPass =
+			referenceImageLayers.filter(
+				(layer) => layer.group === REFERENCE_IMAGE_GROUP_FRONT,
+			).length > 0
+				? createExportPass({
+						id: "reference-images-front",
+						name: "Reference Images Front",
+						category: "reference-image",
+						metadata: {
+							role: "reference-images-front",
+						},
+						layers: referenceImageLayers
+							.filter((layer) => layer.group === REFERENCE_IMAGE_GROUP_FRONT)
+							.map((layer) =>
+								createRasterLayer({
+									name: layer.name,
+									canvas: layer.canvas,
+									left: layer.bounds?.left ?? 0,
+									top: layer.bounds?.top ?? 0,
+									opacity: layer.opacity,
+									category: "reference-image",
+									metadata: {
+										group: layer.group,
+										order: layer.order,
+										itemId: layer.id,
+										assetId: layer.assetId,
+									},
+								}),
+							),
+					})
+				: null;
 		const orderedPasses = [];
 		if (backgroundCanvas) {
 			orderedPasses.push(
@@ -1430,15 +1713,24 @@ export function createExportController({
 			);
 		}
 		if ((exportSettings?.exportGridLayerMode ?? "bottom") === "bottom") {
+			if (referenceBackPass) {
+				orderedPasses.push(referenceBackPass);
+			}
 			if (gridPass) {
 				orderedPasses.push(gridPass);
 			}
 			orderedPasses.push(beautyPass);
 		} else {
+			if (referenceBackPass) {
+				orderedPasses.push(referenceBackPass);
+			}
 			orderedPasses.push(beautyPass);
 			if (gridPass) {
 				orderedPasses.push(gridPass);
 			}
+		}
+		if (referenceFrontPass) {
+			orderedPasses.push(referenceFrontPass);
 		}
 		if (eyeLevelPass) {
 			orderedPasses.push(eyeLevelPass);
@@ -1499,6 +1791,7 @@ export function createExportController({
 			backgroundCanvas,
 			gridGuidePixels,
 			eyeLevelPixels,
+			referenceImageLayers,
 			modelLayers,
 			modelDebugGroups,
 			splatLayers,
@@ -1527,6 +1820,9 @@ export function createExportController({
 			passes.find((pass) => pass.id === "guide-eye-level") ?? null;
 		const frameOverlayPass =
 			passes.find((pass) => pass.id === "frame-overlay") ?? null;
+		const referenceImageLayers = Array.isArray(bundle.referenceImageLayers)
+			? [...bundle.referenceImageLayers]
+			: [];
 
 		const modelLayers = snapshotExportSettings.exportModelLayers
 			? [...(bundle.modelLayers ?? [])].reverse()
@@ -1572,6 +1868,58 @@ export function createExportController({
 					canvas: renderExportPassToCanvas(bundle, eyeLevelPass),
 				}
 			: null;
+		const referenceImageGroupDocument =
+			referenceImageLayers.length > 0
+				? {
+						name: t("section.referenceImages"),
+						opened: true,
+						children: [
+							...(referenceImageLayers.some(
+								(layer) => layer.group === REFERENCE_IMAGE_GROUP_BACK,
+							)
+								? [
+										{
+											name: t("referenceImage.group.back"),
+											opened: true,
+											children: referenceImageLayers
+												.filter(
+													(layer) => layer.group === REFERENCE_IMAGE_GROUP_BACK,
+												)
+												.map((layer) => ({
+													name: layer.name,
+													canvas: layer.canvas,
+													left: layer.bounds?.left ?? 0,
+													top: layer.bounds?.top ?? 0,
+													opacity: layer.opacity,
+												})),
+										},
+									]
+								: []),
+							...(referenceImageLayers.some(
+								(layer) => layer.group === REFERENCE_IMAGE_GROUP_FRONT,
+							)
+								? [
+										{
+											name: t("referenceImage.group.front"),
+											opened: true,
+											children: referenceImageLayers
+												.filter(
+													(layer) =>
+														layer.group === REFERENCE_IMAGE_GROUP_FRONT,
+												)
+												.map((layer) => ({
+													name: layer.name,
+													canvas: layer.canvas,
+													left: layer.bounds?.left ?? 0,
+													top: layer.bounds?.top ?? 0,
+													opacity: layer.opacity,
+												})),
+										},
+									]
+								: []),
+						],
+					}
+				: null;
 		const frameOverlayLayerDocument = frameOverlayPass
 			? {
 					name: frameOverlayPass.name,
@@ -1598,6 +1946,9 @@ export function createExportController({
 		}
 		if (eyeLevelLayerDocument) {
 			orderedLayers.push(eyeLevelLayerDocument);
+		}
+		if (referenceImageGroupDocument) {
+			orderedLayers.push(referenceImageGroupDocument);
 		}
 		if (frameOverlayLayerDocument) {
 			orderedLayers.push(frameOverlayLayerDocument);

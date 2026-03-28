@@ -390,8 +390,6 @@ export function SceneSection({
 					<span id="scene-badge" class="pill pill--dim">${sceneBadge}</span>
 				</div>
 			<//>
-			<div class="button-row">
-			</div>
 			<p id="scene-summary" class="summary">${sceneSummary}</p>
 			<p id="scene-scale-summary" class="summary">${sceneScaleSummary}</p>
 			${
@@ -499,12 +497,13 @@ export function SceneSection({
 													</div>
 													<div class="scene-asset-row__toolbar">
 														<${IconButton}
-															icon=${asset.visible ? "eye-off" : "eye"}
-															label=${
+															icon=${asset.visible ? "eye" : "eye-off"}
+															label=${t(
 																asset.visible
-																	? t("action.hideAsset")
-																	: t("action.showAsset")
-															}
+																	? "assetVisibility.visible"
+																	: "assetVisibility.hidden",
+															)}
+															active=${asset.visible}
 															compact=${true}
 															className="scene-asset-row__icon-button"
 															onClick=${(event) => {
@@ -536,12 +535,13 @@ export function SceneSection({
 						<//>
 						<div class="button-row">
 							<${IconButton}
-								icon=${selectedSceneAsset.visible ? "eye-off" : "eye"}
-								label=${
+								icon=${selectedSceneAsset.visible ? "eye" : "eye-off"}
+								label=${t(
 									selectedSceneAsset.visible
-										? t("action.hideAsset")
-										: t("action.showAsset")
-								}
+										? "assetVisibility.visible"
+										: "assetVisibility.hidden",
+								)}
+								active=${selectedSceneAsset.visible}
 								compact=${true}
 								onClick=${() =>
 									controller()?.setAssetVisibility(
@@ -950,6 +950,384 @@ export function FramesSection({
 						</div>
 					`
 			}
+		</section>
+	`;
+}
+
+export function ReferenceSection({ controller, store, t }) {
+	const assets = store.referenceImages.assets.value;
+	const items = store.referenceImages.items.value;
+	const assetCount = store.referenceImages.assetCount.value;
+	const previewSessionVisible =
+		store.referenceImages.previewSessionVisible.value;
+	const selectedAssetId = store.referenceImages.selectedAssetId.value;
+	const selectedItemId = store.referenceImages.selectedItemId.value;
+	const presetName =
+		store.referenceImages.panelPresetName.value ||
+		t("referenceImage.blankPreset");
+	const selectedItem = items.find((item) => item.id === selectedItemId) ?? null;
+	const selectedAsset =
+		assets.find(
+			(asset) => asset.id === (selectedItem?.assetId ?? selectedAssetId),
+		) ?? null;
+
+	function getReferenceRowClass({ selected = false, active = false }) {
+		const classes = ["scene-asset-row"];
+		if (selected) {
+			classes.push("scene-asset-row--selected");
+		}
+		if (active) {
+			classes.push("scene-asset-row--active");
+		}
+		return classes.join(" ");
+	}
+
+	return html`
+		<section class="panel-section">
+			<${SectionHeading} icon="image" title=${t("section.referenceImages")}>
+				<span class="pill pill--dim">${assetCount}</span>
+			<//>
+			<div class="button-row">
+				<button
+					type="button"
+					class="button button--compact"
+					onClick=${() => controller()?.openReferenceImageFiles?.()}
+				>
+					${t("action.openReferenceImages")}
+				</button>
+				<button
+					type="button"
+					class=${
+						previewSessionVisible
+							? "button button--primary button--compact"
+							: "button button--compact"
+					}
+					onClick=${() =>
+						controller()?.setReferenceImagePreviewSessionVisible?.(
+							!previewSessionVisible,
+						)}
+				>
+					${
+						previewSessionVisible
+							? t("action.hideReferenceImages")
+							: t("action.showReferenceImages")
+					}
+				</button>
+			</div>
+			<p class="summary">
+				${t("referenceImage.activePreset")} · ${presetName}
+			</p>
+			<div class="reference-panel-stack">
+				<section class="reference-panel-group">
+					<${SectionHeading}
+						title=${t("referenceImage.sourcesSection")}
+					>
+						<span class="pill pill--dim">${assetCount}</span>
+					<//>
+					${
+						assets.length > 0
+							? html`
+									<div class="scene-asset-list">
+										${assets.map(
+											(asset) => html`
+												<article
+													class=${getReferenceRowClass({
+														selected: asset.id === selectedAssetId,
+													})}
+													onClick=${() =>
+														controller()?.selectReferenceImageAsset?.(asset.id)}
+												>
+													<div class="scene-asset-row__main scene-asset-row__main--flat">
+														<div class="scene-asset-row__title-group">
+															<strong>${asset.label || t("referenceImage.untitled")}</strong>
+															<span class="scene-asset-row__meta">
+																${asset.fileName || t("referenceImage.untitled")}
+																${
+																	asset.sizeLabel ? ` · ${asset.sizeLabel}` : ""
+																}
+																${
+																	asset.currentCameraCount > 0
+																		? ` · ${t(
+																				"referenceImage.currentCameraUsage",
+																				{
+																					count: asset.currentCameraCount,
+																				},
+																			)}`
+																		: ""
+																}
+															</span>
+														</div>
+													</div>
+												</article>
+											`,
+										)}
+									</div>
+								`
+							: html`<p class="summary">${t("hint.referenceImagesEmpty")}</p>`
+					}
+				</section>
+				<section class="reference-panel-group">
+					<${SectionHeading}
+						title=${t("referenceImage.currentCameraSection")}
+					>
+						<span class="pill pill--dim">${items.length}</span>
+					<//>
+					${
+						items.length > 0
+							? html`
+									<div class="scene-asset-list">
+										${items.map(
+											(item) => html`
+												<article
+													class=${getReferenceRowClass({
+														selected: item.id === selectedItemId,
+														active: item.id === selectedItemId,
+													})}
+													onClick=${() =>
+														controller()?.selectReferenceImageItem?.(item.id)}
+												>
+													<div class="scene-asset-row__main scene-asset-row__main--flat">
+														<div class="scene-asset-row__title-group">
+															<strong>${item.name}</strong>
+															<span class="scene-asset-row__meta">
+																${item.fileName || t("referenceImage.untitled")} ·
+																${t(`referenceImage.group.${item.group}`)} ·
+																${t("referenceImage.orderLabel", {
+																	order: item.order + 1,
+																})}
+															</span>
+														</div>
+													</div>
+													<div class="scene-asset-row__toolbar">
+														<${IconButton}
+															icon=${item.previewVisible ? "eye" : "eye-off"}
+															label=${t(
+																item.previewVisible
+																	? "assetVisibility.visible"
+																	: "assetVisibility.hidden",
+															)}
+															active=${item.previewVisible}
+															compact=${true}
+															className="scene-asset-row__icon-button"
+															onClick=${(event) => {
+																event.stopPropagation();
+																controller()?.setReferenceImagePreviewVisible?.(
+																	item.id,
+																	!item.previewVisible,
+																);
+															}}
+														/>
+														<${IconButton}
+															icon=${item.exportEnabled ? "export" : "slash-circle"}
+															label=${
+																item.exportEnabled
+																	? t("action.excludeReferenceImageFromExport")
+																	: t("action.includeReferenceImageInExport")
+															}
+															compact=${true}
+															className="scene-asset-row__icon-button"
+															onClick=${(event) => {
+																event.stopPropagation();
+																controller()?.setReferenceImageExportEnabled?.(
+																	item.id,
+																	!item.exportEnabled,
+																);
+															}}
+														/>
+													</div>
+												</article>
+											`,
+										)}
+									</div>
+								`
+							: html`<p class="summary">${t("referenceImage.currentCameraEmpty")}</p>`
+					}
+				</section>
+				<section class="reference-panel-group">
+					<${SectionHeading}
+						title=${t("referenceImage.selectedSection")}
+					>
+					<//>
+					${
+						selectedItem && selectedAsset
+							? html`
+									<div class="reference-selected-panel">
+										<p class="summary">
+											${selectedItem.name} ·
+											${selectedAsset.fileName || t("referenceImage.untitled")}
+										</p>
+										<div class="split-field-row">
+											<label class="field">
+												<span>${t("field.referenceImageOpacity")}</span>
+												<div class="numeric-unit">
+													<${NumericDraftInput}
+														inputMode="decimal"
+														min="0"
+														max="100"
+														step="1"
+														value=${Math.round(selectedItem.opacity * 100)}
+														onCommit=${(nextValue) =>
+															controller()?.setReferenceImageOpacity?.(
+																selectedItem.id,
+																nextValue,
+															)}
+													/>
+													<span>%</span>
+												</div>
+											</label>
+											<label class="field">
+												<span>${t("field.referenceImageScale")}</span>
+												<div class="numeric-unit">
+													<${NumericDraftInput}
+														inputMode="decimal"
+														min="0.1"
+														step="0.1"
+														value=${Number(selectedItem.scalePct).toFixed(1)}
+														onCommit=${(nextValue) =>
+															controller()?.setReferenceImageScalePct?.(
+																selectedItem.id,
+																nextValue,
+															)}
+													/>
+													<span>%</span>
+												</div>
+											</label>
+										</div>
+										<div class="split-field-row">
+											<label class="field">
+												<span>${t("field.referenceImageOffsetX")}</span>
+												<div class="numeric-unit">
+													<${NumericDraftInput}
+														inputMode="decimal"
+														step="1"
+														value=${Number(selectedItem.offsetPx?.x ?? 0).toFixed(0)}
+														onCommit=${(nextValue) =>
+															controller()?.setReferenceImageOffsetPx?.(
+																selectedItem.id,
+																"x",
+																nextValue,
+															)}
+													/>
+													<span>px</span>
+												</div>
+											</label>
+											<label class="field">
+												<span>${t("field.referenceImageOffsetY")}</span>
+												<div class="numeric-unit">
+													<${NumericDraftInput}
+														inputMode="decimal"
+														step="1"
+														value=${Number(selectedItem.offsetPx?.y ?? 0).toFixed(0)}
+														onCommit=${(nextValue) =>
+															controller()?.setReferenceImageOffsetPx?.(
+																selectedItem.id,
+																"y",
+																nextValue,
+															)}
+													/>
+													<span>px</span>
+												</div>
+											</label>
+										</div>
+										<div class="split-field-row">
+											<label class="field">
+												<span>${t("field.referenceImageRotation")}</span>
+												<div class="numeric-unit">
+													<${NumericDraftInput}
+														inputMode="decimal"
+														step="1"
+														value=${Number(selectedItem.rotationDeg).toFixed(0)}
+														onCommit=${(nextValue) =>
+															controller()?.setReferenceImageRotationDeg?.(
+																selectedItem.id,
+																nextValue,
+															)}
+													/>
+													<span>deg</span>
+												</div>
+											</label>
+											<label class="field">
+												<span>${t("field.referenceImageOrder")}</span>
+												<${NumericDraftInput}
+													inputMode="numeric"
+													min="1"
+													step="1"
+													value=${selectedItem.order + 1}
+													onCommit=${(nextValue) =>
+														controller()?.setReferenceImageOrder?.(
+															selectedItem.id,
+															Math.max(0, Number(nextValue) - 1),
+														)}
+												/>
+											</label>
+										</div>
+										<div class="split-field-row">
+											<label class="field">
+												<span>${t("field.referenceImageGroup")}</span>
+												<select
+													value=${selectedItem.group}
+													...${INTERACTIVE_FIELD_PROPS}
+													onChange=${(event) =>
+														controller()?.setReferenceImageGroup?.(
+															selectedItem.id,
+															event.currentTarget.value,
+														)}
+												>
+													<option value="back">
+														${t("referenceImage.group.back")}
+													</option>
+													<option value="front">
+														${t("referenceImage.group.front")}
+													</option>
+												</select>
+											</label>
+										</div>
+										<div class="button-row">
+											<button
+												type="button"
+												class=${
+													selectedItem.previewVisible
+														? "button button--primary button--compact"
+														: "button button--compact"
+												}
+												onClick=${() =>
+													controller()?.setReferenceImagePreviewVisible?.(
+														selectedItem.id,
+														!selectedItem.previewVisible,
+													)}
+											>
+												${
+													selectedItem.previewVisible
+														? t("action.hideReferenceImage")
+														: t("action.showReferenceImage")
+												}
+											</button>
+											<button
+												type="button"
+												class=${
+													selectedItem.exportEnabled
+														? "button button--primary button--compact"
+														: "button button--compact"
+												}
+												onClick=${() =>
+													controller()?.setReferenceImageExportEnabled?.(
+														selectedItem.id,
+														!selectedItem.exportEnabled,
+													)}
+											>
+												${
+													selectedItem.exportEnabled
+														? t("action.excludeReferenceImageFromExport")
+														: t("action.includeReferenceImageInExport")
+												}
+											</button>
+										</div>
+									</div>
+								`
+							: html`<p class="summary">${t("referenceImage.selectedEmpty")}</p>`
+					}
+				</section>
+			</div>
 		</section>
 	`;
 }
