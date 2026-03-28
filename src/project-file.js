@@ -1,11 +1,7 @@
-import { strToU8, zipSync } from "fflate";
+import { Zip, ZipDeflate, strToU8, zipSync } from "fflate";
 import { SPLAT_EXTENSIONS } from "./constants.js";
-import { splatTransform, webpWasmUrl } from "./engine/sog-compress-runtime.js";
 import { compressEmbeddedSplatSourceAsSogInWorker } from "./engine/sog-compress-worker-client.js";
-import {
-	buildDataTableFromSerializedSogColumns,
-	readSerializedSogColumnsFromInput,
-} from "./engine/sog-data-table.js";
+import { readSerializedSogColumnsFromInput } from "./engine/sog-data-table.js";
 import {
 	PROJECT_DOCUMENT_PATH,
 	PROJECT_FORMAT,
@@ -31,6 +27,7 @@ import { ZipReader } from "./project-package.js";
 const DEFAULT_SOG_ITERATIONS = 10;
 const DEFAULT_SOG_MAX_SH_BANDS = 2;
 const SOG_SERIALIZABLE_EXTENSIONS = new Set(["ply", "spz"]);
+const PROJECT_ZIP_LEVEL = 6;
 
 function getPackageSaveOptionValue(value, fallback) {
 	return Number.isFinite(value) ? value : fallback;
@@ -57,106 +54,6 @@ function reportSplatTransformProgress(onProgress, progress, text, percent = 0) {
 
 function reportExplicitSplatStage(onProgress, progress, text, percent = 0) {
 	reportSplatTransformProgress(onProgress, progress, text, percent);
-}
-
-function createSplatTransformProgressLogger(onProgress, progress) {
-	let lastText = "";
-	let lastPercent = -1;
-	return {
-		log: () => {},
-		warn: console.warn,
-		error: console.error,
-		debug: () => {},
-		output: () => {},
-		onProgress: (node) => {
-			if (node.depth === 0) {
-				if (node.step <= 0) {
-					return;
-				}
-				const text = node.stepName
-					? `Step ${node.step}/${node.totalSteps}: ${node.stepName}`
-					: `Step ${node.step}/${node.totalSteps}`;
-				if (text === lastText) {
-					return;
-				}
-				lastText = text;
-				lastPercent = -1;
-				reportSplatTransformProgress(onProgress, progress, text, 0);
-				return;
-			}
-
-			const parentStep = node.parent?.step ?? node.step;
-			const parentTotal = node.parent?.totalSteps ?? node.totalSteps;
-			const parentName = node.parent?.stepName ?? node.stepName ?? "";
-			const roundedPercent = Math.max(
-				0,
-				Math.min(
-					100,
-					Math.round((100 * node.step) / Math.max(1, node.totalSteps)),
-				),
-			);
-			const text = parentName
-				? `Step ${parentStep}/${parentTotal}: ${parentName}`
-				: `Step ${parentStep}/${parentTotal}`;
-			if (text === lastText && roundedPercent === lastPercent) {
-				return;
-			}
-			lastText = text;
-			lastPercent = roundedPercent;
-			reportSplatTransformProgress(onProgress, progress, text, roundedPercent);
-		},
-	};
-}
-
-async function compressEmbeddedSplatSourceAsSogOnMainThread(
-	outputFileName,
-	serializedColumns,
-	{
-		sogIterations = DEFAULT_SOG_ITERATIONS,
-		onProgress = null,
-		progress = null,
-	} = {},
-) {
-	if (progress) {
-		reportExplicitSplatStage(
-			onProgress,
-			progress,
-			"Running SOG compression on the main thread…",
-			0,
-		);
-	}
-	splatTransform.logger?.setLogger?.(
-		createSplatTransformProgressLogger(onProgress, progress),
-	);
-	splatTransform.WebPCodec.wasmUrl ??= webpWasmUrl;
-	reportExplicitSplatStage(
-		onProgress,
-		progress,
-		"Building SOG data table on the main thread…",
-		0,
-	);
-	const filteredDataTable = buildDataTableFromSerializedSogColumns(
-		serializedColumns,
-		{
-			Column: splatTransform.Column,
-			DataTable: splatTransform.DataTable,
-		},
-	);
-	const outputFileSystem = new splatTransform.MemoryFileSystem();
-	reportExplicitSplatStage(onProgress, progress, "Writing SOG on CPU…", 0);
-	await splatTransform.writeSog(
-		{
-			filename: outputFileName,
-			dataTable: filteredDataTable,
-			bundle: true,
-			iterations: getPackageSaveOptionValue(
-				sogIterations,
-				DEFAULT_SOG_ITERATIONS,
-			),
-		},
-		outputFileSystem,
-	);
-	return outputFileSystem.results.get(outputFileName) ?? null;
 }
 
 function canCompressEmbeddedSplatSourceAsSog(source) {
@@ -366,33 +263,14 @@ async function serializeEmbeddedSplatProjectSourceAsSog(
 			});
 		} catch (retryError) {
 			cpuWorkerError = retryError;
-			if (progress) {
-				await notifyPackageProgress(onProgress, {
-					...progress,
-					stage: "fallback-main-thread",
-				});
-			}
-			try {
-				serializedColumns = await readSerializedColumns();
-				outputBytes = await compressEmbeddedSplatSourceAsSogOnMainThread(
-					outputFileName,
-					serializedColumns,
-					{
-						sogIterations,
-						onProgress,
-						progress,
-					},
-				);
-			} catch (fallbackError) {
-				throw new Error(
-					[
-						`SOG worker compression failed for "${originalFileName}".`,
-						`Worker error: ${String(workerError?.message ?? workerError ?? "unknown")}`,
-						`CPU worker retry error: ${String(cpuWorkerError?.message ?? cpuWorkerError ?? "unknown")}`,
-						`Fallback error: ${String(fallbackError?.message ?? fallbackError ?? "unknown")}`,
-					].join("\n"),
-				);
-			}
+			throw new Error(
+				[
+					`SOG worker compression failed for "${originalFileName}".`,
+					`Worker error: ${String(workerError?.message ?? workerError ?? "unknown")}`,
+					`CPU worker retry error: ${String(cpuWorkerError?.message ?? cpuWorkerError ?? "unknown")}`,
+					"Retry package save with SOG compression disabled if you need an immediate save.",
+				].join("\n"),
+			);
 		}
 	}
 	if (!outputBytes) {
@@ -495,6 +373,35 @@ export async function buildCameraFramesProjectPackage(
 		onProgress = null,
 	} = {},
 ) {
+	const packageContents = await serializeCameraFramesProjectPackageContents(
+		projectSnapshot,
+		{
+			compressSplatsToSog,
+			sogMaxShBands,
+			sogIterations,
+			onProgress,
+		},
+	);
+	const archive = zipSync(packageContents.archiveEntries, {
+		level: PROJECT_ZIP_LEVEL,
+	});
+	return {
+		archive,
+		manifest: buildProjectManifest(),
+		serializedProject: packageContents.serializedProject,
+		packageFingerprint: packageContents.packageFingerprint,
+	};
+}
+
+async function serializeCameraFramesProjectPackageContents(
+	projectSnapshot,
+	{
+		compressSplatsToSog = false,
+		sogMaxShBands = DEFAULT_SOG_MAX_SH_BANDS,
+		sogIterations = DEFAULT_SOG_ITERATIONS,
+		onProgress = null,
+	} = {},
+) {
 	const normalizedProject = normalizeProjectDocument(projectSnapshot);
 	const archiveEntries = {};
 	const resources = {};
@@ -580,17 +487,97 @@ export async function buildCameraFramesProjectPackage(
 	archiveEntries[PROJECT_DOCUMENT_PATH] = strToU8(
 		JSON.stringify(serializedProject, null, 2),
 	);
-
-	const archive = zipSync(archiveEntries, {
-		level: 6,
-	});
 	const packageFingerprint = await buildProjectFingerprint(serializedProject);
 
 	return {
-		archive,
-		manifest: buildProjectManifest(),
+		archiveEntries,
 		serializedProject,
 		packageFingerprint,
+	};
+}
+
+async function streamArchiveEntriesToWritable(
+	archiveEntries,
+	writable,
+	{ onProgress = null } = {},
+) {
+	const entries = Object.entries(archiveEntries);
+	let pendingWrite = Promise.resolve();
+
+	await new Promise((resolve, reject) => {
+		let finished = false;
+		const fail = (error) => {
+			if (finished) {
+				return;
+			}
+			finished = true;
+			reject(error);
+		};
+		const finish = () => {
+			if (finished) {
+				return;
+			}
+			finished = true;
+			resolve();
+		};
+
+		const zip = new Zip((error, chunk, final) => {
+			if (error) {
+				fail(error);
+				return;
+			}
+			if (chunk?.length) {
+				pendingWrite = pendingWrite.then(() => writable.write(chunk));
+			}
+			if (final) {
+				pendingWrite.then(finish).catch(fail);
+			}
+		});
+
+		(async () => {
+			try {
+				for (const [index, [path, bytes]] of entries.entries()) {
+					await notifyPackageProgress(onProgress, {
+						phase: "write-package",
+						stage: "zipEntries",
+						index: index + 1,
+						total: entries.length,
+						assetLabel: path,
+					});
+					const entry = new ZipDeflate(path, {
+						level: PROJECT_ZIP_LEVEL,
+					});
+					zip.add(entry);
+					entry.push(bytes, true);
+				}
+				zip.end();
+			} catch (error) {
+				fail(error);
+			}
+		})().catch(fail);
+	});
+}
+
+export async function writeCameraFramesProjectPackageToWritable(
+	projectSnapshot,
+	writable,
+	options,
+) {
+	const packageContents = await serializeCameraFramesProjectPackageContents(
+		projectSnapshot,
+		options,
+	);
+	await streamArchiveEntriesToWritable(
+		packageContents.archiveEntries,
+		writable,
+		{
+			onProgress: options?.onProgress ?? null,
+		},
+	);
+	return {
+		manifest: buildProjectManifest(),
+		serializedProject: packageContents.serializedProject,
+		packageFingerprint: packageContents.packageFingerprint,
 	};
 }
 

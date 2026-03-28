@@ -233,6 +233,9 @@ const MESSAGES = {
 			packageDetailCollect: "保存対象を収集中…",
 			packageDetailAsset: "{index}/{total} asset: {name}",
 			packageDetailWrite: "ファイルを書き込み中…",
+			packageWriteStage: {
+				zipEntries: "ZIPアーカイブを書き込み中…",
+			},
 			packageResolveStage: {
 				"copy-source": "元の asset を収集中…",
 				"copy-packed-splat": "packed 3DGS を収集中…",
@@ -246,7 +249,6 @@ const MESSAGES = {
 				"merge-tables": "複数テーブルを結合中…",
 				"filter-bands": "SH バンドを調整中…",
 				"write-sog": "SOG を書き出し中…",
-				"fallback-main-thread": "worker に失敗したため main thread に切替…",
 				finalize: "出力を確定中…",
 			},
 			packageFieldCompressSplats: "3DGS を SOG 圧縮で保存",
@@ -606,6 +608,9 @@ const MESSAGES = {
 			packageDetailCollect: "Collecting save data…",
 			packageDetailAsset: "Asset {index}/{total}: {name}",
 			packageDetailWrite: "Writing package file…",
+			packageWriteStage: {
+				zipEntries: "Writing ZIP archive…",
+			},
 			packageResolveStage: {
 				"copy-source": "Copying original asset data…",
 				"copy-packed-splat": "Collecting packed 3DGS data…",
@@ -619,7 +624,6 @@ const MESSAGES = {
 				"merge-tables": "Merging splat tables…",
 				"filter-bands": "Filtering SH bands…",
 				"write-sog": "Writing SOG output…",
-				"fallback-main-thread": "Worker failed, switching to main thread…",
 				finalize: "Finalizing output…",
 			},
 			packageFieldCompressSplats: "Compress 3DGS to SOG",

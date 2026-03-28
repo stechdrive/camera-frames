@@ -4,9 +4,9 @@ import {
 	normalizeProjectDocument,
 } from "../project-document.js";
 import {
-	buildCameraFramesProjectPackage,
 	getDefaultProjectFilename,
 	readCameraFramesProject,
+	writeCameraFramesProjectPackageToWritable,
 } from "../project-file.js";
 import { ZipReader } from "../project-package.js";
 import {
@@ -204,7 +204,9 @@ function buildPackageProgressDetail(
 	const stageKey =
 		phase === "compress-splats"
 			? `overlay.packageCompressStage.${stage}`
-			: `overlay.packageResolveStage.${stage}`;
+			: phase === "write-package"
+				? `overlay.packageWriteStage.${stage}`
+				: `overlay.packageResolveStage.${stage}`;
 	const stageDetail = message
 		? percent == null
 			? message
@@ -555,12 +557,6 @@ export function createProjectController({
 		};
 	}
 
-	async function writePackageArchive(archiveBytes, saveTarget) {
-		await writeProjectFileHandle(saveTarget.fileHandle, archiveBytes);
-		projectFileHandle = saveTarget.fileHandle;
-		return saveTarget;
-	}
-
 	async function performPackageSave(
 		values,
 		{ saveMode = "auto", saveTarget = null } = {},
@@ -604,36 +600,37 @@ export function createProjectController({
 		await new Promise((resolve) => requestAnimationFrame(resolve));
 
 		try {
-			const packageResult = await buildCameraFramesProjectPackage(
-				normalizedProject,
-				{
-					compressSplatsToSog: preferredPackageSaveOptions.compressSplatsToSog,
-					sogMaxShBands: preferredPackageSaveOptions.sogMaxShBands,
-					sogIterations: preferredPackageSaveOptions.sogIterations,
-					onProgress: async (progress) => {
-						const detail = buildPackageProgressDetail(t, progress);
-						setOverlay(
-							buildPackageProgressOverlay(t, progress.phase, detail, {
-								startedAt: progressStartedAt,
-							}),
-						);
-						await waitForOverlayFrame();
+			const writable = await resolvedSaveTarget.fileHandle.createWritable();
+			let packageResult = null;
+			try {
+				packageResult = await writeCameraFramesProjectPackageToWritable(
+					normalizedProject,
+					writable,
+					{
+						compressSplatsToSog:
+							preferredPackageSaveOptions.compressSplatsToSog,
+						sogMaxShBands: preferredPackageSaveOptions.sogMaxShBands,
+						sogIterations: preferredPackageSaveOptions.sogIterations,
+						onProgress: async (progress) => {
+							const detail = buildPackageProgressDetail(t, progress);
+							setOverlay(
+								buildPackageProgressOverlay(t, progress.phase, detail, {
+									startedAt: progressStartedAt,
+								}),
+							);
+							await waitForOverlayFrame();
+						},
 					},
-				},
-			);
+				);
+				await writable.close();
+			} catch (error) {
+				try {
+					await writable.abort?.();
+				} catch {}
+				throw error;
+			}
 
-			setOverlay(
-				buildPackageProgressOverlay(
-					t,
-					"write-package",
-					t("overlay.packageDetailWrite"),
-					{ startedAt: progressStartedAt },
-				),
-			);
-			const saveResult = await writePackageArchive(
-				packageResult.archive,
-				resolvedSaveTarget,
-			);
+			projectFileHandle = resolvedSaveTarget.fileHandle;
 			await deleteCameraFramesWorkingState(normalizedProject.projectId);
 			await runWorkingStateCleanup();
 			clearOverlay();
@@ -641,12 +638,12 @@ export function createProjectController({
 				projectId: normalizedProject.projectId,
 				packageRevision: normalizedProject.packageRevision,
 				packageFingerprint: packageResult.packageFingerprint,
-				projectName: getProjectBaseName(saveResult.fileName),
-				fileHandle: saveResult.fileHandle,
+				projectName: getProjectBaseName(resolvedSaveTarget.fileName),
+				fileHandle: resolvedSaveTarget.fileHandle,
 			});
 			setStatus(
 				t("status.packageSaved", {
-					name: saveResult.fileName || suggestedName,
+					name: resolvedSaveTarget.fileName || suggestedName,
 				}),
 			);
 		} catch (error) {
