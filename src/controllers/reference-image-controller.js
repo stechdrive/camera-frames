@@ -8,6 +8,7 @@ import {
 } from "../project-document.js";
 import {
 	REFERENCE_IMAGE_ASSET_KIND,
+	REFERENCE_IMAGE_DEFAULT_PRESET_ID,
 	REFERENCE_IMAGE_GROUP_BACK,
 	REFERENCE_IMAGE_GROUP_FRONT,
 	cloneReferenceImageDocument,
@@ -15,6 +16,7 @@ import {
 	createReferenceImageAsset,
 	createReferenceImageCameraPresetOverride,
 	createReferenceImageItem,
+	createReferenceImagePreset,
 	createShotCameraReferenceImagesState,
 	findReferenceImagePreset,
 	getShotReferenceImagePresetId,
@@ -157,6 +159,63 @@ function findMutablePresetInDocument(documentState, presetId = null) {
 	return null;
 }
 
+function buildReferenceImagePresetNameHint(fileNameHint = "", cameraName = "") {
+	const normalizedFileName = normalizeReferenceImageFileName(
+		fileNameHint,
+		"Reference",
+	);
+	const baseFileName = normalizedFileName.replace(/\.[^./\\]+$/, "").trim();
+	const normalizedCameraName = String(cameraName ?? "").trim();
+	return baseFileName || normalizedCameraName || "Reference";
+}
+
+export function ensureWritableReferenceImageImportPreset(
+	documentState,
+	shotCameraDocument = null,
+	presetNameHint = "",
+) {
+	const explicitShotPresetId =
+		typeof shotCameraDocument?.referenceImages?.presetId === "string" &&
+		shotCameraDocument.referenceImages.presetId
+			? shotCameraDocument.referenceImages.presetId
+			: null;
+	const explicitShotPreset = explicitShotPresetId
+		? findMutablePresetInDocument(documentState, explicitShotPresetId)
+		: null;
+	if (explicitShotPreset) {
+		documentState.activePresetId = explicitShotPreset.id;
+		return explicitShotPreset;
+	}
+
+	if (!shotCameraDocument) {
+		const fallbackPreset =
+			findMutablePresetInDocument(
+				documentState,
+				documentState.activePresetId,
+			) ??
+			findMutablePresetInDocument(
+				documentState,
+				REFERENCE_IMAGE_DEFAULT_PRESET_ID,
+			) ??
+			documentState?.presets?.[0] ??
+			null;
+		if (fallbackPreset) {
+			documentState.activePresetId = fallbackPreset.id;
+			return fallbackPreset;
+		}
+	}
+
+	const nextPreset = createReferenceImagePreset({
+		name: buildReferenceImagePresetNameHint(
+			presetNameHint,
+			shotCameraDocument?.name ?? "",
+		),
+	});
+	documentState.presets.push(nextPreset);
+	documentState.activePresetId = nextPreset.id;
+	return nextPreset;
+}
+
 export function createReferenceImageController({
 	store,
 	referenceImageInput,
@@ -227,13 +286,17 @@ export function createReferenceImageController({
 		);
 		return (
 			findMutablePresetInDocument(documentState, presetId) ??
+			findReferenceImagePreset(documentState, presetId) ??
 			findMutablePresetInDocument(
 				documentState,
-				documentState.activePresetId,
+				REFERENCE_IMAGE_DEFAULT_PRESET_ID,
+			) ??
+			findReferenceImagePreset(
+				documentState,
+				REFERENCE_IMAGE_DEFAULT_PRESET_ID,
 			) ??
 			documentState?.presets?.[0] ??
-			findReferenceImagePreset(documentState, presetId) ??
-			findReferenceImagePreset(documentState, documentState.activePresetId)
+			null
 		);
 	}
 
@@ -450,9 +513,11 @@ export function createReferenceImageController({
 			return false;
 		}
 		const nextDocument = cloneReferenceImageDocument(getDocument());
-		const preset =
-			getResolvedPreset(nextDocument) ??
-			findReferenceImagePreset(nextDocument, nextDocument.activePresetId);
+		const preset = ensureWritableReferenceImageImportPreset(
+			nextDocument,
+			getActiveShotCameraDocument?.() ?? null,
+			files[0]?.name ?? "",
+		);
 		if (!preset) {
 			return false;
 		}

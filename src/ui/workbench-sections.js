@@ -18,6 +18,7 @@ import {
 	HistoryRangeInput,
 	INTERACTIVE_FIELD_PROPS,
 	NumericDraftInput,
+	TextDraftInput,
 	applyStandardFrameEquivalentMm,
 } from "./workbench-controls.js";
 import { WorkbenchIcon } from "./workbench-icons.js";
@@ -618,6 +619,125 @@ export function SceneSection({
 	`;
 }
 
+export function LightingSection({ controller, store, t }) {
+	const ambient = store.lighting.ambient.value;
+	const modelLightEnabled = store.lighting.modelLightEnabled.value;
+	const modelLightIntensity = store.lighting.modelLightIntensity.value;
+	const modelLightAzimuthDeg = store.lighting.modelLightAzimuthDeg.value;
+	const modelLightElevationDeg = store.lighting.modelLightElevationDeg.value;
+
+	return html`
+		<section class="panel-section">
+			<${SectionHeading} icon="light" title=${t("section.lighting")}>
+				<span class="pill pill--dim">${t("assetKind.model")}</span>
+			<//>
+			<div class="button-row">
+				<${IconButton}
+					icon=${modelLightEnabled ? "eye" : "eye-off"}
+					label=${t(
+						modelLightEnabled
+							? "assetVisibility.visible"
+							: "assetVisibility.hidden",
+					)}
+					active=${modelLightEnabled}
+					compact=${true}
+					onClick=${() =>
+						controller()?.setModelLightEnabled?.(!modelLightEnabled)}
+				/>
+				<button
+					type="button"
+					class="button button--compact"
+					onClick=${() => controller()?.resetModelLightDirection?.()}
+				>
+					${t("action.resetLightDirection")}
+				</button>
+			</div>
+			<label class="field field--range">
+				<span>${t("field.lightIntensity")}</span>
+				<div class="range-row">
+					<${HistoryRangeInput}
+						id="lighting-intensity"
+						min=${0}
+						max=${2}
+						step=${0.01}
+						value=${Number(modelLightIntensity.toFixed(2))}
+						controller=${controller}
+						historyLabel="lighting.model.intensity"
+						onLiveChange=${(event) =>
+							controller()?.setModelLightIntensity?.(event.currentTarget.value)}
+					/>
+					<div class="numeric-unit">
+						<${NumericDraftInput}
+							id="lighting-intensity-input"
+							inputMode="decimal"
+							min=${0}
+							max=${2}
+							step=${0.01}
+							value=${Number(modelLightIntensity).toFixed(2)}
+							onCommit=${(nextValue) =>
+								controller()?.setModelLightIntensity?.(nextValue)}
+						/>
+					</div>
+				</div>
+			</label>
+			<label class="field field--range">
+				<span>${t("field.lightAmbient")}</span>
+				<div class="range-row">
+					<${HistoryRangeInput}
+						id="lighting-ambient"
+						min=${0}
+						max=${2}
+						step=${0.01}
+						value=${Number(ambient.toFixed(2))}
+						controller=${controller}
+						historyLabel="lighting.ambient"
+						onLiveChange=${(event) =>
+							controller()?.setLightingAmbient?.(event.currentTarget.value)}
+					/>
+					<div class="numeric-unit">
+						<${NumericDraftInput}
+							id="lighting-ambient-input"
+							inputMode="decimal"
+							min=${0}
+							max=${2}
+							step=${0.01}
+							value=${Number(ambient).toFixed(2)}
+							onCommit=${(nextValue) =>
+								controller()?.setLightingAmbient?.(nextValue)}
+						/>
+					</div>
+				</div>
+			</label>
+			<div class="split-field-row">
+				<label class="field">
+					<span>${t("field.lightAzimuth")}</span>
+					<${NumericDraftInput}
+						inputMode="decimal"
+						min=${-180}
+						max=${180}
+						step=${1}
+						value=${Number(modelLightAzimuthDeg).toFixed(0)}
+						onCommit=${(nextValue) =>
+							controller()?.setModelLightAzimuthDeg?.(nextValue)}
+					/>
+				</label>
+				<label class="field">
+					<span>${t("field.lightElevation")}</span>
+					<${NumericDraftInput}
+						inputMode="decimal"
+						min=${-89}
+						max=${89}
+						step=${1}
+						value=${Number(modelLightElevationDeg).toFixed(0)}
+						onCommit=${(nextValue) =>
+							controller()?.setModelLightElevationDeg?.(nextValue)}
+					/>
+				</label>
+			</div>
+		</section>
+	`;
+}
+
 export function ShotCameraSection({
 	activeShotCamera,
 	cameraSummary,
@@ -652,6 +772,14 @@ export function ShotCameraSection({
 						`,
 					)}
 				</select>
+			</label>
+			<label class="field">
+				<span>${t("field.shotCameraName")}</span>
+				<${TextDraftInput}
+					id="shot-camera-name"
+					value=${activeShotCamera?.name ?? ""}
+					onCommit=${(nextValue) => controller()?.setShotCameraName(nextValue)}
+				/>
 			</label>
 			<div class="button-row">
 				<${IconButton}
@@ -795,14 +923,12 @@ export function ExportSettingsSection({
 			<//>
 			<label class="field">
 				<span>${t("field.shotCameraExportName")}</span>
-				<input
+				<${TextDraftInput}
 					id="shot-camera-export-name"
-					type="text"
 					placeholder=${activeShotCamera?.name ?? "Camera"}
 					value=${store.shotCamera.exportName.value}
-					...${INTERACTIVE_FIELD_PROPS}
-					onInput=${(event) =>
-						controller()?.setShotCameraExportName(event.currentTarget.value)}
+					onCommit=${(nextValue) =>
+						controller()?.setShotCameraExportName(nextValue)}
 				/>
 			</label>
 			<label class="field">
@@ -957,6 +1083,7 @@ export function FramesSection({
 export function ReferenceSection({ controller, store, t }) {
 	const assets = store.referenceImages.assets.value;
 	const items = store.referenceImages.items.value;
+	const itemsForDisplay = [...items].reverse();
 	const assetCount = store.referenceImages.assetCount.value;
 	const previewSessionVisible =
 		store.referenceImages.previewSessionVisible.value;
@@ -1076,7 +1203,7 @@ export function ReferenceSection({ controller, store, t }) {
 						items.length > 0
 							? html`
 									<div class="scene-asset-list">
-										${items.map(
+										${itemsForDisplay.map(
 											(item) => html`
 												<article
 													class=${getReferenceRowClass({

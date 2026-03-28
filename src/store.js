@@ -10,6 +10,7 @@ import {
 	getStandardFrameHorizontalFovDegrees,
 } from "./engine/camera-lens.js";
 import { resolveInitialLocale, translate } from "./i18n.js";
+import { createDefaultLightingState } from "./lighting-model.js";
 import { createDefaultReferenceImageDocument } from "./reference-image-model.js";
 import {
 	WORKSPACE_LAYOUT_SINGLE,
@@ -75,6 +76,7 @@ export function createCameraFramesStore(runtimeInfo = null) {
 		translate(initialLocale, "scene.scaleDefault"),
 	);
 	const sceneAssets = signal([]);
+	const sceneLighting = signal(createDefaultLightingState());
 	const referenceImageDocument = signal(createDefaultReferenceImageDocument());
 	const referenceImagePreviewSessionVisible = signal(true);
 	const referenceImageExportDialogVisible = signal(true);
@@ -181,6 +183,19 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	const exportSizeLabel = computed(
 		() => `${exportWidth.value} × ${exportHeight.value}`,
 	);
+	const lightingAmbient = computed(() => sceneLighting.value.ambient);
+	const modelLightEnabled = computed(
+		() => sceneLighting.value.modelLight.enabled,
+	);
+	const modelLightIntensity = computed(
+		() => sceneLighting.value.modelLight.intensity,
+	);
+	const modelLightAzimuthDeg = computed(
+		() => sceneLighting.value.modelLight.azimuthDeg,
+	);
+	const modelLightElevationDeg = computed(
+		() => sceneLighting.value.modelLight.elevationDeg,
+	);
 	const exportPresetCount = computed(() => exportPresetIds.value.length);
 	const modeLabel = computed(() =>
 		translate(
@@ -281,6 +296,14 @@ export function createCameraFramesStore(runtimeInfo = null) {
 		sceneSummary,
 		sceneScaleSummary,
 		sceneAssets,
+		lighting: {
+			state: sceneLighting,
+			ambient: lightingAmbient,
+			modelLightEnabled,
+			modelLightIntensity,
+			modelLightAzimuthDeg,
+			modelLightElevationDeg,
+		},
 		referenceImages: {
 			document: referenceImageDocument,
 			previewSessionVisible: referenceImagePreviewSessionVisible,

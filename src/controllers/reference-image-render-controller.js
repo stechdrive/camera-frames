@@ -113,10 +113,6 @@ export function createReferenceImageRenderController({
 		);
 		const renderScaleX = renderBoxWidth / currentRenderBoxSize.w;
 		const renderScaleY = renderBoxHeight / currentRenderBoxSize.h;
-		const renderAnchorPx = {
-			x: currentRenderBoxSize.w * renderBoxAnchor.ax,
-			y: currentRenderBoxSize.h * renderBoxAnchor.ay,
-		};
 		const keepAssetIds = new Set();
 		const layers = [];
 		const signatureParts = [
@@ -156,9 +152,13 @@ export function createReferenceImageRenderController({
 				asset.sourceMeta.appliedSize.w * (item.scalePct / 100);
 			const logicalHeight =
 				asset.sourceMeta.appliedSize.h * (item.scalePct / 100);
+			const itemAnchorPx = {
+				x: currentRenderBoxSize.w * item.anchor.ax,
+				y: currentRenderBoxSize.h * item.anchor.ay,
+			};
 			const anchorPoint = {
-				x: renderAnchorPx.x - effectiveOffset.x,
-				y: renderAnchorPx.y - effectiveOffset.y,
+				x: itemAnchorPx.x - effectiveOffset.x,
+				y: itemAnchorPx.y - effectiveOffset.y,
 			};
 			const logicalLeft = anchorPoint.x - logicalWidth * item.anchor.ax;
 			const logicalTop = anchorPoint.y - logicalHeight * item.anchor.ay;

@@ -371,6 +371,7 @@ export function createProjectController({
 	assetController,
 	applySavedProjectState,
 	applyOpenedProject,
+	clearProjectSidecars = () => {},
 	buildProjectFilename = () => getDefaultProjectFilename(),
 	captureProjectState,
 	clearHistory,
@@ -570,6 +571,7 @@ export function createProjectController({
 						setOverlay(buildImportProgressOverlay(t, step, detail));
 					},
 				});
+				clearProjectSidecars?.();
 				clearOverlay();
 			} catch (legacyError) {
 				clearOverlay();

@@ -22,6 +22,7 @@ import { createExportController } from "./controllers/export-controller.js";
 import { createFrameController } from "./controllers/frame-controller.js";
 import { createHistoryController } from "./controllers/history-controller.js";
 import { createInteractionController } from "./controllers/interaction-controller.js";
+import { createLightingController } from "./controllers/lighting-controller.js";
 import { createOutputFrameController } from "./controllers/output-frame-controller.js";
 import { createProjectController } from "./controllers/project-controller.js";
 import { createProjectionController } from "./controllers/projection-controller.js";
@@ -177,11 +178,6 @@ export function createCameraFramesController(elements, store) {
 	});
 	scene.add(spark);
 
-	const ambientLight = new THREE.AmbientLight(0xffffff, 0.55);
-	const keyLight = new THREE.DirectionalLight(0xffffff, 1.4);
-	keyLight.position.set(3, 5, 4);
-	scene.add(ambientLight, keyLight);
-
 	const contentRoot = new THREE.Group();
 	const splatRoot = new THREE.Group();
 	const modelRoot = new THREE.Group();
@@ -327,6 +323,7 @@ export function createCameraFramesController(elements, store) {
 	let cameraController = null;
 	let historyController = null;
 	let interactionController = null;
+	let lightingController = null;
 	let outputFrameController = null;
 	let projectController = null;
 	let projectionController = null;
@@ -406,6 +403,7 @@ export function createCameraFramesController(elements, store) {
 				}),
 			),
 			sceneAssets: assetController?.captureSceneAssetEditState?.() ?? null,
+			sceneLighting: lightingController?.captureLightingState?.() ?? null,
 			frameSelectionActive: store.frames.selectionActive.value,
 			outputFrameSelected: state.outputFrameSelected,
 		};
@@ -419,6 +417,7 @@ export function createCameraFramesController(elements, store) {
 		if (!assetController?.restoreSceneAssetEditState?.(snapshot.sceneAssets)) {
 			return false;
 		}
+		lightingController?.applyLightingState(snapshot.sceneLighting ?? null);
 
 		setShotCameraDocuments(
 			snapshot.shotCameras.map((documentState) =>
@@ -538,6 +537,7 @@ export function createCameraFramesController(elements, store) {
 			shotCameras: captureProjectShotCameras(),
 			scene: {
 				assets: assetController?.captureProjectSceneState?.() ?? [],
+				lighting: lightingController?.captureLightingState?.() ?? null,
 				referenceImages:
 					referenceImageController?.captureProjectReferenceImagesState?.() ??
 					null,
@@ -585,6 +585,7 @@ export function createCameraFramesController(elements, store) {
 		referenceImageController?.applyProjectReferenceImagesState?.(
 			project?.scene?.referenceImages,
 		);
+		lightingController?.applyLightingState(project?.scene?.lighting ?? null);
 
 		store.frames.selectionActive.value = false;
 		state.outputFrameSelected = false;
@@ -877,12 +878,22 @@ export function createCameraFramesController(elements, store) {
 		getProjectionState,
 		getActiveShotCameraDocument,
 	});
+	lightingController = createLightingController({
+		store,
+		scene,
+		updateUi,
+		runHistoryAction: historyController.runHistoryAction,
+	});
 	projectController = createProjectController({
 		store,
 		projectInput,
 		assetController,
 		applySavedProjectState,
 		applyOpenedProject,
+		clearProjectSidecars: () => {
+			referenceImageController?.clearReferenceImages?.();
+			lightingController?.resetLighting?.();
+		},
 		buildProjectFilename,
 		captureProjectState,
 		clearHistory: () => historyController?.clearHistory(),
@@ -1380,6 +1391,7 @@ export function createCameraFramesController(elements, store) {
 	function clearScene() {
 		viewportToolController.setViewportTransformMode(false);
 		referenceImageController?.clearReferenceImages?.();
+		lightingController?.resetLighting?.();
 		assetController.clearScene();
 	}
 
@@ -1468,6 +1480,12 @@ export function createCameraFramesController(elements, store) {
 		moveAssetToIndex: assetController.moveAssetToIndex,
 		setAssetExportRole: assetController.setAssetExportRole,
 		setAssetMaskGroup: assetController.setAssetMaskGroup,
+		setLightingAmbient: lightingController.setAmbient,
+		setModelLightEnabled: lightingController.setModelLightEnabled,
+		setModelLightIntensity: lightingController.setModelLightIntensity,
+		setModelLightAzimuthDeg: lightingController.setModelLightAzimuthDeg,
+		setModelLightElevationDeg: lightingController.setModelLightElevationDeg,
+		resetModelLightDirection: lightingController.resetModelLightDirection,
 		openFiles: assetController.openFiles,
 		openReferenceImageFiles: referenceImageController.openReferenceImageFiles,
 		importReferenceImageFiles:
@@ -1521,6 +1539,7 @@ export function createCameraFramesController(elements, store) {
 		redoHistory: () => historyController?.redoHistory(),
 		dispose() {
 			guideOverlay.dispose();
+			lightingController?.dispose?.();
 			runtimeController.dispose();
 		},
 	};

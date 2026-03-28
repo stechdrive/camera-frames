@@ -15,6 +15,7 @@ import {
 	finalizeExportReadiness,
 } from "../engine/export-readiness.js";
 import { downloadPsdDocument } from "../engine/psd-export.js";
+import { getPsdReferenceImageGroupLayers } from "../engine/reference-image-export-order.js";
 import { createSparkExportRendererManager } from "../engine/spark-export-renderer.js";
 import {
 	REFERENCE_IMAGE_GROUP_BACK,
@@ -293,10 +294,6 @@ export function createExportController({
 		const renderBoxAnchor = getReferenceImageRenderBoxAnchor(
 			documentState?.outputFrame?.anchor ?? "center",
 		);
-		const renderAnchorPx = {
-			x: width * renderBoxAnchor.ax,
-			y: height * renderBoxAnchor.ay,
-		};
 		const assetDrawableCache = new Map();
 		const layers = [];
 		const candidates = resolved.items
@@ -334,9 +331,13 @@ export function createExportController({
 					asset.sourceMeta.appliedSize.w * (item.scalePct / 100);
 				const logicalHeight =
 					asset.sourceMeta.appliedSize.h * (item.scalePct / 100);
+				const itemAnchorPx = {
+					x: width * item.anchor.ax,
+					y: height * item.anchor.ay,
+				};
 				const anchorPoint = {
-					x: renderAnchorPx.x - effectiveOffset.x,
-					y: renderAnchorPx.y - effectiveOffset.y,
+					x: itemAnchorPx.x - effectiveOffset.x,
+					y: itemAnchorPx.y - effectiveOffset.y,
 				};
 				const renderedLayer = buildReferenceImageExportCanvas({
 					drawable: cacheEntry.drawable,
@@ -1498,7 +1499,7 @@ export function createExportController({
 
 	function buildShotCameraExportFilename(
 		documentState,
-		snapshot,
+		_snapshot,
 		format = "png",
 		sequenceIndex = null,
 	) {
@@ -1511,31 +1512,46 @@ export function createExportController({
 			Number.isFinite(sequenceIndex) && sequenceIndex > 0
 				? `-${String(sequenceIndex).padStart(2, "0")}`
 				: "";
-		return `${baseName}${sequenceSuffix}-${snapshot.width}x${snapshot.height}.${format}`;
+		return `${baseName}${sequenceSuffix}.${format}`;
 	}
 
-	function renderFrameOverlayLayer(width, height, frames = getActiveFrames()) {
-		const canvas = document.createElement("canvas");
-		canvas.width = width;
-		canvas.height = height;
+	function renderFrameOverlayLayers(width, height, frames = getActiveFrames()) {
+		return [...frames]
+			.sort(
+				(left, right) =>
+					(left.order ?? 0) - (right.order ?? 0) ||
+					String(left.id ?? "").localeCompare(String(right.id ?? "")),
+			)
+			.map((frame, index) => {
+				const canvas = document.createElement("canvas");
+				canvas.width = width;
+				canvas.height = height;
 
-		const context = canvas.getContext("2d");
-		if (!context) {
-			throw new Error(t("error.previewContext"));
-		}
+				const context = canvas.getContext("2d");
+				if (!context) {
+					throw new Error(t("error.previewContext"));
+				}
 
-		context.clearRect(0, 0, width, height);
-		drawFramesToContext(context, width, height, frames, {
-			logicalSpaceWidth: width,
-			logicalSpaceHeight: height,
-			strokeStyle: "#ff0000",
-		});
+				context.clearRect(0, 0, width, height);
+				drawFramesToContext(context, width, height, [frame], {
+					logicalSpaceWidth: width,
+					logicalSpaceHeight: height,
+					strokeStyle: "#ff0000",
+				});
 
-		return createRasterLayer({
-			name: "FRAME",
-			canvas,
-			category: "frame",
-		});
+				return createRasterLayer({
+					name:
+						typeof frame?.name === "string" && frame.name.trim()
+							? frame.name.trim()
+							: `FRAME ${index + 1}`,
+					canvas,
+					category: "frame",
+					metadata: {
+						frameId: frame?.id ?? null,
+						order: frame?.order ?? index,
+					},
+				});
+			});
 	}
 
 	function buildExportBundle(
@@ -1743,7 +1759,7 @@ export function createExportController({
 				metadata: {
 					role: "frame-overlay",
 				},
-				layers: [renderFrameOverlayLayer(width, height, frames)],
+				layers: renderFrameOverlayLayers(width, height, frames),
 			}),
 		);
 		const bundle = createExportBundle({
@@ -1868,62 +1884,53 @@ export function createExportController({
 					canvas: renderExportPassToCanvas(bundle, eyeLevelPass),
 				}
 			: null;
-		const referenceImageGroupDocument =
-			referenceImageLayers.length > 0
-				? {
-						name: t("section.referenceImages"),
-						opened: true,
-						children: [
-							...(referenceImageLayers.some(
-								(layer) => layer.group === REFERENCE_IMAGE_GROUP_BACK,
-							)
-								? [
-										{
-											name: t("referenceImage.group.back"),
-											opened: true,
-											children: referenceImageLayers
-												.filter(
-													(layer) => layer.group === REFERENCE_IMAGE_GROUP_BACK,
-												)
-												.map((layer) => ({
-													name: layer.name,
-													canvas: layer.canvas,
-													left: layer.bounds?.left ?? 0,
-													top: layer.bounds?.top ?? 0,
-													opacity: layer.opacity,
-												})),
-										},
-									]
-								: []),
-							...(referenceImageLayers.some(
-								(layer) => layer.group === REFERENCE_IMAGE_GROUP_FRONT,
-							)
-								? [
-										{
-											name: t("referenceImage.group.front"),
-											opened: true,
-											children: referenceImageLayers
-												.filter(
-													(layer) =>
-														layer.group === REFERENCE_IMAGE_GROUP_FRONT,
-												)
-												.map((layer) => ({
-													name: layer.name,
-													canvas: layer.canvas,
-													left: layer.bounds?.left ?? 0,
-													top: layer.bounds?.top ?? 0,
-													opacity: layer.opacity,
-												})),
-										},
-									]
-								: []),
-						],
-					}
-				: null;
+		const referenceImagesBackLayerDocument = referenceImageLayers.some(
+			(layer) => layer.group === REFERENCE_IMAGE_GROUP_BACK,
+		)
+			? {
+					name: `${t("section.referenceImages")} ${t("referenceImage.group.back")}`,
+					opened: true,
+					children: getPsdReferenceImageGroupLayers(
+						referenceImageLayers,
+						REFERENCE_IMAGE_GROUP_BACK,
+					).map((layer) => ({
+						name: layer.name,
+						canvas: layer.canvas,
+						left: layer.bounds?.left ?? 0,
+						top: layer.bounds?.top ?? 0,
+						opacity: layer.opacity,
+					})),
+				}
+			: null;
+		const referenceImagesFrontLayerDocument = referenceImageLayers.some(
+			(layer) => layer.group === REFERENCE_IMAGE_GROUP_FRONT,
+		)
+			? {
+					name: `${t("section.referenceImages")} ${t("referenceImage.group.front")}`,
+					opened: true,
+					children: getPsdReferenceImageGroupLayers(
+						referenceImageLayers,
+						REFERENCE_IMAGE_GROUP_FRONT,
+					).map((layer) => ({
+						name: layer.name,
+						canvas: layer.canvas,
+						left: layer.bounds?.left ?? 0,
+						top: layer.bounds?.top ?? 0,
+						opacity: layer.opacity,
+					})),
+				}
+			: null;
 		const frameOverlayLayerDocument = frameOverlayPass
 			? {
-					name: frameOverlayPass.name,
-					canvas: renderExportPassToCanvas(bundle, frameOverlayPass),
+					name: t("section.frames"),
+					opened: true,
+					children: (frameOverlayPass.layers ?? []).map((layer) => ({
+						name: layer.name,
+						canvas: layer.canvas,
+						left: layer.left ?? 0,
+						top: layer.top ?? 0,
+						opacity: layer.opacity,
+					})),
 				}
 			: null;
 		const orderedLayers = [];
@@ -1931,9 +1938,14 @@ export function createExportController({
 			orderedLayers.push(backgroundLayerDocument);
 		}
 		if (snapshotExportSettings.exportGridLayerMode === "bottom") {
+			if (referenceImagesBackLayerDocument) {
+				orderedLayers.push(referenceImagesBackLayerDocument);
+			}
 			if (gridLayerDocument) {
 				orderedLayers.push(gridLayerDocument);
 			}
+		} else if (referenceImagesBackLayerDocument) {
+			orderedLayers.push(referenceImagesBackLayerDocument);
 		}
 		if (renderLayerDocument) {
 			orderedLayers.push(renderLayerDocument);
@@ -1947,8 +1959,8 @@ export function createExportController({
 		if (eyeLevelLayerDocument) {
 			orderedLayers.push(eyeLevelLayerDocument);
 		}
-		if (referenceImageGroupDocument) {
-			orderedLayers.push(referenceImageGroupDocument);
+		if (referenceImagesFrontLayerDocument) {
+			orderedLayers.push(referenceImagesFrontLayerDocument);
 		}
 		if (frameOverlayLayerDocument) {
 			orderedLayers.push(frameOverlayLayerDocument);

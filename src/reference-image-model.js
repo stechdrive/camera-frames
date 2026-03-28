@@ -474,7 +474,7 @@ export function findReferenceImagePreset(documentState, presetId = null) {
 export function getShotReferenceImagePresetId(documentState, shotState = null) {
 	const preset = findReferenceImagePreset(
 		documentState,
-		shotState?.presetId ?? documentState?.activePresetId ?? null,
+		shotState?.presetId ?? REFERENCE_IMAGE_DEFAULT_PRESET_ID,
 	);
 	return preset?.id ?? null;
 }
@@ -570,7 +570,10 @@ export function resolveReferenceImageItemsForShot(
 	documentState,
 	shotState = null,
 ) {
-	const preset = findReferenceImagePreset(documentState, shotState?.presetId);
+	const preset = findReferenceImagePreset(
+		documentState,
+		getShotReferenceImagePresetId(documentState, shotState),
+	);
 	if (!preset) {
 		return {
 			preset: null,

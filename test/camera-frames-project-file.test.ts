@@ -172,6 +172,15 @@ const projectSnapshot = {
 				workingPivotLocal: { x: 0.1, y: 0.2, z: 0.3 },
 			},
 		],
+		lighting: {
+			ambient: 0.42,
+			modelLight: {
+				enabled: false,
+				intensity: 1.65,
+				azimuthDeg: 72,
+				elevationDeg: 28,
+			},
+		},
 		referenceImages: referenceImageDocument,
 	},
 };
@@ -187,6 +196,11 @@ assert.equal(result.project.workspace.viewport.baseFovX, 55);
 assert.equal(result.project.shotCameras.length, 1);
 assert.equal(result.project.shotCameras[0].pose.position.x, 4);
 assert.equal(result.project.scene.assets.length, 2);
+assert.equal(result.project.scene.lighting.ambient, 0.42);
+assert.equal(result.project.scene.lighting.modelLight.enabled, false);
+assert.equal(result.project.scene.lighting.modelLight.intensity, 1.65);
+assert.equal(result.project.scene.lighting.modelLight.azimuthDeg, 72);
+assert.equal(result.project.scene.lighting.modelLight.elevationDeg, 28);
 assert.equal(result.project.scene.referenceImages.assets.length, 1);
 assert.equal(result.project.scene.referenceImages.presets[0].items.length, 1);
 assert.equal(result.assetEntries.length, 2);

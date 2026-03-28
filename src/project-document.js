@@ -1,3 +1,4 @@
+import { normalizeLightingState } from "./lighting-model.js";
 import {
 	REFERENCE_IMAGE_ASSET_KIND,
 	createDefaultReferenceImageDocument,
@@ -283,6 +284,7 @@ export function normalizeProjectDocument(project = {}) {
 				? project.scene.assets
 				: []
 			).map((asset, index) => sanitizeProjectAssetState(asset, index)),
+			lighting: normalizeLightingState(project.scene?.lighting),
 			referenceImages: normalizedReferenceImages,
 		},
 		shotCameras: normalizedShotCameras,
@@ -302,7 +304,12 @@ export function buildProjectManifest({
 		entries: {
 			project: projectPath,
 		},
-		features: ["scene-assets", "shot-cameras", "reference-images"],
+		features: [
+			"scene-assets",
+			"scene-lighting",
+			"shot-cameras",
+			"reference-images",
+		],
 	};
 }
 
