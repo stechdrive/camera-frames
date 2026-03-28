@@ -364,7 +364,7 @@ function createTestController() {
 
 	controller.handleReferenceImagePointerMove({
 		pointerId: 2,
-		clientX: 793,
+		clientX: 791,
 		clientY: 432,
 		preventDefault() {},
 	});
@@ -375,8 +375,11 @@ function createTestController() {
 	controller.syncUiState();
 
 	const nextItem = store.referenceImages.items.value[0];
-	assert.equal(nextItem.anchor.ax, 0.75);
+	assert.ok(Math.abs(nextItem.anchor.ax - 0.73) < 1e-9);
 	assert.equal(nextItem.anchor.ay, 0.5);
+	assert.ok(
+		Math.abs(nextItem.offsetPx.x - Math.round(nextItem.offsetPx.x)) > 1e-6,
+	);
 
 	const nextLayer = store.referenceImages.previewLayers.value[0];
 	assert.equal(nextLayer.leftPx, 718);

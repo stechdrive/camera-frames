@@ -449,8 +449,8 @@ export function createReferenceImageController({
 		return updateResolvedReferenceImageItem(previousItemId, {
 			anchor: centeredAnchor,
 			offsetPx: {
-				x: Math.round(nextOffset.x),
-				y: Math.round(nextOffset.y),
+				x: nextOffset.x,
+				y: nextOffset.y,
 			},
 		});
 	}
@@ -1917,8 +1917,8 @@ export function createReferenceImageController({
 					return {
 						anchor: normalizedAnchor,
 						offsetPx: {
-							x: Math.round(nextOffset.x),
-							y: Math.round(nextOffset.y),
+							x: nextOffset.x,
+							y: nextOffset.y,
 						},
 					};
 				});
