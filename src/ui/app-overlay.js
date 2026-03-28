@@ -113,6 +113,18 @@ function renderOverlayButtonsWithState(
 	`;
 }
 
+function formatOverlayElapsedTime(elapsedSeconds) {
+	if (!Number.isFinite(elapsedSeconds) || elapsedSeconds < 0) {
+		return "";
+	}
+	if (elapsedSeconds < 60) {
+		return `${elapsedSeconds}s`;
+	}
+	const minutes = Math.floor(elapsedSeconds / 60);
+	const seconds = elapsedSeconds % 60;
+	return `${minutes}m ${String(seconds).padStart(2, "0")}s`;
+}
+
 function renderProgressBody(overlay, progressTick = Date.now()) {
 	const stepCount = overlay.steps?.length ?? 0;
 	const completedSteps =
@@ -159,7 +171,9 @@ function renderProgressBody(overlay, progressTick = Date.now()) {
 						<span></span>
 						<span></span>
 					</span>
-					<span class="overlay-card__heartbeat-time">${elapsedSeconds}s</span>
+					<span class="overlay-card__heartbeat-time">
+						${formatOverlayElapsedTime(elapsedSeconds)}
+					</span>
 				</div>
 			`
 		}

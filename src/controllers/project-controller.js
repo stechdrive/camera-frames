@@ -189,17 +189,29 @@ function buildPackageProgressDetail(
 		index = 0,
 		total = 0,
 		assetLabel = "",
+		fileLabel = "",
 		message = "",
 		percent = null,
 	} = {},
 ) {
+	const normalizedAssetLabel = String(assetLabel ?? "").trim();
+	const normalizedFileLabel = String(fileLabel ?? "").trim();
 	const assetDetail =
-		assetLabel && total
-			? t("overlay.packageDetailAsset", {
-					index,
-					total,
-					name: assetLabel,
-				})
+		total && (normalizedAssetLabel || normalizedFileLabel)
+			? normalizedAssetLabel &&
+				normalizedFileLabel &&
+				normalizedAssetLabel !== normalizedFileLabel
+				? t("overlay.packageDetailAssetWithFile", {
+						index,
+						total,
+						name: normalizedAssetLabel,
+						file: normalizedFileLabel,
+					})
+				: t("overlay.packageDetailAsset", {
+						index,
+						total,
+						name: normalizedAssetLabel || normalizedFileLabel,
+					})
 			: "";
 	const stageKey =
 		phase === "compress-splats"

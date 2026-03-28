@@ -1,5 +1,5 @@
-const GPU_WORKER_STALL_TIMEOUT_MS = 30000;
-const CPU_WORKER_STALL_TIMEOUT_MS = 180000;
+const GPU_WORKER_STALL_TIMEOUT_MS = 300000;
+const CPU_WORKER_STALL_TIMEOUT_MS = 600000;
 
 class SogCompressWorkerClient {
 	constructor() {
@@ -68,9 +68,13 @@ class SogCompressWorkerClient {
 			pending.reject(error);
 		}
 		this.pending.clear();
-		if (client === this) {
-			client = null;
-		}
+	}
+
+	dispose() {
+		try {
+			this.worker.terminate();
+		} catch {}
+		this.pending.clear();
 	}
 
 	async compress({
@@ -143,13 +147,11 @@ class SogCompressWorkerClient {
 	}
 }
 
-let client = null;
-
-function getSogCompressWorkerClient() {
-	client ??= new SogCompressWorkerClient();
-	return client;
-}
-
 export async function compressEmbeddedSplatSourceAsSogInWorker(options) {
-	return await getSogCompressWorkerClient().compress(options);
+	const client = new SogCompressWorkerClient();
+	try {
+		return await client.compress(options);
+	} finally {
+		client.dispose();
+	}
 }

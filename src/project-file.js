@@ -1,7 +1,10 @@
-import { Zip, ZipDeflate, strToU8, zipSync } from "fflate";
 import { SPLAT_EXTENSIONS } from "./constants.js";
 import { compressEmbeddedSplatSourceAsSogInWorker } from "./engine/sog-compress-worker-client.js";
 import { readSerializedSogColumnsFromInput } from "./engine/sog-data-table.js";
+import {
+	buildZipArchiveBytes,
+	createArchiveWritableStream,
+} from "./project-archive.js";
 import {
 	PROJECT_DOCUMENT_PATH,
 	PROJECT_FORMAT,
@@ -28,6 +31,7 @@ const DEFAULT_SOG_ITERATIONS = 10;
 const DEFAULT_SOG_MAX_SH_BANDS = 2;
 const SOG_SERIALIZABLE_EXTENSIONS = new Set(["ply", "spz"]);
 const PROJECT_ZIP_LEVEL = 6;
+const textEncoder = new TextEncoder();
 
 function getPackageSaveOptionValue(value, fallback) {
 	return Number.isFinite(value) ? value : fallback;
@@ -70,6 +74,37 @@ function canCompressEmbeddedSplatSourceAsSog(source) {
 			SPLAT_EXTENSIONS.has(sourceExtension) &&
 			SOG_SERIALIZABLE_EXTENSIONS.has(sourceExtension),
 	);
+}
+
+function getProjectSourceFileLabel(source) {
+	if (isProjectFileEmbeddedFileSource(source)) {
+		return (
+			normalizeProjectFileName(source.fileName ?? source.file?.name, "") ||
+			"asset.bin"
+		);
+	}
+	if (isProjectFilePackedSplatSource(source)) {
+		return normalizeProjectFileName(source.fileName, "") || "meta.json";
+	}
+	return "asset";
+}
+
+function getProjectResourceFileLabel(resource) {
+	if (resource?.type === "file") {
+		return (
+			normalizeProjectFileName(resource.originalName ?? resource.path, "") ||
+			"asset.bin"
+		);
+	}
+	if (resource?.type === "packed-splat") {
+		return (
+			normalizeProjectFileName(
+				resource.originalName ?? resource.manifest?.path,
+				"",
+			) || "meta.json"
+		);
+	}
+	return "asset";
 }
 
 function cloneFileResource(resource, assetKind) {
@@ -141,6 +176,9 @@ async function serializeEmbeddedProjectSource(
 		resource,
 		archiveEntries: {
 			[resource.path]: bytes,
+		},
+		archiveEntryLabels: {
+			[resource.path]: resource.originalName,
 		},
 	};
 }
@@ -243,9 +281,15 @@ async function serializeEmbeddedSplatProjectSourceAsSog(
 		);
 		try {
 			if (progress) {
+				const retryMessage = String(
+					workerError?.message ?? workerError ?? "",
+				).trim();
 				await notifyPackageProgress(onProgress, {
 					...progress,
 					stage: "retry-cpu-worker",
+					message: retryMessage
+						? `GPU worker failed: ${retryMessage}`
+						: undefined,
 				});
 			}
 			serializedColumns = await readSerializedColumns();
@@ -302,6 +346,9 @@ async function serializeEmbeddedSplatProjectSourceAsSog(
 		archiveEntries: {
 			[resource.path]: outputBytes,
 		},
+		archiveEntryLabels: {
+			[resource.path]: resource.originalName,
+		},
 	};
 }
 
@@ -325,6 +372,9 @@ async function serializePackedSplatProjectSource(
 	const archiveEntries = {
 		[manifestResource.path]: manifestBytes,
 	};
+	const archiveEntryLabels = {
+		[manifestResource.path]: source.fileName,
+	};
 	const extraFiles = [];
 
 	for (const [name, value] of Object.entries(source.extraFiles ?? {})) {
@@ -332,6 +382,7 @@ async function serializePackedSplatProjectSource(
 		const hash = await sha256Hex(bytes);
 		const path = buildProjectResourcePath(hash, name);
 		archiveEntries[path] = bytes;
+		archiveEntryLabels[path] = name;
 		extraFiles.push({
 			name,
 			path,
@@ -353,6 +404,7 @@ async function serializePackedSplatProjectSource(
 	return {
 		resource,
 		archiveEntries,
+		archiveEntryLabels,
 	};
 }
 
@@ -382,7 +434,7 @@ export async function buildCameraFramesProjectPackage(
 			onProgress,
 		},
 	);
-	const archive = zipSync(packageContents.archiveEntries, {
+	const archive = await buildZipArchiveBytes(packageContents.archiveEntries, {
 		level: PROJECT_ZIP_LEVEL,
 	});
 	return {
@@ -391,6 +443,70 @@ export async function buildCameraFramesProjectPackage(
 		serializedProject: packageContents.serializedProject,
 		packageFingerprint: packageContents.packageFingerprint,
 	};
+}
+
+async function serializeProjectAssetSource(
+	asset,
+	index,
+	totalAssets,
+	{
+		compressSplatsToSog = false,
+		sogMaxShBands = DEFAULT_SOG_MAX_SH_BANDS,
+		sogIterations = DEFAULT_SOG_ITERATIONS,
+		onProgress = null,
+	} = {},
+) {
+	const progress = {
+		phase:
+			compressSplatsToSog &&
+			asset.kind === "splat" &&
+			canCompressEmbeddedSplatSourceAsSog(asset.source)
+				? "compress-splats"
+				: "resolve-assets",
+		index: index + 1,
+		total: totalAssets,
+		assetLabel: asset.label,
+		fileLabel: getProjectSourceFileLabel(asset.source),
+	};
+
+	if (
+		compressSplatsToSog &&
+		asset.kind === "splat" &&
+		canCompressEmbeddedSplatSourceAsSog(asset.source)
+	) {
+		return await serializeEmbeddedSplatProjectSourceAsSog(
+			asset.source,
+			asset.kind,
+			index,
+			{
+				sogMaxShBands,
+				sogIterations,
+				onProgress,
+				progress,
+			},
+		);
+	}
+
+	if (isProjectFileEmbeddedFileSource(asset.source)) {
+		return await serializeEmbeddedProjectSource(
+			asset.source,
+			asset.kind,
+			index,
+			{
+				onProgress,
+				progress,
+			},
+		);
+	}
+
+	if (isProjectFilePackedSplatSource(asset.source)) {
+		return await serializePackedSplatProjectSource(asset.source, {
+			onProgress,
+			progress,
+		});
+	}
+
+	throw new Error(`Asset "${asset.label}" is missing a serializable source.`);
 }
 
 async function serializeCameraFramesProjectPackageContents(
@@ -409,60 +525,18 @@ async function serializeCameraFramesProjectPackageContents(
 	const totalAssets = normalizedProject.scene.assets.length;
 
 	for (const [index, asset] of normalizedProject.scene.assets.entries()) {
-		const progress = {
-			phase:
-				compressSplatsToSog &&
-				asset.kind === "splat" &&
-				canCompressEmbeddedSplatSourceAsSog(asset.source)
-					? "compress-splats"
-					: "resolve-assets",
-			index: index + 1,
-			total: totalAssets,
-			assetLabel: asset.label,
-		};
-
 		const resourceId = `resource-${index + 1}`;
-		let serializedSource = null;
-		if (
-			compressSplatsToSog &&
-			asset.kind === "splat" &&
-			canCompressEmbeddedSplatSourceAsSog(asset.source)
-		) {
-			serializedSource = await serializeEmbeddedSplatProjectSourceAsSog(
-				asset.source,
-				asset.kind,
-				index,
-				{
-					sogMaxShBands,
-					sogIterations,
-					onProgress,
-					progress,
-				},
-			);
-		}
-
-		if (!serializedSource && isProjectFileEmbeddedFileSource(asset.source)) {
-			serializedSource = await serializeEmbeddedProjectSource(
-				asset.source,
-				asset.kind,
-				index,
-				{
-					onProgress,
-					progress,
-				},
-			);
-		} else if (isProjectFilePackedSplatSource(asset.source)) {
-			serializedSource = await serializePackedSplatProjectSource(asset.source, {
+		const serializedSource = await serializeProjectAssetSource(
+			asset,
+			index,
+			totalAssets,
+			{
+				compressSplatsToSog,
+				sogMaxShBands,
+				sogIterations,
 				onProgress,
-				progress,
-			});
-		}
-
-		if (!serializedSource) {
-			throw new Error(
-				`Asset "${asset.label}" is missing a serializable source.`,
-			);
-		}
+			},
+		);
 
 		Object.assign(archiveEntries, serializedSource.archiveEntries);
 		resources[resourceId] = serializedSource.resource;
@@ -481,10 +555,10 @@ async function serializeCameraFramesProjectPackageContents(
 		},
 	};
 
-	archiveEntries[PROJECT_MANIFEST_PATH] = strToU8(
+	archiveEntries[PROJECT_MANIFEST_PATH] = textEncoder.encode(
 		JSON.stringify(buildProjectManifest(), null, 2),
 	);
-	archiveEntries[PROJECT_DOCUMENT_PATH] = strToU8(
+	archiveEntries[PROJECT_DOCUMENT_PATH] = textEncoder.encode(
 		JSON.stringify(serializedProject, null, 2),
 	);
 	const packageFingerprint = await buildProjectFingerprint(serializedProject);
@@ -496,66 +570,23 @@ async function serializeCameraFramesProjectPackageContents(
 	};
 }
 
-async function streamArchiveEntriesToWritable(
-	archiveEntries,
-	writable,
-	{ onProgress = null } = {},
-) {
-	const entries = Object.entries(archiveEntries);
-	let pendingWrite = Promise.resolve();
+function countSerializedSourceEntries(source) {
+	if (isProjectFileEmbeddedFileSource(source)) {
+		return 1;
+	}
+	if (isProjectFilePackedSplatSource(source)) {
+		return 1 + Object.keys(source.extraFiles ?? {}).length;
+	}
+	return 0;
+}
 
-	await new Promise((resolve, reject) => {
-		let finished = false;
-		const fail = (error) => {
-			if (finished) {
-				return;
-			}
-			finished = true;
-			reject(error);
-		};
-		const finish = () => {
-			if (finished) {
-				return;
-			}
-			finished = true;
-			resolve();
-		};
-
-		const zip = new Zip((error, chunk, final) => {
-			if (error) {
-				fail(error);
-				return;
-			}
-			if (chunk?.length) {
-				pendingWrite = pendingWrite.then(() => writable.write(chunk));
-			}
-			if (final) {
-				pendingWrite.then(finish).catch(fail);
-			}
-		});
-
-		(async () => {
-			try {
-				for (const [index, [path, bytes]] of entries.entries()) {
-					await notifyPackageProgress(onProgress, {
-						phase: "write-package",
-						stage: "zipEntries",
-						index: index + 1,
-						total: entries.length,
-						assetLabel: path,
-					});
-					const entry = new ZipDeflate(path, {
-						level: PROJECT_ZIP_LEVEL,
-					});
-					zip.add(entry);
-					entry.push(bytes, true);
-				}
-				zip.end();
-			} catch (error) {
-				fail(error);
-			}
-		})().catch(fail);
-	});
+function countProjectArchiveEntries(project) {
+	return (
+		project.scene.assets.reduce(
+			(total, asset) => total + countSerializedSourceEntries(asset.source),
+			0,
+		) + 2
+	);
 }
 
 export async function writeCameraFramesProjectPackageToWritable(
@@ -563,21 +594,98 @@ export async function writeCameraFramesProjectPackageToWritable(
 	writable,
 	options,
 ) {
-	const packageContents = await serializeCameraFramesProjectPackageContents(
-		projectSnapshot,
-		options,
-	);
-	await streamArchiveEntriesToWritable(
-		packageContents.archiveEntries,
-		writable,
-		{
-			onProgress: options?.onProgress ?? null,
+	const {
+		compressSplatsToSog = false,
+		sogMaxShBands = DEFAULT_SOG_MAX_SH_BANDS,
+		sogIterations = DEFAULT_SOG_ITERATIONS,
+		onProgress = null,
+	} = options ?? {};
+	const normalizedProject = normalizeProjectDocument(projectSnapshot);
+	const resources = {};
+	const serializedAssets = [];
+	const totalAssets = normalizedProject.scene.assets.length;
+	const totalEntries = countProjectArchiveEntries(normalizedProject);
+	let writtenEntries = 0;
+	const zipWriter = createArchiveWritableStream(writable, {
+		level: PROJECT_ZIP_LEVEL,
+	});
+
+	for (const [index, asset] of normalizedProject.scene.assets.entries()) {
+		const resourceId = `resource-${index + 1}`;
+		const serializedSource = await serializeProjectAssetSource(
+			asset,
+			index,
+			totalAssets,
+			{
+				compressSplatsToSog,
+				sogMaxShBands,
+				sogIterations,
+				onProgress,
+			},
+		);
+		for (const [path, bytes] of Object.entries(
+			serializedSource.archiveEntries,
+		)) {
+			writtenEntries += 1;
+			await notifyPackageProgress(onProgress, {
+				phase: "write-package",
+				stage: "zipEntries",
+				index: writtenEntries,
+				total: totalEntries,
+				assetLabel: asset.label,
+				fileLabel:
+					serializedSource.archiveEntryLabels?.[path] ??
+					getProjectResourceFileLabel(serializedSource.resource),
+			});
+			zipWriter.addEntry(path, bytes);
+		}
+		resources[resourceId] = serializedSource.resource;
+		serializedAssets.push({
+			...asset,
+			source: createProjectAssetResourceRef(resourceId),
+		});
+	}
+
+	const serializedProject = {
+		...normalizedProject,
+		resources,
+		scene: {
+			...normalizedProject.scene,
+			assets: serializedAssets,
 		},
+	};
+	const manifest = buildProjectManifest();
+	const packageFingerprint = await buildProjectFingerprint(serializedProject);
+	const manifestBytes = textEncoder.encode(JSON.stringify(manifest, null, 2));
+	const projectBytes = textEncoder.encode(
+		JSON.stringify(serializedProject, null, 2),
 	);
+
+	writtenEntries += 1;
+	await notifyPackageProgress(onProgress, {
+		phase: "write-package",
+		stage: "zipEntries",
+		index: writtenEntries,
+		total: totalEntries,
+		fileLabel: PROJECT_MANIFEST_PATH,
+	});
+	zipWriter.addEntry(PROJECT_MANIFEST_PATH, manifestBytes);
+
+	writtenEntries += 1;
+	await notifyPackageProgress(onProgress, {
+		phase: "write-package",
+		stage: "zipEntries",
+		index: writtenEntries,
+		total: totalEntries,
+		fileLabel: PROJECT_DOCUMENT_PATH,
+	});
+	zipWriter.addEntry(PROJECT_DOCUMENT_PATH, projectBytes);
+	await zipWriter.close();
+
 	return {
-		manifest: buildProjectManifest(),
-		serializedProject: packageContents.serializedProject,
-		packageFingerprint: packageContents.packageFingerprint,
+		manifest,
+		serializedProject,
+		packageFingerprint,
 	};
 }
 
@@ -594,87 +702,91 @@ export async function buildCameraFramesProjectArchive(
 
 export async function readCameraFramesProject(source) {
 	const reader = await ZipReader.from(source);
-	const archivePaths = reader.listFilenames();
-	const hasManifest = archivePaths.includes(PROJECT_MANIFEST_PATH);
-	const manifest = hasManifest
-		? JSON.parse(await reader.text(PROJECT_MANIFEST_PATH))
-		: null;
-	if (
-		manifest &&
-		(manifest?.format !== PROJECT_FORMAT ||
-			Number(manifest?.version) !== PROJECT_VERSION)
-	) {
-		throw new Error("Unsupported CAMERA_FRAMES project format.");
-	}
-
-	const projectPath =
-		(typeof manifest?.entries?.project === "string" &&
-			manifest.entries.project) ||
-		archivePaths.find((path) => path === PROJECT_DOCUMENT_PATH) ||
-		PROJECT_DOCUMENT_PATH;
-	const project = normalizeProjectDocument(
-		JSON.parse(await reader.text(projectPath)),
-	);
-	const assetEntries = [];
-
-	for (const asset of project.scene.assets) {
-		const resourceId = asset.source?.resourceId;
-		const resource = project.resources?.[resourceId];
-		if (!resource) {
-			throw new Error(`Missing project resource for asset "${asset.label}".`);
+	try {
+		const archivePaths = reader.listFilenames();
+		const hasManifest = archivePaths.includes(PROJECT_MANIFEST_PATH);
+		const manifest = hasManifest
+			? JSON.parse(await reader.text(PROJECT_MANIFEST_PATH))
+			: null;
+		if (
+			manifest &&
+			(manifest?.format !== PROJECT_FORMAT ||
+				Number(manifest?.version) !== PROJECT_VERSION)
+		) {
+			throw new Error("Unsupported CAMERA_FRAMES project format.");
 		}
 
-		if (resource.type === "file") {
-			const blob = await reader.blob(resource.path);
-			assetEntries.push({
-				...asset,
-				source: createProjectFileEmbeddedFileSource({
-					kind: asset.kind,
-					file: new File([blob], resource.originalName, {
-						type: resource.mediaType || blob.type || undefined,
-					}),
-					fileName: resource.originalName,
-					projectAssetState: asset,
-					legacyState: asset.legacyState ?? null,
-					resource: cloneFileResource(resource, asset.kind),
-				}),
-			});
-			continue;
-		}
+		const projectPath =
+			(typeof manifest?.entries?.project === "string" &&
+				manifest.entries.project) ||
+			archivePaths.find((path) => path === PROJECT_DOCUMENT_PATH) ||
+			PROJECT_DOCUMENT_PATH;
+		const project = normalizeProjectDocument(
+			JSON.parse(await reader.text(projectPath)),
+		);
+		const assetEntries = [];
 
-		if (resource.type === "packed-splat") {
-			const manifestBlob = await reader.blob(resource.manifest?.path);
-			const extraFiles = {};
-			for (const extraFile of resource.extraFiles ?? []) {
-				const extraBlob = await reader.blob(extraFile.path);
-				extraFiles[extraFile.name] = await extraBlob.arrayBuffer();
+		for (const asset of project.scene.assets) {
+			const resourceId = asset.source?.resourceId;
+			const resource = project.resources?.[resourceId];
+			if (!resource) {
+				throw new Error(`Missing project resource for asset "${asset.label}".`);
 			}
-			assetEntries.push({
-				...asset,
-				source: createProjectFilePackedSplatSource({
-					fileName: resource.originalName,
-					inputBytes: new Uint8Array(await manifestBlob.arrayBuffer()),
-					extraFiles,
-					fileType: resource.fileType ?? null,
-					projectAssetState: asset,
-					legacyState: asset.legacyState ?? null,
-					resource: clonePackedSplatResource(resource),
-				}),
-			});
-			continue;
+
+			if (resource.type === "file") {
+				const blob = await reader.blob(resource.path);
+				assetEntries.push({
+					...asset,
+					source: createProjectFileEmbeddedFileSource({
+						kind: asset.kind,
+						file: new File([blob], resource.originalName, {
+							type: resource.mediaType || blob.type || undefined,
+						}),
+						fileName: resource.originalName,
+						projectAssetState: asset,
+						legacyState: asset.legacyState ?? null,
+						resource: cloneFileResource(resource, asset.kind),
+					}),
+				});
+				continue;
+			}
+
+			if (resource.type === "packed-splat") {
+				const manifestBlob = await reader.blob(resource.manifest?.path);
+				const extraFiles = {};
+				for (const extraFile of resource.extraFiles ?? []) {
+					const extraBlob = await reader.blob(extraFile.path);
+					extraFiles[extraFile.name] = await extraBlob.arrayBuffer();
+				}
+				assetEntries.push({
+					...asset,
+					source: createProjectFilePackedSplatSource({
+						fileName: resource.originalName,
+						inputBytes: new Uint8Array(await manifestBlob.arrayBuffer()),
+						extraFiles,
+						fileType: resource.fileType ?? null,
+						projectAssetState: asset,
+						legacyState: asset.legacyState ?? null,
+						resource: clonePackedSplatResource(resource),
+					}),
+				});
+				continue;
+			}
+
+			throw new Error(`Unsupported project resource type "${resource.type}".`);
 		}
 
-		throw new Error(`Unsupported project resource type "${resource.type}".`);
+		return {
+			manifest:
+				manifest ||
+				buildProjectManifest({
+					storageMode: "portable",
+					projectPath,
+				}),
+			project,
+			assetEntries,
+		};
+	} finally {
+		await reader.close();
 	}
-
-	return {
-		manifest:
-			manifest ||
-			buildProjectManifest({
-				storageMode: "portable",
-				projectPath,
-			}),
-		project,
-		assetEntries,
-	};
 }

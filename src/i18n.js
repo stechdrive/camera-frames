@@ -219,8 +219,7 @@ const MESSAGES = {
 			importErrorMessageRemote: "このリンクはアプリから直接開けませんでした。",
 			errorDetails: "詳細",
 			packageSaveTitle: "パッケージ保存",
-			packageSaveMessage:
-				"共有・受け渡し用の .ssproj を保存します。必要なら 3DGS を SOG 圧縮できます。",
+			packageSaveMessage: "共有・受け渡し用の .ssproj を保存します。",
 			packageSaveMessageWithOverwrite:
 				"共有・受け渡し用の .ssproj を保存します。現在のファイル {name} に上書き保存するか、別名で保存するかを選んでください。",
 			packageSaveErrorTitle: "パッケージ保存に失敗しました",
@@ -232,6 +231,7 @@ const MESSAGES = {
 			packagePhaseWrite: "パッケージを書き込み",
 			packageDetailCollect: "保存対象を収集中…",
 			packageDetailAsset: "{index}/{total} asset: {name}",
+			packageDetailAssetWithFile: "{index}/{total} asset: {name} ({file})",
 			packageDetailWrite: "ファイルを書き込み中…",
 			packageWriteStage: {
 				zipEntries: "ZIPアーカイブを書き込み中…",
@@ -595,7 +595,7 @@ const MESSAGES = {
 			errorDetails: "Details",
 			packageSaveTitle: "Save Package",
 			packageSaveMessage:
-				"Save a portable .ssproj package for sharing or handoff. 3DGS assets can be compressed to SOG when needed.",
+				"Save a portable .ssproj package for sharing or handoff.",
 			packageSaveMessageWithOverwrite:
 				"Save a portable .ssproj package for sharing or handoff. Choose whether to overwrite {name} or save to a new file.",
 			packageSaveErrorTitle: "Package save failed",
@@ -607,6 +607,7 @@ const MESSAGES = {
 			packagePhaseWrite: "Writing package",
 			packageDetailCollect: "Collecting save data…",
 			packageDetailAsset: "Asset {index}/{total}: {name}",
+			packageDetailAssetWithFile: "Asset {index}/{total}: {name} ({file})",
 			packageDetailWrite: "Writing package file…",
 			packageWriteStage: {
 				zipEntries: "Writing ZIP archive…",

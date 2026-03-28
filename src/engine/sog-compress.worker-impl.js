@@ -61,9 +61,10 @@ async function writeSogBundle({
 	return outputFileSystem.results.get(outputFileName) ?? null;
 }
 
-function createProgressLogger(token) {
+function createProgressLogger(token, modeLabel = "") {
 	let lastText = "";
 	let lastPercent = -1;
+	const prefix = modeLabel ? `${modeLabel} · ` : "";
 	return {
 		log: () => {},
 		warn: console.warn,
@@ -86,7 +87,7 @@ function createProgressLogger(token) {
 				globalThis.postMessage({
 					type: "progress",
 					token,
-					text,
+					text: `${prefix}${text}`,
 					progress: 0,
 				});
 				return;
@@ -110,9 +111,11 @@ function createProgressLogger(token) {
 			globalThis.postMessage({
 				type: "progress",
 				token,
-				text: parentName
-					? `Step ${parentStep}/${parentTotal}: ${parentName}`
-					: `Step ${parentStep}/${parentTotal}`,
+				text: `${prefix}${
+					parentName
+						? `Step ${parentStep}/${parentTotal}: ${parentName}`
+						: `Step ${parentStep}/${parentTotal}`
+				}`,
 				progress: roundedPercent,
 			});
 		},
@@ -135,7 +138,6 @@ async function compressToSog({
 	sogIterations,
 	forceCpu = false,
 }) {
-	splatTransform.logger.setLogger(createProgressLogger(token));
 	postWorkerProgress(token, "Building SOG data table…", 0);
 	const filteredDataTable = buildDataTableFromSerializedSogColumns(
 		serializedColumns,
@@ -148,6 +150,7 @@ async function compressToSog({
 	const useGpu = !forceCpu && Boolean(globalThis.navigator?.gpu);
 	let outputBytes = null;
 	if (!useGpu) {
+		splatTransform.logger.setLogger(createProgressLogger(token, "CPU"));
 		if (forceCpu) {
 			postWorkerProgress(token, "CPU mode forced after worker retry.", 0);
 		}
@@ -161,6 +164,7 @@ async function compressToSog({
 		});
 	} else {
 		try {
+			splatTransform.logger.setLogger(createProgressLogger(token, "GPU"));
 			postWorkerProgress(
 				token,
 				"WebGPU detected. Preparing GPU compression…",
@@ -173,6 +177,7 @@ async function compressToSog({
 				createDevice: createGpuDevice,
 			});
 		} catch (error) {
+			splatTransform.logger.setLogger(createProgressLogger(token, "CPU"));
 			postWorkerProgress(
 				token,
 				`Worker GPU path failed, retrying on CPU. ${String(error?.message ?? error ?? "")}`.trim(),
