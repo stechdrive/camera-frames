@@ -1,4 +1,5 @@
 import { html } from "htm/preact";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { WorkbenchIcon } from "./workbench-icons.js";
 
 export function TooltipBubble({
@@ -106,8 +107,49 @@ export function HeaderMenu({
 	tooltip = null,
 }) {
 	const visibleItems = items.filter(Boolean);
+	const [open, setOpen] = useState(false);
+	const detailsRef = useRef(null);
+
+	useEffect(() => {
+		if (!open) {
+			return undefined;
+		}
+
+		const handlePointerDown = (event) => {
+			if (!detailsRef.current?.contains(event.target)) {
+				setOpen(false);
+			}
+		};
+
+		const handleFocusIn = (event) => {
+			if (!detailsRef.current?.contains(event.target)) {
+				setOpen(false);
+			}
+		};
+
+		const handleKeyDown = (event) => {
+			if (event.key === "Escape") {
+				setOpen(false);
+			}
+		};
+
+		document.addEventListener("pointerdown", handlePointerDown, true);
+		document.addEventListener("focusin", handleFocusIn);
+		document.addEventListener("keydown", handleKeyDown);
+		return () => {
+			document.removeEventListener("pointerdown", handlePointerDown, true);
+			document.removeEventListener("focusin", handleFocusIn);
+			document.removeEventListener("keydown", handleKeyDown);
+		};
+	}, [open]);
+
 	return html`
-		<details class="workbench-menu">
+		<details
+			ref=${detailsRef}
+			class="workbench-menu"
+			open=${open}
+			onToggle=${(event) => setOpen(Boolean(event.currentTarget.open))}
+		>
 			<summary
 				class="workbench-menu__trigger workbench-menu__trigger--tooltip"
 				aria-label=${label}
@@ -133,8 +175,7 @@ export function HeaderMenu({
 									: "workbench-menu__item"
 							}
 							onClick=${(event) => {
-								const details = event.currentTarget.closest("details");
-								details?.removeAttribute("open");
+								setOpen(false);
 								item.onClick?.();
 							}}
 						>

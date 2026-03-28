@@ -1381,13 +1381,24 @@ export function createCameraFramesController(elements, store) {
 		setViewportPivotEditMode(!store.viewportPivotEditMode.value);
 	}
 
+	function clearViewportEditingSelection() {
+		assetController.clearSceneAssetSelection();
+		referenceImageController?.clearReferenceImageSelection?.();
+		clearFrameSelection();
+		clearOutputFrameSelection();
+		setViewportToolMode("none");
+	}
+
 	function handleViewportPieAction(actionId, pointerEvent = null) {
 		switch (actionId) {
 			case "tool-none":
-				setViewportToolMode("none");
+				clearViewportEditingSelection();
 				return true;
 			case "tool-select":
 				setViewportToolMode("select");
+				return true;
+			case "tool-reference":
+				setViewportToolMode("reference");
 				return true;
 			case "tool-transform":
 				setViewportToolMode("transform");
@@ -1410,6 +1421,9 @@ export function createCameraFramesController(elements, store) {
 				return true;
 			case "adjust-lens":
 				interactionController?.activateLensAdjustMode(pointerEvent);
+				return true;
+			case "clear-selection":
+				clearViewportEditingSelection();
 				return true;
 			default:
 				return false;

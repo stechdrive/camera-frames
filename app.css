@@ -158,7 +158,7 @@ code {
 
 .workbench-card--inspector {
 	padding: 0.65rem;
-	overflow: hidden;
+	overflow: visible;
 }
 
 .workbench-card--inspector-rail {
@@ -174,7 +174,7 @@ code {
 	width: min(360px, calc(100vw - 6rem));
 	max-height: min(84vh, 780px);
 	padding: 0.65rem;
-	overflow: hidden;
+	overflow: visible;
 }
 
 .panel-header {
@@ -873,9 +873,19 @@ code {
 	text-align: right;
 }
 
-.numeric-unit span {
+.numeric-unit__label {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 2.1rem;
+	min-height: 1.7rem;
+	padding: 0 0.45rem;
+	border: 1px solid var(--line);
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.04);
 	color: var(--accent-cool);
 	font: 600 0.76rem / 1 "Consolas", "Andale Mono", monospace;
+	letter-spacing: 0.02em;
 }
 
 .lighting-direction-control {
@@ -2099,6 +2109,13 @@ body[data-interaction-mode="lens"] .viewport-gizmo {
 	font-size: 0.86rem;
 }
 
+.drop-hint__meta {
+	color: var(--accent-cool);
+	font: 600 0.72rem / 1.2 "Consolas", "Andale Mono", monospace;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+
 .render-box {
 	position: absolute;
 	z-index: 3;
@@ -2682,9 +2699,14 @@ body[data-interaction-mode="lens"] .viewport-gizmo {
 }
 
 .scene-asset-row__handle {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 0.95rem;
+	height: 0.95rem;
 	color: var(--text-dim);
-	font: 600 0.92rem / 1 "Consolas", "Andale Mono", monospace;
 	user-select: none;
+	flex: 0 0 auto;
 }
 
 .scene-asset-row__title-group {

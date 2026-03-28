@@ -4,31 +4,43 @@ export const VIEWPORT_PIE_RADIUS = 88;
 export const VIEWPORT_PIE_INNER_RADIUS = 28;
 export const VIEWPORT_PIE_OUTER_RADIUS = 126;
 
-const VIEWPORT_PIE_LAYOUT = Object.freeze([
-	{ id: "tool-select", angle: -Math.PI / 2 },
-	{ id: "tool-transform", angle: -Math.PI / 4 },
-	{ id: "tool-pivot", angle: 0 },
-	{ id: "adjust-lens", angle: Math.PI / 4 },
-	{ id: "reset-view", angle: Math.PI / 2 },
-	{ id: "frame-create", angle: (Math.PI * 3) / 4 },
-	{ id: "toggle-view-mode", angle: Math.PI },
-	{ id: "tool-none", angle: (-Math.PI * 3) / 4 },
+const VIEWPORT_PIE_ACTION_ORDER = Object.freeze([
+	"tool-select",
+	"tool-reference",
+	"tool-transform",
+	"tool-pivot",
+	"adjust-lens",
+	"frame-create",
+	"toggle-view-mode",
+	"clear-selection",
 ]);
+
+function createViewportPieLayout(actionIds) {
+	const angleStep = FULL_TURN / actionIds.length;
+	return actionIds.map((id, index) => ({
+		id,
+		angle: -Math.PI / 2 + angleStep * index,
+	}));
+}
+
+const VIEWPORT_PIE_LAYOUT = Object.freeze(
+	createViewportPieLayout(VIEWPORT_PIE_ACTION_ORDER),
+);
 
 export function buildViewportPieActions({ mode, t }) {
 	return VIEWPORT_PIE_LAYOUT.map((entry) => {
 		switch (entry.id) {
-			case "tool-none":
-				return {
-					...entry,
-					icon: "slash-circle",
-					label: t("transformMode.none"),
-				};
 			case "tool-select":
 				return {
 					...entry,
 					icon: "cursor",
 					label: t("transformMode.select"),
+				};
+			case "tool-reference":
+				return {
+					...entry,
+					icon: "reference-tool",
+					label: t("transformMode.reference"),
 				};
 			case "tool-transform":
 				return {
@@ -45,19 +57,13 @@ export function buildViewportPieActions({ mode, t }) {
 			case "adjust-lens":
 				return {
 					...entry,
-					icon: "lens",
+					icon: "camera-dslr",
 					label: t("action.adjustLens"),
-				};
-			case "reset-view":
-				return {
-					...entry,
-					icon: "reset",
-					label: t("action.resetActive"),
 				};
 			case "frame-create":
 				return {
 					...entry,
-					icon: "frame",
+					icon: "frame-plus",
 					label: t("action.newFrame"),
 				};
 			case "toggle-view-mode":
@@ -72,6 +78,12 @@ export function buildViewportPieActions({ mode, t }) {
 							icon: "camera",
 							label: t("mode.camera"),
 						};
+			case "clear-selection":
+				return {
+					...entry,
+					icon: "selection-clear",
+					label: t("action.clearSelection"),
+				};
 			default:
 				return {
 					...entry,

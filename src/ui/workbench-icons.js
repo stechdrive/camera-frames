@@ -25,6 +25,13 @@ function renderIconPath(name) {
 				<path d="M4 8.5h11l2.5-2.5h2v12h-2L15 15.5H4z"></path>
 				<circle cx="10" cy="12" r="2.5"></circle>
 			`;
+		case "camera-dslr":
+			return html`
+				<path d="M5 8h3l1.2-2h5.6L16 8h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z"></path>
+				<circle cx="12" cy="13" r="3.2"></circle>
+				<path d="M7.5 10.2h1.5"></path>
+				<path d="M16.5 10.2h1.5"></path>
+			`;
 		case "lens":
 			return html`
 				<circle cx="12" cy="12" r="7"></circle>
@@ -52,6 +59,16 @@ function renderIconPath(name) {
 				<path d="M9 6v12"></path>
 				<circle cx="5" cy="6" r="1.25"></circle>
 				<circle cx="19" cy="18" r="1.25"></circle>
+			`;
+		case "reference-tool":
+			return html`
+				<rect x="5" y="6" width="14" height="12" rx="2"></rect>
+				<path d="M7.5 15.5l3.2-3.2 2.2 2.2 2.6-2.6 1.5 1.5"></path>
+				<circle cx="9" cy="10" r="1.25"></circle>
+				<circle cx="5" cy="6" r="1.1"></circle>
+				<circle cx="19" cy="6" r="1.1"></circle>
+				<circle cx="19" cy="18" r="1.1"></circle>
+				<circle cx="5" cy="18" r="1.1"></circle>
 			`;
 		case "light":
 			return html`
@@ -86,6 +103,24 @@ function renderIconPath(name) {
 				<path d="M3 8.5h6l2 2H21v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
 				<path d="M3 8V6a2 2 0 0 1 2-2h4l2 2h3"></path>
 			`;
+		case "package-open":
+			return html`
+				<path d="M12 3l8 4.5-8 4.5-8-4.5 8-4.5z"></path>
+				<path d="M4 7.5V16.5L12 21l8-4.5V7.5"></path>
+				<path d="M12 12v9"></path>
+				<path d="M8.5 5.8L12 7.8l3.5-2"></path>
+			`;
+		case "clock":
+			return html`
+				<circle cx="12" cy="12" r="8"></circle>
+				<path d="M12 8v4l2.8 1.8"></path>
+			`;
+		case "link":
+			return html`
+				<path d="M9.5 14.5l5-5"></path>
+				<path d="M7.8 9.2l-1.9 1.9a3.5 3.5 0 0 0 5 5l1.9-1.9"></path>
+				<path d="M16.2 14.8l1.9-1.9a3.5 3.5 0 0 0-5-5l-1.9 1.9"></path>
+			`;
 		case "save":
 			return html`
 				<path d="M5 4h12l2 2v14H5z"></path>
@@ -114,6 +149,15 @@ function renderIconPath(name) {
 				<rect x="9" y="9" width="10" height="10" rx="2"></rect>
 				<path d="M7 15H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v1"></path>
 			`;
+		case "grip":
+			return html`
+				<circle cx="9" cy="7.5" r="0.9" fill="currentColor" stroke="none"></circle>
+				<circle cx="15" cy="7.5" r="0.9" fill="currentColor" stroke="none"></circle>
+				<circle cx="9" cy="12" r="0.9" fill="currentColor" stroke="none"></circle>
+				<circle cx="15" cy="12" r="0.9" fill="currentColor" stroke="none"></circle>
+				<circle cx="9" cy="16.5" r="0.9" fill="currentColor" stroke="none"></circle>
+				<circle cx="15" cy="16.5" r="0.9" fill="currentColor" stroke="none"></circle>
+			`;
 		case "trash":
 			return html`
 				<path d="M4 7h16"></path>
@@ -140,7 +184,25 @@ function renderIconPath(name) {
 			`;
 		case "cursor":
 			return html`
-				<path d="M6 4l10 8-4.5 1.2L13.7 19l-2.4 1-2.2-5.8L6 4z"></path>
+				<path d="M4.5 4.5l7.2 16.8 2.2-6.1 6.1-2.2-15.5-8.5z"></path>
+			`;
+		case "cursor-off":
+			return html`
+				<path d="M4.5 4.5l7.2 16.8 2.2-6.1 6.1-2.2-15.5-8.5z"></path>
+				<path d="M18 6l-9.5 9.5"></path>
+			`;
+		case "selection-clear":
+			return html`
+				<rect
+					x="5.5"
+					y="5.5"
+					width="10"
+					height="10"
+					rx="2"
+					stroke-dasharray="2.2 2.2"
+				></rect>
+				<path d="M14.2 14.2l4.3 4.3"></path>
+				<path d="M18.5 14.2l-4.3 4.3"></path>
 			`;
 		case "move":
 			return html`
@@ -159,9 +221,19 @@ function renderIconPath(name) {
 			`;
 		case "pivot":
 			return html`
-				<circle cx="12" cy="12" r="2.5"></circle>
-				<path d="M12 3v4M12 17v4M3 12h4M17 12h4"></path>
 				<circle cx="12" cy="12" r="7"></circle>
+				<circle cx="12" cy="12" r="3"></circle>
+				<path d="M12 5V3"></path>
+				<path d="M12 21v-2"></path>
+				<path d="M19 12h2"></path>
+				<path d="M3 12h2"></path>
+			`;
+		case "frame-plus":
+			return html`
+				<rect x="4" y="5" width="12" height="10" rx="2"></rect>
+				<path d="M8 5v10M12 5v10M4 9h12"></path>
+				<path d="M19 12v7"></path>
+				<path d="M15.5 15.5h7"></path>
 			`;
 		case "viewport":
 			return html`

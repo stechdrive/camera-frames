@@ -120,7 +120,7 @@ const MESSAGES = {
 			select: "Select",
 			reference: "Reference",
 			transform: "Transform",
-			pivot: "Pivot",
+			pivot: "オブジェクト原点",
 		},
 		viewportTool: {
 			moveCenter: "移動",
@@ -188,6 +188,12 @@ const MESSAGES = {
 			duplicateFrame: "複製",
 			deleteFrame: "削除",
 		},
+		unit: {
+			millimeter: "millimeter",
+			percent: "percent",
+			pixel: "pixel",
+			degree: "degree",
+		},
 		tooltip: {
 			fileMenu: "開く・保存・パッケージ保存などのプロジェクト操作です。",
 			collapseWorkbench: "右パネルを最小化して、必要な時だけ呼び出します。",
@@ -198,7 +204,9 @@ const MESSAGES = {
 			toolTransform:
 				"3D オブジェクトの変形モードです。もう一度押すと解除します。",
 			toolPivot:
-				"3D オブジェクトのピボット編集モードです。もう一度押すと解除します。",
+				"3Dオブジェクトの変形原点を編集します。もう一度押すと解除します。",
+			clearSelection:
+				"3Dオブジェクト、下絵、FRAME の選択を解除して、アクティブツールを外します。",
 			tabScene: "シーン、アセット、ライティングを管理します。",
 			tabCamera: "ショットカメラ、FRAME、下絵を編集します。",
 			tabExport: "書き出し設定と出力を管理します。",
@@ -230,7 +238,7 @@ const MESSAGES = {
 		},
 		drop: {
 			title: "ここにファイルをドロップ",
-			body: "3DGS / GLB / .ssproj を直接読み込めます。",
+			body: "3Dデータ（PLY / SPZ / SOG / SPLAT / GLB など）、プロジェクトパッケージ（.ssproj）、下絵（PNG / JPG / WEBP / PSD）を読み込めます。",
 		},
 		badge: {
 			horizontalFov: "水平FOV",
@@ -566,7 +574,7 @@ const MESSAGES = {
 			select: "Select",
 			reference: "Reference",
 			transform: "Transform",
-			pivot: "Pivot",
+			pivot: "Object Origin",
 		},
 		viewportTool: {
 			moveCenter: "Move",
@@ -634,6 +642,12 @@ const MESSAGES = {
 			duplicateFrame: "Duplicate",
 			deleteFrame: "Delete",
 		},
+		unit: {
+			millimeter: "ミリメートル",
+			percent: "パーセント",
+			pixel: "ピクセル",
+			degree: "度",
+		},
 		tooltip: {
 			fileMenu: "Open, save, and package-level project commands live here.",
 			collapseWorkbench:
@@ -648,7 +662,9 @@ const MESSAGES = {
 			toolTransform:
 				"Transform 3D objects. Press again to return to no active tool.",
 			toolPivot:
-				"Edit 3D object pivots. Press again to return to no active tool.",
+				"Edit the transform origin of 3D objects. Press again to return to no active tool.",
+			clearSelection:
+				"Clear selected 3D objects, reference images, and FRAMEs, then return to no active tool.",
 			tabScene: "Manage scene assets and lighting.",
 			tabCamera: "Edit the active Camera, FRAME, and reference setup.",
 			tabExport: "Adjust export options and run output.",
@@ -681,7 +697,7 @@ const MESSAGES = {
 		},
 		drop: {
 			title: "Drop files here",
-			body: "3DGS, GLB, or .ssproj can be loaded directly.",
+			body: "Load 3D data (PLY / SPZ / SOG / SPLAT / GLB and more), project packages (.ssproj), or reference images (PNG / JPG / WEBP / PSD).",
 		},
 		badge: {
 			horizontalFov: "H-FOV",

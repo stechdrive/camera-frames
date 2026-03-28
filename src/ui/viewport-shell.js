@@ -1,4 +1,5 @@
 import { html } from "htm/preact";
+import { getBuildVersionLabel } from "../build-info.js";
 import { getFrameAnchorHandleKey } from "../engine/frame-transform.js";
 import { getFrameResizeCursorCss } from "../engine/resize-cursor.js";
 import { getFrameRotateCursorCss } from "../engine/rotate-cursor.js";
@@ -214,6 +215,9 @@ export function ViewportShell({ store, controller, refs, t }) {
 		<main id="viewport-shell" ref=${refs.viewportShellRef} class="viewport-shell">
 			<canvas id="viewport" ref=${refs.viewportCanvasRef} tabindex="0"></canvas>
 			<div id="drop-hint" ref=${refs.dropHintRef} class="drop-hint">
+				<span class="drop-hint__meta">
+					${`CAMERA_FRAMES ${getBuildVersionLabel()}`}
+				</span>
 				<strong>${t("drop.title")}</strong>
 				<span>${t("drop.body")}</span>
 			</div>

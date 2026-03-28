@@ -42,6 +42,12 @@ export const DEFAULT_NUMERIC_SCRUB_MODIFIERS = Object.freeze({
 	altShift: 0.025,
 });
 
+export function NumericUnitLabel({ value, title = "" }) {
+	return html`
+		<span class="numeric-unit__label" aria-label=${title || value}>${value}</span>
+	`;
+}
+
 const LIGHT_DIRECTION_WIDGET_SIZE = 132;
 const LIGHT_DIRECTION_WIDGET_RADIUS = 46;
 const LIGHT_DIRECTION_WIDGET_CENTER = LIGHT_DIRECTION_WIDGET_SIZE / 2;

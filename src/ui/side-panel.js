@@ -117,13 +117,13 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 	const projectMenuItems = [
 		{
 			id: "open-project",
-			icon: "folder-open",
+			icon: "package-open",
 			label: t("action.openProject"),
 			onClick: () => controller()?.openProject(),
 		},
 		{
 			id: "open-working-project",
-			icon: "folder-open",
+			icon: "clock",
 			label: t("action.openWorkingProject"),
 			onClick: () => controller()?.openWorkingProject(),
 		},
@@ -185,7 +185,7 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 				onClick=${() => controller()?.loadRemoteUrls()}
 			>
 				<span class="workbench-menu__item-icon">
-					<${WorkbenchIcon} name="folder-open" size=${14} />
+					<${WorkbenchIcon} name="link" size=${14} />
 				</span>
 				<span>${t("action.loadUrl")}</span>
 			</button>

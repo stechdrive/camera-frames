@@ -19,6 +19,7 @@ import {
 	INTERACTIVE_FIELD_PROPS,
 	LightingDirectionControl,
 	NumericDraftInput,
+	NumericUnitLabel,
 	TextDraftInput,
 	applyStandardFrameEquivalentMm,
 } from "./workbench-controls.js";
@@ -258,7 +259,7 @@ export function ToolRailSection({
 									)}
 							/>
 							<${IconButton}
-								icon="reference"
+								icon="reference-tool"
 								label=${t("transformMode.reference")}
 								active=${store.viewportReferenceImageEditMode.value}
 								className="workbench-tool-rail__button"
@@ -297,7 +298,7 @@ export function ToolRailSection({
 								tooltip=${{
 									title: t("transformMode.pivot"),
 									description: t("tooltip.toolPivot"),
-									shortcut: "P",
+									shortcut: "Q",
 									placement: "right",
 								}}
 								onClick=${() =>
@@ -305,6 +306,21 @@ export function ToolRailSection({
 										controller()?.setViewportPivotEditMode(true),
 									)}
 							/>
+					</div>
+					<div class="workbench-tool-rail__divider"></div>
+					<div class="workbench-tool-rail__group">
+						<${IconButton}
+							icon="selection-clear"
+							label=${t("action.clearSelection")}
+							className="workbench-tool-rail__button"
+							tooltip=${{
+								title: t("action.clearSelection"),
+								description: t("tooltip.clearSelection"),
+								shortcut: "Ctrl+D",
+								placement: "right",
+							}}
+							onClick=${() => clearSelectionAndExitTool()}
+						/>
 					</div>
 				`
 			}
@@ -418,7 +434,7 @@ export function ViewSettingsSection({
 											nextValue,
 										)}
 								/>
-								<span>mm</span>
+								<${NumericUnitLabel} value="mm" title=${t("unit.millimeter")} />
 							</div>
 						</div>
 						<p class="summary">
@@ -651,7 +667,9 @@ export function SceneSection({
 													}}
 												>
 													<div class="scene-asset-row__main">
-														<span class="scene-asset-row__handle">≡</span>
+														<span class="scene-asset-row__handle" aria-hidden="true">
+															<${WorkbenchIcon} name="grip" size=${12} strokeWidth=${0} />
+														</span>
 														<div class="scene-asset-row__title-group">
 															<strong>${asset.label}</strong>
 															<span class="scene-asset-row__meta">
@@ -968,7 +986,7 @@ export function ShotCameraSection({
 									nextValue,
 								)}
 						/>
-						<span>mm</span>
+						<${NumericUnitLabel} value="mm" title=${t("unit.millimeter")} />
 					</div>
 				</div>
 				<p class="summary">${t("field.shotCameraFov")} · ${fovLabel} (${equivalentMmLabel})</p>
@@ -1437,7 +1455,7 @@ export function ReferenceSection({ controller, store, t }) {
 																nextValue,
 															)}
 													/>
-													<span>%</span>
+													<${NumericUnitLabel} value="%" title=${t("unit.percent")} />
 												</div>
 											</label>
 											<label class="field">
@@ -1456,7 +1474,7 @@ export function ReferenceSection({ controller, store, t }) {
 																nextValue,
 															)}
 													/>
-													<span>%</span>
+													<${NumericUnitLabel} value="%" title=${t("unit.percent")} />
 												</div>
 											</label>
 										</div>
@@ -1477,7 +1495,7 @@ export function ReferenceSection({ controller, store, t }) {
 																nextValue,
 															)}
 													/>
-													<span>px</span>
+													<${NumericUnitLabel} value="px" title=${t("unit.pixel")} />
 												</div>
 											</label>
 											<label class="field">
@@ -1496,7 +1514,7 @@ export function ReferenceSection({ controller, store, t }) {
 																nextValue,
 															)}
 													/>
-													<span>px</span>
+													<${NumericUnitLabel} value="px" title=${t("unit.pixel")} />
 												</div>
 											</label>
 										</div>
@@ -1516,7 +1534,7 @@ export function ReferenceSection({ controller, store, t }) {
 																nextValue,
 															)}
 													/>
-													<span>deg</span>
+													<${NumericUnitLabel} value="deg" title=${t("unit.degree")} />
 												</div>
 											</label>
 											<label class="field">
