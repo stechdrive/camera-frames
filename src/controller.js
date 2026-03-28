@@ -596,15 +596,22 @@ export function createCameraFramesController(elements, store) {
 
 	async function applyOpenedProject(
 		parsedProject,
-		{ projectName = "", loadedStatus = t("status.projectLoaded") } = {},
+		{
+			projectName = "",
+			loadedStatus = t("status.projectLoaded"),
+			onAssetProgress = null,
+		} = {},
 	) {
 		assetController.clearScene();
 		const projectSources = parsedProject.assetEntries.map(
 			(entry) => entry.source,
 		);
 		if (projectSources.length > 0) {
-			await assetController.loadSources(projectSources, false);
+			await assetController.loadSources(projectSources, false, {
+				onProgress: onAssetProgress,
+			});
 		}
+		onAssetProgress?.("apply", t("overlay.importDetailApply"));
 		applySavedProjectState(parsedProject.project);
 		historyController?.clearHistory();
 		setStatus(loadedStatus);

@@ -136,8 +136,13 @@ async function compressToSog({
 	outputFileName,
 	serializedColumns,
 	sogIterations,
-	forceCpu = false,
 }) {
+	if (!globalThis.navigator?.gpu) {
+		throw new Error(
+			"SOG compression requires WebGPU in this browser. Save again with SOG compression disabled.",
+		);
+	}
+
 	postWorkerProgress(token, "Building SOG data table…", 0);
 	const filteredDataTable = buildDataTableFromSerializedSogColumns(
 		serializedColumns,
@@ -147,51 +152,14 @@ async function compressToSog({
 		},
 	);
 
-	const useGpu = !forceCpu && Boolean(globalThis.navigator?.gpu);
-	let outputBytes = null;
-	if (!useGpu) {
-		splatTransform.logger.setLogger(createProgressLogger(token, "CPU"));
-		if (forceCpu) {
-			postWorkerProgress(token, "CPU mode forced after worker retry.", 0);
-		}
-		postWorkerProgress(token, "WebGPU unavailable. Using CPU compression.", 0);
-		postWorkerProgress(token, "Writing SOG on CPU…", 0);
-		outputBytes = await writeSogBundle({
-			outputFileName,
-			filteredDataTable,
-			sogIterations,
-			createDevice: undefined,
-		});
-	} else {
-		try {
-			splatTransform.logger.setLogger(createProgressLogger(token, "GPU"));
-			postWorkerProgress(
-				token,
-				"WebGPU detected. Preparing GPU compression…",
-				0,
-			);
-			outputBytes = await writeSogBundle({
-				outputFileName,
-				filteredDataTable,
-				sogIterations,
-				createDevice: createGpuDevice,
-			});
-		} catch (error) {
-			splatTransform.logger.setLogger(createProgressLogger(token, "CPU"));
-			postWorkerProgress(
-				token,
-				`Worker GPU path failed, retrying on CPU. ${String(error?.message ?? error ?? "")}`.trim(),
-				0,
-			);
-			postWorkerProgress(token, "Writing SOG on CPU…", 0);
-			outputBytes = await writeSogBundle({
-				outputFileName,
-				filteredDataTable,
-				sogIterations,
-				createDevice: undefined,
-			});
-		}
-	}
+	splatTransform.logger.setLogger(createProgressLogger(token, "GPU"));
+	postWorkerProgress(token, "WebGPU detected. Preparing GPU compression…", 0);
+	const outputBytes = await writeSogBundle({
+		outputFileName,
+		filteredDataTable,
+		sogIterations,
+		createDevice: createGpuDevice,
+	});
 
 	if (!outputBytes) {
 		throw new Error(`Failed to write "${outputFileName}" as SOG.`);
@@ -232,7 +200,6 @@ globalThis.addEventListener("message", async (event) => {
 					: [],
 			},
 			sogIterations: Number(message.sogIterations ?? 10),
-			forceCpu: message.forceCpu === true,
 		});
 	} catch (error) {
 		globalThis.postMessage({

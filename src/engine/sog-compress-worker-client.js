@@ -1,5 +1,6 @@
 const GPU_WORKER_STALL_TIMEOUT_MS = 300000;
-const CPU_WORKER_STALL_TIMEOUT_MS = 600000;
+let sogWorkerWarmupPromise = null;
+let sogWorkerWarmupSucceeded = false;
 
 class SogCompressWorkerClient {
 	constructor() {
@@ -81,14 +82,11 @@ class SogCompressWorkerClient {
 		serializedColumns,
 		outputFileName,
 		sogIterations,
-		forceCpu = false,
 		onProgress,
 	}) {
 		await this.readyPromise;
 		const token = this.token++;
-		const stallTimeoutMs = forceCpu
-			? CPU_WORKER_STALL_TIMEOUT_MS
-			: GPU_WORKER_STALL_TIMEOUT_MS;
+		const stallTimeoutMs = GPU_WORKER_STALL_TIMEOUT_MS;
 		const resultPromise = new Promise((resolve, reject) => {
 			const pending = {
 				resolve,
@@ -137,7 +135,6 @@ class SogCompressWorkerClient {
 				token,
 				outputFileName,
 				sogIterations,
-				forceCpu,
 				serializedColumns: messageSerializedColumns,
 			},
 			transferList,
@@ -148,10 +145,42 @@ class SogCompressWorkerClient {
 }
 
 export async function compressEmbeddedSplatSourceAsSogInWorker(options) {
+	if (!sogWorkerWarmupSucceeded) {
+		try {
+			await prewarmSogCompressionWorker();
+		} catch (error) {
+			console.warn(
+				"[CAMERA_FRAMES] SOG worker warmup failed; retrying with a fresh worker.",
+				error,
+			);
+		}
+	}
+
 	const client = new SogCompressWorkerClient();
 	try {
 		return await client.compress(options);
 	} finally {
 		client.dispose();
 	}
+}
+
+export async function prewarmSogCompressionWorker() {
+	if (sogWorkerWarmupSucceeded) {
+		return;
+	}
+	if (sogWorkerWarmupPromise) {
+		return await sogWorkerWarmupPromise;
+	}
+
+	const client = new SogCompressWorkerClient();
+	sogWorkerWarmupPromise = (async () => {
+		try {
+			await client.readyPromise;
+			sogWorkerWarmupSucceeded = true;
+		} finally {
+			client.dispose();
+			sogWorkerWarmupPromise = null;
+		}
+	})();
+	return await sogWorkerWarmupPromise;
 }

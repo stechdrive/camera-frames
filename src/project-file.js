@@ -44,6 +44,13 @@ async function notifyPackageProgress(onProgress, payload) {
 	await onProgress(payload);
 }
 
+async function notifyProjectReadProgress(onProgress, payload) {
+	if (typeof onProgress !== "function") {
+		return;
+	}
+	await onProgress(payload);
+}
+
 function reportSplatTransformProgress(onProgress, progress, text, percent = 0) {
 	if (!progress) {
 		return;
@@ -251,7 +258,7 @@ async function serializeEmbeddedSplatProjectSourceAsSog(
 				},
 			},
 		);
-	let serializedColumns = await readSerializedColumns();
+	const serializedColumns = await readSerializedColumns();
 	if (progress) {
 		await notifyPackageProgress(onProgress, {
 			...progress,
@@ -259,8 +266,6 @@ async function serializeEmbeddedSplatProjectSourceAsSog(
 		});
 	}
 	let outputBytes = null;
-	let workerError = null;
-	let cpuWorkerError = null;
 	try {
 		outputBytes = await compressEmbeddedSplatSourceAsSogInWorker({
 			serializedColumns,
@@ -274,48 +279,14 @@ async function serializeEmbeddedSplatProjectSourceAsSog(
 			},
 		});
 	} catch (error) {
-		workerError = error;
-		console.warn(
-			`SOG worker compression failed for "${originalFileName}", retrying on CPU worker.`,
-			error,
+		const workerError = String(error?.message ?? error ?? "unknown").trim();
+		throw new Error(
+			[
+				`SOG worker compression failed for "${originalFileName}".`,
+				`Worker error: ${workerError}`,
+				"Retry package save with SOG compression disabled if you need an immediate save.",
+			].join("\n"),
 		);
-		try {
-			if (progress) {
-				const retryMessage = String(
-					workerError?.message ?? workerError ?? "",
-				).trim();
-				await notifyPackageProgress(onProgress, {
-					...progress,
-					stage: "retry-cpu-worker",
-					message: retryMessage
-						? `GPU worker failed: ${retryMessage}`
-						: undefined,
-				});
-			}
-			serializedColumns = await readSerializedColumns();
-			outputBytes = await compressEmbeddedSplatSourceAsSogInWorker({
-				serializedColumns,
-				outputFileName,
-				sogIterations: getPackageSaveOptionValue(
-					sogIterations,
-					DEFAULT_SOG_ITERATIONS,
-				),
-				forceCpu: true,
-				onProgress: ({ text, progress: percent }) => {
-					reportSplatTransformProgress(onProgress, progress, text, percent);
-				},
-			});
-		} catch (retryError) {
-			cpuWorkerError = retryError;
-			throw new Error(
-				[
-					`SOG worker compression failed for "${originalFileName}".`,
-					`Worker error: ${String(workerError?.message ?? workerError ?? "unknown")}`,
-					`CPU worker retry error: ${String(cpuWorkerError?.message ?? cpuWorkerError ?? "unknown")}`,
-					"Retry package save with SOG compression disabled if you need an immediate save.",
-				].join("\n"),
-			);
-		}
 	}
 	if (!outputBytes) {
 		throw new Error(`Failed to compress "${originalFileName}" as SOG.`);
@@ -700,13 +671,29 @@ export async function buildCameraFramesProjectArchive(
 	return result.archive;
 }
 
-export async function readCameraFramesProject(source) {
+export async function readCameraFramesProject(
+	source,
+	{ onProgress = null } = {},
+) {
 	const reader = await ZipReader.from(source);
 	try {
 		const archivePaths = reader.listFilenames();
+		await notifyProjectReadProgress(onProgress, {
+			phase: "verify",
+			stage: "inspect-archive",
+		});
 		const hasManifest = archivePaths.includes(PROJECT_MANIFEST_PATH);
 		const manifest = hasManifest
-			? JSON.parse(await reader.text(PROJECT_MANIFEST_PATH))
+			? JSON.parse(
+					await (async () => {
+						await notifyProjectReadProgress(onProgress, {
+							phase: "verify",
+							stage: "read-manifest",
+							fileLabel: PROJECT_MANIFEST_PATH,
+						});
+						return reader.text(PROJECT_MANIFEST_PATH);
+					})(),
+				)
 			: null;
 		if (
 			manifest &&
@@ -721,17 +708,34 @@ export async function readCameraFramesProject(source) {
 				manifest.entries.project) ||
 			archivePaths.find((path) => path === PROJECT_DOCUMENT_PATH) ||
 			PROJECT_DOCUMENT_PATH;
+		await notifyProjectReadProgress(onProgress, {
+			phase: "expand",
+			stage: "read-project-document",
+			fileLabel: projectPath,
+		});
 		const project = normalizeProjectDocument(
 			JSON.parse(await reader.text(projectPath)),
 		);
 		const assetEntries = [];
+		const totalAssets = project.scene.assets.length;
 
-		for (const asset of project.scene.assets) {
+		for (const [index, asset] of project.scene.assets.entries()) {
 			const resourceId = asset.source?.resourceId;
 			const resource = project.resources?.[resourceId];
 			if (!resource) {
 				throw new Error(`Missing project resource for asset "${asset.label}".`);
 			}
+			await notifyProjectReadProgress(onProgress, {
+				phase: "expand",
+				stage: "extract-project-asset",
+				index: index + 1,
+				total: totalAssets,
+				assetLabel: asset.label,
+				fileLabel:
+					resource.type === "packed-splat"
+						? resource.originalName || resource.manifest?.path || "meta.json"
+						: resource.originalName || resource.path,
+			});
 
 			if (resource.type === "file") {
 				const blob = await reader.blob(resource.path);
