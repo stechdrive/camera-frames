@@ -404,6 +404,11 @@ export function createCameraFramesController(elements, store) {
 			),
 			sceneAssets: assetController?.captureSceneAssetEditState?.() ?? null,
 			sceneLighting: lightingController?.captureLightingState?.() ?? null,
+			sceneReferenceImages:
+				referenceImageController?.captureProjectReferenceImagesState?.() ??
+				null,
+			referenceImageEditor:
+				referenceImageController?.captureReferenceImageEditorState?.() ?? null,
 			frameSelectionActive: store.frames.selectionActive.value,
 			outputFrameSelected: state.outputFrameSelected,
 		};
@@ -434,6 +439,10 @@ export function createCameraFramesController(elements, store) {
 			? snapshot.viewportBaseFovX
 			: store.viewportBaseFovX.value;
 		restoreCameraPose(viewportCamera, snapshot.viewportPose);
+		referenceImageController?.applyProjectReferenceImagesState?.(
+			snapshot.sceneReferenceImages ?? null,
+			{ editorState: snapshot.referenceImageEditor ?? null },
+		);
 
 		for (const poseEntry of snapshot.shotCameraPoses ?? []) {
 			const entry = shotCameraRegistry.get(poseEntry.id);

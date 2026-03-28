@@ -342,6 +342,131 @@ export function createReferenceImageController({
 		};
 	}
 
+	function buildSelectionBoxLogicalFromGeometries(geometries) {
+		const bounds = getPointsBounds(
+			(geometries ?? []).flatMap((geometry) => geometry.corners ?? []),
+		);
+		if (!bounds) {
+			return null;
+		}
+		return {
+			left: bounds.left,
+			top: bounds.top,
+			width: bounds.width,
+			height: bounds.height,
+			rotationDeg: 0,
+			anchorX: 0.5,
+			anchorY: 0.5,
+		};
+	}
+
+	function doesSelectionBoxMatchGeometries(logicalBox, geometries) {
+		if (!logicalBox || !Array.isArray(geometries) || geometries.length === 0) {
+			return false;
+		}
+		const anchorPoint = {
+			x: logicalBox.left + logicalBox.width * 0.5,
+			y: logicalBox.top + logicalBox.height * 0.5,
+		};
+		const rotationRadians = ((logicalBox.rotationDeg ?? 0) * Math.PI) / 180;
+		const unrotatedCorners = geometries.flatMap((geometry) =>
+			(geometry.corners ?? []).map((corner) => {
+				const local = inverseRotateVector(
+					corner.x - anchorPoint.x,
+					corner.y - anchorPoint.y,
+					rotationRadians,
+				);
+				return {
+					x: anchorPoint.x + local.x,
+					y: anchorPoint.y + local.y,
+				};
+			}),
+		);
+		const bounds = getPointsBounds(unrotatedCorners);
+		if (!bounds) {
+			return false;
+		}
+		const epsilon = 1e-3;
+		return (
+			Math.abs(bounds.left - logicalBox.left) <= epsilon &&
+			Math.abs(bounds.top - logicalBox.top) <= epsilon &&
+			Math.abs(bounds.width - logicalBox.width) <= epsilon &&
+			Math.abs(bounds.height - logicalBox.height) <= epsilon
+		);
+	}
+
+	function projectSelectionBoxLogicalToScreen(
+		logicalBox,
+		context,
+		anchorLocal = null,
+	) {
+		if (!logicalBox || !context) {
+			return null;
+		}
+		const nextAnchorLocal = {
+			x: Number.isFinite(anchorLocal?.x)
+				? anchorLocal.x
+				: (logicalBox.anchorX ?? 0.5),
+			y: Number.isFinite(anchorLocal?.y)
+				? anchorLocal.y
+				: (logicalBox.anchorY ?? 0.5),
+		};
+		return {
+			left:
+				context.renderBoxScreenLeft + logicalBox.left * context.renderScaleX,
+			top: context.renderBoxScreenTop + logicalBox.top * context.renderScaleY,
+			width: logicalBox.width * context.renderScaleX,
+			height: logicalBox.height * context.renderScaleY,
+			rotationDeg: logicalBox.rotationDeg ?? 0,
+			anchorX: nextAnchorLocal.x,
+			anchorY: nextAnchorLocal.y,
+		};
+	}
+
+	function setStoredSelectionBox(
+		logicalBox,
+		context = null,
+		anchorLocal = null,
+	) {
+		store.referenceImages.selectionBoxLogical.value = logicalBox ?? null;
+		store.referenceImages.selectionBoxScreen.value =
+			logicalBox && context
+				? projectSelectionBoxLogicalToScreen(logicalBox, context, anchorLocal)
+				: null;
+	}
+
+	function initializeMultiSelectionTransformBox(
+		items = store.referenceImages.items.value,
+	) {
+		const context = getTransformContext();
+		if (!context) {
+			setStoredSelectionBox(null);
+			return false;
+		}
+		const selectedItemIds = getSelectedItemIds();
+		if (selectedItemIds.length <= 1) {
+			setStoredSelectionBox(null);
+			return false;
+		}
+		const geometries = context.resolved.items
+			.filter((item) => selectedItemIds.includes(item.id))
+			.map((item) => {
+				const asset = context.resolved.assetsById.get(item.assetId) ?? null;
+				if (!asset?.sourceMeta) {
+					return null;
+				}
+				return buildLogicalItemGeometry(item, asset, context);
+			})
+			.filter(Boolean);
+		const logicalBox = buildSelectionBoxLogicalFromGeometries(geometries);
+		if (!logicalBox) {
+			setStoredSelectionBox(null);
+			return false;
+		}
+		setStoredSelectionBox(logicalBox, context, { x: 0.5, y: 0.5 });
+		return true;
+	}
+
 	function setSelectionState({
 		selectedItemIds = [],
 		activeItemId = "",
@@ -374,6 +499,15 @@ export function createReferenceImageController({
 		store.referenceImages.selectedItemIds.value = normalized.selectedItemIds;
 		store.referenceImages.selectedItemId.value = normalized.activeItemId;
 		store.referenceImages.selectedAssetId.value = nextActiveAssetId;
+		if (previousSelectionKey !== nextSelectionKey) {
+			if (normalized.selectedItemIds.length > 1) {
+				initializeMultiSelectionTransformBox(items);
+			} else {
+				setStoredSelectionBox(null);
+			}
+		} else if (normalized.selectedItemIds.length <= 1) {
+			setStoredSelectionBox(null);
+		}
 	}
 
 	function recenterDeselectedSingleReferenceImageAnchor(
@@ -457,6 +591,7 @@ export function createReferenceImageController({
 
 	function clearSelection() {
 		store.referenceImages.selectionAnchor.value = null;
+		setStoredSelectionBox(null);
 		setSelectionState({
 			selectedItemIds: [],
 			activeItemId: "",
@@ -637,12 +772,6 @@ export function createReferenceImageController({
 		if (geometries.length === 0) {
 			return null;
 		}
-		const bounds = getPointsBounds(
-			geometries.flatMap((geometry) => geometry.corners),
-		);
-		if (!bounds) {
-			return null;
-		}
 		const selectedLayers = getRenderableSelectionLayers();
 		if (selectedLayers.length === 0) {
 			return null;
@@ -690,20 +819,10 @@ export function createReferenceImageController({
 				anchorY: anchorLocal.y,
 			};
 		} else {
-			const screenBounds = getPointsBounds(
-				selectedLayers.flatMap((layer) =>
-					getRectCornersFromAnchor({
-						left: layer.leftPx,
-						top: layer.topPx,
-						width: layer.widthPx,
-						height: layer.heightPx,
-						anchorAx: layer.anchorAx,
-						anchorAy: layer.anchorAy,
-						rotationDeg: layer.rotationDeg,
-					}),
-				),
-			);
-			if (!screenBounds) {
+			const storedSelectionBox =
+				store.referenceImages.selectionBoxLogical.value ??
+				buildSelectionBoxLogicalFromGeometries(geometries);
+			if (!storedSelectionBox) {
 				return null;
 			}
 			const selectionAnchor =
@@ -714,34 +833,50 @@ export function createReferenceImageController({
 							x: store.referenceImages.selectionAnchor.value.x,
 							y: store.referenceImages.selectionAnchor.value.y,
 						}
-					: { x: 0.5, y: 0.5 };
+					: {
+							x: storedSelectionBox.anchorX ?? 0.5,
+							y: storedSelectionBox.anchorY ?? 0.5,
+						};
 			anchorLocal = selectionAnchor;
-			pivot = {
-				x: bounds.left + bounds.width * anchorLocal.x,
-				y: bounds.top + bounds.height * anchorLocal.y,
-			};
-			screenPivot = {
-				x: screenBounds.left + screenBounds.width * anchorLocal.x,
-				y: screenBounds.top + screenBounds.height * anchorLocal.y,
-			};
 			selectionBoxLogical = {
-				left: bounds.left,
-				top: bounds.top,
-				width: bounds.width,
-				height: bounds.height,
-				rotationDeg: 0,
+				left: storedSelectionBox.left,
+				top: storedSelectionBox.top,
+				width: storedSelectionBox.width,
+				height: storedSelectionBox.height,
+				rotationDeg: storedSelectionBox.rotationDeg ?? 0,
 				anchorX: anchorLocal.x,
 				anchorY: anchorLocal.y,
 			};
-			selectionBoxScreen = {
-				left: screenBounds.left,
-				top: screenBounds.top,
-				width: screenBounds.width,
-				height: screenBounds.height,
-				rotationDeg: 0,
-				anchorX: anchorLocal.x,
-				anchorY: anchorLocal.y,
-			};
+			selectionBoxScreen = projectSelectionBoxLogicalToScreen(
+				selectionBoxLogical,
+				context,
+				anchorLocal,
+			);
+			if (!selectionBoxScreen) {
+				return null;
+			}
+			pivot = getPointFromRectLocal({
+				left: selectionBoxLogical.left,
+				top: selectionBoxLogical.top,
+				width: selectionBoxLogical.width,
+				height: selectionBoxLogical.height,
+				localX: anchorLocal.x,
+				localY: anchorLocal.y,
+				anchorAx: selectionBoxLogical.anchorX,
+				anchorAy: selectionBoxLogical.anchorY,
+				rotationDeg: selectionBoxLogical.rotationDeg,
+			});
+			screenPivot = getPointFromRectLocal({
+				left: selectionBoxScreen.left,
+				top: selectionBoxScreen.top,
+				width: selectionBoxScreen.width,
+				height: selectionBoxScreen.height,
+				localX: anchorLocal.x,
+				localY: anchorLocal.y,
+				anchorAx: selectionBoxScreen.anchorX,
+				anchorAy: selectionBoxScreen.anchorY,
+				rotationDeg: selectionBoxScreen.rotationDeg,
+			});
 		}
 		return {
 			context,
@@ -950,6 +1085,32 @@ export function createReferenceImageController({
 			};
 		});
 		syncSelectionState(documentState, resolved);
+		if (!referenceImageDragState && getSelectedItemIds().length > 1) {
+			const context = getTransformContext(documentState);
+			if (context) {
+				const geometries = resolved.items
+					.filter((item) => getSelectedItemIds().includes(item.id))
+					.map((item) => {
+						const asset = resolved.assetsById.get(item.assetId) ?? null;
+						if (!asset?.sourceMeta) {
+							return null;
+						}
+						return buildLogicalItemGeometry(item, asset, context);
+					})
+					.filter(Boolean);
+				const storedSelectionBox =
+					store.referenceImages.selectionBoxLogical.value ?? null;
+				if (
+					!storedSelectionBox ||
+					!doesSelectionBoxMatchGeometries(storedSelectionBox, geometries)
+				) {
+					store.referenceImages.selectionAnchor.value = null;
+					initializeMultiSelectionTransformBox(
+						store.referenceImages.items.value,
+					);
+				}
+			}
+		}
 	}
 
 	function openReferenceImageFiles() {
@@ -1123,11 +1284,76 @@ export function createReferenceImageController({
 		return cloneReferenceImageDocument(getDocument());
 	}
 
-	function applyProjectReferenceImagesState(documentState) {
+	function captureReferenceImageEditorState() {
+		return {
+			previewSessionVisible:
+				store.referenceImages.previewSessionVisible.value !== false,
+			selectedItemIds: [...getSelectedItemIds()],
+			selectedItemId: String(store.referenceImages.selectedItemId.value ?? ""),
+			selectedAssetId: String(
+				store.referenceImages.selectedAssetId.value ?? "",
+			),
+			selectionAnchor:
+				store.referenceImages.selectionAnchor.value &&
+				Number.isFinite(store.referenceImages.selectionAnchor.value.x) &&
+				Number.isFinite(store.referenceImages.selectionAnchor.value.y)
+					? {
+							x: store.referenceImages.selectionAnchor.value.x,
+							y: store.referenceImages.selectionAnchor.value.y,
+						}
+					: null,
+			selectionBoxLogical: store.referenceImages.selectionBoxLogical.value
+				? { ...store.referenceImages.selectionBoxLogical.value }
+				: null,
+		};
+	}
+
+	function restoreReferenceImageEditorState(editorState = null) {
+		if (!editorState) {
+			store.referenceImages.previewSessionVisible.value = true;
+			clearSelection();
+			return;
+		}
+		store.referenceImages.previewSessionVisible.value =
+			editorState.previewSessionVisible !== false;
+		const selectedItemIds = Array.isArray(editorState.selectedItemIds)
+			? editorState.selectedItemIds.map((itemId) => String(itemId ?? "").trim())
+			: [];
+		setSelectionState({
+			selectedItemIds,
+			activeItemId: editorState.selectedItemId ?? "",
+			activeAssetId: editorState.selectedAssetId ?? "",
+		});
+		if (selectedItemIds.length > 1 && editorState.selectionBoxLogical) {
+			const nextSelectionAnchor =
+				editorState.selectionAnchor &&
+				Number.isFinite(editorState.selectionAnchor.x) &&
+				Number.isFinite(editorState.selectionAnchor.y)
+					? {
+							x: editorState.selectionAnchor.x,
+							y: editorState.selectionAnchor.y,
+						}
+					: null;
+			store.referenceImages.selectionAnchor.value = nextSelectionAnchor;
+			setStoredSelectionBox(
+				{ ...editorState.selectionBoxLogical },
+				getTransformContext(),
+				nextSelectionAnchor,
+			);
+			return;
+		}
+		store.referenceImages.selectionAnchor.value = null;
+		setStoredSelectionBox(null);
+	}
+
+	function applyProjectReferenceImagesState(documentState, options = {}) {
+		const editorState = options?.editorState ?? null;
 		setDocument(documentState ?? createDefaultReferenceImageDocument());
-		store.referenceImages.previewSessionVisible.value = true;
+		store.referenceImages.previewSessionVisible.value =
+			editorState?.previewSessionVisible !== false;
 		clearSelection();
 		syncUiState();
+		restoreReferenceImageEditorState(editorState);
 		updateUi?.();
 		refreshUiAfterLayout({
 			expectedVisibleItems: getResolvedPreset()?.items.filter(
@@ -1625,6 +1851,7 @@ export function createReferenceImageController({
 			selectionState,
 			selectionBoxScreen: selectionState.selectionBoxScreen,
 			rotationRadians,
+			anchorLocal,
 			anchorWorld,
 			anchorLogical,
 			resizeAxisX: resizeAxis.x,
@@ -1739,6 +1966,17 @@ export function createReferenceImageController({
 				referenceImageDragState.dragActivated = true;
 				beginHistoryTransaction("reference-image.move");
 			}
+			if (selectionState.geometries.length > 1) {
+				setStoredSelectionBox(
+					{
+						...selectionState.selectionBoxLogical,
+						left: selectionState.selectionBoxLogical.left + deltaLogicalX,
+						top: selectionState.selectionBoxLogical.top + deltaLogicalY,
+					},
+					selectionState.context,
+					selectionState.anchorLocal,
+				);
+			}
 			applyGeometryUpdates(selectionState.geometries, (geometry, context) => {
 				const nextEffectiveOffset = {
 					x: geometry.effectiveOffset.x - deltaLogicalX,
@@ -1775,6 +2013,18 @@ export function createReferenceImageController({
 			);
 			const deltaAngleRad = (deltaAngleDeg * Math.PI) / 180;
 			const pivot = selectionState.pivot;
+			if (selectionState.geometries.length > 1) {
+				setStoredSelectionBox(
+					{
+						...selectionState.selectionBoxLogical,
+						rotationDeg:
+							(selectionState.selectionBoxLogical.rotationDeg ?? 0) +
+							deltaAngleDeg,
+					},
+					selectionState.context,
+					selectionState.anchorLocal,
+				);
+			}
 			applyGeometryUpdates(selectionState.geometries, (geometry, context) => {
 				const deltaX = geometry.anchorPoint.x - pivot.x;
 				const deltaY = geometry.anchorPoint.y - pivot.y;
@@ -1822,6 +2072,33 @@ export function createReferenceImageController({
 					Math.max(referenceImageDragState.startProjectionDistance, 1e-6),
 			);
 			const pivot = referenceImageDragState.anchorLogical;
+			if (selectionState.geometries.length > 1) {
+				const nextWidth = Math.max(
+					selectionState.selectionBoxLogical.width * scaleRatio,
+					1e-6,
+				);
+				const nextHeight = Math.max(
+					selectionState.selectionBoxLogical.height * scaleRatio,
+					1e-6,
+				);
+				const nextSelectionPivot = {
+					x: pivot.x + (selectionState.pivot.x - pivot.x) * scaleRatio,
+					y: pivot.y + (selectionState.pivot.y - pivot.y) * scaleRatio,
+				};
+				setStoredSelectionBox(
+					{
+						...selectionState.selectionBoxLogical,
+						left:
+							nextSelectionPivot.x - nextWidth * selectionState.anchorLocal.x,
+						top:
+							nextSelectionPivot.y - nextHeight * selectionState.anchorLocal.y,
+						width: nextWidth,
+						height: nextHeight,
+					},
+					selectionState.context,
+					selectionState.anchorLocal,
+				);
+			}
 			applyGeometryUpdates(selectionState.geometries, (geometry, context) => {
 				const nextAnchorPoint = {
 					x: pivot.x + (geometry.anchorPoint.x - pivot.x) * scaleRatio,
@@ -1924,20 +2201,60 @@ export function createReferenceImageController({
 				});
 				return;
 			}
-			const { selectionBoxScreen } = selectionState;
+			const { selectionBoxLogical } = selectionState;
 			const clampedPointer = clampPointerToViewportShell(
 				event.clientX,
 				event.clientY,
 				selectionState.context,
 			);
-			store.referenceImages.selectionAnchor.value = {
+			const pointerLogicalX =
+				(clampedPointer.x - selectionState.context.renderBoxScreenLeft) /
+				selectionState.context.renderScaleX;
+			const pointerLogicalY =
+				(clampedPointer.y - selectionState.context.renderBoxScreenTop) /
+				selectionState.context.renderScaleY;
+			const rotationRadians =
+				((selectionBoxLogical.rotationDeg ?? 0) * Math.PI) / 180;
+			const pointerLocal = inverseRotateVector(
+				pointerLogicalX - selectionState.pivot.x,
+				pointerLogicalY - selectionState.pivot.y,
+				rotationRadians,
+			);
+			const nextSelectionAnchor = {
 				x:
-					(clampedPointer.x - selectionBoxScreen.left) /
-					Math.max(selectionBoxScreen.width, 1e-6),
+					(selectionState.pivot.x + pointerLocal.x - selectionBoxLogical.left) /
+					Math.max(selectionBoxLogical.width, 1e-6),
 				y:
-					(clampedPointer.y - selectionBoxScreen.top) /
-					Math.max(selectionBoxScreen.height, 1e-6),
+					(selectionState.pivot.y + pointerLocal.y - selectionBoxLogical.top) /
+					Math.max(selectionBoxLogical.height, 1e-6),
 			};
+			const nextAnchorPoint = getPointFromRectLocal({
+				left: selectionBoxLogical.left,
+				top: selectionBoxLogical.top,
+				width: selectionBoxLogical.width,
+				height: selectionBoxLogical.height,
+				localX: nextSelectionAnchor.x,
+				localY: nextSelectionAnchor.y,
+				anchorAx: selectionBoxLogical.anchorX,
+				anchorAy: selectionBoxLogical.anchorY,
+				rotationDeg: selectionBoxLogical.rotationDeg,
+			});
+			store.referenceImages.selectionAnchor.value = nextSelectionAnchor;
+			setStoredSelectionBox(
+				{
+					...selectionBoxLogical,
+					left:
+						nextAnchorPoint.x -
+						selectionBoxLogical.width * nextSelectionAnchor.x,
+					top:
+						nextAnchorPoint.y -
+						selectionBoxLogical.height * nextSelectionAnchor.y,
+					anchorX: nextSelectionAnchor.x,
+					anchorY: nextSelectionAnchor.y,
+				},
+				selectionState.context,
+				nextSelectionAnchor,
+			);
 			updateUi?.();
 		}
 	}
@@ -1965,6 +2282,7 @@ export function createReferenceImageController({
 		importReferenceImageFiles,
 		supportsReferenceImageFile,
 		captureProjectReferenceImagesState,
+		captureReferenceImageEditorState,
 		applyProjectReferenceImagesState,
 		clearReferenceImages,
 		syncUiState,

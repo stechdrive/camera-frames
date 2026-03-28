@@ -402,6 +402,202 @@ function createTestController() {
 	assert.equal(resetLayer.heightPx, 100);
 }
 
+{
+	const store = createCameraFramesStore();
+	let shotCameraDocument = createShotCameraDocument({
+		name: "Camera A",
+	});
+	const renderBoxElement = {
+		clientWidth: 1536,
+		clientHeight: 864,
+		clientLeft: 0,
+		clientTop: 0,
+		getBoundingClientRect() {
+			return {
+				left: 0,
+				top: 0,
+				width: 1536,
+				height: 864,
+			};
+		},
+	};
+	globalThis.document = {
+		getElementById(id) {
+			if (id !== "viewport-shell") {
+				return null;
+			}
+			return {
+				getBoundingClientRect() {
+					return {
+						left: 0,
+						top: 0,
+						width: 1536,
+						height: 864,
+					};
+				},
+			};
+		},
+	};
+	const controller = createReferenceImageController({
+		store,
+		referenceImageInput: null,
+		renderBox: renderBoxElement,
+		t: (key) => key,
+		setStatus: () => {},
+		updateUi: () => {},
+		ensureCameraMode: () => {},
+		getActiveShotCameraDocument: () => shotCameraDocument,
+		updateActiveShotCameraDocument: (updater) => {
+			shotCameraDocument = updater(shotCameraDocument);
+			return shotCameraDocument;
+		},
+		getOutputSizeState: () => ({ width: 1536, height: 864 }),
+		runHistoryAction: (_label, applyChange) => {
+			applyChange?.();
+			return true;
+		},
+		beginHistoryTransaction: () => true,
+		commitHistoryTransaction: () => true,
+		cancelHistoryTransaction: () => {},
+	});
+	const asset = createReferenceImageAsset({
+		id: "asset-multi",
+		label: "Multi",
+		sourceMeta: createSourceMeta("multi.png"),
+	});
+	const preset = createReferenceImagePreset({
+		id: "preset-multi",
+		name: "Multi",
+		items: [
+			createReferenceImageItem({
+				id: "item-multi-a",
+				assetId: asset.id,
+				name: "Layer A",
+				order: 0,
+				offsetPx: { x: 0, y: 0 },
+			}),
+			createReferenceImageItem({
+				id: "item-multi-b",
+				assetId: asset.id,
+				name: "Layer B",
+				order: 1,
+				offsetPx: { x: -200, y: 0 },
+			}),
+		],
+	});
+	const documentState = createDefaultReferenceImageDocument();
+	documentState.assets.push(asset);
+	documentState.presets.push(preset);
+	documentState.activePresetId = preset.id;
+	shotCameraDocument.referenceImages.presetId = preset.id;
+	store.referenceImages.document.value = documentState;
+	store.viewportToolMode.value = "reference";
+	controller.syncUiState();
+	store.referenceImages.previewLayers.value = [
+		{
+			id: "item-multi-a",
+			leftPx: 718,
+			topPx: 382,
+			widthPx: 100,
+			heightPx: 100,
+			anchorAx: 0.5,
+			anchorAy: 0.5,
+			rotationDeg: 0,
+		},
+		{
+			id: "item-multi-b",
+			leftPx: 918,
+			topPx: 382,
+			widthPx: 100,
+			heightPx: 100,
+			anchorAx: 0.5,
+			anchorAy: 0.5,
+			rotationDeg: 0,
+		},
+	];
+	controller.selectReferenceImageItem("item-multi-a");
+	controller.selectReferenceImageItem("item-multi-b", { additive: true });
+
+	const startBox = store.referenceImages.selectionBoxLogical.value;
+	assert.ok(startBox);
+	assert.equal(startBox.left, 718);
+	assert.equal(startBox.top, 382);
+	assert.equal(startBox.width, 300);
+	assert.equal(startBox.height, 100);
+	assert.equal(startBox.rotationDeg, 0);
+
+	const startResult = controller.startReferenceImageRotate("top", {
+		button: 0,
+		pointerId: 3,
+		clientX: 868,
+		clientY: 332,
+		preventDefault() {},
+		stopPropagation() {},
+	});
+	assert.equal(startResult, true);
+
+	controller.handleReferenceImagePointerMove({
+		pointerId: 3,
+		clientX: 968,
+		clientY: 432,
+		preventDefault() {},
+	});
+	controller.handleReferenceImagePointerUp({
+		pointerId: 3,
+		preventDefault() {},
+	});
+	controller.syncUiState();
+
+	const rotatedBox = store.referenceImages.selectionBoxLogical.value;
+	assert.ok(rotatedBox);
+	assert.equal(rotatedBox.width, 300);
+	assert.equal(rotatedBox.height, 100);
+	assert.ok(Math.abs(rotatedBox.rotationDeg - 90) < 1e-6);
+
+	const preRotateEditorState = controller.captureReferenceImageEditorState();
+	const revertedDocument = createDefaultReferenceImageDocument();
+	revertedDocument.assets.push(asset);
+	revertedDocument.presets.push(
+		createReferenceImagePreset({
+			id: preset.id,
+			name: preset.name,
+			items: [
+				createReferenceImageItem({
+					id: "item-multi-a",
+					assetId: asset.id,
+					name: "Layer A",
+					order: 0,
+					offsetPx: { x: 0, y: 0 },
+				}),
+				createReferenceImageItem({
+					id: "item-multi-b",
+					assetId: asset.id,
+					name: "Layer B",
+					order: 1,
+					offsetPx: { x: -200, y: 0 },
+				}),
+			],
+		}),
+	);
+	revertedDocument.activePresetId = preset.id;
+	controller.applyProjectReferenceImagesState(revertedDocument, {
+		editorState: {
+			...preRotateEditorState,
+			selectionAnchor: null,
+			selectionBoxLogical: { ...startBox },
+		},
+	});
+
+	const rebuiltBox = store.referenceImages.selectionBoxLogical.value;
+	assert.ok(rebuiltBox);
+	assert.equal(rebuiltBox.left, 718);
+	assert.equal(rebuiltBox.top, 382);
+	assert.equal(rebuiltBox.width, 300);
+	assert.equal(rebuiltBox.height, 100);
+	assert.equal(rebuiltBox.rotationDeg, 0);
+	assert.equal(store.referenceImages.selectionAnchor.value, null);
+}
+
 if (originalWindow === undefined) {
 	globalThis.window = undefined;
 } else {

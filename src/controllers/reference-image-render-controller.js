@@ -14,6 +14,29 @@ function revokeObjectUrl(url) {
 	}
 }
 
+function projectSelectionBoxLogicalToScreen({
+	logicalBox,
+	renderBoxLeft,
+	renderBoxTop,
+	renderScaleX,
+	renderScaleY,
+	anchorX = 0.5,
+	anchorY = 0.5,
+}) {
+	if (!logicalBox) {
+		return null;
+	}
+	return {
+		left: renderBoxLeft + logicalBox.left * renderScaleX,
+		top: renderBoxTop + logicalBox.top * renderScaleY,
+		width: logicalBox.width * renderScaleX,
+		height: logicalBox.height * renderScaleY,
+		rotationDeg: logicalBox.rotationDeg ?? 0,
+		anchorX,
+		anchorY,
+	};
+}
+
 export function getReferenceImagePreviewRenderBoxMetrics({
 	renderBoxRect,
 	viewportShellRect,
@@ -82,6 +105,7 @@ export function createReferenceImageRenderController({
 
 	function clearPreviewLayers() {
 		setPreviewLayers([], "empty");
+		store.referenceImages.selectionBoxScreen.value = null;
 	}
 
 	function syncPreviewLayers() {
@@ -240,6 +264,27 @@ export function createReferenceImageRenderController({
 		}
 
 		pruneAssetObjectUrls(keepAssetIds);
+		const selectionBoxLogical =
+			store.referenceImages.selectionBoxLogical.value ?? null;
+		const selectionAnchor =
+			store.referenceImages.selectionAnchor.value &&
+			Number.isFinite(store.referenceImages.selectionAnchor.value.x) &&
+			Number.isFinite(store.referenceImages.selectionAnchor.value.y)
+				? store.referenceImages.selectionAnchor.value
+				: null;
+		store.referenceImages.selectionBoxScreen.value =
+			store.referenceImages.selectedItemIds.value?.length > 1 &&
+			selectionBoxLogical
+				? projectSelectionBoxLogicalToScreen({
+						logicalBox: selectionBoxLogical,
+						renderBoxLeft,
+						renderBoxTop,
+						renderScaleX,
+						renderScaleY,
+						anchorX: selectionAnchor?.x ?? selectionBoxLogical.anchorX ?? 0.5,
+						anchorY: selectionAnchor?.y ?? selectionBoxLogical.anchorY ?? 0.5,
+					})
+				: null;
 		setPreviewLayers(layers, signatureParts.join("|"));
 	}
 

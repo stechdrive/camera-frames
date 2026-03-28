@@ -94,6 +94,8 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	const referenceImageSelectedItemId = signal("");
 	const referenceImageSelectedItemIds = signal([]);
 	const referenceImageSelectionAnchor = signal(null);
+	const referenceImageSelectionBoxLogical = signal(null);
+	const referenceImageSelectionBoxScreen = signal(null);
 	const selectedSceneAssetIds = signal([]);
 	const selectedSceneAssetId = signal(null);
 	const selectedSceneAsset = computed(
@@ -326,6 +328,8 @@ export function createCameraFramesStore(runtimeInfo = null) {
 			selectedItemId: referenceImageSelectedItemId,
 			selectedItemIds: referenceImageSelectedItemIds,
 			selectionAnchor: referenceImageSelectionAnchor,
+			selectionBoxLogical: referenceImageSelectionBoxLogical,
+			selectionBoxScreen: referenceImageSelectionBoxScreen,
 		},
 		selectedSceneAssetIds,
 		selectedSceneAssetId,

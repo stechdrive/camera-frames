@@ -1,6 +1,5 @@
 import { html } from "htm/preact";
 import { getFrameAnchorHandleKey } from "../engine/frame-transform.js";
-import { getReferenceImageSelectionScreenBounds } from "../engine/reference-image-selection.js";
 import { getFrameResizeCursorCss } from "../engine/resize-cursor.js";
 import { getFrameRotateCursorCss } from "../engine/rotate-cursor.js";
 import {
@@ -73,9 +72,6 @@ export function ViewportShell({ store, controller, refs, t }) {
 	const selectedReferenceImageLayers = referenceImageLayers.filter((layer) =>
 		selectedReferenceImageIds.has(layer.id),
 	);
-	const selectedReferenceImageBounds = getReferenceImageSelectionScreenBounds(
-		selectedReferenceImageLayers,
-	);
 	const activeReferenceImageLayer =
 		selectedReferenceImageLayers.find(
 			(layer) => layer.id === store.referenceImages.selectedItemId.value,
@@ -83,6 +79,7 @@ export function ViewportShell({ store, controller, refs, t }) {
 		selectedReferenceImageLayers[selectedReferenceImageLayers.length - 1] ??
 		null;
 	const selectionAnchor = store.referenceImages.selectionAnchor.value;
+	const multiSelectionBox = store.referenceImages.selectionBoxScreen.value;
 	const referenceImageSelectionBox = (() => {
 		if (selectedReferenceImageLayers.length === 0) {
 			return null;
@@ -105,24 +102,29 @@ export function ViewportShell({ store, controller, refs, t }) {
 				),
 			};
 		}
-		if (!selectedReferenceImageBounds) {
+		if (!multiSelectionBox) {
 			return null;
 		}
-		const anchorAx = Number.isFinite(selectionAnchor?.x)
-			? selectionAnchor.x
-			: 0.5;
-		const anchorAy = Number.isFinite(selectionAnchor?.y)
-			? selectionAnchor.y
-			: 0.5;
 		return {
-			leftPx: selectedReferenceImageBounds.left,
-			topPx: selectedReferenceImageBounds.top,
-			widthPx: selectedReferenceImageBounds.width,
-			heightPx: selectedReferenceImageBounds.height,
-			rotationDeg: 0,
-			anchorAx,
-			anchorAy,
-			anchorHandleKey: getReferenceImageAnchorHandleKey(anchorAx, anchorAy),
+			leftPx: multiSelectionBox.left,
+			topPx: multiSelectionBox.top,
+			widthPx: multiSelectionBox.width,
+			heightPx: multiSelectionBox.height,
+			rotationDeg: multiSelectionBox.rotationDeg ?? 0,
+			anchorAx: Number.isFinite(selectionAnchor?.x)
+				? selectionAnchor.x
+				: (multiSelectionBox.anchorX ?? 0.5),
+			anchorAy: Number.isFinite(selectionAnchor?.y)
+				? selectionAnchor.y
+				: (multiSelectionBox.anchorY ?? 0.5),
+			anchorHandleKey: getReferenceImageAnchorHandleKey(
+				Number.isFinite(selectionAnchor?.x)
+					? selectionAnchor.x
+					: (multiSelectionBox.anchorX ?? 0.5),
+				Number.isFinite(selectionAnchor?.y)
+					? selectionAnchor.y
+					: (multiSelectionBox.anchorY ?? 0.5),
+			),
 		};
 	})();
 	const pieState = store.viewportPieMenu.value;
