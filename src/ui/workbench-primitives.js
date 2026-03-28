@@ -1,6 +1,45 @@
 import { html } from "htm/preact";
+import { createPortal } from "preact/compat";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { WorkbenchIcon } from "./workbench-icons.js";
+
+const TOOLTIP_GAP_PX = 10;
+const TOOLTIP_VIEWPORT_MARGIN_PX = 10;
+
+function getTooltipViewportPosition(triggerRect, tooltipRect, placement) {
+	let left = triggerRect.left;
+	let top = triggerRect.top;
+
+	if (placement === "left") {
+		left = triggerRect.left - tooltipRect.width - TOOLTIP_GAP_PX;
+		top = triggerRect.top + (triggerRect.height - tooltipRect.height) * 0.5;
+	} else if (placement === "top") {
+		left = triggerRect.left + (triggerRect.width - tooltipRect.width) * 0.5;
+		top = triggerRect.top - tooltipRect.height - TOOLTIP_GAP_PX;
+	} else if (placement === "bottom") {
+		left = triggerRect.left + (triggerRect.width - tooltipRect.width) * 0.5;
+		top = triggerRect.bottom + TOOLTIP_GAP_PX;
+	} else {
+		left = triggerRect.right + TOOLTIP_GAP_PX;
+		top = triggerRect.top + (triggerRect.height - tooltipRect.height) * 0.5;
+	}
+
+	const maxLeft =
+		window.innerWidth - tooltipRect.width - TOOLTIP_VIEWPORT_MARGIN_PX;
+	const maxTop =
+		window.innerHeight - tooltipRect.height - TOOLTIP_VIEWPORT_MARGIN_PX;
+
+	return {
+		left: Math.min(
+			Math.max(left, TOOLTIP_VIEWPORT_MARGIN_PX),
+			Math.max(TOOLTIP_VIEWPORT_MARGIN_PX, maxLeft),
+		),
+		top: Math.min(
+			Math.max(top, TOOLTIP_VIEWPORT_MARGIN_PX),
+			Math.max(TOOLTIP_VIEWPORT_MARGIN_PX, maxTop),
+		),
+	};
+}
 
 export function TooltipBubble({
 	title,
@@ -8,26 +47,128 @@ export function TooltipBubble({
 	shortcut = "",
 	placement = "right",
 }) {
+	const anchorRef = useRef(null);
+	const tooltipRef = useRef(null);
+	const [visible, setVisible] = useState(false);
+	const [tooltipStyle, setTooltipStyle] = useState({
+		left: `${TOOLTIP_VIEWPORT_MARGIN_PX}px`,
+		top: `${TOOLTIP_VIEWPORT_MARGIN_PX}px`,
+		visibility: "hidden",
+	});
+
 	if (!title && !description && !shortcut) {
 		return null;
 	}
 
+	useEffect(() => {
+		const trigger = anchorRef.current?.parentElement;
+		if (!trigger) {
+			return undefined;
+		}
+
+		const handlePointerEnter = () => setVisible(true);
+		const handlePointerLeave = () => setVisible(false);
+		const handleFocusIn = () => setVisible(true);
+		const handleFocusOut = (event) => {
+			if (!trigger.contains(event.relatedTarget)) {
+				setVisible(false);
+			}
+		};
+		const handleKeyDown = (event) => {
+			if (event.key === "Escape") {
+				setVisible(false);
+			}
+		};
+
+		trigger.addEventListener("mouseenter", handlePointerEnter);
+		trigger.addEventListener("mouseleave", handlePointerLeave);
+		trigger.addEventListener("focusin", handleFocusIn);
+		trigger.addEventListener("focusout", handleFocusOut);
+		trigger.addEventListener("keydown", handleKeyDown);
+
+		return () => {
+			trigger.removeEventListener("mouseenter", handlePointerEnter);
+			trigger.removeEventListener("mouseleave", handlePointerLeave);
+			trigger.removeEventListener("focusin", handleFocusIn);
+			trigger.removeEventListener("focusout", handleFocusOut);
+			trigger.removeEventListener("keydown", handleKeyDown);
+		};
+	}, []);
+
+	useEffect(() => {
+		if (!visible) {
+			return undefined;
+		}
+
+		const updatePosition = () => {
+			const trigger = anchorRef.current?.parentElement;
+			const tooltip = tooltipRef.current;
+			if (!trigger || !tooltip) {
+				return;
+			}
+
+			const triggerRect = trigger.getBoundingClientRect();
+			const tooltipRect = tooltip.getBoundingClientRect();
+			const { left, top } = getTooltipViewportPosition(
+				triggerRect,
+				tooltipRect,
+				placement,
+			);
+			setTooltipStyle({
+				left: `${left}px`,
+				top: `${top}px`,
+				visibility: "visible",
+			});
+		};
+
+		updatePosition();
+		window.addEventListener("resize", updatePosition);
+		window.addEventListener("scroll", updatePosition, true);
+
+		return () => {
+			window.removeEventListener("resize", updatePosition);
+			window.removeEventListener("scroll", updatePosition, true);
+		};
+	}, [visible, placement]);
+
+	const tooltipNode =
+		visible && typeof document !== "undefined"
+			? createPortal(
+					html`
+						<span
+							ref=${tooltipRef}
+							class="workbench-tooltip workbench-tooltip--visible"
+							style=${tooltipStyle}
+						>
+							${
+								title &&
+								html`<strong class="workbench-tooltip__title">${title}</strong>`
+							}
+							${
+								description &&
+								html`
+									<span class="workbench-tooltip__description"
+										>${description}</span
+									>
+								`
+							}
+							${
+								shortcut &&
+								html`
+									<span class="workbench-tooltip__shortcut">
+										<kbd>${shortcut}</kbd>
+									</span>
+								`
+							}
+						</span>
+					`,
+					document.body,
+				)
+			: null;
+
 	return html`
-		<span class=${`workbench-tooltip workbench-tooltip--${placement}`}>
-			${title && html`<strong class="workbench-tooltip__title">${title}</strong>`}
-			${
-				description &&
-				html`<span class="workbench-tooltip__description">${description}</span>`
-			}
-			${
-				shortcut &&
-				html`
-					<span class="workbench-tooltip__shortcut">
-						<kbd>${shortcut}</kbd>
-					</span>
-				`
-			}
-		</span>
+		<span ref=${anchorRef} class="workbench-tooltip-anchor" aria-hidden="true"></span>
+		${tooltipNode}
 	`;
 }
 

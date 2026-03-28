@@ -55,9 +55,9 @@ const MESSAGES = {
 			activeShotCamera: "Camera",
 			shotCameraName: "Camera 名",
 			shotCameraFov: "標準FRAME水平FOV",
-			shotCameraEquivalentMm: "35mm換算",
+			shotCameraEquivalentMm: "フルサイズ焦点距離",
 			viewportFov: "ビューポート水平FOV",
-			viewportEquivalentMm: "ビューポート 35mm換算",
+			viewportEquivalentMm: "ビューポート フルサイズ焦点距離",
 			shotCameraClipMode: "クリップ範囲",
 			shotCameraNear: "Near",
 			shotCameraFar: "Far",
@@ -65,7 +65,9 @@ const MESSAGES = {
 			shotCameraPitch: "Pitch",
 			shotCameraRoll: "Roll",
 			shotCameraRollLock: "ロールを固定",
-			shotCameraNudgeStep: "移動ステップ",
+			shotCameraMoveHorizontal: "左右",
+			shotCameraMoveVertical: "上下",
+			shotCameraMoveDepth: "前後",
 			shotCameraExportName: "書き出し名",
 			exportFormat: "書き出し形式",
 			exportGridOverlay: "ガイドを含める",
@@ -75,7 +77,7 @@ const MESSAGES = {
 			exportSplatLayers: "3DGS をレイヤー化",
 			outputFrameWidth: "出力フレーム幅",
 			outputFrameHeight: "出力フレーム高",
-			cameraViewZoom: "カメラビューズーム",
+			cameraViewZoom: "表示ズーム",
 			anchor: "アンカー",
 			assetScale: "ワールドスケール",
 			assetPosition: "位置",
@@ -187,8 +189,8 @@ const MESSAGES = {
 			nudgeDown: "下 ↓",
 			nudgeForward: "前へ",
 			nudgeBack: "後へ",
-			viewportToShot: "Viewport → Camera",
-			shotToViewport: "Camera → Viewport",
+			viewportToShot: "Viewportの姿勢をCameraへ",
+			shotToViewport: "Cameraの姿勢をViewportへ",
 			resetActive: "現在のビューをリセット",
 			refreshPreview: "プレビューを更新",
 			downloadOutput: "書き出す",
@@ -229,6 +231,12 @@ const MESSAGES = {
 			tabScene: "シーン、アセット、ライティングを管理します。",
 			tabCamera: "ショットカメラ、FRAME、下絵を編集します。",
 			tabExport: "書き出し設定と出力を管理します。",
+			copyViewportPoseToShot:
+				"Viewport の位置と向きを Camera へコピーします。焦点距離とクリップ範囲は変えません。",
+			copyShotPoseToViewport:
+				"Camera の位置と視線方向を Viewport へコピーします。ロール、焦点距離、クリップ範囲は変えません。",
+			resetActiveView:
+				"現在の Camera / Viewport の位置と向きをホーム位置へ戻します。",
 		},
 		hint: {
 			viewMode:
@@ -395,7 +403,8 @@ const MESSAGES = {
 			zoomToolEnabled:
 				"ズームツール有効。カメラビュー上でドラッグして拡縮、Z か Esc で解除。",
 			zoomToolUnavailable: "ズームツールはカメラビューでのみ使えます。",
-			lensToolEnabled: "焦点距離調整。ドラッグで 35mm換算を変更、Esc で解除。",
+			lensToolEnabled:
+				"焦点距離調整。ドラッグで 35mm横幅換算を変更、Esc で解除。",
 			rollToolEnabled:
 				"カメラロール調整。左右ドラッグで構図を回し、Esc で解除。",
 			rollToolUnavailable: "カメラロールは Camera View でのみ使えます。",
@@ -531,9 +540,9 @@ const MESSAGES = {
 			activeShotCamera: "Camera",
 			shotCameraName: "Camera Name",
 			shotCameraFov: "Standard FRAME H-FOV",
-			shotCameraEquivalentMm: "35mm Equivalent",
+			shotCameraEquivalentMm: "Full-Frame Focal Length",
 			viewportFov: "Viewport H-FOV",
-			viewportEquivalentMm: "Viewport 35mm Equivalent",
+			viewportEquivalentMm: "Viewport Full-Frame Focal Length",
 			shotCameraClipMode: "Clip Range",
 			shotCameraNear: "Near",
 			shotCameraFar: "Far",
@@ -541,7 +550,9 @@ const MESSAGES = {
 			shotCameraPitch: "Pitch",
 			shotCameraRoll: "Roll",
 			shotCameraRollLock: "Lock Roll",
-			shotCameraNudgeStep: "Move Step",
+			shotCameraMoveHorizontal: "Left / Right",
+			shotCameraMoveVertical: "Down / Up",
+			shotCameraMoveDepth: "Back / Forward",
 			shotCameraExportName: "Export Name",
 			exportFormat: "Export Format",
 			exportGridOverlay: "Include Guides",
@@ -551,7 +562,7 @@ const MESSAGES = {
 			exportSplatLayers: "Layer 3DGS Objects",
 			outputFrameWidth: "Output Frame Width",
 			outputFrameHeight: "Output Frame Height",
-			cameraViewZoom: "Camera View Zoom",
+			cameraViewZoom: "View Zoom",
 			anchor: "Anchor",
 			assetScale: "World Scale",
 			assetPosition: "Position",
@@ -663,8 +674,8 @@ const MESSAGES = {
 			nudgeDown: "Down ↓",
 			nudgeForward: "Forward",
 			nudgeBack: "Back",
-			viewportToShot: "Viewport → Camera",
-			shotToViewport: "Camera → Viewport",
+			viewportToShot: "Copy Viewport Pose to Camera",
+			shotToViewport: "Copy Camera Pose to Viewport",
 			resetActive: "Reset Active View",
 			refreshPreview: "Refresh Preview",
 			downloadOutput: "Export",
@@ -709,6 +720,12 @@ const MESSAGES = {
 			tabScene: "Manage scene assets and lighting.",
 			tabCamera: "Edit the active Camera, FRAME, and reference setup.",
 			tabExport: "Adjust export options and run output.",
+			copyViewportPoseToShot:
+				"Copy the Viewport position and orientation into the Camera. Lens and clip range stay unchanged.",
+			copyShotPoseToViewport:
+				"Copy the Camera position and view direction into the Viewport. Roll, lens, and clip range stay unchanged.",
+			resetActiveView:
+				"Return the current Camera or Viewport position and orientation to the home pose.",
 		},
 		hint: {
 			viewMode:
@@ -882,7 +899,7 @@ const MESSAGES = {
 				"Zoom tool active. Drag in Camera View to zoom, press Z or Esc to exit.",
 			zoomToolUnavailable: "Zoom tool is only available in Camera View.",
 			lensToolEnabled:
-				"Lens adjust active. Drag to change 35mm equivalent, press Esc to exit.",
+				"Lens adjust active. Drag to change the 35mm horizontal equivalent, press Esc to exit.",
 			rollToolEnabled:
 				"Camera roll active. Drag left or right to rotate the shot, press Esc to exit.",
 			rollToolUnavailable: "Camera roll is only available in Camera View.",

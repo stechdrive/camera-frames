@@ -161,6 +161,22 @@ function renderIconPath(name) {
 				<rect x="9" y="9" width="10" height="10" rx="2"></rect>
 				<path d="M7 15H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v1"></path>
 			`;
+		case "copy-to-camera":
+			return html`
+				<rect x="3.5" y="7" width="8" height="10" rx="1.5"></rect>
+				<path d="M13 12h3.5"></path>
+				<path d="M15.2 9.8l2.3 2.2-2.3 2.2"></path>
+				<path d="M15.5 8.5h3l1.6-1.6h1.4v10.2h-1.4L18.5 15.5h-3z"></path>
+				<circle cx="18.3" cy="12" r="1.5"></circle>
+			`;
+		case "copy-to-viewport":
+			return html`
+				<path d="M8.8 12H5.3"></path>
+				<path d="M6.8 9.8L4.5 12l2.3 2.2"></path>
+				<path d="M4.8 8.5h3l1.6-1.6h1.4v10.2H9.4L7.8 15.5h-3z"></path>
+				<circle cx="7.7" cy="12" r="1.5"></circle>
+				<rect x="12.5" y="7" width="8" height="10" rx="1.5"></rect>
+			`;
 		case "grip":
 			return html`
 				<circle cx="9" cy="7.5" r="0.9" fill="currentColor" stroke="none"></circle>
@@ -191,8 +207,8 @@ function renderIconPath(name) {
 			`;
 		case "reset":
 			return html`
-				<path d="M20 11a8 8 0 1 0 2 5.3"></path>
-				<path d="M20 4v7h-7"></path>
+				<path d="M18.2 9.3A7.5 7.5 0 1 0 19.2 12.8"></path>
+				<path d="M18.2 5.2v3.9h-3.9"></path>
 			`;
 		case "cursor":
 			return html`
@@ -272,6 +288,16 @@ function renderIconPath(name) {
 				<path d="M8 5h8"></path>
 				<path d="M10 5v5l-2 3h8l-2-3V5"></path>
 				<path d="M12 13v6"></path>
+			`;
+		case "lock":
+			return html`
+				<rect x="6.5" y="11" width="11" height="8" rx="2"></rect>
+				<path d="M9 11V8.5a3 3 0 0 1 6 0V11"></path>
+			`;
+		case "lock-open":
+			return html`
+				<rect x="6.5" y="11" width="11" height="8" rx="2"></rect>
+				<path d="M15 11V8.5a3 3 0 0 0-5.4-1.8"></path>
 			`;
 		default:
 			return html`<circle cx="12" cy="12" r="8"></circle>`;

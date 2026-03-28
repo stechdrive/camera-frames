@@ -133,6 +133,12 @@ export function createCameraFramesController(elements, store) {
 		set viewportBaseFovX(value) {
 			store.viewportBaseFovX.value = Number(value);
 		},
+		get viewportBaseFovXDirty() {
+			return store.viewportBaseFovXDirty.value;
+		},
+		set viewportBaseFovXDirty(value) {
+			store.viewportBaseFovXDirty.value = Boolean(value);
+		},
 		outputFrame: outputFrameState,
 		exportBusy: false,
 		exportStatusKey: "export.idle",
@@ -391,6 +397,7 @@ export function createCameraFramesController(elements, store) {
 		return {
 			activeShotCameraId: store.workspace.activeShotCameraId.value,
 			viewportBaseFovX: store.viewportBaseFovX.value,
+			viewportBaseFovXDirty: store.viewportBaseFovXDirty.value,
 			shotCameras: store.workspace.shotCameras.value.map((documentState) =>
 				cloneShotCameraDocument(documentState),
 			),
@@ -437,6 +444,7 @@ export function createCameraFramesController(elements, store) {
 		store.viewportBaseFovX.value = Number.isFinite(snapshot.viewportBaseFovX)
 			? snapshot.viewportBaseFovX
 			: store.viewportBaseFovX.value;
+		store.viewportBaseFovXDirty.value = Boolean(snapshot.viewportBaseFovXDirty);
 		restoreCameraPose(viewportCamera, snapshot.viewportPose);
 		referenceImageController?.applyProjectReferenceImagesState?.(
 			snapshot.sceneReferenceImages ?? null,
@@ -539,6 +547,7 @@ export function createCameraFramesController(elements, store) {
 				activeShotCameraId: store.workspace.activeShotCameraId.value,
 				viewport: {
 					baseFovX: store.viewportBaseFovX.value,
+					baseFovXDirty: store.viewportBaseFovXDirty.value,
 					pose: captureCameraPose(viewportCamera),
 				},
 			},
@@ -580,6 +589,9 @@ export function createCameraFramesController(elements, store) {
 		)
 			? project.workspace.viewport.baseFovX
 			: store.viewportBaseFovX.value;
+		store.viewportBaseFovXDirty.value = Boolean(
+			project?.workspace?.viewport?.baseFovXDirty,
+		);
 		restoreCameraPose(viewportCamera, project?.workspace?.viewport?.pose);
 
 		for (const shotCamera of project?.shotCameras ?? []) {
@@ -1156,21 +1168,8 @@ export function createCameraFramesController(elements, store) {
 		);
 	}
 
-	function setShotCameraNudgeStep(nextValue) {
-		const numericValue = Number(nextValue);
-		if (!Number.isFinite(numericValue) || numericValue <= 0) {
-			return false;
-		}
-
-		store.shotCamera.localMoveStep.value = numericValue;
-		return true;
-	}
-
-	function nudgeActiveShotCameraLocal(direction) {
-		return cameraController?.nudgeActiveShotCameraLocal?.(
-			direction,
-			store.shotCamera.localMoveStep.value,
-		);
+	function moveActiveShotCameraLocalAxis(axis, distance) {
+		return cameraController?.moveActiveShotCameraLocalAxis?.(axis, distance);
 	}
 
 	function resetLocalizedCaches() {
@@ -1586,8 +1585,7 @@ export function createCameraFramesController(elements, store) {
 		setActiveShotCameraPositionAxis:
 			cameraController.setActiveShotCameraPositionAxis,
 		setActiveShotCameraPoseAngle,
-		setShotCameraNudgeStep,
-		nudgeActiveShotCameraLocal,
+		moveActiveShotCameraLocalAxis,
 		setShotCameraExportName: cameraController.setShotCameraExportName,
 		setShotCameraExportFormat: cameraController.setShotCameraExportFormat,
 		setShotCameraExportGridOverlay:

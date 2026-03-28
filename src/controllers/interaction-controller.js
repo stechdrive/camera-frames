@@ -1,9 +1,9 @@
 import * as THREE from "three";
 import {
-	getBaseHorizontalFovDegreesForStandardFrameEquivalentMm,
-	getStandardFrameEquivalentMm,
+	getBaseHorizontalFovDegreesForStandardFrameHorizontalEquivalentMm,
+	getStandardFrameHorizontalEquivalentMm,
 	getStandardFrameHorizontalFovDegrees,
-	snapStandardFrameEquivalentMm,
+	snapStandardFrameHorizontalEquivalentMm,
 } from "../engine/camera-lens.js";
 import {
 	buildViewportPieActions,
@@ -109,7 +109,7 @@ export function createInteractionController({
 			visible: true,
 			x,
 			y,
-			mmLabel: `${Math.round(getStandardFrameEquivalentMm(baseFovX))}mm`,
+			mmLabel: `${Math.round(getStandardFrameHorizontalEquivalentMm(baseFovX))}mm`,
 			fovLabel: `${formatNumber(getStandardFrameHorizontalFovDegrees(baseFovX), 1)}°`,
 		};
 	}
@@ -374,7 +374,9 @@ export function createInteractionController({
 		lensAdjustDragState = {
 			pointerId: event.pointerId,
 			startClientX: event.clientX,
-			startEquivalentMm: getStandardFrameEquivalentMm(getShotCameraBaseFovX()),
+			startEquivalentMm: getStandardFrameHorizontalEquivalentMm(
+				getShotCameraBaseFovX(),
+			),
 		};
 		updateLensHud(
 			event.clientX - viewportShell.getBoundingClientRect().left,
@@ -392,12 +394,14 @@ export function createInteractionController({
 		}
 
 		const sensitivity = event.shiftKey ? 0.03 : 0.12;
-		const nextEquivalentMm = snapStandardFrameEquivalentMm(
+		const nextEquivalentMm = snapStandardFrameHorizontalEquivalentMm(
 			lensAdjustDragState.startEquivalentMm +
 				(event.clientX - lensAdjustDragState.startClientX) * sensitivity,
 		);
 		const nextBaseFovX =
-			getBaseHorizontalFovDegreesForStandardFrameEquivalentMm(nextEquivalentMm);
+			getBaseHorizontalFovDegreesForStandardFrameHorizontalEquivalentMm(
+				nextEquivalentMm,
+			);
 		setShotCameraBaseFovXLive(nextBaseFovX);
 		updateLensHud(
 			event.clientX - viewportShell.getBoundingClientRect().left,

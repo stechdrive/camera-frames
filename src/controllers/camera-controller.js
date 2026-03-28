@@ -5,6 +5,10 @@ import {
 	DEFAULT_CAMERA_NEAR,
 } from "../constants.js";
 import {
+	MIN_STANDARD_FRAME_HORIZONTAL_EQUIVALENT_MM,
+	getBaseHorizontalFovDegreesForStandardFrameHorizontalEquivalentMm,
+} from "../engine/camera-lens.js";
+import {
 	WORKSPACE_PANE_CAMERA,
 	WORKSPACE_PANE_VIEWPORT,
 	cloneShotCameraDocument,
@@ -14,6 +18,11 @@ import {
 	getShotCameraDocumentId,
 	setSinglePaneRole,
 } from "../workspace-model.js";
+
+const DEFAULT_VIEWPORT_BASE_FOVX =
+	getBaseHorizontalFovDegreesForStandardFrameHorizontalEquivalentMm(
+		MIN_STANDARD_FRAME_HORIZONTAL_EQUIVALENT_MM,
+	);
 
 export function createCameraController({
 	store,
@@ -255,6 +264,10 @@ export function createCameraController({
 			return;
 		}
 
+		if (mode === WORKSPACE_PANE_VIEWPORT && !state.viewportBaseFovXDirty) {
+			state.viewportBaseFovX = DEFAULT_VIEWPORT_BASE_FOVX;
+		}
+
 		store.workspace.panes.value = setSinglePaneRole(
 			store.workspace.panes.value,
 			mode,
@@ -281,6 +294,7 @@ export function createCameraController({
 	function setViewportBaseFovX(nextValue) {
 		runHistoryAction?.("viewport.lens", () => {
 			state.viewportBaseFovX = Number(nextValue);
+			state.viewportBaseFovXDirty = true;
 		});
 		updateUi();
 	}
@@ -367,7 +381,32 @@ export function createCameraController({
 		});
 	}
 
-	function nudgeActiveShotCameraLocal(direction, distance) {
+	function getActiveShotCameraLocalAxis(axis) {
+		const shotCamera = getActiveShotCamera();
+		if (!shotCamera) {
+			return null;
+		}
+		const forward = shotCamera
+			.getWorldDirection(new THREE.Vector3())
+			.normalize();
+		const right = new THREE.Vector3()
+			.crossVectors(forward, shotCamera.up)
+			.normalize();
+		const up = new THREE.Vector3().crossVectors(right, forward).normalize();
+
+		switch (axis) {
+			case "right":
+				return right;
+			case "up":
+				return up;
+			case "forward":
+				return forward;
+			default:
+				return null;
+		}
+	}
+
+	function moveActiveShotCameraLocalAxis(axis, distance) {
 		const numericDistance = Number(distance);
 		if (
 			!Number.isFinite(numericDistance) ||
@@ -377,46 +416,15 @@ export function createCameraController({
 		}
 
 		const shotCamera = getActiveShotCamera();
-		if (!shotCamera) {
+		const axisVector = getActiveShotCameraLocalAxis(axis);
+		if (!shotCamera || !(axisVector instanceof THREE.Vector3)) {
 			return false;
 		}
 
-		const forward = shotCamera
-			.getWorldDirection(new THREE.Vector3())
-			.normalize();
-		const right = new THREE.Vector3()
-			.crossVectors(forward, shotCamera.up)
-			.normalize();
-		const up = new THREE.Vector3().crossVectors(right, forward).normalize();
-		let directionVector = null;
-		switch (direction) {
-			case "left":
-				directionVector = right.clone().multiplyScalar(-1);
-				break;
-			case "right":
-				directionVector = right;
-				break;
-			case "up":
-				directionVector = up;
-				break;
-			case "down":
-				directionVector = up.clone().multiplyScalar(-1);
-				break;
-			case "forward":
-				directionVector = forward;
-				break;
-			case "back":
-				directionVector = forward.clone().multiplyScalar(-1);
-				break;
-			default:
-				return false;
-		}
-
-		return runHistoryAction?.(`camera.nudge.${direction}`, () => {
-			shotCamera.position.addScaledVector(directionVector, numericDistance);
-			shotCamera.updateMatrixWorld(true);
-			updateUi();
-		});
+		shotCamera.position.addScaledVector(axisVector, numericDistance);
+		shotCamera.updateMatrixWorld(true);
+		updateUi();
+		return true;
 	}
 
 	function setShotCameraExportName(nextValue) {
@@ -615,7 +623,14 @@ export function createCameraController({
 	function copyShotCameraToViewport() {
 		const shotCamera = getActiveShotCamera();
 		runHistoryAction?.("viewport.copy-shot", () => {
-			copyPose(shotCamera, viewportCamera);
+			const forward = shotCamera
+				.getWorldDirection(new THREE.Vector3())
+				.normalize();
+			const target = shotCamera.position.clone().add(forward);
+			viewportCamera.position.copy(shotCamera.position);
+			viewportCamera.up.set(0, 1, 0);
+			viewportCamera.lookAt(target);
+			viewportCamera.updateMatrixWorld();
 			if (state.mode === WORKSPACE_PANE_VIEWPORT) {
 				syncControlsToMode();
 			} else {
@@ -690,7 +705,7 @@ export function createCameraController({
 		setShotCameraFar,
 		setShotCameraRollLock,
 		setActiveShotCameraPositionAxis,
-		nudgeActiveShotCameraLocal,
+		moveActiveShotCameraLocalAxis,
 		setShotCameraName,
 		setShotCameraExportName,
 		setShotCameraExportFormat,

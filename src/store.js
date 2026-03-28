@@ -6,7 +6,9 @@ import {
 	SCENE_UNIT_BADGE,
 } from "./constants.js";
 import {
-	getStandardFrameEquivalentMm,
+	MIN_STANDARD_FRAME_HORIZONTAL_EQUIVALENT_MM,
+	getBaseHorizontalFovDegreesForStandardFrameHorizontalEquivalentMm,
+	getStandardFrameHorizontalEquivalentMm,
 	getStandardFrameHorizontalFovDegrees,
 } from "./engine/camera-lens.js";
 import { resolveInitialLocale, translate } from "./i18n.js";
@@ -26,6 +28,11 @@ function formatNumber(value, digits = 0) {
 	return Number(value).toFixed(digits);
 }
 
+const DEFAULT_VIEWPORT_BASE_FOVX =
+	getBaseHorizontalFovDegreesForStandardFrameHorizontalEquivalentMm(
+		MIN_STANDARD_FRAME_HORIZONTAL_EQUIVALENT_MM,
+	);
+
 export function createCameraFramesStore(runtimeInfo = null) {
 	const initialLocale = resolveInitialLocale();
 	const locale = signal(initialLocale);
@@ -34,7 +41,8 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	const activePaneId = signal(workspacePanes.value[0].id);
 	const shotCameras = signal(createDefaultShotCameraDocuments());
 	const activeShotCameraId = signal(shotCameras.value[0].id);
-	const viewportBaseFovX = signal(60);
+	const viewportBaseFovX = signal(DEFAULT_VIEWPORT_BASE_FOVX);
+	const viewportBaseFovXDirty = signal(false);
 	const viewportTransformSpace = signal("world");
 	const viewportToolMode = signal("none");
 	const viewportSelectMode = computed(
@@ -130,7 +138,6 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	const shotCameraYawDeg = signal(0);
 	const shotCameraPitchDeg = signal(0);
 	const shotCameraRollDeg = signal(0);
-	const shotCameraLocalMoveStep = signal(0.05);
 
 	const activeWorkspacePane = computed(() =>
 		getActiveWorkspacePane(workspacePanes.value, activePaneId.value),
@@ -239,21 +246,16 @@ export function createCameraFramesStore(runtimeInfo = null) {
 			`${formatNumber(getStandardFrameHorizontalFovDegrees(baseFovX.value), 1)}°`,
 	);
 	const equivalentMmValue = computed(() =>
-		Number(getStandardFrameEquivalentMm(baseFovX.value).toFixed(2)),
-	);
-	const equivalentMmLabel = computed(
-		() => `${formatNumber(getStandardFrameEquivalentMm(baseFovX.value), 2)}mm`,
+		Number(getStandardFrameHorizontalEquivalentMm(baseFovX.value).toFixed(2)),
 	);
 	const viewportFovLabel = computed(
 		() =>
 			`${formatNumber(getStandardFrameHorizontalFovDegrees(viewportBaseFovX.value), 1)}°`,
 	);
 	const viewportEquivalentMmValue = computed(() =>
-		Number(getStandardFrameEquivalentMm(viewportBaseFovX.value).toFixed(2)),
-	);
-	const viewportEquivalentMmLabel = computed(
-		() =>
-			`${formatNumber(getStandardFrameEquivalentMm(viewportBaseFovX.value), 2)}mm`,
+		Number(
+			getStandardFrameHorizontalEquivalentMm(viewportBaseFovX.value).toFixed(2),
+		),
 	);
 	const widthLabel = computed(
 		() => `${formatNumber(widthScale.value * 100, 0)}%`,
@@ -282,6 +284,7 @@ export function createCameraFramesStore(runtimeInfo = null) {
 		viewportLensHud,
 		viewportRollHud,
 		viewportBaseFovX,
+		viewportBaseFovXDirty,
 		viewportToolMode,
 		viewportTransformSpace,
 		viewportSelectMode,
@@ -309,7 +312,6 @@ export function createCameraFramesStore(runtimeInfo = null) {
 			pitchDeg: shotCameraPitchDeg,
 			rollDeg: shotCameraRollDeg,
 			rollLock: activeRollLock,
-			localMoveStep: shotCameraLocalMoveStep,
 			exportName: activeExportName,
 			exportFormat: activeExportFormat,
 			exportGridOverlay: activeExportGridOverlay,
@@ -381,10 +383,8 @@ export function createCameraFramesStore(runtimeInfo = null) {
 		modeLabel,
 		fovLabel,
 		equivalentMmValue,
-		equivalentMmLabel,
 		viewportFovLabel,
 		viewportEquivalentMmValue,
-		viewportEquivalentMmLabel,
 		widthLabel,
 		heightLabel,
 		zoomLabel,

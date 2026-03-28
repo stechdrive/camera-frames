@@ -275,6 +275,11 @@ export function normalizeProjectDocument(project = {}) {
 			activeShotCameraId,
 			viewport: {
 				baseFovX: Number(project.workspace?.viewport?.baseFovX ?? 60),
+				baseFovXDirty:
+					typeof project.workspace?.viewport?.baseFovXDirty === "boolean"
+						? project.workspace.viewport.baseFovXDirty
+						: Number.isFinite(project.workspace?.viewport?.baseFovX) &&
+							project.workspace.viewport.baseFovX !== 60,
 				pose: toSerializableCameraPose(project.workspace?.viewport?.pose),
 			},
 		},

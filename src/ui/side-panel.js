@@ -65,13 +65,10 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 	const exportGridLayerMode = store.shotCamera.exportGridLayerMode.value;
 	const exportModelLayers = store.shotCamera.exportModelLayers.value;
 	const exportSplatLayers = store.shotCamera.exportSplatLayers.value;
-	const cameraSummary = store.cameraSummary.value;
 	const fovLabel = store.fovLabel.value;
 	const equivalentMmValue = store.equivalentMmValue.value;
-	const equivalentMmLabel = store.equivalentMmLabel.value;
 	const viewportFovLabel = store.viewportFovLabel.value;
 	const viewportEquivalentMmValue = store.viewportEquivalentMmValue.value;
-	const viewportEquivalentMmLabel = store.viewportEquivalentMmLabel.value;
 	const frameDocuments = store.frames.documents.value;
 	const activeFrameId = store.frames.activeId.value;
 	const frameCount = store.frames.count.value;
@@ -369,15 +366,12 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 					selectedSceneAsset=${selectedSceneAsset}
 					store=${store}
 					t=${t}
-					viewportEquivalentMmLabel=${viewportEquivalentMmLabel}
 					viewportEquivalentMmValue=${viewportEquivalentMmValue}
 					viewportFovLabel=${viewportFovLabel}
 				/>
 				<${ShotCameraSection}
 					activeShotCamera=${activeShotCamera}
-					cameraSummary=${cameraSummary}
 					controller=${controller}
-					equivalentMmLabel=${equivalentMmLabel}
 					equivalentMmValue=${equivalentMmValue}
 					fovLabel=${fovLabel}
 					shotCameraClipMode=${shotCameraClipMode}
