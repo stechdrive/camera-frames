@@ -1104,7 +1104,6 @@ code {
 	list-style: none;
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
 	gap: 0.4rem;
 	padding: 0.5rem 0.62rem;
 	cursor: pointer;
@@ -1122,13 +1121,21 @@ code {
 	display: inline-flex;
 	align-items: center;
 	gap: 0.36rem;
+	min-width: 0;
+	flex: 1 1 auto;
+}
+
+.panel-disclosure__summary-right {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.28rem;
+	flex: 0 0 auto;
+	margin-left: auto;
 }
 
 .panel-disclosure__summary-meta {
 	display: inline-flex;
 	align-items: center;
-	flex: 1 1 auto;
-	justify-content: flex-end;
 	min-width: 0;
 }
 

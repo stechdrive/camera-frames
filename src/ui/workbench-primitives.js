@@ -420,20 +420,22 @@ export function DisclosureBlock({
 					}
 					<span>${label}</span>
 				</span>
-				${
-					summaryMeta &&
-					html`<span class="panel-disclosure__summary-meta">${summaryMeta}</span>`
-				}
-				${
-					summaryActions &&
-					html`
-						<span class="panel-disclosure__summary-actions">
-							${summaryActions}
-						</span>
-					`
-				}
-				<span class="panel-disclosure__chevron">
-					<${WorkbenchIcon} name="chevron-right" size=${12} />
+				<span class="panel-disclosure__summary-right">
+					${
+						summaryMeta &&
+						html`<span class="panel-disclosure__summary-meta">${summaryMeta}</span>`
+					}
+					${
+						summaryActions &&
+						html`
+							<span class="panel-disclosure__summary-actions">
+								${summaryActions}
+							</span>
+						`
+					}
+					<span class="panel-disclosure__chevron">
+						<${WorkbenchIcon} name="chevron-right" size=${12} />
+					</span>
 				</span>
 			</summary>
 			<div class="panel-disclosure__body">${children}</div>
