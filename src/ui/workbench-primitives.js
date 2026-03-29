@@ -225,7 +225,10 @@ export function WorkbenchTabs({
 								tab.icon &&
 								html`
 								<span class="workbench-tab__icon">
-									<${WorkbenchIcon} name=${tab.icon} size=${14} />
+									<${WorkbenchIcon}
+										name=${tab.icon}
+										size=${iconOnly ? 17 : 14}
+									/>
 								</span>
 							`
 							}
