@@ -399,9 +399,15 @@ export function DisclosureBlock({
 	open = false,
 	summaryMeta = null,
 	summaryActions = null,
+	onToggle = null,
+	className = "",
 }) {
 	return html`
-		<details class="panel-disclosure" open=${open}>
+		<details
+			class=${className ? `panel-disclosure ${className}` : "panel-disclosure"}
+			open=${open}
+			onToggle=${(event) => onToggle?.(Boolean(event.currentTarget.open))}
+		>
 			<summary class="panel-disclosure__summary">
 				<span class="panel-disclosure__summary-main">
 					${

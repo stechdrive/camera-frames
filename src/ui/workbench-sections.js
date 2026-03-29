@@ -1242,6 +1242,9 @@ export function SceneWorkspaceSection({
 	controller,
 	sceneAssets,
 	selectedSceneAsset,
+	open = true,
+	summaryActions = null,
+	onToggle = null,
 	store,
 	t,
 	draggedAssetId,
@@ -1250,10 +1253,16 @@ export function SceneWorkspaceSection({
 	setDragHoverState,
 }) {
 	return html`
-		<section class="panel-section panel-section--browser-stack">
+		<${DisclosureBlock}
+			icon="scene"
+			label=${t("section.scene")}
+			open=${open}
+			summaryActions=${summaryActions}
+			onToggle=${onToggle}
+			className="panel-disclosure--browser-stack"
+		>
 			<div class="scene-workspace-browser">
 				<section class="scene-workspace-pane">
-					<${SectionHeading} icon="scene" title=${t("section.scene")} />
 					<div class="scene-workspace-pane__body">
 						<${SceneBrowserSection}
 							controller=${controller}
@@ -1269,7 +1278,7 @@ export function SceneWorkspaceSection({
 					</div>
 				</section>
 			</div>
-		</section>
+		<//>
 	`;
 }
 
@@ -1729,7 +1738,9 @@ export function SceneSection({
 	controller,
 	sceneAssets,
 	selectedSceneAsset,
-	headingActions = null,
+	open = true,
+	summaryActions = null,
+	onToggle = null,
 	showSelectedInspector = true,
 	store,
 	t,
@@ -1783,10 +1794,13 @@ export function SceneSection({
 		return classes.join(" ");
 	};
 	return html`
-		<section class="panel-section">
-			<${SectionHeading} icon="scene" title=${t("section.scene")}>
-				${headingActions}
-			<//>
+		<${DisclosureBlock}
+			icon="scene"
+			label=${t("section.scene")}
+			open=${open}
+			summaryActions=${summaryActions}
+			onToggle=${onToggle}
+		>
 			${
 				sceneAssets.length > 0 &&
 				html`
@@ -1925,13 +1939,14 @@ export function SceneSection({
 				t=${t}
 			/>`
 			}
-		</section>
+		<//>
 	`;
 }
 
 export function LightingSection({
 	controller,
 	open = false,
+	onToggle = null,
 	store,
 	summaryActions = null,
 	t,
@@ -1958,6 +1973,7 @@ export function LightingSection({
 			label=${t("section.lighting")}
 			open=${open}
 			summaryActions=${summaryActions}
+			onToggle=${onToggle}
 		>
 			<label class="field">
 				<span>${t("field.lightDirection")}</span>
@@ -2037,15 +2053,20 @@ export function LightingSection({
 export function ShotCameraSection({
 	activeShotCamera,
 	controller,
-	headingActions = null,
+	open = true,
+	summaryActions = null,
+	onToggle = null,
 	store,
 	t,
 }) {
 	return html`
-		<section class="panel-section">
-			<${SectionHeading} icon="camera" title=${t("section.shotCameraManager")}>
-				${headingActions}
-			<//>
+		<${DisclosureBlock}
+			icon="camera"
+			label=${t("section.shotCameraManager")}
+			open=${open}
+			summaryActions=${summaryActions}
+			onToggle=${onToggle}
+		>
 			<div class="shot-camera-head-row">
 				<${ShotCameraPicker}
 					activeShotCamera=${activeShotCamera}
@@ -2068,7 +2089,7 @@ export function ShotCameraSection({
 					/>
 				</div>
 			</div>
-		</section>
+		<//>
 	`;
 }
 
@@ -2076,7 +2097,9 @@ export function ShotCameraPropertiesSection({
 	controller,
 	equivalentMmValue,
 	fovLabel,
-	headingActions = null,
+	open = true,
+	summaryActions = null,
+	onToggle = null,
 	shotCameraClipMode,
 	store,
 	t,
@@ -2096,13 +2119,13 @@ export function ShotCameraPropertiesSection({
 	const shotCameraRollLock = store.shotCamera.rollLock.value;
 
 	return html`
-		<section class="panel-section">
-			<${SectionHeading}
-				icon="camera-dslr"
-				title=${t("section.shotCameraProperties")}
-			>
-				${headingActions}
-			<//>
+		<${DisclosureBlock}
+			icon="camera-dslr"
+			label=${t("section.shotCameraProperties")}
+			open=${open}
+			summaryActions=${summaryActions}
+			onToggle=${onToggle}
+		>
 			<label class="field field--range">
 				<span>${t("field.shotCameraEquivalentMm")}</span>
 				<div class="range-row">
@@ -2429,7 +2452,7 @@ export function ShotCameraPropertiesSection({
 					</label>
 				</div>
 			<//>
-		</section>
+		<//>
 	`;
 }
 
@@ -2442,6 +2465,7 @@ export function ExportSettingsSection({
 	exportModelLayers,
 	exportSplatLayers,
 	open = false,
+	onToggle = null,
 	summaryActions = null,
 	store,
 	t,
@@ -2452,6 +2476,7 @@ export function ExportSettingsSection({
 			label=${t("section.exportSettings")}
 			open=${open}
 			summaryActions=${summaryActions}
+			onToggle=${onToggle}
 		>
 			<label class="field">
 				<span>${t("field.shotCameraExportName")}</span>
@@ -2549,6 +2574,7 @@ export function FramesSection({
 	frameDocuments,
 	frameLimitReached,
 	open = false,
+	onToggle = null,
 	showFramePicker = true,
 	summaryActions = null,
 	store,
@@ -2566,6 +2592,7 @@ export function FramesSection({
 			label=${`${t("section.frames")} · ${frameCount}/${FRAME_MAX_COUNT}`}
 			open=${open}
 			summaryActions=${summaryActions}
+			onToggle=${onToggle}
 		>
 			${
 				hasFrames &&
@@ -2690,7 +2717,9 @@ export function FramesSection({
 
 export function ReferenceSection({
 	controller,
-	headingActions = null,
+	open = true,
+	summaryActions = null,
+	onToggle = null,
 	showList = true,
 	store,
 	t,
@@ -2725,11 +2754,14 @@ export function ReferenceSection({
 	}
 
 	return html`
-		<section class="panel-section">
-			<${SectionHeading} icon="image" title=${t("section.referenceImages")}>
-				<span class="pill pill--dim">${items.length}</span>
-				${headingActions}
-			<//>
+		<${DisclosureBlock}
+			icon="image"
+			label=${t("section.referenceImages")}
+			open=${open}
+			summaryMeta=${html`<span class="pill pill--dim">${items.length}</span>`}
+			summaryActions=${summaryActions}
+			onToggle=${onToggle}
+		>
 			<div class="button-row">
 				<button
 					type="button"
@@ -3081,7 +3113,7 @@ export function ReferenceSection({
 						: html`<p class="summary">${t("referenceImage.selectedEmpty")}</p>`
 				}
 			</div>
-		</section>
+		<//>
 	`;
 }
 
@@ -3089,18 +3121,23 @@ export function OutputFrameSection({
 	anchorOptions,
 	controller,
 	exportSizeLabel,
-	headingActions = null,
+	open = true,
+	summaryActions = null,
+	onToggle = null,
 	heightLabel,
 	store,
 	t,
 	widthLabel,
 }) {
 	return html`
-		<section class="panel-section">
-			<${SectionHeading} icon="render-box" title=${t("section.outputFrame")}>
-				<span id="export-size-pill" class="pill pill--dim">${exportSizeLabel}</span>
-				${headingActions}
-			<//>
+		<${DisclosureBlock}
+			icon="render-box"
+			label=${t("section.outputFrame")}
+			open=${open}
+			summaryMeta=${html`<span id="export-size-pill" class="pill pill--dim">${exportSizeLabel}</span>`}
+			summaryActions=${summaryActions}
+			onToggle=${onToggle}
+		>
 			<label class="field field--range">
 				<span>${t("field.outputFrameWidth")}</span>
 				<div class="range-row">
@@ -3149,7 +3186,7 @@ export function OutputFrameSection({
 					)}
 				</select>
 			</label>
-		</section>
+		<//>
 	`;
 }
 
@@ -3161,7 +3198,9 @@ export function ExportSection({
 	exportSelectionMissing,
 	exportStatusLabel,
 	exportTarget,
-	headingActions = null,
+	open = true,
+	summaryActions = null,
+	onToggle = null,
 	store,
 	t,
 }) {
@@ -3173,13 +3212,17 @@ export function ExportSection({
 		store.referenceImages.exportSessionEnabled.value !== false;
 
 	return html`
-		<section class="panel-section panel-section--preview">
-			<${SectionHeading} icon="export" title=${t("section.export")}>
-				<span id="export-status-pill" class=${exportStatusClass}>
-					${exportStatusLabel}
-				</span>
-				${headingActions}
-			<//>
+		<${DisclosureBlock}
+			icon="export"
+			label=${t("section.export")}
+			open=${open}
+			summaryMeta=${html`<span id="export-status-pill" class=${exportStatusClass}>
+				${exportStatusLabel}
+			</span>`}
+			summaryActions=${summaryActions}
+			onToggle=${onToggle}
+			className="panel-disclosure--preview"
+		>
 			<label class="field">
 				<span>${t("field.exportTarget")}</span>
 				<select
@@ -3245,7 +3288,7 @@ export function ExportSection({
 			<p id="export-summary" class="summary">
 				${exportFormatLabel} · ${store.exportSummary.value}
 			</p>
-		</section>
+		<//>
 	`;
 }
 

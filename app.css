@@ -1088,6 +1088,14 @@ code {
 	background: rgba(2, 8, 16, 0.34);
 }
 
+.panel-disclosure--browser-stack .panel-disclosure__body {
+	padding: 0.55rem;
+}
+
+.panel-disclosure--preview {
+	margin-top: 0;
+}
+
 .panel-disclosure[open] {
 	background: rgba(255, 255, 255, 0.04);
 }
@@ -1129,6 +1137,10 @@ code {
 	align-items: center;
 	gap: 0.25rem;
 	flex: 0 0 auto;
+}
+
+.panel-disclosure__summary-actions .button {
+	margin: 0;
 }
 
 .panel-disclosure__icon,

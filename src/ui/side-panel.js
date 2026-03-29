@@ -82,6 +82,8 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 	const [pinnedQuickSectionIds, setPinnedQuickSectionIds] = useState(
 		loadPinnedQuickSectionIds,
 	);
+	const [collapsedInspectorSectionIds, setCollapsedInspectorSectionIds] =
+		useState([]);
 	const [isMobileWorkbench, setIsMobileWorkbench] = useState(false);
 	const [draggedAssetId, setDraggedAssetId] = useState(null);
 	const [dragHoverState, setDragHoverState] = useState(null);
@@ -135,6 +137,18 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 		.map((sectionId) => inspectorQuickSectionMap.get(sectionId) ?? null)
 		.filter(Boolean)
 		.filter((section) => isSectionAvailable(section.id));
+	const isInspectorSectionOpen = (sectionId) =>
+		!collapsedInspectorSectionIds.includes(sectionId);
+	const setInspectorSectionOpen = (sectionId, nextOpen) => {
+		setCollapsedInspectorSectionIds((currentIds) => {
+			if (nextOpen) {
+				return currentIds.filter((id) => id !== sectionId);
+			}
+			return currentIds.includes(sectionId)
+				? currentIds
+				: [...currentIds, sectionId];
+		});
+	};
 	const collapseWorkbench = () => {
 		store.workbenchManualCollapsed.value = true;
 		store.workbenchManualExpanded.value = false;
@@ -480,15 +494,20 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 		{ quick = false, desktopFull = false } = {},
 	) => {
 		const pinAction = getQuickSectionPinButton(sectionId);
+		const open = isInspectorSectionOpen(sectionId);
+		const onToggle = (nextOpen) => setInspectorSectionOpen(sectionId, nextOpen);
 		switch (sectionId) {
 			case INSPECTOR_QUICK_SECTION_SCENE:
 				if (desktopFull) {
 					return html`
 						<${SceneWorkspaceSection}
 							controller=${controller}
+							open=${open}
+							onToggle=${onToggle}
 							sceneAssets=${sceneAssets}
 							selectedSceneAsset=${selectedSceneAsset}
 							store=${store}
+							summaryActions=${pinAction}
 							t=${t}
 							draggedAssetId=${draggedAssetId}
 							setDraggedAssetId=${setDraggedAssetId}
@@ -500,10 +519,12 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 				return html`
 					<${SceneSection}
 						controller=${controller}
-						headingActions=${pinAction}
+						open=${open}
+						onToggle=${onToggle}
 						sceneAssets=${sceneAssets}
 						selectedSceneAsset=${selectedSceneAsset}
 						store=${store}
+						summaryActions=${pinAction}
 						t=${t}
 						draggedAssetId=${draggedAssetId}
 						setDraggedAssetId=${setDraggedAssetId}
@@ -515,7 +536,8 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 				return html`
 					<${LightingSection}
 						controller=${controller}
-						open=${quick}
+						open=${open}
+						onToggle=${onToggle}
 						store=${store}
 						summaryActions=${pinAction}
 						t=${t}
@@ -526,8 +548,10 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 					<${ShotCameraSection}
 						activeShotCamera=${activeShotCamera}
 						controller=${controller}
-						headingActions=${pinAction}
+						open=${open}
+						onToggle=${onToggle}
 						store=${store}
+						summaryActions=${pinAction}
 						t=${t}
 					/>
 				`;
@@ -536,9 +560,11 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 					<${ShotCameraPropertiesSection}
 						equivalentMmValue=${equivalentMmValue}
 						fovLabel=${fovLabel}
-						headingActions=${pinAction}
+						open=${open}
+						onToggle=${onToggle}
 						shotCameraClipMode=${shotCameraClipMode}
 						store=${store}
+						summaryActions=${pinAction}
 						t=${t}
 					/>
 				`;
@@ -548,9 +574,11 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 						anchorOptions=${anchorOptions}
 						controller=${controller}
 						exportSizeLabel=${exportSizeLabel}
-						headingActions=${pinAction}
+						open=${open}
+						onToggle=${onToggle}
 						heightLabel=${heightLabel}
 						store=${store}
+						summaryActions=${pinAction}
 						t=${t}
 						widthLabel=${widthLabel}
 					/>
@@ -559,9 +587,11 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 				return html`
 					<${ReferenceSection}
 						controller=${controller}
-						headingActions=${pinAction}
+						open=${open}
+						onToggle=${onToggle}
 						showList=${true}
 						store=${store}
+						summaryActions=${pinAction}
 						t=${t}
 					/>
 				`;
@@ -573,7 +603,8 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 						frameCount=${frameCount}
 						frameDocuments=${frameDocuments}
 						frameLimitReached=${frameLimitReached}
-						open=${quick}
+						open=${open}
+						onToggle=${onToggle}
 						showFramePicker=${!desktopFull}
 						store=${store}
 						summaryActions=${pinAction}
@@ -590,8 +621,10 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 						exportSelectionMissing=${exportSelectionMissing}
 						exportStatusLabel=${exportStatusLabel}
 						exportTarget=${exportTarget}
-						headingActions=${pinAction}
+						open=${open}
+						onToggle=${onToggle}
 						store=${store}
+						summaryActions=${pinAction}
 						t=${t}
 					/>
 				`;
@@ -605,7 +638,8 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 						exportGridOverlay=${exportGridOverlay}
 						exportModelLayers=${exportModelLayers}
 						exportSplatLayers=${exportSplatLayers}
-						open=${quick}
+						open=${open}
+						onToggle=${onToggle}
 						store=${store}
 						summaryActions=${pinAction}
 						t=${t}
