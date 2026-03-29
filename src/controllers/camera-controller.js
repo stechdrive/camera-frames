@@ -99,6 +99,48 @@ export function createCameraController({
 		};
 	}
 
+	function captureCameraPose(camera) {
+		return {
+			position: {
+				x: camera.position.x,
+				y: camera.position.y,
+				z: camera.position.z,
+			},
+			quaternion: {
+				x: camera.quaternion.x,
+				y: camera.quaternion.y,
+				z: camera.quaternion.z,
+				w: camera.quaternion.w,
+			},
+			up: {
+				x: camera.up.x,
+				y: camera.up.y,
+				z: camera.up.z,
+			},
+		};
+	}
+
+	function syncActiveShotCameraDocumentFromLiveCamera({
+		includeLens = false,
+		baseFovX = state.baseFovX,
+	} = {}) {
+		const shotCamera = getActiveShotCamera();
+		if (!shotCamera) {
+			return;
+		}
+
+		updateActiveShotCameraDocument((documentState) => {
+			documentState.pose = captureCameraPose(shotCamera);
+			if (includeLens) {
+				documentState.lens = {
+					...documentState.lens,
+					baseFovX: Number(baseFovX),
+				};
+			}
+			return documentState;
+		});
+	}
+
 	function registerShotCameraDocuments() {
 		const documentIds = new Set();
 
@@ -365,6 +407,7 @@ export function createCameraController({
 				return documentState;
 			});
 		});
+		updateUi();
 	}
 
 	function setActiveShotCameraPositionAxis(axis, nextValue) {
@@ -377,6 +420,7 @@ export function createCameraController({
 			const shotCamera = getActiveShotCamera();
 			shotCamera.position[axis] = numericValue;
 			shotCamera.updateMatrixWorld(true);
+			syncActiveShotCameraDocumentFromLiveCamera();
 			updateUi();
 		});
 	}
@@ -423,6 +467,7 @@ export function createCameraController({
 
 		shotCamera.position.addScaledVector(axisVector, numericDistance);
 		shotCamera.updateMatrixWorld(true);
+		syncActiveShotCameraDocumentFromLiveCamera();
 		updateUi();
 		return true;
 	}
@@ -611,6 +656,10 @@ export function createCameraController({
 		runHistoryAction?.("camera.copy-viewport", () => {
 			copyPose(viewportCamera, shotCamera);
 			state.baseFovX = state.viewportBaseFovX;
+			syncActiveShotCameraDocumentFromLiveCamera({
+				includeLens: true,
+				baseFovX: state.viewportBaseFovX,
+			});
 			if (state.mode === WORKSPACE_PANE_CAMERA) {
 				syncControlsToMode();
 			} else {
@@ -647,6 +696,7 @@ export function createCameraController({
 			if (state.mode === WORKSPACE_PANE_CAMERA) {
 				const shotCamera = getActiveShotCamera();
 				placeCameraAtHome(shotCamera, "camera");
+				syncActiveShotCameraDocumentFromLiveCamera();
 				syncActiveShotCameraFromDocument();
 				setStatus(t("status.resetCamera"));
 			} else {
@@ -705,6 +755,7 @@ export function createCameraController({
 		setShotCameraNear,
 		setShotCameraFar,
 		setShotCameraRollLock,
+		syncActiveShotCameraDocumentFromLiveCamera,
 		setActiveShotCameraPositionAxis,
 		moveActiveShotCameraLocalAxis,
 		setShotCameraName,

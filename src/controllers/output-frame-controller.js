@@ -97,6 +97,22 @@ export function createOutputFrameController({
 	let outputFrameAnchorDragState = null;
 	let outputFrameResizeState = null;
 	let lastAutoLayoutSignature = "";
+	let lastFitLayoutSignature = "";
+
+	function getFitLayoutSignature(documentState, width, height, layout) {
+		return [
+			documentState?.id ?? "active",
+			width,
+			height,
+			layout.safeLeft,
+			layout.safeRight,
+			layout.safeTop,
+			layout.safeBottom,
+			layout.safeWidth,
+			layout.safeHeight,
+			store.workbenchCollapsed.value ? "collapsed" : "expanded",
+		].join("|");
+	}
 
 	function clearOutputFramePan() {
 		outputFramePanState = null;
@@ -308,8 +324,16 @@ export function createOutputFrameController({
 
 		const width = Math.max(viewportWidth, 1);
 		const height = Math.max(viewportHeight, 1);
+		const layout = getWorkbenchLayoutState();
+		const fitLayoutSignature = getFitLayoutSignature(
+			documentState,
+			width,
+			height,
+			layout,
+		);
 		const needsFitSync =
 			force ||
+			fitLayoutSignature !== lastFitLayoutSignature ||
 			!(
 				Number.isFinite(outputFrameDocument.fitScale) &&
 				outputFrameDocument.fitScale > 0
@@ -321,7 +345,6 @@ export function createOutputFrameController({
 			return outputFrameDocument;
 		}
 
-		const layout = getWorkbenchLayoutState();
 		const exportSize = getOutputSizeState(documentState);
 		const metrics = getRenderBoxMetrics({
 			viewportWidth: width,
@@ -333,9 +356,19 @@ export function createOutputFrameController({
 			viewportCenterY: outputFrameDocument.viewportCenterY,
 			anchorKey: outputFrameDocument.anchor ?? "center",
 		});
+		const desiredCenter = {
+			x:
+				outputFrameDocument.viewportCenterAuto !== false
+					? (layout.safeLeft + layout.safeRight) * 0.5
+					: metrics.boxCenterX,
+			y:
+				outputFrameDocument.viewportCenterAuto !== false
+					? (layout.safeTop + layout.safeBottom) * 0.5
+					: metrics.boxCenterY,
+		};
 		const clampedCenter = clampOutputFrameCenterPx({
-			centerX: metrics.boxCenterX,
-			centerY: metrics.boxCenterY,
+			centerX: desiredCenter.x,
+			centerY: desiredCenter.y,
 			viewportWidth: width,
 			viewportHeight: height,
 			boxWidth: metrics.boxWidth,
@@ -351,17 +384,24 @@ export function createOutputFrameController({
 		outputFrameDocument.fitViewportHeight = height;
 		outputFrameDocument.viewportCenterX = clampedCenter.x / width;
 		outputFrameDocument.viewportCenterY = clampedCenter.y / height;
+		outputFrameDocument.viewportCenterAuto =
+			outputFrameDocument.viewportCenterAuto !== false;
+		lastFitLayoutSignature = fitLayoutSignature;
 		return outputFrameDocument;
 	}
 
 	function getOutputFrameMetrics(
 		documentState = getActiveShotCameraDocument(),
 	) {
-		const layout = syncAutoWorkbenchLayout(documentState);
-		syncAutoViewZoom(documentState, layout);
+		let nextDocumentState = documentState;
+		const layout = syncAutoWorkbenchLayout(nextDocumentState);
+		const zoomChanged = syncAutoViewZoom(nextDocumentState, layout);
+		if (zoomChanged) {
+			nextDocumentState = getActiveShotCameraDocument() ?? nextDocumentState;
+		}
 		const { width, height } = getViewportSize();
 		const outputFrameDocument = syncOutputFrameFitState(
-			documentState,
+			nextDocumentState,
 			width,
 			height,
 		);
@@ -522,7 +562,6 @@ export function createOutputFrameController({
 		if (!state.outputFrameSelected) {
 			selectOutputFrame();
 			updateUi();
-			return;
 		}
 
 		const metrics = getOutputFrameMetrics(activeDocument);
@@ -597,6 +636,7 @@ export function createOutputFrameController({
 				clampedCenter.x / viewportWidth;
 			documentState.outputFrame.viewportCenterY =
 				clampedCenter.y / viewportHeight;
+			documentState.outputFrame.viewportCenterAuto = false;
 			return documentState;
 		});
 		updateUi();
@@ -984,6 +1024,36 @@ export function createOutputFrameController({
 		setViewZoomFactor(Number(nextValue) / 100);
 	}
 
+	function canFitOutputFrameToSafeArea(
+		documentState = getActiveShotCameraDocument(),
+	) {
+		const outputFrame = documentState?.outputFrame;
+		return Boolean(
+			outputFrame &&
+				(outputFrame.viewZoomAuto === false ||
+					outputFrame.viewportCenterAuto === false),
+		);
+	}
+
+	function fitOutputFrameToSafeArea() {
+		const activeDocument = getActiveShotCameraDocument();
+		if (!activeDocument?.outputFrame) {
+			return;
+		}
+
+		runHistoryAction?.("output-frame.fit-view", () => {
+			updateActiveShotCameraDocument((documentState) => {
+				documentState.outputFrame.viewZoomAuto = true;
+				documentState.outputFrame.viewportCenterAuto = true;
+				return documentState;
+			});
+		});
+		lastAutoLayoutSignature = "";
+		lastFitLayoutSignature = "";
+		handleResize();
+		updateUi();
+	}
+
 	function setAnchor(nextValue) {
 		selectOutputFrame();
 		runHistoryAction?.("output-frame.anchor-preset", () => {
@@ -993,9 +1063,12 @@ export function createOutputFrameController({
 	}
 
 	function handleResize() {
-		const documentState = getActiveShotCameraDocument();
+		let documentState = getActiveShotCameraDocument();
 		const layout = syncAutoWorkbenchLayout(documentState);
-		syncAutoViewZoom(documentState, layout);
+		const zoomChanged = syncAutoViewZoom(documentState, layout);
+		if (zoomChanged) {
+			documentState = getActiveShotCameraDocument() ?? documentState;
+		}
 		const { width, height } = getViewportSize();
 		syncOutputFrameFitState(documentState, width, height);
 	}
@@ -1017,6 +1090,8 @@ export function createOutputFrameController({
 		setBoxWidthPercent,
 		setBoxHeightPercent,
 		setViewZoomPercent,
+		fitOutputFrameToSafeArea,
+		canFitOutputFrameToSafeArea,
 		setAnchor,
 		startOutputFramePan,
 		handleOutputFramePanMove,

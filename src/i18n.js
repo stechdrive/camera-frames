@@ -52,8 +52,8 @@ const MESSAGES = {
 		field: {
 			language: "Language",
 			remoteUrl: "リモート URL",
-			activeShotCamera: "Camera",
-			shotCameraName: "Camera 名",
+			activeShotCamera: "カメラ",
+			shotCameraName: "カメラ名",
 			shotCameraFov: "標準FRAME水平FOV",
 			shotCameraEquivalentMm: "フルサイズ焦点距離",
 			viewportFov: "ビューポート水平FOV",
@@ -75,14 +75,14 @@ const MESSAGES = {
 			exportGridLayerMode: "グリッド重ね順",
 			exportModelLayers: "GLB をレイヤー化",
 			exportSplatLayers: "3DGS をレイヤー化",
-			outputFrameWidth: "出力フレーム幅",
-			outputFrameHeight: "出力フレーム高",
+			outputFrameWidth: "用紙サイズ 幅",
+			outputFrameHeight: "用紙サイズ 高",
 			cameraViewZoom: "表示ズーム",
 			anchor: "アンカー",
 			assetScale: "ワールドスケール",
 			assetPosition: "位置",
 			assetRotation: "回転",
-			transformSpace: "変形空間",
+			transformSpace: "座標系",
 			transformMode: "ツール",
 			activeFrame: "FRAME",
 			frameMaskOpacity: "マスク不透明度",
@@ -105,16 +105,22 @@ const MESSAGES = {
 		},
 		section: {
 			file: "ファイル",
-			view: "ビュー",
+			view: "ビューポート画角",
+			displayZoom: "表示ズーム",
 			scene: "シーン",
-			lighting: "Lighting",
+			selectedSceneObject: "選択中オブジェクト",
+			lighting: "照明",
 			tools: "ツール",
 			project: "プロジェクト",
-			shotCamera: "Camera",
+			shotCamera: "カメラ",
+			shotCameraManager: "ショットカメラ",
+			shotCameraProperties: "カメラプロパティ",
+			transformSpace: "座標系",
 			pose: "Pose",
 			referenceImages: "下絵",
 			frames: "FRAME",
-			outputFrame: "出力フレーム",
+			mask: "マスク",
+			outputFrame: "用紙設定",
 			output: "出力",
 			export: "書き出し",
 			exportSettings: "書き出し設定",
@@ -129,10 +135,13 @@ const MESSAGES = {
 		},
 		transformMode: {
 			none: "なし",
-			select: "Select",
-			reference: "Reference",
-			transform: "Transform",
+			select: "選択",
+			reference: "下絵",
+			transform: "変形",
 			pivot: "オブジェクト原点",
+		},
+		selection: {
+			multipleSceneAssetsTitle: "{count}件の3Dオブジェクト",
 		},
 		viewportTool: {
 			moveCenter: "移動",
@@ -182,7 +191,7 @@ const MESSAGES = {
 			excludeReferenceImageFromExport: "書き出しから外す",
 			moveAssetUp: "上へ",
 			moveAssetDown: "下へ",
-			newShotCamera: "Camera を追加",
+			newShotCamera: "カメラを追加",
 			duplicateShotCamera: "複製",
 			nudgeLeft: "← 左",
 			nudgeRight: "右 →",
@@ -202,12 +211,17 @@ const MESSAGES = {
 			resetLightDirection: "向きを戻す",
 			adjustLens: "焦点距離調整",
 			adjustRoll: "カメラロール",
+			zoomTool: "ズーム",
 			quickMenu: "クイックメニュー",
+			pinQuickSection: "レールに追加",
+			unpinQuickSection: "レールから外す",
 			newFrame: "FRAME を追加",
 			duplicateFrame: "複製",
 			deleteFrame: "削除",
+			renameFrame: "FRAME名を編集",
 			toggleSelectedFrameMask: "選択中マスク",
 			toggleAllFrameMask: "全体マスク",
+			fitOutputFrameToSafeArea: "表示をフィット",
 		},
 		unit: {
 			millimeter: "millimeter",
@@ -227,12 +241,15 @@ const MESSAGES = {
 				"3D オブジェクトの変形モードです。もう一度押すと解除します。",
 			toolPivot:
 				"3Dオブジェクトの変形原点を編集します。もう一度押すと解除します。",
+			toolZoom:
+				"カメラビューでは表示ズーム、ビューポートでは画角を調整します。もう一度押すと解除します。",
 			quickMenu:
 				"ツールのクイックメニューを開きます。モバイルではここから使うのが安全です。",
 			clearSelection:
 				"3Dオブジェクト、下絵、FRAME の選択を解除して、アクティブツールを外します。",
 			tabScene: "シーン、アセット、ライティングを管理します。",
-			tabCamera: "ショットカメラ、FRAME、下絵を編集します。",
+			tabCamera: "ショットカメラと用紙設定を編集します。",
+			tabReference: "下絵プリセットと下絵レイヤーを編集します。",
 			tabExport: "書き出し設定と出力を管理します。",
 			copyViewportPoseToShot:
 				"Viewport の位置、向き、焦点距離を Camera へコピーします。クリップ範囲は変えません。",
@@ -244,6 +261,10 @@ const MESSAGES = {
 				"選択中の FRAME 群を囲む範囲の外側を暗くします。もう一度押すと解除します。",
 			frameMaskAll:
 				"すべての FRAME を囲む範囲の外側を暗くします。もう一度押すと解除します。",
+			openQuickSection:
+				"この項目だけをクイックパネルで開きます。もう一度押すと閉じます。",
+			pinQuickSection: "この項目を右レールのショートカットに追加します。",
+			unpinQuickSection: "この項目を右レールのショートカットから外します。",
 		},
 		hint: {
 			viewMode:
@@ -409,7 +430,9 @@ const MESSAGES = {
 				"FPV ナビゲーション有効。WASD/RF で移動、ドラッグで視線、右ドラッグでスライド。基本速度 {speed} m/s。",
 			zoomToolEnabled:
 				"ズームツール有効。カメラビュー上でドラッグして拡縮、Z か Esc で解除。",
-			zoomToolUnavailable: "ズームツールはカメラビューでのみ使えます。",
+			viewportZoomToolEnabled:
+				"ビューポート画角調整。ドラッグでフルサイズ焦点距離を変更、Z か Esc で解除。",
+			zoomToolUnavailable: "ズームツールはここでは使えません。",
 			lensToolEnabled:
 				"焦点距離調整。ドラッグで 35mm横幅換算を変更、Esc で解除。",
 			rollToolEnabled:
@@ -426,7 +449,9 @@ const MESSAGES = {
 			selectedFrame: "{name} を選択しました。",
 			createdFrame: "{name} を追加しました。",
 			duplicatedFrame: "{name} を複製しました。",
+			duplicatedFrames: "{count} 個の FRAME を複製しました。",
 			deletedFrame: "{name} を削除しました。",
+			deletedFrames: "{count} 個の FRAME を削除しました。",
 			shotCameraClipMode: "Camera のクリップ範囲を {mode} にしました。",
 			shotCameraExportFormat: "Camera の書き出し形式を {format} にしました。",
 			frameLimitReached: "FRAME は最大 {limit} 枚までです。",
@@ -567,14 +592,14 @@ const MESSAGES = {
 			exportGridLayerMode: "Grid Layering",
 			exportModelLayers: "Layer GLB Models",
 			exportSplatLayers: "Layer 3DGS Objects",
-			outputFrameWidth: "Output Frame Width",
-			outputFrameHeight: "Output Frame Height",
+			outputFrameWidth: "Paper Width",
+			outputFrameHeight: "Paper Height",
 			cameraViewZoom: "View Zoom",
 			anchor: "Anchor",
 			assetScale: "World Scale",
 			assetPosition: "Position",
 			assetRotation: "Rotation",
-			transformSpace: "Transform Space",
+			transformSpace: "Coordinate Space",
 			transformMode: "Tool",
 			activeFrame: "FRAME",
 			frameMaskOpacity: "Mask Opacity",
@@ -597,16 +622,22 @@ const MESSAGES = {
 		},
 		section: {
 			file: "File",
-			view: "View",
+			view: "Viewport FOV",
+			displayZoom: "Display Zoom",
 			scene: "Scene",
+			selectedSceneObject: "Selected Object",
 			lighting: "Lighting",
 			tools: "Tools",
 			project: "Project",
 			shotCamera: "Camera",
+			shotCameraManager: "Shot Camera",
+			shotCameraProperties: "Camera Properties",
+			transformSpace: "Coordinate Space",
 			pose: "Pose",
 			referenceImages: "Reference Images",
 			frames: "FRAME",
-			outputFrame: "Output Frame",
+			mask: "Mask",
+			outputFrame: "Paper Setup",
 			output: "Output",
 			export: "Export",
 			exportSettings: "Export Settings",
@@ -625,6 +656,9 @@ const MESSAGES = {
 			reference: "Reference",
 			transform: "Transform",
 			pivot: "Object Origin",
+		},
+		selection: {
+			multipleSceneAssetsTitle: "{count} selected 3D objects",
 		},
 		viewportTool: {
 			moveCenter: "Move",
@@ -694,12 +728,17 @@ const MESSAGES = {
 			resetLightDirection: "Reset Direction",
 			adjustLens: "Adjust Lens",
 			adjustRoll: "Camera Roll",
+			zoomTool: "Zoom",
 			quickMenu: "Quick Menu",
+			pinQuickSection: "Add To Rail",
+			unpinQuickSection: "Remove From Rail",
 			newFrame: "Add FRAME",
 			duplicateFrame: "Duplicate",
 			deleteFrame: "Delete",
+			renameFrame: "Rename FRAME",
 			toggleSelectedFrameMask: "Selected Mask",
 			toggleAllFrameMask: "All Frames Mask",
+			fitOutputFrameToSafeArea: "Fit View",
 		},
 		unit: {
 			millimeter: "ミリメートル",
@@ -723,12 +762,15 @@ const MESSAGES = {
 				"Transform 3D objects. Press again to return to no active tool.",
 			toolPivot:
 				"Edit the transform origin of 3D objects. Press again to return to no active tool.",
+			toolZoom:
+				"In Camera View it adjusts display zoom; in Viewport it adjusts viewport lens. Press again to return to navigation.",
 			quickMenu:
 				"Open the quick tool menu. On mobile, this is the safer way to use it.",
 			clearSelection:
 				"Clear selected 3D objects, reference images, and FRAMEs, then return to no active tool.",
 			tabScene: "Manage scene assets and lighting.",
-			tabCamera: "Edit the active Camera, FRAME, and reference setup.",
+			tabCamera: "Edit the active shot camera and paper setup.",
+			tabReference: "Edit reference presets and reference image layers.",
 			tabExport: "Adjust export options and run output.",
 			copyViewportPoseToShot:
 				"Copy the Viewport position, orientation, and lens into the Camera. The clip range stays unchanged.",
@@ -740,6 +782,10 @@ const MESSAGES = {
 				"Dim everything outside the bounding box of the selected FRAMEs. Press again to turn it off.",
 			frameMaskAll:
 				"Dim everything outside the bounding box covering all FRAMEs. Press again to turn it off.",
+			openQuickSection:
+				"Open only this section as a quick panel. Press again to close it.",
+			pinQuickSection: "Add this section to the right rail shortcuts.",
+			unpinQuickSection: "Remove this section from the right rail shortcuts.",
 		},
 		hint: {
 			viewMode:
@@ -911,7 +957,9 @@ const MESSAGES = {
 				"FPV navigation active. WASD/RF move, drag to look, right-drag to slide. Base speed {speed} m/s.",
 			zoomToolEnabled:
 				"Zoom tool active. Drag in Camera View to zoom, press Z or Esc to exit.",
-			zoomToolUnavailable: "Zoom tool is only available in Camera View.",
+			viewportZoomToolEnabled:
+				"Viewport lens adjust active. Drag to change the full-frame focal length, press Z or Esc to exit.",
+			zoomToolUnavailable: "The zoom tool is not available here.",
 			lensToolEnabled:
 				"Lens adjust active. Drag to change the 35mm horizontal equivalent, press Esc to exit.",
 			rollToolEnabled:
@@ -928,7 +976,9 @@ const MESSAGES = {
 			selectedFrame: "Selected {name}.",
 			createdFrame: "Added {name}.",
 			duplicatedFrame: "Duplicated {name}.",
+			duplicatedFrames: "Duplicated {count} FRAMEs.",
 			deletedFrame: "Deleted {name}.",
+			deletedFrames: "Deleted {count} FRAMEs.",
 			shotCameraClipMode: "Camera clip range set to {mode}.",
 			shotCameraExportFormat: "Camera export format set to {format}.",
 			frameLimitReached: "FRAME limit reached ({limit}).",

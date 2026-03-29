@@ -25,6 +25,7 @@ import {
 	getReferenceImageRenderBoxAnchor,
 	resolveReferenceImageItemsForShot,
 } from "../reference-image-model.js";
+import { sanitizeFrameName } from "../workspace-model.js";
 
 export function createExportController({
 	scene,
@@ -1537,10 +1538,7 @@ export function createExportController({
 				});
 
 				return createRasterLayer({
-					name:
-						typeof frame?.name === "string" && frame.name.trim()
-							? frame.name.trim()
-							: `FRAME ${index + 1}`,
+					name: sanitizeFrameName(frame?.name, `FRAME ${index + 1}`),
 					canvas,
 					category: "frame",
 					metadata: {

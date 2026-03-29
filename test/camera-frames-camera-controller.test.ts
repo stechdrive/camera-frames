@@ -34,5 +34,17 @@ assert.equal(
 	),
 	"Close-Up",
 );
+assert.equal(
+	getShotCameraExportBaseNameForDocument(
+		{
+			name: "Close Up",
+			exportSettings: {
+				exportName: "cf-%cam",
+			},
+		},
+		1,
+	),
+	"cf-Close-Up",
+);
 
 console.log("✅ CAMERA_FRAMES camera controller tests passed!");

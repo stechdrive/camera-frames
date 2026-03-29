@@ -134,6 +134,7 @@ export function createAssetController({
 	clearHistory = () => {},
 }) {
 	const reportedSplatBoundsWarnings = new Set();
+	let sceneAssetSelectionAnchorId = null;
 
 	function setOverlay(nextOverlay) {
 		store.overlay.value = nextOverlay;
@@ -580,9 +581,15 @@ export function createAssetController({
 			.map((asset) => asset.object);
 	}
 
+	function getSelectedSceneAssets() {
+		return store.selectedSceneAssetIds.value
+			.map((assetId) => getSceneAsset(assetId))
+			.filter(Boolean);
+	}
+
 	function selectSceneAsset(
 		assetId,
-		{ additive = false, toggle = false } = {},
+		{ additive = false, toggle = false, range = false, orderedIds = null } = {},
 	) {
 		const asset = getSceneAsset(assetId);
 		if (!asset) {
@@ -595,6 +602,59 @@ export function createAssetController({
 		const alreadySelected = currentSelectedIds.includes(asset.id);
 		let nextSelectedIds = [asset.id];
 		let nextSelectedId = asset.id;
+		const resolvedOrderedIds = (
+			Array.isArray(orderedIds) && orderedIds.length > 0
+				? orderedIds
+				: sceneState.assets.map((entry) => entry.id)
+		).filter((id, index, sourceIds) => {
+			return Boolean(getSceneAsset(id)) && sourceIds.indexOf(id) === index;
+		});
+
+		if (range) {
+			const anchorId =
+				sceneAssetSelectionAnchorId ??
+				store.selectedSceneAssetId.value ??
+				currentSelectedIds.at(-1) ??
+				asset.id;
+			const anchorIndex = resolvedOrderedIds.indexOf(anchorId);
+			const targetIndex = resolvedOrderedIds.indexOf(asset.id);
+			if (anchorIndex === -1 || targetIndex === -1) {
+				sceneAssetSelectionAnchorId = asset.id;
+				store.selectedSceneAssetIds.value = [asset.id];
+				store.selectedSceneAssetId.value = asset.id;
+				updateUi();
+				return;
+			}
+
+			const rangeStart = Math.min(anchorIndex, targetIndex);
+			const rangeEnd = Math.max(anchorIndex, targetIndex);
+			const rangeIds = resolvedOrderedIds.slice(rangeStart, rangeEnd + 1);
+			const currentSelectedIdSet = new Set(currentSelectedIds);
+			const removeRange = currentSelectedIdSet.has(asset.id);
+			if (removeRange) {
+				nextSelectedIds = currentSelectedIds.filter(
+					(id) => !rangeIds.includes(id),
+				);
+				nextSelectedId = nextSelectedIds.includes(
+					store.selectedSceneAssetId.value,
+				)
+					? store.selectedSceneAssetId.value
+					: (nextSelectedIds.at(-1) ?? null);
+			} else {
+				nextSelectedIds = [...currentSelectedIds];
+				for (const rangeId of rangeIds) {
+					if (!nextSelectedIds.includes(rangeId)) {
+						nextSelectedIds.push(rangeId);
+					}
+				}
+				nextSelectedId = asset.id;
+			}
+
+			store.selectedSceneAssetIds.value = [...new Set(nextSelectedIds)];
+			store.selectedSceneAssetId.value = nextSelectedId;
+			updateUi();
+			return;
+		}
 
 		if (additive || toggle) {
 			if (alreadySelected) {
@@ -617,12 +677,14 @@ export function createAssetController({
 			nextSelectedId = asset.id;
 		}
 
+		sceneAssetSelectionAnchorId = nextSelectedId ?? asset.id;
 		store.selectedSceneAssetIds.value = [...new Set(nextSelectedIds)];
 		store.selectedSceneAssetId.value = nextSelectedId;
 		updateUi();
 	}
 
 	function clearSceneAssetSelection() {
+		sceneAssetSelectionAnchorId = null;
 		store.selectedSceneAssetIds.value = [];
 		store.selectedSceneAssetId.value = null;
 		updateUi();
@@ -1806,6 +1868,21 @@ export function createAssetController({
 		setAssetWorldScale(assetId, 1);
 	}
 
+	function resetSelectedSceneAssetsWorldScale() {
+		const selectedAssets = getSelectedSceneAssets();
+		if (selectedAssets.length === 0) {
+			return;
+		}
+
+		runHistoryAction?.("asset.scale", () => {
+			for (const asset of selectedAssets) {
+				asset.worldScale = 1;
+				applyAssetWorldScale(asset);
+			}
+		});
+		updateUi();
+	}
+
 	function setAssetPosition(assetId, axis, nextValue) {
 		const asset = getSceneAsset(assetId);
 		if (!asset || !["x", "y", "z"].includes(axis)) {
@@ -1818,6 +1895,33 @@ export function createAssetController({
 				asset.object.position[axis],
 			);
 			asset.object.updateMatrixWorld(true);
+		});
+		updateUi();
+	}
+
+	function offsetSelectedSceneAssetsPosition(axis, deltaValue) {
+		if (!["x", "y", "z"].includes(axis)) {
+			return;
+		}
+
+		const numericDelta = Number(deltaValue);
+		if (!Number.isFinite(numericDelta) || Math.abs(numericDelta) <= 1e-8) {
+			return;
+		}
+
+		const selectedAssets = getSelectedSceneAssets();
+		if (selectedAssets.length === 0) {
+			return;
+		}
+
+		runHistoryAction?.("asset.position", () => {
+			for (const asset of selectedAssets) {
+				asset.object.position[axis] = clampAssetTransformValue(
+					asset.object.position[axis] + numericDelta,
+					asset.object.position[axis],
+				);
+				asset.object.updateMatrixWorld(true);
+			}
 		});
 		updateUi();
 	}
@@ -1840,6 +1944,30 @@ export function createAssetController({
 		updateUi();
 	}
 
+	function offsetSelectedSceneAssetsRotationDegrees(axis, deltaValue) {
+		if (!["x", "y", "z"].includes(axis)) {
+			return;
+		}
+
+		const numericDelta = Number(deltaValue);
+		if (!Number.isFinite(numericDelta) || Math.abs(numericDelta) <= 1e-8) {
+			return;
+		}
+
+		const selectedAssets = getSelectedSceneAssets();
+		if (selectedAssets.length === 0) {
+			return;
+		}
+
+		runHistoryAction?.("asset.rotation", () => {
+			for (const asset of selectedAssets) {
+				asset.object.rotation[axis] += THREE.MathUtils.degToRad(numericDelta);
+				asset.object.updateMatrixWorld(true);
+			}
+		});
+		updateUi();
+	}
+
 	function setAssetVisibility(assetId, nextVisible) {
 		const asset = getSceneAsset(assetId);
 		if (!asset) {
@@ -1858,6 +1986,46 @@ export function createAssetController({
 					: t("assetVisibility.hidden"),
 			}),
 		);
+	}
+
+	function setSelectedSceneAssetsVisibility(nextVisible) {
+		const selectedAssets = getSelectedSceneAssets();
+		if (selectedAssets.length === 0) {
+			return;
+		}
+
+		runHistoryAction?.("asset.visibility", () => {
+			for (const asset of selectedAssets) {
+				asset.object.visible = Boolean(nextVisible);
+			}
+		});
+		updateUi();
+	}
+
+	function scaleSelectedSceneAssetsByFactor(scaleFactor) {
+		const numericScaleFactor = Number(scaleFactor);
+		if (
+			!Number.isFinite(numericScaleFactor) ||
+			numericScaleFactor <= 0 ||
+			Math.abs(numericScaleFactor - 1) <= 1e-8
+		) {
+			return;
+		}
+
+		const selectedAssets = getSelectedSceneAssets();
+		if (selectedAssets.length === 0) {
+			return;
+		}
+
+		runHistoryAction?.("asset.scale", () => {
+			for (const asset of selectedAssets) {
+				asset.worldScale = clampAssetWorldScale(
+					asset.worldScale * numericScaleFactor,
+				);
+				applyAssetWorldScale(asset);
+			}
+		});
+		updateUi();
 	}
 
 	function moveAsset(assetId, direction) {
@@ -2087,9 +2255,14 @@ export function createAssetController({
 		setAssetWorkingPivotWorld,
 		resetAssetWorkingPivot,
 		resetAssetWorldScale,
+		resetSelectedSceneAssetsWorldScale,
 		setAssetPosition,
+		offsetSelectedSceneAssetsPosition,
 		setAssetRotationDegrees,
+		offsetSelectedSceneAssetsRotationDegrees,
 		setAssetVisibility,
+		setSelectedSceneAssetsVisibility,
+		scaleSelectedSceneAssetsByFactor,
 		moveAssetUp,
 		moveAssetDown,
 		moveAssetToIndex,

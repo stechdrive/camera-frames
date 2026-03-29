@@ -7,10 +7,10 @@ import {
 } from "../src/i18n.js";
 
 assert.equal(translate("ja", "mode.viewport"), "ビューポート");
-assert.equal(translate("en", "section.outputFrame"), "Output Frame");
+assert.equal(translate("en", "section.outputFrame"), "Paper Setup");
 assert.equal(translate("ja", "clipMode.auto"), "自動");
 assert.equal(translate("en", "field.shotCameraClipMode"), "Clip Range");
-assert.equal(translate("ja", "field.activeShotCamera"), "Camera");
+assert.equal(translate("ja", "field.activeShotCamera"), "カメラ");
 assert.equal(translate("en", "field.assetScale"), "World Scale");
 assert.equal(translate("ja", "section.frames"), "FRAME");
 assert.equal(translate("en", "action.newFrame"), "Add FRAME");

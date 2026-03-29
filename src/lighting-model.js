@@ -1,5 +1,5 @@
-export const DEFAULT_LIGHTING_AMBIENT = 0.55;
-export const DEFAULT_MODEL_LIGHT_INTENSITY = 1.4;
+export const DEFAULT_LIGHTING_AMBIENT = 1.1;
+export const DEFAULT_MODEL_LIGHT_INTENSITY = 2.0;
 export const DEFAULT_MODEL_LIGHT_AZIMUTH_DEG = 36.87;
 export const DEFAULT_MODEL_LIGHT_ELEVATION_DEG = 45;
 
@@ -52,7 +52,7 @@ export function normalizeLightingState(state = null) {
 	const defaults = createDefaultLightingState();
 	const modelLight = state?.modelLight ?? {};
 	return {
-		ambient: clamp(state?.ambient, 0, 2, defaults.ambient),
+		ambient: clamp(state?.ambient, 0, 2.5, defaults.ambient),
 		modelLight: {
 			enabled:
 				typeof modelLight.enabled === "boolean"
@@ -61,7 +61,7 @@ export function normalizeLightingState(state = null) {
 			intensity: clamp(
 				modelLight.intensity,
 				0,
-				2,
+				3,
 				defaults.modelLight.intensity,
 			),
 			azimuthDeg: normalizeAngleDegrees(

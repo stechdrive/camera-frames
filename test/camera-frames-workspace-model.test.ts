@@ -17,6 +17,7 @@ import {
 	getNextShotCameraNumber,
 	getShotCameraDocumentId,
 	getWorkspaceModeLabelKey,
+	sanitizeFrameName,
 	setSinglePaneRole,
 } from "../src/workspace-model.js";
 
@@ -45,10 +46,11 @@ assert.equal(shotCameras[0].outputFrame.centerX, 0.5);
 assert.equal(shotCameras[0].outputFrame.centerY, 0.5);
 assert.equal(shotCameras[0].outputFrame.viewportCenterX, 0.5);
 assert.equal(shotCameras[0].outputFrame.viewportCenterY, 0.5);
+assert.equal(shotCameras[0].outputFrame.viewportCenterAuto, true);
 assert.equal(shotCameras[0].outputFrame.fitScale, 0);
 assert.equal(shotCameras[0].outputFrame.fitViewportWidth, 0);
 assert.equal(shotCameras[0].outputFrame.fitViewportHeight, 0);
-assert.equal(shotCameras[0].exportSettings.exportName, "");
+assert.equal(shotCameras[0].exportSettings.exportName, "cf-%cam");
 assert.equal(shotCameras[0].exportSettings.exportFormat, "psd");
 assert.equal(shotCameras[0].exportSettings.exportGridOverlay, true);
 assert.equal(shotCameras[0].exportSettings.exportGridLayerMode, "bottom");
@@ -83,6 +85,7 @@ const duplicatedShotCamera = createShotCameraDocument({
 assert.equal(duplicatedShotCamera.id, "shot-camera-2");
 assert.equal(duplicatedShotCamera.name, "Camera 2");
 assert.equal(duplicatedShotCamera.outputFrame.anchor, "center");
+assert.equal(duplicatedShotCamera.outputFrame.viewportCenterAuto, true);
 assert.equal(duplicatedShotCamera.exportSettings.exportFormat, "psd");
 assert.equal(duplicatedShotCamera.exportSettings.exportGridOverlay, true);
 assert.equal(duplicatedShotCamera.exportSettings.exportGridLayerMode, "bottom");
@@ -107,6 +110,27 @@ assert.notEqual(
 	shotCameras[0].frames[0].anchor,
 );
 
+const duplicatedShotCameraWithLegacyOutputFrame = createShotCameraDocument({
+	id: getShotCameraDocumentId(3),
+	name: "Camera 3",
+	source: {
+		...shotCameras[0],
+		outputFrame: {
+			...shotCameras[0].outputFrame,
+			viewZoomAuto: undefined,
+			viewportCenterAuto: undefined,
+		},
+	},
+});
+assert.equal(
+	duplicatedShotCameraWithLegacyOutputFrame.outputFrame.viewZoomAuto,
+	true,
+);
+assert.equal(
+	duplicatedShotCameraWithLegacyOutputFrame.outputFrame.viewportCenterAuto,
+	true,
+);
+
 const nextFrameNumber = getNextFrameNumber(shotCameras[0].frames);
 assert.equal(nextFrameNumber, 2);
 
@@ -125,5 +149,35 @@ assert.equal(
 		?.id,
 	"frame-1",
 );
+
+assert.equal(
+	sanitizeFrameName("  Frame\t\tName \n 01  ", "FRAME A"),
+	"Frame Name 01",
+);
+assert.equal(sanitizeFrameName("", "FRAME A"), "FRAME A");
+assert.equal(sanitizeFrameName(`${"A".repeat(80)}`, "FRAME A").length, 64);
+
+const sanitizedFrame = createFrameDocument({
+	id: getFrameDocumentId(3),
+	name: "  Frame\t\nName  ",
+	source: shotCameras[0].frames[0],
+});
+assert.equal(sanitizedFrame.name, "Frame Name");
+
+const sanitizedShotCamera = createShotCameraDocument({
+	id: getShotCameraDocumentId(3),
+	name: "Camera 3",
+	source: {
+		...shotCameras[0],
+		frames: [
+			{
+				...shotCameras[0].frames[0],
+				id: getFrameDocumentId(1),
+				name: "  Odd\t\nFrame  Name  ",
+			},
+		],
+	},
+});
+assert.equal(sanitizedShotCamera.frames[0].name, "Odd Frame Name");
 
 console.log("✅ CAMERA_FRAMES workspace model tests passed!");

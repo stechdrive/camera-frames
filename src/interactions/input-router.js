@@ -10,6 +10,7 @@ export function bindInputRouter({
 	updateUi,
 	updateOutputFrameOverlay,
 	setStatus,
+	startOrbitAroundHitDrag,
 	startZoomToolDrag,
 	startLensAdjustDrag,
 	startShotCameraRollDrag,
@@ -46,6 +47,8 @@ export function bindInputRouter({
 	clearFrameSelection,
 	clearReferenceImageSelection,
 	clearOutputFrameSelection,
+	handleOrbitAroundHitDragMove,
+	handleOrbitAroundHitDragEnd,
 	handleZoomToolDragMove,
 	handleZoomToolDragEnd,
 	handleLensAdjustDragMove,
@@ -162,6 +165,20 @@ export function bindInputRouter({
 	function isTouchViewportPieCandidate(event) {
 		return false;
 	}
+
+	listen(
+		viewportShell,
+		"pointerdown",
+		(event) => {
+			if (isPieInteractionMode?.()) {
+				return;
+			}
+			if (startOrbitAroundHitDrag?.(event)) {
+				return;
+			}
+		},
+		{ capture: true },
+	);
 
 	listen(
 		viewportShell,
@@ -393,6 +410,9 @@ export function bindInputRouter({
 	listen(window, "pointermove", handleZoomToolDragMove);
 	listen(window, "pointerup", handleZoomToolDragEnd);
 	listen(window, "pointercancel", handleZoomToolDragEnd);
+	listen(window, "pointermove", handleOrbitAroundHitDragMove);
+	listen(window, "pointerup", handleOrbitAroundHitDragEnd);
+	listen(window, "pointercancel", handleOrbitAroundHitDragEnd);
 	listen(window, "pointermove", handleLensAdjustDragMove);
 	listen(window, "pointerup", handleLensAdjustDragEnd);
 	listen(window, "pointercancel", handleLensAdjustDragEnd);

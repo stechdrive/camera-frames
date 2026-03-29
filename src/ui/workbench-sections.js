@@ -1,4 +1,5 @@
 import { html } from "htm/preact";
+import { useEffect, useRef, useState } from "preact/hooks";
 import {
 	getBuildCommitLabel,
 	getBuildVersionLabel,
@@ -13,7 +14,6 @@ import {
 	MIN_OUTPUT_FRAME_SCALE_PCT,
 } from "../constants.js";
 import { groupSceneAssetsByKind } from "../engine/scene-asset-order.js";
-import { formatAssetWorldScale } from "../engine/scene-units.js";
 import {
 	DirectionalScrubControl,
 	HistoryRangeInput,
@@ -23,6 +23,9 @@ import {
 	NumericUnitLabel,
 	TextDraftInput,
 	applyStandardFrameHorizontalEquivalentMm,
+	isHistoryShortcutEvent,
+	stopUiEvent,
+	stopUiWheelEvent,
 } from "./workbench-controls.js";
 import { WorkbenchIcon } from "./workbench-icons.js";
 import {
@@ -31,12 +34,213 @@ import {
 	HeaderWordmark,
 	IconButton,
 	SectionHeading,
+	TooltipBubble,
 	WorkbenchTabs,
 } from "./workbench-primitives.js";
 
 export const INSPECTOR_TAB_SCENE = "scene";
 export const INSPECTOR_TAB_CAMERA = "camera";
+export const INSPECTOR_TAB_REFERENCE = "reference";
 export const INSPECTOR_TAB_EXPORT = "export";
+export const INSPECTOR_QUICK_SECTION_SCENE = "scene-main";
+export const INSPECTOR_QUICK_SECTION_SHOT_CAMERA = "shot-camera";
+export const INSPECTOR_QUICK_SECTION_SHOT_CAMERA_PROPERTIES =
+	"shot-camera-properties";
+export const INSPECTOR_QUICK_SECTION_DISPLAY_ZOOM = "display-zoom";
+export const INSPECTOR_QUICK_SECTION_VIEW = "view-settings";
+export const INSPECTOR_QUICK_SECTION_LIGHTING = "lighting";
+export const INSPECTOR_QUICK_SECTION_OUTPUT_FRAME = "output-frame";
+export const INSPECTOR_QUICK_SECTION_REFERENCE = "reference";
+export const INSPECTOR_QUICK_SECTION_EXPORT = "export-output";
+export const INSPECTOR_QUICK_SECTION_EXPORT_SETTINGS = "export-settings";
+export const INSPECTOR_BROWSER_SCENE = "scene";
+export const INSPECTOR_BROWSER_REFERENCE = "reference";
+
+function ShotCameraPicker({ activeShotCamera, controller, shotCameras, t }) {
+	const [open, setOpen] = useState(false);
+	const [draftValue, setDraftValue] = useState(activeShotCamera?.name ?? "");
+	const [isEditing, setIsEditing] = useState(false);
+	const rootRef = useRef(null);
+	const inputRef = useRef(null);
+
+	useEffect(() => {
+		if (!isEditing) {
+			setDraftValue(activeShotCamera?.name ?? "");
+		}
+	}, [activeShotCamera?.name, isEditing]);
+
+	useEffect(() => {
+		if (!open) {
+			return undefined;
+		}
+
+		const handlePointerDown = (event) => {
+			if (!rootRef.current?.contains(event.target)) {
+				setOpen(false);
+			}
+		};
+
+		const handleFocusIn = (event) => {
+			if (!rootRef.current?.contains(event.target)) {
+				setOpen(false);
+			}
+		};
+
+		const handleKeyDown = (event) => {
+			if (event.key === "Escape") {
+				setOpen(false);
+			}
+		};
+
+		document.addEventListener("pointerdown", handlePointerDown, true);
+		document.addEventListener("focusin", handleFocusIn);
+		document.addEventListener("keydown", handleKeyDown);
+		return () => {
+			document.removeEventListener("pointerdown", handlePointerDown, true);
+			document.removeEventListener("focusin", handleFocusIn);
+			document.removeEventListener("keydown", handleKeyDown);
+		};
+	}, [open]);
+
+	function commitDraft(nextRawValue) {
+		const normalizedName = String(nextRawValue ?? "").trim();
+		if (normalizedName && normalizedName !== (activeShotCamera?.name ?? "")) {
+			controller()?.setShotCameraName(normalizedName);
+		}
+		setDraftValue(normalizedName || activeShotCamera?.name || "");
+		setIsEditing(false);
+	}
+
+	function resetDraft() {
+		setDraftValue(activeShotCamera?.name ?? "");
+		setIsEditing(false);
+	}
+
+	return html`
+		<div
+			ref=${rootRef}
+			class=${
+				open
+					? "shot-camera-picker shot-camera-picker--open"
+					: "shot-camera-picker"
+			}
+		>
+			<div class="shot-camera-picker__surface">
+				<input
+					ref=${inputRef}
+					id="shot-camera-name"
+					type="text"
+					class="shot-camera-picker__input"
+					aria-label=${t("field.shotCameraName")}
+					data-draft-editing=${isEditing ? "true" : "false"}
+					placeholder=${t("field.shotCameraName")}
+					value=${draftValue}
+					onFocus=${(event) => {
+						stopUiEvent(event);
+						setIsEditing(true);
+						setDraftValue(
+							String(event.currentTarget.value ?? activeShotCamera?.name ?? ""),
+						);
+						queueMicrotask(() => event.currentTarget.select());
+					}}
+					onInput=${(event) => {
+						stopUiEvent(event);
+						setIsEditing(true);
+						setDraftValue(event.currentTarget.value);
+					}}
+					onBlur=${(event) => {
+						commitDraft(event.currentTarget.value);
+					}}
+					onPointerDown=${stopUiEvent}
+					onClick=${(event) => {
+						stopUiEvent(event);
+						if (document.activeElement === event.currentTarget) {
+							queueMicrotask(() => event.currentTarget.select());
+						}
+					}}
+					onWheel=${stopUiWheelEvent}
+					onKeyDown=${(event) => {
+						if (isHistoryShortcutEvent(event)) {
+							return;
+						}
+						stopUiEvent(event);
+						if (event.key === "Enter") {
+							event.preventDefault();
+							commitDraft(event.currentTarget.value);
+							event.currentTarget.blur();
+							return;
+						}
+						if (event.key === "Escape") {
+							event.preventDefault();
+							resetDraft();
+							event.currentTarget.blur();
+						}
+					}}
+				/>
+				<button
+					type="button"
+					class="shot-camera-picker__toggle"
+					aria-label=${t("field.activeShotCamera")}
+					aria-expanded=${open ? "true" : "false"}
+					onPointerDown=${(event) => {
+						event.preventDefault();
+						stopUiEvent(event);
+					}}
+					onClick=${(event) => {
+						event.preventDefault();
+						stopUiEvent(event);
+						if (isEditing) {
+							commitDraft(draftValue);
+							inputRef.current?.blur?.();
+						}
+						setOpen((currentOpen) => !currentOpen);
+					}}
+				>
+					<${WorkbenchIcon}
+						name="chevron-right"
+						className="shot-camera-picker__toggle-icon"
+						size=${13}
+					/>
+				</button>
+			</div>
+			${
+				open &&
+				html`
+				<div class="shot-camera-picker__panel">
+					${shotCameras.map(
+						(shotCamera) => html`
+							<button
+								key=${shotCamera.id}
+								type="button"
+								class=${
+									shotCamera.id === activeShotCamera?.id
+										? "shot-camera-picker__item shot-camera-picker__item--active"
+										: "shot-camera-picker__item"
+								}
+								onPointerDown=${(event) => {
+									event.preventDefault();
+									stopUiEvent(event);
+								}}
+								onClick=${() => {
+									if (isEditing) {
+										commitDraft(draftValue);
+									}
+									controller()?.selectShotCamera(shotCamera.id);
+									setOpen(false);
+								}}
+							>
+								<span class="shot-camera-picker__item-name"
+									>${shotCamera.name}</span
+								>
+							</button>
+						`,
+					)}
+				</div>
+			`
+			}
+		</div>
+	`;
+}
 
 export function getInspectorTabs(t) {
 	return [
@@ -53,10 +257,20 @@ export function getInspectorTabs(t) {
 		{
 			id: INSPECTOR_TAB_CAMERA,
 			label: t("section.shotCamera"),
-			icon: "camera",
+			icon: "camera-dslr",
 			tooltip: {
 				title: t("section.shotCamera"),
 				description: t("tooltip.tabCamera"),
+				placement: "bottom",
+			},
+		},
+		{
+			id: INSPECTOR_TAB_REFERENCE,
+			label: t("section.referenceImages"),
+			icon: "image",
+			tooltip: {
+				title: t("section.referenceImages"),
+				description: t("tooltip.tabReference"),
 				placement: "bottom",
 			},
 		},
@@ -69,6 +283,59 @@ export function getInspectorTabs(t) {
 				description: t("tooltip.tabExport"),
 				placement: "bottom",
 			},
+		},
+	];
+}
+
+export function getInspectorQuickSections(t) {
+	return [
+		{
+			id: INSPECTOR_QUICK_SECTION_SCENE,
+			tabId: INSPECTOR_TAB_SCENE,
+			label: t("section.scene"),
+			icon: "scene",
+		},
+		{
+			id: INSPECTOR_QUICK_SECTION_SHOT_CAMERA,
+			tabId: INSPECTOR_TAB_CAMERA,
+			label: t("section.shotCameraManager"),
+			icon: "camera",
+		},
+		{
+			id: INSPECTOR_QUICK_SECTION_SHOT_CAMERA_PROPERTIES,
+			tabId: INSPECTOR_TAB_CAMERA,
+			label: t("section.shotCameraProperties"),
+			icon: "camera-dslr",
+		},
+		{
+			id: INSPECTOR_QUICK_SECTION_LIGHTING,
+			tabId: INSPECTOR_TAB_SCENE,
+			label: t("section.lighting"),
+			icon: "light",
+		},
+		{
+			id: INSPECTOR_QUICK_SECTION_OUTPUT_FRAME,
+			tabId: INSPECTOR_TAB_CAMERA,
+			label: t("section.outputFrame"),
+			icon: "render-box",
+		},
+		{
+			id: INSPECTOR_QUICK_SECTION_REFERENCE,
+			tabId: INSPECTOR_TAB_REFERENCE,
+			label: t("section.referenceImages"),
+			icon: "image",
+		},
+		{
+			id: INSPECTOR_QUICK_SECTION_EXPORT,
+			tabId: INSPECTOR_TAB_EXPORT,
+			label: t("section.output"),
+			icon: "export",
+		},
+		{
+			id: INSPECTOR_QUICK_SECTION_EXPORT_SETTINGS,
+			tabId: INSPECTOR_TAB_EXPORT,
+			label: t("section.exportSettings"),
+			icon: "package",
 		},
 	];
 }
@@ -172,6 +439,217 @@ export function WorkbenchHeader({
 	`;
 }
 
+function ZoomToolPopover({ controller, mode, store, t }) {
+	const isCameraMode = mode === "camera";
+	const title = isCameraMode ? t("section.displayZoom") : t("section.view");
+	const value = isCameraMode
+		? Math.round(store.renderBox.viewZoom.value * 100)
+		: Number(store.viewportEquivalentMmValue.value).toFixed(2);
+	const canFitView = isCameraMode
+		? Boolean(controller()?.canFitOutputFrameToSafeArea?.())
+		: false;
+
+	return html`
+		<div class="workbench-tool-rail__popover" role="group" aria-label=${title}>
+			<label class="field workbench-tool-rail__popover-field">
+				<span>${title}</span>
+				<div class="workbench-tool-rail__popover-value">
+					<div class="workbench-tool-rail__popover-input">
+						<${NumericDraftInput}
+							id=${isCameraMode ? "tool-view-zoom" : "tool-viewport-fov"}
+							inputMode="decimal"
+							min=${isCameraMode ? MIN_CAMERA_VIEW_ZOOM_PCT : 14}
+							max=${isCameraMode ? MAX_CAMERA_VIEW_ZOOM_PCT : 200}
+							step=${isCameraMode ? "1" : "0.01"}
+							value=${value}
+							controller=${controller}
+							historyLabel=${isCameraMode ? "output-frame.zoom" : "viewport.lens"}
+							onCommit=${(nextValue) =>
+								isCameraMode
+									? controller()?.setViewZoomPercent?.(nextValue)
+									: applyStandardFrameHorizontalEquivalentMm(
+											(nextBaseFov) =>
+												controller()?.setViewportBaseFovX(nextBaseFov),
+											nextValue,
+										)}
+						/>
+					</div>
+					<span
+						class="workbench-tool-rail__popover-suffix"
+						aria-label=${t(isCameraMode ? "unit.percent" : "unit.millimeter")}
+						>${isCameraMode ? "%" : "mm"}</span
+					>
+				</div>
+			</label>
+			${
+				!isCameraMode &&
+				html`
+					<p class="workbench-tool-rail__popover-summary">
+						${t("field.viewportFov")} ${store.viewportFovLabel.value}
+					</p>
+				`
+			}
+			${
+				isCameraMode &&
+				html`
+					<div class="button-row button-row--compact workbench-tool-rail__popover-actions">
+						<${IconButton}
+							icon="reset"
+							label=${t("action.fitOutputFrameToSafeArea")}
+							compact=${true}
+							disabled=${!canFitView}
+							onClick=${() => controller()?.fitOutputFrameToSafeArea?.()}
+						/>
+					</div>
+				`
+			}
+		</div>
+	`;
+}
+
+function MaskToolPopover({ controller, hasFrames, store, t }) {
+	const frameMaskMode = store.frames.maskMode.value;
+	const frameMaskOpacityPct = store.frames.maskOpacityPct.value;
+	const rememberedMaskFrameIds = store.frames.maskSelectedIds.value ?? [];
+	const selectedFrameIds = store.frames.selectedIds.value ?? [];
+	const activeFrameId = store.frames.activeId.value;
+	const remainingCapacity = FRAME_MAX_COUNT - store.frames.count.value;
+	const hasSelectedFrames = rememberedMaskFrameIds.length > 0;
+	const duplicateCount = Math.max(
+		selectedFrameIds.length,
+		activeFrameId ? 1 : 0,
+	);
+	const canCreateFrame = store.frames.count.value < FRAME_MAX_COUNT;
+	const canDuplicateFrames =
+		duplicateCount > 0 && remainingCapacity >= duplicateCount;
+	const canDeleteFrames = selectedFrameIds.length > 0 || Boolean(activeFrameId);
+
+	return html`
+		<div
+			class="workbench-tool-rail__popover workbench-tool-rail__popover--mask"
+			role="group"
+			aria-label=${t("section.mask")}
+		>
+			<label class="field workbench-tool-rail__popover-field">
+				<span>${t("section.mask")}</span>
+				<div class="frame-mask-toolbar__buttons workbench-tool-rail__popover-mask-buttons">
+					<${IconButton}
+						icon="slash-circle"
+						label=${t("transformMode.none")}
+						active=${frameMaskMode === "off"}
+						compact=${true}
+						className="frame-mask-toolbar__button"
+						onClick=${() => controller()?.setFrameMaskMode?.("off")}
+						tooltip=${{
+							title: t("transformMode.none"),
+							placement: "right",
+						}}
+					/>
+					<${IconButton}
+						icon="mask-all"
+						label=${t("action.toggleAllFrameMask")}
+						active=${frameMaskMode === "all"}
+						compact=${true}
+						className="frame-mask-toolbar__button"
+						disabled=${!hasFrames}
+						onClick=${() => controller()?.toggleFrameMaskMode?.("all")}
+						tooltip=${{
+							title: t("action.toggleAllFrameMask"),
+							description: t("tooltip.frameMaskAll"),
+							shortcut: "M",
+							placement: "right",
+						}}
+					/>
+					<${IconButton}
+						icon="mask-selected"
+						label=${t("action.toggleSelectedFrameMask")}
+						active=${frameMaskMode === "selected"}
+						compact=${true}
+						className="frame-mask-toolbar__button"
+						disabled=${!hasSelectedFrames}
+						onClick=${() => controller()?.toggleFrameMaskMode?.("selected")}
+						tooltip=${{
+							title: t("action.toggleSelectedFrameMask"),
+							description: t("tooltip.frameMaskSelected"),
+							shortcut: "Shift+M",
+							placement: "right",
+						}}
+					/>
+				</div>
+			</label>
+			<label class="field workbench-tool-rail__popover-field">
+				<span>${t("field.frameMaskOpacity")}</span>
+				<div class="workbench-tool-rail__popover-value">
+					<div class="workbench-tool-rail__popover-input">
+						<${NumericDraftInput}
+							id="tool-frame-mask-opacity"
+							inputMode="decimal"
+							min="0"
+							max="100"
+							step="1"
+							value=${Number(frameMaskOpacityPct).toFixed(0)}
+							controller=${controller}
+							disabled=${!hasFrames}
+							historyLabel="frame.mask-opacity"
+							onCommit=${(nextValue) =>
+								controller()?.setFrameMaskOpacity?.(nextValue)}
+						/>
+					</div>
+					<span
+						class="workbench-tool-rail__popover-suffix"
+						aria-label=${t("unit.percent")}
+						>%</span
+					>
+				</div>
+			</label>
+			<div class="frame-mask-toolbar__buttons workbench-tool-rail__popover-mask-buttons">
+				<${IconButton}
+					icon="plus"
+					label=${t("action.newFrame")}
+					compact=${true}
+					className="frame-mask-toolbar__button"
+					disabled=${!canCreateFrame}
+					onClick=${() => controller()?.createFrame?.()}
+					tooltip=${{
+						title: t("action.newFrame"),
+						placement: "right",
+					}}
+				/>
+				<${IconButton}
+					icon="duplicate"
+					label=${t("action.duplicateFrame")}
+					compact=${true}
+					className="frame-mask-toolbar__button"
+					disabled=${!canDuplicateFrames}
+					onClick=${() =>
+						controller()?.duplicateSelectedFrames?.(
+							selectedFrameIds.length > 0 ? selectedFrameIds : null,
+						)}
+					tooltip=${{
+						title: t("action.duplicateFrame"),
+						placement: "right",
+					}}
+				/>
+				<${IconButton}
+					icon="trash"
+					label=${t("action.deleteFrame")}
+					compact=${true}
+					className="frame-mask-toolbar__button"
+					disabled=${!canDeleteFrames}
+					onClick=${() =>
+						selectedFrameIds.length > 0
+							? controller()?.deleteSelectedFrames?.(selectedFrameIds)
+							: controller()?.deleteActiveFrame?.()}
+					tooltip=${{
+						title: t("action.deleteFrame"),
+						placement: "right",
+					}}
+				/>
+			</div>
+		</div>
+	`;
+}
+
 export function ToolRailSection({
 	controller,
 	mode,
@@ -179,11 +657,60 @@ export function ToolRailSection({
 	projectMenuItems = [],
 	store,
 	tailContent = null,
+	showQuickMenu = false,
 	t,
 	tooltipPlacement = "right",
 	menuPanelPlacement = "down",
 }) {
 	const canUseTransformTools = mode === "viewport" || mode === "camera";
+	const selectedSceneAsset = store.selectedSceneAsset.value;
+	const interactionMode = store.interactionMode.value;
+	const frameMaskMode = store.frames.maskMode.value;
+	const hasFrames = store.frames.count.value > 0;
+	const [maskToolPopoverOpen, setMaskToolPopoverOpen] = useState(false);
+	const maskToolSlotRef = useRef(null);
+	const showTransformSpaceToggle =
+		Boolean(selectedSceneAsset) &&
+		(store.viewportTransformMode.value || store.viewportPivotEditMode.value);
+	const showZoomToolPopover =
+		canUseTransformTools && interactionMode === "zoom";
+	const showMaskToolPopover = mode === "camera" && maskToolPopoverOpen;
+	const zoomToolTitle =
+		mode === "camera" ? t("section.displayZoom") : t("section.view");
+	const worldSpaceTooltipLabel = `${t("section.transformSpace")} / ${t("transformSpace.world")}`;
+	const localSpaceTooltipLabel = `${t("section.transformSpace")} / ${t("transformSpace.local")}`;
+
+	useEffect(() => {
+		if (!showMaskToolPopover) {
+			return undefined;
+		}
+
+		const handlePointerDown = (event) => {
+			if (!maskToolSlotRef.current?.contains(event.target)) {
+				setMaskToolPopoverOpen(false);
+			}
+		};
+
+		const handleKeyDown = (event) => {
+			if (event.key === "Escape") {
+				setMaskToolPopoverOpen(false);
+			}
+		};
+
+		document.addEventListener("pointerdown", handlePointerDown, true);
+		document.addEventListener("keydown", handleKeyDown);
+		return () => {
+			document.removeEventListener("pointerdown", handlePointerDown, true);
+			document.removeEventListener("keydown", handleKeyDown);
+		};
+	}, [showMaskToolPopover]);
+
+	useEffect(() => {
+		if (mode !== "camera") {
+			setMaskToolPopoverOpen(false);
+		}
+	}, [mode]);
+
 	const clearSelectionAndExitTool = () => {
 		controller()?.clearSceneAssetSelection?.();
 		controller()?.clearReferenceImageSelection?.();
@@ -200,7 +727,7 @@ export function ToolRailSection({
 	};
 
 	return html`
-		<section class="workbench-tool-rail" aria-label=${t("section.view")}>
+		<section class="workbench-tool-rail" aria-label=${t("section.tools")}>
 			<${HeaderMenu}
 				label=${t("section.file")}
 				items=${projectMenuItems}
@@ -213,45 +740,66 @@ export function ToolRailSection({
 			>
 				${menuChildren}
 			<//>
-			<${IconButton}
-				icon="pie-menu"
-				label=${t("action.quickMenu")}
-				className="workbench-tool-rail__button"
-				tooltip=${{
-					title: t("action.quickMenu"),
-					description: t("tooltip.quickMenu"),
-					placement: tooltipPlacement,
-				}}
-				onClick=${() => controller()?.openViewportPieMenuAtCenter?.()}
-			/>
+			${
+				showQuickMenu &&
+				html`
+					<${IconButton}
+						icon="pie-menu"
+						label=${t("action.quickMenu")}
+						className="workbench-tool-rail__button"
+						tooltip=${{
+							title: t("action.quickMenu"),
+							description: t("tooltip.quickMenu"),
+							placement: tooltipPlacement,
+						}}
+						onClick=${() => controller()?.openViewportPieMenuAtCenter?.()}
+					/>
+				`
+			}
 			<div class="workbench-tool-rail__divider"></div>
 			<div class="workbench-tool-rail__group">
-				<${IconButton}
-					id="mode-camera"
-					icon="camera"
-					label=${t("mode.camera")}
-					active=${mode === "camera"}
-					className="workbench-tool-rail__button"
-					tooltip=${{
-						title: t("mode.camera"),
-						description: t("tooltip.modeCamera"),
-						placement: tooltipPlacement,
-					}}
-					onClick=${() => controller()?.setMode("camera")}
-				/>
-				<${IconButton}
-					id="mode-viewport"
-					icon="viewport"
-					label=${t("mode.viewport")}
-					active=${mode === "viewport"}
-					className="workbench-tool-rail__button"
-					tooltip=${{
-						title: t("mode.viewport"),
-						description: t("tooltip.modeViewport"),
-						placement: tooltipPlacement,
-					}}
-					onClick=${() => controller()?.setMode("viewport")}
-				/>
+				<div
+					class="workbench-tool-rail__segmented workbench-tool-rail__segmented--vertical"
+					role="group"
+					aria-label=${t("section.viewMode")}
+				>
+					<button
+						id="mode-camera"
+						type="button"
+						class=${
+							mode === "camera"
+								? "workbench-tool-rail__segment is-active"
+								: "workbench-tool-rail__segment"
+						}
+						aria-label=${t("mode.camera")}
+						onClick=${() => controller()?.setMode("camera")}
+					>
+						<${WorkbenchIcon} name="camera-dslr" size=${16} />
+						<${TooltipBubble}
+							title=${t("mode.camera")}
+							description=${t("tooltip.modeCamera")}
+							placement=${tooltipPlacement}
+						/>
+					</button>
+					<button
+						id="mode-viewport"
+						type="button"
+						class=${
+							mode === "viewport"
+								? "workbench-tool-rail__segment is-active"
+								: "workbench-tool-rail__segment"
+						}
+						aria-label=${t("mode.viewport")}
+						onClick=${() => controller()?.setMode("viewport")}
+					>
+						<${WorkbenchIcon} name="viewport" size=${16} />
+						<${TooltipBubble}
+							title=${t("mode.viewport")}
+							description=${t("tooltip.modeViewport")}
+							placement=${tooltipPlacement}
+						/>
+					</button>
+				</div>
 			</div>
 			${
 				canUseTransformTools &&
@@ -322,7 +870,109 @@ export function ToolRailSection({
 										controller()?.setViewportPivotEditMode(true),
 									)}
 							/>
+							<div class="workbench-tool-rail__tool-slot">
+								<${IconButton}
+									icon="zoom"
+									label=${t("action.zoomTool")}
+									active=${showZoomToolPopover}
+									className="workbench-tool-rail__button"
+									tooltip=${{
+										title: zoomToolTitle,
+										description: t("tooltip.toolZoom"),
+										shortcut: "Z",
+										placement: tooltipPlacement,
+									}}
+									onClick=${() => controller()?.toggleZoomTool?.()}
+								/>
+								${
+									showZoomToolPopover &&
+									html`
+										<${ZoomToolPopover}
+											controller=${controller}
+											mode=${mode}
+											store=${store}
+											t=${t}
+										/>
+									`
+								}
+							</div>
+							${
+								mode === "camera" &&
+								html`
+									<div
+										class="workbench-tool-rail__tool-slot"
+										ref=${maskToolSlotRef}
+									>
+										<${IconButton}
+											icon="mask"
+											label=${t("section.mask")}
+											active=${showMaskToolPopover || frameMaskMode !== "off"}
+											className="workbench-tool-rail__button"
+											tooltip=${{
+												title: t("section.mask"),
+												shortcut: "M",
+												placement: tooltipPlacement,
+											}}
+											onClick=${() =>
+												setMaskToolPopoverOpen((currentValue) => !currentValue)}
+										/>
+										${
+											showMaskToolPopover &&
+											html`
+												<${MaskToolPopover}
+													controller=${controller}
+													hasFrames=${hasFrames}
+													store=${store}
+													t=${t}
+												/>
+											`
+										}
+									</div>
+								`
+							}
 					</div>
+					${
+						showTransformSpaceToggle &&
+						html`
+							<div class="workbench-tool-rail__divider"></div>
+							<div class="workbench-tool-rail__group workbench-tool-rail__group--compact">
+								<div
+									class="workbench-tool-rail__segmented"
+									role="group"
+									aria-label=${t("section.transformSpace")}
+								>
+									<button
+										type="button"
+										class=${
+											store.viewportTransformSpace.value === "world"
+												? "workbench-tool-rail__segment is-active"
+												: "workbench-tool-rail__segment"
+										}
+										aria-label=${worldSpaceTooltipLabel}
+										title=${worldSpaceTooltipLabel}
+										onClick=${() =>
+											controller()?.setViewportTransformSpace("world")}
+									>
+										W
+									</button>
+									<button
+										type="button"
+										class=${
+											store.viewportTransformSpace.value === "local"
+												? "workbench-tool-rail__segment is-active"
+												: "workbench-tool-rail__segment"
+										}
+										aria-label=${localSpaceTooltipLabel}
+										title=${localSpaceTooltipLabel}
+										onClick=${() =>
+											controller()?.setViewportTransformSpace("local")}
+									>
+										L
+									</button>
+								</div>
+							</div>
+						`
+					}
 					<div class="workbench-tool-rail__divider"></div>
 					<div class="workbench-tool-rail__group">
 						<${IconButton}
@@ -345,182 +995,480 @@ export function ToolRailSection({
 	`;
 }
 
-export function InspectorRailSection({ activeTab, onTogglePeek, t }) {
+export function InspectorRailSection({
+	activeQuickSectionId = null,
+	activeTab,
+	onOpenFullTab,
+	onToggleQuickSection,
+	quickSections = [],
+	t,
+}) {
 	const tabs = getInspectorTabs(t);
 	return html`
 		<section class="workbench-inspector-rail" aria-label=${t("section.project")}>
-			${tabs.map(
-				(tab) => html`
-					<${IconButton}
-						key=${tab.id}
-						icon=${tab.icon}
-						label=${tab.label}
-						active=${activeTab === tab.id}
-						compact=${true}
-						className="workbench-inspector-rail__button"
-						tooltip=${{
-							title: tab.tooltip?.title ?? tab.label,
-							description: tab.tooltip?.description ?? "",
-							shortcut: tab.tooltip?.shortcut ?? "",
-							placement: "left",
-						}}
-						onClick=${() => onTogglePeek?.(tab.id)}
-					/>
-				`,
-			)}
+			<div class="workbench-inspector-rail__group">
+				${tabs.map(
+					(tab) => html`
+						<${IconButton}
+							key=${tab.id}
+							icon=${tab.icon}
+							label=${tab.label}
+							active=${activeTab === tab.id}
+							compact=${true}
+							className="workbench-inspector-rail__button"
+							tooltip=${{
+								title: tab.tooltip?.title ?? tab.label,
+								description: tab.tooltip?.description ?? "",
+								shortcut: tab.tooltip?.shortcut ?? "",
+								placement: "left",
+							}}
+							onClick=${() => onOpenFullTab?.(tab.id)}
+						/>
+					`,
+				)}
+			</div>
+			${
+				quickSections.length > 0 &&
+				html`
+					<div class="workbench-inspector-rail__divider"></div>
+					<div class="workbench-inspector-rail__group">
+						${quickSections.map(
+							(section) => html`
+								<${IconButton}
+									key=${section.id}
+									icon=${section.icon}
+									label=${section.label}
+									active=${activeQuickSectionId === section.id}
+									compact=${true}
+									className="workbench-inspector-rail__button"
+									tooltip=${{
+										title: section.label,
+										description: t("tooltip.openQuickSection"),
+										placement: "left",
+									}}
+									onClick=${() => onToggleQuickSection?.(section.id)}
+								/>
+							`,
+						)}
+					</div>
+				`
+			}
 		</section>
 	`;
 }
 
-export function ViewSettingsSection({
+export function DisplayZoomSection({
 	controller,
-	mode,
-	selectedSceneAsset,
+	headingActions = null,
 	store,
 	t,
-	viewportEquivalentMmValue,
-	viewportFovLabel,
 }) {
-	const showTransformControls =
-		selectedSceneAsset &&
-		(store.viewportTransformMode.value || store.viewportPivotEditMode.value);
-
 	return html`
 		<section class="panel-section">
-			<${SectionHeading} icon="view" title=${t("section.view")}>
-				<span id="mode-pill" class="pill">${mode === "camera" ? t("mode.camera") : t("mode.viewport")}</span>
+			<${SectionHeading} icon="zoom" title=${t("section.displayZoom")}>
+				${headingActions}
 			<//>
-			${
-				mode === "camera" &&
-				html`
-					<label class="field field--inline-compact">
-						<span>${t("field.cameraViewZoom")}</span>
-						<div class="field--inline-compact__value">
-							<div class="numeric-unit">
-								<${NumericDraftInput}
-									id="view-zoom"
-									inputMode="decimal"
-									min=${MIN_CAMERA_VIEW_ZOOM_PCT}
-									max=${MAX_CAMERA_VIEW_ZOOM_PCT}
-									step="1"
-									value=${Math.round(store.renderBox.viewZoom.value * 100)}
-									controller=${controller}
-									historyLabel="output-frame.zoom"
-									onCommit=${(nextValue) =>
-										controller()?.setViewZoomPercent?.(nextValue)}
-								/>
-								<${NumericUnitLabel} value="%" title=${t("unit.percent")} />
-							</div>
-						</div>
-					</label>
-				`
-			}
-			${
-				mode === "viewport" &&
-				html`
-					<label class="field field--range">
-						<span>${t("field.viewportEquivalentMm")}</span>
-						<div class="range-row">
-							<${HistoryRangeInput}
-								id="viewport-fov-mm"
-								min=${14}
-								max=${200}
-								step="1"
-								value=${viewportEquivalentMmValue}
-								controller=${controller}
-								historyLabel="viewport.lens"
-								onLiveChange=${(event) =>
-									applyStandardFrameHorizontalEquivalentMm(
-										(nextValue) => controller()?.setViewportBaseFovX(nextValue),
-										event.currentTarget.value,
-										{ snap: true },
-									)}
-							/>
-							<div class="numeric-unit">
-								<${NumericDraftInput}
-									id="viewport-fov-mm-input"
-									inputMode="decimal"
-									min=${14}
-									max=${200}
-									step="0.01"
-									value=${Number(viewportEquivalentMmValue).toFixed(2)}
-									controller=${controller}
-									historyLabel="viewport.lens"
-									onCommit=${(nextValue) =>
-										applyStandardFrameHorizontalEquivalentMm(
-											(nextBaseFov) =>
-												controller()?.setViewportBaseFovX(nextBaseFov),
-											nextValue,
-										)}
-								/>
-								<${NumericUnitLabel} value="mm" title=${t("unit.millimeter")} />
-							</div>
-						</div>
-						<p class="summary">${t("field.viewportFov")} ${viewportFovLabel}</p>
-					</label>
-				`
-			}
-			${
-				showTransformControls &&
-				html`
-					<${DisclosureBlock}
-						icon="move"
-						label=${t("field.transformSpace")}
-						open=${true}
-					>
-						<div class="button-row">
-							<button
-								type="button"
-								class=${
-									store.viewportTransformSpace.value === "world"
-										? "button button--primary button--compact"
-										: "button button--compact"
-								}
-								onClick=${() => controller()?.setViewportTransformSpace("world")}
-							>
-								${t("transformSpace.world")}
-							</button>
-							<button
-								type="button"
-								class=${
-									store.viewportTransformSpace.value === "local"
-										? "button button--primary button--compact"
-										: "button button--compact"
-								}
-								onClick=${() => controller()?.setViewportTransformSpace("local")}
-							>
-								${t("transformSpace.local")}
-							</button>
-						</div>
-						${
-							selectedSceneAsset?.hasWorkingPivot &&
-							html`
-								<div class="button-row">
-									<button
-										type="button"
-										class="button button--compact"
-										onClick=${() => controller()?.resetSelectedAssetWorkingPivot()}
-									>
-										${t("action.resetPivot")}
-									</button>
-								</div>
-							`
-						}
-					<//>
-				`
-			}
+			<label class="field field--inline-compact">
+				<span>${t("field.cameraViewZoom")}</span>
+				<div class="field--inline-compact__value">
+					<div class="numeric-unit">
+						<${NumericDraftInput}
+							id="view-zoom"
+							inputMode="decimal"
+							min=${MIN_CAMERA_VIEW_ZOOM_PCT}
+							max=${MAX_CAMERA_VIEW_ZOOM_PCT}
+							step="1"
+							value=${Math.round(store.renderBox.viewZoom.value * 100)}
+							controller=${controller}
+							historyLabel="output-frame.zoom"
+							onCommit=${(nextValue) =>
+								controller()?.setViewZoomPercent?.(nextValue)}
+						/>
+						<${NumericUnitLabel} value="%" title=${t("unit.percent")} />
+					</div>
+				</div>
+			</label>
 		</section>
 	`;
 }
 
-export function SceneSection({
+export function InspectorBrowserSection({
+	activeBrowserSectionId,
+	controller,
+	draggedAssetId = null,
+	dragHoverState = null,
+	onSelectBrowserSection,
+	sceneAssets = [],
+	selectedSceneAsset = null,
+	setDraggedAssetId = () => {},
+	setDragHoverState = () => {},
+	store,
+	t,
+}) {
+	const browserSections = [
+		{
+			id: INSPECTOR_BROWSER_SCENE,
+			label: t("section.scene"),
+			icon: "scene",
+		},
+		{
+			id: INSPECTOR_BROWSER_REFERENCE,
+			label: t("section.referenceImages"),
+			icon: "image",
+		},
+	];
+
+	return html`
+		<section class="panel-section panel-section--browser">
+			<div class="inspector-browser">
+				<div class="inspector-browser__tabs" role="tablist">
+					${browserSections.map(
+						(section) => html`
+							<button
+								key=${section.id}
+								type="button"
+								role="tab"
+								class=${
+									activeBrowserSectionId === section.id
+										? "inspector-browser__tab is-active"
+										: "inspector-browser__tab"
+								}
+								aria-selected=${activeBrowserSectionId === section.id}
+								onClick=${() => onSelectBrowserSection?.(section.id)}
+							>
+								<${WorkbenchIcon} name=${section.icon} size=${13} />
+								<span>${section.label}</span>
+							</button>
+						`,
+					)}
+				</div>
+				<div class="inspector-browser__body">
+					${
+						activeBrowserSectionId === INSPECTOR_BROWSER_REFERENCE
+							? html`
+									<${ReferenceBrowserSection}
+										controller=${controller}
+										store=${store}
+										t=${t}
+									/>
+								`
+							: html`
+									<${SceneBrowserSection}
+										controller=${controller}
+										draggedAssetId=${draggedAssetId}
+										dragHoverState=${dragHoverState}
+										sceneAssets=${sceneAssets}
+										selectedSceneAsset=${selectedSceneAsset}
+										setDraggedAssetId=${setDraggedAssetId}
+										setDragHoverState=${setDragHoverState}
+										store=${store}
+										t=${t}
+									/>
+								`
+					}
+				</div>
+			</div>
+		</section>
+	`;
+}
+
+export function SceneBrowserSection({
+	controller,
+	draggedAssetId = null,
+	dragHoverState = null,
+	sceneAssets,
+	selectedSceneAsset,
+	setDraggedAssetId,
+	setDragHoverState,
+	store,
+	t,
+}) {
+	const sceneAssetSections = [
+		{
+			kind: "model",
+			label: t("assetKind.model"),
+			assets: sceneAssets.filter((asset) => asset.kind === "model"),
+		},
+		{
+			kind: "splat",
+			label: t("assetKind.splat"),
+			assets: sceneAssets.filter((asset) => asset.kind === "splat"),
+		},
+	];
+	const selectedSceneAssetIds = new Set(store.selectedSceneAssetIds.value);
+	const getSceneAssetById = (assetId) =>
+		sceneAssets.find((asset) => asset.id === assetId) ?? null;
+	const getDropPosition = (event) => {
+		const bounds = event.currentTarget.getBoundingClientRect();
+		return event.clientY < bounds.top + bounds.height / 2 ? "before" : "after";
+	};
+	const getDropTargetKindIndex = (draggedAsset, targetAsset, position) => {
+		if (
+			!draggedAsset ||
+			!targetAsset ||
+			draggedAsset.kind !== targetAsset.kind
+		) {
+			return null;
+		}
+		const currentKindIndex = draggedAsset.kindOrderIndex - 1;
+		const targetKindIndex = targetAsset.kindOrderIndex - 1;
+		if (position === "before") {
+			return currentKindIndex < targetKindIndex
+				? targetKindIndex - 1
+				: targetKindIndex;
+		}
+		return currentKindIndex < targetKindIndex
+			? targetKindIndex
+			: targetKindIndex + 1;
+	};
+	const getSceneAssetRowClass = (asset) => {
+		const classes = ["scene-asset-row", "scene-asset-row--compact"];
+		if (selectedSceneAssetIds.has(asset.id)) {
+			classes.push("scene-asset-row--selected");
+		}
+		if (asset.id === selectedSceneAsset?.id) {
+			classes.push("scene-asset-row--active");
+		}
+		if (dragHoverState?.assetId === asset.id) {
+			classes.push(
+				dragHoverState.position === "before"
+					? "scene-asset-row--drop-before"
+					: "scene-asset-row--drop-after",
+			);
+		}
+		return classes.join(" ");
+	};
+
+	return html`
+		<div class="browser-list">
+			${sceneAssetSections.map(
+				(section) => html`
+					<section key=${section.kind} class="browser-group">
+						<div class="browser-group__heading">
+							<strong>${section.label}</strong>
+							<span class="pill pill--dim">${section.assets.length}</span>
+						</div>
+						<div class="scene-asset-list scene-asset-list--compact">
+							${
+								section.assets.length === 0
+									? html`<div class="scene-asset-list__placeholder"></div>`
+									: section.assets.map(
+											(asset) => html`
+									<article
+										class=${getSceneAssetRowClass(asset)}
+										draggable="true"
+										onClick=${(event) =>
+											controller()?.selectSceneAsset(asset.id, {
+												additive: event.ctrlKey || event.metaKey,
+												toggle: event.ctrlKey || event.metaKey,
+												range: event.shiftKey,
+												orderedIds: sceneAssets.map((entry) => entry.id),
+											})}
+										onDragStart=${(event) => {
+											setDraggedAssetId(asset.id);
+											setDragHoverState(null);
+											event.dataTransfer.effectAllowed = "move";
+											event.dataTransfer.setData(
+												"text/plain",
+												String(asset.id),
+											);
+										}}
+										onDragOver=${(event) => {
+											const draggedAsset = getSceneAssetById(
+												draggedAssetId ??
+													Number(event.dataTransfer.getData("text/plain")),
+											);
+											if (draggedAsset?.kind !== asset.kind) {
+												return;
+											}
+											event.preventDefault();
+											event.dataTransfer.dropEffect = "move";
+											setDragHoverState({
+												assetId: asset.id,
+												position: getDropPosition(event),
+											});
+										}}
+										onDragLeave=${() => {
+											if (dragHoverState?.assetId === asset.id) {
+												setDragHoverState(null);
+											}
+										}}
+										onDrop=${(event) => {
+											event.preventDefault();
+											const draggedId =
+												draggedAssetId ??
+												Number(event.dataTransfer.getData("text/plain"));
+											const draggedAsset = getSceneAssetById(draggedId);
+											const dropPosition = getDropPosition(event);
+											if (
+												!Number.isFinite(draggedId) ||
+												draggedId === asset.id ||
+												draggedAsset?.kind !== asset.kind
+											) {
+												setDraggedAssetId(null);
+												setDragHoverState(null);
+												return;
+											}
+											const targetKindIndex = getDropTargetKindIndex(
+												draggedAsset,
+												asset,
+												dropPosition,
+											);
+											if (targetKindIndex !== null) {
+												controller()?.moveAssetToIndex(
+													draggedId,
+													targetKindIndex,
+												);
+											}
+											setDraggedAssetId(null);
+											setDragHoverState(null);
+										}}
+										onDragEnd=${() => {
+											setDraggedAssetId(null);
+											setDragHoverState(null);
+										}}
+									>
+										<div class="scene-asset-row__main">
+											<span class="scene-asset-row__handle" aria-hidden="true">
+												<${WorkbenchIcon} name="grip" size=${12} strokeWidth=${0} />
+											</span>
+											<div class="scene-asset-row__title-group">
+												<strong>${asset.label}</strong>
+											</div>
+										</div>
+										<div class="scene-asset-row__toolbar">
+											<${IconButton}
+												icon=${asset.visible ? "eye" : "eye-off"}
+												label=${t(
+													asset.visible
+														? "assetVisibility.visible"
+														: "assetVisibility.hidden",
+												)}
+												active=${asset.visible}
+												compact=${true}
+												className="scene-asset-row__icon-button"
+												onClick=${(event) => {
+													event.stopPropagation();
+													controller()?.selectSceneAsset(asset.id);
+													controller()?.setAssetVisibility(
+														asset.id,
+														!asset.visible,
+													);
+												}}
+											/>
+										</div>
+									</article>
+								`,
+										)
+							}
+						</div>
+					</section>
+				`,
+			)}
+		</div>
+	`;
+}
+
+export function ReferenceBrowserSection({ controller, store, t }) {
+	const items = [...store.referenceImages.items.value].reverse();
+	const selectedItemIds = new Set(
+		store.referenceImages.selectedItemIds.value ?? [],
+	);
+	const selectedItemId = store.referenceImages.selectedItemId.value;
+
+	if (items.length === 0) {
+		return null;
+	}
+
+	return html`
+		<div class="browser-list">
+			<div class="scene-asset-list scene-asset-list--compact">
+				${items.map(
+					(item) => html`
+						<article
+							key=${item.id}
+							class=${
+								item.id === selectedItemId
+									? selectedItemIds.has(item.id)
+										? "scene-asset-row scene-asset-row--compact scene-asset-row--selected scene-asset-row--active"
+										: "scene-asset-row scene-asset-row--compact scene-asset-row--active"
+									: selectedItemIds.has(item.id)
+										? "scene-asset-row scene-asset-row--compact scene-asset-row--selected"
+										: "scene-asset-row scene-asset-row--compact"
+							}
+							onClick=${(event) =>
+								controller()?.selectReferenceImageItem?.(item.id, {
+									additive: event.ctrlKey || event.metaKey,
+									toggle: event.ctrlKey || event.metaKey,
+									range: event.shiftKey,
+									orderedIds: items.map((entry) => entry.id),
+								})}
+						>
+							<div class="scene-asset-row__main scene-asset-row__main--flat">
+								<div class="scene-asset-row__title-group">
+									<strong>${item.name}</strong>
+								</div>
+							</div>
+							<div class="scene-asset-row__toolbar">
+								<span
+									class=${
+										item.group === "front"
+											? "browser-marker browser-marker--front"
+											: "browser-marker browser-marker--back"
+									}
+									title=${t(`referenceImage.group.${item.group}`)}
+								></span>
+								<${IconButton}
+									icon=${item.previewVisible ? "eye" : "eye-off"}
+									label=${t(
+										item.previewVisible
+											? "assetVisibility.visible"
+											: "assetVisibility.hidden",
+									)}
+									active=${item.previewVisible}
+									compact=${true}
+									className="scene-asset-row__icon-button"
+									onClick=${(event) => {
+										event.stopPropagation();
+										controller()?.setReferenceImagePreviewVisible?.(
+											item.id,
+											!item.previewVisible,
+										);
+									}}
+								/>
+								<${IconButton}
+									icon=${item.exportEnabled ? "export" : "slash-circle"}
+									label=${
+										item.exportEnabled
+											? t("action.excludeReferenceImageFromExport")
+											: t("action.includeReferenceImageInExport")
+									}
+									compact=${true}
+									className="scene-asset-row__icon-button"
+									onClick=${(event) => {
+										event.stopPropagation();
+										controller()?.setReferenceImageExportEnabled?.(
+											item.id,
+											!item.exportEnabled,
+										);
+									}}
+								/>
+							</div>
+						</article>
+					`,
+				)}
+			</div>
+		</div>
+	`;
+}
+
+export function SceneWorkspaceSection({
 	controller,
 	sceneAssets,
-	sceneBadge,
-	sceneScaleSummary,
-	sceneSummary,
-	sceneUnitBadge,
 	selectedSceneAsset,
+	open = true,
+	summaryActions = null,
+	onToggle = null,
 	store,
 	t,
 	draggedAssetId,
@@ -528,7 +1476,527 @@ export function SceneSection({
 	dragHoverState,
 	setDragHoverState,
 }) {
-	const sceneAssetSections = groupSceneAssetsByKind(sceneAssets);
+	return html`
+		<${DisclosureBlock}
+			icon="scene"
+			label=${t("section.scene")}
+			open=${open}
+			summaryActions=${summaryActions}
+			onToggle=${onToggle}
+			className="panel-disclosure--browser-stack"
+		>
+			<div class="scene-workspace-browser">
+				<section class="scene-workspace-pane">
+					<div class="scene-workspace-pane__body">
+						<${SceneBrowserSection}
+							controller=${controller}
+							draggedAssetId=${draggedAssetId}
+							dragHoverState=${dragHoverState}
+							sceneAssets=${sceneAssets}
+							selectedSceneAsset=${selectedSceneAsset}
+							setDraggedAssetId=${setDraggedAssetId}
+							setDragHoverState=${setDragHoverState}
+							store=${store}
+							t=${t}
+						/>
+					</div>
+				</section>
+			</div>
+		<//>
+	`;
+}
+
+export function SelectedSceneAssetInspector({
+	controller,
+	sceneAssets = [],
+	selectedSceneAsset,
+	showEmpty = false,
+	store,
+	t,
+}) {
+	const selectedSceneAssetIds = store?.selectedSceneAssetIds?.value ?? [];
+	const selectedSceneAssets = selectedSceneAssetIds
+		.map((assetId) => sceneAssets.find((asset) => asset.id === assetId) ?? null)
+		.filter(Boolean);
+	const selectionCount = selectedSceneAssets.length;
+	const selectionSignature = selectedSceneAssetIds.join("|");
+	const selectionBaselineRef = useRef({
+		signature: "",
+		assets: new Map(),
+	});
+
+	if (selectionBaselineRef.current.signature !== selectionSignature) {
+		selectionBaselineRef.current = {
+			signature: selectionSignature,
+			assets: new Map(
+				selectedSceneAssets.map((asset) => [
+					asset.id,
+					{
+						position: {
+							x: Number(asset.position?.x ?? 0),
+							y: Number(asset.position?.y ?? 0),
+							z: Number(asset.position?.z ?? 0),
+						},
+						rotationDegrees: {
+							x: Number(asset.rotationDegrees?.x ?? 0),
+							y: Number(asset.rotationDegrees?.y ?? 0),
+							z: Number(asset.rotationDegrees?.z ?? 0),
+						},
+						worldScale: Number(asset.worldScale ?? 1),
+					},
+				]),
+			),
+		};
+	}
+	const selectionBaseline = selectionBaselineRef.current;
+
+	if (selectionCount === 0 && !selectedSceneAsset) {
+		if (showEmpty) {
+			return html`
+				<section class="panel-section panel-section--selection-dock">
+					<${SectionHeading}
+						icon="scene"
+						title=${t("section.selectedSceneObject")}
+					/>
+					<label class="field">
+						<span>${t("field.assetScale")}</span>
+						<${NumericDraftInput} value="" disabled=${true} />
+					</label>
+					<div class="triple-field-row">
+						${["x", "y", "z"].map(
+							(axis) => html`
+								<label class="field">
+									<span>${t("field.assetPosition")} ${axis.toUpperCase()}</span>
+									<${NumericDraftInput} value="" disabled=${true} />
+								</label>
+							`,
+						)}
+					</div>
+					<div class="triple-field-row">
+						${["x", "y", "z"].map(
+							(axis) => html`
+								<label class="field">
+									<span>${t("field.assetRotation")} ${axis.toUpperCase()}</span>
+									<${NumericDraftInput} value="" disabled=${true} />
+								</label>
+							`,
+						)}
+					</div>
+				</section>
+			`;
+		}
+		return null;
+	}
+
+	function formatDeltaInputValue(value) {
+		if (!Number.isFinite(value)) {
+			return "--";
+		}
+		return `${value >= 0 ? "+" : ""}${Number(value).toFixed(2)}`;
+	}
+
+	function normalizeDeltaDegrees(value) {
+		const numericValue = Number(value);
+		if (!Number.isFinite(numericValue)) {
+			return 0;
+		}
+		const wrapped = ((((numericValue + 180) % 360) + 360) % 360) - 180;
+		return wrapped === -180 ? 180 : wrapped;
+	}
+
+	function getSharedSelectionDelta(getValue, { normalize = null } = {}) {
+		let sharedValue = null;
+		for (const asset of selectedSceneAssets) {
+			const baselineAsset = selectionBaseline.assets.get(asset.id);
+			if (!baselineAsset) {
+				return null;
+			}
+			let nextValue = getValue(asset, baselineAsset);
+			if (normalize) {
+				nextValue = normalize(nextValue);
+			}
+			if (!Number.isFinite(nextValue)) {
+				return null;
+			}
+			if (sharedValue === null) {
+				sharedValue = nextValue;
+				continue;
+			}
+			if (Math.abs(sharedValue - nextValue) > 1e-4) {
+				return null;
+			}
+		}
+		return sharedValue;
+	}
+
+	if (selectionCount > 1) {
+		const allVisible = selectedSceneAssets.every((asset) => asset.visible);
+		const anyVisible = selectedSceneAssets.some((asset) => asset.visible);
+		const kindLabels = [
+			...new Set(
+				selectedSceneAssets.map((asset) =>
+					t(asset.kindLabelKey ?? "assetKind.model"),
+				),
+			),
+		];
+		const currentScaleFactor = getSharedSelectionDelta(
+			(asset, baselineAsset) =>
+				Number(asset.worldScale ?? 1) / Number(baselineAsset.worldScale ?? 1),
+		);
+
+		return html`
+			<section class="panel-section panel-section--selection-dock">
+				<${SectionHeading}
+					icon="scene"
+					title=${t("selection.multipleSceneAssetsTitle", {
+						count: selectionCount,
+					})}
+				>
+					<div class="button-row">
+						<${IconButton}
+							icon=${anyVisible ? "eye" : "eye-off"}
+							label=${t(
+								allVisible
+									? "assetVisibility.visible"
+									: "assetVisibility.hidden",
+							)}
+							active=${allVisible}
+							compact=${true}
+							onClick=${() =>
+								controller()?.setSelectedSceneAssetsVisibility?.(!allVisible)}
+						/>
+						<${IconButton}
+							icon="reset"
+							label=${t("action.resetScale")}
+							compact=${true}
+							onClick=${() =>
+								controller()?.resetSelectedSceneAssetsWorldScale?.()}
+						/>
+					</div>
+				<//>
+				<p class="summary">${kindLabels.join(" / ")}</p>
+				<label class="field field--delta">
+					<span>${t("field.assetScale")}</span>
+					<${NumericDraftInput}
+						inputMode="decimal"
+						step="0.25"
+						value=${
+							Number.isFinite(currentScaleFactor)
+								? formatDeltaInputValue((Number(currentScaleFactor) - 1) * 100)
+								: "--"
+						}
+						scrubStartValue=${
+							Number.isFinite(currentScaleFactor)
+								? (Number(currentScaleFactor) - 1) * 100
+								: 0
+						}
+						controller=${controller}
+						historyLabel="asset.scale"
+						onScrubDelta=${(deltaValue) => {
+							const scaleDelta = deltaValue / 100;
+							controller()?.scaleSelectedSceneAssetsByFactor?.(
+								Math.max(0.01, 1 + scaleDelta),
+							);
+						}}
+						onCommit=${(nextValue) => {
+							const numericValue = Number(nextValue);
+							if (
+								!Number.isFinite(numericValue) ||
+								Math.abs(numericValue) <= 1e-8
+							) {
+								return;
+							}
+							const currentFactor = Number.isFinite(currentScaleFactor)
+								? currentScaleFactor
+								: 1;
+							const targetScaleFactor = Math.max(0.01, 1 + numericValue / 100);
+							controller()?.scaleSelectedSceneAssetsByFactor?.(
+								Math.max(0.01, targetScaleFactor / currentFactor),
+							);
+						}}
+					/>
+				</label>
+				<div class="triple-field-row">
+					${["x", "y", "z"].map((axis) => {
+						const currentDelta = getSharedSelectionDelta(
+							(asset, baselineAsset) =>
+								Number(asset.position?.[axis] ?? 0) -
+								Number(baselineAsset.position?.[axis] ?? 0),
+						);
+						return html`
+							<label class="field field--delta">
+								<span>${t("field.assetPosition")} ${axis.toUpperCase()}</span>
+								<${NumericDraftInput}
+									inputMode="decimal"
+									step="0.01"
+									value=${formatDeltaInputValue(currentDelta)}
+									scrubStartValue=${Number(currentDelta ?? 0)}
+									controller=${controller}
+									historyLabel="asset.position"
+									onScrubDelta=${(deltaValue) => {
+										controller()?.offsetSelectedSceneAssetsPosition?.(
+											axis,
+											deltaValue,
+										);
+									}}
+									onCommit=${(nextValue) => {
+										const numericValue = Number(nextValue);
+										if (
+											!Number.isFinite(numericValue) ||
+											Math.abs(numericValue) <= 1e-8
+										) {
+											return;
+										}
+										const currentValue = Number.isFinite(currentDelta)
+											? currentDelta
+											: 0;
+										controller()?.offsetSelectedSceneAssetsPosition?.(
+											axis,
+											numericValue - currentValue,
+										);
+									}}
+								/>
+							</label>
+						`;
+					})}
+				</div>
+				<div class="triple-field-row">
+					${["x", "y", "z"].map((axis) => {
+						const currentDelta = getSharedSelectionDelta(
+							(asset, baselineAsset) =>
+								Number(asset.rotationDegrees?.[axis] ?? 0) -
+								Number(baselineAsset.rotationDegrees?.[axis] ?? 0),
+							{ normalize: normalizeDeltaDegrees },
+						);
+						return html`
+							<label class="field field--delta">
+								<span>${t("field.assetRotation")} ${axis.toUpperCase()}</span>
+								<${NumericDraftInput}
+									inputMode="decimal"
+									step="0.15"
+									value=${formatDeltaInputValue(currentDelta)}
+									scrubStartValue=${Number(currentDelta ?? 0)}
+									controller=${controller}
+									historyLabel="asset.rotation"
+									onScrubDelta=${(deltaValue) => {
+										controller()?.offsetSelectedSceneAssetsRotationDegrees?.(
+											axis,
+											deltaValue,
+										);
+									}}
+									onCommit=${(nextValue) => {
+										const numericValue = Number(nextValue);
+										if (
+											!Number.isFinite(numericValue) ||
+											Math.abs(numericValue) <= 1e-8
+										) {
+											return;
+										}
+										const currentValue = Number.isFinite(currentDelta)
+											? currentDelta
+											: 0;
+										controller()?.offsetSelectedSceneAssetsRotationDegrees?.(
+											axis,
+											numericValue - currentValue,
+										);
+									}}
+								/>
+							</label>
+						`;
+					})}
+				</div>
+			</section>
+		`;
+	}
+
+	const targetAsset = selectedSceneAsset ?? selectedSceneAssets[0];
+	if (!targetAsset) {
+		return null;
+	}
+
+	return html`
+		<section class="panel-section panel-section--selection-dock">
+			<${SectionHeading} icon="scene" title=${targetAsset.label}>
+				<div class="button-row">
+					<${IconButton}
+						icon=${targetAsset.visible ? "eye" : "eye-off"}
+						label=${t(
+							targetAsset.visible
+								? "assetVisibility.visible"
+								: "assetVisibility.hidden",
+						)}
+						active=${targetAsset.visible}
+						compact=${true}
+						onClick=${() =>
+							controller()?.setAssetVisibility(
+								targetAsset.id,
+								!targetAsset.visible,
+							)}
+					/>
+					<${IconButton}
+						icon="reset"
+						label=${t("action.resetScale")}
+						compact=${true}
+						onClick=${() => controller()?.resetAssetWorldScale(targetAsset.id)}
+					/>
+				</div>
+			<//>
+			<label class="field">
+				<span>${t("field.assetScale")}</span>
+				<${NumericDraftInput}
+					inputMode="decimal"
+					min="0.01"
+					step="0.01"
+					value=${Number(targetAsset.worldScale).toFixed(2)}
+					controller=${controller}
+					historyLabel="asset.scale"
+					onCommit=${(nextValue) =>
+						controller()?.setAssetWorldScale(targetAsset.id, nextValue)}
+				/>
+			</label>
+			<div class="triple-field-row">
+				${["x", "y", "z"].map(
+					(axis) => html`
+						<label class="field">
+							<span>${t("field.assetPosition")} ${axis.toUpperCase()}</span>
+							<${NumericDraftInput}
+								inputMode="decimal"
+								step="0.01"
+								value=${Number(targetAsset.position[axis]).toFixed(2)}
+								controller=${controller}
+								historyLabel=${`asset.position.${axis}`}
+								onCommit=${(nextValue) =>
+									controller()?.setAssetPosition(
+										targetAsset.id,
+										axis,
+										nextValue,
+									)}
+							/>
+						</label>
+					`,
+				)}
+			</div>
+			<div class="triple-field-row">
+				${["x", "y", "z"].map(
+					(axis) => html`
+						<label class="field">
+							<span>${t("field.assetRotation")} ${axis.toUpperCase()}</span>
+							<${NumericDraftInput}
+								inputMode="decimal"
+								step="0.01"
+								value=${Number(targetAsset.rotationDegrees[axis]).toFixed(2)}
+								controller=${controller}
+								historyLabel=${`asset.rotation.${axis}`}
+								onCommit=${(nextValue) =>
+									controller()?.setAssetRotationDegrees(
+										targetAsset.id,
+										axis,
+										nextValue,
+									)}
+							/>
+						</label>
+					`,
+				)}
+			</div>
+		</section>
+	`;
+}
+
+export function ViewSettingsSection({
+	controller,
+	headingActions = null,
+	t,
+	viewportEquivalentMmValue,
+	viewportFovLabel,
+}) {
+	return html`
+		<section class="panel-section">
+			<${SectionHeading} icon="viewport" title=${t("section.view")}>
+				${headingActions}
+			<//>
+			<label class="field field--range">
+				<span>${t("field.viewportEquivalentMm")}</span>
+				<div class="range-row">
+					<${HistoryRangeInput}
+						id="viewport-fov-mm"
+						min=${14}
+						max=${200}
+						step="1"
+						value=${viewportEquivalentMmValue}
+						controller=${controller}
+						historyLabel="viewport.lens"
+						onLiveChange=${(event) =>
+							applyStandardFrameHorizontalEquivalentMm(
+								(nextValue) => controller()?.setViewportBaseFovX(nextValue),
+								event.currentTarget.value,
+								{ snap: true },
+							)}
+					/>
+					<div class="numeric-unit">
+						<${NumericDraftInput}
+							id="viewport-fov-mm-input"
+							inputMode="decimal"
+							min=${14}
+							max=${200}
+							step="0.01"
+							value=${Number(viewportEquivalentMmValue).toFixed(2)}
+							controller=${controller}
+							historyLabel="viewport.lens"
+							onCommit=${(nextValue) =>
+								applyStandardFrameHorizontalEquivalentMm(
+									(nextBaseFov) =>
+										controller()?.setViewportBaseFovX(nextBaseFov),
+									nextValue,
+								)}
+						/>
+						<${NumericUnitLabel} value="mm" title=${t("unit.millimeter")} />
+					</div>
+				</div>
+				<p class="summary">${t("field.viewportFov")} ${viewportFovLabel}</p>
+			</label>
+		</section>
+	`;
+}
+
+export function SceneSection({
+	controller,
+	sceneAssets,
+	selectedSceneAsset,
+	open = true,
+	summaryActions = null,
+	onToggle = null,
+	showSelectedInspector = true,
+	store,
+	t,
+	draggedAssetId,
+	setDraggedAssetId,
+	dragHoverState,
+	setDragHoverState,
+}) {
+	const groupedSceneAssets = groupSceneAssetsByKind(sceneAssets);
+	const sceneAssetSections = [
+		{
+			kind: "model",
+			kindLabelKey: "assetKind.model",
+			assets:
+				groupedSceneAssets.find((section) => section.kind === "model")
+					?.assets ?? [],
+		},
+		{
+			kind: "splat",
+			kindLabelKey: "assetKind.splat",
+			assets:
+				groupedSceneAssets.find((section) => section.kind === "splat")
+					?.assets ?? [],
+		},
+		...groupedSceneAssets
+			.filter((section) => !["model", "splat"].includes(section.kind))
+			.map((section) => ({
+				...section,
+				kindLabelKey:
+					section.assets[0]?.kindLabelKey ?? `assetKind.${section.kind}`,
+			})),
+	];
 	const selectedSceneAssetIds = new Set(store.selectedSceneAssetIds.value);
 	const getSceneAssetById = (assetId) =>
 		sceneAssets.find((asset) => asset.id === assetId) ?? null;
@@ -572,270 +2040,186 @@ export function SceneSection({
 		}
 		return classes.join(" ");
 	};
-	const sceneSummaryParts = [sceneSummary, sceneScaleSummary].filter(Boolean);
-
 	return html`
-		<section class="panel-section">
-			<${SectionHeading} icon="scene" title=${t("section.scene")}>
-				<div class="pill-row">
-					<span id="scene-unit-pill" class="pill pill--dim">${sceneUnitBadge}</span>
-					<span id="scene-badge" class="pill pill--dim">${sceneBadge}</span>
-				</div>
-			<//>
-			${
-				sceneSummaryParts.length > 0 &&
-				html`
-					<p id="scene-summary" class="summary">
-						${sceneSummaryParts.join(" · ")}
-					</p>
-				`
-			}
-			${
-				sceneAssets.length > 0 &&
-				html`
-					<div class="scene-asset-section-list">
-						${sceneAssetSections.map(
-							(section) => html`
-								<section class="scene-asset-section">
-									<${SectionHeading} title=${t(section.assets[0].kindLabelKey)}>
-										<span class="pill pill--dim">${section.assets.length}</span>
-									<//>
-									<div class="scene-asset-list">
-										${section.assets.map(
-											(asset) => html`
-												<article
-													class=${getSceneAssetRowClass(asset)}
-													draggable="true"
-													onClick=${(event) =>
-														controller()?.selectSceneAsset(asset.id, {
-															additive:
-																event.shiftKey ||
-																event.ctrlKey ||
-																event.metaKey,
-															toggle:
-																event.shiftKey ||
-																event.ctrlKey ||
-																event.metaKey,
-														})}
-													onDragStart=${(event) => {
-														setDraggedAssetId(asset.id);
-														setDragHoverState(null);
-														event.dataTransfer.effectAllowed = "move";
-														event.dataTransfer.setData(
-															"text/plain",
-															String(asset.id),
+		<${DisclosureBlock}
+			icon="scene"
+			label=${t("section.scene")}
+			open=${open}
+			summaryActions=${summaryActions}
+			onToggle=${onToggle}
+		>
+			<div class="scene-asset-section-list">
+				${sceneAssetSections.map(
+					(section) => html`
+						<section class="scene-asset-section">
+							<${SectionHeading} title=${t(section.kindLabelKey)}>
+								<span class="pill pill--dim">${section.assets.length}</span>
+							<//>
+							<div
+								class=${
+									section.assets.length > 0
+										? "scene-asset-list"
+										: "scene-asset-list scene-asset-list--empty"
+								}
+							>
+								${section.assets.map(
+									(asset) => html`
+										<article
+											class=${getSceneAssetRowClass(asset)}
+											draggable="true"
+											onClick=${(event) =>
+												controller()?.selectSceneAsset(asset.id, {
+													additive: event.ctrlKey || event.metaKey,
+													toggle: event.ctrlKey || event.metaKey,
+													range: event.shiftKey,
+													orderedIds: sceneAssets.map((entry) => entry.id),
+												})}
+											onDragStart=${(event) => {
+												setDraggedAssetId(asset.id);
+												setDragHoverState(null);
+												event.dataTransfer.effectAllowed = "move";
+												event.dataTransfer.setData(
+													"text/plain",
+													String(asset.id),
+												);
+											}}
+											onDragOver=${(event) => {
+												const draggedAsset = getSceneAssetById(
+													draggedAssetId ??
+														Number(event.dataTransfer.getData("text/plain")),
+												);
+												if (draggedAsset?.kind !== asset.kind) {
+													return;
+												}
+												event.preventDefault();
+												event.dataTransfer.dropEffect = "move";
+												setDragHoverState({
+													assetId: asset.id,
+													position: getDropPosition(event),
+												});
+											}}
+											onDragLeave=${() => {
+												if (dragHoverState?.assetId === asset.id) {
+													setDragHoverState(null);
+												}
+											}}
+											onDrop=${(event) => {
+												event.preventDefault();
+												const draggedId =
+													draggedAssetId ??
+													Number(event.dataTransfer.getData("text/plain"));
+												const draggedAsset = getSceneAssetById(draggedId);
+												const dropPosition = getDropPosition(event);
+												if (
+													!Number.isFinite(draggedId) ||
+													draggedId === asset.id ||
+													draggedAsset?.kind !== asset.kind
+												) {
+													setDraggedAssetId(null);
+													setDragHoverState(null);
+													return;
+												}
+												const targetKindIndex = getDropTargetKindIndex(
+													draggedAsset,
+													asset,
+													dropPosition,
+												);
+												if (targetKindIndex !== null) {
+													controller()?.moveAssetToIndex(
+														draggedId,
+														targetKindIndex,
+													);
+												}
+												setDraggedAssetId(null);
+												setDragHoverState(null);
+											}}
+											onDragEnd=${() => {
+												setDraggedAssetId(null);
+												setDragHoverState(null);
+											}}
+										>
+											<div class="scene-asset-row__main">
+												<span class="scene-asset-row__handle" aria-hidden="true">
+													<${WorkbenchIcon} name="grip" size=${12} strokeWidth=${0} />
+												</span>
+												<div class="scene-asset-row__title-group">
+													<strong>${asset.label}</strong>
+												</div>
+											</div>
+											<div class="scene-asset-row__toolbar">
+												<${IconButton}
+													icon=${asset.visible ? "eye" : "eye-off"}
+													label=${t(
+														asset.visible
+															? "assetVisibility.visible"
+															: "assetVisibility.hidden",
+													)}
+													active=${asset.visible}
+													compact=${true}
+													className="scene-asset-row__icon-button"
+													onClick=${(event) => {
+														event.stopPropagation();
+														controller()?.selectSceneAsset(asset.id);
+														controller()?.setAssetVisibility(
+															asset.id,
+															!asset.visible,
 														);
 													}}
-													onDragOver=${(event) => {
-														const draggedAsset = getSceneAssetById(
-															draggedAssetId ??
-																Number(
-																	event.dataTransfer.getData("text/plain"),
-																),
-														);
-														if (draggedAsset?.kind !== asset.kind) {
-															return;
-														}
-														event.preventDefault();
-														event.dataTransfer.dropEffect = "move";
-														setDragHoverState({
-															assetId: asset.id,
-															position: getDropPosition(event),
-														});
-													}}
-													onDragLeave=${() => {
-														if (dragHoverState?.assetId === asset.id) {
-															setDragHoverState(null);
-														}
-													}}
-													onDrop=${(event) => {
-														event.preventDefault();
-														const draggedId =
-															draggedAssetId ??
-															Number(event.dataTransfer.getData("text/plain"));
-														const draggedAsset = getSceneAssetById(draggedId);
-														const dropPosition = getDropPosition(event);
-														if (
-															!Number.isFinite(draggedId) ||
-															draggedId === asset.id ||
-															draggedAsset?.kind !== asset.kind
-														) {
-															setDraggedAssetId(null);
-															setDragHoverState(null);
-															return;
-														}
-														const targetKindIndex = getDropTargetKindIndex(
-															draggedAsset,
-															asset,
-															dropPosition,
-														);
-														if (targetKindIndex !== null) {
-															controller()?.moveAssetToIndex(
-																draggedId,
-																targetKindIndex,
-															);
-														}
-														setDraggedAssetId(null);
-														setDragHoverState(null);
-													}}
-													onDragEnd=${() => {
-														setDraggedAssetId(null);
-														setDragHoverState(null);
-													}}
-												>
-													<div class="scene-asset-row__main">
-														<span class="scene-asset-row__handle" aria-hidden="true">
-															<${WorkbenchIcon} name="grip" size=${12} strokeWidth=${0} />
-														</span>
-														<div class="scene-asset-row__title-group">
-															<strong>${asset.label}</strong>
-															<span class="scene-asset-row__meta">
-																#${asset.kindOrderIndex} ·
-																${formatAssetWorldScale(asset.worldScale)}
-															</span>
-														</div>
-													</div>
-													<div class="scene-asset-row__toolbar">
-														<${IconButton}
-															icon=${asset.visible ? "eye" : "eye-off"}
-															label=${t(
-																asset.visible
-																	? "assetVisibility.visible"
-																	: "assetVisibility.hidden",
-															)}
-															active=${asset.visible}
-															compact=${true}
-															className="scene-asset-row__icon-button"
-															onClick=${(event) => {
-																event.stopPropagation();
-																controller()?.selectSceneAsset(asset.id);
-																controller()?.setAssetVisibility(
-																	asset.id,
-																	!asset.visible,
-																);
-															}}
-														/>
-													</div>
-												</article>
-											`,
-										)}
-									</div>
-								</section>
-							`,
-						)}
-					</div>
-				`
-			}
-			${
-				selectedSceneAsset &&
-				html`
-					<${DisclosureBlock}
-						icon="scene"
-						label=${selectedSceneAsset.label}
-					>
-						<div class="button-row">
-							<${IconButton}
-								icon=${selectedSceneAsset.visible ? "eye" : "eye-off"}
-								label=${t(
-									selectedSceneAsset.visible
-										? "assetVisibility.visible"
-										: "assetVisibility.hidden",
+												/>
+											</div>
+										</article>
+									`,
 								)}
-								active=${selectedSceneAsset.visible}
-								compact=${true}
-								onClick=${() =>
-									controller()?.setAssetVisibility(
-										selectedSceneAsset.id,
-										!selectedSceneAsset.visible,
-									)}
-							/>
-							<${IconButton}
-								icon="reset"
-								label=${t("action.resetScale")}
-								compact=${true}
-								onClick=${() =>
-									controller()?.resetAssetWorldScale(selectedSceneAsset.id)}
-							/>
-						</div>
-						<label class="field">
-							<span>${t("field.assetScale")}</span>
-							<${NumericDraftInput}
-								inputMode="decimal"
-								min="0.01"
-								step="0.01"
-								value=${Number(selectedSceneAsset.worldScale).toFixed(2)}
-								controller=${controller}
-								historyLabel="asset.scale"
-								onCommit=${(nextValue) =>
-									controller()?.setAssetWorldScale(
-										selectedSceneAsset.id,
-										nextValue,
-									)}
-							/>
-						</label>
-						<div class="triple-field-row">
-							${["x", "y", "z"].map(
-								(axis) => html`
-									<label class="field">
-										<span>${t("field.assetPosition")} ${axis.toUpperCase()}</span>
-										<${NumericDraftInput}
-											inputMode="decimal"
-											step="0.01"
-											value=${Number(selectedSceneAsset.position[axis]).toFixed(2)}
-											controller=${controller}
-											historyLabel=${`asset.position.${axis}`}
-											onCommit=${(nextValue) =>
-												controller()?.setAssetPosition(
-													selectedSceneAsset.id,
-													axis,
-													nextValue,
-												)}
-										/>
-									</label>
-								`,
-							)}
-						</div>
-						<div class="triple-field-row">
-							${["x", "y", "z"].map(
-								(axis) => html`
-									<label class="field">
-										<span>${t("field.assetRotation")} ${axis.toUpperCase()}</span>
-										<${NumericDraftInput}
-											inputMode="decimal"
-											step="0.01"
-											value=${Number(selectedSceneAsset.rotationDegrees[axis]).toFixed(2)}
-											controller=${controller}
-											historyLabel=${`asset.rotation.${axis}`}
-											onCommit=${(nextValue) =>
-												controller()?.setAssetRotationDegrees(
-													selectedSceneAsset.id,
-													axis,
-													nextValue,
-												)}
-										/>
-									</label>
-								`,
-							)}
-						</div>
-					<//>
-				`
+							</div>
+						</section>
+					`,
+				)}
+			</div>
+			${
+				showSelectedInspector &&
+				html`<${SelectedSceneAssetInspector}
+				controller=${controller}
+				sceneAssets=${sceneAssets}
+				selectedSceneAsset=${selectedSceneAsset}
+				store=${store}
+				t=${t}
+			/>`
 			}
-		</section>
+		<//>
 	`;
 }
 
-export function LightingSection({ controller, store, t }) {
+export function LightingSection({
+	controller,
+	open = false,
+	onToggle = null,
+	store,
+	summaryActions = null,
+	t,
+}) {
+	const normalizeDegrees = (value) => {
+		const numericValue = Number(value);
+		if (!Number.isFinite(numericValue)) {
+			return 0;
+		}
+		const wrapped = ((((numericValue + 180) % 360) + 360) % 360) - 180;
+		return wrapped === -180 ? 180 : wrapped;
+	};
 	const ambient = store.lighting.ambient.value;
 	const modelLightIntensity = store.lighting.modelLightIntensity.value;
 	const modelLightAzimuthDeg = store.lighting.modelLightAzimuthDeg.value;
 	const modelLightElevationDeg = store.lighting.modelLightElevationDeg.value;
-	const activeCameraHeadingDeg =
-		controller?.()?.getActiveCameraHeadingDeg?.() ?? 0;
+	const activeCameraViewAzimuthDeg = normalizeDegrees(
+		(controller?.()?.getActiveCameraHeadingDeg?.() ?? 0) + 180,
+	);
 
 	return html`
 		<${DisclosureBlock}
 			icon="light"
 			label=${t("section.lighting")}
+			open=${open}
+			summaryActions=${summaryActions}
+			onToggle=${onToggle}
 		>
 			<label class="field">
 				<span>${t("field.lightDirection")}</span>
@@ -843,7 +2227,7 @@ export function LightingSection({ controller, store, t }) {
 					controller=${controller}
 					azimuthDeg=${modelLightAzimuthDeg}
 					elevationDeg=${modelLightElevationDeg}
-					viewAzimuthDeg=${activeCameraHeadingDeg}
+					viewAzimuthDeg=${activeCameraViewAzimuthDeg}
 					onLiveChange=${(nextDirection) =>
 						controller()?.setModelLightDirection?.(nextDirection)}
 				/>
@@ -854,7 +2238,7 @@ export function LightingSection({ controller, store, t }) {
 					<${HistoryRangeInput}
 						id="lighting-intensity"
 						min=${0}
-						max=${2}
+						max=${3}
 						step=${0.01}
 						value=${Number(modelLightIntensity.toFixed(2))}
 						controller=${controller}
@@ -867,7 +2251,7 @@ export function LightingSection({ controller, store, t }) {
 							id="lighting-intensity-input"
 							inputMode="decimal"
 							min=${0}
-							max=${2}
+							max=${3}
 							step=${0.01}
 							value=${Number(modelLightIntensity).toFixed(2)}
 							controller=${controller}
@@ -884,7 +2268,7 @@ export function LightingSection({ controller, store, t }) {
 					<${HistoryRangeInput}
 						id="lighting-ambient"
 						min=${0}
-						max=${2}
+						max=${2.5}
 						step=${0.01}
 						value=${Number(ambient.toFixed(2))}
 						controller=${controller}
@@ -897,7 +2281,7 @@ export function LightingSection({ controller, store, t }) {
 							id="lighting-ambient-input"
 							inputMode="decimal"
 							min=${0}
-							max=${2}
+							max=${2.5}
 							step=${0.01}
 							value=${Number(ambient).toFixed(2)}
 							controller=${controller}
@@ -915,8 +2299,53 @@ export function LightingSection({ controller, store, t }) {
 export function ShotCameraSection({
 	activeShotCamera,
 	controller,
+	open = true,
+	summaryActions = null,
+	onToggle = null,
+	store,
+	t,
+}) {
+	return html`
+		<${DisclosureBlock}
+			icon="camera"
+			label=${t("section.shotCameraManager")}
+			open=${open}
+			summaryActions=${summaryActions}
+			onToggle=${onToggle}
+		>
+			<div class="shot-camera-head-row">
+				<${ShotCameraPicker}
+					activeShotCamera=${activeShotCamera}
+					controller=${controller}
+					shotCameras=${store.workspace.shotCameras.value}
+					t=${t}
+				/>
+				<div class="button-row shot-camera-head-row__actions">
+					<${IconButton}
+						id="new-shot-camera"
+						icon="plus"
+						label=${t("action.newShotCamera")}
+						onClick=${() => controller()?.createShotCamera()}
+					/>
+					<${IconButton}
+						id="duplicate-shot-camera"
+						icon="duplicate"
+						label=${t("action.duplicateShotCamera")}
+						onClick=${() => controller()?.duplicateActiveShotCamera()}
+					/>
+				</div>
+			</div>
+		<//>
+	`;
+}
+
+export function ShotCameraPropertiesSection({
+	controller,
 	equivalentMmValue,
 	fovLabel,
+	open = true,
+	summaryActions = null,
+	onToggle = null,
 	shotCameraClipMode,
 	store,
 	t,
@@ -936,51 +2365,13 @@ export function ShotCameraSection({
 	const shotCameraRollLock = store.shotCamera.rollLock.value;
 
 	return html`
-		<section class="panel-section">
-			<${SectionHeading} icon="camera" title=${t("section.shotCamera")} />
-			<div class="split-field-row split-field-row--wide-action">
-				<label class="field">
-					<span>${t("field.activeShotCamera")}</span>
-					<select
-						id="active-shot-camera"
-						value=${store.workspace.activeShotCameraId.value}
-						...${INTERACTIVE_FIELD_PROPS}
-						onChange=${(event) =>
-							controller()?.selectShotCamera(event.currentTarget.value)}
-					>
-						${store.workspace.shotCameras.value.map(
-							(shotCamera) => html`
-								<option value=${shotCamera.id}>${shotCamera.name}</option>
-							`,
-						)}
-					</select>
-				</label>
-				<div class="field field--action field--action-end">
-					<span>${t("section.shotCamera")}</span>
-					<div class="button-row">
-						<${IconButton}
-							id="new-shot-camera"
-							icon="plus"
-							label=${t("action.newShotCamera")}
-							onClick=${() => controller()?.createShotCamera()}
-						/>
-						<${IconButton}
-							id="duplicate-shot-camera"
-							icon="duplicate"
-							label=${t("action.duplicateShotCamera")}
-							onClick=${() => controller()?.duplicateActiveShotCamera()}
-						/>
-					</div>
-				</div>
-			</div>
-			<label class="field">
-				<span>${t("field.shotCameraName")}</span>
-				<${TextDraftInput}
-					id="shot-camera-name"
-					value=${activeShotCamera?.name ?? ""}
-					onCommit=${(nextValue) => controller()?.setShotCameraName(nextValue)}
-				/>
-			</label>
+		<${DisclosureBlock}
+			icon="camera-dslr"
+			label=${t("section.shotCameraProperties")}
+			open=${open}
+			summaryActions=${summaryActions}
+			onToggle=${onToggle}
+		>
 			<label class="field field--range">
 				<span>${t("field.shotCameraEquivalentMm")}</span>
 				<div class="range-row">
@@ -1307,7 +2698,7 @@ export function ShotCameraSection({
 					</label>
 				</div>
 			<//>
-		</section>
+		<//>
 	`;
 }
 
@@ -1319,6 +2710,9 @@ export function ExportSettingsSection({
 	exportGridOverlay,
 	exportModelLayers,
 	exportSplatLayers,
+	open = false,
+	onToggle = null,
+	summaryActions = null,
 	store,
 	t,
 }) {
@@ -1326,6 +2720,9 @@ export function ExportSettingsSection({
 		<${DisclosureBlock}
 			icon="export"
 			label=${t("section.exportSettings")}
+			open=${open}
+			summaryActions=${summaryActions}
+			onToggle=${onToggle}
 		>
 			<label class="field">
 				<span>${t("field.shotCameraExportName")}</span>
@@ -1422,6 +2819,10 @@ export function FramesSection({
 	frameCount,
 	frameDocuments,
 	frameLimitReached,
+	open = false,
+	onToggle = null,
+	showFramePicker = true,
+	summaryActions = null,
 	store,
 	t,
 }) {
@@ -1435,6 +2836,9 @@ export function FramesSection({
 		<${DisclosureBlock}
 			icon="frame"
 			label=${`${t("section.frames")} · ${frameCount}/${FRAME_MAX_COUNT}`}
+			open=${open}
+			summaryActions=${summaryActions}
+			onToggle=${onToggle}
 		>
 			${
 				hasFrames &&
@@ -1498,22 +2902,27 @@ export function FramesSection({
 			${
 				frameDocuments.length > 0
 					? html`
-						<label class="field">
-							<span>${t("field.activeFrame")}</span>
-							<select
-								id="active-frame"
-								value=${activeFrameId}
-								...${INTERACTIVE_FIELD_PROPS}
-								onChange=${(event) =>
-									controller()?.selectFrame(event.currentTarget.value)}
-							>
-								${frameDocuments.map(
-									(frame) => html`
-										<option value=${frame.id}>${frame.name}</option>
-									`,
-								)}
-							</select>
-						</label>
+						${
+							showFramePicker &&
+							html`
+								<label class="field">
+									<span>${t("field.activeFrame")}</span>
+									<select
+										id="active-frame"
+										value=${activeFrameId}
+										...${INTERACTIVE_FIELD_PROPS}
+										onChange=${(event) =>
+											controller()?.selectFrame(event.currentTarget.value)}
+									>
+										${frameDocuments.map(
+											(frame) => html`
+												<option value=${frame.id}>${frame.name}</option>
+											`,
+										)}
+									</select>
+								</label>
+							`
+						}
 						<div class="button-row">
 							<${IconButton}
 								id="new-frame"
@@ -1552,7 +2961,15 @@ export function FramesSection({
 	`;
 }
 
-export function ReferenceSection({ controller, store, t }) {
+export function ReferenceSection({
+	controller,
+	open = true,
+	summaryActions = null,
+	onToggle = null,
+	showList = true,
+	store,
+	t,
+}) {
 	const assets = store.referenceImages.assets.value;
 	const items = store.referenceImages.items.value;
 	const itemsForDisplay = [...items].reverse();
@@ -1583,10 +3000,14 @@ export function ReferenceSection({ controller, store, t }) {
 	}
 
 	return html`
-		<section class="panel-section">
-			<${SectionHeading} icon="image" title=${t("section.referenceImages")}>
-				<span class="pill pill--dim">${items.length}</span>
-			<//>
+		<${DisclosureBlock}
+			icon="image"
+			label=${t("section.referenceImages")}
+			open=${open}
+			summaryMeta=${html`<span class="pill pill--dim">${items.length}</span>`}
+			summaryActions=${summaryActions}
+			onToggle=${onToggle}
+		>
 			<div class="button-row">
 				<button
 					type="button"
@@ -1646,85 +3067,101 @@ export function ReferenceSection({ controller, store, t }) {
 				</div>
 			</div>
 			<div class="reference-panel-stack">
-				<section class="reference-panel-group">
-					<div class="panel-inline-header">
-						<strong>${t("referenceImage.currentPresetSection")}</strong>
-						<span class="pill pill--dim">${items.length}</span>
-					</div>
-					${
-						items.length > 0
-							? html`
-									<div class="scene-asset-list">
-										${itemsForDisplay.map(
-											(item) => html`
-												<article
-													class=${getReferenceRowClass({
-														selected: selectedItemIds.has(item.id),
-														active: item.id === selectedItemId,
-													})}
-													onClick=${(event) =>
-														controller()?.selectReferenceImageItem?.(
-															item.id,
-															event,
-														)}
-												>
-													<div class="scene-asset-row__main scene-asset-row__main--flat">
-														<div class="scene-asset-row__title-group">
-															<strong>${item.name}</strong>
-															<span class="scene-asset-row__meta">
-																${item.fileName || t("referenceImage.untitled")} ·
-																${t(`referenceImage.group.${item.group}`)} ·
-																${t("referenceImage.orderLabel", {
-																	order: item.order + 1,
-																})}
-															</span>
-														</div>
-													</div>
-													<div class="scene-asset-row__toolbar">
-														<${IconButton}
-															icon=${item.previewVisible ? "eye" : "eye-off"}
-															label=${t(
-																item.previewVisible
-																	? "assetVisibility.visible"
-																	: "assetVisibility.hidden",
-															)}
-															active=${item.previewVisible}
-															compact=${true}
-															className="scene-asset-row__icon-button"
-															onClick=${(event) => {
-																event.stopPropagation();
-																controller()?.setReferenceImagePreviewVisible?.(
+				${
+					showList &&
+					html`
+						<section class="reference-panel-group">
+							<div class="panel-inline-header">
+								<strong>${t("referenceImage.currentPresetSection")}</strong>
+								<span class="pill pill--dim">${items.length}</span>
+							</div>
+							${
+								items.length > 0
+									? html`
+											<div class="scene-asset-list">
+												${itemsForDisplay.map(
+													(item) => html`
+														<article
+															class=${getReferenceRowClass({
+																selected: selectedItemIds.has(item.id),
+																active: item.id === selectedItemId,
+															})}
+															onClick=${(event) =>
+																controller()?.selectReferenceImageItem?.(
 																	item.id,
-																	!item.previewVisible,
-																);
-															}}
-														/>
-														<${IconButton}
-															icon=${item.exportEnabled ? "export" : "slash-circle"}
-															label=${
-																item.exportEnabled
-																	? t("action.excludeReferenceImageFromExport")
-																	: t("action.includeReferenceImageInExport")
-															}
-															compact=${true}
-															className="scene-asset-row__icon-button"
-															onClick=${(event) => {
-																event.stopPropagation();
-																controller()?.setReferenceImageExportEnabled?.(
-																	item.id,
-																	!item.exportEnabled,
-																);
-															}}
-														/>
-													</div>
-												</article>
-											`,
-										)}
-									</div>
-								`
-							: html`<p class="summary">${t("referenceImage.currentCameraEmpty")}</p>`
-					}
-				</section>
+																	{
+																		additive: event.ctrlKey || event.metaKey,
+																		toggle: event.ctrlKey || event.metaKey,
+																		range: event.shiftKey,
+																		orderedIds: itemsForDisplay.map(
+																			(entry) => entry.id,
+																		),
+																	},
+																)}
+														>
+															<div class="scene-asset-row__main scene-asset-row__main--flat">
+																<div class="scene-asset-row__title-group">
+																	<strong>${item.name}</strong>
+																	<span class="scene-asset-row__meta">
+																		${item.fileName || t("referenceImage.untitled")} ·
+																		${t(`referenceImage.group.${item.group}`)} ·
+																		${t("referenceImage.orderLabel", {
+																			order: item.order + 1,
+																		})}
+																	</span>
+																</div>
+															</div>
+															<div class="scene-asset-row__toolbar">
+																<${IconButton}
+																	icon=${item.previewVisible ? "eye" : "eye-off"}
+																	label=${t(
+																		item.previewVisible
+																			? "assetVisibility.visible"
+																			: "assetVisibility.hidden",
+																	)}
+																	active=${item.previewVisible}
+																	compact=${true}
+																	className="scene-asset-row__icon-button"
+																	onClick=${(event) => {
+																		event.stopPropagation();
+																		controller()?.setReferenceImagePreviewVisible?.(
+																			item.id,
+																			!item.previewVisible,
+																		);
+																	}}
+																/>
+																<${IconButton}
+																	icon=${item.exportEnabled ? "export" : "slash-circle"}
+																	label=${
+																		item.exportEnabled
+																			? t(
+																					"action.excludeReferenceImageFromExport",
+																				)
+																			: t(
+																					"action.includeReferenceImageInExport",
+																				)
+																	}
+																	compact=${true}
+																	className="scene-asset-row__icon-button"
+																	onClick=${(event) => {
+																		event.stopPropagation();
+																		controller()?.setReferenceImageExportEnabled?.(
+																			item.id,
+																			!item.exportEnabled,
+																		);
+																	}}
+																/>
+															</div>
+														</article>
+													`,
+												)}
+											</div>
+										`
+									: html`<p class="summary">${t("referenceImage.currentCameraEmpty")}</p>`
+							}
+						</section>
+					`
+				}
 				${
 					selectedItem && selectedAsset
 						? html`
@@ -1922,7 +3359,7 @@ export function ReferenceSection({ controller, store, t }) {
 						: html`<p class="summary">${t("referenceImage.selectedEmpty")}</p>`
 				}
 			</div>
-		</section>
+		<//>
 	`;
 }
 
@@ -1930,16 +3367,25 @@ export function OutputFrameSection({
 	anchorOptions,
 	controller,
 	exportSizeLabel,
+	open = true,
+	summaryActions = null,
+	onToggle = null,
 	heightLabel,
 	store,
 	t,
 	widthLabel,
 }) {
+	const anchorValue = store.renderBox.anchor.value;
+
 	return html`
-		<section class="panel-section">
-			<${SectionHeading} icon="render-box" title=${t("section.outputFrame")}>
-				<span id="export-size-pill" class="pill pill--dim">${exportSizeLabel}</span>
-			<//>
+		<${DisclosureBlock}
+			icon="render-box"
+			label=${t("section.outputFrame")}
+			open=${open}
+			summaryMeta=${html`<span id="export-size-pill" class="pill pill--dim">${exportSizeLabel}</span>`}
+			summaryActions=${summaryActions}
+			onToggle=${onToggle}
+		>
 			<label class="field field--range">
 				<span>${t("field.outputFrameWidth")}</span>
 				<div class="range-row">
@@ -1974,21 +3420,40 @@ export function OutputFrameSection({
 					<output id="box-height-value">${heightLabel}</output>
 				</div>
 			</label>
-			<label class="field">
+			<div class="field field--inline-compact field--anchor-compact">
 				<span>${t("field.anchor")}</span>
-				<select
-					id="anchor-select"
-					value=${store.renderBox.anchor.value}
-					...${INTERACTIVE_FIELD_PROPS}
-					onChange=${(event) => controller()?.setAnchor(event.currentTarget.value)}
-				>
+				<div class="field--inline-compact__value field--anchor-compact__value">
+					<div
+						class="anchor-matrix"
+						role="grid"
+						aria-label=${t("field.anchor")}
+					>
 					${anchorOptions.map(
-						(option) =>
-							html`<option value=${option.value}>${option.label}</option>`,
+						(option) => html`
+							<button
+								key=${option.value}
+								type="button"
+								class=${
+									option.value === anchorValue
+										? "anchor-matrix__cell anchor-matrix__cell--active"
+										: "anchor-matrix__cell"
+								}
+								aria-label=${option.label}
+								title=${option.label}
+								onPointerDown=${stopUiEvent}
+								onClick=${(event) => {
+									stopUiEvent(event);
+									controller()?.setAnchor(option.value);
+								}}
+							>
+								<span class="anchor-matrix__dot"></span>
+							</button>
+						`,
 					)}
-				</select>
-			</label>
-		</section>
+					</div>
+				</div>
+			</div>
+		<//>
 	`;
 }
 
@@ -2000,6 +3465,9 @@ export function ExportSection({
 	exportSelectionMissing,
 	exportStatusLabel,
 	exportTarget,
+	open = true,
+	summaryActions = null,
+	onToggle = null,
 	store,
 	t,
 }) {
@@ -2011,12 +3479,17 @@ export function ExportSection({
 		store.referenceImages.exportSessionEnabled.value !== false;
 
 	return html`
-		<section class="panel-section panel-section--preview">
-			<${SectionHeading} icon="export" title=${t("section.export")}>
-				<span id="export-status-pill" class=${exportStatusClass}>
-					${exportStatusLabel}
-				</span>
-			<//>
+		<${DisclosureBlock}
+			icon="export"
+			label=${t("section.export")}
+			open=${open}
+			summaryMeta=${html`<span id="export-status-pill" class=${exportStatusClass}>
+				${exportStatusLabel}
+			</span>`}
+			summaryActions=${summaryActions}
+			onToggle=${onToggle}
+			className="panel-disclosure--preview"
+		>
 			<label class="field">
 				<span>${t("field.exportTarget")}</span>
 				<select
@@ -2082,15 +3555,7 @@ export function ExportSection({
 			<p id="export-summary" class="summary">
 				${exportFormatLabel} · ${store.exportSummary.value}
 			</p>
-		</section>
-	`;
-}
-
-export function FooterSection({ store }) {
-	return html`
-		<footer class="panel-footer">
-			<p id="status-line" class="status-line">${store.statusLine.value}</p>
-		</footer>
+		<//>
 	`;
 }
 
@@ -2103,6 +3568,7 @@ export function InspectorTabs({ activeTab, setActiveTab, t }) {
 			activeTab=${activeTab}
 			setActiveTab=${setActiveTab}
 			ariaLabel=${t("section.project")}
+			iconOnly=${true}
 		/>
 	`;
 }

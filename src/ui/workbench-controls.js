@@ -42,11 +42,16 @@ export const DEFAULT_NUMERIC_SCRUB_MODIFIERS = Object.freeze({
 	altShift: 0.025,
 });
 const NUMERIC_SCRUB_EDGE_MARGIN_PX = 12;
-const NUMERIC_SCRUB_REARM_DISTANCE_PX = 24;
+const NUMERIC_SCRUB_EDGE_SLOW_ZONE_PX = 84;
+const NUMERIC_SCRUB_EDGE_SLOW_MIN_FACTOR = 0.55;
+const NUMERIC_SCRUB_EDGE_HOLD_DELAY_MS = 90;
+const NUMERIC_SCRUB_EDGE_HOLD_RATE_PX_PER_FRAME = 1.0;
 
-export function NumericUnitLabel({ value, title = "" }) {
+export function NumericUnitLabel({ value, title = "", className = "" }) {
 	return html`
-		<span class="numeric-unit__label" aria-label=${title || value}>${value}</span>
+		<span class=${`numeric-unit__label ${className}`.trim()} aria-label=${title || value}
+			>${value}</span
+		>
 	`;
 }
 
@@ -176,11 +181,13 @@ export function NumericDraftInput({
 	value,
 	inputMode = "decimal",
 	onCommit,
+	onScrubDelta = null,
 	onScrubStart = null,
 	controller = null,
 	historyLabel = "",
 	scrubModifiers = null,
 	scrubHandleSide = "auto",
+	scrubStartValue = null,
 	...props
 }) {
 	const formattedValue = String(value);
@@ -285,10 +292,45 @@ export function NumericDraftInput({
 		return Number.isFinite(width) && width > 0 ? width : null;
 	}
 
+	function getEdgeApproachFactor(currentClientX, viewportWidth, deltaPixels) {
+		if (viewportWidth === null || Math.abs(deltaPixels) <= 0) {
+			return 1;
+		}
+
+		let distanceToEdge = null;
+		if (deltaPixels < 0) {
+			distanceToEdge = currentClientX;
+		} else if (deltaPixels > 0) {
+			distanceToEdge = viewportWidth - currentClientX;
+		}
+
+		if (
+			distanceToEdge === null ||
+			distanceToEdge >= NUMERIC_SCRUB_EDGE_SLOW_ZONE_PX
+		) {
+			return 1;
+		}
+
+		const normalizedDistance = Math.max(
+			0,
+			Math.min(1, distanceToEdge / NUMERIC_SCRUB_EDGE_SLOW_ZONE_PX),
+		);
+		const easedDistance = normalizedDistance * normalizedDistance;
+		return (
+			NUMERIC_SCRUB_EDGE_SLOW_MIN_FACTOR +
+			(1 - NUMERIC_SCRUB_EDGE_SLOW_MIN_FACTOR) * easedDistance
+		);
+	}
+
 	function finishScrub(mode = "commit") {
 		const scrubState = scrubStateRef.current;
 		if (!scrubState) {
 			return;
+		}
+
+		if (scrubState.edgeHoldFrameId) {
+			globalThis.cancelAnimationFrame(scrubState.edgeHoldFrameId);
+			scrubState.edgeHoldFrameId = 0;
 		}
 
 		scrubState.handle.removeEventListener("pointermove", scrubState.onMove);
@@ -308,7 +350,10 @@ export function NumericDraftInput({
 		stopUiEvent(event);
 		event.preventDefault();
 
-		const startValue = parseNumber(formattedValue);
+		const startValue =
+			scrubStartValue !== null && scrubStartValue !== undefined
+				? parseNumber(scrubStartValue)
+				: parseNumber(formattedValue);
 		if (startValue === null) {
 			return;
 		}
@@ -324,11 +369,96 @@ export function NumericDraftInput({
 			handle,
 			lastClientX: event.clientX,
 			appliedValue: startValue,
-			edgeClampDirection: 0,
-			edgeRearmDistance: 0,
+			edgeHoldDirection: 0,
+			edgeHoldMultiplier: 1,
+			edgeHoldEngagedAt: 0,
+			edgeHoldLastTimestamp: 0,
+			edgeHoldFrameId: 0,
 			onMove: null,
 			onUp: null,
 			onCancel: null,
+		};
+
+		const applyNumericDelta = (deltaValue) => {
+			if (!Number.isFinite(deltaValue) || Math.abs(deltaValue) <= 1e-8) {
+				return;
+			}
+			const nextValue = clampValue(scrubState.appliedValue + deltaValue);
+			const nextDraftValue = String(nextValue);
+			const appliedDeltaValue = nextValue - scrubState.appliedValue;
+			if (
+				!Number.isFinite(appliedDeltaValue) ||
+				Math.abs(appliedDeltaValue) <= 1e-8
+			) {
+				return;
+			}
+			scrubState.appliedValue = nextValue;
+			setDraftValue(nextDraftValue);
+			if (onScrubDelta) {
+				onScrubDelta(appliedDeltaValue, nextValue);
+			} else {
+				onCommit?.(nextDraftValue);
+			}
+		};
+
+		const stopEdgeHold = () => {
+			if (scrubState.edgeHoldFrameId) {
+				globalThis.cancelAnimationFrame(scrubState.edgeHoldFrameId);
+			}
+			scrubState.edgeHoldDirection = 0;
+			scrubState.edgeHoldFrameId = 0;
+			scrubState.edgeHoldEngagedAt = 0;
+			scrubState.edgeHoldLastTimestamp = 0;
+		};
+
+		const runEdgeHold = (timestamp) => {
+			if (
+				scrubStateRef.current !== scrubState ||
+				!scrubState.edgeHoldDirection
+			) {
+				scrubState.edgeHoldFrameId = 0;
+				return;
+			}
+			if (!scrubState.edgeHoldEngagedAt) {
+				scrubState.edgeHoldEngagedAt = timestamp;
+			}
+			if (!scrubState.edgeHoldLastTimestamp) {
+				scrubState.edgeHoldLastTimestamp = timestamp;
+			}
+
+			const elapsedMs = timestamp - scrubState.edgeHoldLastTimestamp;
+			scrubState.edgeHoldLastTimestamp = timestamp;
+			if (
+				timestamp - scrubState.edgeHoldEngagedAt >=
+				NUMERIC_SCRUB_EDGE_HOLD_DELAY_MS
+			) {
+				const frameScale = elapsedMs / 16.6667;
+				const deltaPixels =
+					scrubState.edgeHoldDirection *
+					NUMERIC_SCRUB_EDGE_HOLD_RATE_PX_PER_FRAME *
+					frameScale;
+				applyNumericDelta(
+					deltaPixels * getStepValue() * scrubState.edgeHoldMultiplier,
+				);
+			}
+
+			scrubState.edgeHoldFrameId =
+				globalThis.requestAnimationFrame(runEdgeHold);
+		};
+
+		const ensureEdgeHold = (direction, multiplier) => {
+			if (
+				scrubState.edgeHoldDirection === direction &&
+				Math.abs(scrubState.edgeHoldMultiplier - multiplier) <= 1e-8 &&
+				scrubState.edgeHoldFrameId
+			) {
+				return;
+			}
+			stopEdgeHold();
+			scrubState.edgeHoldDirection = direction;
+			scrubState.edgeHoldMultiplier = multiplier;
+			scrubState.edgeHoldFrameId =
+				globalThis.requestAnimationFrame(runEdgeHold);
 		};
 
 		const onMove = (moveEvent) => {
@@ -345,41 +475,27 @@ export function NumericDraftInput({
 				viewportWidth !== null &&
 				currentClientX >= viewportWidth - NUMERIC_SCRUB_EDGE_MARGIN_PX;
 
-			if (scrubState.edgeClampDirection !== 0) {
-				const movingAwayFromEdge =
-					deltaPixels * scrubState.edgeClampDirection < 0;
-				scrubState.lastClientX = currentClientX;
-				if (!movingAwayFromEdge || Math.abs(deltaPixels) <= 0) {
-					return;
-				}
-				scrubState.edgeRearmDistance += Math.abs(deltaPixels);
-				if (scrubState.edgeRearmDistance >= NUMERIC_SCRUB_REARM_DISTANCE_PX) {
-					scrubState.edgeClampDirection = 0;
-					scrubState.edgeRearmDistance = 0;
-				}
-				return;
-			}
-
 			if (Math.abs(deltaPixels) <= 0) {
 				return;
 			}
 
-			const nextValue = clampValue(
-				scrubState.appliedValue +
-					deltaPixels * getStepValue() * getScrubMultiplier(moveEvent),
+			const scrubMultiplier = getScrubMultiplier(moveEvent);
+			const approachFactor = getEdgeApproachFactor(
+				currentClientX,
+				viewportWidth,
+				deltaPixels,
 			);
-			const nextDraftValue = String(nextValue);
-			scrubState.appliedValue = nextValue;
 			scrubState.lastClientX = currentClientX;
-			setDraftValue(nextDraftValue);
-			onCommit?.(nextDraftValue);
+			applyNumericDelta(
+				deltaPixels * getStepValue() * scrubMultiplier * approachFactor,
+			);
 
 			if (deltaPixels < 0 && hitLeftEdge) {
-				scrubState.edgeClampDirection = -1;
-				scrubState.edgeRearmDistance = 0;
+				ensureEdgeHold(-1, scrubMultiplier * approachFactor);
 			} else if (deltaPixels > 0 && hitRightEdge) {
-				scrubState.edgeClampDirection = 1;
-				scrubState.edgeRearmDistance = 0;
+				ensureEdgeHold(1, scrubMultiplier * approachFactor);
+			} else {
+				stopEdgeHold();
 			}
 		};
 
@@ -668,7 +784,7 @@ export function LightingDirectionControl({
 		const syncHeading = () => {
 			const nextHeadingDeg = controller?.()?.getActiveCameraHeadingDeg?.();
 			if (Number.isFinite(nextHeadingDeg)) {
-				const normalizedHeadingDeg = normalizeDegrees(nextHeadingDeg);
+				const normalizedHeadingDeg = normalizeDegrees(nextHeadingDeg + 180);
 				if (
 					Math.abs(
 						normalizeDegrees(
@@ -873,7 +989,12 @@ export function LightingDirectionControl({
 	`;
 }
 
-export function TextDraftInput({ value, onCommit, ...props }) {
+export function TextDraftInput({
+	value,
+	onCommit,
+	selectOnFocus = false,
+	...props
+}) {
 	const formattedValue = String(value ?? "");
 	const [draftValue, setDraftValue] = useState(formattedValue);
 	const [isEditing, setIsEditing] = useState(false);
@@ -894,16 +1015,38 @@ export function TextDraftInput({ value, onCommit, ...props }) {
 		setIsEditing(false);
 	}
 
+	function handlePointerDown(event) {
+		if (selectOnFocus) {
+			event.preventDefault();
+			stopUiEvent(event);
+			const target = event.currentTarget;
+			setIsEditing(true);
+			setDraftValue(String(target.value ?? formattedValue));
+			requestAnimationFrame(() => {
+				target?.focus?.();
+				target?.select?.();
+			});
+			return;
+		}
+		stopUiEvent(event);
+	}
+
 	return html`
 		<input
 			...${props}
 			type="text"
 			data-draft-editing=${isEditing ? "true" : "false"}
 			value=${isEditing ? draftValue : formattedValue}
+			onPointerDown=${handlePointerDown}
 			onFocus=${(event) => {
 				stopUiEvent(event);
 				setIsEditing(true);
 				setDraftValue(String(event.currentTarget.value ?? formattedValue));
+				if (selectOnFocus) {
+					requestAnimationFrame(() => {
+						event.currentTarget?.select?.();
+					});
+				}
 			}}
 			onInput=${(event) => {
 				stopUiEvent(event);
@@ -916,7 +1059,6 @@ export function TextDraftInput({ value, onCommit, ...props }) {
 			onChange=${(event) => {
 				commitDraft(event.currentTarget.value);
 			}}
-			onPointerDown=${stopUiEvent}
 			onClick=${stopUiEvent}
 			onWheel=${stopUiWheelEvent}
 			onKeyDown=${(event) => {

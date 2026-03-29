@@ -6,6 +6,10 @@ import {
 } from "../engine/frame-transform.js";
 import { getFrameResizeCursorCss } from "../engine/resize-cursor.js";
 import { getFrameRotateCursorCss } from "../engine/rotate-cursor.js";
+import { translate } from "../i18n.js";
+import { FRAME_NAME_MAX_LENGTH } from "../workspace-model.js";
+import { TextDraftInput } from "./workbench-controls.js";
+import { WorkbenchIcon } from "./workbench-icons.js";
 
 const FRAME_RESIZE_HANDLES = [
 	"top-left",
@@ -53,10 +57,12 @@ export function FrameLayer({
 }) {
 	const exportWidth = store.exportWidth.value;
 	const exportHeight = store.exportHeight.value;
+	const locale = store.locale.value;
 	const activeFrameId = store.frames.activeId.value;
 	const frameSelectionActive = store.frames.selectionActive.value;
 	const selectedFrameIds = new Set(store.frames.selectedIds.value ?? []);
 	const multiFrameSelection = frameSelectionActive && selectedFrameIds.size > 1;
+	const selectedFrameCount = selectedFrameIds.size;
 	const selectionBoxLogical = store.frames.selectionBoxLogical.value;
 	const selectionAnchor =
 		store.frames.selectionAnchor.value &&
@@ -106,6 +112,8 @@ export function FrameLayer({
 						frameSelectionActive && selectedFrameIds.has(frame.id);
 					const activeFrame = selectedFrame && activeFrameId === frame.id;
 					const showItemHandles = activeFrame && !multiFrameSelection;
+					const showFrameLabel = selectedFrame && !multiFrameSelection;
+					const showDeleteButton = selectedFrame && !multiFrameSelection;
 					const frameRotationRadians = ((frame.rotation ?? 0) * Math.PI) / 180;
 					const frameAnchor = getFrameAnchorLocalNormalized(
 						frame,
@@ -120,6 +128,8 @@ export function FrameLayer({
 						},
 					);
 					const frameAnchorHandle = getFrameAnchorHandleKey(frameAnchor);
+					const deleteFrameLabel = translate(locale, "action.deleteFrame");
+					const renameFrameLabel = translate(locale, "action.renameFrame");
 
 					return html`
 						<div
@@ -140,9 +150,49 @@ export function FrameLayer({
 								transformOrigin: "center center",
 							}}
 						>
-							<span class="frame-item__label"
-								>${frame.name} ${frameScaleLabel}</span
-							>
+							${
+								showFrameLabel &&
+								html`
+									<span class="frame-item__label">
+										<span class="frame-item__label-text"
+											><${TextDraftInput}
+												class="frame-item__label-input"
+												value=${frame.name}
+												aria-label=${renameFrameLabel}
+												maxLength=${FRAME_NAME_MAX_LENGTH}
+												selectOnFocus=${true}
+												onCommit=${(nextValue) =>
+													controller()?.setFrameName?.(frame.id, nextValue)}
+											/></span
+										>
+										<span class="frame-item__label-scale"
+											>${frameScaleLabel}</span
+										>
+										${
+											showDeleteButton &&
+											html`
+												<button
+													type="button"
+													class="frame-item__label-delete"
+													aria-label=${deleteFrameLabel}
+													title=${deleteFrameLabel}
+													onPointerDown=${(event) => {
+														event.preventDefault();
+														event.stopPropagation();
+													}}
+													onClick=${(event) => {
+														event.preventDefault();
+														event.stopPropagation();
+														controller()?.deleteFrame?.(frame.id);
+													}}
+												>
+													<${WorkbenchIcon} name="trash" size=${11} />
+												</button>
+											`
+										}
+									</span>
+								`
+							}
 							<button
 								type="button"
 								class="frame-item__edge frame-item__edge--top"
@@ -238,6 +288,30 @@ export function FrameLayer({
 							transformOrigin: `${selectionAnchor.x * 100}% ${selectionAnchor.y * 100}%`,
 						}}
 					>
+						<span
+							class="frame-item__label frame-item__label--group"
+						>
+							<span class="frame-item__label-text"
+								>${`${selectedFrameCount} FRAME`}</span
+							>
+							<button
+								type="button"
+								class="frame-item__label-delete"
+								aria-label=${translate(locale, "action.deleteFrame")}
+								title=${translate(locale, "action.deleteFrame")}
+								onPointerDown=${(event) => {
+									event.preventDefault();
+									event.stopPropagation();
+								}}
+								onClick=${(event) => {
+									event.preventDefault();
+									event.stopPropagation();
+									controller()?.deleteSelectedFrames?.();
+								}}
+							>
+								<${WorkbenchIcon} name="trash" size=${11} />
+							</button>
+						</span>
 						${["top", "right", "bottom", "left"].map(
 							(edge) => html`
 								<button

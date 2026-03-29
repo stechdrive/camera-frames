@@ -1,16 +1,22 @@
 import { html } from "htm/preact";
-import { useEffect, useRef, useState } from "preact/hooks";
-import { FRAME_MAX_COUNT } from "../constants.js";
+import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import { getAnchorOptions } from "../i18n.js";
 import { WorkbenchIcon } from "./workbench-icons.js";
 import { HeaderMenu, IconButton } from "./workbench-primitives.js";
 import {
 	ExportSection,
 	ExportSettingsSection,
-	FooterSection,
-	FramesSection,
+	INSPECTOR_QUICK_SECTION_EXPORT,
+	INSPECTOR_QUICK_SECTION_EXPORT_SETTINGS,
+	INSPECTOR_QUICK_SECTION_LIGHTING,
+	INSPECTOR_QUICK_SECTION_OUTPUT_FRAME,
+	INSPECTOR_QUICK_SECTION_REFERENCE,
+	INSPECTOR_QUICK_SECTION_SCENE,
+	INSPECTOR_QUICK_SECTION_SHOT_CAMERA,
+	INSPECTOR_QUICK_SECTION_SHOT_CAMERA_PROPERTIES,
 	INSPECTOR_TAB_CAMERA,
 	INSPECTOR_TAB_EXPORT,
+	INSPECTOR_TAB_REFERENCE,
 	INSPECTOR_TAB_SCENE,
 	InspectorRailSection,
 	InspectorTabs,
@@ -18,11 +24,37 @@ import {
 	OutputFrameSection,
 	ReferenceSection,
 	SceneSection,
+	SceneWorkspaceSection,
+	SelectedSceneAssetInspector,
+	ShotCameraPropertiesSection,
 	ShotCameraSection,
 	ToolRailSection,
-	ViewSettingsSection,
+	getInspectorQuickSections,
 	getInspectorTabs,
 } from "./workbench-sections.js";
+
+const INSPECTOR_QUICK_SECTIONS_STORAGE_KEY =
+	"camera-frames.inspectorQuickSectionIds";
+
+function loadPinnedQuickSectionIds() {
+	if (typeof window === "undefined" || !window.localStorage) {
+		return [];
+	}
+	try {
+		const rawValue = window.localStorage.getItem(
+			INSPECTOR_QUICK_SECTIONS_STORAGE_KEY,
+		);
+		if (!rawValue) {
+			return [];
+		}
+		const parsedValue = JSON.parse(rawValue);
+		return Array.isArray(parsedValue)
+			? parsedValue.filter((value) => typeof value === "string")
+			: [];
+	} catch {
+		return [];
+	}
+}
 
 function clampToolRailPosition({ x, y }, shellElement, railElement) {
 	if (!shellElement || !railElement) {
@@ -42,7 +74,12 @@ function clampToolRailPosition({ x, y }, shellElement, railElement) {
 export function SidePanel({ store, controller, locale, t, refs }) {
 	const [activeInspectorTab, setActiveInspectorTab] =
 		useState(INSPECTOR_TAB_CAMERA);
-	const [inspectorPeekTab, setInspectorPeekTab] = useState(null);
+	const [activeQuickSectionId, setActiveQuickSectionId] = useState(null);
+	const [pinnedQuickSectionIds, setPinnedQuickSectionIds] = useState(
+		loadPinnedQuickSectionIds,
+	);
+	const [collapsedInspectorSectionIds, setCollapsedInspectorSectionIds] =
+		useState([]);
 	const [isMobileWorkbench, setIsMobileWorkbench] = useState(false);
 	const [draggedAssetId, setDraggedAssetId] = useState(null);
 	const [dragHoverState, setDragHoverState] = useState(null);
@@ -52,10 +89,6 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 	const toolRailDragStateRef = useRef(null);
 	const workbenchCollapsed = store.workbenchCollapsed.value;
 	const mode = store.mode.value;
-	const sceneUnitBadge = store.sceneUnitBadge.value;
-	const sceneBadge = store.sceneBadge.value;
-	const sceneSummary = store.sceneSummary.value;
-	const sceneScaleSummary = store.sceneScaleSummary.value;
 	const sceneAssets = store.sceneAssets.value;
 	const selectedSceneAsset = store.selectedSceneAsset.value;
 	const activeShotCamera = store.workspace.activeShotCamera.value;
@@ -67,12 +100,6 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 	const exportSplatLayers = store.shotCamera.exportSplatLayers.value;
 	const fovLabel = store.fovLabel.value;
 	const equivalentMmValue = store.equivalentMmValue.value;
-	const viewportFovLabel = store.viewportFovLabel.value;
-	const viewportEquivalentMmValue = store.viewportEquivalentMmValue.value;
-	const frameDocuments = store.frames.documents.value;
-	const activeFrameId = store.frames.activeId.value;
-	const frameCount = store.frames.count.value;
-	const frameLimitReached = frameCount >= FRAME_MAX_COUNT;
 	const exportSizeLabel = store.exportSizeLabel.value;
 	const widthLabel = store.widthLabel.value;
 	const heightLabel = store.heightLabel.value;
@@ -89,8 +116,34 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 	const anchorOptions = getAnchorOptions(locale);
 	const workbenchAutoCollapsed = store.workbenchAutoCollapsed.value;
 	const inspectorTabs = getInspectorTabs(t);
-	const peekInspectorTabDefinition =
-		inspectorTabs.find((tab) => tab.id === inspectorPeekTab) ?? null;
+	const activeInspectorTabDefinition =
+		inspectorTabs.find((tab) => tab.id === activeInspectorTab) ??
+		inspectorTabs[0];
+	const inspectorQuickSections = getInspectorQuickSections(t);
+	const inspectorQuickSectionMap = new Map(
+		inspectorQuickSections.map((section) => [section.id, section]),
+	);
+	const activeQuickSectionDefinition =
+		(activeQuickSectionId &&
+			inspectorQuickSectionMap.get(activeQuickSectionId)) ??
+		null;
+	const isSectionAvailable = useCallback(() => true, []);
+	const pinnedQuickSections = pinnedQuickSectionIds
+		.map((sectionId) => inspectorQuickSectionMap.get(sectionId) ?? null)
+		.filter(Boolean)
+		.filter((section) => isSectionAvailable(section.id));
+	const isInspectorSectionOpen = (sectionId) =>
+		!collapsedInspectorSectionIds.includes(sectionId);
+	const setInspectorSectionOpen = (sectionId, nextOpen) => {
+		setCollapsedInspectorSectionIds((currentIds) => {
+			if (nextOpen) {
+				return currentIds.filter((id) => id !== sectionId);
+			}
+			return currentIds.includes(sectionId)
+				? currentIds
+				: [...currentIds, sectionId];
+		});
+	};
 	const collapseWorkbench = () => {
 		store.workbenchManualCollapsed.value = true;
 		store.workbenchManualExpanded.value = false;
@@ -103,14 +156,26 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 		if (tabId) {
 			setActiveInspectorTab(tabId);
 		}
-		setInspectorPeekTab(null);
+		setActiveQuickSectionId(null);
 		expandWorkbench();
 	};
-	const toggleInspectorPeek = (tabId) => {
-		setActiveInspectorTab(tabId);
-		setInspectorPeekTab((currentTabId) =>
-			currentTabId === tabId ? null : tabId,
+	const toggleQuickSection = (sectionId) => {
+		const section = inspectorQuickSectionMap.get(sectionId);
+		if (!section) {
+			return;
+		}
+		setActiveInspectorTab(section.tabId);
+		setActiveQuickSectionId((currentSectionId) =>
+			currentSectionId === sectionId ? null : sectionId,
 		);
+	};
+	const togglePinnedQuickSection = (sectionId) => {
+		setPinnedQuickSectionIds((currentIds) => {
+			if (currentIds.includes(sectionId)) {
+				return currentIds.filter((id) => id !== sectionId);
+			}
+			return [...currentIds, sectionId];
+		});
 	};
 	const toggleMobileInspector = (tabId) => {
 		if (!workbenchCollapsed && activeInspectorTab === tabId) {
@@ -118,6 +183,43 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 			return;
 		}
 		openInspectorFull(tabId);
+	};
+	const isQuickSectionPinned = (sectionId) =>
+		pinnedQuickSectionIds.includes(sectionId);
+	const getQuickSectionPinButton = (sectionId) => {
+		const section = inspectorQuickSectionMap.get(sectionId);
+		if (!section) {
+			return null;
+		}
+		const pinned = isQuickSectionPinned(sectionId);
+		return html`
+			<${IconButton}
+				icon="pin"
+				label=${
+					pinned ? t("action.unpinQuickSection") : t("action.pinQuickSection")
+				}
+				active=${pinned}
+				compact=${true}
+				className="section-heading__pin-button"
+				tooltip=${{
+					title: pinned
+						? t("action.unpinQuickSection")
+						: t("action.pinQuickSection"),
+					description: pinned
+						? t("tooltip.unpinQuickSection")
+						: t("tooltip.pinQuickSection"),
+					placement: "left",
+				}}
+				onClick=${(event) => {
+					event.preventDefault();
+					event.stopPropagation();
+					togglePinnedQuickSection(sectionId);
+					if (pinned && activeQuickSectionId === sectionId) {
+						setActiveQuickSectionId(null);
+					}
+				}}
+			/>
+		`;
 	};
 	const projectMenuItems = [
 		{
@@ -199,10 +301,38 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 
 	useEffect(() => {
 		if (!workbenchCollapsed) {
-			setInspectorPeekTab(null);
+			setActiveQuickSectionId(null);
 		}
 		return undefined;
 	}, [workbenchCollapsed]);
+
+	useEffect(() => {
+		if (
+			activeQuickSectionId &&
+			(!pinnedQuickSectionIds.includes(activeQuickSectionId) ||
+				!isSectionAvailable(activeQuickSectionId))
+		) {
+			setActiveQuickSectionId(null);
+		}
+		return undefined;
+	}, [activeQuickSectionId, isSectionAvailable, pinnedQuickSectionIds]);
+
+	useEffect(() => {
+		if (typeof window === "undefined" || !window.localStorage) {
+			return undefined;
+		}
+		const validSectionIds = new Set(
+			inspectorQuickSections.map((section) => section.id),
+		);
+		const sanitizedSectionIds = pinnedQuickSectionIds.filter((sectionId) =>
+			validSectionIds.has(sectionId),
+		);
+		window.localStorage.setItem(
+			INSPECTOR_QUICK_SECTIONS_STORAGE_KEY,
+			JSON.stringify(sanitizedSectionIds),
+		);
+		return undefined;
+	}, [inspectorQuickSections, pinnedQuickSectionIds]);
 
 	useEffect(() => {
 		if (workbenchCollapsed || isMobileWorkbench) {
@@ -333,101 +463,178 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 		setToolRailDragging(false);
 	};
 
-	const renderInspectorContent = (tabId) => {
+	const getTabSectionIds = (tabId) => {
 		if (tabId === INSPECTOR_TAB_SCENE) {
-			return html`
-				<${SceneSection}
-					controller=${controller}
-					sceneAssets=${sceneAssets}
-					sceneBadge=${sceneBadge}
-					sceneScaleSummary=${sceneScaleSummary}
-					sceneSummary=${sceneSummary}
-					sceneUnitBadge=${sceneUnitBadge}
-					selectedSceneAsset=${selectedSceneAsset}
-					store=${store}
-					t=${t}
-					draggedAssetId=${draggedAssetId}
-					setDraggedAssetId=${setDraggedAssetId}
-					dragHoverState=${dragHoverState}
-					setDragHoverState=${setDragHoverState}
-				/>
-				<${LightingSection}
-					controller=${controller}
-					store=${store}
-					t=${t}
-				/>
-			`;
+			return [INSPECTOR_QUICK_SECTION_SCENE, INSPECTOR_QUICK_SECTION_LIGHTING];
 		}
 		if (tabId === INSPECTOR_TAB_CAMERA) {
-			return html`
-				<${ViewSettingsSection}
-					controller=${controller}
-					mode=${mode}
-					selectedSceneAsset=${selectedSceneAsset}
-					store=${store}
-					t=${t}
-					viewportEquivalentMmValue=${viewportEquivalentMmValue}
-					viewportFovLabel=${viewportFovLabel}
-				/>
-				<${ShotCameraSection}
-					activeShotCamera=${activeShotCamera}
-					controller=${controller}
-					equivalentMmValue=${equivalentMmValue}
-					fovLabel=${fovLabel}
-					shotCameraClipMode=${shotCameraClipMode}
-					store=${store}
-					t=${t}
-				/>
-				<${OutputFrameSection}
-					anchorOptions=${anchorOptions}
-					controller=${controller}
-					exportSizeLabel=${exportSizeLabel}
-					heightLabel=${heightLabel}
-					store=${store}
-					t=${t}
-					widthLabel=${widthLabel}
-				/>
-				<${ReferenceSection}
-					controller=${controller}
-					store=${store}
-					t=${t}
-				/>
-				<${FramesSection}
-					activeFrameId=${activeFrameId}
-					controller=${controller}
-					frameCount=${frameCount}
-					frameDocuments=${frameDocuments}
-					frameLimitReached=${frameLimitReached}
-					store=${store}
-					t=${t}
-				/>
-			`;
+			return [
+				INSPECTOR_QUICK_SECTION_SHOT_CAMERA,
+				INSPECTOR_QUICK_SECTION_SHOT_CAMERA_PROPERTIES,
+				INSPECTOR_QUICK_SECTION_OUTPUT_FRAME,
+			];
 		}
-		return html`
-			<${ExportSection}
-				controller=${controller}
-				exportBusy=${exportBusy}
-				exportFormatLabel=${exportFormatLabel}
-				exportPresetIds=${exportPresetIds}
-				exportSelectionMissing=${exportSelectionMissing}
-				exportStatusLabel=${exportStatusLabel}
-				exportTarget=${exportTarget}
-				store=${store}
-				t=${t}
-			/>
-			<${ExportSettingsSection}
-				activeShotCamera=${activeShotCamera}
-				controller=${controller}
-				exportFormat=${exportFormat}
-				exportGridLayerMode=${exportGridLayerMode}
-				exportGridOverlay=${exportGridOverlay}
-				exportModelLayers=${exportModelLayers}
-				exportSplatLayers=${exportSplatLayers}
-				store=${store}
-				t=${t}
-			/>
-		`;
+		if (tabId === INSPECTOR_TAB_REFERENCE) {
+			return [INSPECTOR_QUICK_SECTION_REFERENCE];
+		}
+		return [
+			INSPECTOR_QUICK_SECTION_EXPORT,
+			INSPECTOR_QUICK_SECTION_EXPORT_SETTINGS,
+		];
 	};
+
+	const renderInspectorSection = (
+		sectionId,
+		{ quick = false, desktopFull = false } = {},
+	) => {
+		const pinAction = getQuickSectionPinButton(sectionId);
+		const open = isInspectorSectionOpen(sectionId);
+		const onToggle = (nextOpen) => setInspectorSectionOpen(sectionId, nextOpen);
+		switch (sectionId) {
+			case INSPECTOR_QUICK_SECTION_SCENE:
+				if (desktopFull) {
+					return html`
+						<${SceneWorkspaceSection}
+							controller=${controller}
+							open=${open}
+							onToggle=${onToggle}
+							sceneAssets=${sceneAssets}
+							selectedSceneAsset=${selectedSceneAsset}
+							store=${store}
+							summaryActions=${pinAction}
+							t=${t}
+							draggedAssetId=${draggedAssetId}
+							setDraggedAssetId=${setDraggedAssetId}
+							dragHoverState=${dragHoverState}
+							setDragHoverState=${setDragHoverState}
+						/>
+					`;
+				}
+				return html`
+					<${SceneSection}
+						controller=${controller}
+						open=${open}
+						onToggle=${onToggle}
+						sceneAssets=${sceneAssets}
+						selectedSceneAsset=${selectedSceneAsset}
+						store=${store}
+						summaryActions=${pinAction}
+						t=${t}
+						draggedAssetId=${draggedAssetId}
+						setDraggedAssetId=${setDraggedAssetId}
+						dragHoverState=${dragHoverState}
+						setDragHoverState=${setDragHoverState}
+					/>
+				`;
+			case INSPECTOR_QUICK_SECTION_LIGHTING:
+				return html`
+					<${LightingSection}
+						controller=${controller}
+						open=${open}
+						onToggle=${onToggle}
+						store=${store}
+						summaryActions=${pinAction}
+						t=${t}
+					/>
+				`;
+			case INSPECTOR_QUICK_SECTION_SHOT_CAMERA:
+				return html`
+					<${ShotCameraSection}
+						activeShotCamera=${activeShotCamera}
+						controller=${controller}
+						open=${open}
+						onToggle=${onToggle}
+						store=${store}
+						summaryActions=${pinAction}
+						t=${t}
+					/>
+				`;
+			case INSPECTOR_QUICK_SECTION_SHOT_CAMERA_PROPERTIES:
+				return html`
+					<${ShotCameraPropertiesSection}
+						controller=${controller}
+						equivalentMmValue=${equivalentMmValue}
+						fovLabel=${fovLabel}
+						open=${open}
+						onToggle=${onToggle}
+						shotCameraClipMode=${shotCameraClipMode}
+						store=${store}
+						summaryActions=${pinAction}
+						t=${t}
+					/>
+				`;
+			case INSPECTOR_QUICK_SECTION_OUTPUT_FRAME:
+				return html`
+					<${OutputFrameSection}
+						anchorOptions=${anchorOptions}
+						controller=${controller}
+						exportSizeLabel=${exportSizeLabel}
+						open=${open}
+						onToggle=${onToggle}
+						heightLabel=${heightLabel}
+						store=${store}
+						summaryActions=${pinAction}
+						t=${t}
+						widthLabel=${widthLabel}
+					/>
+				`;
+			case INSPECTOR_QUICK_SECTION_REFERENCE:
+				return html`
+					<${ReferenceSection}
+						controller=${controller}
+						open=${open}
+						onToggle=${onToggle}
+						showList=${true}
+						store=${store}
+						summaryActions=${pinAction}
+						t=${t}
+					/>
+				`;
+			case INSPECTOR_QUICK_SECTION_EXPORT:
+				return html`
+					<${ExportSection}
+						controller=${controller}
+						exportBusy=${exportBusy}
+						exportFormatLabel=${exportFormatLabel}
+						exportPresetIds=${exportPresetIds}
+						exportSelectionMissing=${exportSelectionMissing}
+						exportStatusLabel=${exportStatusLabel}
+						exportTarget=${exportTarget}
+						open=${open}
+						onToggle=${onToggle}
+						store=${store}
+						summaryActions=${pinAction}
+						t=${t}
+					/>
+				`;
+			case INSPECTOR_QUICK_SECTION_EXPORT_SETTINGS:
+				return html`
+					<${ExportSettingsSection}
+						activeShotCamera=${activeShotCamera}
+						controller=${controller}
+						exportFormat=${exportFormat}
+						exportGridLayerMode=${exportGridLayerMode}
+						exportGridOverlay=${exportGridOverlay}
+						exportModelLayers=${exportModelLayers}
+						exportSplatLayers=${exportSplatLayers}
+						open=${open}
+						onToggle=${onToggle}
+						store=${store}
+						summaryActions=${pinAction}
+						t=${t}
+					/>
+				`;
+			default:
+				return null;
+		}
+	};
+
+	const renderInspectorContent = (tabId, options = null) =>
+		html`${getTabSectionIds(tabId)
+			.map((sectionId) =>
+				renderInspectorSection(sectionId, options ?? undefined),
+			)
+			.filter(Boolean)}`;
 
 	const mobileInspectorDock = html`
 		<div class="workbench-tool-rail__divider"></div>
@@ -471,6 +678,7 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 							mode=${mode}
 							menuChildren=${fileMenuChildren}
 							projectMenuItems=${projectMenuItems}
+							showQuickMenu=${true}
 							store=${store}
 							t=${t}
 							tooltipPlacement="top"
@@ -505,7 +713,6 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 								<div class="workbench-inspector-stack workbench-inspector-stack--mobile">
 									${renderInspectorContent(activeInspectorTab)}
 								</div>
-								<${FooterSection} store=${store} />
 							</section>
 						</div>
 					`
@@ -566,47 +773,34 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 						? html`
 								<section class="workbench-card workbench-card--inspector-rail">
 									<${InspectorRailSection}
-										activeTab=${inspectorPeekTab ?? activeInspectorTab}
-										onTogglePeek=${toggleInspectorPeek}
+										activeQuickSectionId=${activeQuickSectionId}
+										activeTab=${activeQuickSectionDefinition?.tabId ?? activeInspectorTab}
+										onOpenFullTab=${openInspectorFull}
+										onToggleQuickSection=${toggleQuickSection}
+										quickSections=${pinnedQuickSections}
 										t=${t}
 									/>
 								</section>
 								${
-									peekInspectorTabDefinition &&
+									activeQuickSectionDefinition &&
 									html`
 										<section class="workbench-card workbench-card--inspector-peek">
 											<div class="workbench-inspector-peek__header">
 												<div class="workbench-inspector-peek__title">
 													<span class="workbench-inspector-peek__title-icon">
 														<${WorkbenchIcon}
-															name=${peekInspectorTabDefinition.icon}
+															name=${activeQuickSectionDefinition.icon}
 															size=${14}
 														/>
 													</span>
-													<strong>${peekInspectorTabDefinition.label}</strong>
-												</div>
-												<div class="workbench-inspector-peek__actions">
-													<button
-														type="button"
-														class="workbench-inspector-toggle"
-														aria-label=${t("action.expandWorkbench")}
-														onClick=${() =>
-															openInspectorFull(peekInspectorTabDefinition.id)}
-													>
-														<${WorkbenchIcon} name="pin" size=${14} />
-													</button>
-													<button
-														type="button"
-														class="workbench-inspector-toggle"
-														aria-label=${t("action.close")}
-														onClick=${() => setInspectorPeekTab(null)}
-													>
-														<${WorkbenchIcon} name="close" size=${14} />
-													</button>
+													<strong>${activeQuickSectionDefinition.label}</strong>
 												</div>
 											</div>
 											<div class="workbench-inspector-stack workbench-inspector-stack--peek">
-												${renderInspectorContent(peekInspectorTabDefinition.id)}
+												${renderInspectorSection(
+													activeQuickSectionDefinition.id,
+													{ quick: true },
+												)}
 											</div>
 										</section>
 									`
@@ -629,10 +823,37 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 											<${WorkbenchIcon} name="chevron-right" size=${14} />
 										</button>
 									</div>
-									<div class="workbench-inspector-stack">
-										${renderInspectorContent(activeInspectorTab)}
+									<div class="workbench-inspector-tab-title">
+										<span class="workbench-inspector-tab-title__icon">
+											<${WorkbenchIcon}
+												name=${activeInspectorTabDefinition?.icon ?? "scene"}
+												size=${13}
+											/>
+										</span>
+										<strong>${activeInspectorTabDefinition?.label ?? ""}</strong>
 									</div>
-									<${FooterSection} store=${store} />
+									<div class="workbench-inspector-stack">
+										${renderInspectorContent(activeInspectorTab, {
+											desktopFull: true,
+										})}
+									</div>
+									${
+										(activeInspectorTab === INSPECTOR_TAB_SCENE ||
+											selectedSceneAsset ||
+											store.selectedSceneAssetIds.value.length > 0) &&
+										html`
+											<div class="workbench-inspector-selection-dock">
+												<${SelectedSceneAssetInspector}
+													controller=${controller}
+													sceneAssets=${sceneAssets}
+													selectedSceneAsset=${selectedSceneAsset}
+													showEmpty=${activeInspectorTab === INSPECTOR_TAB_SCENE}
+													store=${store}
+													t=${t}
+												/>
+											</div>
+										`
+									}
 								</section>
 							`
 				}

@@ -259,6 +259,8 @@ export function createReferenceImageController({
 	commitHistoryTransaction = () => false,
 	cancelHistoryTransaction = () => {},
 }) {
+	let referenceListSelectionAnchorId = "";
+
 	function refreshUiAfterLayout({ expectedVisibleItems = 0 } = {}) {
 		const maxAttempts = 4;
 		const runAttempt = (attempt) => {
@@ -590,6 +592,7 @@ export function createReferenceImageController({
 	}
 
 	function clearSelection() {
+		referenceListSelectionAnchorId = "";
 		store.referenceImages.selectionAnchor.value = null;
 		setStoredSelectionBox(null);
 		setSelectionState({
@@ -601,12 +604,21 @@ export function createReferenceImageController({
 
 	function parseSelectionOptions(optionsOrEvent = null) {
 		if (!optionsOrEvent) {
-			return { additive: false, toggle: false };
+			return { additive: false, toggle: false, range: false, orderedIds: null };
 		}
-		if ("additive" in optionsOrEvent || "toggle" in optionsOrEvent) {
+		if (
+			"additive" in optionsOrEvent ||
+			"toggle" in optionsOrEvent ||
+			"range" in optionsOrEvent ||
+			"orderedIds" in optionsOrEvent
+		) {
 			return {
 				additive: Boolean(optionsOrEvent.additive),
 				toggle: Boolean(optionsOrEvent.toggle),
+				range: Boolean(optionsOrEvent.range),
+				orderedIds: Array.isArray(optionsOrEvent.orderedIds)
+					? optionsOrEvent.orderedIds
+					: null,
 			};
 		}
 		return {
@@ -616,6 +628,8 @@ export function createReferenceImageController({
 				Boolean(optionsOrEvent.ctrlKey),
 			toggle:
 				Boolean(optionsOrEvent.metaKey) || Boolean(optionsOrEvent.ctrlKey),
+			range: false,
+			orderedIds: null,
 		};
 	}
 
@@ -1560,8 +1574,64 @@ export function createReferenceImageController({
 			clearSelection();
 			return;
 		}
-		const { additive, toggle } = parseSelectionOptions(optionsOrEvent);
+		const { additive, toggle, range, orderedIds } =
+			parseSelectionOptions(optionsOrEvent);
+		if (range) {
+			const resolvedOrderedIds = (
+				Array.isArray(orderedIds) && orderedIds.length > 0
+					? orderedIds
+					: store.referenceImages.items.value.map((entry) => entry.id)
+			).filter((entryId, index, sourceIds) => {
+				return (
+					store.referenceImages.items.value.some(
+						(entry) => entry.id === entryId,
+					) && sourceIds.indexOf(entryId) === index
+				);
+			});
+			const currentSelectedIds = getSelectedItemIds();
+			const currentSelectedIdSet = new Set(currentSelectedIds);
+			const anchorId =
+				referenceListSelectionAnchorId ||
+				store.referenceImages.selectedItemId.value ||
+				currentSelectedIds.at(-1) ||
+				item.id;
+			const anchorIndex = resolvedOrderedIds.indexOf(anchorId);
+			const targetIndex = resolvedOrderedIds.indexOf(item.id);
+			if (anchorIndex === -1 || targetIndex === -1) {
+				referenceListSelectionAnchorId = item.id;
+				setSelectionState({
+					selectedItemIds: [item.id],
+					activeItemId: item.id,
+					activeAssetId: item.assetId,
+				});
+				return;
+			}
+
+			const rangeStart = Math.min(anchorIndex, targetIndex);
+			const rangeEnd = Math.max(anchorIndex, targetIndex);
+			const rangeIds = resolvedOrderedIds.slice(rangeStart, rangeEnd + 1);
+			const removeRange = currentSelectedIdSet.has(item.id);
+			const nextSelectedIds = removeRange
+				? currentSelectedIds.filter(
+						(selectedId) => !rangeIds.includes(selectedId),
+					)
+				: Array.from(new Set([...currentSelectedIds, ...rangeIds]));
+			const nextActiveItemId = nextSelectedIds.includes(item.id)
+				? item.id
+				: (nextSelectedIds.at(-1) ?? "");
+			const nextActiveAssetId =
+				store.referenceImages.items.value.find(
+					(entry) => entry.id === nextActiveItemId,
+				)?.assetId ?? "";
+			setSelectionState({
+				selectedItemIds: nextSelectedIds,
+				activeItemId: nextActiveItemId,
+				activeAssetId: nextActiveAssetId,
+			});
+			return;
+		}
 		if (!additive && !toggle) {
+			referenceListSelectionAnchorId = item.id;
 			setSelectionState({
 				selectedItemIds: [item.id],
 				activeItemId: item.id,
@@ -1576,6 +1646,8 @@ export function createReferenceImageController({
 		} else if (existingIndex < 0) {
 			nextSelectedIds.push(item.id);
 		}
+		referenceListSelectionAnchorId =
+			nextSelectedIds.length === 0 ? "" : item.id;
 		setSelectionState({
 			selectedItemIds: nextSelectedIds,
 			activeItemId:

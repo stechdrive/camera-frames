@@ -839,8 +839,10 @@ export function createCameraFramesController(elements, store) {
 		store,
 		state,
 		viewportShell,
+		assetController,
 		fpsMovement,
 		pointerControls,
+		getActiveCamera,
 		workspacePaneCamera: WORKSPACE_PANE_CAMERA,
 		t,
 		setStatus,
@@ -853,6 +855,12 @@ export function createCameraFramesController(elements, store) {
 			state.baseFovX = Number(nextValue);
 			updateUi();
 		},
+		getViewportBaseFovX: () => state.viewportBaseFovX,
+		setViewportBaseFovXLive: (nextValue) => {
+			state.viewportBaseFovX = Number(nextValue);
+			state.viewportBaseFovXDirty = true;
+			updateUi();
+		},
 		getShotCameraRollAxisWorld: () =>
 			projectionController?.getShotCameraRollAxisWorld?.() ?? null,
 		getShotCameraRollAngleDegrees: () =>
@@ -863,6 +871,8 @@ export function createCameraFramesController(elements, store) {
 			historyController?.beginHistoryTransaction(label),
 		commitHistoryTransaction: (label) =>
 			historyController?.commitHistoryTransaction(label),
+		cancelHistoryTransaction: () =>
+			historyController?.cancelHistoryTransaction(),
 	});
 	viewportToolController = createViewportToolController({
 		store,
@@ -962,6 +972,8 @@ export function createCameraFramesController(elements, store) {
 		updateUi,
 		updateOutputFrameOverlay,
 		setStatus,
+		startOrbitAroundHitDrag: (...args) =>
+			interactionController?.startOrbitAroundHitDrag(...args) ?? false,
 		startZoomToolDrag,
 		startLensAdjustDrag: (...args) =>
 			interactionController?.startLensAdjustDrag(...args) ?? false,
@@ -1010,6 +1022,10 @@ export function createCameraFramesController(elements, store) {
 		clearReferenceImageSelection: () =>
 			referenceImageController?.clearReferenceImageSelection?.(),
 		clearOutputFrameSelection,
+		handleOrbitAroundHitDragMove: (...args) =>
+			interactionController?.handleOrbitAroundHitDragMove(...args),
+		handleOrbitAroundHitDragEnd: (...args) =>
+			interactionController?.handleOrbitAroundHitDragEnd(...args),
 		handleZoomToolDragMove,
 		handleZoomToolDragEnd,
 		handleLensAdjustDragMove: (...args) =>
@@ -1171,6 +1187,7 @@ export function createCameraFramesController(elements, store) {
 							? { pitchDeg: numericValue }
 							: { rollDeg: numericValue };
 				projectionController?.setShotCameraPoseAngles?.(nextAngles);
+				cameraController?.syncActiveShotCameraDocumentFromLiveCamera?.();
 				updateUi();
 			},
 		);
@@ -1600,6 +1617,9 @@ export function createCameraFramesController(elements, store) {
 		setBoxWidthPercent: outputFrameController.setBoxWidthPercent,
 		setBoxHeightPercent: outputFrameController.setBoxHeightPercent,
 		setViewZoomPercent: outputFrameController.setViewZoomPercent,
+		fitOutputFrameToSafeArea: outputFrameController.fitOutputFrameToSafeArea,
+		canFitOutputFrameToSafeArea:
+			outputFrameController.canFitOutputFrameToSafeArea,
 		setAnchor: outputFrameController.setAnchor,
 		setShotCameraClippingMode: cameraController.setShotCameraClippingMode,
 		setShotCameraNear: cameraController.setShotCameraNear,
@@ -1609,6 +1629,7 @@ export function createCameraFramesController(elements, store) {
 			cameraController.setActiveShotCameraPositionAxis,
 		setActiveShotCameraPoseAngle,
 		moveActiveShotCameraLocalAxis,
+		setShotCameraName: cameraController.setShotCameraName,
 		setShotCameraExportName: cameraController.setShotCameraExportName,
 		setShotCameraExportFormat: cameraController.setShotCameraExportFormat,
 		setShotCameraExportGridOverlay:
@@ -1626,6 +1647,10 @@ export function createCameraFramesController(elements, store) {
 		selectFrame: frameController.selectFrame,
 		createFrame: frameController.createFrame,
 		duplicateActiveFrame: frameController.duplicateActiveFrame,
+		duplicateSelectedFrames: frameController.duplicateSelectedFrames,
+		setFrameName: frameController.setFrameName,
+		deleteSelectedFrames: frameController.deleteSelectedFrames,
+		deleteFrame: frameController.deleteFrame,
 		deleteActiveFrame: frameController.deleteActiveFrame,
 		setFrameMaskMode: frameController.setFrameMaskMode,
 		toggleFrameMaskMode: frameController.toggleFrameMaskMode,
@@ -1653,10 +1678,20 @@ export function createCameraFramesController(elements, store) {
 		setAssetWorldScale: assetController.setAssetWorldScale,
 		setAssetTransform: assetController.setAssetTransform,
 		resetAssetWorldScale: assetController.resetAssetWorldScale,
+		resetSelectedSceneAssetsWorldScale:
+			assetController.resetSelectedSceneAssetsWorldScale,
 		resetSelectedAssetWorkingPivot,
 		setAssetPosition: assetController.setAssetPosition,
+		offsetSelectedSceneAssetsPosition:
+			assetController.offsetSelectedSceneAssetsPosition,
 		setAssetRotationDegrees: assetController.setAssetRotationDegrees,
+		offsetSelectedSceneAssetsRotationDegrees:
+			assetController.offsetSelectedSceneAssetsRotationDegrees,
 		setAssetVisibility: assetController.setAssetVisibility,
+		setSelectedSceneAssetsVisibility:
+			assetController.setSelectedSceneAssetsVisibility,
+		scaleSelectedSceneAssetsByFactor:
+			assetController.scaleSelectedSceneAssetsByFactor,
 		moveAssetUp: assetController.moveAssetUp,
 		moveAssetDown: assetController.moveAssetDown,
 		moveAssetToIndex: assetController.moveAssetToIndex,
@@ -1725,6 +1760,9 @@ export function createCameraFramesController(elements, store) {
 				interactionController?.activateShotCameraRollMode?.(...args) ?? false
 			);
 		},
+		toggleZoomTool,
+		openViewportPieMenuAtCenter: (...args) =>
+			interactionController?.openViewportPieMenuAtCenter?.(...args) ?? false,
 		copyViewportToShotCamera: cameraController.copyViewportToShotCamera,
 		copyShotCameraToViewport: cameraController.copyShotCameraToViewport,
 		resetActiveView: cameraController.resetActiveView,

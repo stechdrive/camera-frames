@@ -68,6 +68,8 @@ export function TooltipBubble({
 
 		const handlePointerEnter = () => setVisible(true);
 		const handlePointerLeave = () => setVisible(false);
+		const handlePointerDown = () => setVisible(false);
+		const handleClick = () => setVisible(false);
 		const handleFocusIn = () => setVisible(true);
 		const handleFocusOut = (event) => {
 			if (!trigger.contains(event.relatedTarget)) {
@@ -82,6 +84,8 @@ export function TooltipBubble({
 
 		trigger.addEventListener("mouseenter", handlePointerEnter);
 		trigger.addEventListener("mouseleave", handlePointerLeave);
+		trigger.addEventListener("pointerdown", handlePointerDown, true);
+		trigger.addEventListener("click", handleClick, true);
 		trigger.addEventListener("focusin", handleFocusIn);
 		trigger.addEventListener("focusout", handleFocusOut);
 		trigger.addEventListener("keydown", handleKeyDown);
@@ -89,6 +93,8 @@ export function TooltipBubble({
 		return () => {
 			trigger.removeEventListener("mouseenter", handlePointerEnter);
 			trigger.removeEventListener("mouseleave", handlePointerLeave);
+			trigger.removeEventListener("pointerdown", handlePointerDown, true);
+			trigger.removeEventListener("click", handleClick, true);
 			trigger.removeEventListener("focusin", handleFocusIn);
 			trigger.removeEventListener("focusout", handleFocusOut);
 			trigger.removeEventListener("keydown", handleKeyDown);
@@ -191,7 +197,13 @@ export function SectionHeading({ icon, title, children }) {
 	`;
 }
 
-export function WorkbenchTabs({ tabs, activeTab, setActiveTab, ariaLabel }) {
+export function WorkbenchTabs({
+	tabs,
+	activeTab,
+	setActiveTab,
+	ariaLabel,
+	iconOnly = false,
+}) {
 	return html`
 		<div class="workbench-tabs" role="tablist" aria-label=${ariaLabel}>
 			${tabs.map(
@@ -213,11 +225,14 @@ export function WorkbenchTabs({ tabs, activeTab, setActiveTab, ariaLabel }) {
 								tab.icon &&
 								html`
 								<span class="workbench-tab__icon">
-									<${WorkbenchIcon} name=${tab.icon} size=${14} />
+									<${WorkbenchIcon}
+										name=${tab.icon}
+										size=${iconOnly ? 17 : 14}
+									/>
 								</span>
 							`
 							}
-							<span>${tab.label}</span>
+							${!iconOnly && html`<span>${tab.label}</span>`}
 						</span>
 						<${TooltipBubble}
 							title=${tab.tooltip?.title ?? tab.label}
@@ -392,9 +407,16 @@ export function DisclosureBlock({
 	children,
 	open = false,
 	summaryMeta = null,
+	summaryActions = null,
+	onToggle = null,
+	className = "",
 }) {
 	return html`
-		<details class="panel-disclosure" open=${open}>
+		<details
+			class=${className ? `panel-disclosure ${className}` : "panel-disclosure"}
+			open=${open}
+			onToggle=${(event) => onToggle?.(Boolean(event.currentTarget.open))}
+		>
 			<summary class="panel-disclosure__summary">
 				<span class="panel-disclosure__summary-main">
 					${
@@ -407,12 +429,22 @@ export function DisclosureBlock({
 					}
 					<span>${label}</span>
 				</span>
-				${
-					summaryMeta &&
-					html`<span class="panel-disclosure__summary-meta">${summaryMeta}</span>`
-				}
-				<span class="panel-disclosure__chevron">
-					<${WorkbenchIcon} name="chevron-right" size=${12} />
+				<span class="panel-disclosure__summary-right">
+					${
+						summaryMeta &&
+						html`<span class="panel-disclosure__summary-meta">${summaryMeta}</span>`
+					}
+					${
+						summaryActions &&
+						html`
+							<span class="panel-disclosure__summary-actions">
+								${summaryActions}
+							</span>
+						`
+					}
+					<span class="panel-disclosure__chevron">
+						<${WorkbenchIcon} name="chevron-right" size=${12} />
+					</span>
 				</span>
 			</summary>
 			<div class="panel-disclosure__body">${children}</div>
