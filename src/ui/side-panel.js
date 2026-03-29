@@ -20,6 +20,7 @@ import {
 	INSPECTOR_QUICK_SECTION_SHOT_CAMERA_PROPERTIES,
 	INSPECTOR_TAB_CAMERA,
 	INSPECTOR_TAB_EXPORT,
+	INSPECTOR_TAB_REFERENCE,
 	INSPECTOR_TAB_SCENE,
 	InspectorRailSection,
 	InspectorTabs,
@@ -462,9 +463,11 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 				INSPECTOR_QUICK_SECTION_SHOT_CAMERA,
 				INSPECTOR_QUICK_SECTION_SHOT_CAMERA_PROPERTIES,
 				INSPECTOR_QUICK_SECTION_OUTPUT_FRAME,
-				INSPECTOR_QUICK_SECTION_REFERENCE,
 				INSPECTOR_QUICK_SECTION_FRAMES,
 			];
+		}
+		if (tabId === INSPECTOR_TAB_REFERENCE) {
+			return [INSPECTOR_QUICK_SECTION_REFERENCE];
 		}
 		return [
 			INSPECTOR_QUICK_SECTION_EXPORT,
@@ -557,7 +560,7 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 					<${ReferenceSection}
 						controller=${controller}
 						headingActions=${pinAction}
-						showList=${!desktopFull}
+						showList=${true}
 						store=${store}
 						t=${t}
 					/>

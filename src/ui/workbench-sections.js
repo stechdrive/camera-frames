@@ -40,6 +40,7 @@ import {
 
 export const INSPECTOR_TAB_SCENE = "scene";
 export const INSPECTOR_TAB_CAMERA = "camera";
+export const INSPECTOR_TAB_REFERENCE = "reference";
 export const INSPECTOR_TAB_EXPORT = "export";
 export const INSPECTOR_QUICK_SECTION_SCENE = "scene-main";
 export const INSPECTOR_QUICK_SECTION_SHOT_CAMERA = "shot-camera";
@@ -265,6 +266,16 @@ export function getInspectorTabs(t) {
 			},
 		},
 		{
+			id: INSPECTOR_TAB_REFERENCE,
+			label: t("section.referenceImages"),
+			icon: "image",
+			tooltip: {
+				title: t("section.referenceImages"),
+				description: t("tooltip.tabReference"),
+				placement: "bottom",
+			},
+		},
+		{
 			id: INSPECTOR_TAB_EXPORT,
 			label: t("section.export"),
 			icon: "export",
@@ -311,7 +322,7 @@ export function getInspectorQuickSections(t) {
 		},
 		{
 			id: INSPECTOR_QUICK_SECTION_REFERENCE,
-			tabId: INSPECTOR_TAB_CAMERA,
+			tabId: INSPECTOR_TAB_REFERENCE,
 			label: t("section.referenceImages"),
 			icon: "image",
 		},
@@ -948,7 +959,18 @@ export function SceneBrowserSection({
 	store,
 	t,
 }) {
-	const sceneAssetSections = groupSceneAssetsByKind(sceneAssets);
+	const sceneAssetSections = [
+		{
+			kind: "model",
+			label: t("assetKind.model"),
+			assets: sceneAssets.filter((asset) => asset.kind === "model"),
+		},
+		{
+			kind: "splat",
+			label: t("assetKind.splat"),
+			assets: sceneAssets.filter((asset) => asset.kind === "splat"),
+		},
+	];
 	const selectedSceneAssetIds = new Set(store.selectedSceneAssetIds.value);
 	const getSceneAssetById = (assetId) =>
 		sceneAssets.find((asset) => asset.id === assetId) ?? null;
@@ -993,22 +1015,21 @@ export function SceneBrowserSection({
 		return classes.join(" ");
 	};
 
-	if (sceneAssets.length === 0) {
-		return null;
-	}
-
 	return html`
 		<div class="browser-list">
 			${sceneAssetSections.map(
 				(section) => html`
 					<section key=${section.kind} class="browser-group">
 						<div class="browser-group__heading">
-							<strong>${t(section.assets[0].kindLabelKey)}</strong>
+							<strong>${section.label}</strong>
 							<span class="pill pill--dim">${section.assets.length}</span>
 						</div>
 						<div class="scene-asset-list scene-asset-list--compact">
-							${section.assets.map(
-								(asset) => html`
+							${
+								section.assets.length === 0
+									? html`<div class="scene-asset-list__placeholder"></div>`
+									: section.assets.map(
+											(asset) => html`
 									<article
 										class=${getSceneAssetRowClass(asset)}
 										draggable="true"
@@ -1114,7 +1135,8 @@ export function SceneBrowserSection({
 										</div>
 									</article>
 								`,
-							)}
+										)
+							}
 						</div>
 					</section>
 				`,
@@ -1233,39 +1255,17 @@ export function SceneWorkspaceSection({
 				<section class="scene-workspace-pane">
 					<${SectionHeading} icon="scene" title=${t("section.scene")} />
 					<div class="scene-workspace-pane__body">
-						${
-							sceneAssets.length > 0
-								? html`
-										<${SceneBrowserSection}
-											controller=${controller}
-											draggedAssetId=${draggedAssetId}
-											dragHoverState=${dragHoverState}
-											sceneAssets=${sceneAssets}
-											selectedSceneAsset=${selectedSceneAsset}
-											setDraggedAssetId=${setDraggedAssetId}
-											setDragHoverState=${setDragHoverState}
-											store=${store}
-											t=${t}
-										/>
-									`
-								: html`<div class="scene-workspace-pane__placeholder"></div>`
-						}
-					</div>
-				</section>
-				<section class="scene-workspace-pane">
-					<${SectionHeading} icon="image" title=${t("section.referenceImages")} />
-					<div class="scene-workspace-pane__body">
-						${
-							store.referenceImages.items.value.length > 0
-								? html`
-										<${ReferenceBrowserSection}
-											controller=${controller}
-											store=${store}
-											t=${t}
-										/>
-									`
-								: html`<div class="scene-workspace-pane__placeholder"></div>`
-						}
+						<${SceneBrowserSection}
+							controller=${controller}
+							draggedAssetId=${draggedAssetId}
+							dragHoverState=${dragHoverState}
+							sceneAssets=${sceneAssets}
+							selectedSceneAsset=${selectedSceneAsset}
+							setDraggedAssetId=${setDraggedAssetId}
+							setDragHoverState=${setDragHoverState}
+							store=${store}
+							t=${t}
+						/>
 					</div>
 				</section>
 			</div>
@@ -1325,7 +1325,30 @@ export function SelectedSceneAssetInspector({
 						icon="scene"
 						title=${t("section.selectedSceneObject")}
 					/>
-					<div class="selection-dock__placeholder"></div>
+					<label class="field">
+						<span>${t("field.assetScale")}</span>
+						<${NumericDraftInput} value="" disabled=${true} />
+					</label>
+					<div class="triple-field-row">
+						${["x", "y", "z"].map(
+							(axis) => html`
+								<label class="field">
+									<span>${t("field.assetPosition")} ${axis.toUpperCase()}</span>
+									<${NumericDraftInput} value="" disabled=${true} />
+								</label>
+							`,
+						)}
+					</div>
+					<div class="triple-field-row">
+						${["x", "y", "z"].map(
+							(axis) => html`
+								<label class="field">
+									<span>${t("field.assetRotation")} ${axis.toUpperCase()}</span>
+									<${NumericDraftInput} value="" disabled=${true} />
+								</label>
+							`,
+						)}
+					</div>
 				</section>
 			`;
 		}

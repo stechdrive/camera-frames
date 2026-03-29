@@ -246,7 +246,8 @@ const MESSAGES = {
 			clearSelection:
 				"3Dオブジェクト、下絵、FRAME の選択を解除して、アクティブツールを外します。",
 			tabScene: "シーン、アセット、ライティングを管理します。",
-			tabCamera: "ショットカメラ、FRAME、下絵を編集します。",
+			tabCamera: "ショットカメラと FRAME を編集します。",
+			tabReference: "下絵プリセットと下絵レイヤーを編集します。",
 			tabExport: "書き出し設定と出力を管理します。",
 			copyViewportPoseToShot:
 				"Viewport の位置、向き、焦点距離を Camera へコピーします。クリップ範囲は変えません。",
@@ -763,7 +764,8 @@ const MESSAGES = {
 			clearSelection:
 				"Clear selected 3D objects, reference images, and FRAMEs, then return to no active tool.",
 			tabScene: "Manage scene assets and lighting.",
-			tabCamera: "Edit the active Camera, FRAME, and reference setup.",
+			tabCamera: "Edit the active Camera and FRAME setup.",
+			tabReference: "Edit reference presets and reference image layers.",
 			tabExport: "Adjust export options and run output.",
 			copyViewportPoseToShot:
 				"Copy the Viewport position, orientation, and lens into the Camera. The clip range stays unchanged.",

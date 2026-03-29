@@ -1690,8 +1690,9 @@ input[type="range"] {
 
 .workbench-tabs {
 	display: flex;
-	flex-wrap: wrap;
-	gap: 0.28rem;
+	flex-wrap: nowrap;
+	gap: 0.22rem;
+	min-width: 0;
 }
 
 .workbench-inspector-header {
@@ -1708,15 +1709,17 @@ input[type="range"] {
 
 .workbench-tab {
 	appearance: none;
+	flex: 1 1 0;
+	min-width: 0;
 	border: 1px solid var(--line-strong);
 	border-radius: 999px;
 	background: rgba(255, 255, 255, 0.05);
 	color: var(--text-dim);
 	cursor: pointer;
 	min-height: 1.72rem;
-	padding: 0.28rem 0.62rem;
+	padding: 0.28rem 0.42rem;
 	font: 600 0.68rem / 1 "Consolas", "Andale Mono", monospace;
-	letter-spacing: 0.08em;
+	letter-spacing: 0.05em;
 	text-transform: uppercase;
 	transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
@@ -1732,14 +1735,24 @@ input[type="range"] {
 .workbench-tab__content {
 	display: inline-flex;
 	align-items: center;
-	gap: 0.45rem;
+	justify-content: center;
+	gap: 0.28rem;
+	min-width: 0;
 }
 
 .workbench-tab__icon {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
+	flex: 0 0 auto;
 	color: var(--accent-cool);
+}
+
+.workbench-tab__content > span:last-child {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .directional-scrub {
@@ -3555,6 +3568,13 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 
 .selection-dock__placeholder {
 	min-height: 6.8rem;
+}
+
+.scene-asset-list__placeholder {
+	min-height: 2rem;
+	border: 1px dashed rgba(255, 255, 255, 0.07);
+	border-radius: 10px;
+	background: rgba(255, 255, 255, 0.015);
 }
 
 .browser-list {
