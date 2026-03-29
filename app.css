@@ -2455,7 +2455,6 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	color: var(--accent-cool);
 	font: 600 0.72rem / 1.2 "Consolas", "Andale Mono", monospace;
 	letter-spacing: 0.08em;
-	text-transform: uppercase;
 }
 
 .render-box {
