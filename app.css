@@ -673,6 +673,13 @@ code {
 	border-radius: 12px;
 }
 
+.workbench-tool-rail__button .workbench-icon,
+.workbench-tool-rail__control .workbench-icon,
+.workbench-tool-rail .workbench-menu__trigger .workbench-icon {
+	width: 1.08rem;
+	height: 1.08rem;
+}
+
 .workbench-tool-rail__segmented {
 	display: inline-grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2011,6 +2018,11 @@ input[type="range"] {
 
 .workbench-inspector-rail__button {
 	min-width: 2.35rem;
+}
+
+.workbench-inspector-rail__button .workbench-icon {
+	width: 1.08rem;
+	height: 1.08rem;
 }
 
 .workbench-inspector-peek__header {
