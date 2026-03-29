@@ -110,6 +110,27 @@ assert.notEqual(
 	shotCameras[0].frames[0].anchor,
 );
 
+const duplicatedShotCameraWithLegacyOutputFrame = createShotCameraDocument({
+	id: getShotCameraDocumentId(3),
+	name: "Camera 3",
+	source: {
+		...shotCameras[0],
+		outputFrame: {
+			...shotCameras[0].outputFrame,
+			viewZoomAuto: undefined,
+			viewportCenterAuto: undefined,
+		},
+	},
+});
+assert.equal(
+	duplicatedShotCameraWithLegacyOutputFrame.outputFrame.viewZoomAuto,
+	true,
+);
+assert.equal(
+	duplicatedShotCameraWithLegacyOutputFrame.outputFrame.viewportCenterAuto,
+	true,
+);
+
 const nextFrameNumber = getNextFrameNumber(shotCameras[0].frames);
 assert.equal(nextFrameNumber, 2);
 

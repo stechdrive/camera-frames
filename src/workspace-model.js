@@ -377,7 +377,7 @@ export function cloneShotCameraDocument(documentState) {
 			)
 				? documentState.outputFrame.fitViewportHeight
 				: 0,
-			viewZoomAuto: documentState.outputFrame?.viewZoomAuto ?? false,
+			viewZoomAuto: documentState.outputFrame?.viewZoomAuto !== false,
 			viewportCenterAuto:
 				documentState.outputFrame?.viewportCenterAuto !== false,
 		},
