@@ -257,6 +257,14 @@ code {
 	border-radius: 14px;
 }
 
+.workbench-shell--mobile .workbench-tool-rail__popover {
+	top: auto;
+	bottom: calc(100% + 0.6rem);
+	left: 50%;
+	min-width: 11.5rem;
+	transform: translateX(-50%);
+}
+
 .workbench-mobile-drawer-wrap {
 	position: absolute;
 	inset: 0;
@@ -613,6 +621,13 @@ code {
 	width: 100%;
 }
 
+.workbench-tool-rail__tool-slot {
+	position: relative;
+	display: flex;
+	justify-content: center;
+	width: 100%;
+}
+
 .workbench-tool-rail__group--compact {
 	gap: 0.2rem;
 }
@@ -694,6 +709,64 @@ code {
 	background: rgba(90, 154, 255, 0.22);
 	color: #d9ebff;
 	box-shadow: inset 0 0 0 1px rgba(111, 174, 255, 0.35);
+}
+
+.workbench-tool-rail__popover {
+	position: absolute;
+	top: 50%;
+	left: calc(100% + 0.7rem);
+	z-index: 18;
+	display: flex;
+	flex-direction: column;
+	gap: 0.42rem;
+	min-width: 13.2rem;
+	padding: 0.6rem;
+	border: 1px solid var(--line);
+	border-radius: 14px;
+	background: linear-gradient(
+		180deg,
+		var(--bg-elev-strong) 0%,
+		var(--bg-elev) 100%
+	);
+	box-shadow: var(--shadow);
+	backdrop-filter: blur(18px);
+	transform: translateY(-50%);
+}
+
+.workbench-tool-rail__popover-field {
+	width: 100%;
+	gap: 0.28rem;
+}
+
+.workbench-tool-rail__popover-field > span {
+	color: var(--text-dim);
+}
+
+.workbench-tool-rail__popover-value {
+	width: 100%;
+	grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.workbench-tool-rail__popover-value .numeric-scrub {
+	min-width: 0;
+}
+
+.workbench-tool-rail__popover-value .numeric-scrub input {
+	min-width: 0;
+}
+
+.workbench-tool-rail__popover-value .numeric-unit__label {
+	min-width: 1.28rem;
+	min-height: 1.36rem;
+	padding: 0 0.22rem;
+	font-size: 0.68rem;
+}
+
+.workbench-tool-rail__popover-summary {
+	margin: -0.05rem 0 0;
+	color: var(--text-dim);
+	font-size: 0.72rem;
+	line-height: 1.2;
 }
 
 .panel-section {

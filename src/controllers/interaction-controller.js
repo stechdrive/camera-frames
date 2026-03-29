@@ -27,11 +27,14 @@ export function createInteractionController({
 	setViewZoomFactor,
 	getShotCameraBaseFovX,
 	setShotCameraBaseFovXLive,
+	getViewportBaseFovX,
+	setViewportBaseFovXLive,
 	getShotCameraRollAxisWorld,
 	getShotCameraRollAngleDegrees,
 	applyActiveShotCameraRoll,
 	beginHistoryTransaction,
 	commitHistoryTransaction,
+	cancelHistoryTransaction,
 }) {
 	const INTERACTION_MODE_NAVIGATE = "navigate";
 	const INTERACTION_MODE_ZOOM = "zoom";
@@ -48,16 +51,14 @@ export function createInteractionController({
 	let lensAdjustDragState = null;
 	let rollAdjustDragState = null;
 	let orbitAroundHitDragState = null;
+	store.interactionMode.value = state.interactionMode;
 
 	function formatNumber(value, digits = 2) {
 		return Number(value).toFixed(digits);
 	}
 
 	function isZoomToolActive() {
-		return (
-			state.mode === workspacePaneCamera &&
-			state.interactionMode === INTERACTION_MODE_ZOOM
-		);
+		return state.interactionMode === INTERACTION_MODE_ZOOM;
 	}
 
 	function isZoomInteractionMode() {
@@ -85,9 +86,13 @@ export function createInteractionController({
 		);
 	}
 
-	function clearZoomToolDrag() {
+	function clearZoomToolDrag({ cancel = false } = {}) {
+		if (cancel && zoomToolDragState?.historyLabel) {
+			cancelHistoryTransaction?.();
+		}
 		zoomToolDragState = null;
 		viewportShell.classList.remove("is-zoom-dragging");
+		hideLensHud();
 	}
 
 	function setViewportPieMenu(nextValue) {
@@ -201,7 +206,8 @@ export function createInteractionController({
 		}
 
 		state.interactionMode = nextMode;
-		clearZoomToolDrag();
+		store.interactionMode.value = nextMode;
+		clearZoomToolDrag({ cancel: true });
 		clearLensAdjustDrag();
 		clearRollAdjustDrag();
 		clearOrbitAroundHitDrag();
@@ -228,7 +234,9 @@ export function createInteractionController({
 				navigationEnabled
 					? ""
 					: nextMode === INTERACTION_MODE_ZOOM
-						? t("status.zoomToolEnabled")
+						? state.mode === workspacePaneCamera
+							? t("status.zoomToolEnabled")
+							: t("status.viewportZoomToolEnabled")
 						: nextMode === INTERACTION_MODE_LENS
 							? t("status.lensToolEnabled")
 							: nextMode === INTERACTION_MODE_ROLL
@@ -244,16 +252,15 @@ export function createInteractionController({
 	}
 
 	function toggleZoomTool() {
-		if (state.mode !== workspacePaneCamera) {
-			setStatus(t("status.zoomToolUnavailable"));
+		if (state.mode === workspacePaneCamera || state.mode === "viewport") {
+			applyInteractionMode(
+				state.interactionMode === INTERACTION_MODE_ZOOM
+					? INTERACTION_MODE_NAVIGATE
+					: INTERACTION_MODE_ZOOM,
+			);
 			return;
 		}
-
-		applyInteractionMode(
-			state.interactionMode === INTERACTION_MODE_ZOOM
-				? INTERACTION_MODE_NAVIGATE
-				: INTERACTION_MODE_ZOOM,
-		);
+		setStatus(t("status.zoomToolUnavailable"));
 	}
 
 	function startZoomToolDrag(event) {
@@ -264,11 +271,29 @@ export function createInteractionController({
 		event.preventDefault();
 		event.stopPropagation();
 		viewportShell.classList.add("is-zoom-dragging");
+		if (state.mode === workspacePaneCamera) {
+			zoomToolDragState = {
+				pointerId: event.pointerId,
+				startClientX: event.clientX,
+				startViewZoom: getViewZoomFactor(),
+			};
+			return true;
+		}
+
+		beginHistoryTransaction?.("viewport.lens");
 		zoomToolDragState = {
 			pointerId: event.pointerId,
 			startClientX: event.clientX,
-			startViewZoom: getViewZoomFactor(),
+			startEquivalentMm: getStandardFrameHorizontalEquivalentMm(
+				getViewportBaseFovX(),
+			),
+			historyLabel: "viewport.lens",
 		};
+		updateLensHud(
+			event.clientX - viewportShell.getBoundingClientRect().left,
+			event.clientY - viewportShell.getBoundingClientRect().top,
+			getViewportBaseFovX(),
+		);
 		return true;
 	}
 
@@ -277,10 +302,29 @@ export function createInteractionController({
 			return;
 		}
 
-		const deltaX = event.clientX - zoomToolDragState.startClientX;
-		const nextZoom =
-			zoomToolDragState.startViewZoom * Math.exp(deltaX * 0.0045);
-		setViewZoomFactor(nextZoom);
+		if (state.mode === workspacePaneCamera) {
+			const deltaX = event.clientX - zoomToolDragState.startClientX;
+			const nextZoom =
+				zoomToolDragState.startViewZoom * Math.exp(deltaX * 0.0045);
+			setViewZoomFactor(nextZoom);
+			return;
+		}
+
+		const sensitivity = event.shiftKey ? 0.03 : 0.12;
+		const nextEquivalentMm = snapStandardFrameHorizontalEquivalentMm(
+			zoomToolDragState.startEquivalentMm +
+				(event.clientX - zoomToolDragState.startClientX) * sensitivity,
+		);
+		const nextBaseFovX =
+			getBaseHorizontalFovDegreesForStandardFrameHorizontalEquivalentMm(
+				nextEquivalentMm,
+			);
+		setViewportBaseFovXLive(nextBaseFovX);
+		updateLensHud(
+			event.clientX - viewportShell.getBoundingClientRect().left,
+			event.clientY - viewportShell.getBoundingClientRect().top,
+			nextBaseFovX,
+		);
 	}
 
 	function handleZoomToolDragEnd(event) {
@@ -288,6 +332,9 @@ export function createInteractionController({
 			return;
 		}
 
+		if (zoomToolDragState.historyLabel) {
+			commitHistoryTransaction?.(zoomToolDragState.historyLabel);
+		}
 		clearZoomToolDrag();
 	}
 

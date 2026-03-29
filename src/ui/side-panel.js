@@ -5,13 +5,11 @@ import { getAnchorOptions } from "../i18n.js";
 import { WorkbenchIcon } from "./workbench-icons.js";
 import { HeaderMenu, IconButton } from "./workbench-primitives.js";
 import {
-	DisplayZoomSection,
 	ExportSection,
 	ExportSettingsSection,
 	FooterSection,
 	FramesSection,
 	INSPECTOR_BROWSER_SCENE,
-	INSPECTOR_QUICK_SECTION_DISPLAY_ZOOM,
 	INSPECTOR_QUICK_SECTION_EXPORT,
 	INSPECTOR_QUICK_SECTION_EXPORT_SETTINGS,
 	INSPECTOR_QUICK_SECTION_FRAMES,
@@ -21,7 +19,6 @@ import {
 	INSPECTOR_QUICK_SECTION_SCENE,
 	INSPECTOR_QUICK_SECTION_SHOT_CAMERA,
 	INSPECTOR_QUICK_SECTION_SHOT_CAMERA_PROPERTIES,
-	INSPECTOR_QUICK_SECTION_VIEW,
 	INSPECTOR_TAB_CAMERA,
 	INSPECTOR_TAB_EXPORT,
 	INSPECTOR_TAB_SCENE,
@@ -36,7 +33,6 @@ import {
 	ShotCameraPropertiesSection,
 	ShotCameraSection,
 	ToolRailSection,
-	ViewSettingsSection,
 	getInspectorQuickSections,
 	getInspectorTabs,
 } from "./workbench-sections.js";
@@ -109,8 +105,6 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 	const exportSplatLayers = store.shotCamera.exportSplatLayers.value;
 	const fovLabel = store.fovLabel.value;
 	const equivalentMmValue = store.equivalentMmValue.value;
-	const viewportFovLabel = store.viewportFovLabel.value;
-	const viewportEquivalentMmValue = store.viewportEquivalentMmValue.value;
 	const frameDocuments = store.frames.documents.value;
 	const activeFrameId = store.frames.activeId.value;
 	const frameCount = store.frames.count.value;
@@ -139,18 +133,7 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 		(activeQuickSectionId &&
 			inspectorQuickSectionMap.get(activeQuickSectionId)) ??
 		null;
-	const isSectionAvailable = useCallback(
-		(sectionId) => {
-			if (sectionId === INSPECTOR_QUICK_SECTION_DISPLAY_ZOOM) {
-				return mode === "camera";
-			}
-			if (sectionId === INSPECTOR_QUICK_SECTION_VIEW) {
-				return mode === "viewport";
-			}
-			return true;
-		},
-		[mode],
-	);
+	const isSectionAvailable = useCallback(() => true, []);
 	const pinnedQuickSections = pinnedQuickSectionIds
 		.map((sectionId) => inspectorQuickSectionMap.get(sectionId) ?? null)
 		.filter(Boolean)
@@ -480,8 +463,6 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 		}
 		if (tabId === INSPECTOR_TAB_CAMERA) {
 			return [
-				INSPECTOR_QUICK_SECTION_DISPLAY_ZOOM,
-				INSPECTOR_QUICK_SECTION_VIEW,
 				INSPECTOR_QUICK_SECTION_SHOT_CAMERA,
 				INSPECTOR_QUICK_SECTION_SHOT_CAMERA_PROPERTIES,
 				INSPECTOR_QUICK_SECTION_OUTPUT_FRAME,
@@ -526,25 +507,6 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 						open=${quick}
 						store=${store}
 						summaryActions=${pinAction}
-						t=${t}
-					/>
-				`;
-			case INSPECTOR_QUICK_SECTION_VIEW:
-				return html`
-					<${ViewSettingsSection}
-						controller=${controller}
-						headingActions=${pinAction}
-						t=${t}
-						viewportEquivalentMmValue=${viewportEquivalentMmValue}
-						viewportFovLabel=${viewportFovLabel}
-					/>
-				`;
-			case INSPECTOR_QUICK_SECTION_DISPLAY_ZOOM:
-				return html`
-					<${DisplayZoomSection}
-						controller=${controller}
-						headingActions=${pinAction}
-						store=${store}
 						t=${t}
 					/>
 				`;

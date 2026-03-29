@@ -44,6 +44,7 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	const activeShotCameraId = signal(shotCameras.value[0].id);
 	const viewportBaseFovX = signal(DEFAULT_VIEWPORT_BASE_FOVX);
 	const viewportBaseFovXDirty = signal(false);
+	const interactionMode = signal("navigate");
 	const viewportTransformSpace = signal("world");
 	const viewportToolMode = signal("none");
 	const viewportSelectMode = computed(
@@ -301,6 +302,7 @@ export function createCameraFramesStore(runtimeInfo = null) {
 		viewportPieMenu,
 		viewportLensHud,
 		viewportRollHud,
+		interactionMode,
 		viewportBaseFovX,
 		viewportBaseFovXDirty,
 		viewportToolMode,

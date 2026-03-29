@@ -68,6 +68,8 @@ export function TooltipBubble({
 
 		const handlePointerEnter = () => setVisible(true);
 		const handlePointerLeave = () => setVisible(false);
+		const handlePointerDown = () => setVisible(false);
+		const handleClick = () => setVisible(false);
 		const handleFocusIn = () => setVisible(true);
 		const handleFocusOut = (event) => {
 			if (!trigger.contains(event.relatedTarget)) {
@@ -82,6 +84,8 @@ export function TooltipBubble({
 
 		trigger.addEventListener("mouseenter", handlePointerEnter);
 		trigger.addEventListener("mouseleave", handlePointerLeave);
+		trigger.addEventListener("pointerdown", handlePointerDown, true);
+		trigger.addEventListener("click", handleClick, true);
 		trigger.addEventListener("focusin", handleFocusIn);
 		trigger.addEventListener("focusout", handleFocusOut);
 		trigger.addEventListener("keydown", handleKeyDown);
@@ -89,6 +93,8 @@ export function TooltipBubble({
 		return () => {
 			trigger.removeEventListener("mouseenter", handlePointerEnter);
 			trigger.removeEventListener("mouseleave", handlePointerLeave);
+			trigger.removeEventListener("pointerdown", handlePointerDown, true);
+			trigger.removeEventListener("click", handleClick, true);
 			trigger.removeEventListener("focusin", handleFocusIn);
 			trigger.removeEventListener("focusout", handleFocusOut);
 			trigger.removeEventListener("keydown", handleKeyDown);

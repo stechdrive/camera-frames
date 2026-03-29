@@ -297,18 +297,6 @@ export function getInspectorQuickSections(t) {
 			icon: "camera-dslr",
 		},
 		{
-			id: INSPECTOR_QUICK_SECTION_DISPLAY_ZOOM,
-			tabId: INSPECTOR_TAB_CAMERA,
-			label: t("section.displayZoom"),
-			icon: "zoom",
-		},
-		{
-			id: INSPECTOR_QUICK_SECTION_VIEW,
-			tabId: INSPECTOR_TAB_CAMERA,
-			label: t("section.view"),
-			icon: "viewport",
-		},
-		{
 			id: INSPECTOR_QUICK_SECTION_LIGHTING,
 			tabId: INSPECTOR_TAB_SCENE,
 			label: t("section.lighting"),
@@ -446,6 +434,54 @@ export function WorkbenchHeader({
 	`;
 }
 
+function ZoomToolPopover({ controller, mode, store, t }) {
+	const isCameraMode = mode === "camera";
+	const title = isCameraMode ? t("section.displayZoom") : t("section.view");
+	const value = isCameraMode
+		? Math.round(store.renderBox.viewZoom.value * 100)
+		: Number(store.viewportEquivalentMmValue.value).toFixed(2);
+
+	return html`
+		<div class="workbench-tool-rail__popover" role="group" aria-label=${title}>
+			<label class="field workbench-tool-rail__popover-field">
+				<span>${title}</span>
+				<div class="numeric-unit workbench-tool-rail__popover-value">
+					<${NumericDraftInput}
+						id=${isCameraMode ? "tool-view-zoom" : "tool-viewport-fov"}
+						inputMode="decimal"
+						min=${isCameraMode ? MIN_CAMERA_VIEW_ZOOM_PCT : 14}
+						max=${isCameraMode ? MAX_CAMERA_VIEW_ZOOM_PCT : 200}
+						step=${isCameraMode ? "1" : "0.01"}
+						value=${value}
+						controller=${controller}
+						historyLabel=${isCameraMode ? "output-frame.zoom" : "viewport.lens"}
+						onCommit=${(nextValue) =>
+							isCameraMode
+								? controller()?.setViewZoomPercent?.(nextValue)
+								: applyStandardFrameHorizontalEquivalentMm(
+										(nextBaseFov) =>
+											controller()?.setViewportBaseFovX(nextBaseFov),
+										nextValue,
+									)}
+					/>
+					<${NumericUnitLabel}
+						value=${isCameraMode ? "%" : "mm"}
+						title=${t(isCameraMode ? "unit.percent" : "unit.millimeter")}
+					/>
+				</div>
+			</label>
+			${
+				!isCameraMode &&
+				html`
+					<p class="workbench-tool-rail__popover-summary">
+						${t("field.viewportFov")} ${store.viewportFovLabel.value}
+					</p>
+				`
+			}
+		</div>
+	`;
+}
+
 export function ToolRailSection({
 	controller,
 	mode,
@@ -459,9 +495,14 @@ export function ToolRailSection({
 }) {
 	const canUseTransformTools = mode === "viewport" || mode === "camera";
 	const selectedSceneAsset = store.selectedSceneAsset.value;
+	const interactionMode = store.interactionMode.value;
 	const showTransformSpaceToggle =
 		Boolean(selectedSceneAsset) &&
 		(store.viewportTransformMode.value || store.viewportPivotEditMode.value);
+	const showZoomToolPopover =
+		canUseTransformTools && interactionMode === "zoom";
+	const zoomToolTitle =
+		mode === "camera" ? t("section.displayZoom") : t("section.view");
 	const worldSpaceTooltipLabel = `${t("section.transformSpace")} / ${t("transformSpace.world")}`;
 	const localSpaceTooltipLabel = `${t("section.transformSpace")} / ${t("transformSpace.local")}`;
 	const clearSelectionAndExitTool = () => {
@@ -602,6 +643,32 @@ export function ToolRailSection({
 										controller()?.setViewportPivotEditMode(true),
 									)}
 							/>
+							<div class="workbench-tool-rail__tool-slot">
+								<${IconButton}
+									icon="zoom"
+									label=${t("action.zoomTool")}
+									active=${showZoomToolPopover}
+									className="workbench-tool-rail__button"
+									tooltip=${{
+										title: zoomToolTitle,
+										description: t("tooltip.toolZoom"),
+										shortcut: "Z",
+										placement: tooltipPlacement,
+									}}
+									onClick=${() => controller()?.toggleZoomTool?.()}
+								/>
+								${
+									showZoomToolPopover &&
+									html`
+										<${ZoomToolPopover}
+											controller=${controller}
+											mode=${mode}
+											store=${store}
+											t=${t}
+										/>
+									`
+								}
+							</div>
 					</div>
 					${
 						showTransformSpaceToggle &&

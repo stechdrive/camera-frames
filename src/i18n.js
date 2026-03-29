@@ -209,6 +209,7 @@ const MESSAGES = {
 			resetLightDirection: "向きを戻す",
 			adjustLens: "焦点距離調整",
 			adjustRoll: "カメラロール",
+			zoomTool: "ズーム",
 			quickMenu: "クイックメニュー",
 			pinQuickSection: "レールに追加",
 			unpinQuickSection: "レールから外す",
@@ -237,6 +238,8 @@ const MESSAGES = {
 				"3D オブジェクトの変形モードです。もう一度押すと解除します。",
 			toolPivot:
 				"3Dオブジェクトの変形原点を編集します。もう一度押すと解除します。",
+			toolZoom:
+				"カメラビューでは表示ズーム、ビューポートでは画角を調整します。もう一度押すと解除します。",
 			quickMenu:
 				"ツールのクイックメニューを開きます。モバイルではここから使うのが安全です。",
 			clearSelection:
@@ -423,7 +426,9 @@ const MESSAGES = {
 				"FPV ナビゲーション有効。WASD/RF で移動、ドラッグで視線、右ドラッグでスライド。基本速度 {speed} m/s。",
 			zoomToolEnabled:
 				"ズームツール有効。カメラビュー上でドラッグして拡縮、Z か Esc で解除。",
-			zoomToolUnavailable: "ズームツールはカメラビューでのみ使えます。",
+			viewportZoomToolEnabled:
+				"ビューポート画角調整。ドラッグでフルサイズ焦点距離を変更、Z か Esc で解除。",
+			zoomToolUnavailable: "ズームツールはここでは使えません。",
 			lensToolEnabled:
 				"焦点距離調整。ドラッグで 35mm横幅換算を変更、Esc で解除。",
 			rollToolEnabled:
@@ -716,6 +721,7 @@ const MESSAGES = {
 			resetLightDirection: "Reset Direction",
 			adjustLens: "Adjust Lens",
 			adjustRoll: "Camera Roll",
+			zoomTool: "Zoom",
 			quickMenu: "Quick Menu",
 			pinQuickSection: "Add To Rail",
 			unpinQuickSection: "Remove From Rail",
@@ -748,6 +754,8 @@ const MESSAGES = {
 				"Transform 3D objects. Press again to return to no active tool.",
 			toolPivot:
 				"Edit the transform origin of 3D objects. Press again to return to no active tool.",
+			toolZoom:
+				"In Camera View it adjusts display zoom; in Viewport it adjusts viewport lens. Press again to return to navigation.",
 			quickMenu:
 				"Open the quick tool menu. On mobile, this is the safer way to use it.",
 			clearSelection:
@@ -940,7 +948,9 @@ const MESSAGES = {
 				"FPV navigation active. WASD/RF move, drag to look, right-drag to slide. Base speed {speed} m/s.",
 			zoomToolEnabled:
 				"Zoom tool active. Drag in Camera View to zoom, press Z or Esc to exit.",
-			zoomToolUnavailable: "Zoom tool is only available in Camera View.",
+			viewportZoomToolEnabled:
+				"Viewport lens adjust active. Drag to change the full-frame focal length, press Z or Esc to exit.",
+			zoomToolUnavailable: "The zoom tool is not available here.",
 			lensToolEnabled:
 				"Lens adjust active. Drag to change the 35mm horizontal equivalent, press Esc to exit.",
 			rollToolEnabled:

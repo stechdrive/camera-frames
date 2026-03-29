@@ -855,6 +855,12 @@ export function createCameraFramesController(elements, store) {
 			state.baseFovX = Number(nextValue);
 			updateUi();
 		},
+		getViewportBaseFovX: () => state.viewportBaseFovX,
+		setViewportBaseFovXLive: (nextValue) => {
+			state.viewportBaseFovX = Number(nextValue);
+			state.viewportBaseFovXDirty = true;
+			updateUi();
+		},
 		getShotCameraRollAxisWorld: () =>
 			projectionController?.getShotCameraRollAxisWorld?.() ?? null,
 		getShotCameraRollAngleDegrees: () =>
@@ -865,6 +871,8 @@ export function createCameraFramesController(elements, store) {
 			historyController?.beginHistoryTransaction(label),
 		commitHistoryTransaction: (label) =>
 			historyController?.commitHistoryTransaction(label),
+		cancelHistoryTransaction: () =>
+			historyController?.cancelHistoryTransaction(),
 	});
 	viewportToolController = createViewportToolController({
 		store,
@@ -1747,6 +1755,9 @@ export function createCameraFramesController(elements, store) {
 				interactionController?.activateShotCameraRollMode?.(...args) ?? false
 			);
 		},
+		toggleZoomTool,
+		openViewportPieMenuAtCenter: (...args) =>
+			interactionController?.openViewportPieMenuAtCenter?.(...args) ?? false,
 		copyViewportToShotCamera: cameraController.copyViewportToShotCamera,
 		copyShotCameraToViewport: cameraController.copyShotCameraToViewport,
 		resetActiveView: cameraController.resetActiveView,
