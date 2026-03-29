@@ -839,8 +839,10 @@ export function createCameraFramesController(elements, store) {
 		store,
 		state,
 		viewportShell,
+		assetController,
 		fpsMovement,
 		pointerControls,
+		getActiveCamera,
 		workspacePaneCamera: WORKSPACE_PANE_CAMERA,
 		t,
 		setStatus,
@@ -962,6 +964,8 @@ export function createCameraFramesController(elements, store) {
 		updateUi,
 		updateOutputFrameOverlay,
 		setStatus,
+		startOrbitAroundHitDrag: (...args) =>
+			interactionController?.startOrbitAroundHitDrag(...args) ?? false,
 		startZoomToolDrag,
 		startLensAdjustDrag: (...args) =>
 			interactionController?.startLensAdjustDrag(...args) ?? false,
@@ -1010,6 +1014,10 @@ export function createCameraFramesController(elements, store) {
 		clearReferenceImageSelection: () =>
 			referenceImageController?.clearReferenceImageSelection?.(),
 		clearOutputFrameSelection,
+		handleOrbitAroundHitDragMove: (...args) =>
+			interactionController?.handleOrbitAroundHitDragMove(...args),
+		handleOrbitAroundHitDragEnd: (...args) =>
+			interactionController?.handleOrbitAroundHitDragEnd(...args),
 		handleZoomToolDragMove,
 		handleZoomToolDragEnd,
 		handleLensAdjustDragMove: (...args) =>

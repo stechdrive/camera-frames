@@ -15,8 +15,10 @@ export function createInteractionController({
 	store,
 	state,
 	viewportShell,
+	assetController,
 	fpsMovement,
 	pointerControls,
+	getActiveCamera,
 	workspacePaneCamera,
 	t,
 	setStatus,
@@ -36,9 +38,16 @@ export function createInteractionController({
 	const INTERACTION_MODE_PIE = "pie";
 	const INTERACTION_MODE_LENS = "lens";
 	const INTERACTION_MODE_ROLL = "roll";
+	const orbitRaycaster = new THREE.Raycaster();
+	const orbitPointerNdc = new THREE.Vector2();
+	const orbitWorldUp = new THREE.Vector3(0, 1, 0);
+	const orbitRightAxis = new THREE.Vector3();
+	const orbitYawQuaternion = new THREE.Quaternion();
+	const orbitPitchQuaternion = new THREE.Quaternion();
 	let zoomToolDragState = null;
 	let lensAdjustDragState = null;
 	let rollAdjustDragState = null;
+	let orbitAroundHitDragState = null;
 
 	function formatNumber(value, digits = 2) {
 		return Number(value).toFixed(digits);
@@ -138,6 +147,22 @@ export function createInteractionController({
 		viewportShell.classList.remove("is-roll-adjusting");
 	}
 
+	function clearOrbitAroundHitDrag() {
+		if (orbitAroundHitDragState?.pointerId !== undefined) {
+			try {
+				viewportShell.releasePointerCapture?.(
+					orbitAroundHitDragState.pointerId,
+				);
+			} catch {
+				// Ignore failed capture release.
+			}
+		}
+		orbitAroundHitDragState = null;
+		viewportShell.classList.remove("is-orbit-dragging");
+		pointerControls.enable =
+			state.interactionMode === INTERACTION_MODE_NAVIGATE;
+	}
+
 	function clearControlMomentum() {
 		pointerControls.moveVelocity.set(0, 0, 0);
 		pointerControls.rotateVelocity.set(0, 0, 0);
@@ -179,6 +204,7 @@ export function createInteractionController({
 		clearZoomToolDrag();
 		clearLensAdjustDrag();
 		clearRollAdjustDrag();
+		clearOrbitAroundHitDrag();
 		clearControlMomentum();
 		if (nextMode !== INTERACTION_MODE_PIE) {
 			setViewportPieMenu({
@@ -507,6 +533,177 @@ export function createInteractionController({
 		applyNavigateInteractionMode({ silent: true });
 	}
 
+	function isOrbitAroundHitDragEligible(event) {
+		return (
+			state.interactionMode === INTERACTION_MODE_NAVIGATE &&
+			event.button === 0 &&
+			event.ctrlKey
+		);
+	}
+
+	function getOrbitAroundHitHistoryLabel() {
+		return state.mode === workspacePaneCamera ? "camera.pose" : "viewport.pose";
+	}
+
+	function getOrbitAroundHitSensitivityDegrees(event) {
+		if (event.altKey && event.shiftKey) {
+			return 0.015;
+		}
+		if (event.altKey) {
+			return 0.035;
+		}
+		if (event.shiftKey) {
+			return 0.08;
+		}
+		return 0.18;
+	}
+
+	function pickOrbitAroundHitPoint(event) {
+		const camera = getActiveCamera?.();
+		if (!camera) {
+			return null;
+		}
+
+		const targets = assetController?.getSceneRaycastTargets?.() ?? [];
+		if (targets.length === 0) {
+			return null;
+		}
+
+		const viewportRect = viewportShell.getBoundingClientRect();
+		if (viewportRect.width <= 0 || viewportRect.height <= 0) {
+			return null;
+		}
+
+		orbitPointerNdc.set(
+			((event.clientX - viewportRect.left) / viewportRect.width) * 2 - 1,
+			-(((event.clientY - viewportRect.top) / viewportRect.height) * 2 - 1),
+		);
+		orbitRaycaster.setFromCamera(orbitPointerNdc, camera);
+		const intersections = orbitRaycaster.intersectObjects(targets, true);
+		for (const intersection of intersections) {
+			const asset = assetController?.getSceneAssetForObject?.(
+				intersection.object,
+			);
+			if (!asset) {
+				continue;
+			}
+			return intersection.point.clone();
+		}
+
+		return null;
+	}
+
+	function applyOrbitAroundHitDelta(camera, pivotWorld, deltaX, deltaY, event) {
+		const sensitivityRadians = THREE.MathUtils.degToRad(
+			getOrbitAroundHitSensitivityDegrees(event),
+		);
+		const yawRadians = -deltaX * sensitivityRadians;
+		const pitchRadians = -deltaY * sensitivityRadians;
+
+		if (Math.abs(yawRadians) > 1e-8) {
+			orbitYawQuaternion.setFromAxisAngle(orbitWorldUp, yawRadians);
+			camera.position.sub(pivotWorld).applyQuaternion(orbitYawQuaternion);
+			camera.position.add(pivotWorld);
+			camera.quaternion.premultiply(orbitYawQuaternion);
+			camera.up.applyQuaternion(orbitYawQuaternion).normalize();
+		}
+
+		if (Math.abs(pitchRadians) > 1e-8) {
+			orbitRightAxis
+				.set(1, 0, 0)
+				.applyQuaternion(camera.quaternion)
+				.normalize();
+			orbitPitchQuaternion.setFromAxisAngle(orbitRightAxis, pitchRadians);
+			camera.position.sub(pivotWorld).applyQuaternion(orbitPitchQuaternion);
+			camera.position.add(pivotWorld);
+			camera.quaternion.premultiply(orbitPitchQuaternion);
+			camera.up.applyQuaternion(orbitPitchQuaternion).normalize();
+		}
+
+		camera.quaternion.normalize();
+		camera.updateMatrixWorld(true);
+	}
+
+	function startOrbitAroundHitDrag(event) {
+		if (!isOrbitAroundHitDragEligible(event)) {
+			return false;
+		}
+
+		const pivotWorld = pickOrbitAroundHitPoint(event);
+		if (!pivotWorld) {
+			return false;
+		}
+
+		event.preventDefault();
+		event.stopPropagation();
+		event.stopImmediatePropagation?.();
+		clearControlMomentum();
+		beginHistoryTransaction?.(getOrbitAroundHitHistoryLabel());
+		orbitAroundHitDragState = {
+			pointerId: event.pointerId,
+			pivotWorld,
+			lastClientX: event.clientX,
+			lastClientY: event.clientY,
+			historyLabel: getOrbitAroundHitHistoryLabel(),
+		};
+		viewportShell.classList.add("is-orbit-dragging");
+		pointerControls.enable = false;
+		try {
+			viewportShell.setPointerCapture?.(event.pointerId);
+		} catch {
+			// Ignore failed pointer capture.
+		}
+		return true;
+	}
+
+	function handleOrbitAroundHitDragMove(event) {
+		if (
+			!orbitAroundHitDragState ||
+			event.pointerId !== orbitAroundHitDragState.pointerId
+		) {
+			return;
+		}
+
+		const camera = getActiveCamera?.();
+		if (!camera) {
+			return;
+		}
+
+		const deltaX = event.clientX - orbitAroundHitDragState.lastClientX;
+		const deltaY = event.clientY - orbitAroundHitDragState.lastClientY;
+		orbitAroundHitDragState.lastClientX = event.clientX;
+		orbitAroundHitDragState.lastClientY = event.clientY;
+		if (Math.abs(deltaX) < 1e-6 && Math.abs(deltaY) < 1e-6) {
+			return;
+		}
+
+		event.preventDefault();
+		event.stopPropagation();
+		applyOrbitAroundHitDelta(
+			camera,
+			orbitAroundHitDragState.pivotWorld,
+			deltaX,
+			deltaY,
+			event,
+		);
+	}
+
+	function handleOrbitAroundHitDragEnd(event) {
+		if (
+			!orbitAroundHitDragState ||
+			event.pointerId !== orbitAroundHitDragState.pointerId
+		) {
+			return;
+		}
+
+		event.preventDefault();
+		event.stopPropagation();
+		const historyLabel = orbitAroundHitDragState.historyLabel;
+		clearOrbitAroundHitDrag();
+		commitHistoryTransaction?.(historyLabel);
+		updateUi?.();
+	}
+
 	function syncControlsToMode() {
 		clearControlMomentum();
 		const navigationEnabled =
@@ -544,6 +741,9 @@ export function createInteractionController({
 		startShotCameraRollDrag,
 		handleShotCameraRollDragMove,
 		handleShotCameraRollDragEnd,
+		startOrbitAroundHitDrag,
+		handleOrbitAroundHitDragMove,
+		handleOrbitAroundHitDragEnd,
 		syncControlsToMode,
 	};
 }
