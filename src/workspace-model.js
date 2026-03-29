@@ -20,6 +20,7 @@ const FRAME_DISPLAY_LABELS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 const DEFAULT_FRAME_X = 0.5;
 const DEFAULT_FRAME_Y = 0.5;
 const DEFAULT_FRAME_SCALE = 1;
+const DEFAULT_FRAME_MASK_OPACITY_PCT = 80;
 
 export const WORKSPACE_PANE_CAMERA = "camera";
 export const WORKSPACE_PANE_VIEWPORT = "viewport";
@@ -233,6 +234,11 @@ export function createShotCameraDocument({ id, name, source } = {}) {
 					exportModelLayers: true,
 					exportSplatLayers: true,
 				},
+				frameMask: {
+					mode: "off",
+					opacityPct: DEFAULT_FRAME_MASK_OPACITY_PCT,
+					selectedIds: [],
+				},
 				navigation: {
 					rollLock: false,
 				},
@@ -365,6 +371,26 @@ export function cloneShotCameraDocument(documentState) {
 			),
 			exportSplatLayers:
 				documentState.exportSettings?.exportSplatLayers ?? true,
+		},
+		frameMask: {
+			mode:
+				documentState.frameMask?.mode === "selected" ||
+				documentState.frameMask?.mode === "all"
+					? documentState.frameMask.mode
+					: "off",
+			opacityPct: Number.isFinite(documentState.frameMask?.opacityPct)
+				? Math.min(
+						100,
+						Math.max(0, Math.round(documentState.frameMask.opacityPct)),
+					)
+				: DEFAULT_FRAME_MASK_OPACITY_PCT,
+			selectedIds: Array.from(
+				new Set(
+					(documentState.frameMask?.selectedIds ?? []).filter((frameId) =>
+						frames.some((frame) => frame.id === frameId),
+					),
+				),
+			),
 		},
 		navigation: {
 			rollLock: Boolean(documentState.navigation?.rollLock),

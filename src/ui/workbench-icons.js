@@ -263,6 +263,19 @@ function renderIconPath(name) {
 				<path d="M19 12v7"></path>
 				<path d="M15.5 15.5h7"></path>
 			`;
+		case "mask-selected":
+			return html`
+				<path d="M4 6h16v12H4z"></path>
+				<rect x="8" y="9" width="8" height="6" rx="1"></rect>
+				<path d="M6.5 7.5v9"></path>
+				<path d="M17.5 7.5v9"></path>
+			`;
+		case "mask-all":
+			return html`
+				<path d="M4 6h16v12H4z"></path>
+				<rect x="6.5" y="8.5" width="5.5" height="7" rx="0.8"></rect>
+				<rect x="12" y="8.5" width="5.5" height="7" rx="0.8"></rect>
+			`;
 		case "viewport":
 			return html`
 				<rect x="3.5" y="5" width="17" height="14" rx="2"></rect>

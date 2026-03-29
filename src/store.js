@@ -147,6 +147,9 @@ export function createCameraFramesStore(runtimeInfo = null) {
 		getActiveShotCameraDocument(shotCameras.value, activeShotCameraId.value),
 	);
 	const frameSelectionActive = signal(false);
+	const frameSelectedIds = signal([]);
+	const frameSelectionAnchor = signal(null);
+	const frameSelectionBoxLogical = signal(null);
 	const historyCanUndo = signal(false);
 	const historyCanRedo = signal(false);
 	const frameDocuments = computed(() => activeShotCamera.value?.frames ?? []);
@@ -158,6 +161,9 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	);
 	const activeFrameId = computed(() => activeFrame.value?.id ?? "");
 	const frameCount = computed(() => frameDocuments.value.length);
+	const frameMaskSelectedIds = computed(
+		() => activeShotCamera.value?.frameMask?.selectedIds ?? [],
+	);
 	const mode = computed(() => activeWorkspacePane.value.role);
 	const baseFovX = computed(
 		() =>
@@ -212,6 +218,14 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	);
 	const activeRollLock = computed(() =>
 		Boolean(activeShotCamera.value?.navigation?.rollLock),
+	);
+	const frameMaskMode = computed(
+		() => activeShotCamera.value?.frameMask?.mode ?? "off",
+	);
+	const frameMaskOpacityPct = computed(() =>
+		Number.isFinite(activeShotCamera.value?.frameMask?.opacityPct)
+			? activeShotCamera.value.frameMask.opacityPct
+			: 80,
 	);
 	const exportWidth = computed(() =>
 		Math.max(64, Math.round(BASE_RENDER_BOX.width * widthScale.value)),
@@ -329,6 +343,12 @@ export function createCameraFramesStore(runtimeInfo = null) {
 			activeId: activeFrameId,
 			count: frameCount,
 			selectionActive: frameSelectionActive,
+			selectedIds: frameSelectedIds,
+			selectionAnchor: frameSelectionAnchor,
+			selectionBoxLogical: frameSelectionBoxLogical,
+			maskSelectedIds: frameMaskSelectedIds,
+			maskMode: frameMaskMode,
+			maskOpacityPct: frameMaskOpacityPct,
 		},
 		history: {
 			canUndo: historyCanUndo,

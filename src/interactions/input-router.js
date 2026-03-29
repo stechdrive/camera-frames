@@ -601,6 +601,20 @@ export function bindInputRouter({
 			return;
 		}
 
+		if (
+			event.code === "KeyM" &&
+			state.mode === "camera" &&
+			!event.altKey &&
+			!event.ctrlKey &&
+			!event.metaKey
+		) {
+			event.preventDefault();
+			handleViewportPieAction?.(
+				event.shiftKey ? "frame-mask-selected" : "frame-mask-all",
+			);
+			return;
+		}
+
 		if (event.code === "Escape" && isZoomInteractionMode()) {
 			event.preventDefault();
 			applyNavigateInteractionMode();

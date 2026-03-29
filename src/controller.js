@@ -416,6 +416,7 @@ export function createCameraFramesController(elements, store) {
 			referenceImageEditor:
 				referenceImageController?.captureReferenceImageEditorState?.() ?? null,
 			frameSelectionActive: store.frames.selectionActive.value,
+			frameSelectedIds: [...(store.frames.selectedIds.value ?? [])],
 			outputFrameSelected: state.outputFrameSelected,
 		};
 	}
@@ -465,6 +466,10 @@ export function createCameraFramesController(elements, store) {
 		outputFrameController?.clearOutputFrameAnchorDrag();
 		outputFrameController?.clearOutputFrameResize();
 		store.frames.selectionActive.value = Boolean(snapshot.frameSelectionActive);
+		store.frames.selectedIds.value = store.frames.selectionActive.value
+			? [...(snapshot.frameSelectedIds ?? [])]
+			: [];
+		frameController?.syncFrameSelectionTransformState?.();
 		state.outputFrameSelected =
 			!store.frames.selectionActive.value &&
 			Boolean(snapshot.outputFrameSelected);
@@ -608,6 +613,9 @@ export function createCameraFramesController(elements, store) {
 		lightingController?.applyLightingState(project?.scene?.lighting ?? null);
 
 		store.frames.selectionActive.value = false;
+		store.frames.selectedIds.value = [];
+		store.frames.selectionAnchor.value = null;
+		store.frames.selectionBoxLogical.value = null;
 		state.outputFrameSelected = false;
 		frameController?.clearFrameInteraction();
 		outputFrameController?.clearOutputFramePan();
@@ -1502,6 +1510,21 @@ export function createCameraFramesController(elements, store) {
 			case "frame-create":
 				frameController.createFrame();
 				return true;
+			case "frame-mask-all":
+				if (state.mode !== WORKSPACE_PANE_CAMERA) {
+					return false;
+				}
+				frameController.toggleFrameMaskMode("all");
+				return true;
+			case "frame-mask-selected":
+				if (
+					state.mode !== WORKSPACE_PANE_CAMERA ||
+					frameController.getRememberedFrameMaskSelectedIds().length === 0
+				) {
+					return false;
+				}
+				frameController.toggleFrameMaskMode("selected");
+				return true;
 			case "adjust-lens":
 				interactionController?.activateLensAdjustMode(pointerEvent);
 				return true;
@@ -1604,10 +1627,18 @@ export function createCameraFramesController(elements, store) {
 		createFrame: frameController.createFrame,
 		duplicateActiveFrame: frameController.duplicateActiveFrame,
 		deleteActiveFrame: frameController.deleteActiveFrame,
+		setFrameMaskMode: frameController.setFrameMaskMode,
+		toggleFrameMaskMode: frameController.toggleFrameMaskMode,
+		setFrameMaskOpacity: frameController.setFrameMaskOpacity,
 		startFrameDrag: frameController.startFrameDrag,
+		startSelectedFramesDrag: frameController.startSelectedFramesDrag,
 		startFrameResize: frameController.startFrameResize,
+		startSelectedFramesResize: frameController.startSelectedFramesResize,
 		startFrameRotate: frameController.startFrameRotate,
+		startSelectedFramesRotate: frameController.startSelectedFramesRotate,
 		startFrameAnchorDrag: frameController.startFrameAnchorDrag,
+		startSelectedFramesAnchorDrag:
+			frameController.startSelectedFramesAnchorDrag,
 		startOutputFramePan: outputFrameController.startOutputFramePan,
 		startOutputFrameResize: outputFrameController.startOutputFrameResize,
 		selectShotCamera: cameraController.selectShotCamera,

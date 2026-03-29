@@ -398,6 +398,7 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 					frameCount=${frameCount}
 					frameDocuments=${frameDocuments}
 					frameLimitReached=${frameLimitReached}
+					store=${store}
 					t=${t}
 				/>
 			`;

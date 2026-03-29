@@ -307,6 +307,9 @@ export function createInteractionController({
 		const actions = buildViewportPieActions({
 			mode: state.mode,
 			t,
+			frameMaskMode: store.frames.maskMode.value,
+			hasRememberedFrameMaskSelection:
+				(store.frames.maskSelectedIds.value?.length ?? 0) > 0,
 		});
 		const nextHoveredActionId = getViewportPieHoveredActionId({
 			x: event.clientX - viewportShell.getBoundingClientRect().left,

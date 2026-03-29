@@ -85,6 +85,7 @@ const MESSAGES = {
 			transformSpace: "変形空間",
 			transformMode: "ツール",
 			activeFrame: "FRAME",
+			frameMaskOpacity: "マスク不透明度",
 			exportTarget: "書き出し対象",
 			referenceImageOpacity: "不透明度",
 			referenceImageScale: "拡縮",
@@ -205,6 +206,8 @@ const MESSAGES = {
 			newFrame: "FRAME を追加",
 			duplicateFrame: "複製",
 			deleteFrame: "削除",
+			toggleSelectedFrameMask: "選択中マスク",
+			toggleAllFrameMask: "全体マスク",
 		},
 		unit: {
 			millimeter: "millimeter",
@@ -237,6 +240,10 @@ const MESSAGES = {
 				"Camera の位置と視線方向を Viewport へコピーします。ロール、焦点距離、クリップ範囲は変えません。",
 			resetActiveView:
 				"現在の Camera / Viewport の位置と向きをホーム位置へ戻します。",
+			frameMaskSelected:
+				"選択中の FRAME 群を囲む範囲の外側を暗くします。もう一度押すと解除します。",
+			frameMaskAll:
+				"すべての FRAME を囲む範囲の外側を暗くします。もう一度押すと解除します。",
 		},
 		hint: {
 			viewMode:
@@ -264,7 +271,7 @@ const MESSAGES = {
 				"まだ下絵がありません。PNG / JPG / WEBP / PSD を読み込んでください。",
 		},
 		drop: {
-			title: "ここにファイルをドロップ",
+			title: "画面にファイルをドロップして開く",
 			body: "3Dデータ（PLY / SPZ / SOG / SPLAT / GLB など）、プロジェクトパッケージ（.ssproj）、下絵（PNG / JPG / WEBP / PSD）を読み込めます。",
 		},
 		badge: {
@@ -570,6 +577,7 @@ const MESSAGES = {
 			transformSpace: "Transform Space",
 			transformMode: "Tool",
 			activeFrame: "FRAME",
+			frameMaskOpacity: "Mask Opacity",
 			exportTarget: "Export Target",
 			referenceImageOpacity: "Opacity",
 			referenceImageScale: "Scale",
@@ -690,6 +698,8 @@ const MESSAGES = {
 			newFrame: "Add FRAME",
 			duplicateFrame: "Duplicate",
 			deleteFrame: "Delete",
+			toggleSelectedFrameMask: "Selected Mask",
+			toggleAllFrameMask: "All Frames Mask",
 		},
 		unit: {
 			millimeter: "ミリメートル",
@@ -726,6 +736,10 @@ const MESSAGES = {
 				"Copy the Camera position and view direction into the Viewport. Roll, lens, and clip range stay unchanged.",
 			resetActiveView:
 				"Return the current Camera or Viewport position and orientation to the home pose.",
+			frameMaskSelected:
+				"Dim everything outside the bounding box of the selected FRAMEs. Press again to turn it off.",
+			frameMaskAll:
+				"Dim everything outside the bounding box covering all FRAMEs. Press again to turn it off.",
 		},
 		hint: {
 			viewMode:
