@@ -14,7 +14,6 @@ import {
 	MIN_OUTPUT_FRAME_SCALE_PCT,
 } from "../constants.js";
 import { groupSceneAssetsByKind } from "../engine/scene-asset-order.js";
-import { formatAssetWorldScale } from "../engine/scene-units.js";
 import {
 	DirectionalScrubControl,
 	HistoryRangeInput,
@@ -53,6 +52,9 @@ export const INSPECTOR_QUICK_SECTION_REFERENCE = "reference";
 export const INSPECTOR_QUICK_SECTION_FRAMES = "frames";
 export const INSPECTOR_QUICK_SECTION_EXPORT = "export-output";
 export const INSPECTOR_QUICK_SECTION_EXPORT_SETTINGS = "export-settings";
+export const INSPECTOR_BROWSER_SCENE = "scene";
+export const INSPECTOR_BROWSER_REFERENCE = "reference";
+export const INSPECTOR_BROWSER_FRAMES = "frames";
 
 function ShotCameraPicker({ activeShotCamera, controller, shotCameras, t }) {
 	const [open, setOpen] = useState(false);
@@ -763,6 +765,518 @@ export function DisplayZoomSection({
 	`;
 }
 
+export function InspectorBrowserSection({
+	activeBrowserSectionId,
+	controller,
+	draggedAssetId = null,
+	dragHoverState = null,
+	frameDocuments = [],
+	onSelectBrowserSection,
+	sceneAssets = [],
+	selectedSceneAsset = null,
+	setDraggedAssetId = () => {},
+	setDragHoverState = () => {},
+	store,
+	t,
+}) {
+	const browserSections = [
+		{
+			id: INSPECTOR_BROWSER_SCENE,
+			label: t("section.scene"),
+			icon: "scene",
+		},
+		{
+			id: INSPECTOR_BROWSER_REFERENCE,
+			label: t("section.referenceImages"),
+			icon: "image",
+		},
+		{
+			id: INSPECTOR_BROWSER_FRAMES,
+			label: t("section.frames"),
+			icon: "frame",
+		},
+	];
+
+	return html`
+		<section class="panel-section panel-section--browser">
+			<div class="inspector-browser">
+				<div class="inspector-browser__tabs" role="tablist">
+					${browserSections.map(
+						(section) => html`
+							<button
+								key=${section.id}
+								type="button"
+								role="tab"
+								class=${
+									activeBrowserSectionId === section.id
+										? "inspector-browser__tab is-active"
+										: "inspector-browser__tab"
+								}
+								aria-selected=${activeBrowserSectionId === section.id}
+								onClick=${() => onSelectBrowserSection?.(section.id)}
+							>
+								<${WorkbenchIcon} name=${section.icon} size=${13} />
+								<span>${section.label}</span>
+							</button>
+						`,
+					)}
+				</div>
+				<div class="inspector-browser__body">
+					${
+						activeBrowserSectionId === INSPECTOR_BROWSER_REFERENCE
+							? html`
+									<${ReferenceBrowserSection}
+										controller=${controller}
+										store=${store}
+										t=${t}
+									/>
+								`
+							: activeBrowserSectionId === INSPECTOR_BROWSER_FRAMES
+								? html`
+										<${FramesBrowserSection}
+											controller=${controller}
+											frameDocuments=${frameDocuments}
+											store=${store}
+											t=${t}
+										/>
+									`
+								: html`
+										<${SceneBrowserSection}
+											controller=${controller}
+											draggedAssetId=${draggedAssetId}
+											dragHoverState=${dragHoverState}
+											sceneAssets=${sceneAssets}
+											selectedSceneAsset=${selectedSceneAsset}
+											setDraggedAssetId=${setDraggedAssetId}
+											setDragHoverState=${setDragHoverState}
+											store=${store}
+											t=${t}
+										/>
+									`
+					}
+				</div>
+			</div>
+		</section>
+	`;
+}
+
+export function SceneBrowserSection({
+	controller,
+	draggedAssetId = null,
+	dragHoverState = null,
+	sceneAssets,
+	selectedSceneAsset,
+	setDraggedAssetId,
+	setDragHoverState,
+	store,
+	t,
+}) {
+	const sceneAssetSections = groupSceneAssetsByKind(sceneAssets);
+	const selectedSceneAssetIds = new Set(store.selectedSceneAssetIds.value);
+	const getSceneAssetById = (assetId) =>
+		sceneAssets.find((asset) => asset.id === assetId) ?? null;
+	const getDropPosition = (event) => {
+		const bounds = event.currentTarget.getBoundingClientRect();
+		return event.clientY < bounds.top + bounds.height / 2 ? "before" : "after";
+	};
+	const getDropTargetKindIndex = (draggedAsset, targetAsset, position) => {
+		if (
+			!draggedAsset ||
+			!targetAsset ||
+			draggedAsset.kind !== targetAsset.kind
+		) {
+			return null;
+		}
+		const currentKindIndex = draggedAsset.kindOrderIndex - 1;
+		const targetKindIndex = targetAsset.kindOrderIndex - 1;
+		if (position === "before") {
+			return currentKindIndex < targetKindIndex
+				? targetKindIndex - 1
+				: targetKindIndex;
+		}
+		return currentKindIndex < targetKindIndex
+			? targetKindIndex
+			: targetKindIndex + 1;
+	};
+	const getSceneAssetRowClass = (asset) => {
+		const classes = ["scene-asset-row", "scene-asset-row--compact"];
+		if (selectedSceneAssetIds.has(asset.id)) {
+			classes.push("scene-asset-row--selected");
+		}
+		if (asset.id === selectedSceneAsset?.id) {
+			classes.push("scene-asset-row--active");
+		}
+		if (dragHoverState?.assetId === asset.id) {
+			classes.push(
+				dragHoverState.position === "before"
+					? "scene-asset-row--drop-before"
+					: "scene-asset-row--drop-after",
+			);
+		}
+		return classes.join(" ");
+	};
+
+	if (sceneAssets.length === 0) {
+		return html`<p class="summary">${t("hint.sceneCalibration")}</p>`;
+	}
+
+	return html`
+		<div class="browser-list">
+			${sceneAssetSections.map(
+				(section) => html`
+					<section key=${section.kind} class="browser-group">
+						<div class="browser-group__heading">
+							<strong>${t(section.assets[0].kindLabelKey)}</strong>
+							<span class="pill pill--dim">${section.assets.length}</span>
+						</div>
+						<div class="scene-asset-list scene-asset-list--compact">
+							${section.assets.map(
+								(asset) => html`
+									<article
+										class=${getSceneAssetRowClass(asset)}
+										draggable="true"
+										onClick=${(event) =>
+											controller()?.selectSceneAsset(asset.id, {
+												additive:
+													event.shiftKey || event.ctrlKey || event.metaKey,
+												toggle:
+													event.shiftKey || event.ctrlKey || event.metaKey,
+											})}
+										onDragStart=${(event) => {
+											setDraggedAssetId(asset.id);
+											setDragHoverState(null);
+											event.dataTransfer.effectAllowed = "move";
+											event.dataTransfer.setData(
+												"text/plain",
+												String(asset.id),
+											);
+										}}
+										onDragOver=${(event) => {
+											const draggedAsset = getSceneAssetById(
+												draggedAssetId ??
+													Number(event.dataTransfer.getData("text/plain")),
+											);
+											if (draggedAsset?.kind !== asset.kind) {
+												return;
+											}
+											event.preventDefault();
+											event.dataTransfer.dropEffect = "move";
+											setDragHoverState({
+												assetId: asset.id,
+												position: getDropPosition(event),
+											});
+										}}
+										onDragLeave=${() => {
+											if (dragHoverState?.assetId === asset.id) {
+												setDragHoverState(null);
+											}
+										}}
+										onDrop=${(event) => {
+											event.preventDefault();
+											const draggedId =
+												draggedAssetId ??
+												Number(event.dataTransfer.getData("text/plain"));
+											const draggedAsset = getSceneAssetById(draggedId);
+											const dropPosition = getDropPosition(event);
+											if (
+												!Number.isFinite(draggedId) ||
+												draggedId === asset.id ||
+												draggedAsset?.kind !== asset.kind
+											) {
+												setDraggedAssetId(null);
+												setDragHoverState(null);
+												return;
+											}
+											const targetKindIndex = getDropTargetKindIndex(
+												draggedAsset,
+												asset,
+												dropPosition,
+											);
+											if (targetKindIndex !== null) {
+												controller()?.moveAssetToIndex(
+													draggedId,
+													targetKindIndex,
+												);
+											}
+											setDraggedAssetId(null);
+											setDragHoverState(null);
+										}}
+										onDragEnd=${() => {
+											setDraggedAssetId(null);
+											setDragHoverState(null);
+										}}
+									>
+										<div class="scene-asset-row__main">
+											<span class="scene-asset-row__handle" aria-hidden="true">
+												<${WorkbenchIcon} name="grip" size=${12} strokeWidth=${0} />
+											</span>
+											<div class="scene-asset-row__title-group">
+												<strong>${asset.label}</strong>
+											</div>
+										</div>
+										<div class="scene-asset-row__toolbar">
+											<${IconButton}
+												icon=${asset.visible ? "eye" : "eye-off"}
+												label=${t(
+													asset.visible
+														? "assetVisibility.visible"
+														: "assetVisibility.hidden",
+												)}
+												active=${asset.visible}
+												compact=${true}
+												className="scene-asset-row__icon-button"
+												onClick=${(event) => {
+													event.stopPropagation();
+													controller()?.selectSceneAsset(asset.id);
+													controller()?.setAssetVisibility(
+														asset.id,
+														!asset.visible,
+													);
+												}}
+											/>
+										</div>
+									</article>
+								`,
+							)}
+						</div>
+					</section>
+				`,
+			)}
+		</div>
+	`;
+}
+
+export function ReferenceBrowserSection({ controller, store, t }) {
+	const items = [...store.referenceImages.items.value].reverse();
+	const selectedItemIds = new Set(
+		store.referenceImages.selectedItemIds.value ?? [],
+	);
+	const selectedItemId = store.referenceImages.selectedItemId.value;
+
+	if (items.length === 0) {
+		return html`<p class="summary">${t("referenceImage.currentCameraEmpty")}</p>`;
+	}
+
+	return html`
+		<div class="browser-list">
+			<div class="scene-asset-list scene-asset-list--compact">
+				${items.map(
+					(item) => html`
+						<article
+							key=${item.id}
+							class=${
+								item.id === selectedItemId
+									? selectedItemIds.has(item.id)
+										? "scene-asset-row scene-asset-row--compact scene-asset-row--selected scene-asset-row--active"
+										: "scene-asset-row scene-asset-row--compact scene-asset-row--active"
+									: selectedItemIds.has(item.id)
+										? "scene-asset-row scene-asset-row--compact scene-asset-row--selected"
+										: "scene-asset-row scene-asset-row--compact"
+							}
+							onClick=${(event) => controller()?.selectReferenceImageItem?.(item.id, event)}
+						>
+							<div class="scene-asset-row__main scene-asset-row__main--flat">
+								<div class="scene-asset-row__title-group">
+									<strong>${item.name}</strong>
+								</div>
+							</div>
+							<div class="scene-asset-row__toolbar">
+								<span
+									class=${
+										item.group === "front"
+											? "browser-marker browser-marker--front"
+											: "browser-marker browser-marker--back"
+									}
+									title=${t(`referenceImage.group.${item.group}`)}
+								></span>
+								<${IconButton}
+									icon=${item.previewVisible ? "eye" : "eye-off"}
+									label=${t(
+										item.previewVisible
+											? "assetVisibility.visible"
+											: "assetVisibility.hidden",
+									)}
+									active=${item.previewVisible}
+									compact=${true}
+									className="scene-asset-row__icon-button"
+									onClick=${(event) => {
+										event.stopPropagation();
+										controller()?.setReferenceImagePreviewVisible?.(
+											item.id,
+											!item.previewVisible,
+										);
+									}}
+								/>
+								<${IconButton}
+									icon=${item.exportEnabled ? "export" : "slash-circle"}
+									label=${
+										item.exportEnabled
+											? t("action.excludeReferenceImageFromExport")
+											: t("action.includeReferenceImageInExport")
+									}
+									compact=${true}
+									className="scene-asset-row__icon-button"
+									onClick=${(event) => {
+										event.stopPropagation();
+										controller()?.setReferenceImageExportEnabled?.(
+											item.id,
+											!item.exportEnabled,
+										);
+									}}
+								/>
+							</div>
+						</article>
+					`,
+				)}
+			</div>
+		</div>
+	`;
+}
+
+export function FramesBrowserSection({ controller, frameDocuments, store, t }) {
+	const activeFrameId = store.frames.activeId.value;
+	const selectedFrameIds = new Set(store.frames.selectedIds.value ?? []);
+
+	if (frameDocuments.length === 0) {
+		return html`<p class="summary">${t("hint.framesEmpty")}</p>`;
+	}
+
+	return html`
+		<div class="browser-list">
+			<div class="scene-asset-list scene-asset-list--compact">
+				${frameDocuments.map(
+					(frame) => html`
+						<article
+							key=${frame.id}
+							class=${
+								frame.id === activeFrameId
+									? selectedFrameIds.has(frame.id)
+										? "scene-asset-row scene-asset-row--compact scene-asset-row--selected scene-asset-row--active"
+										: "scene-asset-row scene-asset-row--compact scene-asset-row--active"
+									: selectedFrameIds.has(frame.id)
+										? "scene-asset-row scene-asset-row--compact scene-asset-row--selected"
+										: "scene-asset-row scene-asset-row--compact"
+							}
+							onClick=${(event) =>
+								controller()?.selectFrame(frame.id, {
+									additive: event.shiftKey || event.ctrlKey || event.metaKey,
+									toggle: event.shiftKey || event.ctrlKey || event.metaKey,
+								})}
+						>
+							<div class="scene-asset-row__main scene-asset-row__main--flat">
+								<div class="scene-asset-row__title-group">
+									<strong>${frame.name}</strong>
+								</div>
+							</div>
+							<div class="scene-asset-row__toolbar">
+								<span class="browser-frame-scale">${Math.round((frame.scale ?? 1) * 100)}%</span>
+							</div>
+						</article>
+					`,
+				)}
+			</div>
+		</div>
+	`;
+}
+
+export function SelectedSceneAssetInspector({
+	controller,
+	selectedSceneAsset,
+	t,
+}) {
+	if (!selectedSceneAsset) {
+		return null;
+	}
+
+	return html`
+		<section class="panel-section panel-section--selection-dock">
+			<${SectionHeading} icon="scene" title=${selectedSceneAsset.label}>
+				<div class="button-row">
+					<${IconButton}
+						icon=${selectedSceneAsset.visible ? "eye" : "eye-off"}
+						label=${t(
+							selectedSceneAsset.visible
+								? "assetVisibility.visible"
+								: "assetVisibility.hidden",
+						)}
+						active=${selectedSceneAsset.visible}
+						compact=${true}
+						onClick=${() =>
+							controller()?.setAssetVisibility(
+								selectedSceneAsset.id,
+								!selectedSceneAsset.visible,
+							)}
+					/>
+					<${IconButton}
+						icon="reset"
+						label=${t("action.resetScale")}
+						compact=${true}
+						onClick=${() =>
+							controller()?.resetAssetWorldScale(selectedSceneAsset.id)}
+					/>
+				</div>
+			<//>
+			<label class="field">
+				<span>${t("field.assetScale")}</span>
+				<${NumericDraftInput}
+					inputMode="decimal"
+					min="0.01"
+					step="0.01"
+					value=${Number(selectedSceneAsset.worldScale).toFixed(2)}
+					controller=${controller}
+					historyLabel="asset.scale"
+					onCommit=${(nextValue) =>
+						controller()?.setAssetWorldScale(selectedSceneAsset.id, nextValue)}
+				/>
+			</label>
+			<div class="triple-field-row">
+				${["x", "y", "z"].map(
+					(axis) => html`
+						<label class="field">
+							<span>${t("field.assetPosition")} ${axis.toUpperCase()}</span>
+							<${NumericDraftInput}
+								inputMode="decimal"
+								step="0.01"
+								value=${Number(selectedSceneAsset.position[axis]).toFixed(2)}
+								controller=${controller}
+								historyLabel=${`asset.position.${axis}`}
+								onCommit=${(nextValue) =>
+									controller()?.setAssetPosition(
+										selectedSceneAsset.id,
+										axis,
+										nextValue,
+									)}
+							/>
+						</label>
+					`,
+				)}
+			</div>
+			<div class="triple-field-row">
+				${["x", "y", "z"].map(
+					(axis) => html`
+						<label class="field">
+							<span>${t("field.assetRotation")} ${axis.toUpperCase()}</span>
+							<${NumericDraftInput}
+								inputMode="decimal"
+								step="0.01"
+								value=${Number(selectedSceneAsset.rotationDegrees[axis]).toFixed(2)}
+								controller=${controller}
+								historyLabel=${`asset.rotation.${axis}`}
+								onCommit=${(nextValue) =>
+									controller()?.setAssetRotationDegrees(
+										selectedSceneAsset.id,
+										axis,
+										nextValue,
+									)}
+							/>
+						</label>
+					`,
+				)}
+			</div>
+		</section>
+	`;
+}
+
 export function ViewSettingsSection({
 	controller,
 	headingActions = null,
@@ -822,12 +1336,9 @@ export function ViewSettingsSection({
 export function SceneSection({
 	controller,
 	sceneAssets,
-	sceneBadge,
-	sceneScaleSummary,
-	sceneSummary,
-	sceneUnitBadge,
 	selectedSceneAsset,
 	headingActions = null,
+	showSelectedInspector = true,
 	store,
 	t,
 	draggedAssetId,
@@ -879,25 +1390,11 @@ export function SceneSection({
 		}
 		return classes.join(" ");
 	};
-	const sceneSummaryParts = [sceneSummary, sceneScaleSummary].filter(Boolean);
-
 	return html`
 		<section class="panel-section">
 			<${SectionHeading} icon="scene" title=${t("section.scene")}>
-				<div class="pill-row">
-					<span id="scene-unit-pill" class="pill pill--dim">${sceneUnitBadge}</span>
-					<span id="scene-badge" class="pill pill--dim">${sceneBadge}</span>
-				</div>
 				${headingActions}
 			<//>
-			${
-				sceneSummaryParts.length > 0 &&
-				html`
-					<p id="scene-summary" class="summary">
-						${sceneSummaryParts.join(" · ")}
-					</p>
-				`
-			}
 			${
 				sceneAssets.length > 0 &&
 				html`
@@ -997,10 +1494,6 @@ export function SceneSection({
 														</span>
 														<div class="scene-asset-row__title-group">
 															<strong>${asset.label}</strong>
-															<span class="scene-asset-row__meta">
-																#${asset.kindOrderIndex} ·
-																${formatAssetWorldScale(asset.worldScale)}
-															</span>
 														</div>
 													</div>
 													<div class="scene-asset-row__toolbar">
@@ -1035,98 +1528,12 @@ export function SceneSection({
 				`
 			}
 			${
-				selectedSceneAsset &&
-				html`
-					<${DisclosureBlock}
-						icon="scene"
-						label=${selectedSceneAsset.label}
-					>
-						<div class="button-row">
-							<${IconButton}
-								icon=${selectedSceneAsset.visible ? "eye" : "eye-off"}
-								label=${t(
-									selectedSceneAsset.visible
-										? "assetVisibility.visible"
-										: "assetVisibility.hidden",
-								)}
-								active=${selectedSceneAsset.visible}
-								compact=${true}
-								onClick=${() =>
-									controller()?.setAssetVisibility(
-										selectedSceneAsset.id,
-										!selectedSceneAsset.visible,
-									)}
-							/>
-							<${IconButton}
-								icon="reset"
-								label=${t("action.resetScale")}
-								compact=${true}
-								onClick=${() =>
-									controller()?.resetAssetWorldScale(selectedSceneAsset.id)}
-							/>
-						</div>
-						<label class="field">
-							<span>${t("field.assetScale")}</span>
-							<${NumericDraftInput}
-								inputMode="decimal"
-								min="0.01"
-								step="0.01"
-								value=${Number(selectedSceneAsset.worldScale).toFixed(2)}
-								controller=${controller}
-								historyLabel="asset.scale"
-								onCommit=${(nextValue) =>
-									controller()?.setAssetWorldScale(
-										selectedSceneAsset.id,
-										nextValue,
-									)}
-							/>
-						</label>
-						<div class="triple-field-row">
-							${["x", "y", "z"].map(
-								(axis) => html`
-									<label class="field">
-										<span>${t("field.assetPosition")} ${axis.toUpperCase()}</span>
-										<${NumericDraftInput}
-											inputMode="decimal"
-											step="0.01"
-											value=${Number(selectedSceneAsset.position[axis]).toFixed(2)}
-											controller=${controller}
-											historyLabel=${`asset.position.${axis}`}
-											onCommit=${(nextValue) =>
-												controller()?.setAssetPosition(
-													selectedSceneAsset.id,
-													axis,
-													nextValue,
-												)}
-										/>
-									</label>
-								`,
-							)}
-						</div>
-						<div class="triple-field-row">
-							${["x", "y", "z"].map(
-								(axis) => html`
-									<label class="field">
-										<span>${t("field.assetRotation")} ${axis.toUpperCase()}</span>
-										<${NumericDraftInput}
-											inputMode="decimal"
-											step="0.01"
-											value=${Number(selectedSceneAsset.rotationDegrees[axis]).toFixed(2)}
-											controller=${controller}
-											historyLabel=${`asset.rotation.${axis}`}
-											onCommit=${(nextValue) =>
-												controller()?.setAssetRotationDegrees(
-													selectedSceneAsset.id,
-													axis,
-													nextValue,
-												)}
-										/>
-									</label>
-								`,
-							)}
-						</div>
-					<//>
-				`
+				showSelectedInspector &&
+				html`<${SelectedSceneAssetInspector}
+				controller=${controller}
+				selectedSceneAsset=${selectedSceneAsset}
+				t=${t}
+			/>`
 			}
 		</section>
 	`;
@@ -1752,6 +2159,7 @@ export function FramesSection({
 	frameDocuments,
 	frameLimitReached,
 	open = false,
+	showFramePicker = true,
 	summaryActions = null,
 	store,
 	t,
@@ -1831,22 +2239,27 @@ export function FramesSection({
 			${
 				frameDocuments.length > 0
 					? html`
-						<label class="field">
-							<span>${t("field.activeFrame")}</span>
-							<select
-								id="active-frame"
-								value=${activeFrameId}
-								...${INTERACTIVE_FIELD_PROPS}
-								onChange=${(event) =>
-									controller()?.selectFrame(event.currentTarget.value)}
-							>
-								${frameDocuments.map(
-									(frame) => html`
-										<option value=${frame.id}>${frame.name}</option>
-									`,
-								)}
-							</select>
-						</label>
+						${
+							showFramePicker &&
+							html`
+								<label class="field">
+									<span>${t("field.activeFrame")}</span>
+									<select
+										id="active-frame"
+										value=${activeFrameId}
+										...${INTERACTIVE_FIELD_PROPS}
+										onChange=${(event) =>
+											controller()?.selectFrame(event.currentTarget.value)}
+									>
+										${frameDocuments.map(
+											(frame) => html`
+												<option value=${frame.id}>${frame.name}</option>
+											`,
+										)}
+									</select>
+								</label>
+							`
+						}
 						<div class="button-row">
 							<${IconButton}
 								id="new-frame"
@@ -1888,6 +2301,7 @@ export function FramesSection({
 export function ReferenceSection({
 	controller,
 	headingActions = null,
+	showList = true,
 	store,
 	t,
 }) {
@@ -1985,85 +2399,94 @@ export function ReferenceSection({
 				</div>
 			</div>
 			<div class="reference-panel-stack">
-				<section class="reference-panel-group">
-					<div class="panel-inline-header">
-						<strong>${t("referenceImage.currentPresetSection")}</strong>
-						<span class="pill pill--dim">${items.length}</span>
-					</div>
-					${
-						items.length > 0
-							? html`
-									<div class="scene-asset-list">
-										${itemsForDisplay.map(
-											(item) => html`
-												<article
-													class=${getReferenceRowClass({
-														selected: selectedItemIds.has(item.id),
-														active: item.id === selectedItemId,
-													})}
-													onClick=${(event) =>
-														controller()?.selectReferenceImageItem?.(
-															item.id,
-															event,
-														)}
-												>
-													<div class="scene-asset-row__main scene-asset-row__main--flat">
-														<div class="scene-asset-row__title-group">
-															<strong>${item.name}</strong>
-															<span class="scene-asset-row__meta">
-																${item.fileName || t("referenceImage.untitled")} ·
-																${t(`referenceImage.group.${item.group}`)} ·
-																${t("referenceImage.orderLabel", {
-																	order: item.order + 1,
-																})}
-															</span>
-														</div>
-													</div>
-													<div class="scene-asset-row__toolbar">
-														<${IconButton}
-															icon=${item.previewVisible ? "eye" : "eye-off"}
-															label=${t(
-																item.previewVisible
-																	? "assetVisibility.visible"
-																	: "assetVisibility.hidden",
-															)}
-															active=${item.previewVisible}
-															compact=${true}
-															className="scene-asset-row__icon-button"
-															onClick=${(event) => {
-																event.stopPropagation();
-																controller()?.setReferenceImagePreviewVisible?.(
+				${
+					showList &&
+					html`
+						<section class="reference-panel-group">
+							<div class="panel-inline-header">
+								<strong>${t("referenceImage.currentPresetSection")}</strong>
+								<span class="pill pill--dim">${items.length}</span>
+							</div>
+							${
+								items.length > 0
+									? html`
+											<div class="scene-asset-list">
+												${itemsForDisplay.map(
+													(item) => html`
+														<article
+															class=${getReferenceRowClass({
+																selected: selectedItemIds.has(item.id),
+																active: item.id === selectedItemId,
+															})}
+															onClick=${(event) =>
+																controller()?.selectReferenceImageItem?.(
 																	item.id,
-																	!item.previewVisible,
-																);
-															}}
-														/>
-														<${IconButton}
-															icon=${item.exportEnabled ? "export" : "slash-circle"}
-															label=${
-																item.exportEnabled
-																	? t("action.excludeReferenceImageFromExport")
-																	: t("action.includeReferenceImageInExport")
-															}
-															compact=${true}
-															className="scene-asset-row__icon-button"
-															onClick=${(event) => {
-																event.stopPropagation();
-																controller()?.setReferenceImageExportEnabled?.(
-																	item.id,
-																	!item.exportEnabled,
-																);
-															}}
-														/>
-													</div>
-												</article>
-											`,
-										)}
-									</div>
-								`
-							: html`<p class="summary">${t("referenceImage.currentCameraEmpty")}</p>`
-					}
-				</section>
+																	event,
+																)}
+														>
+															<div class="scene-asset-row__main scene-asset-row__main--flat">
+																<div class="scene-asset-row__title-group">
+																	<strong>${item.name}</strong>
+																	<span class="scene-asset-row__meta">
+																		${item.fileName || t("referenceImage.untitled")} ·
+																		${t(`referenceImage.group.${item.group}`)} ·
+																		${t("referenceImage.orderLabel", {
+																			order: item.order + 1,
+																		})}
+																	</span>
+																</div>
+															</div>
+															<div class="scene-asset-row__toolbar">
+																<${IconButton}
+																	icon=${item.previewVisible ? "eye" : "eye-off"}
+																	label=${t(
+																		item.previewVisible
+																			? "assetVisibility.visible"
+																			: "assetVisibility.hidden",
+																	)}
+																	active=${item.previewVisible}
+																	compact=${true}
+																	className="scene-asset-row__icon-button"
+																	onClick=${(event) => {
+																		event.stopPropagation();
+																		controller()?.setReferenceImagePreviewVisible?.(
+																			item.id,
+																			!item.previewVisible,
+																		);
+																	}}
+																/>
+																<${IconButton}
+																	icon=${item.exportEnabled ? "export" : "slash-circle"}
+																	label=${
+																		item.exportEnabled
+																			? t(
+																					"action.excludeReferenceImageFromExport",
+																				)
+																			: t(
+																					"action.includeReferenceImageInExport",
+																				)
+																	}
+																	compact=${true}
+																	className="scene-asset-row__icon-button"
+																	onClick=${(event) => {
+																		event.stopPropagation();
+																		controller()?.setReferenceImageExportEnabled?.(
+																			item.id,
+																			!item.exportEnabled,
+																		);
+																	}}
+																/>
+															</div>
+														</article>
+													`,
+												)}
+											</div>
+										`
+									: html`<p class="summary">${t("referenceImage.currentCameraEmpty")}</p>`
+							}
+						</section>
+					`
+				}
 				${
 					selectedItem && selectedAsset
 						? html`

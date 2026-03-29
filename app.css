@@ -710,6 +710,15 @@ code {
 	margin-top: 0;
 }
 
+.panel-section--browser {
+	padding: 0.65rem;
+	gap: 0.55rem;
+}
+
+.panel-section--selection-dock {
+	padding: 0.75rem;
+}
+
 .section-heading {
 	display: flex;
 	align-items: center;
@@ -1808,6 +1817,12 @@ input[type="range"] {
 	min-height: 0;
 	overflow: auto;
 	padding-right: 0.1rem;
+}
+
+.workbench-inspector-selection-dock {
+	flex: 0 0 auto;
+	padding-top: 0.75rem;
+	border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .workbench-inspector-stack--peek {
@@ -3242,6 +3257,10 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	gap: 0.5rem;
 }
 
+.scene-asset-list--compact {
+	gap: 0.35rem;
+}
+
 .scene-asset-section-list {
 	display: flex;
 	flex-direction: column;
@@ -3269,6 +3288,12 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	border-radius: 14px;
 	background: rgba(2, 8, 16, 0.34);
 	cursor: pointer;
+}
+
+.scene-asset-row--compact {
+	gap: 0.55rem;
+	padding: 0.48rem 0.6rem;
+	border-radius: 12px;
 }
 
 .scene-asset-row::before,
@@ -3345,6 +3370,15 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	word-break: break-word;
 }
 
+.scene-asset-row--compact .scene-asset-row__title-group strong {
+	font-size: 0.82rem;
+	line-height: 1.2;
+	word-break: normal;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
 .scene-asset-row__meta {
 	color: var(--text-dim);
 	font-size: 0.74rem;
@@ -3354,6 +3388,10 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 .scene-asset-row__toolbar {
 	display: flex;
 	gap: 0.45rem;
+}
+
+.scene-asset-row--compact .scene-asset-row__toolbar {
+	gap: 0.25rem;
 }
 
 .scene-asset-inspector {
@@ -3380,6 +3418,107 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	display: flex;
 	flex-direction: column;
 	gap: 0.7rem;
+}
+
+.browser-list {
+	display: flex;
+	flex-direction: column;
+	gap: 0.6rem;
+	min-height: 0;
+}
+
+.browser-group {
+	display: flex;
+	flex-direction: column;
+	gap: 0.35rem;
+	min-height: 0;
+}
+
+.browser-group__heading {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5rem;
+	padding: 0 0.1rem;
+}
+
+.browser-group__heading strong {
+	font-size: 0.7rem;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	color: var(--text-dim);
+}
+
+.browser-marker {
+	display: inline-flex;
+	width: 0.55rem;
+	height: 0.55rem;
+	border-radius: 999px;
+	flex: 0 0 auto;
+	box-shadow: 0 0 0 1px rgba(8, 17, 29, 0.74);
+}
+
+.browser-marker--front {
+	background: rgba(98, 208, 255, 0.96);
+}
+
+.browser-marker--back {
+	background: rgba(255, 200, 87, 0.96);
+}
+
+.browser-frame-scale {
+	color: var(--text-dim);
+	font: 600 0.68rem / 1 "Consolas", "Andale Mono", monospace;
+	letter-spacing: 0.04em;
+}
+
+.inspector-browser {
+	display: flex;
+	flex-direction: column;
+	gap: 0.55rem;
+	min-height: 0;
+}
+
+.inspector-browser__tabs {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 0.35rem;
+}
+
+.inspector-browser__tab {
+	appearance: none;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.35rem;
+	min-width: 0;
+	min-height: 1.95rem;
+	padding: 0.35rem 0.55rem;
+	border: 1px solid var(--line);
+	border-radius: 11px;
+	background: rgba(255, 255, 255, 0.03);
+	color: var(--text-dim);
+	font: 600 0.74rem / 1 "Avenir Next", "Segoe UI", sans-serif;
+	cursor: pointer;
+	transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.inspector-browser__tab:hover {
+	border-color: rgba(255, 255, 255, 0.28);
+	color: var(--text);
+}
+
+.inspector-browser__tab.is-active {
+	border-color: rgba(98, 208, 255, 0.34);
+	background: rgba(98, 208, 255, 0.12);
+	color: #dcefff;
+}
+
+.inspector-browser__body {
+	min-height: 0;
+	max-height: min(28vh, 260px);
+	overflow: auto;
+	padding-right: 0.1rem;
 }
 
 .reference-panel-group {

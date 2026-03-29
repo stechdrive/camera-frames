@@ -10,6 +10,7 @@ import {
 	ExportSettingsSection,
 	FooterSection,
 	FramesSection,
+	INSPECTOR_BROWSER_SCENE,
 	INSPECTOR_QUICK_SECTION_DISPLAY_ZOOM,
 	INSPECTOR_QUICK_SECTION_EXPORT,
 	INSPECTOR_QUICK_SECTION_EXPORT_SETTINGS,
@@ -24,12 +25,14 @@ import {
 	INSPECTOR_TAB_CAMERA,
 	INSPECTOR_TAB_EXPORT,
 	INSPECTOR_TAB_SCENE,
+	InspectorBrowserSection,
 	InspectorRailSection,
 	InspectorTabs,
 	LightingSection,
 	OutputFrameSection,
 	ReferenceSection,
 	SceneSection,
+	SelectedSceneAssetInspector,
 	ShotCameraPropertiesSection,
 	ShotCameraSection,
 	ToolRailSection,
@@ -80,6 +83,9 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 	const [activeInspectorTab, setActiveInspectorTab] =
 		useState(INSPECTOR_TAB_CAMERA);
 	const [activeQuickSectionId, setActiveQuickSectionId] = useState(null);
+	const [activeBrowserSectionId, setActiveBrowserSectionId] = useState(
+		INSPECTOR_BROWSER_SCENE,
+	);
 	const [pinnedQuickSectionIds, setPinnedQuickSectionIds] = useState(
 		loadPinnedQuickSectionIds,
 	);
@@ -92,10 +98,6 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 	const toolRailDragStateRef = useRef(null);
 	const workbenchCollapsed = store.workbenchCollapsed.value;
 	const mode = store.mode.value;
-	const sceneUnitBadge = store.sceneUnitBadge.value;
-	const sceneBadge = store.sceneBadge.value;
-	const sceneSummary = store.sceneSummary.value;
-	const sceneScaleSummary = store.sceneScaleSummary.value;
 	const sceneAssets = store.sceneAssets.value;
 	const selectedSceneAsset = store.selectedSceneAsset.value;
 	const activeShotCamera = store.workspace.activeShotCamera.value;
@@ -493,19 +495,21 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 		];
 	};
 
-	const renderInspectorSection = (sectionId, { quick = false } = {}) => {
+	const renderInspectorSection = (
+		sectionId,
+		{ quick = false, desktopFull = false } = {},
+	) => {
 		const pinAction = getQuickSectionPinButton(sectionId);
 		switch (sectionId) {
 			case INSPECTOR_QUICK_SECTION_SCENE:
+				if (desktopFull) {
+					return null;
+				}
 				return html`
 					<${SceneSection}
 						controller=${controller}
 						headingActions=${pinAction}
 						sceneAssets=${sceneAssets}
-						sceneBadge=${sceneBadge}
-						sceneScaleSummary=${sceneScaleSummary}
-						sceneSummary=${sceneSummary}
-						sceneUnitBadge=${sceneUnitBadge}
 						selectedSceneAsset=${selectedSceneAsset}
 						store=${store}
 						t=${t}
@@ -583,6 +587,7 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 					<${ReferenceSection}
 						controller=${controller}
 						headingActions=${pinAction}
+						showList=${!desktopFull}
 						store=${store}
 						t=${t}
 					/>
@@ -596,6 +601,7 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 						frameDocuments=${frameDocuments}
 						frameLimitReached=${frameLimitReached}
 						open=${quick}
+						showFramePicker=${!desktopFull}
 						store=${store}
 						summaryActions=${pinAction}
 						t=${t}
@@ -637,8 +643,12 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 		}
 	};
 
-	const renderInspectorContent = (tabId) =>
-		html`${getTabSectionIds(tabId).map((sectionId) => renderInspectorSection(sectionId))}`;
+	const renderInspectorContent = (tabId, options = null) =>
+		html`${getTabSectionIds(tabId)
+			.map((sectionId) =>
+				renderInspectorSection(sectionId, options ?? undefined),
+			)
+			.filter(Boolean)}`;
 
 	const mobileInspectorDock = html`
 		<div class="workbench-tool-rail__divider"></div>
@@ -827,9 +837,42 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 											<${WorkbenchIcon} name="chevron-right" size=${14} />
 										</button>
 									</div>
+									${
+										activeInspectorTab !== INSPECTOR_TAB_EXPORT &&
+										html`
+											<${InspectorBrowserSection}
+												activeBrowserSectionId=${activeBrowserSectionId}
+												controller=${controller}
+												draggedAssetId=${draggedAssetId}
+												dragHoverState=${dragHoverState}
+												frameDocuments=${frameDocuments}
+												onSelectBrowserSection=${setActiveBrowserSectionId}
+												sceneAssets=${sceneAssets}
+												selectedSceneAsset=${selectedSceneAsset}
+												setDraggedAssetId=${setDraggedAssetId}
+												setDragHoverState=${setDragHoverState}
+												store=${store}
+												t=${t}
+											/>
+										`
+									}
 									<div class="workbench-inspector-stack">
-										${renderInspectorContent(activeInspectorTab)}
+										${renderInspectorContent(activeInspectorTab, {
+											desktopFull: true,
+										})}
 									</div>
+									${
+										selectedSceneAsset &&
+										html`
+											<div class="workbench-inspector-selection-dock">
+												<${SelectedSceneAssetInspector}
+													controller=${controller}
+													selectedSceneAsset=${selectedSceneAsset}
+													t=${t}
+												/>
+											</div>
+										`
+									}
 									<${FooterSection} store=${store} />
 								</section>
 							`
