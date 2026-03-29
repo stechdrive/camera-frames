@@ -365,6 +365,7 @@ export function createCameraController({
 				return documentState;
 			});
 		});
+		updateUi();
 	}
 
 	function setActiveShotCameraPositionAxis(axis, nextValue) {

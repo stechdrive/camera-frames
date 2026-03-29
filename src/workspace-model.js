@@ -228,7 +228,7 @@ export function createShotCameraDocument({ id, name, source } = {}) {
 					fitViewportHeight: 0,
 				},
 				exportSettings: {
-					exportName: "",
+					exportName: "cf-%cam",
 					exportFormat: "psd",
 					exportGridOverlay: true,
 					exportGridLayerMode: "bottom",

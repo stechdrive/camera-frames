@@ -49,7 +49,7 @@ assert.equal(shotCameras[0].outputFrame.viewportCenterAuto, true);
 assert.equal(shotCameras[0].outputFrame.fitScale, 0);
 assert.equal(shotCameras[0].outputFrame.fitViewportWidth, 0);
 assert.equal(shotCameras[0].outputFrame.fitViewportHeight, 0);
-assert.equal(shotCameras[0].exportSettings.exportName, "");
+assert.equal(shotCameras[0].exportSettings.exportName, "cf-%cam");
 assert.equal(shotCameras[0].exportSettings.exportFormat, "psd");
 assert.equal(shotCameras[0].exportSettings.exportGridOverlay, true);
 assert.equal(shotCameras[0].exportSettings.exportGridLayerMode, "bottom");

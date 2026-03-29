@@ -1,4 +1,5 @@
 import { html } from "htm/preact";
+import { useEffect, useRef, useState } from "preact/hooks";
 import {
 	getBuildCommitLabel,
 	getBuildVersionLabel,
@@ -23,6 +24,9 @@ import {
 	NumericUnitLabel,
 	TextDraftInput,
 	applyStandardFrameHorizontalEquivalentMm,
+	isHistoryShortcutEvent,
+	stopUiEvent,
+	stopUiWheelEvent,
 } from "./workbench-controls.js";
 import { WorkbenchIcon } from "./workbench-icons.js";
 import {
@@ -46,6 +50,190 @@ export const INSPECTOR_QUICK_SECTION_REFERENCE = "reference";
 export const INSPECTOR_QUICK_SECTION_FRAMES = "frames";
 export const INSPECTOR_QUICK_SECTION_EXPORT = "export-output";
 export const INSPECTOR_QUICK_SECTION_EXPORT_SETTINGS = "export-settings";
+
+function ShotCameraPicker({ activeShotCamera, controller, shotCameras, t }) {
+	const [open, setOpen] = useState(false);
+	const [draftValue, setDraftValue] = useState(activeShotCamera?.name ?? "");
+	const [isEditing, setIsEditing] = useState(false);
+	const rootRef = useRef(null);
+	const inputRef = useRef(null);
+
+	useEffect(() => {
+		if (!isEditing) {
+			setDraftValue(activeShotCamera?.name ?? "");
+		}
+	}, [activeShotCamera?.name, isEditing]);
+
+	useEffect(() => {
+		if (!open) {
+			return undefined;
+		}
+
+		const handlePointerDown = (event) => {
+			if (!rootRef.current?.contains(event.target)) {
+				setOpen(false);
+			}
+		};
+
+		const handleFocusIn = (event) => {
+			if (!rootRef.current?.contains(event.target)) {
+				setOpen(false);
+			}
+		};
+
+		const handleKeyDown = (event) => {
+			if (event.key === "Escape") {
+				setOpen(false);
+			}
+		};
+
+		document.addEventListener("pointerdown", handlePointerDown, true);
+		document.addEventListener("focusin", handleFocusIn);
+		document.addEventListener("keydown", handleKeyDown);
+		return () => {
+			document.removeEventListener("pointerdown", handlePointerDown, true);
+			document.removeEventListener("focusin", handleFocusIn);
+			document.removeEventListener("keydown", handleKeyDown);
+		};
+	}, [open]);
+
+	function commitDraft(nextRawValue) {
+		const normalizedName = String(nextRawValue ?? "").trim();
+		if (normalizedName && normalizedName !== (activeShotCamera?.name ?? "")) {
+			controller()?.setShotCameraName(normalizedName);
+		}
+		setDraftValue(normalizedName || activeShotCamera?.name || "");
+		setIsEditing(false);
+	}
+
+	function resetDraft() {
+		setDraftValue(activeShotCamera?.name ?? "");
+		setIsEditing(false);
+	}
+
+	return html`
+		<div
+			ref=${rootRef}
+			class=${
+				open
+					? "shot-camera-picker shot-camera-picker--open"
+					: "shot-camera-picker"
+			}
+		>
+			<div class="shot-camera-picker__surface">
+				<input
+					ref=${inputRef}
+					id="shot-camera-name"
+					type="text"
+					class="shot-camera-picker__input"
+					aria-label=${t("field.shotCameraName")}
+					data-draft-editing=${isEditing ? "true" : "false"}
+					placeholder=${t("field.shotCameraName")}
+					value=${draftValue}
+					onFocus=${(event) => {
+						stopUiEvent(event);
+						setIsEditing(true);
+						setDraftValue(
+							String(event.currentTarget.value ?? activeShotCamera?.name ?? ""),
+						);
+						queueMicrotask(() => event.currentTarget.select());
+					}}
+					onInput=${(event) => {
+						stopUiEvent(event);
+						setIsEditing(true);
+						setDraftValue(event.currentTarget.value);
+					}}
+					onBlur=${(event) => {
+						commitDraft(event.currentTarget.value);
+					}}
+					onPointerDown=${stopUiEvent}
+					onClick=${(event) => {
+						stopUiEvent(event);
+						if (document.activeElement === event.currentTarget) {
+							queueMicrotask(() => event.currentTarget.select());
+						}
+					}}
+					onWheel=${stopUiWheelEvent}
+					onKeyDown=${(event) => {
+						if (isHistoryShortcutEvent(event)) {
+							return;
+						}
+						stopUiEvent(event);
+						if (event.key === "Enter") {
+							event.preventDefault();
+							commitDraft(event.currentTarget.value);
+							event.currentTarget.blur();
+							return;
+						}
+						if (event.key === "Escape") {
+							event.preventDefault();
+							resetDraft();
+							event.currentTarget.blur();
+						}
+					}}
+				/>
+				<button
+					type="button"
+					class="shot-camera-picker__toggle"
+					aria-label=${t("field.activeShotCamera")}
+					aria-expanded=${open ? "true" : "false"}
+					onPointerDown=${(event) => {
+						stopUiEvent(event);
+					}}
+					onClick=${(event) => {
+						event.preventDefault();
+						stopUiEvent(event);
+						if (isEditing) {
+							commitDraft(draftValue);
+							inputRef.current?.blur?.();
+						}
+						setOpen((currentOpen) => !currentOpen);
+					}}
+				>
+					<${WorkbenchIcon}
+						name="chevron-right"
+						className="shot-camera-picker__toggle-icon"
+						size=${13}
+					/>
+				</button>
+			</div>
+			${
+				open &&
+				html`
+				<div class="shot-camera-picker__panel">
+					${shotCameras.map(
+						(shotCamera) => html`
+							<button
+								key=${shotCamera.id}
+								type="button"
+								class=${
+									shotCamera.id === activeShotCamera?.id
+										? "shot-camera-picker__item shot-camera-picker__item--active"
+										: "shot-camera-picker__item"
+								}
+								onPointerDown=${(event) => {
+									stopUiEvent(event);
+								}}
+								onClick=${() => {
+									if (isEditing) {
+										commitDraft(draftValue);
+									}
+									controller()?.selectShotCamera(shotCamera.id);
+									setOpen(false);
+								}}
+							>
+								<span class="shot-camera-picker__item-name"
+									>${shotCamera.name}</span
+								>
+							</button>
+						`,
+					)}
+				</div>
+			`
+			}
+		</div>
+	`;
+}
 
 export function getInspectorTabs(t) {
 	return [
@@ -1065,49 +1253,28 @@ export function ShotCameraSection({
 			<${SectionHeading} icon="camera" title=${t("section.shotCamera")}>
 				${headingActions}
 			<//>
-			<div class="split-field-row split-field-row--wide-action">
-				<label class="field">
-					<span>${t("field.activeShotCamera")}</span>
-					<select
-						id="active-shot-camera"
-						value=${store.workspace.activeShotCameraId.value}
-						...${INTERACTIVE_FIELD_PROPS}
-						onChange=${(event) =>
-							controller()?.selectShotCamera(event.currentTarget.value)}
-					>
-						${store.workspace.shotCameras.value.map(
-							(shotCamera) => html`
-								<option value=${shotCamera.id}>${shotCamera.name}</option>
-							`,
-						)}
-					</select>
-				</label>
-				<div class="field field--action field--action-end">
-					<span>${t("section.shotCamera")}</span>
-					<div class="button-row">
-						<${IconButton}
-							id="new-shot-camera"
-							icon="plus"
-							label=${t("action.newShotCamera")}
-							onClick=${() => controller()?.createShotCamera()}
-						/>
-						<${IconButton}
-							id="duplicate-shot-camera"
-							icon="duplicate"
-							label=${t("action.duplicateShotCamera")}
-							onClick=${() => controller()?.duplicateActiveShotCamera()}
-						/>
-					</div>
+			<div class="shot-camera-head-row">
+				<${ShotCameraPicker}
+					activeShotCamera=${activeShotCamera}
+					controller=${controller}
+					shotCameras=${store.workspace.shotCameras.value}
+					t=${t}
+				/>
+				<div class="button-row shot-camera-head-row__actions">
+					<${IconButton}
+						id="new-shot-camera"
+						icon="plus"
+						label=${t("action.newShotCamera")}
+						onClick=${() => controller()?.createShotCamera()}
+					/>
+					<${IconButton}
+						id="duplicate-shot-camera"
+						icon="duplicate"
+						label=${t("action.duplicateShotCamera")}
+						onClick=${() => controller()?.duplicateActiveShotCamera()}
+					/>
 				</div>
 			</div>
-			<label class="field">
-				<span>${t("field.shotCameraName")}</span>
-				<${TextDraftInput}
-					id="shot-camera-name"
-					value=${activeShotCamera?.name ?? ""}
-					onCommit=${(nextValue) => controller()?.setShotCameraName(nextValue)}
-				/>
-			</label>
 			<label class="field field--range">
 				<span>${t("field.shotCameraEquivalentMm")}</span>
 				<div class="range-row">

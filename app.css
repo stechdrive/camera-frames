@@ -3029,6 +3029,140 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	grid-template-columns: minmax(0, 1fr) auto;
 }
 
+.shot-camera-head-row {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	gap: 10px;
+	align-items: stretch;
+}
+
+.shot-camera-picker {
+	position: relative;
+	min-width: 0;
+}
+
+.shot-camera-picker__surface {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	min-width: 0;
+	min-height: 2.35rem;
+	border: 1px solid var(--line);
+	border-radius: 12px;
+	background: rgba(2, 8, 16, 0.62);
+	overflow: hidden;
+}
+
+.shot-camera-picker:focus-within .shot-camera-picker__surface,
+.shot-camera-picker--open .shot-camera-picker__surface {
+	border-color: rgba(98, 208, 255, 0.45);
+	box-shadow: 0 0 0 1px rgba(98, 208, 255, 0.16);
+}
+
+.shot-camera-picker__input,
+.shot-camera-picker__toggle {
+	min-width: 0;
+	min-height: 100%;
+	border: 0;
+	border-radius: 0;
+	background: transparent;
+	color: var(--text);
+	font: 500 0.84rem / 1.2 "Consolas", "Andale Mono", monospace;
+}
+
+.shot-camera-picker__input {
+	width: 100%;
+	padding: 0.58rem 0.82rem;
+}
+
+.shot-camera-picker__toggle {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 2.35rem;
+	padding: 0;
+	border-left: 1px solid var(--line);
+	cursor: pointer;
+	color: var(--text-dim);
+	transition: color 120ms ease, background-color 120ms ease;
+}
+
+.shot-camera-picker__toggle:hover {
+	color: var(--text);
+	background: rgba(255, 255, 255, 0.04);
+}
+
+.shot-camera-picker__input:focus,
+.shot-camera-picker__toggle:focus {
+	outline: none;
+	box-shadow: none;
+}
+
+.shot-camera-picker__toggle-icon {
+	transform: rotate(90deg);
+}
+
+.shot-camera-picker__panel {
+	position: absolute;
+	top: calc(100% + 0.45rem);
+	left: 0;
+	right: 0;
+	z-index: 10;
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+	padding: 0.4rem;
+	border: 1px solid var(--line);
+	border-radius: 12px;
+	background: linear-gradient(
+		180deg,
+		var(--bg-elev-strong) 0%,
+		var(--bg-elev) 100%
+	);
+	box-shadow: var(--shadow);
+	backdrop-filter: blur(20px);
+}
+
+.shot-camera-picker__item {
+	appearance: none;
+	display: flex;
+	align-items: center;
+	width: 100%;
+	min-height: 2.15rem;
+	padding: 0.5rem 0.65rem;
+	border: 1px solid transparent;
+	border-radius: 10px;
+	background: transparent;
+	color: var(--text);
+	cursor: pointer;
+	font: 600 0.82rem / 1.1 "Avenir Next", "Segoe UI", sans-serif;
+	text-align: left;
+	transition: border-color 120ms ease, background-color 120ms ease, color 120ms
+		ease;
+}
+
+.shot-camera-picker__item:hover {
+	border-color: var(--line);
+	background: rgba(255, 255, 255, 0.05);
+}
+
+.shot-camera-picker__item--active {
+	border-color: rgba(98, 208, 255, 0.22);
+	background: rgba(98, 208, 255, 0.08);
+	color: #eaf8ff;
+}
+
+.shot-camera-picker__item-name {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.shot-camera-head-row__actions {
+	flex-wrap: nowrap;
+	align-self: stretch;
+}
+
 .triple-field-row {
 	display: grid;
 	grid-template-columns: repeat(3, minmax(0, 1fr));
