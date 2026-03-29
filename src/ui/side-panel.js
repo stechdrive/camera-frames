@@ -9,7 +9,6 @@ import {
 	ExportSettingsSection,
 	FooterSection,
 	FramesSection,
-	INSPECTOR_BROWSER_SCENE,
 	INSPECTOR_QUICK_SECTION_EXPORT,
 	INSPECTOR_QUICK_SECTION_EXPORT_SETTINGS,
 	INSPECTOR_QUICK_SECTION_FRAMES,
@@ -22,13 +21,13 @@ import {
 	INSPECTOR_TAB_CAMERA,
 	INSPECTOR_TAB_EXPORT,
 	INSPECTOR_TAB_SCENE,
-	InspectorBrowserSection,
 	InspectorRailSection,
 	InspectorTabs,
 	LightingSection,
 	OutputFrameSection,
 	ReferenceSection,
 	SceneSection,
+	SceneWorkspaceSection,
 	SelectedSceneAssetInspector,
 	ShotCameraPropertiesSection,
 	ShotCameraSection,
@@ -79,9 +78,6 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 	const [activeInspectorTab, setActiveInspectorTab] =
 		useState(INSPECTOR_TAB_CAMERA);
 	const [activeQuickSectionId, setActiveQuickSectionId] = useState(null);
-	const [activeBrowserSectionId, setActiveBrowserSectionId] = useState(
-		INSPECTOR_BROWSER_SCENE,
-	);
 	const [pinnedQuickSectionIds, setPinnedQuickSectionIds] = useState(
 		loadPinnedQuickSectionIds,
 	);
@@ -484,7 +480,19 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 		switch (sectionId) {
 			case INSPECTOR_QUICK_SECTION_SCENE:
 				if (desktopFull) {
-					return null;
+					return html`
+						<${SceneWorkspaceSection}
+							controller=${controller}
+							sceneAssets=${sceneAssets}
+							selectedSceneAsset=${selectedSceneAsset}
+							store=${store}
+							t=${t}
+							draggedAssetId=${draggedAssetId}
+							setDraggedAssetId=${setDraggedAssetId}
+							dragHoverState=${dragHoverState}
+							setDragHoverState=${setDragHoverState}
+						/>
+					`;
 				}
 				return html`
 					<${SceneSection}
@@ -654,6 +662,7 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 							mode=${mode}
 							menuChildren=${fileMenuChildren}
 							projectMenuItems=${projectMenuItems}
+							showQuickMenu=${true}
 							store=${store}
 							t=${t}
 							tooltipPlacement="top"
@@ -799,31 +808,14 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 											<${WorkbenchIcon} name="chevron-right" size=${14} />
 										</button>
 									</div>
-									${
-										activeInspectorTab !== INSPECTOR_TAB_EXPORT &&
-										html`
-											<${InspectorBrowserSection}
-												activeBrowserSectionId=${activeBrowserSectionId}
-												controller=${controller}
-												draggedAssetId=${draggedAssetId}
-												dragHoverState=${dragHoverState}
-												onSelectBrowserSection=${setActiveBrowserSectionId}
-												sceneAssets=${sceneAssets}
-												selectedSceneAsset=${selectedSceneAsset}
-												setDraggedAssetId=${setDraggedAssetId}
-												setDragHoverState=${setDragHoverState}
-												store=${store}
-												t=${t}
-											/>
-										`
-									}
 									<div class="workbench-inspector-stack">
 										${renderInspectorContent(activeInspectorTab, {
 											desktopFull: true,
 										})}
 									</div>
 									${
-										(selectedSceneAsset ||
+										(activeInspectorTab === INSPECTOR_TAB_SCENE ||
+											selectedSceneAsset ||
 											store.selectedSceneAssetIds.value.length > 0) &&
 										html`
 											<div class="workbench-inspector-selection-dock">
@@ -831,6 +823,7 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 													controller=${controller}
 													sceneAssets=${sceneAssets}
 													selectedSceneAsset=${selectedSceneAsset}
+													showEmpty=${activeInspectorTab === INSPECTOR_TAB_SCENE}
 													store=${store}
 													t=${t}
 												/>

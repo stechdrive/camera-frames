@@ -34,6 +34,7 @@ import {
 	HeaderWordmark,
 	IconButton,
 	SectionHeading,
+	TooltipBubble,
 	WorkbenchTabs,
 } from "./workbench-primitives.js";
 
@@ -492,6 +493,7 @@ export function ToolRailSection({
 	projectMenuItems = [],
 	store,
 	tailContent = null,
+	showQuickMenu = false,
 	t,
 	tooltipPlacement = "right",
 	menuPanelPlacement = "down",
@@ -537,45 +539,66 @@ export function ToolRailSection({
 			>
 				${menuChildren}
 			<//>
-			<${IconButton}
-				icon="pie-menu"
-				label=${t("action.quickMenu")}
-				className="workbench-tool-rail__button"
-				tooltip=${{
-					title: t("action.quickMenu"),
-					description: t("tooltip.quickMenu"),
-					placement: tooltipPlacement,
-				}}
-				onClick=${() => controller()?.openViewportPieMenuAtCenter?.()}
-			/>
+			${
+				showQuickMenu &&
+				html`
+					<${IconButton}
+						icon="pie-menu"
+						label=${t("action.quickMenu")}
+						className="workbench-tool-rail__button"
+						tooltip=${{
+							title: t("action.quickMenu"),
+							description: t("tooltip.quickMenu"),
+							placement: tooltipPlacement,
+						}}
+						onClick=${() => controller()?.openViewportPieMenuAtCenter?.()}
+					/>
+				`
+			}
 			<div class="workbench-tool-rail__divider"></div>
 			<div class="workbench-tool-rail__group">
-				<${IconButton}
-					id="mode-camera"
-					icon="camera"
-					label=${t("mode.camera")}
-					active=${mode === "camera"}
-					className="workbench-tool-rail__button"
-					tooltip=${{
-						title: t("mode.camera"),
-						description: t("tooltip.modeCamera"),
-						placement: tooltipPlacement,
-					}}
-					onClick=${() => controller()?.setMode("camera")}
-				/>
-				<${IconButton}
-					id="mode-viewport"
-					icon="viewport"
-					label=${t("mode.viewport")}
-					active=${mode === "viewport"}
-					className="workbench-tool-rail__button"
-					tooltip=${{
-						title: t("mode.viewport"),
-						description: t("tooltip.modeViewport"),
-						placement: tooltipPlacement,
-					}}
-					onClick=${() => controller()?.setMode("viewport")}
-				/>
+				<div
+					class="workbench-tool-rail__segmented workbench-tool-rail__segmented--vertical"
+					role="group"
+					aria-label=${t("section.viewMode")}
+				>
+					<button
+						id="mode-camera"
+						type="button"
+						class=${
+							mode === "camera"
+								? "workbench-tool-rail__segment is-active"
+								: "workbench-tool-rail__segment"
+						}
+						aria-label=${t("mode.camera")}
+						onClick=${() => controller()?.setMode("camera")}
+					>
+						<${WorkbenchIcon} name="camera-dslr" size=${16} />
+						<${TooltipBubble}
+							title=${t("mode.camera")}
+							description=${t("tooltip.modeCamera")}
+							placement=${tooltipPlacement}
+						/>
+					</button>
+					<button
+						id="mode-viewport"
+						type="button"
+						class=${
+							mode === "viewport"
+								? "workbench-tool-rail__segment is-active"
+								: "workbench-tool-rail__segment"
+						}
+						aria-label=${t("mode.viewport")}
+						onClick=${() => controller()?.setMode("viewport")}
+					>
+						<${WorkbenchIcon} name="viewport" size=${16} />
+						<${TooltipBubble}
+							title=${t("mode.viewport")}
+							description=${t("tooltip.modeViewport")}
+							placement=${tooltipPlacement}
+						/>
+					</button>
+				</div>
 			</div>
 			${
 				canUseTransformTools &&
@@ -971,7 +994,7 @@ export function SceneBrowserSection({
 	};
 
 	if (sceneAssets.length === 0) {
-		return html`<p class="summary">${t("hint.sceneCalibration")}</p>`;
+		return null;
 	}
 
 	return html`
@@ -1108,7 +1131,7 @@ export function ReferenceBrowserSection({ controller, store, t }) {
 	const selectedItemId = store.referenceImages.selectedItemId.value;
 
 	if (items.length === 0) {
-		return html`<p class="summary">${t("referenceImage.currentCameraEmpty")}</p>`;
+		return null;
 	}
 
 	return html`
@@ -1193,10 +1216,68 @@ export function ReferenceBrowserSection({ controller, store, t }) {
 	`;
 }
 
+export function SceneWorkspaceSection({
+	controller,
+	sceneAssets,
+	selectedSceneAsset,
+	store,
+	t,
+	draggedAssetId,
+	setDraggedAssetId,
+	dragHoverState,
+	setDragHoverState,
+}) {
+	return html`
+		<section class="panel-section panel-section--browser-stack">
+			<div class="scene-workspace-browser">
+				<section class="scene-workspace-pane">
+					<${SectionHeading} icon="scene" title=${t("section.scene")} />
+					<div class="scene-workspace-pane__body">
+						${
+							sceneAssets.length > 0
+								? html`
+										<${SceneBrowserSection}
+											controller=${controller}
+											draggedAssetId=${draggedAssetId}
+											dragHoverState=${dragHoverState}
+											sceneAssets=${sceneAssets}
+											selectedSceneAsset=${selectedSceneAsset}
+											setDraggedAssetId=${setDraggedAssetId}
+											setDragHoverState=${setDragHoverState}
+											store=${store}
+											t=${t}
+										/>
+									`
+								: html`<div class="scene-workspace-pane__placeholder"></div>`
+						}
+					</div>
+				</section>
+				<section class="scene-workspace-pane">
+					<${SectionHeading} icon="image" title=${t("section.referenceImages")} />
+					<div class="scene-workspace-pane__body">
+						${
+							store.referenceImages.items.value.length > 0
+								? html`
+										<${ReferenceBrowserSection}
+											controller=${controller}
+											store=${store}
+											t=${t}
+										/>
+									`
+								: html`<div class="scene-workspace-pane__placeholder"></div>`
+						}
+					</div>
+				</section>
+			</div>
+		</section>
+	`;
+}
+
 export function SelectedSceneAssetInspector({
 	controller,
 	sceneAssets = [],
 	selectedSceneAsset,
+	showEmpty = false,
 	store,
 	t,
 }) {
@@ -1237,6 +1318,17 @@ export function SelectedSceneAssetInspector({
 	const selectionBaseline = selectionBaselineRef.current;
 
 	if (selectionCount === 0 && !selectedSceneAsset) {
+		if (showEmpty) {
+			return html`
+				<section class="panel-section panel-section--selection-dock">
+					<${SectionHeading}
+						icon="scene"
+						title=${t("section.selectedSceneObject")}
+					/>
+					<div class="selection-dock__placeholder"></div>
+				</section>
+			`;
+		}
 		return null;
 	}
 

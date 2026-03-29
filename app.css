@@ -683,6 +683,11 @@ code {
 	background: rgba(255, 255, 255, 0.05);
 }
 
+.workbench-tool-rail__segmented--vertical {
+	grid-template-columns: minmax(0, 1fr);
+	grid-template-rows: repeat(2, minmax(0, 1fr));
+}
+
 .workbench-tool-rail__segment {
 	appearance: none;
 	display: inline-flex;
@@ -699,6 +704,10 @@ code {
 	letter-spacing: 0.04em;
 	cursor: pointer;
 	transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.workbench-tool-rail__segment svg {
+	flex: 0 0 auto;
 }
 
 .workbench-tool-rail__segment:hover {
@@ -786,6 +795,10 @@ code {
 .panel-section--browser {
 	padding: 0.55rem;
 	gap: 0.4rem;
+}
+
+.panel-section--browser-stack {
+	padding: 0.55rem;
 }
 
 .panel-section--selection-dock {
@@ -3508,6 +3521,40 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	display: flex;
 	flex-direction: column;
 	gap: 0.5rem;
+}
+
+.scene-workspace-browser {
+	display: flex;
+	flex-direction: column;
+	gap: 0.48rem;
+}
+
+.scene-workspace-pane {
+	display: flex;
+	flex-direction: column;
+	gap: 0.32rem;
+	min-height: 0;
+}
+
+.scene-workspace-pane__body {
+	min-height: 7.5rem;
+	padding: 0.1rem 0;
+}
+
+.scene-workspace-pane__placeholder,
+.selection-dock__placeholder {
+	min-height: 100%;
+	border: 1px dashed rgba(255, 255, 255, 0.08);
+	border-radius: 12px;
+	background: linear-gradient(
+		180deg,
+		rgba(255, 255, 255, 0.025) 0%,
+		rgba(255, 255, 255, 0.01) 100%
+	);
+}
+
+.selection-dock__placeholder {
+	min-height: 6.8rem;
 }
 
 .browser-list {
