@@ -5,10 +5,12 @@ import { getAnchorOptions } from "../i18n.js";
 import { WorkbenchIcon } from "./workbench-icons.js";
 import { HeaderMenu, IconButton } from "./workbench-primitives.js";
 import {
+	DisplayZoomSection,
 	ExportSection,
 	ExportSettingsSection,
 	FooterSection,
 	FramesSection,
+	INSPECTOR_QUICK_SECTION_DISPLAY_ZOOM,
 	INSPECTOR_QUICK_SECTION_EXPORT,
 	INSPECTOR_QUICK_SECTION_EXPORT_SETTINGS,
 	INSPECTOR_QUICK_SECTION_FRAMES,
@@ -135,17 +137,17 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 		(activeQuickSectionId &&
 			inspectorQuickSectionMap.get(activeQuickSectionId)) ??
 		null;
-	const showTransformControls =
-		selectedSceneAsset &&
-		(store.viewportTransformMode.value || store.viewportPivotEditMode.value);
 	const isSectionAvailable = useCallback(
 		(sectionId) => {
+			if (sectionId === INSPECTOR_QUICK_SECTION_DISPLAY_ZOOM) {
+				return mode === "camera";
+			}
 			if (sectionId === INSPECTOR_QUICK_SECTION_VIEW) {
-				return mode === "viewport" || showTransformControls;
+				return mode === "viewport";
 			}
 			return true;
 		},
-		[mode, showTransformControls],
+		[mode],
 	);
 	const pinnedQuickSections = pinnedQuickSectionIds
 		.map((sectionId) => inspectorQuickSectionMap.get(sectionId) ?? null)
@@ -476,6 +478,7 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 		}
 		if (tabId === INSPECTOR_TAB_CAMERA) {
 			return [
+				INSPECTOR_QUICK_SECTION_DISPLAY_ZOOM,
 				INSPECTOR_QUICK_SECTION_VIEW,
 				INSPECTOR_QUICK_SECTION_SHOT_CAMERA,
 				INSPECTOR_QUICK_SECTION_SHOT_CAMERA_PROPERTIES,
@@ -527,12 +530,18 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 					<${ViewSettingsSection}
 						controller=${controller}
 						headingActions=${pinAction}
-						mode=${mode}
-						selectedSceneAsset=${selectedSceneAsset}
-						store=${store}
 						t=${t}
 						viewportEquivalentMmValue=${viewportEquivalentMmValue}
 						viewportFovLabel=${viewportFovLabel}
+					/>
+				`;
+			case INSPECTOR_QUICK_SECTION_DISPLAY_ZOOM:
+				return html`
+					<${DisplayZoomSection}
+						controller=${controller}
+						headingActions=${pinAction}
+						store=${store}
+						t=${t}
 					/>
 				`;
 			case INSPECTOR_QUICK_SECTION_SHOT_CAMERA:
@@ -564,7 +573,6 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 						exportSizeLabel=${exportSizeLabel}
 						headingActions=${pinAction}
 						heightLabel=${heightLabel}
-						mode=${mode}
 						store=${store}
 						t=${t}
 						widthLabel=${widthLabel}

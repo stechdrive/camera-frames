@@ -14,6 +14,13 @@ function renderIconPath(name) {
 				<path d="M2 12s3.8-6 10-6 10 6 10 6-3.8 6-10 6S2 12 2 12z"></path>
 				<circle cx="12" cy="12" r="3.5"></circle>
 			`;
+		case "zoom":
+			return html`
+				<circle cx="10.5" cy="10.5" r="5"></circle>
+				<path d="M14.2 14.2L19.5 19.5"></path>
+				<path d="M10.5 8v5"></path>
+				<path d="M8 10.5h5"></path>
+			`;
 		case "scene":
 			return html`
 				<path d="M12 3l7 4-7 4-7-4 7-4z"></path>

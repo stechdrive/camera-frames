@@ -45,6 +45,7 @@ export const INSPECTOR_QUICK_SECTION_SCENE = "scene-main";
 export const INSPECTOR_QUICK_SECTION_SHOT_CAMERA = "shot-camera";
 export const INSPECTOR_QUICK_SECTION_SHOT_CAMERA_PROPERTIES =
 	"shot-camera-properties";
+export const INSPECTOR_QUICK_SECTION_DISPLAY_ZOOM = "display-zoom";
 export const INSPECTOR_QUICK_SECTION_VIEW = "view-settings";
 export const INSPECTOR_QUICK_SECTION_LIGHTING = "lighting";
 export const INSPECTOR_QUICK_SECTION_OUTPUT_FRAME = "output-frame";
@@ -295,10 +296,16 @@ export function getInspectorQuickSections(t) {
 			icon: "camera-dslr",
 		},
 		{
+			id: INSPECTOR_QUICK_SECTION_DISPLAY_ZOOM,
+			tabId: INSPECTOR_TAB_CAMERA,
+			label: t("section.displayZoom"),
+			icon: "zoom",
+		},
+		{
 			id: INSPECTOR_QUICK_SECTION_VIEW,
 			tabId: INSPECTOR_TAB_CAMERA,
 			label: t("section.view"),
-			icon: "view",
+			icon: "viewport",
 		},
 		{
 			id: INSPECTOR_QUICK_SECTION_LIGHTING,
@@ -450,6 +457,12 @@ export function ToolRailSection({
 	menuPanelPlacement = "down",
 }) {
 	const canUseTransformTools = mode === "viewport" || mode === "camera";
+	const selectedSceneAsset = store.selectedSceneAsset.value;
+	const showTransformSpaceToggle =
+		Boolean(selectedSceneAsset) &&
+		(store.viewportTransformMode.value || store.viewportPivotEditMode.value);
+	const worldSpaceTooltipLabel = `${t("section.transformSpace")} / ${t("transformSpace.world")}`;
+	const localSpaceTooltipLabel = `${t("section.transformSpace")} / ${t("transformSpace.local")}`;
 	const clearSelectionAndExitTool = () => {
 		controller()?.clearSceneAssetSelection?.();
 		controller()?.clearReferenceImageSelection?.();
@@ -466,7 +479,7 @@ export function ToolRailSection({
 	};
 
 	return html`
-		<section class="workbench-tool-rail" aria-label=${t("section.view")}>
+		<section class="workbench-tool-rail" aria-label=${t("section.tools")}>
 			<${HeaderMenu}
 				label=${t("section.file")}
 				items=${projectMenuItems}
@@ -589,6 +602,48 @@ export function ToolRailSection({
 									)}
 							/>
 					</div>
+					${
+						showTransformSpaceToggle &&
+						html`
+							<div class="workbench-tool-rail__divider"></div>
+							<div class="workbench-tool-rail__group workbench-tool-rail__group--compact">
+								<div
+									class="workbench-tool-rail__segmented"
+									role="group"
+									aria-label=${t("section.transformSpace")}
+								>
+									<button
+										type="button"
+										class=${
+											store.viewportTransformSpace.value === "world"
+												? "workbench-tool-rail__segment is-active"
+												: "workbench-tool-rail__segment"
+										}
+										aria-label=${worldSpaceTooltipLabel}
+										title=${worldSpaceTooltipLabel}
+										onClick=${() =>
+											controller()?.setViewportTransformSpace("world")}
+									>
+										W
+									</button>
+									<button
+										type="button"
+										class=${
+											store.viewportTransformSpace.value === "local"
+												? "workbench-tool-rail__segment is-active"
+												: "workbench-tool-rail__segment"
+										}
+										aria-label=${localSpaceTooltipLabel}
+										title=${localSpaceTooltipLabel}
+										onClick=${() =>
+											controller()?.setViewportTransformSpace("local")}
+									>
+										L
+									</button>
+								</div>
+							</div>
+						`
+					}
 					<div class="workbench-tool-rail__divider"></div>
 					<div class="workbench-tool-rail__group">
 						<${IconButton}
@@ -673,125 +728,93 @@ export function InspectorRailSection({
 	`;
 }
 
+export function DisplayZoomSection({
+	controller,
+	headingActions = null,
+	store,
+	t,
+}) {
+	return html`
+		<section class="panel-section">
+			<${SectionHeading} icon="zoom" title=${t("section.displayZoom")}>
+				${headingActions}
+			<//>
+			<label class="field field--inline-compact">
+				<span>${t("field.cameraViewZoom")}</span>
+				<div class="field--inline-compact__value">
+					<div class="numeric-unit">
+						<${NumericDraftInput}
+							id="view-zoom"
+							inputMode="decimal"
+							min=${MIN_CAMERA_VIEW_ZOOM_PCT}
+							max=${MAX_CAMERA_VIEW_ZOOM_PCT}
+							step="1"
+							value=${Math.round(store.renderBox.viewZoom.value * 100)}
+							controller=${controller}
+							historyLabel="output-frame.zoom"
+							onCommit=${(nextValue) =>
+								controller()?.setViewZoomPercent?.(nextValue)}
+						/>
+						<${NumericUnitLabel} value="%" title=${t("unit.percent")} />
+					</div>
+				</div>
+			</label>
+		</section>
+	`;
+}
+
 export function ViewSettingsSection({
 	controller,
 	headingActions = null,
-	mode,
-	selectedSceneAsset,
-	store,
 	t,
 	viewportEquivalentMmValue,
 	viewportFovLabel,
 }) {
-	const showTransformControls =
-		selectedSceneAsset &&
-		(store.viewportTransformMode.value || store.viewportPivotEditMode.value);
-	const showViewportControls = mode === "viewport";
-
-	if (!showViewportControls && !showTransformControls) {
-		return null;
-	}
-
 	return html`
 		<section class="panel-section">
 			<${SectionHeading} icon="viewport" title=${t("section.view")}>
-				<span id="mode-pill" class="pill">${mode === "camera" ? t("mode.camera") : t("mode.viewport")}</span>
 				${headingActions}
 			<//>
-			${
-				showViewportControls &&
-				html`
-					<label class="field field--range">
-						<span>${t("field.viewportEquivalentMm")}</span>
-						<div class="range-row">
-							<${HistoryRangeInput}
-								id="viewport-fov-mm"
-								min=${14}
-								max=${200}
-								step="1"
-								value=${viewportEquivalentMmValue}
-								controller=${controller}
-								historyLabel="viewport.lens"
-								onLiveChange=${(event) =>
-									applyStandardFrameHorizontalEquivalentMm(
-										(nextValue) => controller()?.setViewportBaseFovX(nextValue),
-										event.currentTarget.value,
-										{ snap: true },
-									)}
-							/>
-							<div class="numeric-unit">
-								<${NumericDraftInput}
-									id="viewport-fov-mm-input"
-									inputMode="decimal"
-									min=${14}
-									max=${200}
-									step="0.01"
-									value=${Number(viewportEquivalentMmValue).toFixed(2)}
-									controller=${controller}
-									historyLabel="viewport.lens"
-									onCommit=${(nextValue) =>
-										applyStandardFrameHorizontalEquivalentMm(
-											(nextBaseFov) =>
-												controller()?.setViewportBaseFovX(nextBaseFov),
-											nextValue,
-										)}
-								/>
-								<${NumericUnitLabel} value="mm" title=${t("unit.millimeter")} />
-							</div>
-						</div>
-						<p class="summary">${t("field.viewportFov")} ${viewportFovLabel}</p>
-					</label>
-				`
-			}
-			${
-				showTransformControls &&
-				html`
-					<${DisclosureBlock}
-						icon="move"
-						label=${t("field.transformSpace")}
-						open=${true}
-					>
-						<div class="button-row">
-							<button
-								type="button"
-								class=${
-									store.viewportTransformSpace.value === "world"
-										? "button button--primary button--compact"
-										: "button button--compact"
-								}
-								onClick=${() => controller()?.setViewportTransformSpace("world")}
-							>
-								${t("transformSpace.world")}
-							</button>
-							<button
-								type="button"
-								class=${
-									store.viewportTransformSpace.value === "local"
-										? "button button--primary button--compact"
-										: "button button--compact"
-								}
-								onClick=${() => controller()?.setViewportTransformSpace("local")}
-							>
-								${t("transformSpace.local")}
-							</button>
-						</div>
-						${
-							selectedSceneAsset?.hasWorkingPivot &&
-							html`
-								<div class="button-row">
-									<button
-										type="button"
-										class="button button--compact"
-										onClick=${() => controller()?.resetSelectedAssetWorkingPivot()}
-									>
-										${t("action.resetPivot")}
-									</button>
-								</div>
-							`
-						}
-					<//>
-				`
-			}
+			<label class="field field--range">
+				<span>${t("field.viewportEquivalentMm")}</span>
+				<div class="range-row">
+					<${HistoryRangeInput}
+						id="viewport-fov-mm"
+						min=${14}
+						max=${200}
+						step="1"
+						value=${viewportEquivalentMmValue}
+						controller=${controller}
+						historyLabel="viewport.lens"
+						onLiveChange=${(event) =>
+							applyStandardFrameHorizontalEquivalentMm(
+								(nextValue) => controller()?.setViewportBaseFovX(nextValue),
+								event.currentTarget.value,
+								{ snap: true },
+							)}
+					/>
+					<div class="numeric-unit">
+						<${NumericDraftInput}
+							id="viewport-fov-mm-input"
+							inputMode="decimal"
+							min=${14}
+							max=${200}
+							step="0.01"
+							value=${Number(viewportEquivalentMmValue).toFixed(2)}
+							controller=${controller}
+							historyLabel="viewport.lens"
+							onCommit=${(nextValue) =>
+								applyStandardFrameHorizontalEquivalentMm(
+									(nextBaseFov) =>
+										controller()?.setViewportBaseFovX(nextBaseFov),
+									nextValue,
+								)}
+						/>
+						<${NumericUnitLabel} value="mm" title=${t("unit.millimeter")} />
+					</div>
+				</div>
+				<p class="summary">${t("field.viewportFov")} ${viewportFovLabel}</p>
+			</label>
 		</section>
 	`;
 }
@@ -2248,7 +2271,6 @@ export function OutputFrameSection({
 	exportSizeLabel,
 	headingActions = null,
 	heightLabel,
-	mode,
 	store,
 	t,
 	widthLabel,
@@ -2259,31 +2281,6 @@ export function OutputFrameSection({
 				<span id="export-size-pill" class="pill pill--dim">${exportSizeLabel}</span>
 				${headingActions}
 			<//>
-			${
-				mode === "camera" &&
-				html`
-					<label class="field field--inline-compact">
-						<span>${t("field.cameraViewZoom")}</span>
-						<div class="field--inline-compact__value">
-							<div class="numeric-unit">
-								<${NumericDraftInput}
-									id="view-zoom"
-									inputMode="decimal"
-									min=${MIN_CAMERA_VIEW_ZOOM_PCT}
-									max=${MAX_CAMERA_VIEW_ZOOM_PCT}
-									step="1"
-									value=${Math.round(store.renderBox.viewZoom.value * 100)}
-									controller=${controller}
-									historyLabel="output-frame.zoom"
-									onCommit=${(nextValue) =>
-										controller()?.setViewZoomPercent?.(nextValue)}
-								/>
-								<${NumericUnitLabel} value="%" title=${t("unit.percent")} />
-							</div>
-						</div>
-					</label>
-				`
-			}
 			<label class="field field--range">
 				<span>${t("field.outputFrameWidth")}</span>
 				<div class="range-row">
