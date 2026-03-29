@@ -75,8 +75,8 @@ const MESSAGES = {
 			exportGridLayerMode: "グリッド重ね順",
 			exportModelLayers: "GLB をレイヤー化",
 			exportSplatLayers: "3DGS をレイヤー化",
-			outputFrameWidth: "出力フレーム幅",
-			outputFrameHeight: "出力フレーム高",
+			outputFrameWidth: "用紙サイズ 幅",
+			outputFrameHeight: "用紙サイズ 高",
 			cameraViewZoom: "表示ズーム",
 			anchor: "アンカー",
 			assetScale: "ワールドスケール",
@@ -120,7 +120,7 @@ const MESSAGES = {
 			referenceImages: "下絵",
 			frames: "FRAME",
 			mask: "マスク",
-			outputFrame: "出力フレーム",
+			outputFrame: "用紙設定",
 			output: "出力",
 			export: "書き出し",
 			exportSettings: "書き出し設定",
@@ -221,6 +221,7 @@ const MESSAGES = {
 			renameFrame: "FRAME名を編集",
 			toggleSelectedFrameMask: "選択中マスク",
 			toggleAllFrameMask: "全体マスク",
+			restoreAutoOutputFrameLayout: "自動調整に戻す",
 		},
 		unit: {
 			millimeter: "millimeter",
@@ -247,7 +248,7 @@ const MESSAGES = {
 			clearSelection:
 				"3Dオブジェクト、下絵、FRAME の選択を解除して、アクティブツールを外します。",
 			tabScene: "シーン、アセット、ライティングを管理します。",
-			tabCamera: "ショットカメラと FRAME を編集します。",
+			tabCamera: "ショットカメラと用紙設定を編集します。",
 			tabReference: "下絵プリセットと下絵レイヤーを編集します。",
 			tabExport: "書き出し設定と出力を管理します。",
 			copyViewportPoseToShot:
@@ -591,8 +592,8 @@ const MESSAGES = {
 			exportGridLayerMode: "Grid Layering",
 			exportModelLayers: "Layer GLB Models",
 			exportSplatLayers: "Layer 3DGS Objects",
-			outputFrameWidth: "Output Frame Width",
-			outputFrameHeight: "Output Frame Height",
+			outputFrameWidth: "Paper Width",
+			outputFrameHeight: "Paper Height",
 			cameraViewZoom: "View Zoom",
 			anchor: "Anchor",
 			assetScale: "World Scale",
@@ -636,7 +637,7 @@ const MESSAGES = {
 			referenceImages: "Reference Images",
 			frames: "FRAME",
 			mask: "Mask",
-			outputFrame: "Output Frame",
+			outputFrame: "Paper Setup",
 			output: "Output",
 			export: "Export",
 			exportSettings: "Export Settings",
@@ -737,6 +738,7 @@ const MESSAGES = {
 			renameFrame: "Rename FRAME",
 			toggleSelectedFrameMask: "Selected Mask",
 			toggleAllFrameMask: "All Frames Mask",
+			restoreAutoOutputFrameLayout: "Restore Auto Layout",
 		},
 		unit: {
 			millimeter: "ミリメートル",
@@ -767,7 +769,7 @@ const MESSAGES = {
 			clearSelection:
 				"Clear selected 3D objects, reference images, and FRAMEs, then return to no active tool.",
 			tabScene: "Manage scene assets and lighting.",
-			tabCamera: "Edit the active Camera and FRAME setup.",
+			tabCamera: "Edit the active shot camera and paper setup.",
 			tabReference: "Edit reference presets and reference image layers.",
 			tabExport: "Adjust export options and run output.",
 			copyViewportPoseToShot:

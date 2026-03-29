@@ -51,7 +51,6 @@ export const INSPECTOR_QUICK_SECTION_VIEW = "view-settings";
 export const INSPECTOR_QUICK_SECTION_LIGHTING = "lighting";
 export const INSPECTOR_QUICK_SECTION_OUTPUT_FRAME = "output-frame";
 export const INSPECTOR_QUICK_SECTION_REFERENCE = "reference";
-export const INSPECTOR_QUICK_SECTION_FRAMES = "frames";
 export const INSPECTOR_QUICK_SECTION_EXPORT = "export-output";
 export const INSPECTOR_QUICK_SECTION_EXPORT_SETTINGS = "export-settings";
 export const INSPECTOR_BROWSER_SCENE = "scene";
@@ -325,12 +324,6 @@ export function getInspectorQuickSections(t) {
 			tabId: INSPECTOR_TAB_REFERENCE,
 			label: t("section.referenceImages"),
 			icon: "image",
-		},
-		{
-			id: INSPECTOR_QUICK_SECTION_FRAMES,
-			tabId: INSPECTOR_TAB_CAMERA,
-			label: t("section.frames"),
-			icon: "frame",
 		},
 		{
 			id: INSPECTOR_QUICK_SECTION_EXPORT,
@@ -1963,7 +1956,30 @@ export function SceneSection({
 	dragHoverState,
 	setDragHoverState,
 }) {
-	const sceneAssetSections = groupSceneAssetsByKind(sceneAssets);
+	const groupedSceneAssets = groupSceneAssetsByKind(sceneAssets);
+	const sceneAssetSections = [
+		{
+			kind: "model",
+			kindLabelKey: "assetKind.model",
+			assets:
+				groupedSceneAssets.find((section) => section.kind === "model")
+					?.assets ?? [],
+		},
+		{
+			kind: "splat",
+			kindLabelKey: "assetKind.splat",
+			assets:
+				groupedSceneAssets.find((section) => section.kind === "splat")
+					?.assets ?? [],
+		},
+		...groupedSceneAssets
+			.filter((section) => !["model", "splat"].includes(section.kind))
+			.map((section) => ({
+				...section,
+				kindLabelKey:
+					section.assets[0]?.kindLabelKey ?? `assetKind.${section.kind}`,
+			})),
+	];
 	const selectedSceneAssetIds = new Set(store.selectedSceneAssetIds.value);
 	const getSceneAssetById = (assetId) =>
 		sceneAssets.find((asset) => asset.id === assetId) ?? null;
@@ -2015,134 +2031,133 @@ export function SceneSection({
 			summaryActions=${summaryActions}
 			onToggle=${onToggle}
 		>
-			${
-				sceneAssets.length > 0 &&
-				html`
-					<div class="scene-asset-section-list">
-						${sceneAssetSections.map(
-							(section) => html`
-								<section class="scene-asset-section">
-									<${SectionHeading} title=${t(section.assets[0].kindLabelKey)}>
-										<span class="pill pill--dim">${section.assets.length}</span>
-									<//>
-									<div class="scene-asset-list">
-										${section.assets.map(
-											(asset) => html`
-												<article
-													class=${getSceneAssetRowClass(asset)}
-													draggable="true"
-													onClick=${(event) =>
-														controller()?.selectSceneAsset(asset.id, {
-															additive: event.ctrlKey || event.metaKey,
-															toggle: event.ctrlKey || event.metaKey,
-															range: event.shiftKey,
-															orderedIds: sceneAssets.map((entry) => entry.id),
-														})}
-													onDragStart=${(event) => {
-														setDraggedAssetId(asset.id);
-														setDragHoverState(null);
-														event.dataTransfer.effectAllowed = "move";
-														event.dataTransfer.setData(
-															"text/plain",
-															String(asset.id),
+			<div class="scene-asset-section-list">
+				${sceneAssetSections.map(
+					(section) => html`
+						<section class="scene-asset-section">
+							<${SectionHeading} title=${t(section.kindLabelKey)}>
+								<span class="pill pill--dim">${section.assets.length}</span>
+							<//>
+							<div
+								class=${
+									section.assets.length > 0
+										? "scene-asset-list"
+										: "scene-asset-list scene-asset-list--empty"
+								}
+							>
+								${section.assets.map(
+									(asset) => html`
+										<article
+											class=${getSceneAssetRowClass(asset)}
+											draggable="true"
+											onClick=${(event) =>
+												controller()?.selectSceneAsset(asset.id, {
+													additive: event.ctrlKey || event.metaKey,
+													toggle: event.ctrlKey || event.metaKey,
+													range: event.shiftKey,
+													orderedIds: sceneAssets.map((entry) => entry.id),
+												})}
+											onDragStart=${(event) => {
+												setDraggedAssetId(asset.id);
+												setDragHoverState(null);
+												event.dataTransfer.effectAllowed = "move";
+												event.dataTransfer.setData(
+													"text/plain",
+													String(asset.id),
+												);
+											}}
+											onDragOver=${(event) => {
+												const draggedAsset = getSceneAssetById(
+													draggedAssetId ??
+														Number(event.dataTransfer.getData("text/plain")),
+												);
+												if (draggedAsset?.kind !== asset.kind) {
+													return;
+												}
+												event.preventDefault();
+												event.dataTransfer.dropEffect = "move";
+												setDragHoverState({
+													assetId: asset.id,
+													position: getDropPosition(event),
+												});
+											}}
+											onDragLeave=${() => {
+												if (dragHoverState?.assetId === asset.id) {
+													setDragHoverState(null);
+												}
+											}}
+											onDrop=${(event) => {
+												event.preventDefault();
+												const draggedId =
+													draggedAssetId ??
+													Number(event.dataTransfer.getData("text/plain"));
+												const draggedAsset = getSceneAssetById(draggedId);
+												const dropPosition = getDropPosition(event);
+												if (
+													!Number.isFinite(draggedId) ||
+													draggedId === asset.id ||
+													draggedAsset?.kind !== asset.kind
+												) {
+													setDraggedAssetId(null);
+													setDragHoverState(null);
+													return;
+												}
+												const targetKindIndex = getDropTargetKindIndex(
+													draggedAsset,
+													asset,
+													dropPosition,
+												);
+												if (targetKindIndex !== null) {
+													controller()?.moveAssetToIndex(
+														draggedId,
+														targetKindIndex,
+													);
+												}
+												setDraggedAssetId(null);
+												setDragHoverState(null);
+											}}
+											onDragEnd=${() => {
+												setDraggedAssetId(null);
+												setDragHoverState(null);
+											}}
+										>
+											<div class="scene-asset-row__main">
+												<span class="scene-asset-row__handle" aria-hidden="true">
+													<${WorkbenchIcon} name="grip" size=${12} strokeWidth=${0} />
+												</span>
+												<div class="scene-asset-row__title-group">
+													<strong>${asset.label}</strong>
+												</div>
+											</div>
+											<div class="scene-asset-row__toolbar">
+												<${IconButton}
+													icon=${asset.visible ? "eye" : "eye-off"}
+													label=${t(
+														asset.visible
+															? "assetVisibility.visible"
+															: "assetVisibility.hidden",
+													)}
+													active=${asset.visible}
+													compact=${true}
+													className="scene-asset-row__icon-button"
+													onClick=${(event) => {
+														event.stopPropagation();
+														controller()?.selectSceneAsset(asset.id);
+														controller()?.setAssetVisibility(
+															asset.id,
+															!asset.visible,
 														);
 													}}
-													onDragOver=${(event) => {
-														const draggedAsset = getSceneAssetById(
-															draggedAssetId ??
-																Number(
-																	event.dataTransfer.getData("text/plain"),
-																),
-														);
-														if (draggedAsset?.kind !== asset.kind) {
-															return;
-														}
-														event.preventDefault();
-														event.dataTransfer.dropEffect = "move";
-														setDragHoverState({
-															assetId: asset.id,
-															position: getDropPosition(event),
-														});
-													}}
-													onDragLeave=${() => {
-														if (dragHoverState?.assetId === asset.id) {
-															setDragHoverState(null);
-														}
-													}}
-													onDrop=${(event) => {
-														event.preventDefault();
-														const draggedId =
-															draggedAssetId ??
-															Number(event.dataTransfer.getData("text/plain"));
-														const draggedAsset = getSceneAssetById(draggedId);
-														const dropPosition = getDropPosition(event);
-														if (
-															!Number.isFinite(draggedId) ||
-															draggedId === asset.id ||
-															draggedAsset?.kind !== asset.kind
-														) {
-															setDraggedAssetId(null);
-															setDragHoverState(null);
-															return;
-														}
-														const targetKindIndex = getDropTargetKindIndex(
-															draggedAsset,
-															asset,
-															dropPosition,
-														);
-														if (targetKindIndex !== null) {
-															controller()?.moveAssetToIndex(
-																draggedId,
-																targetKindIndex,
-															);
-														}
-														setDraggedAssetId(null);
-														setDragHoverState(null);
-													}}
-													onDragEnd=${() => {
-														setDraggedAssetId(null);
-														setDragHoverState(null);
-													}}
-												>
-													<div class="scene-asset-row__main">
-														<span class="scene-asset-row__handle" aria-hidden="true">
-															<${WorkbenchIcon} name="grip" size=${12} strokeWidth=${0} />
-														</span>
-														<div class="scene-asset-row__title-group">
-															<strong>${asset.label}</strong>
-														</div>
-													</div>
-													<div class="scene-asset-row__toolbar">
-														<${IconButton}
-															icon=${asset.visible ? "eye" : "eye-off"}
-															label=${t(
-																asset.visible
-																	? "assetVisibility.visible"
-																	: "assetVisibility.hidden",
-															)}
-															active=${asset.visible}
-															compact=${true}
-															className="scene-asset-row__icon-button"
-															onClick=${(event) => {
-																event.stopPropagation();
-																controller()?.selectSceneAsset(asset.id);
-																controller()?.setAssetVisibility(
-																	asset.id,
-																	!asset.visible,
-																);
-															}}
-														/>
-													</div>
-												</article>
-											`,
-										)}
-									</div>
-								</section>
-							`,
-						)}
-					</div>
-				`
-			}
+												/>
+											</div>
+										</article>
+									`,
+								)}
+							</div>
+						</section>
+					`,
+				)}
+			</div>
 			${
 				showSelectedInspector &&
 				html`<${SelectedSceneAssetInspector}
@@ -3343,6 +3358,13 @@ export function OutputFrameSection({
 	t,
 	widthLabel,
 }) {
+	const anchorValue = store.renderBox.anchor.value;
+	const outputFrameState =
+		store.workspace.activeShotCamera.value?.documentState?.outputFrame ?? null;
+	const autoLayoutEnabled =
+		outputFrameState?.viewZoomAuto !== false &&
+		outputFrameState?.viewportCenterAuto !== false;
+
 	return html`
 		<${DisclosureBlock}
 			icon="render-box"
@@ -3352,6 +3374,15 @@ export function OutputFrameSection({
 			summaryActions=${summaryActions}
 			onToggle=${onToggle}
 		>
+			<div class="button-row button-row--compact">
+				<${IconButton}
+					icon="reset"
+					label=${t("action.restoreAutoOutputFrameLayout")}
+					compact=${true}
+					disabled=${autoLayoutEnabled}
+					onClick=${() => controller()?.restoreAutoOutputFrameLayout?.()}
+				/>
+			</div>
 			<label class="field field--range">
 				<span>${t("field.outputFrameWidth")}</span>
 				<div class="range-row">
@@ -3388,17 +3419,30 @@ export function OutputFrameSection({
 			</label>
 			<label class="field">
 				<span>${t("field.anchor")}</span>
-				<select
-					id="anchor-select"
-					value=${store.renderBox.anchor.value}
-					...${INTERACTIVE_FIELD_PROPS}
-					onChange=${(event) => controller()?.setAnchor(event.currentTarget.value)}
-				>
+				<div class="anchor-grid" role="grid" aria-label=${t("field.anchor")}>
 					${anchorOptions.map(
-						(option) =>
-							html`<option value=${option.value}>${option.label}</option>`,
+						(option) => html`
+							<button
+								key=${option.value}
+								type="button"
+								class=${
+									option.value === anchorValue
+										? "anchor-grid__button anchor-grid__button--active"
+										: "anchor-grid__button"
+								}
+								aria-label=${option.label}
+								title=${option.label}
+								onPointerDown=${stopUiEvent}
+								onClick=${(event) => {
+									stopUiEvent(event);
+									controller()?.setAnchor(option.value);
+								}}
+							>
+								<span class="anchor-grid__dot"></span>
+							</button>
+						`,
 					)}
-				</select>
+				</div>
 			</label>
 		<//>
 	`;

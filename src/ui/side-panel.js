@@ -1,16 +1,13 @@
 import { html } from "htm/preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
-import { FRAME_MAX_COUNT } from "../constants.js";
 import { getAnchorOptions } from "../i18n.js";
 import { WorkbenchIcon } from "./workbench-icons.js";
 import { HeaderMenu, IconButton } from "./workbench-primitives.js";
 import {
 	ExportSection,
 	ExportSettingsSection,
-	FramesSection,
 	INSPECTOR_QUICK_SECTION_EXPORT,
 	INSPECTOR_QUICK_SECTION_EXPORT_SETTINGS,
-	INSPECTOR_QUICK_SECTION_FRAMES,
 	INSPECTOR_QUICK_SECTION_LIGHTING,
 	INSPECTOR_QUICK_SECTION_OUTPUT_FRAME,
 	INSPECTOR_QUICK_SECTION_REFERENCE,
@@ -103,10 +100,6 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 	const exportSplatLayers = store.shotCamera.exportSplatLayers.value;
 	const fovLabel = store.fovLabel.value;
 	const equivalentMmValue = store.equivalentMmValue.value;
-	const frameDocuments = store.frames.documents.value;
-	const activeFrameId = store.frames.activeId.value;
-	const frameCount = store.frames.count.value;
-	const frameLimitReached = frameCount >= FRAME_MAX_COUNT;
 	const exportSizeLabel = store.exportSizeLabel.value;
 	const widthLabel = store.widthLabel.value;
 	const heightLabel = store.heightLabel.value;
@@ -479,7 +472,6 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 				INSPECTOR_QUICK_SECTION_SHOT_CAMERA,
 				INSPECTOR_QUICK_SECTION_SHOT_CAMERA_PROPERTIES,
 				INSPECTOR_QUICK_SECTION_OUTPUT_FRAME,
-				INSPECTOR_QUICK_SECTION_FRAMES,
 			];
 		}
 		if (tabId === INSPECTOR_TAB_REFERENCE) {
@@ -592,22 +584,6 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 						open=${open}
 						onToggle=${onToggle}
 						showList=${true}
-						store=${store}
-						summaryActions=${pinAction}
-						t=${t}
-					/>
-				`;
-			case INSPECTOR_QUICK_SECTION_FRAMES:
-				return html`
-					<${FramesSection}
-						activeFrameId=${activeFrameId}
-						controller=${controller}
-						frameCount=${frameCount}
-						frameDocuments=${frameDocuments}
-						frameLimitReached=${frameLimitReached}
-						open=${open}
-						onToggle=${onToggle}
-						showFramePicker=${!desktopFull}
 						store=${store}
 						summaryActions=${pinAction}
 						t=${t}

@@ -1616,6 +1616,8 @@ export function createCameraFramesController(elements, store) {
 		setBoxWidthPercent: outputFrameController.setBoxWidthPercent,
 		setBoxHeightPercent: outputFrameController.setBoxHeightPercent,
 		setViewZoomPercent: outputFrameController.setViewZoomPercent,
+		restoreAutoOutputFrameLayout:
+			outputFrameController.restoreAutoOutputFrameLayout,
 		setAnchor: outputFrameController.setAnchor,
 		setShotCameraClippingMode: cameraController.setShotCameraClippingMode,
 		setShotCameraNear: cameraController.setShotCameraNear,

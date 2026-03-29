@@ -562,7 +562,6 @@ export function createOutputFrameController({
 		if (!state.outputFrameSelected) {
 			selectOutputFrame();
 			updateUi();
-			return;
 		}
 
 		const metrics = getOutputFrameMetrics(activeDocument);
@@ -1025,6 +1024,25 @@ export function createOutputFrameController({
 		setViewZoomFactor(Number(nextValue) / 100);
 	}
 
+	function restoreAutoOutputFrameLayout() {
+		const activeDocument = getActiveShotCameraDocument();
+		if (!activeDocument?.outputFrame) {
+			return;
+		}
+
+		runHistoryAction?.("output-frame.auto-layout", () => {
+			updateActiveShotCameraDocument((documentState) => {
+				documentState.outputFrame.viewZoomAuto = true;
+				documentState.outputFrame.viewportCenterAuto = true;
+				return documentState;
+			});
+		});
+		lastAutoLayoutSignature = "";
+		lastFitLayoutSignature = "";
+		handleResize();
+		updateUi();
+	}
+
 	function setAnchor(nextValue) {
 		selectOutputFrame();
 		runHistoryAction?.("output-frame.anchor-preset", () => {
@@ -1061,6 +1079,7 @@ export function createOutputFrameController({
 		setBoxWidthPercent,
 		setBoxHeightPercent,
 		setViewZoomPercent,
+		restoreAutoOutputFrameLayout,
 		setAnchor,
 		startOutputFramePan,
 		handleOutputFramePanMove,

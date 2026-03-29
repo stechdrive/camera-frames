@@ -912,6 +912,10 @@ code {
 	gap: 0.3rem;
 }
 
+.button-row--compact {
+	margin-bottom: 0.2rem;
+}
+
 .button {
 	appearance: none;
 	border: 1px solid var(--line-strong);
@@ -3432,6 +3436,10 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	gap: 0.5rem;
 }
 
+.scene-asset-list--empty {
+	min-height: 2rem;
+}
+
 .scene-asset-list--compact {
 	gap: 0.35rem;
 }
@@ -3663,6 +3671,51 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	letter-spacing: 0.1em;
 	text-transform: uppercase;
 	color: var(--text-dim);
+}
+
+.anchor-grid {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 0.22rem;
+}
+
+.anchor-grid__button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 1.85rem;
+	border: 1px solid var(--line);
+	border-radius: 10px;
+	background: rgba(255, 255, 255, 0.035);
+	color: var(--text-dim);
+	cursor: pointer;
+	transition: border-color 120ms ease, background-color 120ms ease, color 120ms
+		ease, transform 120ms ease;
+}
+
+.anchor-grid__button:hover {
+	border-color: rgba(255, 255, 255, 0.18);
+	background: rgba(255, 255, 255, 0.08);
+	color: var(--text);
+}
+
+.anchor-grid__button:active {
+	transform: translateY(1px);
+}
+
+.anchor-grid__button--active {
+	border-color: rgba(114, 227, 157, 0.62);
+	background: rgba(114, 227, 157, 0.14);
+	color: rgba(222, 255, 235, 0.94);
+}
+
+.anchor-grid__dot {
+	display: block;
+	width: 0.42rem;
+	height: 0.42rem;
+	border-radius: 999px;
+	background: currentColor;
+	box-shadow: 0 0 0 1px rgba(8, 17, 29, 0.35);
 }
 
 .browser-marker {
