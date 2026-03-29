@@ -1852,6 +1852,8 @@ export function SelectedSceneAssetInspector({
 					label=${t("action.applyAssetTransform")}
 					compact=${true}
 					className="transform-selection-header__action"
+					iconSize=${17}
+					iconStrokeWidth=${2.4}
 					onClick=${() => controller()?.applyAssetTransform?.(targetAsset.id)}
 					tooltip=${{
 						title: t("action.applyAssetTransform"),

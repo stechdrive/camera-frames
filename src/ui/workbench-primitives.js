@@ -367,6 +367,8 @@ export function IconButton({
 	disabled = false,
 	className = "",
 	id,
+	iconSize = 15,
+	iconStrokeWidth = 1.8,
 	onClick,
 	type = "button",
 	tooltip = null,
@@ -390,7 +392,11 @@ export function IconButton({
 			disabled=${disabled}
 			onClick=${onClick}
 		>
-			<${WorkbenchIcon} name=${icon} size=${15} />
+			<${WorkbenchIcon}
+				name=${icon}
+				size=${iconSize}
+				strokeWidth=${iconStrokeWidth}
+			/>
 			<${TooltipBubble}
 				title=${tooltip?.title ?? label}
 				description=${tooltip?.description ?? ""}

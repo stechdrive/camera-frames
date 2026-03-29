@@ -848,6 +848,11 @@ code {
 	flex: 0 0 auto;
 }
 
+.transform-selection-header__action .workbench-icon {
+	width: 1rem;
+	height: 1rem;
+}
+
 .transform-row {
 	display: grid;
 	grid-template-columns: max-content minmax(0, 1fr);

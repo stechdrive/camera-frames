@@ -337,10 +337,10 @@ function renderIconPath(name) {
 			`;
 		case "apply-transform":
 			return html`
-				<path d="M6 8.5l4-2.3 4 2.3v4.8l-4 2.3-4-2.3z"></path>
-				<path d="M10 6.2v9.4"></path>
-				<path d="M6 8.5l4 2.3 4-2.3"></path>
-				<path d="M12.8 14.2l2.2 2.2 4.2-4.2"></path>
+				<path d="M4.9 8.7L9.4 6.1l4.5 2.6v5.4l-4.5 2.6-4.5-2.6z"></path>
+				<path d="M9.4 6.1v10.6"></path>
+				<path d="M4.9 8.7l4.5 2.6 4.5-2.6"></path>
+				<path d="M11.8 14.8l3 3 6-6"></path>
 			`;
 		default:
 			return html`<circle cx="12" cy="12" r="8"></circle>`;
