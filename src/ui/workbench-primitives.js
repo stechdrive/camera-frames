@@ -197,7 +197,13 @@ export function SectionHeading({ icon, title, children }) {
 	`;
 }
 
-export function WorkbenchTabs({ tabs, activeTab, setActiveTab, ariaLabel }) {
+export function WorkbenchTabs({
+	tabs,
+	activeTab,
+	setActiveTab,
+	ariaLabel,
+	iconOnly = false,
+}) {
 	return html`
 		<div class="workbench-tabs" role="tablist" aria-label=${ariaLabel}>
 			${tabs.map(
@@ -223,7 +229,7 @@ export function WorkbenchTabs({ tabs, activeTab, setActiveTab, ariaLabel }) {
 								</span>
 							`
 							}
-							<span>${tab.label}</span>
+							${!iconOnly && html`<span>${tab.label}</span>`}
 						</span>
 						<${TooltipBubble}
 							title=${tab.tooltip?.title ?? tab.label}

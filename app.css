@@ -1767,11 +1767,22 @@ input[type="range"] {
 	color: var(--accent-cool);
 }
 
-.workbench-tab__content > span:last-child {
-	min-width: 0;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
+.workbench-inspector-tab-title {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.34rem;
+	padding: 0 0.15rem 0.28rem;
+	color: var(--text-dim);
+	font: 600 0.72rem / 1 "Avenir Next", "Segoe UI", sans-serif;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
+
+.workbench-inspector-tab-title__icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--accent-cool);
 }
 
 .directional-scrub {

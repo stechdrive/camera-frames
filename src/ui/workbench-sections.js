@@ -258,7 +258,7 @@ export function getInspectorTabs(t) {
 		{
 			id: INSPECTOR_TAB_CAMERA,
 			label: t("section.shotCamera"),
-			icon: "camera",
+			icon: "camera-dslr",
 			tooltip: {
 				title: t("section.shotCamera"),
 				description: t("tooltip.tabCamera"),
@@ -3309,6 +3309,7 @@ export function InspectorTabs({ activeTab, setActiveTab, t }) {
 			activeTab=${activeTab}
 			setActiveTab=${setActiveTab}
 			ariaLabel=${t("section.project")}
+			iconOnly=${true}
 		/>
 	`;
 }

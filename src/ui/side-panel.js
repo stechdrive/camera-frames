@@ -124,6 +124,9 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 	const anchorOptions = getAnchorOptions(locale);
 	const workbenchAutoCollapsed = store.workbenchAutoCollapsed.value;
 	const inspectorTabs = getInspectorTabs(t);
+	const activeInspectorTabDefinition =
+		inspectorTabs.find((tab) => tab.id === activeInspectorTab) ??
+		inspectorTabs[0];
 	const inspectorQuickSections = getInspectorQuickSections(t);
 	const inspectorQuickSectionMap = new Map(
 		inspectorQuickSections.map((section) => [section.id, section]),
@@ -844,6 +847,15 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 										>
 											<${WorkbenchIcon} name="chevron-right" size=${14} />
 										</button>
+									</div>
+									<div class="workbench-inspector-tab-title">
+										<span class="workbench-inspector-tab-title__icon">
+											<${WorkbenchIcon}
+												name=${activeInspectorTabDefinition?.icon ?? "scene"}
+												size=${13}
+											/>
+										</span>
+										<strong>${activeInspectorTabDefinition?.label ?? ""}</strong>
 									</div>
 									<div class="workbench-inspector-stack">
 										${renderInspectorContent(activeInspectorTab, {
