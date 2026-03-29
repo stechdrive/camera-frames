@@ -43,6 +43,7 @@ export const INSPECTOR_TAB_CAMERA = "camera";
 export const INSPECTOR_TAB_REFERENCE = "reference";
 export const INSPECTOR_TAB_EXPORT = "export";
 export const INSPECTOR_QUICK_SECTION_SCENE = "scene-main";
+export const INSPECTOR_QUICK_SECTION_TRANSFORM = "scene-transform";
 export const INSPECTOR_QUICK_SECTION_SHOT_CAMERA = "shot-camera";
 export const INSPECTOR_QUICK_SECTION_SHOT_CAMERA_PROPERTIES =
 	"shot-camera-properties";
@@ -292,7 +293,7 @@ export function getInspectorQuickSections(t) {
 		{
 			id: INSPECTOR_QUICK_SECTION_SCENE,
 			tabId: INSPECTOR_TAB_SCENE,
-			label: t("section.scene"),
+			label: t("section.sceneManager"),
 			icon: "scene",
 		},
 		{
@@ -312,6 +313,12 @@ export function getInspectorQuickSections(t) {
 			tabId: INSPECTOR_TAB_SCENE,
 			label: t("section.lighting"),
 			icon: "light",
+		},
+		{
+			id: INSPECTOR_QUICK_SECTION_TRANSFORM,
+			tabId: INSPECTOR_TAB_SCENE,
+			label: t("section.selectedSceneObject"),
+			icon: "move",
 		},
 		{
 			id: INSPECTOR_QUICK_SECTION_OUTPUT_FRAME,
@@ -1479,7 +1486,7 @@ export function SceneWorkspaceSection({
 	return html`
 		<${DisclosureBlock}
 			icon="scene"
-			label=${t("section.scene")}
+			label=${t("section.sceneManager")}
 			open=${open}
 			summaryActions=${summaryActions}
 			onToggle=${onToggle}
@@ -1510,6 +1517,9 @@ export function SelectedSceneAssetInspector({
 	controller,
 	sceneAssets = [],
 	selectedSceneAsset,
+	open = true,
+	summaryActions = null,
+	onToggle = null,
 	showEmpty = false,
 	store,
 	t,
@@ -1549,43 +1559,104 @@ export function SelectedSceneAssetInspector({
 		};
 	}
 	const selectionBaseline = selectionBaselineRef.current;
+	const axisKeys = ["x", "y", "z"];
+	const transformSectionTitle = t("section.selectedSceneObject");
+	const targetAsset = selectedSceneAsset ?? selectedSceneAssets[0] ?? null;
+
+	const renderAxisInput = ({
+		axis,
+		value,
+		step = "0.01",
+		controller,
+		historyLabel,
+		onCommit,
+		onScrubDelta = null,
+		disabled = false,
+	}) => html`
+		<div class="field transform-axis-slot">
+			<${NumericDraftInput}
+				inputMode="decimal"
+				step=${step}
+				value=${value}
+				placeholder=${axis.toUpperCase()}
+				controller=${controller}
+				disabled=${disabled}
+				historyLabel=${historyLabel}
+				onCommit=${onCommit}
+				onScrubDelta=${onScrubDelta}
+			/>
+		</div>
+	`;
+
+	function renderTransformContent(content) {
+		const combinedSummaryActions =
+			selectionCount === 1 && targetAsset
+				? html`
+						<${IconButton}
+							icon="apply-transform"
+							label=${t("action.applyAssetTransform")}
+							compact=${true}
+							onClick=${() => controller()?.applyAssetTransform?.(targetAsset.id)}
+							tooltip=${{
+								title: t("action.applyAssetTransform"),
+								placement: "bottom",
+							}}
+						/>
+						${summaryActions}
+					`
+				: summaryActions;
+		return html`
+			<${DisclosureBlock}
+				icon="move"
+				label=${transformSectionTitle}
+				open=${open}
+				summaryActions=${combinedSummaryActions}
+				onToggle=${onToggle}
+				className="panel-disclosure--selection-dock"
+			>
+				${content}
+			<//>
+		`;
+	}
 
 	if (selectionCount === 0 && !selectedSceneAsset) {
-		if (showEmpty) {
-			return html`
-				<section class="panel-section panel-section--selection-dock">
-					<${SectionHeading}
-						icon="scene"
-						title=${t("section.selectedSceneObject")}
-					/>
-					<label class="field">
-						<span>${t("field.assetScale")}</span>
-						<${NumericDraftInput} value="" disabled=${true} />
-					</label>
-					<div class="triple-field-row">
-						${["x", "y", "z"].map(
-							(axis) => html`
-								<label class="field">
-									<span>${t("field.assetPosition")} ${axis.toUpperCase()}</span>
-									<${NumericDraftInput} value="" disabled=${true} />
-								</label>
-							`,
-						)}
-					</div>
-					<div class="triple-field-row">
-						${["x", "y", "z"].map(
-							(axis) => html`
-								<label class="field">
-									<span>${t("field.assetRotation")} ${axis.toUpperCase()}</span>
-									<${NumericDraftInput} value="" disabled=${true} />
-								</label>
-							`,
-						)}
-					</div>
-				</section>
-			`;
+		if (!showEmpty) {
+			return null;
 		}
-		return null;
+		return renderTransformContent(html`
+			<div class="transform-inspector">
+				<div class="transform-row transform-row--single">
+					<span class="transform-row__label">${t("field.assetScale")}</span>
+					<div class="field transform-row__value">
+						<${NumericDraftInput} value="" disabled=${true} />
+					</div>
+				</div>
+				<div class="transform-row">
+					<span class="transform-row__label">${t("field.assetPosition")}</span>
+					<div class="transform-row__axes">
+						${axisKeys.map((axis) =>
+							renderAxisInput({
+								axis,
+								value: "",
+								disabled: true,
+							}),
+						)}
+					</div>
+				</div>
+				<div class="transform-row">
+					<span class="transform-row__label">${t("field.assetRotation")}</span>
+					<div class="transform-row__axes">
+						${axisKeys.map((axis) =>
+							renderAxisInput({
+								axis,
+								value: "",
+								disabled: true,
+							}),
+						)}
+					</div>
+				</div>
+			</div>
+		`);
 	}
 
 	function formatDeltaInputValue(value) {
@@ -1630,8 +1701,6 @@ export function SelectedSceneAssetInspector({
 	}
 
 	if (selectionCount > 1) {
-		const allVisible = selectedSceneAssets.every((asset) => asset.visible);
-		const anyVisible = selectedSceneAssets.some((asset) => asset.visible);
 		const kindLabels = [
 			...new Set(
 				selectedSceneAssets.map((asset) =>
@@ -1644,102 +1713,84 @@ export function SelectedSceneAssetInspector({
 				Number(asset.worldScale ?? 1) / Number(baselineAsset.worldScale ?? 1),
 		);
 
-		return html`
-			<section class="panel-section panel-section--selection-dock">
-				<${SectionHeading}
-					icon="scene"
-					title=${t("selection.multipleSceneAssetsTitle", {
+		return renderTransformContent(html`
+				<p class="summary"
+					>${t("selection.multipleSceneAssetsTitle", {
 						count: selectionCount,
 					})}
+					${kindLabels.length ? ` / ${kindLabels.join(" / ")}` : ""}</p
 				>
-					<div class="button-row">
-						<${IconButton}
-							icon=${anyVisible ? "eye" : "eye-off"}
-							label=${t(
-								allVisible
-									? "assetVisibility.visible"
-									: "assetVisibility.hidden",
-							)}
-							active=${allVisible}
-							compact=${true}
-							onClick=${() =>
-								controller()?.setSelectedSceneAssetsVisibility?.(!allVisible)}
-						/>
-						<${IconButton}
-							icon="reset"
-							label=${t("action.resetScale")}
-							compact=${true}
-							onClick=${() =>
-								controller()?.resetSelectedSceneAssetsWorldScale?.()}
-						/>
+				<div class="transform-inspector">
+					<div class="transform-row transform-row--single">
+						<span class="transform-row__label">${t("field.assetScale")}</span>
+						<div class="field transform-row__value">
+							<${NumericDraftInput}
+								inputMode="decimal"
+								step="0.25"
+								value=${
+									Number.isFinite(currentScaleFactor)
+										? formatDeltaInputValue(
+												(Number(currentScaleFactor) - 1) * 100,
+											)
+										: "--"
+								}
+								scrubStartValue=${
+									Number.isFinite(currentScaleFactor)
+										? (Number(currentScaleFactor) - 1) * 100
+										: 0
+								}
+								controller=${controller}
+								historyLabel="asset.scale"
+								onScrubDelta=${(deltaValue) => {
+									const scaleDelta = deltaValue / 100;
+									controller()?.scaleSelectedSceneAssetsByFactor?.(
+										Math.max(0.01, 1 + scaleDelta),
+									);
+								}}
+								onCommit=${(nextValue) => {
+									const numericValue = Number(nextValue);
+									if (
+										!Number.isFinite(numericValue) ||
+										Math.abs(numericValue) <= 1e-8
+									) {
+										return;
+									}
+									const currentFactor = Number.isFinite(currentScaleFactor)
+										? currentScaleFactor
+										: 1;
+									const targetScaleFactor = Math.max(
+										0.01,
+										1 + numericValue / 100,
+									);
+									controller()?.scaleSelectedSceneAssetsByFactor?.(
+										Math.max(0.01, targetScaleFactor / currentFactor),
+									);
+								}}
+							/>
+						</div>
 					</div>
-				<//>
-				<p class="summary">${kindLabels.join(" / ")}</p>
-				<label class="field field--delta">
-					<span>${t("field.assetScale")}</span>
-					<${NumericDraftInput}
-						inputMode="decimal"
-						step="0.25"
-						value=${
-							Number.isFinite(currentScaleFactor)
-								? formatDeltaInputValue((Number(currentScaleFactor) - 1) * 100)
-								: "--"
-						}
-						scrubStartValue=${
-							Number.isFinite(currentScaleFactor)
-								? (Number(currentScaleFactor) - 1) * 100
-								: 0
-						}
-						controller=${controller}
-						historyLabel="asset.scale"
-						onScrubDelta=${(deltaValue) => {
-							const scaleDelta = deltaValue / 100;
-							controller()?.scaleSelectedSceneAssetsByFactor?.(
-								Math.max(0.01, 1 + scaleDelta),
-							);
-						}}
-						onCommit=${(nextValue) => {
-							const numericValue = Number(nextValue);
-							if (
-								!Number.isFinite(numericValue) ||
-								Math.abs(numericValue) <= 1e-8
-							) {
-								return;
-							}
-							const currentFactor = Number.isFinite(currentScaleFactor)
-								? currentScaleFactor
-								: 1;
-							const targetScaleFactor = Math.max(0.01, 1 + numericValue / 100);
-							controller()?.scaleSelectedSceneAssetsByFactor?.(
-								Math.max(0.01, targetScaleFactor / currentFactor),
-							);
-						}}
-					/>
-				</label>
-				<div class="triple-field-row">
-					${["x", "y", "z"].map((axis) => {
-						const currentDelta = getSharedSelectionDelta(
-							(asset, baselineAsset) =>
-								Number(asset.position?.[axis] ?? 0) -
-								Number(baselineAsset.position?.[axis] ?? 0),
-						);
-						return html`
-							<label class="field field--delta">
-								<span>${t("field.assetPosition")} ${axis.toUpperCase()}</span>
-								<${NumericDraftInput}
-									inputMode="decimal"
-									step="0.01"
-									value=${formatDeltaInputValue(currentDelta)}
-									scrubStartValue=${Number(currentDelta ?? 0)}
-									controller=${controller}
-									historyLabel="asset.position"
-									onScrubDelta=${(deltaValue) => {
+					<div class="transform-row">
+						<span class="transform-row__label">${t("field.assetPosition")}</span>
+						<div class="transform-row__axes">
+							${axisKeys.map((axis) => {
+								const currentDelta = getSharedSelectionDelta(
+									(asset, baselineAsset) =>
+										Number(asset.position?.[axis] ?? 0) -
+										Number(baselineAsset.position?.[axis] ?? 0),
+								);
+								return renderAxisInput({
+									axis,
+									value: formatDeltaInputValue(currentDelta),
+									step: "0.01",
+									controller,
+									historyLabel: "asset.position",
+									onScrubDelta: (deltaValue) => {
 										controller()?.offsetSelectedSceneAssetsPosition?.(
 											axis,
 											deltaValue,
 										);
-									}}
-									onCommit=${(nextValue) => {
+									},
+									onCommit: (nextValue) => {
 										const numericValue = Number(nextValue);
 										if (
 											!Number.isFinite(numericValue) ||
@@ -1754,37 +1805,34 @@ export function SelectedSceneAssetInspector({
 											axis,
 											numericValue - currentValue,
 										);
-									}}
-								/>
-							</label>
-						`;
-					})}
-				</div>
-				<div class="triple-field-row">
-					${["x", "y", "z"].map((axis) => {
-						const currentDelta = getSharedSelectionDelta(
-							(asset, baselineAsset) =>
-								Number(asset.rotationDegrees?.[axis] ?? 0) -
-								Number(baselineAsset.rotationDegrees?.[axis] ?? 0),
-							{ normalize: normalizeDeltaDegrees },
-						);
-						return html`
-							<label class="field field--delta">
-								<span>${t("field.assetRotation")} ${axis.toUpperCase()}</span>
-								<${NumericDraftInput}
-									inputMode="decimal"
-									step="0.15"
-									value=${formatDeltaInputValue(currentDelta)}
-									scrubStartValue=${Number(currentDelta ?? 0)}
-									controller=${controller}
-									historyLabel="asset.rotation"
-									onScrubDelta=${(deltaValue) => {
+									},
+								});
+							})}
+						</div>
+					</div>
+					<div class="transform-row">
+						<span class="transform-row__label">${t("field.assetRotation")}</span>
+						<div class="transform-row__axes">
+							${axisKeys.map((axis) => {
+								const currentDelta = getSharedSelectionDelta(
+									(asset, baselineAsset) =>
+										Number(asset.rotationDegrees?.[axis] ?? 0) -
+										Number(baselineAsset.rotationDegrees?.[axis] ?? 0),
+									{ normalize: normalizeDeltaDegrees },
+								);
+								return renderAxisInput({
+									axis,
+									value: formatDeltaInputValue(currentDelta),
+									step: "0.15",
+									controller,
+									historyLabel: "asset.rotation",
+									onScrubDelta: (deltaValue) => {
 										controller()?.offsetSelectedSceneAssetsRotationDegrees?.(
 											axis,
 											deltaValue,
 										);
-									}}
-									onCommit=${(nextValue) => {
+									},
+									onCommit: (nextValue) => {
 										const numericValue = Number(nextValue);
 										if (
 											!Number.isFinite(numericValue) ||
@@ -1799,107 +1847,79 @@ export function SelectedSceneAssetInspector({
 											axis,
 											numericValue - currentValue,
 										);
-									}}
-								/>
-							</label>
-						`;
-					})}
+									},
+								});
+							})}
+						</div>
+					</div>
 				</div>
-			</section>
-		`;
+		`);
 	}
 
-	const targetAsset = selectedSceneAsset ?? selectedSceneAssets[0];
 	if (!targetAsset) {
 		return null;
 	}
 
-	return html`
-		<section class="panel-section panel-section--selection-dock">
-			<${SectionHeading} icon="scene" title=${targetAsset.label}>
-				<div class="button-row">
-					<${IconButton}
-						icon=${targetAsset.visible ? "eye" : "eye-off"}
-						label=${t(
-							targetAsset.visible
-								? "assetVisibility.visible"
-								: "assetVisibility.hidden",
-						)}
-						active=${targetAsset.visible}
-						compact=${true}
-						onClick=${() =>
-							controller()?.setAssetVisibility(
-								targetAsset.id,
-								!targetAsset.visible,
-							)}
-					/>
-					<${IconButton}
-						icon="reset"
-						label=${t("action.resetScale")}
-						compact=${true}
-						onClick=${() => controller()?.resetAssetWorldScale(targetAsset.id)}
-					/>
+	return renderTransformContent(html`
+			<p class="summary">${targetAsset.label}</p>
+			<div class="transform-inspector">
+				<div class="transform-row transform-row--single">
+					<span class="transform-row__label">${t("field.assetScale")}</span>
+					<div class="field transform-row__value">
+						<${NumericDraftInput}
+							inputMode="decimal"
+							min="0.01"
+							step="0.01"
+							value=${Number(targetAsset.worldScale).toFixed(2)}
+							controller=${controller}
+							historyLabel="asset.scale"
+							onCommit=${(nextValue) =>
+								controller()?.setAssetWorldScale(targetAsset.id, nextValue)}
+						/>
+					</div>
 				</div>
-			<//>
-			<label class="field">
-				<span>${t("field.assetScale")}</span>
-				<${NumericDraftInput}
-					inputMode="decimal"
-					min="0.01"
-					step="0.01"
-					value=${Number(targetAsset.worldScale).toFixed(2)}
-					controller=${controller}
-					historyLabel="asset.scale"
-					onCommit=${(nextValue) =>
-						controller()?.setAssetWorldScale(targetAsset.id, nextValue)}
-				/>
-			</label>
-			<div class="triple-field-row">
-				${["x", "y", "z"].map(
-					(axis) => html`
-						<label class="field">
-							<span>${t("field.assetPosition")} ${axis.toUpperCase()}</span>
-							<${NumericDraftInput}
-								inputMode="decimal"
-								step="0.01"
-								value=${Number(targetAsset.position[axis]).toFixed(2)}
-								controller=${controller}
-								historyLabel=${`asset.position.${axis}`}
-								onCommit=${(nextValue) =>
+				<div class="transform-row">
+					<span class="transform-row__label">${t("field.assetPosition")}</span>
+					<div class="transform-row__axes">
+						${axisKeys.map((axis) =>
+							renderAxisInput({
+								axis,
+								value: Number(targetAsset.position[axis]).toFixed(2),
+								step: "0.01",
+								controller,
+								historyLabel: `asset.position.${axis}`,
+								onCommit: (nextValue) =>
 									controller()?.setAssetPosition(
 										targetAsset.id,
 										axis,
 										nextValue,
-									)}
-							/>
-						</label>
-					`,
-				)}
-			</div>
-			<div class="triple-field-row">
-				${["x", "y", "z"].map(
-					(axis) => html`
-						<label class="field">
-							<span>${t("field.assetRotation")} ${axis.toUpperCase()}</span>
-							<${NumericDraftInput}
-								inputMode="decimal"
-								step="0.01"
-								value=${Number(targetAsset.rotationDegrees[axis]).toFixed(2)}
-								controller=${controller}
-								historyLabel=${`asset.rotation.${axis}`}
-								onCommit=${(nextValue) =>
+									),
+							}),
+						)}
+					</div>
+				</div>
+				<div class="transform-row">
+					<span class="transform-row__label">${t("field.assetRotation")}</span>
+					<div class="transform-row__axes">
+						${axisKeys.map((axis) =>
+							renderAxisInput({
+								axis,
+								value: Number(targetAsset.rotationDegrees[axis]).toFixed(2),
+								step: "0.01",
+								controller,
+								historyLabel: `asset.rotation.${axis}`,
+								onCommit: (nextValue) =>
 									controller()?.setAssetRotationDegrees(
 										targetAsset.id,
 										axis,
 										nextValue,
-									)}
-							/>
-						</label>
-					`,
-				)}
+									),
+							}),
+						)}
+					</div>
+				</div>
 			</div>
-		</section>
-	`;
+	`);
 }
 
 export function ViewSettingsSection({
@@ -1965,7 +1985,6 @@ export function SceneSection({
 	open = true,
 	summaryActions = null,
 	onToggle = null,
-	showSelectedInspector = true,
 	store,
 	t,
 	draggedAssetId,
@@ -2043,7 +2062,7 @@ export function SceneSection({
 	return html`
 		<${DisclosureBlock}
 			icon="scene"
-			label=${t("section.scene")}
+			label=${t("section.sceneManager")}
 			open=${open}
 			summaryActions=${summaryActions}
 			onToggle=${onToggle}
@@ -2221,20 +2240,23 @@ export function LightingSection({
 			summaryActions=${summaryActions}
 			onToggle=${onToggle}
 		>
-			<label class="field">
-				<span>${t("field.lightDirection")}</span>
-				<${LightingDirectionControl}
-					controller=${controller}
-					azimuthDeg=${modelLightAzimuthDeg}
-					elevationDeg=${modelLightElevationDeg}
-					viewAzimuthDeg=${activeCameraViewAzimuthDeg}
-					onLiveChange=${(nextDirection) =>
-						controller()?.setModelLightDirection?.(nextDirection)}
-				/>
-			</label>
-			<label class="field field--range">
-				<span>${t("field.lightIntensity")}</span>
-				<div class="range-row">
+			<div class="lighting-field-row lighting-field-row--direction">
+				<span class="lighting-field-row__label">${t("field.lightDirection")}</span>
+				<div class="lighting-field-row__control">
+					<${LightingDirectionControl}
+						controller=${controller}
+						azimuthDeg=${modelLightAzimuthDeg}
+						elevationDeg=${modelLightElevationDeg}
+						viewAzimuthDeg=${activeCameraViewAzimuthDeg}
+						onLiveChange=${(nextDirection) =>
+							controller()?.setModelLightDirection?.(nextDirection)}
+					/>
+				</div>
+			</div>
+			<div class="lighting-field-row">
+				<span class="lighting-field-row__label">${t("field.lightIntensity")}</span>
+				<div class="lighting-field-row__control">
+					<div class="range-row">
 					<${HistoryRangeInput}
 						id="lighting-intensity"
 						min=${0}
@@ -2246,25 +2268,29 @@ export function LightingSection({
 						onLiveChange=${(event) =>
 							controller()?.setModelLightIntensity?.(event.currentTarget.value)}
 					/>
-					<div class="numeric-unit">
-						<${NumericDraftInput}
-							id="lighting-intensity-input"
-							inputMode="decimal"
-							min=${0}
-							max=${3}
-							step=${0.01}
-							value=${Number(modelLightIntensity).toFixed(2)}
-							controller=${controller}
-							historyLabel="lighting.model.intensity"
-							onCommit=${(nextValue) =>
-								controller()?.setModelLightIntensity?.(nextValue)}
-						/>
+					<div class="field lighting-field-row__numeric">
+						<div class="numeric-unit numeric-unit--input-only">
+							<${NumericDraftInput}
+								id="lighting-intensity-input"
+								inputMode="decimal"
+								min=${0}
+								max=${3}
+								step=${0.01}
+								value=${Number(modelLightIntensity).toFixed(2)}
+								controller=${controller}
+								historyLabel="lighting.model.intensity"
+								onCommit=${(nextValue) =>
+									controller()?.setModelLightIntensity?.(nextValue)}
+							/>
+						</div>
 					</div>
 				</div>
-			</label>
-			<label class="field field--range">
-				<span>${t("field.lightAmbient")}</span>
-				<div class="range-row">
+				</div>
+			</div>
+			<div class="lighting-field-row">
+				<span class="lighting-field-row__label">${t("field.lightAmbient")}</span>
+				<div class="lighting-field-row__control">
+					<div class="range-row">
 					<${HistoryRangeInput}
 						id="lighting-ambient"
 						min=${0}
@@ -2276,22 +2302,25 @@ export function LightingSection({
 						onLiveChange=${(event) =>
 							controller()?.setLightingAmbient?.(event.currentTarget.value)}
 					/>
-					<div class="numeric-unit">
-						<${NumericDraftInput}
-							id="lighting-ambient-input"
-							inputMode="decimal"
-							min=${0}
-							max=${2.5}
-							step=${0.01}
-							value=${Number(ambient).toFixed(2)}
-							controller=${controller}
-							historyLabel="lighting.ambient"
-							onCommit=${(nextValue) =>
-								controller()?.setLightingAmbient?.(nextValue)}
-						/>
+					<div class="field lighting-field-row__numeric">
+						<div class="numeric-unit numeric-unit--input-only">
+							<${NumericDraftInput}
+								id="lighting-ambient-input"
+								inputMode="decimal"
+								min=${0}
+								max=${2.5}
+								step=${0.01}
+								value=${Number(ambient).toFixed(2)}
+								controller=${controller}
+								historyLabel="lighting.ambient"
+								onCommit=${(nextValue) =>
+									controller()?.setLightingAmbient?.(nextValue)}
+							/>
+						</div>
 					</div>
 				</div>
-			</label>
+				</div>
+			</div>
 		<//>
 	`;
 }

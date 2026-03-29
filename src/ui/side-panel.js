@@ -14,6 +14,7 @@ import {
 	INSPECTOR_QUICK_SECTION_SCENE,
 	INSPECTOR_QUICK_SECTION_SHOT_CAMERA,
 	INSPECTOR_QUICK_SECTION_SHOT_CAMERA_PROPERTIES,
+	INSPECTOR_QUICK_SECTION_TRANSFORM,
 	INSPECTOR_TAB_CAMERA,
 	INSPECTOR_TAB_EXPORT,
 	INSPECTOR_TAB_REFERENCE,
@@ -465,7 +466,11 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 
 	const getTabSectionIds = (tabId) => {
 		if (tabId === INSPECTOR_TAB_SCENE) {
-			return [INSPECTOR_QUICK_SECTION_SCENE, INSPECTOR_QUICK_SECTION_LIGHTING];
+			return [
+				INSPECTOR_QUICK_SECTION_SCENE,
+				INSPECTOR_QUICK_SECTION_LIGHTING,
+				INSPECTOR_QUICK_SECTION_TRANSFORM,
+			];
 		}
 		if (tabId === INSPECTOR_TAB_CAMERA) {
 			return [
@@ -532,6 +537,20 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 						controller=${controller}
 						open=${open}
 						onToggle=${onToggle}
+						store=${store}
+						summaryActions=${pinAction}
+						t=${t}
+					/>
+				`;
+			case INSPECTOR_QUICK_SECTION_TRANSFORM:
+				return html`
+					<${SelectedSceneAssetInspector}
+						controller=${controller}
+						open=${open}
+						onToggle=${onToggle}
+						sceneAssets=${sceneAssets}
+						selectedSceneAsset=${selectedSceneAsset}
+						showEmpty=${true}
 						store=${store}
 						summaryActions=${pinAction}
 						t=${t}
@@ -837,23 +856,6 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 											desktopFull: true,
 										})}
 									</div>
-									${
-										(activeInspectorTab === INSPECTOR_TAB_SCENE ||
-											selectedSceneAsset ||
-											store.selectedSceneAssetIds.value.length > 0) &&
-										html`
-											<div class="workbench-inspector-selection-dock">
-												<${SelectedSceneAssetInspector}
-													controller=${controller}
-													sceneAssets=${sceneAssets}
-													selectedSceneAsset=${selectedSceneAsset}
-													showEmpty=${activeInspectorTab === INSPECTOR_TAB_SCENE}
-													store=${store}
-													t=${t}
-												/>
-											</div>
-										`
-									}
 								</section>
 							`
 				}

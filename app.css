@@ -826,6 +826,104 @@ code {
 	padding: 0.62rem;
 }
 
+.transform-inspector {
+	display: flex;
+	flex-direction: column;
+	gap: 0.34rem;
+}
+
+.transform-row {
+	display: grid;
+	grid-template-columns: max-content minmax(0, 1fr);
+	align-items: center;
+	gap: 0.26rem;
+}
+
+.transform-row__label {
+	color: var(--text-dim);
+	font-size: 0.68rem;
+	line-height: 1;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.transform-row__value,
+.transform-row__axes {
+	min-width: 0;
+}
+
+.transform-row__axes {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 0.16rem;
+}
+
+.transform-axis-slot {
+	min-width: 0;
+	gap: 0;
+}
+
+.transform-row__value.field,
+.transform-axis-slot.field {
+	gap: 0;
+}
+
+.transform-row__value .numeric-scrub input,
+.transform-axis-slot .numeric-scrub input {
+	width: 100%;
+}
+
+.transform-row__value .numeric-scrub input::placeholder,
+.transform-axis-slot .numeric-scrub input::placeholder {
+	color: rgba(229, 235, 245, 0.32);
+	letter-spacing: 0.02em;
+}
+
+.lighting-field-row {
+	display: grid;
+	grid-template-columns: max-content minmax(0, 1fr);
+	align-items: center;
+	gap: 0.38rem;
+}
+
+.lighting-field-row--direction {
+	align-items: start;
+}
+
+.lighting-field-row__label {
+	color: var(--text-dim);
+	font-size: 0.68rem;
+	line-height: 1;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.lighting-field-row__control {
+	min-width: 0;
+}
+
+.lighting-field-row__control .range-row {
+	grid-template-columns: minmax(0, 1fr) minmax(4.6rem, 5rem);
+	gap: 0.36rem;
+	min-width: 0;
+}
+
+.lighting-field-row__control .numeric-unit {
+	width: 100%;
+}
+
+.lighting-field-row__numeric {
+	min-width: 0;
+	gap: 0;
+}
+
+.lighting-field-row__control .numeric-unit--input-only {
+	grid-template-columns: minmax(0, 1fr);
+	gap: 0;
+}
+
 .section-heading {
 	display: flex;
 	align-items: center;

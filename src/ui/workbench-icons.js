@@ -335,6 +335,11 @@ function renderIconPath(name) {
 				<rect x="6.5" y="11" width="11" height="8" rx="2"></rect>
 				<path d="M15 11V8.5a3 3 0 0 0-5.4-1.8"></path>
 			`;
+		case "apply-transform":
+			return html`
+				<rect x="4.5" y="6" width="7" height="7" rx="1.2"></rect>
+				<path d="M13.8 12.2l2 2 4-4"></path>
+			`;
 		default:
 			return html`<circle cx="12" cy="12" r="8"></circle>`;
 	}

@@ -1690,6 +1690,7 @@ export function createCameraFramesController(elements, store) {
 		setAssetVisibility: assetController.setAssetVisibility,
 		setSelectedSceneAssetsVisibility:
 			assetController.setSelectedSceneAssetsVisibility,
+		applyAssetTransform: assetController.applyAssetTransform,
 		scaleSelectedSceneAssetsByFactor:
 			assetController.scaleSelectedSceneAssetsByFactor,
 		moveAssetUp: assetController.moveAssetUp,
