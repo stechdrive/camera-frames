@@ -552,6 +552,7 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 			case INSPECTOR_QUICK_SECTION_SHOT_CAMERA_PROPERTIES:
 				return html`
 					<${ShotCameraPropertiesSection}
+						controller=${controller}
 						equivalentMmValue=${equivalentMmValue}
 						fovLabel=${fovLabel}
 						open=${open}
