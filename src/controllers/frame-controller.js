@@ -1184,10 +1184,12 @@ export function createFrameController({
 						y: pivot.y + (geometry.anchorPoint.y - pivot.y) * scaleRatio,
 					};
 					frame.x = resolveFrameAxis(
-						nextCenterPoint.x / Math.max(selectionState.metrics.exportWidth, 1e-6),
+						nextCenterPoint.x /
+							Math.max(selectionState.metrics.exportWidth, 1e-6),
 					);
 					frame.y = resolveFrameAxis(
-						nextCenterPoint.y / Math.max(selectionState.metrics.exportHeight, 1e-6),
+						nextCenterPoint.y /
+							Math.max(selectionState.metrics.exportHeight, 1e-6),
 					);
 					frame.scale = resolveFrameScale(geometry.scale * scaleRatio);
 					frame.rotation = normalizeRotationDegrees(geometry.rotationDeg);

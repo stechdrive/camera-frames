@@ -97,6 +97,7 @@ export function FrameLayer({
 				!canvasOnly &&
 				store.frames.documents.value.map((frame) => {
 					const frameScale = Number(frame.scale) > 0 ? frame.scale : 1;
+					const frameScaleLabel = `${Math.round(frameScale * 100)}%`;
 					const frameWidthPercent =
 						(BASE_FRAME.width * frameScale * 100) / exportWidth;
 					const frameHeightPercent =
@@ -139,7 +140,9 @@ export function FrameLayer({
 								transformOrigin: "center center",
 							}}
 						>
-							<span class="frame-item__label">${frame.name}</span>
+							<span class="frame-item__label"
+								>${frame.name} ${frameScaleLabel}</span
+							>
 							<button
 								type="button"
 								class="frame-item__edge frame-item__edge--top"

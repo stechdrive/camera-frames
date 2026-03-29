@@ -4,7 +4,12 @@ import { translate } from "../src/i18n.js";
 
 const t = (key, params) => translate("en", key, params);
 
-const cameraActions = buildViewportPieActions({ mode: "camera", t });
+const cameraActions = buildViewportPieActions({
+	mode: "camera",
+	t,
+	frameMaskMode: "off",
+	hasRememberedFrameMaskSelection: false,
+});
 const cameraActionIds = cameraActions.map((action) => action.id);
 
 assert.deepEqual(cameraActionIds, [
@@ -14,6 +19,8 @@ assert.deepEqual(cameraActionIds, [
 	"tool-pivot",
 	"adjust-lens",
 	"frame-create",
+	"frame-mask-all",
+	"frame-mask-selected",
 	"toggle-view-mode",
 	"clear-selection",
 ]);
@@ -31,14 +38,40 @@ assert.equal(
 	"selection-clear",
 );
 assert.equal(
+	cameraActions.find((action) => action.id === "frame-mask-all")?.icon,
+	"mask-all",
+);
+assert.equal(
+	cameraActions.find((action) => action.id === "frame-mask-selected")?.disabled,
+	true,
+);
+assert.equal(
 	cameraActions.find((action) => action.id === "toggle-view-mode")?.icon,
 	"viewport",
 );
 
-const viewportActions = buildViewportPieActions({ mode: "viewport", t });
+const viewportActions = buildViewportPieActions({
+	mode: "viewport",
+	t,
+	frameMaskMode: "all",
+	hasRememberedFrameMaskSelection: true,
+});
 assert.equal(
 	viewportActions.find((action) => action.id === "toggle-view-mode")?.icon,
 	"camera",
+);
+assert.equal(
+	viewportActions.find((action) => action.id === "frame-mask-all")?.disabled,
+	true,
+);
+assert.equal(
+	buildViewportPieActions({
+		mode: "camera",
+		t,
+		frameMaskMode: "selected",
+		hasRememberedFrameMaskSelection: true,
+	}).find((action) => action.id === "frame-mask-selected")?.active,
+	true,
 );
 
 console.log("✅ CAMERA_FRAMES viewport pie tests passed!");

@@ -203,7 +203,13 @@ export function ViewportShell({ store, controller, refs, t }) {
 	const lensHud = store.viewportLensHud.value;
 	const rollHud = store.viewportRollHud.value;
 	const pieActions = pieState.open
-		? buildViewportPieActions({ mode: store.mode.value, t })
+		? buildViewportPieActions({
+				mode: store.mode.value,
+				t,
+				frameMaskMode: store.frames.maskMode.value,
+				hasRememberedFrameMaskSelection:
+					(store.frames.maskSelectedIds.value?.length ?? 0) > 0,
+			})
 		: [];
 	const hoveredPieAction =
 		pieActions.find((action) => action.id === pieState.hoveredActionId) ?? null;
@@ -383,17 +389,25 @@ export function ViewportShell({ store, controller, refs, t }) {
 								<button
 									key=${action.id}
 									type="button"
-									class=${
-										action.id === pieState.hoveredActionId
-											? "viewport-pie__item viewport-pie__item--active"
-											: "viewport-pie__item"
-									}
+									class=${[
+										"viewport-pie__item",
+										action.id === pieState.hoveredActionId || action.active
+											? "viewport-pie__item--active"
+											: "",
+										action.disabled ? "viewport-pie__item--disabled" : "",
+									]
+										.filter(Boolean)
+										.join(" ")}
 									style=${{
 										left: `${offsetX}px`,
 										top: `${offsetY}px`,
 									}}
+									disabled=${Boolean(action.disabled)}
 									onPointerDown=${handlePieActionPointerDown}
-									onClick=${(event) => handlePieActionClick(action.id, event)}
+									onClick=${(event) =>
+										action.disabled
+											? undefined
+											: handlePieActionClick(action.id, event)}
 								>
 									<span class="viewport-pie__item-icon">
 										<${WorkbenchIcon} name=${action.icon} size=${18} />

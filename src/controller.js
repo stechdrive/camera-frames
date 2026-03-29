@@ -1510,6 +1510,21 @@ export function createCameraFramesController(elements, store) {
 			case "frame-create":
 				frameController.createFrame();
 				return true;
+			case "frame-mask-all":
+				if (state.mode !== WORKSPACE_PANE_CAMERA) {
+					return false;
+				}
+				frameController.toggleFrameMaskMode("all");
+				return true;
+			case "frame-mask-selected":
+				if (
+					state.mode !== WORKSPACE_PANE_CAMERA ||
+					frameController.getRememberedFrameMaskSelectedIds().length === 0
+				) {
+					return false;
+				}
+				frameController.toggleFrameMaskMode("selected");
+				return true;
 			case "adjust-lens":
 				interactionController?.activateLensAdjustMode(pointerEvent);
 				return true;

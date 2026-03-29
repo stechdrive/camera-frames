@@ -1965,6 +1965,15 @@ input[type="range"] {
 	box-shadow: 0 16px 30px rgba(255, 103, 77, 0.2);
 }
 
+.viewport-pie__item--disabled {
+	opacity: 0.34;
+	color: rgba(230, 236, 244, 0.42);
+	border-color: rgba(255, 255, 255, 0.08);
+	background: rgba(7, 19, 33, 0.48);
+	box-shadow: 0 8px 18px rgba(0, 0, 0, 0.16);
+	cursor: default;
+}
+
 .viewport-pie__item-icon {
 	display: inline-flex;
 	align-items: center;
