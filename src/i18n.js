@@ -129,9 +129,9 @@ const MESSAGES = {
 		},
 		transformMode: {
 			none: "なし",
-			select: "Select",
-			reference: "Reference",
-			transform: "Transform",
+			select: "選択",
+			reference: "下絵",
+			transform: "変形",
 			pivot: "オブジェクト原点",
 		},
 		viewportTool: {
