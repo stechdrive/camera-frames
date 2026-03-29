@@ -445,29 +445,32 @@ function ZoomToolPopover({ controller, mode, store, t }) {
 		<div class="workbench-tool-rail__popover" role="group" aria-label=${title}>
 			<label class="field workbench-tool-rail__popover-field">
 				<span>${title}</span>
-				<div class="numeric-unit workbench-tool-rail__popover-value">
-					<${NumericDraftInput}
-						id=${isCameraMode ? "tool-view-zoom" : "tool-viewport-fov"}
-						inputMode="decimal"
-						min=${isCameraMode ? MIN_CAMERA_VIEW_ZOOM_PCT : 14}
-						max=${isCameraMode ? MAX_CAMERA_VIEW_ZOOM_PCT : 200}
-						step=${isCameraMode ? "1" : "0.01"}
-						value=${value}
-						controller=${controller}
-						historyLabel=${isCameraMode ? "output-frame.zoom" : "viewport.lens"}
-						onCommit=${(nextValue) =>
-							isCameraMode
-								? controller()?.setViewZoomPercent?.(nextValue)
-								: applyStandardFrameHorizontalEquivalentMm(
-										(nextBaseFov) =>
-											controller()?.setViewportBaseFovX(nextBaseFov),
-										nextValue,
-									)}
-					/>
-					<${NumericUnitLabel}
-						value=${isCameraMode ? "%" : "mm"}
-						title=${t(isCameraMode ? "unit.percent" : "unit.millimeter")}
-					/>
+				<div class="workbench-tool-rail__popover-value">
+					<div class="workbench-tool-rail__popover-input">
+						<${NumericDraftInput}
+							id=${isCameraMode ? "tool-view-zoom" : "tool-viewport-fov"}
+							inputMode="decimal"
+							min=${isCameraMode ? MIN_CAMERA_VIEW_ZOOM_PCT : 14}
+							max=${isCameraMode ? MAX_CAMERA_VIEW_ZOOM_PCT : 200}
+							step=${isCameraMode ? "1" : "0.01"}
+							value=${value}
+							controller=${controller}
+							historyLabel=${isCameraMode ? "output-frame.zoom" : "viewport.lens"}
+							onCommit=${(nextValue) =>
+								isCameraMode
+									? controller()?.setViewZoomPercent?.(nextValue)
+									: applyStandardFrameHorizontalEquivalentMm(
+											(nextBaseFov) =>
+												controller()?.setViewportBaseFovX(nextBaseFov),
+											nextValue,
+										)}
+						/>
+					</div>
+					<span
+						class="workbench-tool-rail__popover-suffix"
+						aria-label=${t(isCameraMode ? "unit.percent" : "unit.millimeter")}
+						>${isCameraMode ? "%" : "mm"}</span
+					>
 				</div>
 			</label>
 			${

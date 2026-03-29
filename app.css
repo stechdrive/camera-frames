@@ -719,7 +719,7 @@ code {
 	display: flex;
 	flex-direction: column;
 	gap: 0.42rem;
-	min-width: 13.2rem;
+	min-width: 12.1rem;
 	padding: 0.6rem;
 	border: 1px solid var(--line);
 	border-radius: 14px;
@@ -743,23 +743,23 @@ code {
 }
 
 .workbench-tool-rail__popover-value {
+	display: flex;
+	align-items: center;
 	width: 100%;
-	grid-template-columns: minmax(0, 1fr) auto;
+	gap: 0.12rem;
 }
 
-.workbench-tool-rail__popover-value .numeric-scrub {
+.workbench-tool-rail__popover-input {
+	flex: 1 1 auto;
 	min-width: 0;
 }
 
-.workbench-tool-rail__popover-value .numeric-scrub input {
+.workbench-tool-rail__popover-input .numeric-scrub {
 	min-width: 0;
 }
 
-.workbench-tool-rail__popover-value .numeric-unit__label {
-	min-width: 1.28rem;
-	min-height: 1.36rem;
-	padding: 0 0.22rem;
-	font-size: 0.68rem;
+.workbench-tool-rail__popover-input .numeric-scrub input {
+	min-width: 0;
 }
 
 .workbench-tool-rail__popover-summary {
@@ -1277,6 +1277,23 @@ code {
 	color: var(--accent-cool);
 	font: 600 0.72rem / 1 "Consolas", "Andale Mono", monospace;
 	letter-spacing: 0.02em;
+}
+
+.workbench-tool-rail__popover-suffix {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 auto;
+	min-width: 1rem;
+	min-height: 1rem;
+	padding: 0 0.08rem;
+	border: 1px solid rgba(102, 191, 255, 0.14);
+	border-radius: 6px;
+	background: rgba(102, 191, 255, 0.04);
+	color: var(--accent-cool);
+	font: 600 0.55rem / 1 "Consolas", "Andale Mono", monospace;
+	letter-spacing: 0;
+	white-space: nowrap;
 }
 
 .lighting-direction-control {

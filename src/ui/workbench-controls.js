@@ -47,9 +47,11 @@ const NUMERIC_SCRUB_EDGE_SLOW_MIN_FACTOR = 0.55;
 const NUMERIC_SCRUB_EDGE_HOLD_DELAY_MS = 90;
 const NUMERIC_SCRUB_EDGE_HOLD_RATE_PX_PER_FRAME = 1.0;
 
-export function NumericUnitLabel({ value, title = "" }) {
+export function NumericUnitLabel({ value, title = "", className = "" }) {
 	return html`
-		<span class="numeric-unit__label" aria-label=${title || value}>${value}</span>
+		<span class=${`numeric-unit__label ${className}`.trim()} aria-label=${title || value}
+			>${value}</span
+		>
 	`;
 }
 
