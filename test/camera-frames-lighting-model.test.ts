@@ -7,9 +7,9 @@ import {
 
 {
 	const defaults = createDefaultLightingState();
-	assert.equal(defaults.ambient, 0.55);
+	assert.equal(defaults.ambient, 1.1);
 	assert.equal(defaults.modelLight.enabled, true);
-	assert.equal(defaults.modelLight.intensity, 1.4);
+	assert.equal(defaults.modelLight.intensity, 2.0);
 }
 
 {
@@ -22,7 +22,7 @@ import {
 			elevationDeg: 120,
 		},
 	});
-	assert.equal(normalized.ambient, 2);
+	assert.equal(normalized.ambient, 2.5);
 	assert.equal(normalized.modelLight.enabled, false);
 	assert.equal(normalized.modelLight.intensity, 0);
 	assert.equal(normalized.modelLight.azimuthDeg, 180);

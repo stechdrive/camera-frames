@@ -978,7 +978,7 @@ export function LightingSection({
 					<${HistoryRangeInput}
 						id="lighting-intensity"
 						min=${0}
-						max=${2}
+						max=${3}
 						step=${0.01}
 						value=${Number(modelLightIntensity.toFixed(2))}
 						controller=${controller}
@@ -991,7 +991,7 @@ export function LightingSection({
 							id="lighting-intensity-input"
 							inputMode="decimal"
 							min=${0}
-							max=${2}
+							max=${3}
 							step=${0.01}
 							value=${Number(modelLightIntensity).toFixed(2)}
 							controller=${controller}
@@ -1008,7 +1008,7 @@ export function LightingSection({
 					<${HistoryRangeInput}
 						id="lighting-ambient"
 						min=${0}
-						max=${2}
+						max=${2.5}
 						step=${0.01}
 						value=${Number(ambient.toFixed(2))}
 						controller=${controller}
@@ -1021,7 +1021,7 @@ export function LightingSection({
 							id="lighting-ambient-input"
 							inputMode="decimal"
 							min=${0}
-							max=${2}
+							max=${2.5}
 							step=${0.01}
 							value=${Number(ambient).toFixed(2)}
 							controller=${controller}

@@ -11,8 +11,10 @@ import {
 const KEY_LIGHT_DISTANCE = 8;
 const AMBIENT_FILL_UP_DISTANCE = 6;
 const AMBIENT_FILL_DOWN_DISTANCE = 5;
-const AMBIENT_FILL_UP_FACTOR = 0.18;
-const AMBIENT_FILL_DOWN_FACTOR = 0.12;
+const AMBIENT_FILL_UP_FACTOR = 0.42;
+const AMBIENT_FILL_DOWN_FACTOR = 0.24;
+const AMBIENT_FILL_UP_ELEVATION_DEG = 28;
+const AMBIENT_FILL_DOWN_ELEVATION_DEG = -22;
 
 function degToRad(value) {
 	return THREE.MathUtils.degToRad(Number(value) || 0);
@@ -94,13 +96,21 @@ export function createLightingController({
 
 		ambientFillUp.intensity = ambient * AMBIENT_FILL_UP_FACTOR;
 		ambientFillUp.position.copy(
-			buildDirectionPosition(30, 60, AMBIENT_FILL_UP_DISTANCE),
+			buildDirectionPosition(
+				azimuthDeg + 180,
+				AMBIENT_FILL_UP_ELEVATION_DEG,
+				AMBIENT_FILL_UP_DISTANCE,
+			),
 		);
 		ambientFillUpTarget.position.set(0, 0, 0);
 
 		ambientFillDown.intensity = ambient * AMBIENT_FILL_DOWN_FACTOR;
 		ambientFillDown.position.copy(
-			buildDirectionPosition(-30, -50, AMBIENT_FILL_DOWN_DISTANCE),
+			buildDirectionPosition(
+				azimuthDeg + 180,
+				AMBIENT_FILL_DOWN_ELEVATION_DEG,
+				AMBIENT_FILL_DOWN_DISTANCE,
+			),
 		);
 		ambientFillDownTarget.position.set(0, 0, 0);
 
