@@ -3292,14 +3292,6 @@ export function ExportSection({
 	`;
 }
 
-export function FooterSection({ store }) {
-	return html`
-		<footer class="panel-footer">
-			<p id="status-line" class="status-line">${store.statusLine.value}</p>
-		</footer>
-	`;
-}
-
 export function InspectorTabs({ activeTab, setActiveTab, t }) {
 	const tabs = getInspectorTabs(t);
 

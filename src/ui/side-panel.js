@@ -7,7 +7,6 @@ import { HeaderMenu, IconButton } from "./workbench-primitives.js";
 import {
 	ExportSection,
 	ExportSettingsSection,
-	FooterSection,
 	FramesSection,
 	INSPECTOR_QUICK_SECTION_EXPORT,
 	INSPECTOR_QUICK_SECTION_EXPORT_SETTINGS,
@@ -737,7 +736,6 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 								<div class="workbench-inspector-stack workbench-inspector-stack--mobile">
 									${renderInspectorContent(activeInspectorTab)}
 								</div>
-								<${FooterSection} store=${store} />
 							</section>
 						</div>
 					`
@@ -879,7 +877,6 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 											</div>
 										`
 									}
-									<${FooterSection} store=${store} />
 								</section>
 							`
 				}
