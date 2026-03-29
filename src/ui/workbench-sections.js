@@ -292,7 +292,7 @@ export function getInspectorQuickSections(t) {
 			id: INSPECTOR_QUICK_SECTION_SHOT_CAMERA_PROPERTIES,
 			tabId: INSPECTOR_TAB_CAMERA,
 			label: t("section.shotCameraProperties"),
-			icon: "lens",
+			icon: "camera-dslr",
 		},
 		{
 			id: INSPECTOR_QUICK_SECTION_VIEW,
@@ -686,40 +686,20 @@ export function ViewSettingsSection({
 	const showTransformControls =
 		selectedSceneAsset &&
 		(store.viewportTransformMode.value || store.viewportPivotEditMode.value);
+	const showViewportControls = mode === "viewport";
+
+	if (!showViewportControls && !showTransformControls) {
+		return null;
+	}
 
 	return html`
 		<section class="panel-section">
-			<${SectionHeading} icon="view" title=${t("section.view")}>
+			<${SectionHeading} icon="viewport" title=${t("section.view")}>
 				<span id="mode-pill" class="pill">${mode === "camera" ? t("mode.camera") : t("mode.viewport")}</span>
 				${headingActions}
 			<//>
 			${
-				mode === "camera" &&
-				html`
-					<label class="field field--inline-compact">
-						<span>${t("field.cameraViewZoom")}</span>
-						<div class="field--inline-compact__value">
-							<div class="numeric-unit">
-								<${NumericDraftInput}
-									id="view-zoom"
-									inputMode="decimal"
-									min=${MIN_CAMERA_VIEW_ZOOM_PCT}
-									max=${MAX_CAMERA_VIEW_ZOOM_PCT}
-									step="1"
-									value=${Math.round(store.renderBox.viewZoom.value * 100)}
-									controller=${controller}
-									historyLabel="output-frame.zoom"
-									onCommit=${(nextValue) =>
-										controller()?.setViewZoomPercent?.(nextValue)}
-								/>
-								<${NumericUnitLabel} value="%" title=${t("unit.percent")} />
-							</div>
-						</div>
-					</label>
-				`
-			}
-			${
-				mode === "viewport" &&
+				showViewportControls &&
 				html`
 					<label class="field field--range">
 						<span>${t("field.viewportEquivalentMm")}</span>
@@ -1298,7 +1278,7 @@ export function ShotCameraPropertiesSection({
 	return html`
 		<section class="panel-section">
 			<${SectionHeading}
-				icon="lens"
+				icon="camera-dslr"
 				title=${t("section.shotCameraProperties")}
 			>
 				${headingActions}
@@ -2268,6 +2248,7 @@ export function OutputFrameSection({
 	exportSizeLabel,
 	headingActions = null,
 	heightLabel,
+	mode,
 	store,
 	t,
 	widthLabel,
@@ -2278,6 +2259,31 @@ export function OutputFrameSection({
 				<span id="export-size-pill" class="pill pill--dim">${exportSizeLabel}</span>
 				${headingActions}
 			<//>
+			${
+				mode === "camera" &&
+				html`
+					<label class="field field--inline-compact">
+						<span>${t("field.cameraViewZoom")}</span>
+						<div class="field--inline-compact__value">
+							<div class="numeric-unit">
+								<${NumericDraftInput}
+									id="view-zoom"
+									inputMode="decimal"
+									min=${MIN_CAMERA_VIEW_ZOOM_PCT}
+									max=${MAX_CAMERA_VIEW_ZOOM_PCT}
+									step="1"
+									value=${Math.round(store.renderBox.viewZoom.value * 100)}
+									controller=${controller}
+									historyLabel="output-frame.zoom"
+									onCommit=${(nextValue) =>
+										controller()?.setViewZoomPercent?.(nextValue)}
+								/>
+								<${NumericUnitLabel} value="%" title=${t("unit.percent")} />
+							</div>
+						</div>
+					</label>
+				`
+			}
 			<label class="field field--range">
 				<span>${t("field.outputFrameWidth")}</span>
 				<div class="range-row">

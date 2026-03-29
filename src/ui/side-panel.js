@@ -1,5 +1,5 @@
 import { html } from "htm/preact";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import { FRAME_MAX_COUNT } from "../constants.js";
 import { getAnchorOptions } from "../i18n.js";
 import { WorkbenchIcon } from "./workbench-icons.js";
@@ -131,13 +131,26 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 	const inspectorQuickSectionMap = new Map(
 		inspectorQuickSections.map((section) => [section.id, section]),
 	);
-	const pinnedQuickSections = pinnedQuickSectionIds
-		.map((sectionId) => inspectorQuickSectionMap.get(sectionId) ?? null)
-		.filter(Boolean);
 	const activeQuickSectionDefinition =
 		(activeQuickSectionId &&
 			inspectorQuickSectionMap.get(activeQuickSectionId)) ??
 		null;
+	const showTransformControls =
+		selectedSceneAsset &&
+		(store.viewportTransformMode.value || store.viewportPivotEditMode.value);
+	const isSectionAvailable = useCallback(
+		(sectionId) => {
+			if (sectionId === INSPECTOR_QUICK_SECTION_VIEW) {
+				return mode === "viewport" || showTransformControls;
+			}
+			return true;
+		},
+		[mode, showTransformControls],
+	);
+	const pinnedQuickSections = pinnedQuickSectionIds
+		.map((sectionId) => inspectorQuickSectionMap.get(sectionId) ?? null)
+		.filter(Boolean)
+		.filter((section) => isSectionAvailable(section.id));
 	const collapseWorkbench = () => {
 		store.workbenchManualCollapsed.value = true;
 		store.workbenchManualExpanded.value = false;
@@ -303,12 +316,13 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 	useEffect(() => {
 		if (
 			activeQuickSectionId &&
-			!pinnedQuickSectionIds.includes(activeQuickSectionId)
+			(!pinnedQuickSectionIds.includes(activeQuickSectionId) ||
+				!isSectionAvailable(activeQuickSectionId))
 		) {
 			setActiveQuickSectionId(null);
 		}
 		return undefined;
-	}, [activeQuickSectionId, pinnedQuickSectionIds]);
+	}, [activeQuickSectionId, isSectionAvailable, pinnedQuickSectionIds]);
 
 	useEffect(() => {
 		if (typeof window === "undefined" || !window.localStorage) {
@@ -550,6 +564,7 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 						exportSizeLabel=${exportSizeLabel}
 						headingActions=${pinAction}
 						heightLabel=${heightLabel}
+						mode=${mode}
 						store=${store}
 						t=${t}
 						widthLabel=${widthLabel}

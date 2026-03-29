@@ -105,7 +105,7 @@ const MESSAGES = {
 		},
 		section: {
 			file: "ファイル",
-			view: "ビュー",
+			view: "作業ビュー",
 			scene: "シーン",
 			lighting: "照明",
 			tools: "ツール",
@@ -605,7 +605,7 @@ const MESSAGES = {
 		},
 		section: {
 			file: "File",
-			view: "View",
+			view: "Workspace View",
 			scene: "Scene",
 			lighting: "Lighting",
 			tools: "Tools",
