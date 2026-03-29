@@ -178,6 +178,7 @@ function ShotCameraPicker({ activeShotCamera, controller, shotCameras, t }) {
 					aria-label=${t("field.activeShotCamera")}
 					aria-expanded=${open ? "true" : "false"}
 					onPointerDown=${(event) => {
+						event.preventDefault();
 						stopUiEvent(event);
 					}}
 					onClick=${(event) => {
@@ -212,6 +213,7 @@ function ShotCameraPicker({ activeShotCamera, controller, shotCameras, t }) {
 										: "shot-camera-picker__item"
 								}
 								onPointerDown=${(event) => {
+									event.preventDefault();
 									stopUiEvent(event);
 								}}
 								onClick=${() => {

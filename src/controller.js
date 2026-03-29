@@ -1617,6 +1617,7 @@ export function createCameraFramesController(elements, store) {
 			cameraController.setActiveShotCameraPositionAxis,
 		setActiveShotCameraPoseAngle,
 		moveActiveShotCameraLocalAxis,
+		setShotCameraName: cameraController.setShotCameraName,
 		setShotCameraExportName: cameraController.setShotCameraExportName,
 		setShotCameraExportFormat: cameraController.setShotCameraExportFormat,
 		setShotCameraExportGridOverlay:
