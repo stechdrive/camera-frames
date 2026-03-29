@@ -28,6 +28,7 @@ import {
 	getFrameDocumentId,
 	getNextFrameNumber,
 	getActiveFrameDocument as resolveActiveFrameDocument,
+	sanitizeFrameName,
 } from "../workspace-model.js";
 
 const FRAME_DRAG_START_THRESHOLD_PX = 4;
@@ -719,6 +720,27 @@ export function createFrameController({
 				name: nextFrame.name,
 			}),
 		);
+	}
+
+	function setFrameName(frameId, nextValue) {
+		const targetFrame = getFrameDocumentById(getActiveFrames(), frameId);
+		if (!targetFrame) {
+			return;
+		}
+
+		runHistoryAction?.("frame.name", () => {
+			updateActiveShotCameraDocument((documentState) => {
+				const frame = getFrameDocumentById(documentState.frames, frameId);
+				const normalizedName = sanitizeFrameName(nextValue, targetFrame.name);
+				if (!frame) {
+					return documentState;
+				}
+				frame.name = normalizedName;
+				documentState.activeFrameId = frame.id;
+				return documentState;
+			});
+		});
+		updateUi();
 	}
 
 	function deleteActiveFrame() {
@@ -1812,6 +1834,7 @@ export function createFrameController({
 		selectFrame,
 		createFrame,
 		duplicateActiveFrame,
+		setFrameName,
 		deleteSelectedFrames,
 		deleteFrame,
 		deleteActiveFrame,

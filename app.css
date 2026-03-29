@@ -3970,6 +3970,27 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	display: inline-block;
 }
 
+.frame-item__label-input {
+	min-width: 4.8rem;
+	max-width: 11rem;
+	padding: 0;
+	border: none;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	letter-spacing: inherit;
+	text-transform: none;
+}
+
+.frame-item__label-input:focus {
+	outline: none;
+}
+
+.frame-item__label-scale {
+	display: inline-block;
+	opacity: 0.88;
+}
+
 .frame-item__label-delete {
 	display: inline-grid;
 	place-items: center;

@@ -7,6 +7,8 @@ import {
 import { getFrameResizeCursorCss } from "../engine/resize-cursor.js";
 import { getFrameRotateCursorCss } from "../engine/rotate-cursor.js";
 import { translate } from "../i18n.js";
+import { FRAME_NAME_MAX_LENGTH } from "../workspace-model.js";
+import { TextDraftInput } from "./workbench-controls.js";
 import { WorkbenchIcon } from "./workbench-icons.js";
 
 const FRAME_RESIZE_HANDLES = [
@@ -127,6 +129,7 @@ export function FrameLayer({
 					);
 					const frameAnchorHandle = getFrameAnchorHandleKey(frameAnchor);
 					const deleteFrameLabel = translate(locale, "action.deleteFrame");
+					const renameFrameLabel = translate(locale, "action.renameFrame");
 
 					return html`
 						<div
@@ -150,15 +153,20 @@ export function FrameLayer({
 							${
 								showFrameLabel &&
 								html`
-									<span
-										class="frame-item__label"
-										onPointerDown=${(event) => {
-											event.preventDefault();
-											event.stopPropagation();
-										}}
-									>
+									<span class="frame-item__label">
 										<span class="frame-item__label-text"
-											>${frame.name} ${frameScaleLabel}</span
+											><${TextDraftInput}
+												class="frame-item__label-input"
+												value=${frame.name}
+												aria-label=${renameFrameLabel}
+												maxLength=${FRAME_NAME_MAX_LENGTH}
+												selectOnFocus=${true}
+												onCommit=${(nextValue) =>
+													controller()?.setFrameName?.(frame.id, nextValue)}
+											/></span
+										>
+										<span class="frame-item__label-scale"
+											>${frameScaleLabel}</span
 										>
 										${
 											showDeleteButton &&
@@ -282,10 +290,6 @@ export function FrameLayer({
 					>
 						<span
 							class="frame-item__label frame-item__label--group"
-							onPointerDown=${(event) => {
-								event.preventDefault();
-								event.stopPropagation();
-							}}
 						>
 							<span class="frame-item__label-text"
 								>${`${selectedFrameCount} FRAME`}</span

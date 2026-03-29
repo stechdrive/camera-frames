@@ -17,6 +17,7 @@ export const WORKSPACE_LAYOUT_QUAD = "quad";
 const SHOT_CAMERA_ID_PREFIX = "shot-camera-";
 const FRAME_ID_PREFIX = "frame-";
 const FRAME_DISPLAY_LABELS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+export const FRAME_NAME_MAX_LENGTH = 64;
 const DEFAULT_FRAME_X = 0.5;
 const DEFAULT_FRAME_Y = 0.5;
 const DEFAULT_FRAME_SCALE = 1;
@@ -52,6 +53,21 @@ export function getFrameDocumentId(index) {
 
 export function getFrameDisplayLabel(index) {
 	return FRAME_DISPLAY_LABELS[Math.max(index - 1, 0)] ?? `${index}`;
+}
+
+export function sanitizeFrameName(value, fallback = "FRAME A") {
+	const normalized = Array.from(String(value ?? ""))
+		.map((character) => {
+			const codePoint = character.codePointAt(0) ?? 0;
+			return codePoint < 32 || codePoint === 127 ? " " : character;
+		})
+		.join("")
+		.replace(/\s+/g, " ")
+		.trim();
+	const truncated = Array.from(normalized)
+		.slice(0, FRAME_NAME_MAX_LENGTH)
+		.join("");
+	return truncated || fallback;
 }
 
 export function getNextShotCameraNumber(shotCameras) {
@@ -187,7 +203,7 @@ export function createFrameDocument({ id, name, source } = {}) {
 		anchor: normalizeFrameAnchor(baseFrame.anchor, centerX, centerY),
 		order: Number.isFinite(baseFrame.order) ? baseFrame.order : 0,
 		id: id ?? baseFrame.id ?? getFrameDocumentId(1),
-		name: name ?? baseFrame.name ?? "FRAME A",
+		name: sanitizeFrameName(name ?? baseFrame.name, "FRAME A"),
 	};
 }
 
@@ -250,7 +266,13 @@ export function createShotCameraDocument({ id, name, source } = {}) {
 
 	const frames = (baseDocument.frames ?? [])
 		.slice(0, FRAME_MAX_COUNT)
-		.map(cloneFrameDocument);
+		.map((frame, index) =>
+			createFrameDocument({
+				id: frame?.id ?? getFrameDocumentId(index + 1),
+				name: frame?.name,
+				source: frame,
+			}),
+		);
 
 	return {
 		...baseDocument,

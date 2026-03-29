@@ -987,7 +987,12 @@ export function LightingDirectionControl({
 	`;
 }
 
-export function TextDraftInput({ value, onCommit, ...props }) {
+export function TextDraftInput({
+	value,
+	onCommit,
+	selectOnFocus = false,
+	...props
+}) {
 	const formattedValue = String(value ?? "");
 	const [draftValue, setDraftValue] = useState(formattedValue);
 	const [isEditing, setIsEditing] = useState(false);
@@ -1008,16 +1013,38 @@ export function TextDraftInput({ value, onCommit, ...props }) {
 		setIsEditing(false);
 	}
 
+	function handlePointerDown(event) {
+		if (selectOnFocus) {
+			event.preventDefault();
+			stopUiEvent(event);
+			const target = event.currentTarget;
+			setIsEditing(true);
+			setDraftValue(String(target.value ?? formattedValue));
+			requestAnimationFrame(() => {
+				target?.focus?.();
+				target?.select?.();
+			});
+			return;
+		}
+		stopUiEvent(event);
+	}
+
 	return html`
 		<input
 			...${props}
 			type="text"
 			data-draft-editing=${isEditing ? "true" : "false"}
 			value=${isEditing ? draftValue : formattedValue}
+			onPointerDown=${handlePointerDown}
 			onFocus=${(event) => {
 				stopUiEvent(event);
 				setIsEditing(true);
 				setDraftValue(String(event.currentTarget.value ?? formattedValue));
+				if (selectOnFocus) {
+					requestAnimationFrame(() => {
+						event.currentTarget?.select?.();
+					});
+				}
 			}}
 			onInput=${(event) => {
 				stopUiEvent(event);
@@ -1030,7 +1057,6 @@ export function TextDraftInput({ value, onCommit, ...props }) {
 			onChange=${(event) => {
 				commitDraft(event.currentTarget.value);
 			}}
-			onPointerDown=${stopUiEvent}
 			onClick=${stopUiEvent}
 			onWheel=${stopUiWheelEvent}
 			onKeyDown=${(event) => {
