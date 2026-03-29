@@ -938,12 +938,21 @@ export function LightingSection({
 	summaryActions = null,
 	t,
 }) {
+	const normalizeDegrees = (value) => {
+		const numericValue = Number(value);
+		if (!Number.isFinite(numericValue)) {
+			return 0;
+		}
+		const wrapped = ((((numericValue + 180) % 360) + 360) % 360) - 180;
+		return wrapped === -180 ? 180 : wrapped;
+	};
 	const ambient = store.lighting.ambient.value;
 	const modelLightIntensity = store.lighting.modelLightIntensity.value;
 	const modelLightAzimuthDeg = store.lighting.modelLightAzimuthDeg.value;
 	const modelLightElevationDeg = store.lighting.modelLightElevationDeg.value;
-	const activeCameraHeadingDeg =
-		controller?.()?.getActiveCameraHeadingDeg?.() ?? 0;
+	const activeCameraViewAzimuthDeg = normalizeDegrees(
+		(controller?.()?.getActiveCameraHeadingDeg?.() ?? 0) + 180,
+	);
 
 	return html`
 		<${DisclosureBlock}
@@ -958,7 +967,7 @@ export function LightingSection({
 					controller=${controller}
 					azimuthDeg=${modelLightAzimuthDeg}
 					elevationDeg=${modelLightElevationDeg}
-					viewAzimuthDeg=${activeCameraHeadingDeg}
+					viewAzimuthDeg=${activeCameraViewAzimuthDeg}
 					onLiveChange=${(nextDirection) =>
 						controller()?.setModelLightDirection?.(nextDirection)}
 				/>
