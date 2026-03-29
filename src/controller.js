@@ -1187,6 +1187,7 @@ export function createCameraFramesController(elements, store) {
 							? { pitchDeg: numericValue }
 							: { rollDeg: numericValue };
 				projectionController?.setShotCameraPoseAngles?.(nextAngles);
+				cameraController?.syncActiveShotCameraDocumentFromLiveCamera?.();
 				updateUi();
 			},
 		);
