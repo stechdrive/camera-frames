@@ -1635,6 +1635,8 @@ export function createCameraFramesController(elements, store) {
 		selectFrame: frameController.selectFrame,
 		createFrame: frameController.createFrame,
 		duplicateActiveFrame: frameController.duplicateActiveFrame,
+		deleteSelectedFrames: frameController.deleteSelectedFrames,
+		deleteFrame: frameController.deleteFrame,
 		deleteActiveFrame: frameController.deleteActiveFrame,
 		setFrameMaskMode: frameController.setFrameMaskMode,
 		toggleFrameMaskMode: frameController.toggleFrameMaskMode,

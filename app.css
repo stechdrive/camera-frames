@@ -3946,8 +3946,11 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	position: absolute;
 	top: -1.7rem;
 	left: 0;
-	z-index: 3;
-	padding: 0.24rem 0.45rem;
+	z-index: 7;
+	display: inline-flex;
+	align-items: center;
+	gap: 0.3rem;
+	padding: 0.18rem 0.24rem 0.18rem 0.45rem;
 	border-radius: 999px;
 	background: rgba(255, 87, 72, 0.18);
 	color: #ffd8d1;
@@ -3956,9 +3959,37 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	text-transform: uppercase;
 	white-space: nowrap;
 	opacity: 0;
-	pointer-events: none;
+	pointer-events: auto;
 }
 
 .frame-item--selected .frame-item__label {
 	opacity: 1;
+}
+
+.frame-item__label-text {
+	display: inline-block;
+}
+
+.frame-item__label-delete {
+	display: inline-grid;
+	place-items: center;
+	width: 1rem;
+	height: 1rem;
+	padding: 0;
+	border: none;
+	border-radius: 999px;
+	background: rgba(255, 87, 72, 0.28);
+	color: inherit;
+	cursor: pointer;
+	pointer-events: auto;
+	flex: 0 0 auto;
+}
+
+.frame-item__label-delete:hover,
+.frame-item__label-delete:focus-visible {
+	background: rgba(255, 87, 72, 0.4);
+}
+
+.frame-item__label-delete:active {
+	background: rgba(255, 87, 72, 0.5);
 }
