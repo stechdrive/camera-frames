@@ -2460,13 +2460,13 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 .render-box {
 	position: absolute;
 	z-index: 3;
-	border: 2px solid rgba(255, 103, 77, 0.52);
+	border: 2px solid rgba(114, 227, 157, 0.52);
 	border-radius: 0;
 	pointer-events: none;
 }
 
 .render-box.is-selected {
-	border-color: rgba(255, 103, 77, 0.92);
+	border-color: rgba(114, 227, 157, 0.94);
 }
 
 .frame-mask-layer {
@@ -2540,25 +2540,33 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	content: "";
 	position: absolute;
 	inset: calc(var(--frame-stroke-width) * -0.5);
-	border: var(--frame-stroke-width) solid rgba(255, 103, 77, 0.96);
+	border: var(--frame-stroke-width) solid rgba(98, 208, 255, 0.96);
 	box-shadow: 0 0 0 1px rgba(8, 17, 29, 0.72);
 	pointer-events: none;
 }
 
+.reference-image-transform-box .frame-item__resize-handle::before {
+	background: rgba(98, 208, 255, 0.96);
+}
+
+.reference-image-transform-box .frame-item__anchor::before {
+	box-shadow: 0 0 0 1px rgba(98, 208, 255, 0.82);
+}
+
 .reference-image-selection-outline {
 	position: absolute;
-	border: 1px solid rgba(255, 208, 120, 0.72);
+	border: 1px solid rgba(98, 208, 255, 0.72);
 	box-shadow: 0 0 0 1px rgba(10, 16, 29, 0.6);
 	pointer-events: none;
 }
 
 .reference-image-selection-outline--active {
-	border-color: rgba(255, 232, 180, 0.92);
+	border-color: rgba(176, 235, 255, 0.96);
 }
 
 .reference-image-selection-bounds {
 	position: absolute;
-	border: 1px dashed rgba(255, 208, 120, 0.88);
+	border: 1px dashed rgba(98, 208, 255, 0.88);
 	box-shadow: 0 0 0 1px rgba(10, 16, 29, 0.65);
 	pointer-events: none;
 }
@@ -2581,7 +2589,7 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	padding: 0;
 	border: 1px solid rgba(10, 16, 29, 0.86);
 	border-radius: 999px;
-	background: rgba(255, 208, 120, 0.96);
+	background: rgba(98, 208, 255, 0.96);
 	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
 	pointer-events: auto;
 }
@@ -2600,14 +2608,38 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	top: -6px;
 }
 
+.reference-image-selection-handle--right {
+	right: -6px;
+	top: 50%;
+	transform: translateY(-50%);
+}
+
 .reference-image-selection-handle--bottom-right {
 	right: -6px;
 	bottom: -6px;
 }
 
+.reference-image-selection-handle--bottom {
+	left: 50%;
+	bottom: -6px;
+	transform: translateX(-50%);
+}
+
 .reference-image-selection-handle--bottom-left {
 	left: -6px;
 	bottom: -6px;
+}
+
+.reference-image-selection-handle--left {
+	left: -6px;
+	top: 50%;
+	transform: translateY(-50%);
+}
+
+.reference-image-selection-handle--top {
+	left: 50%;
+	top: -6px;
+	transform: translateX(-50%);
 }
 
 .reference-image-selection-rotate-handle {
@@ -2624,8 +2656,18 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	top: 11px;
 	width: 1px;
 	height: 14px;
-	background: rgba(255, 208, 120, 0.72);
+	background: rgba(98, 208, 255, 0.72);
 	transform: translateX(-50%);
+}
+
+.reference-image-selection-anchor {
+	opacity: 1;
+	pointer-events: auto;
+	z-index: 6;
+}
+
+.reference-image-selection-anchor::before {
+	box-shadow: 0 0 0 1px rgba(98, 208, 255, 0.82);
 }
 
 .render-box__resize-handle {
@@ -2648,7 +2690,7 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	width: 8px;
 	height: 8px;
 	border: 1px solid rgba(255, 255, 255, 0.96);
-	background: rgba(255, 103, 77, 0.96);
+	background: rgba(114, 227, 157, 0.96);
 	box-shadow: 0 0 0 1px rgba(8, 17, 29, 0.68);
 	transform: translate(-50%, -50%);
 }
@@ -2784,8 +2826,8 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	padding: 0.35rem 0.6rem;
 	border-radius: 999px;
 	background: rgba(8, 17, 29, 0.82);
-	border: 1px solid rgba(255, 103, 77, 0.42);
-	color: #ffe4dc;
+	border: 1px solid rgba(114, 227, 157, 0.42);
+	color: #dafbe4;
 	font: 600 0.72rem / 1 "Consolas", "Andale Mono", monospace;
 	letter-spacing: 0.06em;
 	text-transform: uppercase;
@@ -2834,7 +2876,7 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	border: 2px solid rgba(255, 245, 240, 0.98);
 	border-radius: 50%;
 	background: rgba(8, 17, 29, 0.92);
-	box-shadow: 0 0 0 1px rgba(255, 103, 77, 0.82);
+	box-shadow: 0 0 0 1px rgba(114, 227, 157, 0.82);
 	transform: translate(-50%, -50%);
 }
 

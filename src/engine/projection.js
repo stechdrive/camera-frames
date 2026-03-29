@@ -69,13 +69,17 @@ export function clampOutputFrameCenterPx({
 	viewportHeight,
 	boxWidth,
 	boxHeight,
+	safeLeft = 0,
+	safeRight = viewportWidth,
+	safeTop = 0,
+	safeBottom = viewportHeight,
 }) {
 	const halfWidth = boxWidth * 0.5;
 	const halfHeight = boxHeight * 0.5;
-	const minCenterX = Math.min(halfWidth, viewportWidth - halfWidth);
-	const maxCenterX = Math.max(halfWidth, viewportWidth - halfWidth);
-	const minCenterY = Math.min(halfHeight, viewportHeight - halfHeight);
-	const maxCenterY = Math.max(halfHeight, viewportHeight - halfHeight);
+	const minCenterX = Math.min(safeLeft + halfWidth, safeRight - halfWidth);
+	const maxCenterX = Math.max(safeLeft + halfWidth, safeRight - halfWidth);
+	const minCenterY = Math.min(safeTop + halfHeight, safeBottom - halfHeight);
+	const maxCenterY = Math.max(safeTop + halfHeight, safeBottom - halfHeight);
 
 	return {
 		x: clamp(centerX, minCenterX, maxCenterX),

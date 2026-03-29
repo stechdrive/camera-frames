@@ -271,7 +271,7 @@ const MESSAGES = {
 				"まだ下絵がありません。PNG / JPG / WEBP / PSD を読み込んでください。",
 		},
 		drop: {
-			title: "ここにファイルをドロップ",
+			title: "画面にファイルをドロップして開く",
 			body: "3Dデータ（PLY / SPZ / SOG / SPLAT / GLB など）、プロジェクトパッケージ（.ssproj）、下絵（PNG / JPG / WEBP / PSD）を読み込めます。",
 		},
 		badge: {

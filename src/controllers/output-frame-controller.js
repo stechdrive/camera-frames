@@ -28,6 +28,8 @@ export function computeWorkbenchLayoutState({
 }) {
 	const stackedLayout = viewportWidth <= WORKBENCH_STACK_BREAKPOINT_PX;
 	let safeWidth = viewportWidth;
+	const safeLeft = 0;
+	let safeRight = viewportWidth;
 	if (!stackedLayout && !workbenchCollapsed) {
 		const rightInset = rightRect
 			? Math.max(
@@ -39,6 +41,7 @@ export function computeWorkbenchLayoutState({
 				)
 			: 0;
 		safeWidth = Math.max(1, viewportWidth - rightInset);
+		safeRight = safeWidth;
 	}
 
 	return {
@@ -46,6 +49,10 @@ export function computeWorkbenchLayoutState({
 		viewportHeight,
 		stackedLayout,
 		safeWidth,
+		safeLeft,
+		safeRight,
+		safeTop: 0,
+		safeBottom: viewportHeight,
 		safeHeight: viewportHeight,
 	};
 }
@@ -183,6 +190,10 @@ export function createOutputFrameController({
 			viewportHeight,
 			stackedLayout,
 			safeWidth,
+			safeLeft,
+			safeRight,
+			safeTop,
+			safeBottom,
 			safeHeight,
 		} = getWorkbenchLayoutState();
 		const fitScale = Math.min(
@@ -310,6 +321,7 @@ export function createOutputFrameController({
 			return outputFrameDocument;
 		}
 
+		const layout = getWorkbenchLayoutState();
 		const exportSize = getOutputSizeState(documentState);
 		const metrics = getRenderBoxMetrics({
 			viewportWidth: width,
@@ -328,6 +340,10 @@ export function createOutputFrameController({
 			viewportHeight: height,
 			boxWidth: metrics.boxWidth,
 			boxHeight: metrics.boxHeight,
+			safeLeft: layout.safeLeft,
+			safeRight: layout.safeRight,
+			safeTop: layout.safeTop,
+			safeBottom: layout.safeBottom,
 		});
 
 		outputFrameDocument.fitScale = metrics.fitScale;
@@ -414,7 +430,7 @@ export function createOutputFrameController({
 				selectedFrameIds: isFrameSelectionActive()
 					? (store.frames.selectedIds.value ?? [])
 					: [],
-				selectedStrokeStyle: "rgba(255, 214, 120, 0.96)",
+				selectedStrokeStyle: "rgba(255, 182, 170, 0.98)",
 			},
 		);
 		context.setTransform(1, 0, 0, 1, 0, 0);
@@ -536,6 +552,7 @@ export function createOutputFrameController({
 		}
 
 		const { width: viewportWidth, height: viewportHeight } = getViewportSize();
+		const layout = getWorkbenchLayoutState();
 		const outputFrameDocument = syncOutputFrameFitState(
 			activeDocument,
 			viewportWidth,
@@ -566,6 +583,10 @@ export function createOutputFrameController({
 			viewportHeight,
 			boxWidth: panMetrics.boxWidth,
 			boxHeight: panMetrics.boxHeight,
+			safeLeft: layout.safeLeft,
+			safeRight: layout.safeRight,
+			safeTop: layout.safeTop,
+			safeBottom: layout.safeBottom,
 		});
 
 		updateActiveShotCameraDocument((documentState) => {
@@ -865,6 +886,7 @@ export function createOutputFrameController({
 		documentState.outputFrame.centerY =
 			(baseFrustum.top - nextCenterYFrustum) /
 			Math.max(baseFrustum.height, 1e-6);
+		const layout = getWorkbenchLayoutState();
 		const revealedCenter = clampOutputFrameCenterPx({
 			centerX: nextMetrics.boxCenterX,
 			centerY: nextMetrics.boxCenterY,
@@ -872,6 +894,10 @@ export function createOutputFrameController({
 			viewportHeight: currentMetrics.viewportHeight,
 			boxWidth: nextMetrics.boxWidth,
 			boxHeight: nextMetrics.boxHeight,
+			safeLeft: layout.safeLeft,
+			safeRight: layout.safeRight,
+			safeTop: layout.safeTop,
+			safeBottom: layout.safeBottom,
 		});
 
 		documentState.outputFrame.fitScale = outputFrameDocument.fitScale;

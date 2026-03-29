@@ -23,6 +23,7 @@ const OUTPUT_FRAME_RESIZE_HANDLES = [
 ];
 
 const OUTPUT_FRAME_PAN_EDGES = ["top", "right", "bottom", "left"];
+
 const REFERENCE_IMAGE_TRANSFORM_HANDLES = [
 	"top-left",
 	"top",
@@ -33,6 +34,7 @@ const REFERENCE_IMAGE_TRANSFORM_HANDLES = [
 	"bottom-left",
 	"left",
 ];
+
 const REFERENCE_IMAGE_ROTATION_ZONES = [
 	"top-left",
 	"top",
@@ -592,7 +594,7 @@ export function ViewportShell({ store, controller, refs, t }) {
 				html`
 					<div class="reference-image-selection-layer">
 						<div
-							class="frame-item frame-item--selected reference-image-transform-box"
+							class="frame-item frame-item--selected frame-item--active reference-image-transform-box"
 							data-anchor-handle=${referenceImageSelectionBox.anchorHandleKey}
 							style=${getReferenceImageSelectionBoxStyle(
 								referenceImageSelectionBox,
@@ -601,6 +603,7 @@ export function ViewportShell({ store, controller, refs, t }) {
 							${OUTPUT_FRAME_PAN_EDGES.map(
 								(edge) => html`
 									<button
+										key=${edge}
 										type="button"
 										class=${`frame-item__edge frame-item__edge--${edge}`}
 										onPointerDown=${(event) =>
