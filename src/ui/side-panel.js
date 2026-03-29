@@ -845,7 +845,6 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 												controller=${controller}
 												draggedAssetId=${draggedAssetId}
 												dragHoverState=${dragHoverState}
-												frameDocuments=${frameDocuments}
 												onSelectBrowserSection=${setActiveBrowserSectionId}
 												sceneAssets=${sceneAssets}
 												selectedSceneAsset=${selectedSceneAsset}

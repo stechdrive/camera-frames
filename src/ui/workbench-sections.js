@@ -54,7 +54,6 @@ export const INSPECTOR_QUICK_SECTION_EXPORT = "export-output";
 export const INSPECTOR_QUICK_SECTION_EXPORT_SETTINGS = "export-settings";
 export const INSPECTOR_BROWSER_SCENE = "scene";
 export const INSPECTOR_BROWSER_REFERENCE = "reference";
-export const INSPECTOR_BROWSER_FRAMES = "frames";
 
 function ShotCameraPicker({ activeShotCamera, controller, shotCameras, t }) {
 	const [open, setOpen] = useState(false);
@@ -770,7 +769,6 @@ export function InspectorBrowserSection({
 	controller,
 	draggedAssetId = null,
 	dragHoverState = null,
-	frameDocuments = [],
 	onSelectBrowserSection,
 	sceneAssets = [],
 	selectedSceneAsset = null,
@@ -789,11 +787,6 @@ export function InspectorBrowserSection({
 			id: INSPECTOR_BROWSER_REFERENCE,
 			label: t("section.referenceImages"),
 			icon: "image",
-		},
-		{
-			id: INSPECTOR_BROWSER_FRAMES,
-			label: t("section.frames"),
-			icon: "frame",
 		},
 	];
 
@@ -831,28 +824,19 @@ export function InspectorBrowserSection({
 										t=${t}
 									/>
 								`
-							: activeBrowserSectionId === INSPECTOR_BROWSER_FRAMES
-								? html`
-										<${FramesBrowserSection}
-											controller=${controller}
-											frameDocuments=${frameDocuments}
-											store=${store}
-											t=${t}
-										/>
-									`
-								: html`
-										<${SceneBrowserSection}
-											controller=${controller}
-											draggedAssetId=${draggedAssetId}
-											dragHoverState=${dragHoverState}
-											sceneAssets=${sceneAssets}
-											selectedSceneAsset=${selectedSceneAsset}
-											setDraggedAssetId=${setDraggedAssetId}
-											setDragHoverState=${setDragHoverState}
-											store=${store}
-											t=${t}
-										/>
-									`
+							: html`
+									<${SceneBrowserSection}
+										controller=${controller}
+										draggedAssetId=${draggedAssetId}
+										dragHoverState=${dragHoverState}
+										sceneAssets=${sceneAssets}
+										selectedSceneAsset=${selectedSceneAsset}
+										setDraggedAssetId=${setDraggedAssetId}
+										setDragHoverState=${setDragHoverState}
+										store=${store}
+										t=${t}
+									/>
+								`
 					}
 				</div>
 			</div>
@@ -1130,52 +1114,6 @@ export function ReferenceBrowserSection({ controller, store, t }) {
 										);
 									}}
 								/>
-							</div>
-						</article>
-					`,
-				)}
-			</div>
-		</div>
-	`;
-}
-
-export function FramesBrowserSection({ controller, frameDocuments, store, t }) {
-	const activeFrameId = store.frames.activeId.value;
-	const selectedFrameIds = new Set(store.frames.selectedIds.value ?? []);
-
-	if (frameDocuments.length === 0) {
-		return html`<p class="summary">${t("hint.framesEmpty")}</p>`;
-	}
-
-	return html`
-		<div class="browser-list">
-			<div class="scene-asset-list scene-asset-list--compact">
-				${frameDocuments.map(
-					(frame) => html`
-						<article
-							key=${frame.id}
-							class=${
-								frame.id === activeFrameId
-									? selectedFrameIds.has(frame.id)
-										? "scene-asset-row scene-asset-row--compact scene-asset-row--selected scene-asset-row--active"
-										: "scene-asset-row scene-asset-row--compact scene-asset-row--active"
-									: selectedFrameIds.has(frame.id)
-										? "scene-asset-row scene-asset-row--compact scene-asset-row--selected"
-										: "scene-asset-row scene-asset-row--compact"
-							}
-							onClick=${(event) =>
-								controller()?.selectFrame(frame.id, {
-									additive: event.shiftKey || event.ctrlKey || event.metaKey,
-									toggle: event.shiftKey || event.ctrlKey || event.metaKey,
-								})}
-						>
-							<div class="scene-asset-row__main scene-asset-row__main--flat">
-								<div class="scene-asset-row__title-group">
-									<strong>${frame.name}</strong>
-								</div>
-							</div>
-							<div class="scene-asset-row__toolbar">
-								<span class="browser-frame-scale">${Math.round((frame.scale ?? 1) * 100)}%</span>
 							</div>
 						</article>
 					`,
