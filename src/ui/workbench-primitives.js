@@ -392,6 +392,7 @@ export function DisclosureBlock({
 	children,
 	open = false,
 	summaryMeta = null,
+	summaryActions = null,
 }) {
 	return html`
 		<details class="panel-disclosure" open=${open}>
@@ -410,6 +411,14 @@ export function DisclosureBlock({
 				${
 					summaryMeta &&
 					html`<span class="panel-disclosure__summary-meta">${summaryMeta}</span>`
+				}
+				${
+					summaryActions &&
+					html`
+						<span class="panel-disclosure__summary-actions">
+							${summaryActions}
+						</span>
+					`
 				}
 				<span class="panel-disclosure__chevron">
 					<${WorkbenchIcon} name="chevron-right" size=${12} />

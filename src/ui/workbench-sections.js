@@ -37,6 +37,15 @@ import {
 export const INSPECTOR_TAB_SCENE = "scene";
 export const INSPECTOR_TAB_CAMERA = "camera";
 export const INSPECTOR_TAB_EXPORT = "export";
+export const INSPECTOR_QUICK_SECTION_SCENE = "scene-main";
+export const INSPECTOR_QUICK_SECTION_SHOT_CAMERA = "shot-camera";
+export const INSPECTOR_QUICK_SECTION_VIEW = "view-settings";
+export const INSPECTOR_QUICK_SECTION_LIGHTING = "lighting";
+export const INSPECTOR_QUICK_SECTION_OUTPUT_FRAME = "output-frame";
+export const INSPECTOR_QUICK_SECTION_REFERENCE = "reference";
+export const INSPECTOR_QUICK_SECTION_FRAMES = "frames";
+export const INSPECTOR_QUICK_SECTION_EXPORT = "export-output";
+export const INSPECTOR_QUICK_SECTION_EXPORT_SETTINGS = "export-settings";
 
 export function getInspectorTabs(t) {
 	return [
@@ -69,6 +78,65 @@ export function getInspectorTabs(t) {
 				description: t("tooltip.tabExport"),
 				placement: "bottom",
 			},
+		},
+	];
+}
+
+export function getInspectorQuickSections(t) {
+	return [
+		{
+			id: INSPECTOR_QUICK_SECTION_SCENE,
+			tabId: INSPECTOR_TAB_SCENE,
+			label: t("section.scene"),
+			icon: "scene",
+		},
+		{
+			id: INSPECTOR_QUICK_SECTION_SHOT_CAMERA,
+			tabId: INSPECTOR_TAB_CAMERA,
+			label: t("section.shotCamera"),
+			icon: "camera",
+		},
+		{
+			id: INSPECTOR_QUICK_SECTION_VIEW,
+			tabId: INSPECTOR_TAB_CAMERA,
+			label: t("section.view"),
+			icon: "view",
+		},
+		{
+			id: INSPECTOR_QUICK_SECTION_LIGHTING,
+			tabId: INSPECTOR_TAB_SCENE,
+			label: t("section.lighting"),
+			icon: "light",
+		},
+		{
+			id: INSPECTOR_QUICK_SECTION_OUTPUT_FRAME,
+			tabId: INSPECTOR_TAB_CAMERA,
+			label: t("section.outputFrame"),
+			icon: "render-box",
+		},
+		{
+			id: INSPECTOR_QUICK_SECTION_REFERENCE,
+			tabId: INSPECTOR_TAB_CAMERA,
+			label: t("section.referenceImages"),
+			icon: "image",
+		},
+		{
+			id: INSPECTOR_QUICK_SECTION_FRAMES,
+			tabId: INSPECTOR_TAB_CAMERA,
+			label: t("section.frames"),
+			icon: "frame",
+		},
+		{
+			id: INSPECTOR_QUICK_SECTION_EXPORT,
+			tabId: INSPECTOR_TAB_EXPORT,
+			label: t("section.output"),
+			icon: "export",
+		},
+		{
+			id: INSPECTOR_QUICK_SECTION_EXPORT_SETTINGS,
+			tabId: INSPECTOR_TAB_EXPORT,
+			label: t("section.exportSettings"),
+			icon: "package",
 		},
 	];
 }
@@ -345,35 +413,71 @@ export function ToolRailSection({
 	`;
 }
 
-export function InspectorRailSection({ activeTab, onTogglePeek, t }) {
+export function InspectorRailSection({
+	activeQuickSectionId = null,
+	activeTab,
+	onOpenFullTab,
+	onToggleQuickSection,
+	quickSections = [],
+	t,
+}) {
 	const tabs = getInspectorTabs(t);
 	return html`
 		<section class="workbench-inspector-rail" aria-label=${t("section.project")}>
-			${tabs.map(
-				(tab) => html`
-					<${IconButton}
-						key=${tab.id}
-						icon=${tab.icon}
-						label=${tab.label}
-						active=${activeTab === tab.id}
-						compact=${true}
-						className="workbench-inspector-rail__button"
-						tooltip=${{
-							title: tab.tooltip?.title ?? tab.label,
-							description: tab.tooltip?.description ?? "",
-							shortcut: tab.tooltip?.shortcut ?? "",
-							placement: "left",
-						}}
-						onClick=${() => onTogglePeek?.(tab.id)}
-					/>
-				`,
-			)}
+			<div class="workbench-inspector-rail__group">
+				${tabs.map(
+					(tab) => html`
+						<${IconButton}
+							key=${tab.id}
+							icon=${tab.icon}
+							label=${tab.label}
+							active=${activeTab === tab.id}
+							compact=${true}
+							className="workbench-inspector-rail__button"
+							tooltip=${{
+								title: tab.tooltip?.title ?? tab.label,
+								description: tab.tooltip?.description ?? "",
+								shortcut: tab.tooltip?.shortcut ?? "",
+								placement: "left",
+							}}
+							onClick=${() => onOpenFullTab?.(tab.id)}
+						/>
+					`,
+				)}
+			</div>
+			${
+				quickSections.length > 0 &&
+				html`
+					<div class="workbench-inspector-rail__divider"></div>
+					<div class="workbench-inspector-rail__group">
+						${quickSections.map(
+							(section) => html`
+								<${IconButton}
+									key=${section.id}
+									icon=${section.icon}
+									label=${section.label}
+									active=${activeQuickSectionId === section.id}
+									compact=${true}
+									className="workbench-inspector-rail__button"
+									tooltip=${{
+										title: section.label,
+										description: t("tooltip.openQuickSection"),
+										placement: "left",
+									}}
+									onClick=${() => onToggleQuickSection?.(section.id)}
+								/>
+							`,
+						)}
+					</div>
+				`
+			}
 		</section>
 	`;
 }
 
 export function ViewSettingsSection({
 	controller,
+	headingActions = null,
 	mode,
 	selectedSceneAsset,
 	store,
@@ -389,6 +493,7 @@ export function ViewSettingsSection({
 		<section class="panel-section">
 			<${SectionHeading} icon="view" title=${t("section.view")}>
 				<span id="mode-pill" class="pill">${mode === "camera" ? t("mode.camera") : t("mode.viewport")}</span>
+				${headingActions}
 			<//>
 			${
 				mode === "camera" &&
@@ -521,6 +626,7 @@ export function SceneSection({
 	sceneSummary,
 	sceneUnitBadge,
 	selectedSceneAsset,
+	headingActions = null,
 	store,
 	t,
 	draggedAssetId,
@@ -581,6 +687,7 @@ export function SceneSection({
 					<span id="scene-unit-pill" class="pill pill--dim">${sceneUnitBadge}</span>
 					<span id="scene-badge" class="pill pill--dim">${sceneBadge}</span>
 				</div>
+				${headingActions}
 			<//>
 			${
 				sceneSummaryParts.length > 0 &&
@@ -824,7 +931,13 @@ export function SceneSection({
 	`;
 }
 
-export function LightingSection({ controller, store, t }) {
+export function LightingSection({
+	controller,
+	open = false,
+	store,
+	summaryActions = null,
+	t,
+}) {
 	const ambient = store.lighting.ambient.value;
 	const modelLightIntensity = store.lighting.modelLightIntensity.value;
 	const modelLightAzimuthDeg = store.lighting.modelLightAzimuthDeg.value;
@@ -836,6 +949,8 @@ export function LightingSection({ controller, store, t }) {
 		<${DisclosureBlock}
 			icon="light"
 			label=${t("section.lighting")}
+			open=${open}
+			summaryActions=${summaryActions}
 		>
 			<label class="field">
 				<span>${t("field.lightDirection")}</span>
@@ -917,6 +1032,7 @@ export function ShotCameraSection({
 	controller,
 	equivalentMmValue,
 	fovLabel,
+	headingActions = null,
 	shotCameraClipMode,
 	store,
 	t,
@@ -937,7 +1053,9 @@ export function ShotCameraSection({
 
 	return html`
 		<section class="panel-section">
-			<${SectionHeading} icon="camera" title=${t("section.shotCamera")} />
+			<${SectionHeading} icon="camera" title=${t("section.shotCamera")}>
+				${headingActions}
+			<//>
 			<div class="split-field-row split-field-row--wide-action">
 				<label class="field">
 					<span>${t("field.activeShotCamera")}</span>
@@ -1319,6 +1437,8 @@ export function ExportSettingsSection({
 	exportGridOverlay,
 	exportModelLayers,
 	exportSplatLayers,
+	open = false,
+	summaryActions = null,
 	store,
 	t,
 }) {
@@ -1326,6 +1446,8 @@ export function ExportSettingsSection({
 		<${DisclosureBlock}
 			icon="export"
 			label=${t("section.exportSettings")}
+			open=${open}
+			summaryActions=${summaryActions}
 		>
 			<label class="field">
 				<span>${t("field.shotCameraExportName")}</span>
@@ -1422,6 +1544,8 @@ export function FramesSection({
 	frameCount,
 	frameDocuments,
 	frameLimitReached,
+	open = false,
+	summaryActions = null,
 	store,
 	t,
 }) {
@@ -1435,6 +1559,8 @@ export function FramesSection({
 		<${DisclosureBlock}
 			icon="frame"
 			label=${`${t("section.frames")} · ${frameCount}/${FRAME_MAX_COUNT}`}
+			open=${open}
+			summaryActions=${summaryActions}
 		>
 			${
 				hasFrames &&
@@ -1552,7 +1678,12 @@ export function FramesSection({
 	`;
 }
 
-export function ReferenceSection({ controller, store, t }) {
+export function ReferenceSection({
+	controller,
+	headingActions = null,
+	store,
+	t,
+}) {
 	const assets = store.referenceImages.assets.value;
 	const items = store.referenceImages.items.value;
 	const itemsForDisplay = [...items].reverse();
@@ -1586,6 +1717,7 @@ export function ReferenceSection({ controller, store, t }) {
 		<section class="panel-section">
 			<${SectionHeading} icon="image" title=${t("section.referenceImages")}>
 				<span class="pill pill--dim">${items.length}</span>
+				${headingActions}
 			<//>
 			<div class="button-row">
 				<button
@@ -1930,6 +2062,7 @@ export function OutputFrameSection({
 	anchorOptions,
 	controller,
 	exportSizeLabel,
+	headingActions = null,
 	heightLabel,
 	store,
 	t,
@@ -1939,6 +2072,7 @@ export function OutputFrameSection({
 		<section class="panel-section">
 			<${SectionHeading} icon="render-box" title=${t("section.outputFrame")}>
 				<span id="export-size-pill" class="pill pill--dim">${exportSizeLabel}</span>
+				${headingActions}
 			<//>
 			<label class="field field--range">
 				<span>${t("field.outputFrameWidth")}</span>
@@ -2000,6 +2134,7 @@ export function ExportSection({
 	exportSelectionMissing,
 	exportStatusLabel,
 	exportTarget,
+	headingActions = null,
 	store,
 	t,
 }) {
@@ -2016,6 +2151,7 @@ export function ExportSection({
 				<span id="export-status-pill" class=${exportStatusClass}>
 					${exportStatusLabel}
 				</span>
+				${headingActions}
 			<//>
 			<label class="field">
 				<span>${t("field.exportTarget")}</span>

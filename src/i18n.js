@@ -203,6 +203,8 @@ const MESSAGES = {
 			adjustLens: "焦点距離調整",
 			adjustRoll: "カメラロール",
 			quickMenu: "クイックメニュー",
+			pinQuickSection: "レールに追加",
+			unpinQuickSection: "レールから外す",
 			newFrame: "FRAME を追加",
 			duplicateFrame: "複製",
 			deleteFrame: "削除",
@@ -244,6 +246,10 @@ const MESSAGES = {
 				"選択中の FRAME 群を囲む範囲の外側を暗くします。もう一度押すと解除します。",
 			frameMaskAll:
 				"すべての FRAME を囲む範囲の外側を暗くします。もう一度押すと解除します。",
+			openQuickSection:
+				"この項目だけをクイックパネルで開きます。もう一度押すと閉じます。",
+			pinQuickSection: "この項目を右レールのショートカットに追加します。",
+			unpinQuickSection: "この項目を右レールのショートカットから外します。",
 		},
 		hint: {
 			viewMode:
@@ -695,6 +701,8 @@ const MESSAGES = {
 			adjustLens: "Adjust Lens",
 			adjustRoll: "Camera Roll",
 			quickMenu: "Quick Menu",
+			pinQuickSection: "Add To Rail",
+			unpinQuickSection: "Remove From Rail",
 			newFrame: "Add FRAME",
 			duplicateFrame: "Duplicate",
 			deleteFrame: "Delete",
@@ -740,6 +748,10 @@ const MESSAGES = {
 				"Dim everything outside the bounding box of the selected FRAMEs. Press again to turn it off.",
 			frameMaskAll:
 				"Dim everything outside the bounding box covering all FRAMEs. Press again to turn it off.",
+			openQuickSection:
+				"Open only this section as a quick panel. Press again to close it.",
+			pinQuickSection: "Add this section to the right rail shortcuts.",
+			unpinQuickSection: "Remove this section from the right rail shortcuts.",
 		},
 		hint: {
 			viewMode:

@@ -982,6 +982,13 @@ code {
 	min-width: 0;
 }
 
+.panel-disclosure__summary-actions {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.25rem;
+	flex: 0 0 auto;
+}
+
 .panel-disclosure__icon,
 .panel-disclosure__chevron {
 	display: inline-flex;
@@ -1765,6 +1772,25 @@ input[type="range"] {
 	flex-direction: column;
 	gap: 0.35rem;
 	align-items: center;
+}
+
+.workbench-inspector-rail__group {
+	display: flex;
+	flex-direction: column;
+	gap: 0.35rem;
+	align-items: center;
+}
+
+.workbench-inspector-rail__divider {
+	width: 1.5rem;
+	height: 1px;
+	background: linear-gradient(
+		90deg,
+		transparent 0%,
+		rgba(255, 255, 255, 0.16) 24%,
+		rgba(255, 255, 255, 0.16) 76%,
+		transparent 100%
+	);
 }
 
 .workbench-inspector-rail__button {
