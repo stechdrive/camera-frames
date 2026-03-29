@@ -237,6 +237,7 @@ export function createShotCameraDocument({ id, name, source } = {}) {
 				frameMask: {
 					mode: "off",
 					opacityPct: DEFAULT_FRAME_MASK_OPACITY_PCT,
+					selectedIds: [],
 				},
 				navigation: {
 					rollLock: false,
@@ -383,6 +384,13 @@ export function cloneShotCameraDocument(documentState) {
 						Math.max(0, Math.round(documentState.frameMask.opacityPct)),
 					)
 				: DEFAULT_FRAME_MASK_OPACITY_PCT,
+			selectedIds: Array.from(
+				new Set(
+					(documentState.frameMask?.selectedIds ?? []).filter((frameId) =>
+						frames.some((frame) => frame.id === frameId),
+					),
+				),
+			),
 		},
 		navigation: {
 			rollLock: Boolean(documentState.navigation?.rollLock),

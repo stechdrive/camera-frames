@@ -29,6 +29,21 @@ const FRAME_ROTATION_ZONES = [
 	"left",
 ];
 
+function getSelectionAnchorHandleKey(anchor) {
+	if (
+		!Number.isFinite(anchor?.x) ||
+		!Number.isFinite(anchor?.y) ||
+		anchor.x < 0 ||
+		anchor.x > 1 ||
+		anchor.y < 0 ||
+		anchor.y > 1
+	) {
+		return "";
+	}
+
+	return getFrameAnchorHandleKey(anchor);
+}
+
 export function FrameLayer({
 	store,
 	controller,
@@ -41,6 +56,22 @@ export function FrameLayer({
 	const activeFrameId = store.frames.activeId.value;
 	const frameSelectionActive = store.frames.selectionActive.value;
 	const selectedFrameIds = new Set(store.frames.selectedIds.value ?? []);
+	const multiFrameSelection = frameSelectionActive && selectedFrameIds.size > 1;
+	const selectionBoxLogical = store.frames.selectionBoxLogical.value;
+	const selectionAnchor =
+		store.frames.selectionAnchor.value &&
+		Number.isFinite(store.frames.selectionAnchor.value.x) &&
+		Number.isFinite(store.frames.selectionAnchor.value.y)
+			? {
+					x: store.frames.selectionAnchor.value.x,
+					y: store.frames.selectionAnchor.value.y,
+				}
+			: selectionBoxLogical
+				? {
+						x: selectionBoxLogical.anchorX ?? 0.5,
+						y: selectionBoxLogical.anchorY ?? 0.5,
+					}
+				: null;
 
 	return html`
 		<div
@@ -73,6 +104,7 @@ export function FrameLayer({
 					const selectedFrame =
 						frameSelectionActive && selectedFrameIds.has(frame.id);
 					const activeFrame = selectedFrame && activeFrameId === frame.id;
+					const showItemHandles = activeFrame && !multiFrameSelection;
 					const frameRotationRadians = ((frame.rotation ?? 0) * Math.PI) / 180;
 					const frameAnchor = getFrameAnchorLocalNormalized(
 						frame,
@@ -93,7 +125,7 @@ export function FrameLayer({
 							class=${[
 								"frame-item",
 								selectedFrame ? "frame-item--selected" : "",
-								activeFrame ? "frame-item--active" : "",
+								showItemHandles ? "frame-item--active" : "",
 							]
 								.filter(Boolean)
 								.join(" ")}
@@ -171,19 +203,96 @@ export function FrameLayer({
 								`,
 							)}
 							<button
+								type="button"
+								class="frame-item__anchor"
+								style=${{
+									left: `${frameAnchor.x * 100}%`,
+									top: `${frameAnchor.y * 100}%`,
+								}}
+								aria-label=${frame.name}
+								onPointerDown=${(event) =>
+									controller()?.startFrameAnchorDrag(frame.id, event)}
+							></button>
+						</div>
+					`;
+				})
+			}
+			${
+				!canvasOnly &&
+				multiFrameSelection &&
+				selectionBoxLogical &&
+				selectionAnchor &&
+				html`
+					<div
+						class="frame-item frame-item--selected frame-item--active frame-selection-group"
+						data-anchor-handle=${getSelectionAnchorHandleKey(selectionAnchor)}
+						style=${{
+							left: `${(selectionBoxLogical.left * 100) / exportWidth}%`,
+							top: `${(selectionBoxLogical.top * 100) / exportHeight}%`,
+							width: `${(selectionBoxLogical.width * 100) / exportWidth}%`,
+							height: `${(selectionBoxLogical.height * 100) / exportHeight}%`,
+							transform: `rotate(${selectionBoxLogical.rotationDeg ?? 0}deg)`,
+							transformOrigin: `${selectionAnchor.x * 100}% ${selectionAnchor.y * 100}%`,
+						}}
+					>
+						${["top", "right", "bottom", "left"].map(
+							(edge) => html`
+								<button
+									type="button"
+									class=${`frame-item__edge frame-item__edge--${edge}`}
+									aria-label="Selected FRAMEs"
+									onPointerDown=${(event) =>
+										controller()?.startSelectedFramesDrag?.(event)}
+								></button>
+							`,
+						)}
+						${FRAME_RESIZE_HANDLES.map(
+							(handle) => html`
+								<button
+									type="button"
+									class=${`frame-item__resize-handle frame-item__resize-handle--${handle}`}
+									style=${{
+										cursor: getFrameResizeCursorCss(
+											selectionBoxLogical.rotationDeg ?? 0,
+											handle,
+										),
+									}}
+									aria-label="Resize selected FRAMEs"
+									onPointerDown=${(event) =>
+										controller()?.startSelectedFramesResize?.(handle, event)}
+								></button>
+							`,
+						)}
+						${FRAME_ROTATION_ZONES.map(
+							(zone) => html`
+								<button
+									type="button"
+									class=${`frame-item__rotation-zone frame-item__rotation-zone--${zone}`}
+									style=${{
+										cursor: getFrameRotateCursorCss(
+											selectionBoxLogical.rotationDeg ?? 0,
+											zone,
+										),
+									}}
+									aria-label="Rotate selected FRAMEs"
+									onPointerDown=${(event) =>
+										controller()?.startSelectedFramesRotate?.(zone, event)}
+								></button>
+							`,
+						)}
+						<button
 							type="button"
 							class="frame-item__anchor"
 							style=${{
-								left: `${frameAnchor.x * 100}%`,
-								top: `${frameAnchor.y * 100}%`,
+								left: `${selectionAnchor.x * 100}%`,
+								top: `${selectionAnchor.y * 100}%`,
 							}}
-							aria-label=${frame.name}
+							aria-label="Move selected FRAME anchor"
 							onPointerDown=${(event) =>
-								controller()?.startFrameAnchorDrag(frame.id, event)}
+								controller()?.startSelectedFramesAnchorDrag?.(event)}
 						></button>
 					</div>
-				`;
-				})
+				`
 			}
 		</div>
 	`;

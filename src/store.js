@@ -148,6 +148,8 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	);
 	const frameSelectionActive = signal(false);
 	const frameSelectedIds = signal([]);
+	const frameSelectionAnchor = signal(null);
+	const frameSelectionBoxLogical = signal(null);
 	const historyCanUndo = signal(false);
 	const historyCanRedo = signal(false);
 	const frameDocuments = computed(() => activeShotCamera.value?.frames ?? []);
@@ -159,6 +161,9 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	);
 	const activeFrameId = computed(() => activeFrame.value?.id ?? "");
 	const frameCount = computed(() => frameDocuments.value.length);
+	const frameMaskSelectedIds = computed(
+		() => activeShotCamera.value?.frameMask?.selectedIds ?? [],
+	);
 	const mode = computed(() => activeWorkspacePane.value.role);
 	const baseFovX = computed(
 		() =>
@@ -339,6 +344,9 @@ export function createCameraFramesStore(runtimeInfo = null) {
 			count: frameCount,
 			selectionActive: frameSelectionActive,
 			selectedIds: frameSelectedIds,
+			selectionAnchor: frameSelectionAnchor,
+			selectionBoxLogical: frameSelectionBoxLogical,
+			maskSelectedIds: frameMaskSelectedIds,
 			maskMode: frameMaskMode,
 			maskOpacityPct: frameMaskOpacityPct,
 		},

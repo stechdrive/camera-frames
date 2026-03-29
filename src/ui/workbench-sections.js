@@ -1427,9 +1427,9 @@ export function FramesSection({
 }) {
 	const frameMaskMode = store.frames.maskMode.value;
 	const frameMaskOpacityPct = store.frames.maskOpacityPct.value;
-	const selectedFrameIds = store.frames.selectedIds.value ?? [];
+	const rememberedMaskFrameIds = store.frames.maskSelectedIds.value ?? [];
 	const hasFrames = frameDocuments.length > 0;
-	const hasSelectedFrames = selectedFrameIds.length > 0;
+	const hasSelectedFrames = rememberedMaskFrameIds.length > 0;
 
 	return html`
 		<${DisclosureBlock}

@@ -186,6 +186,129 @@ export function getFrameDocumentCenterFromWorld(centerX, centerY, metrics) {
 	};
 }
 
+export function getPointFromRectLocal({
+	left,
+	top,
+	width,
+	height,
+	localX,
+	localY,
+	anchorAx = 0.5,
+	anchorAy = 0.5,
+	rotationDeg = 0,
+}) {
+	const rotationRadians = (rotationDeg * Math.PI) / 180;
+	const anchorPoint = {
+		x: left + width * anchorAx,
+		y: top + height * anchorAy,
+	};
+	const rotated = rotateVector(
+		(localX - anchorAx) * width,
+		(localY - anchorAy) * height,
+		rotationRadians,
+	);
+	return {
+		x: anchorPoint.x + rotated.x,
+		y: anchorPoint.y + rotated.y,
+	};
+}
+
+export function getRectCornersFromAnchor({
+	left,
+	top,
+	width,
+	height,
+	anchorAx = 0.5,
+	anchorAy = 0.5,
+	rotationDeg = 0,
+}) {
+	return [
+		getPointFromRectLocal({
+			left,
+			top,
+			width,
+			height,
+			localX: 0,
+			localY: 0,
+			anchorAx,
+			anchorAy,
+			rotationDeg,
+		}),
+		getPointFromRectLocal({
+			left,
+			top,
+			width,
+			height,
+			localX: 1,
+			localY: 0,
+			anchorAx,
+			anchorAy,
+			rotationDeg,
+		}),
+		getPointFromRectLocal({
+			left,
+			top,
+			width,
+			height,
+			localX: 1,
+			localY: 1,
+			anchorAx,
+			anchorAy,
+			rotationDeg,
+		}),
+		getPointFromRectLocal({
+			left,
+			top,
+			width,
+			height,
+			localX: 0,
+			localY: 1,
+			anchorAx,
+			anchorAy,
+			rotationDeg,
+		}),
+	];
+}
+
+export function getPointsBounds(points) {
+	if (!Array.isArray(points) || points.length === 0) {
+		return null;
+	}
+
+	let left = Number.POSITIVE_INFINITY;
+	let top = Number.POSITIVE_INFINITY;
+	let right = Number.NEGATIVE_INFINITY;
+	let bottom = Number.NEGATIVE_INFINITY;
+
+	for (const point of points) {
+		if (!Number.isFinite(point?.x) || !Number.isFinite(point?.y)) {
+			continue;
+		}
+		left = Math.min(left, point.x);
+		top = Math.min(top, point.y);
+		right = Math.max(right, point.x);
+		bottom = Math.max(bottom, point.y);
+	}
+
+	if (
+		!Number.isFinite(left) ||
+		!Number.isFinite(top) ||
+		!Number.isFinite(right) ||
+		!Number.isFinite(bottom)
+	) {
+		return null;
+	}
+
+	return {
+		left,
+		top,
+		right,
+		bottom,
+		width: Math.max(right - left, 1e-6),
+		height: Math.max(bottom - top, 1e-6),
+	};
+}
+
 export function getFrameAnchorWorldPoint(frame, metrics) {
 	const anchor = getFrameAnchorDocumentPoint(frame);
 	return {
@@ -290,6 +413,36 @@ export function getUniformFrameScaleFromHandle({
 	}
 
 	return Math.min(FRAME_MAX_SCALE, Math.max(FRAME_MIN_SCALE, nextScale));
+}
+
+export function getClampedFrameSelectionScaleRatio(rawScaleRatio, startScales) {
+	const numericRatio = Number(rawScaleRatio);
+	if (!Number.isFinite(numericRatio)) {
+		return 1;
+	}
+
+	const scales = (startScales ?? []).filter(
+		(value) => Number.isFinite(value) && value > 0,
+	);
+	if (scales.length === 0) {
+		return Math.max(0.01, numericRatio);
+	}
+
+	let minRatio = 0;
+	let maxRatio = Number.POSITIVE_INFINITY;
+
+	for (const scale of scales) {
+		minRatio = Math.max(minRatio, FRAME_MIN_SCALE / scale);
+		maxRatio = Math.min(maxRatio, FRAME_MAX_SCALE / scale);
+	}
+
+	if (!(Number.isFinite(maxRatio) && maxRatio > 0)) {
+		return Math.max(0.01, numericRatio);
+	}
+
+	const safeMinRatio = Math.max(minRatio, 0.01);
+	const safeMaxRatio = Math.max(maxRatio, safeMinRatio);
+	return Math.min(safeMaxRatio, Math.max(safeMinRatio, numericRatio));
 }
 
 export function normalizeRotationDegrees(value) {

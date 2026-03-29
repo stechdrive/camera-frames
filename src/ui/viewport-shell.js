@@ -124,6 +124,9 @@ export function ViewportShell({ store, controller, refs, t }) {
 	const mode = store.mode.value;
 	const frames = store.frames.documents.value;
 	const selectedFrameIds = new Set(store.frames.selectedIds.value ?? []);
+	const rememberedMaskFrameIds = new Set(
+		store.frames.maskSelectedIds.value ?? [],
+	);
 	const frameMaskMode = store.frames.maskMode.value;
 	const frameMaskOpacityPct = store.frames.maskOpacityPct.value;
 	const referenceImageEditMode = store.viewportReferenceImageEditMode.value;
@@ -250,7 +253,7 @@ export function ViewportShell({ store, controller, refs, t }) {
 		frameMaskMode === "all"
 			? frames
 			: frameMaskMode === "selected"
-				? frames.filter((frame) => selectedFrameIds.has(frame.id))
+				? frames.filter((frame) => rememberedMaskFrameIds.has(frame.id))
 				: [];
 	const frameMaskBounds =
 		mode === "camera" && maskedFrames.length > 0

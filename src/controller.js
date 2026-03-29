@@ -469,6 +469,7 @@ export function createCameraFramesController(elements, store) {
 		store.frames.selectedIds.value = store.frames.selectionActive.value
 			? [...(snapshot.frameSelectedIds ?? [])]
 			: [];
+		frameController?.syncFrameSelectionTransformState?.();
 		state.outputFrameSelected =
 			!store.frames.selectionActive.value &&
 			Boolean(snapshot.outputFrameSelected);
@@ -613,6 +614,8 @@ export function createCameraFramesController(elements, store) {
 
 		store.frames.selectionActive.value = false;
 		store.frames.selectedIds.value = [];
+		store.frames.selectionAnchor.value = null;
+		store.frames.selectionBoxLogical.value = null;
 		state.outputFrameSelected = false;
 		frameController?.clearFrameInteraction();
 		outputFrameController?.clearOutputFramePan();
@@ -1613,9 +1616,14 @@ export function createCameraFramesController(elements, store) {
 		toggleFrameMaskMode: frameController.toggleFrameMaskMode,
 		setFrameMaskOpacity: frameController.setFrameMaskOpacity,
 		startFrameDrag: frameController.startFrameDrag,
+		startSelectedFramesDrag: frameController.startSelectedFramesDrag,
 		startFrameResize: frameController.startFrameResize,
+		startSelectedFramesResize: frameController.startSelectedFramesResize,
 		startFrameRotate: frameController.startFrameRotate,
+		startSelectedFramesRotate: frameController.startSelectedFramesRotate,
 		startFrameAnchorDrag: frameController.startFrameAnchorDrag,
+		startSelectedFramesAnchorDrag:
+			frameController.startSelectedFramesAnchorDrag,
 		startOutputFramePan: outputFrameController.startOutputFramePan,
 		startOutputFrameResize: outputFrameController.startOutputFrameResize,
 		selectShotCamera: cameraController.selectShotCamera,

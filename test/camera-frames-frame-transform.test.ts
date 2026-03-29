@@ -3,6 +3,7 @@ import { BASE_FRAME } from "../src/constants.js";
 import {
 	FRAME_MAX_SCALE,
 	FRAME_MIN_SCALE,
+	getClampedFrameSelectionScaleRatio,
 	getFrameAnchorDocumentPoint,
 	getFrameAnchorHandleKey,
 	getFrameAnchorLocalNormalized,
@@ -12,6 +13,9 @@ import {
 	getFrameResizeAxisLocal,
 	getFrameWorldPointFromLocal,
 	getOppositeFrameResizeHandleKey,
+	getPointFromRectLocal,
+	getPointsBounds,
+	getRectCornersFromAnchor,
 	getUniformFrameScaleFromHandle,
 	normalizeRotationDegrees,
 	rotateVector,
@@ -260,9 +264,61 @@ assert.equal(normalizeRotationDegrees(185), -175);
 }
 
 {
+	const clampedRatio = getClampedFrameSelectionScaleRatio(10, [0.5, 1, 2]);
+	almostEqual(
+		clampedRatio,
+		2,
+		"selection max ratio should clamp to tightest frame",
+	);
+}
+
+{
+	const clampedRatio = getClampedFrameSelectionScaleRatio(0.001, [0.5, 1, 2]);
+	almostEqual(
+		clampedRatio,
+		0.2,
+		"selection min ratio should clamp to tightest frame",
+	);
+}
+
+{
 	const docPoint = getFrameDocumentCenterFromWorld(300, 150, metrics);
 	almostEqual(docPoint.x, 0.5, "document x");
 	almostEqual(docPoint.y, 0.5, "document y");
+}
+
+{
+	const pivot = getPointFromRectLocal({
+		left: 0.2,
+		top: 0.3,
+		width: 0.4,
+		height: 0.2,
+		localX: 0.5,
+		localY: 0.5,
+		anchorAx: 0.5,
+		anchorAy: 0.5,
+		rotationDeg: 30,
+	});
+	almostEqual(pivot.x, 0.4, "rect local center x");
+	almostEqual(pivot.y, 0.4, "rect local center y");
+}
+
+{
+	const corners = getRectCornersFromAnchor({
+		left: 0.25,
+		top: 0.25,
+		width: 0.5,
+		height: 0.25,
+		anchorAx: 0.5,
+		anchorAy: 0.5,
+		rotationDeg: 0,
+	});
+	const bounds = getPointsBounds(corners);
+	assert.ok(bounds, "selection bounds should exist");
+	almostEqual(bounds.left, 0.25, "selection bounds left");
+	almostEqual(bounds.top, 0.25, "selection bounds top");
+	almostEqual(bounds.width, 0.5, "selection bounds width");
+	almostEqual(bounds.height, 0.25, "selection bounds height");
 }
 
 console.log("✅ CAMERA_FRAMES frame transform tests passed!");
