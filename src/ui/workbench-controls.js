@@ -138,7 +138,7 @@ function getLightingDirectionWidgetPosition(
 	viewAzimuthDeg,
 ) {
 	const relativeAzimuthRad =
-		(normalizeDegrees(azimuthDeg - viewAzimuthDeg) * Math.PI) / 180;
+		(normalizeDegrees(viewAzimuthDeg - azimuthDeg) * Math.PI) / 180;
 	const elevationRad = (Number(elevationDeg) * Math.PI) / 180;
 	const cosElevation = Math.cos(elevationRad);
 	return {
@@ -151,7 +151,7 @@ function getLightingDirectionWidgetPosition(
 			LIGHT_DIRECTION_WIDGET_CENTER -
 			Math.sin(elevationRad) * LIGHT_DIRECTION_WIDGET_RADIUS,
 		isFrontHemisphere: Math.cos(relativeAzimuthRad) * cosElevation >= 0,
-		relativeAzimuthDeg: normalizeDegrees(azimuthDeg - viewAzimuthDeg),
+		relativeAzimuthDeg: normalizeDegrees(viewAzimuthDeg - azimuthDeg),
 	};
 }
 
@@ -782,7 +782,7 @@ export function LightingDirectionControl({
 			dragState.elevationDeg = nextDirection.elevationDeg;
 			onLiveChange?.({
 				azimuthDeg: normalizeDegrees(
-					nextDirection.azimuthDeg + liveViewAzimuthDegRef.current,
+					liveViewAzimuthDegRef.current - nextDirection.azimuthDeg,
 				),
 				elevationDeg: nextDirection.elevationDeg,
 			});
