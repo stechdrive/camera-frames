@@ -113,6 +113,7 @@ function sanitizeOutputFrame(outputFrame = {}) {
 				? outputFrame.viewZoom
 				: 1,
 		viewZoomAuto: outputFrame.viewZoomAuto !== false,
+		viewportCenterAuto: outputFrame.viewportCenterAuto !== false,
 		anchor:
 			typeof outputFrame.anchor === "string" && outputFrame.anchor
 				? outputFrame.anchor

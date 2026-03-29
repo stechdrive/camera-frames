@@ -45,6 +45,7 @@ assert.equal(shotCameras[0].outputFrame.centerX, 0.5);
 assert.equal(shotCameras[0].outputFrame.centerY, 0.5);
 assert.equal(shotCameras[0].outputFrame.viewportCenterX, 0.5);
 assert.equal(shotCameras[0].outputFrame.viewportCenterY, 0.5);
+assert.equal(shotCameras[0].outputFrame.viewportCenterAuto, true);
 assert.equal(shotCameras[0].outputFrame.fitScale, 0);
 assert.equal(shotCameras[0].outputFrame.fitViewportWidth, 0);
 assert.equal(shotCameras[0].outputFrame.fitViewportHeight, 0);
@@ -83,6 +84,7 @@ const duplicatedShotCamera = createShotCameraDocument({
 assert.equal(duplicatedShotCamera.id, "shot-camera-2");
 assert.equal(duplicatedShotCamera.name, "Camera 2");
 assert.equal(duplicatedShotCamera.outputFrame.anchor, "center");
+assert.equal(duplicatedShotCamera.outputFrame.viewportCenterAuto, true);
 assert.equal(duplicatedShotCamera.exportSettings.exportFormat, "psd");
 assert.equal(duplicatedShotCamera.exportSettings.exportGridOverlay, true);
 assert.equal(duplicatedShotCamera.exportSettings.exportGridLayerMode, "bottom");
