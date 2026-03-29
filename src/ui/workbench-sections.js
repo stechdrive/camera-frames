@@ -937,10 +937,10 @@ export function SceneBrowserSection({
 										draggable="true"
 										onClick=${(event) =>
 											controller()?.selectSceneAsset(asset.id, {
-												additive:
-													event.shiftKey || event.ctrlKey || event.metaKey,
-												toggle:
-													event.shiftKey || event.ctrlKey || event.metaKey,
+												additive: event.ctrlKey || event.metaKey,
+												toggle: event.ctrlKey || event.metaKey,
+												range: event.shiftKey,
+												orderedIds: sceneAssets.map((entry) => entry.id),
 											})}
 										onDragStart=${(event) => {
 											setDraggedAssetId(asset.id);
@@ -1073,7 +1073,13 @@ export function ReferenceBrowserSection({ controller, store, t }) {
 										? "scene-asset-row scene-asset-row--compact scene-asset-row--selected"
 										: "scene-asset-row scene-asset-row--compact"
 							}
-							onClick=${(event) => controller()?.selectReferenceImageItem?.(item.id, event)}
+							onClick=${(event) =>
+								controller()?.selectReferenceImageItem?.(item.id, {
+									additive: event.ctrlKey || event.metaKey,
+									toggle: event.ctrlKey || event.metaKey,
+									range: event.shiftKey,
+									orderedIds: items.map((entry) => entry.id),
+								})}
 						>
 							<div class="scene-asset-row__main scene-asset-row__main--flat">
 								<div class="scene-asset-row__title-group">
@@ -1676,14 +1682,10 @@ export function SceneSection({
 													draggable="true"
 													onClick=${(event) =>
 														controller()?.selectSceneAsset(asset.id, {
-															additive:
-																event.shiftKey ||
-																event.ctrlKey ||
-																event.metaKey,
-															toggle:
-																event.shiftKey ||
-																event.ctrlKey ||
-																event.metaKey,
+															additive: event.ctrlKey || event.metaKey,
+															toggle: event.ctrlKey || event.metaKey,
+															range: event.shiftKey,
+															orderedIds: sceneAssets.map((entry) => entry.id),
 														})}
 													onDragStart=${(event) => {
 														setDraggedAssetId(asset.id);
@@ -2686,7 +2688,14 @@ export function ReferenceSection({
 															onClick=${(event) =>
 																controller()?.selectReferenceImageItem?.(
 																	item.id,
-																	event,
+																	{
+																		additive: event.ctrlKey || event.metaKey,
+																		toggle: event.ctrlKey || event.metaKey,
+																		range: event.shiftKey,
+																		orderedIds: itemsForDisplay.map(
+																			(entry) => entry.id,
+																		),
+																	},
 																)}
 														>
 															<div class="scene-asset-row__main scene-asset-row__main--flat">
