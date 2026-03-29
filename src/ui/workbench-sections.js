@@ -445,12 +445,9 @@ function ZoomToolPopover({ controller, mode, store, t }) {
 	const value = isCameraMode
 		? Math.round(store.renderBox.viewZoom.value * 100)
 		: Number(store.viewportEquivalentMmValue.value).toFixed(2);
-	const outputFrameState =
-		store.workspace.activeShotCamera.value?.documentState?.outputFrame ?? null;
-	const canRestoreAutoLayout =
-		isCameraMode &&
-		(outputFrameState?.viewZoomAuto === false ||
-			outputFrameState?.viewportCenterAuto === false);
+	const canFitView = isCameraMode
+		? Boolean(controller()?.canFitOutputFrameToSafeArea?.())
+		: false;
 
 	return html`
 		<div class="workbench-tool-rail__popover" role="group" aria-label=${title}>
@@ -498,10 +495,10 @@ function ZoomToolPopover({ controller, mode, store, t }) {
 					<div class="button-row button-row--compact workbench-tool-rail__popover-actions">
 						<${IconButton}
 							icon="reset"
-							label=${t("action.restoreAutoOutputFrameLayout")}
+							label=${t("action.fitOutputFrameToSafeArea")}
 							compact=${true}
-							disabled=${!canRestoreAutoLayout}
-							onClick=${() => controller()?.restoreAutoOutputFrameLayout?.()}
+							disabled=${!canFitView}
+							onClick=${() => controller()?.fitOutputFrameToSafeArea?.()}
 						/>
 					</div>
 				`

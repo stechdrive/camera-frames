@@ -1024,13 +1024,24 @@ export function createOutputFrameController({
 		setViewZoomFactor(Number(nextValue) / 100);
 	}
 
-	function restoreAutoOutputFrameLayout() {
+	function canFitOutputFrameToSafeArea(
+		documentState = getActiveShotCameraDocument(),
+	) {
+		const outputFrame = documentState?.outputFrame;
+		return Boolean(
+			outputFrame &&
+				(outputFrame.viewZoomAuto === false ||
+					outputFrame.viewportCenterAuto === false),
+		);
+	}
+
+	function fitOutputFrameToSafeArea() {
 		const activeDocument = getActiveShotCameraDocument();
 		if (!activeDocument?.outputFrame) {
 			return;
 		}
 
-		runHistoryAction?.("output-frame.auto-layout", () => {
+		runHistoryAction?.("output-frame.fit-view", () => {
 			updateActiveShotCameraDocument((documentState) => {
 				documentState.outputFrame.viewZoomAuto = true;
 				documentState.outputFrame.viewportCenterAuto = true;
@@ -1079,7 +1090,8 @@ export function createOutputFrameController({
 		setBoxWidthPercent,
 		setBoxHeightPercent,
 		setViewZoomPercent,
-		restoreAutoOutputFrameLayout,
+		fitOutputFrameToSafeArea,
+		canFitOutputFrameToSafeArea,
 		setAnchor,
 		startOutputFramePan,
 		handleOutputFramePanMove,
