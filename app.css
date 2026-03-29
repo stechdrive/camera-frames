@@ -789,6 +789,11 @@ code {
 	line-height: 1.2;
 }
 
+.workbench-tool-rail__popover-actions {
+	margin-top: 0.08rem;
+	justify-content: flex-end;
+}
+
 .workbench-tool-rail__popover-mask-buttons {
 	justify-content: flex-start;
 	flex-wrap: nowrap;

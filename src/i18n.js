@@ -221,7 +221,7 @@ const MESSAGES = {
 			renameFrame: "FRAME名を編集",
 			toggleSelectedFrameMask: "選択中マスク",
 			toggleAllFrameMask: "全体マスク",
-			restoreAutoOutputFrameLayout: "自動調整に戻す",
+			restoreAutoOutputFrameLayout: "表示を自動調整",
 		},
 		unit: {
 			millimeter: "millimeter",
@@ -738,7 +738,7 @@ const MESSAGES = {
 			renameFrame: "Rename FRAME",
 			toggleSelectedFrameMask: "Selected Mask",
 			toggleAllFrameMask: "All Frames Mask",
-			restoreAutoOutputFrameLayout: "Restore Auto Layout",
+			restoreAutoOutputFrameLayout: "Auto Adjust View",
 		},
 		unit: {
 			millimeter: "ミリメートル",

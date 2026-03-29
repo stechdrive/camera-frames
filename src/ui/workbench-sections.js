@@ -445,6 +445,12 @@ function ZoomToolPopover({ controller, mode, store, t }) {
 	const value = isCameraMode
 		? Math.round(store.renderBox.viewZoom.value * 100)
 		: Number(store.viewportEquivalentMmValue.value).toFixed(2);
+	const outputFrameState =
+		store.workspace.activeShotCamera.value?.documentState?.outputFrame ?? null;
+	const canRestoreAutoLayout =
+		isCameraMode &&
+		(outputFrameState?.viewZoomAuto === false ||
+			outputFrameState?.viewportCenterAuto === false);
 
 	return html`
 		<div class="workbench-tool-rail__popover" role="group" aria-label=${title}>
@@ -484,6 +490,20 @@ function ZoomToolPopover({ controller, mode, store, t }) {
 					<p class="workbench-tool-rail__popover-summary">
 						${t("field.viewportFov")} ${store.viewportFovLabel.value}
 					</p>
+				`
+			}
+			${
+				isCameraMode &&
+				html`
+					<div class="button-row button-row--compact workbench-tool-rail__popover-actions">
+						<${IconButton}
+							icon="reset"
+							label=${t("action.restoreAutoOutputFrameLayout")}
+							compact=${true}
+							disabled=${!canRestoreAutoLayout}
+							onClick=${() => controller()?.restoreAutoOutputFrameLayout?.()}
+						/>
+					</div>
 				`
 			}
 		</div>
@@ -3359,11 +3379,6 @@ export function OutputFrameSection({
 	widthLabel,
 }) {
 	const anchorValue = store.renderBox.anchor.value;
-	const outputFrameState =
-		store.workspace.activeShotCamera.value?.documentState?.outputFrame ?? null;
-	const autoLayoutEnabled =
-		outputFrameState?.viewZoomAuto !== false &&
-		outputFrameState?.viewportCenterAuto !== false;
 
 	return html`
 		<${DisclosureBlock}
@@ -3374,15 +3389,6 @@ export function OutputFrameSection({
 			summaryActions=${summaryActions}
 			onToggle=${onToggle}
 		>
-			<div class="button-row button-row--compact">
-				<${IconButton}
-					icon="reset"
-					label=${t("action.restoreAutoOutputFrameLayout")}
-					compact=${true}
-					disabled=${autoLayoutEnabled}
-					onClick=${() => controller()?.restoreAutoOutputFrameLayout?.()}
-				/>
-			</div>
 			<label class="field field--range">
 				<span>${t("field.outputFrameWidth")}</span>
 				<div class="range-row">
