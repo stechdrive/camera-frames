@@ -2,6 +2,7 @@ import { ANCHORS, BASE_FRAME } from "../constants.js";
 
 export const FRAME_MIN_SCALE = 0.1;
 export const FRAME_MAX_SCALE = 4;
+export const FRAME_ROTATION_SNAP_DEGREES = 15;
 
 export const FRAME_RESIZE_HANDLES = {
 	"top-left": { x: 0, y: 0, affectsWidth: true, affectsHeight: true },
@@ -454,6 +455,25 @@ export function normalizeRotationDegrees(value) {
 		rotation -= 360;
 	}
 	return rotation;
+}
+
+export function snapRotationDeltaDegrees(
+	value,
+	stepDegrees = FRAME_ROTATION_SNAP_DEGREES,
+) {
+	const numericValue = Number(value);
+	const numericStep = Number(stepDegrees);
+	if (
+		!(
+			Number.isFinite(numericValue) &&
+			Number.isFinite(numericStep) &&
+			numericStep > 0
+		)
+	) {
+		return Number.isFinite(numericValue) ? numericValue : 0;
+	}
+
+	return Math.round(numericValue / numericStep) * numericStep;
 }
 
 export function isAxisAlignedRotation(rotationRadians) {

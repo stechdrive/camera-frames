@@ -19,6 +19,7 @@ import {
 	getUniformFrameScaleFromHandle,
 	normalizeRotationDegrees,
 	rotateVector,
+	snapRotationDeltaDegrees,
 } from "../src/engine/frame-transform.js";
 
 function almostEqual(actual, expected, message) {
@@ -57,6 +58,9 @@ assert.equal(getFrameAnchorHandleKey({ x: 0.33, y: 0.62 }), "");
 assert.equal(getOppositeFrameResizeHandleKey("top-left"), "bottom-right");
 assert.equal(getOppositeFrameResizeHandleKey("left"), "right");
 assert.equal(normalizeRotationDegrees(185), -175);
+assert.equal(snapRotationDeltaDegrees(22), 15);
+assert.equal(snapRotationDeltaDegrees(23), 30);
+assert.equal(snapRotationDeltaDegrees(-8), -15);
 
 {
 	const frame = {

@@ -18,6 +18,7 @@ import {
 	inverseRotateVector,
 	normalizeRotationDegrees,
 	rotateVector,
+	snapRotationDeltaDegrees,
 } from "../engine/frame-transform.js";
 import { getFrameRotateCursorCss } from "../engine/rotate-cursor.js";
 import {
@@ -1385,9 +1386,12 @@ export function createFrameController({
 				) *
 					180) /
 				Math.PI;
-			const deltaAngleDeg = normalizeAngleDeltaDegrees(
+			const rawDeltaAngleDeg = normalizeAngleDeltaDegrees(
 				nextPointerAngleDeg - frameRotateState.startPointerAngleDeg,
 			);
+			const deltaAngleDeg = event.shiftKey
+				? snapRotationDeltaDegrees(rawDeltaAngleDeg)
+				: rawDeltaAngleDeg;
 			const deltaAngleRad = (deltaAngleDeg * Math.PI) / 180;
 			const nextRotation = normalizeRotationDegrees(
 				(selectionState.selectionBoxLogical.rotationDeg ?? 0) + deltaAngleDeg,
@@ -1455,9 +1459,13 @@ export function createFrameController({
 			event.clientY - frameRotateState.anchorWorldY,
 			event.clientX - frameRotateState.anchorWorldX,
 		);
+		const rawDeltaAngleDeg =
+			((pointerAngle - frameRotateState.startAngle) * 180) / Math.PI;
+		const deltaAngleDeg = event.shiftKey
+			? snapRotationDeltaDegrees(rawDeltaAngleDeg)
+			: rawDeltaAngleDeg;
 		const nextRotation = normalizeRotationDegrees(
-			frameRotateState.startRotation +
-				((pointerAngle - frameRotateState.startAngle) * 180) / Math.PI,
+			frameRotateState.startRotation + deltaAngleDeg,
 		);
 		setGlobalRotateCursor(nextRotation, frameRotateState.zoneKey);
 
