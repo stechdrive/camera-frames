@@ -1422,13 +1422,79 @@ export function FramesSection({
 	frameCount,
 	frameDocuments,
 	frameLimitReached,
+	store,
 	t,
 }) {
+	const frameMaskMode = store.frames.maskMode.value;
+	const frameMaskOpacityPct = store.frames.maskOpacityPct.value;
+	const selectedFrameIds = store.frames.selectedIds.value ?? [];
+	const hasFrames = frameDocuments.length > 0;
+	const hasSelectedFrames = selectedFrameIds.length > 0;
+
 	return html`
 		<${DisclosureBlock}
 			icon="frame"
 			label=${`${t("section.frames")} · ${frameCount}/${FRAME_MAX_COUNT}`}
 		>
+			${
+				hasFrames &&
+				html`
+					<div class="frame-mask-toolbar">
+						<div class="frame-mask-toolbar__buttons">
+							<${IconButton}
+								id="frame-mask-all"
+								icon="mask-all"
+								label=${t("action.toggleAllFrameMask")}
+								active=${frameMaskMode === "all"}
+								compact=${true}
+								className="frame-mask-toolbar__button"
+								onClick=${() => controller()?.toggleFrameMaskMode?.("all")}
+								tooltip=${{
+									title: t("action.toggleAllFrameMask"),
+									description: t("tooltip.frameMaskAll"),
+									placement: "bottom",
+								}}
+							/>
+							<${IconButton}
+								id="frame-mask-selected"
+								icon="mask-selected"
+								label=${t("action.toggleSelectedFrameMask")}
+								active=${frameMaskMode === "selected"}
+								compact=${true}
+								className="frame-mask-toolbar__button"
+								disabled=${!hasSelectedFrames}
+								onClick=${() => controller()?.toggleFrameMaskMode?.("selected")}
+								tooltip=${{
+									title: t("action.toggleSelectedFrameMask"),
+									description: t("tooltip.frameMaskSelected"),
+									placement: "bottom",
+								}}
+							/>
+						</div>
+						<label class="field field--inline-compact frame-mask-toolbar__opacity">
+							<span>${t("field.frameMaskOpacity")}</span>
+							<div class="field--inline-compact__value">
+								<div class="numeric-unit">
+									<${NumericDraftInput}
+										value=${Number(frameMaskOpacityPct).toFixed(0)}
+										min="0"
+										max="100"
+										step="1"
+										controller=${controller}
+										historyLabel="frame.mask-opacity"
+										onCommit=${(nextValue) =>
+											controller()?.setFrameMaskOpacity?.(nextValue)}
+									/>
+									<${NumericUnitLabel}
+										value="%"
+										title=${t("unit.percent")}
+									/>
+								</div>
+							</div>
+						</label>
+					</div>
+				`
+			}
 			${
 				frameDocuments.length > 0
 					? html`

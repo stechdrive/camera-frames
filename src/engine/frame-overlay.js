@@ -153,6 +153,7 @@ export function drawFramesToContext(
 		strokeStyle = "#ff0000",
 		lineWidth = FRAME_OUTLINE_WIDTH_PX,
 		selectedFrameId = null,
+		selectedFrameIds = null,
 		selectedStrokeStyle = null,
 		selectedLineWidth = 1,
 		selectedLineDash = [4, 2],
@@ -166,6 +167,10 @@ export function drawFramesToContext(
 	const framesSorted = [...frames].sort(
 		(left, right) => (left.order ?? 0) - (right.order ?? 0),
 	);
+	const selectedFrameIdSet =
+		selectedFrameIds instanceof Set
+			? selectedFrameIds
+			: new Set(selectedFrameIds ?? []);
 
 	for (const frame of framesSorted) {
 		const spec = getFrameOutlineSpec(
@@ -186,16 +191,16 @@ export function drawFramesToContext(
 		strokeFrameFromSpec(context, spec, lineWidth);
 		context.restore();
 
-		if (
-			selectedFrameId &&
-			frame.id === selectedFrameId &&
-			selectedStrokeStyle
-		) {
+		if (selectedFrameIdSet.has(frame.id) && selectedStrokeStyle) {
+			const nextSelectedLineWidth =
+				selectedFrameId && frame.id === selectedFrameId
+					? selectedLineWidth + 0.25
+					: selectedLineWidth;
 			context.save();
 			context.strokeStyle = selectedStrokeStyle;
-			context.lineWidth = selectedLineWidth;
+			context.lineWidth = nextSelectedLineWidth;
 			context.setLineDash(selectedLineDash);
-			strokeFrameFromSpec(context, spec, selectedLineWidth);
+			strokeFrameFromSpec(context, spec, nextSelectedLineWidth);
 			context.restore();
 		}
 	}

@@ -209,8 +209,69 @@ export function createFrameController({
 		return store.frames.selectionActive.value;
 	}
 
+	function getSelectedFrameIds() {
+		return Array.isArray(store.frames.selectedIds.value)
+			? store.frames.selectedIds.value
+			: [];
+	}
+
+	function setSelectedFrameIds(frameIds) {
+		store.frames.selectedIds.value = Array.from(
+			new Set(
+				(frameIds ?? []).filter(
+					(frameId) => typeof frameId === "string" && frameId.length > 0,
+				),
+			),
+		);
+	}
+
 	function isFrameSelected(frameId) {
-		return isFrameSelectionActive() && store.frames.activeId.value === frameId;
+		return (
+			isFrameSelectionActive() &&
+			getSelectedFrameIds().includes(String(frameId))
+		);
+	}
+
+	function getFrameMaskMode() {
+		return getActiveShotCameraDocument()?.frameMask?.mode ?? "off";
+	}
+
+	function setFrameMaskMode(nextValue) {
+		const mode =
+			nextValue === "selected" || nextValue === "all" ? nextValue : "off";
+		runHistoryAction?.("frame.mask-mode", () => {
+			updateActiveShotCameraDocument((documentState) => {
+				documentState.frameMask = {
+					...documentState.frameMask,
+					mode,
+				};
+				return documentState;
+			});
+		});
+		updateUi();
+	}
+
+	function toggleFrameMaskMode(targetMode) {
+		const mode =
+			targetMode === "selected" || targetMode === "all" ? targetMode : "off";
+		setFrameMaskMode(getFrameMaskMode() === mode ? "off" : mode);
+	}
+
+	function setFrameMaskOpacity(nextValue) {
+		const opacityPct = Math.min(
+			100,
+			Math.max(0, Math.round(Number(nextValue) || 0)),
+		);
+		runHistoryAction?.("frame.mask-opacity", () => {
+			updateActiveShotCameraDocument((documentState) => {
+				documentState.frameMask = {
+					...documentState.frameMask,
+					opacityPct,
+				};
+				return documentState;
+			});
+		});
+		updateUi();
 	}
 
 	function clearFrameDrag() {
@@ -242,14 +303,21 @@ export function createFrameController({
 
 	function clearFrameSelection() {
 		store.frames.selectionActive.value = false;
+		setSelectedFrameIds([]);
 		clearFrameInteraction();
 	}
 
-	function activateFrameSelection(frameId) {
+	function activateFrameSelection(frameId, options = null) {
 		const frame = getFrameDocumentById(getActiveFrames(), frameId);
 		if (!frame) {
 			return null;
 		}
+
+		const additive =
+			Boolean(options?.additive) ||
+			Boolean(options?.shiftKey) ||
+			Boolean(options?.metaKey) ||
+			Boolean(options?.ctrlKey);
 
 		clearOutputFrameSelection();
 		clearFrameInteraction();
@@ -269,11 +337,16 @@ export function createFrameController({
 			return documentState;
 		});
 		store.frames.selectionActive.value = true;
+		if (additive && getSelectedFrameIds().length > 0) {
+			setSelectedFrameIds([...getSelectedFrameIds(), selectedFrame.id]);
+		} else {
+			setSelectedFrameIds([selectedFrame.id]);
+		}
 		return selectedFrame;
 	}
 
-	function selectFrame(frameId) {
-		const frame = activateFrameSelection(frameId);
+	function selectFrame(frameId, options = null) {
+		const frame = activateFrameSelection(frameId, options);
 		if (!frame) {
 			return;
 		}
@@ -307,6 +380,7 @@ export function createFrameController({
 			});
 		});
 		store.frames.selectionActive.value = true;
+		setSelectedFrameIds([nextFrame.id]);
 		updateUi();
 		setStatus(
 			t("status.createdFrame", {
@@ -346,6 +420,7 @@ export function createFrameController({
 			});
 		});
 		store.frames.selectionActive.value = true;
+		setSelectedFrameIds([nextFrame.id]);
 		updateUi();
 		setStatus(
 			t("status.duplicatedFrame", {
@@ -373,6 +448,11 @@ export function createFrameController({
 			});
 		});
 		store.frames.selectionActive.value = getActiveFrames().length > 0;
+		setSelectedFrameIds(
+			getActiveFrames().length > 0
+				? [getActiveFrames()[0]?.id].filter(Boolean)
+				: [],
+		);
 		updateUi();
 		setStatus(
 			t("status.deletedFrame", {
@@ -396,8 +476,11 @@ export function createFrameController({
 
 		let dragFrame = frame;
 		if (!isFrameSelected(frameId)) {
-			dragFrame = activateFrameSelection(frameId) ?? frame;
+			dragFrame = activateFrameSelection(frameId, event) ?? frame;
 			updateUi();
+			if (event.shiftKey || event.metaKey || event.ctrlKey) {
+				return;
+			}
 		}
 
 		const bounds = renderBox.getBoundingClientRect();
@@ -818,6 +901,10 @@ export function createFrameController({
 		resolveFrameAnchor,
 		getFrameAnchorDocument,
 		isFrameSelectionActive,
+		getFrameMaskMode,
+		setFrameMaskMode,
+		toggleFrameMaskMode,
+		setFrameMaskOpacity,
 		clearFrameDrag,
 		clearFrameInteraction,
 		clearFrameSelection,

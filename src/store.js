@@ -147,6 +147,7 @@ export function createCameraFramesStore(runtimeInfo = null) {
 		getActiveShotCameraDocument(shotCameras.value, activeShotCameraId.value),
 	);
 	const frameSelectionActive = signal(false);
+	const frameSelectedIds = signal([]);
 	const historyCanUndo = signal(false);
 	const historyCanRedo = signal(false);
 	const frameDocuments = computed(() => activeShotCamera.value?.frames ?? []);
@@ -212,6 +213,14 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	);
 	const activeRollLock = computed(() =>
 		Boolean(activeShotCamera.value?.navigation?.rollLock),
+	);
+	const frameMaskMode = computed(
+		() => activeShotCamera.value?.frameMask?.mode ?? "off",
+	);
+	const frameMaskOpacityPct = computed(() =>
+		Number.isFinite(activeShotCamera.value?.frameMask?.opacityPct)
+			? activeShotCamera.value.frameMask.opacityPct
+			: 80,
 	);
 	const exportWidth = computed(() =>
 		Math.max(64, Math.round(BASE_RENDER_BOX.width * widthScale.value)),
@@ -329,6 +338,9 @@ export function createCameraFramesStore(runtimeInfo = null) {
 			activeId: activeFrameId,
 			count: frameCount,
 			selectionActive: frameSelectionActive,
+			selectedIds: frameSelectedIds,
+			maskMode: frameMaskMode,
+			maskOpacityPct: frameMaskOpacityPct,
 		},
 		history: {
 			canUndo: historyCanUndo,

@@ -411,6 +411,9 @@ export function createOutputFrameController({
 				selectedFrameId: isFrameSelectionActive()
 					? (getActiveShotCameraDocument()?.activeFrameId ?? null)
 					: null,
+				selectedFrameIds: isFrameSelectionActive()
+					? (store.frames.selectedIds.value ?? [])
+					: [],
 				selectedStrokeStyle: "rgba(255, 214, 120, 0.96)",
 			},
 		);

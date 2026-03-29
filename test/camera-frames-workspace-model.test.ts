@@ -54,6 +54,8 @@ assert.equal(shotCameras[0].exportSettings.exportGridOverlay, true);
 assert.equal(shotCameras[0].exportSettings.exportGridLayerMode, "bottom");
 assert.equal(shotCameras[0].exportSettings.exportModelLayers, true);
 assert.equal(shotCameras[0].exportSettings.exportSplatLayers, true);
+assert.equal(shotCameras[0].frameMask.mode, "off");
+assert.equal(shotCameras[0].frameMask.opacityPct, 80);
 assert.equal(shotCameras[0].navigation.rollLock, false);
 assert.equal(shotCameras[0].frames.length, 1);
 assert.equal(shotCameras[0].activeFrameId, "frame-1");
@@ -85,12 +87,15 @@ assert.equal(duplicatedShotCamera.exportSettings.exportGridOverlay, true);
 assert.equal(duplicatedShotCamera.exportSettings.exportGridLayerMode, "bottom");
 assert.equal(duplicatedShotCamera.exportSettings.exportModelLayers, true);
 assert.equal(duplicatedShotCamera.exportSettings.exportSplatLayers, true);
+assert.equal(duplicatedShotCamera.frameMask.mode, "off");
+assert.equal(duplicatedShotCamera.frameMask.opacityPct, 80);
 assert.equal(duplicatedShotCamera.navigation.rollLock, false);
 assert.notEqual(duplicatedShotCamera.outputFrame, shotCameras[0].outputFrame);
 assert.notEqual(
 	duplicatedShotCamera.exportSettings,
 	shotCameras[0].exportSettings,
 );
+assert.notEqual(duplicatedShotCamera.frameMask, shotCameras[0].frameMask);
 assert.notEqual(duplicatedShotCamera.navigation, shotCameras[0].navigation);
 assert.notEqual(duplicatedShotCamera.frames, shotCameras[0].frames);
 assert.equal(duplicatedShotCamera.frames[0].id, "frame-1");

@@ -416,6 +416,7 @@ export function createCameraFramesController(elements, store) {
 			referenceImageEditor:
 				referenceImageController?.captureReferenceImageEditorState?.() ?? null,
 			frameSelectionActive: store.frames.selectionActive.value,
+			frameSelectedIds: [...(store.frames.selectedIds.value ?? [])],
 			outputFrameSelected: state.outputFrameSelected,
 		};
 	}
@@ -465,6 +466,9 @@ export function createCameraFramesController(elements, store) {
 		outputFrameController?.clearOutputFrameAnchorDrag();
 		outputFrameController?.clearOutputFrameResize();
 		store.frames.selectionActive.value = Boolean(snapshot.frameSelectionActive);
+		store.frames.selectedIds.value = store.frames.selectionActive.value
+			? [...(snapshot.frameSelectedIds ?? [])]
+			: [];
 		state.outputFrameSelected =
 			!store.frames.selectionActive.value &&
 			Boolean(snapshot.outputFrameSelected);
@@ -608,6 +612,7 @@ export function createCameraFramesController(elements, store) {
 		lightingController?.applyLightingState(project?.scene?.lighting ?? null);
 
 		store.frames.selectionActive.value = false;
+		store.frames.selectedIds.value = [];
 		state.outputFrameSelected = false;
 		frameController?.clearFrameInteraction();
 		outputFrameController?.clearOutputFramePan();
@@ -1604,6 +1609,9 @@ export function createCameraFramesController(elements, store) {
 		createFrame: frameController.createFrame,
 		duplicateActiveFrame: frameController.duplicateActiveFrame,
 		deleteActiveFrame: frameController.deleteActiveFrame,
+		setFrameMaskMode: frameController.setFrameMaskMode,
+		toggleFrameMaskMode: frameController.toggleFrameMaskMode,
+		setFrameMaskOpacity: frameController.setFrameMaskOpacity,
 		startFrameDrag: frameController.startFrameDrag,
 		startFrameResize: frameController.startFrameResize,
 		startFrameRotate: frameController.startFrameRotate,

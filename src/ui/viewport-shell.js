@@ -1,5 +1,6 @@
 import { html } from "htm/preact";
 import { getBuildVersionLabel } from "../build-info.js";
+import { BASE_FRAME } from "../constants.js";
 import { getFrameAnchorHandleKey } from "../engine/frame-transform.js";
 import { getFrameResizeCursorCss } from "../engine/resize-cursor.js";
 import { getFrameRotateCursorCss } from "../engine/rotate-cursor.js";
@@ -57,7 +58,74 @@ function getReferenceImageAnchorHandleKey(anchorAx, anchorAy) {
 	return getFrameAnchorHandleKey({ x: anchorAx, y: anchorAy });
 }
 
+function getFrameBoundingBoxPercent(frame, exportWidth, exportHeight) {
+	const scale = Number(frame?.scale);
+	const frameScale = Number.isFinite(scale) && scale > 0 ? scale : 1;
+	const widthPct =
+		(BASE_FRAME.width * frameScale * 100) / Math.max(exportWidth, 1e-6);
+	const heightPct =
+		(BASE_FRAME.height * frameScale * 100) / Math.max(exportHeight, 1e-6);
+	const centerX = (Number(frame?.x) || 0.5) * 100;
+	const centerY = (Number(frame?.y) || 0.5) * 100;
+	const rotationRadians = ((Number(frame?.rotation) || 0) * Math.PI) / 180 || 0;
+	const halfWidth = widthPct * 0.5;
+	const halfHeight = heightPct * 0.5;
+	const corners = [
+		{ x: -halfWidth, y: -halfHeight },
+		{ x: halfWidth, y: -halfHeight },
+		{ x: halfWidth, y: halfHeight },
+		{ x: -halfWidth, y: halfHeight },
+	].map((corner) => ({
+		x:
+			centerX +
+			corner.x * Math.cos(rotationRadians) -
+			corner.y * Math.sin(rotationRadians),
+		y:
+			centerY +
+			corner.x * Math.sin(rotationRadians) +
+			corner.y * Math.cos(rotationRadians),
+	}));
+	const xs = corners.map((corner) => corner.x);
+	const ys = corners.map((corner) => corner.y);
+	const left = Math.max(0, Math.min(...xs));
+	const top = Math.max(0, Math.min(...ys));
+	const right = Math.min(100, Math.max(...xs));
+	const bottom = Math.min(100, Math.max(...ys));
+	return {
+		left,
+		top,
+		right,
+		bottom,
+		width: Math.max(0, right - left),
+		height: Math.max(0, bottom - top),
+	};
+}
+
+function getAggregateFrameBoundingBoxPercent(
+	frames,
+	exportWidth,
+	exportHeight,
+) {
+	if (!Array.isArray(frames) || frames.length === 0) {
+		return null;
+	}
+	const bounds = frames.map((frame) =>
+		getFrameBoundingBoxPercent(frame, exportWidth, exportHeight),
+	);
+	return {
+		left: Math.max(0, Math.min(...bounds.map((bound) => bound.left))),
+		top: Math.max(0, Math.min(...bounds.map((bound) => bound.top))),
+		right: Math.min(100, Math.max(...bounds.map((bound) => bound.right))),
+		bottom: Math.min(100, Math.max(...bounds.map((bound) => bound.bottom))),
+	};
+}
+
 export function ViewportShell({ store, controller, refs, t }) {
+	const mode = store.mode.value;
+	const frames = store.frames.documents.value;
+	const selectedFrameIds = new Set(store.frames.selectedIds.value ?? []);
+	const frameMaskMode = store.frames.maskMode.value;
+	const frameMaskOpacityPct = store.frames.maskOpacityPct.value;
 	const referenceImageEditMode = store.viewportReferenceImageEditMode.value;
 	const outputFrameLabel = t("section.outputFrame");
 	const referenceImageLayers = store.referenceImages.previewLayers.value;
@@ -178,6 +246,24 @@ export function ViewportShell({ store, controller, refs, t }) {
 		left: `${selectionBox.anchorAx * 100}%`,
 		top: `${selectionBox.anchorAy * 100}%`,
 	});
+	const maskedFrames =
+		frameMaskMode === "all"
+			? frames
+			: frameMaskMode === "selected"
+				? frames.filter((frame) => selectedFrameIds.has(frame.id))
+				: [];
+	const frameMaskBounds =
+		mode === "camera" && maskedFrames.length > 0
+			? getAggregateFrameBoundingBoxPercent(
+					maskedFrames,
+					store.exportWidth.value,
+					store.exportHeight.value,
+				)
+			: null;
+	const frameMaskOpacity = Math.min(
+		1,
+		Math.max(0, (Number(frameMaskOpacityPct) || 0) / 100),
+	);
 	const startReferenceImageMove = (itemId, event) =>
 		controller()?.startReferenceImageMove?.(itemId, event);
 	const startReferenceImageResize = (handleKey, event) =>
@@ -350,6 +436,66 @@ export function ViewportShell({ store, controller, refs, t }) {
 					store=${store}
 					controller=${controller}
 					frameOverlayCanvasRef=${refs.frameOverlayCanvasRef}
+					canvasOnly=${true}
+				/>
+				${
+					frameMaskBounds &&
+					frameMaskOpacity > 0 &&
+					html`
+						<div class="frame-mask-layer">
+							<div
+								class="frame-mask-layer__segment"
+								style=${{
+									left: "0%",
+									top: "0%",
+									width: "100%",
+									height: `${frameMaskBounds.top}%`,
+									opacity: frameMaskOpacity,
+								}}
+							></div>
+							<div
+								class="frame-mask-layer__segment"
+								style=${{
+									left: "0%",
+									top: `${frameMaskBounds.bottom}%`,
+									width: "100%",
+									height: `${Math.max(0, 100 - frameMaskBounds.bottom)}%`,
+									opacity: frameMaskOpacity,
+								}}
+							></div>
+							<div
+								class="frame-mask-layer__segment"
+								style=${{
+									left: "0%",
+									top: `${frameMaskBounds.top}%`,
+									width: `${frameMaskBounds.left}%`,
+									height: `${Math.max(
+										0,
+										frameMaskBounds.bottom - frameMaskBounds.top,
+									)}%`,
+									opacity: frameMaskOpacity,
+								}}
+							></div>
+							<div
+								class="frame-mask-layer__segment"
+								style=${{
+									left: `${frameMaskBounds.right}%`,
+									top: `${frameMaskBounds.top}%`,
+									width: `${Math.max(0, 100 - frameMaskBounds.right)}%`,
+									height: `${Math.max(
+										0,
+										frameMaskBounds.bottom - frameMaskBounds.top,
+									)}%`,
+									opacity: frameMaskOpacity,
+								}}
+							></div>
+						</div>
+					`
+				}
+				<${FrameLayer}
+					store=${store}
+					controller=${controller}
+					itemsOnly=${true}
 				/>
 				${OUTPUT_FRAME_RESIZE_HANDLES.map(
 					(handle) => html`

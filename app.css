@@ -2461,6 +2461,19 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	border-color: rgba(255, 103, 77, 0.92);
 }
 
+.frame-mask-layer {
+	position: absolute;
+	inset: 0;
+	z-index: 2;
+	pointer-events: none;
+}
+
+.frame-mask-layer__segment {
+	position: absolute;
+	background: rgba(3, 6, 11, 0.92);
+	pointer-events: none;
+}
+
 .reference-image-layer {
 	position: absolute;
 	inset: 0;
@@ -3140,6 +3153,37 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	text-transform: uppercase;
 }
 
+.frame-mask-toolbar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.55rem;
+	flex-wrap: wrap;
+}
+
+.frame-mask-toolbar__buttons {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35rem;
+}
+
+.frame-mask-toolbar__button:disabled {
+	opacity: 0.34;
+	border-color: rgba(255, 255, 255, 0.08);
+	background: rgba(255, 255, 255, 0.02);
+	cursor: default;
+	transform: none;
+}
+
+.frame-mask-toolbar__button:disabled:hover {
+	border-color: rgba(255, 255, 255, 0.08);
+	transform: none;
+}
+
+.frame-mask-toolbar__opacity {
+	margin-left: auto;
+}
+
 .asset-card__header {
 	display: flex;
 	align-items: flex-start;
@@ -3226,6 +3270,14 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	pointer-events: none;
 }
 
+.frame-layer--canvas {
+	z-index: 1;
+}
+
+.frame-layer--items {
+	z-index: 3;
+}
+
 .frame-layer__canvas {
 	position: absolute;
 	top: 0;
@@ -3241,6 +3293,10 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 }
 
 .frame-item--selected {
+	z-index: 5;
+}
+
+.frame-item--active {
 	z-index: 6;
 }
 
@@ -3308,7 +3364,7 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	transform: translate(-50%, -50%);
 }
 
-.frame-item--selected .frame-item__resize-handle {
+.frame-item--active .frame-item__resize-handle {
 	opacity: 1;
 	pointer-events: auto;
 }
@@ -3445,7 +3501,7 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	height: auto;
 }
 
-.frame-item--selected .frame-item__rotation-zone {
+.frame-item--active .frame-item__rotation-zone {
 	opacity: 1;
 	pointer-events: auto;
 }
@@ -3479,7 +3535,7 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	transform: translate(-50%, -50%);
 }
 
-.frame-item--selected .frame-item__anchor {
+.frame-item--active .frame-item__anchor {
 	opacity: 1;
 	pointer-events: auto;
 }
