@@ -749,6 +749,10 @@ code {
 	transform: translateY(-50%);
 }
 
+.workbench-tool-rail__popover--mask {
+	min-width: 13rem;
+}
+
 .workbench-tool-rail__popover-field {
 	width: 100%;
 	gap: 0.28rem;
@@ -783,6 +787,11 @@ code {
 	color: var(--text-dim);
 	font-size: 0.72rem;
 	line-height: 1.2;
+}
+
+.workbench-tool-rail__popover-mask-buttons {
+	justify-content: flex-start;
+	flex-wrap: nowrap;
 }
 
 .panel-section {

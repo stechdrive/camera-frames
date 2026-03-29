@@ -497,6 +497,149 @@ function ZoomToolPopover({ controller, mode, store, t }) {
 	`;
 }
 
+function MaskToolPopover({ controller, hasFrames, store, t }) {
+	const frameMaskMode = store.frames.maskMode.value;
+	const frameMaskOpacityPct = store.frames.maskOpacityPct.value;
+	const rememberedMaskFrameIds = store.frames.maskSelectedIds.value ?? [];
+	const selectedFrameIds = store.frames.selectedIds.value ?? [];
+	const activeFrameId = store.frames.activeId.value;
+	const remainingCapacity = FRAME_MAX_COUNT - store.frames.count.value;
+	const hasSelectedFrames = rememberedMaskFrameIds.length > 0;
+	const duplicateCount = Math.max(
+		selectedFrameIds.length,
+		activeFrameId ? 1 : 0,
+	);
+	const canCreateFrame = store.frames.count.value < FRAME_MAX_COUNT;
+	const canDuplicateFrames =
+		duplicateCount > 0 && remainingCapacity >= duplicateCount;
+	const canDeleteFrames = selectedFrameIds.length > 0 || Boolean(activeFrameId);
+
+	return html`
+		<div
+			class="workbench-tool-rail__popover workbench-tool-rail__popover--mask"
+			role="group"
+			aria-label=${t("section.mask")}
+		>
+			<label class="field workbench-tool-rail__popover-field">
+				<span>${t("section.mask")}</span>
+				<div class="frame-mask-toolbar__buttons workbench-tool-rail__popover-mask-buttons">
+					<${IconButton}
+						icon="slash-circle"
+						label=${t("transformMode.none")}
+						active=${frameMaskMode === "off"}
+						compact=${true}
+						className="frame-mask-toolbar__button"
+						onClick=${() => controller()?.setFrameMaskMode?.("off")}
+						tooltip=${{
+							title: t("transformMode.none"),
+							placement: "right",
+						}}
+					/>
+					<${IconButton}
+						icon="mask-all"
+						label=${t("action.toggleAllFrameMask")}
+						active=${frameMaskMode === "all"}
+						compact=${true}
+						className="frame-mask-toolbar__button"
+						disabled=${!hasFrames}
+						onClick=${() => controller()?.toggleFrameMaskMode?.("all")}
+						tooltip=${{
+							title: t("action.toggleAllFrameMask"),
+							description: t("tooltip.frameMaskAll"),
+							shortcut: "M",
+							placement: "right",
+						}}
+					/>
+					<${IconButton}
+						icon="mask-selected"
+						label=${t("action.toggleSelectedFrameMask")}
+						active=${frameMaskMode === "selected"}
+						compact=${true}
+						className="frame-mask-toolbar__button"
+						disabled=${!hasSelectedFrames}
+						onClick=${() => controller()?.toggleFrameMaskMode?.("selected")}
+						tooltip=${{
+							title: t("action.toggleSelectedFrameMask"),
+							description: t("tooltip.frameMaskSelected"),
+							shortcut: "Shift+M",
+							placement: "right",
+						}}
+					/>
+				</div>
+			</label>
+			<label class="field workbench-tool-rail__popover-field">
+				<span>${t("field.frameMaskOpacity")}</span>
+				<div class="workbench-tool-rail__popover-value">
+					<div class="workbench-tool-rail__popover-input">
+						<${NumericDraftInput}
+							id="tool-frame-mask-opacity"
+							inputMode="decimal"
+							min="0"
+							max="100"
+							step="1"
+							value=${Number(frameMaskOpacityPct).toFixed(0)}
+							controller=${controller}
+							disabled=${!hasFrames}
+							historyLabel="frame.mask-opacity"
+							onCommit=${(nextValue) =>
+								controller()?.setFrameMaskOpacity?.(nextValue)}
+						/>
+					</div>
+					<span
+						class="workbench-tool-rail__popover-suffix"
+						aria-label=${t("unit.percent")}
+						>%</span
+					>
+				</div>
+			</label>
+			<div class="frame-mask-toolbar__buttons workbench-tool-rail__popover-mask-buttons">
+				<${IconButton}
+					icon="plus"
+					label=${t("action.newFrame")}
+					compact=${true}
+					className="frame-mask-toolbar__button"
+					disabled=${!canCreateFrame}
+					onClick=${() => controller()?.createFrame?.()}
+					tooltip=${{
+						title: t("action.newFrame"),
+						placement: "right",
+					}}
+				/>
+				<${IconButton}
+					icon="duplicate"
+					label=${t("action.duplicateFrame")}
+					compact=${true}
+					className="frame-mask-toolbar__button"
+					disabled=${!canDuplicateFrames}
+					onClick=${() =>
+						controller()?.duplicateSelectedFrames?.(
+							selectedFrameIds.length > 0 ? selectedFrameIds : null,
+						)}
+					tooltip=${{
+						title: t("action.duplicateFrame"),
+						placement: "right",
+					}}
+				/>
+				<${IconButton}
+					icon="trash"
+					label=${t("action.deleteFrame")}
+					compact=${true}
+					className="frame-mask-toolbar__button"
+					disabled=${!canDeleteFrames}
+					onClick=${() =>
+						selectedFrameIds.length > 0
+							? controller()?.deleteSelectedFrames?.(selectedFrameIds)
+							: controller()?.deleteActiveFrame?.()}
+					tooltip=${{
+						title: t("action.deleteFrame"),
+						placement: "right",
+					}}
+				/>
+			</div>
+		</div>
+	`;
+}
+
 export function ToolRailSection({
 	controller,
 	mode,
@@ -512,15 +655,52 @@ export function ToolRailSection({
 	const canUseTransformTools = mode === "viewport" || mode === "camera";
 	const selectedSceneAsset = store.selectedSceneAsset.value;
 	const interactionMode = store.interactionMode.value;
+	const frameMaskMode = store.frames.maskMode.value;
+	const hasFrames = store.frames.count.value > 0;
+	const [maskToolPopoverOpen, setMaskToolPopoverOpen] = useState(false);
+	const maskToolSlotRef = useRef(null);
 	const showTransformSpaceToggle =
 		Boolean(selectedSceneAsset) &&
 		(store.viewportTransformMode.value || store.viewportPivotEditMode.value);
 	const showZoomToolPopover =
 		canUseTransformTools && interactionMode === "zoom";
+	const showMaskToolPopover = mode === "camera" && maskToolPopoverOpen;
 	const zoomToolTitle =
 		mode === "camera" ? t("section.displayZoom") : t("section.view");
 	const worldSpaceTooltipLabel = `${t("section.transformSpace")} / ${t("transformSpace.world")}`;
 	const localSpaceTooltipLabel = `${t("section.transformSpace")} / ${t("transformSpace.local")}`;
+
+	useEffect(() => {
+		if (!showMaskToolPopover) {
+			return undefined;
+		}
+
+		const handlePointerDown = (event) => {
+			if (!maskToolSlotRef.current?.contains(event.target)) {
+				setMaskToolPopoverOpen(false);
+			}
+		};
+
+		const handleKeyDown = (event) => {
+			if (event.key === "Escape") {
+				setMaskToolPopoverOpen(false);
+			}
+		};
+
+		document.addEventListener("pointerdown", handlePointerDown, true);
+		document.addEventListener("keydown", handleKeyDown);
+		return () => {
+			document.removeEventListener("pointerdown", handlePointerDown, true);
+			document.removeEventListener("keydown", handleKeyDown);
+		};
+	}, [showMaskToolPopover]);
+
+	useEffect(() => {
+		if (mode !== "camera") {
+			setMaskToolPopoverOpen(false);
+		}
+	}, [mode]);
+
 	const clearSelectionAndExitTool = () => {
 		controller()?.clearSceneAssetSelection?.();
 		controller()?.clearReferenceImageSelection?.();
@@ -706,6 +886,40 @@ export function ToolRailSection({
 									`
 								}
 							</div>
+							${
+								mode === "camera" &&
+								html`
+									<div
+										class="workbench-tool-rail__tool-slot"
+										ref=${maskToolSlotRef}
+									>
+										<${IconButton}
+											icon="mask"
+											label=${t("section.mask")}
+											active=${showMaskToolPopover || frameMaskMode !== "off"}
+											className="workbench-tool-rail__button"
+											tooltip=${{
+												title: t("section.mask"),
+												shortcut: "M",
+												placement: tooltipPlacement,
+											}}
+											onClick=${() =>
+												setMaskToolPopoverOpen((currentValue) => !currentValue)}
+										/>
+										${
+											showMaskToolPopover &&
+											html`
+												<${MaskToolPopover}
+													controller=${controller}
+													hasFrames=${hasFrames}
+													store=${store}
+													t=${t}
+												/>
+											`
+										}
+									</div>
+								`
+							}
 					</div>
 					${
 						showTransformSpaceToggle &&

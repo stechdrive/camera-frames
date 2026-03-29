@@ -722,6 +722,73 @@ export function createFrameController({
 		);
 	}
 
+	function duplicateSelectedFrames(frameIds = null) {
+		const selectedFrameIds = Array.isArray(frameIds)
+			? Array.from(
+					new Set(
+						frameIds.filter((frameId) =>
+							getActiveFrames().some((frame) => frame.id === frameId),
+						),
+					),
+				)
+			: getSelectedFrameIds();
+		const sourceFrames = getActiveFrames().filter((frame) =>
+			selectedFrameIds.includes(frame.id),
+		);
+		if (sourceFrames.length === 0) {
+			duplicateActiveFrame();
+			return;
+		}
+
+		const remainingCapacity = FRAME_MAX_COUNT - getActiveFrames().length;
+		if (remainingCapacity <= 0 || sourceFrames.length > remainingCapacity) {
+			setStatus(
+				t("status.frameLimitReached", {
+					limit: FRAME_MAX_COUNT,
+				}),
+			);
+			return;
+		}
+
+		const nextFrameNumberStart = getNextFrameNumber(getActiveFrames());
+		const duplicatedFrames = sourceFrames.map((sourceFrame, index) =>
+			offsetFrameDocument(
+				createFrameDocument({
+					id: getFrameDocumentId(nextFrameNumberStart + index),
+					name: buildFrameDocumentName(nextFrameNumberStart + index),
+					source: sourceFrame,
+				}),
+				0.04,
+				0.04,
+			),
+		);
+		clearOutputFrameSelection();
+		clearFrameInteraction();
+		runHistoryAction?.("frame.duplicate", () => {
+			updateActiveShotCameraDocument((documentState) => {
+				documentState.frames = [...documentState.frames, ...duplicatedFrames];
+				documentState.activeFrameId =
+					duplicatedFrames[duplicatedFrames.length - 1]?.id ?? null;
+				return documentState;
+			});
+		});
+		const duplicatedFrameIds = duplicatedFrames.map((frame) => frame.id);
+		store.frames.selectionActive.value = duplicatedFrameIds.length > 0;
+		setSelectedFrameIds(duplicatedFrameIds);
+		setFrameMaskSelectedIds(duplicatedFrameIds);
+		syncFrameSelectionTransformState();
+		updateUi();
+		setStatus(
+			duplicatedFrames.length === 1
+				? t("status.duplicatedFrame", {
+						name: duplicatedFrames[0].name,
+					})
+				: t("status.duplicatedFrames", {
+						count: duplicatedFrames.length,
+					}),
+		);
+	}
+
 	function setFrameName(frameId, nextValue) {
 		const targetFrame = getFrameDocumentById(getActiveFrames(), frameId);
 		if (!targetFrame) {
@@ -1834,6 +1901,7 @@ export function createFrameController({
 		selectFrame,
 		createFrame,
 		duplicateActiveFrame,
+		duplicateSelectedFrames,
 		setFrameName,
 		deleteSelectedFrames,
 		deleteFrame,
