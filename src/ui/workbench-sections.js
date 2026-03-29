@@ -43,6 +43,8 @@ export const INSPECTOR_TAB_CAMERA = "camera";
 export const INSPECTOR_TAB_EXPORT = "export";
 export const INSPECTOR_QUICK_SECTION_SCENE = "scene-main";
 export const INSPECTOR_QUICK_SECTION_SHOT_CAMERA = "shot-camera";
+export const INSPECTOR_QUICK_SECTION_SHOT_CAMERA_PROPERTIES =
+	"shot-camera-properties";
 export const INSPECTOR_QUICK_SECTION_VIEW = "view-settings";
 export const INSPECTOR_QUICK_SECTION_LIGHTING = "lighting";
 export const INSPECTOR_QUICK_SECTION_OUTPUT_FRAME = "output-frame";
@@ -283,8 +285,14 @@ export function getInspectorQuickSections(t) {
 		{
 			id: INSPECTOR_QUICK_SECTION_SHOT_CAMERA,
 			tabId: INSPECTOR_TAB_CAMERA,
-			label: t("section.shotCamera"),
+			label: t("section.shotCameraManager"),
 			icon: "camera",
+		},
+		{
+			id: INSPECTOR_QUICK_SECTION_SHOT_CAMERA_PROPERTIES,
+			tabId: INSPECTOR_TAB_CAMERA,
+			label: t("section.shotCameraProperties"),
+			icon: "lens",
 		},
 		{
 			id: INSPECTOR_QUICK_SECTION_VIEW,
@@ -1229,30 +1237,13 @@ export function LightingSection({
 export function ShotCameraSection({
 	activeShotCamera,
 	controller,
-	equivalentMmValue,
-	fovLabel,
 	headingActions = null,
-	shotCameraClipMode,
 	store,
 	t,
 }) {
-	const shotCameraPositionX = Number(store.shotCamera.positionX.value).toFixed(
-		2,
-	);
-	const shotCameraPositionY = Number(store.shotCamera.positionY.value).toFixed(
-		2,
-	);
-	const shotCameraPositionZ = Number(store.shotCamera.positionZ.value).toFixed(
-		2,
-	);
-	const shotCameraYawDeg = Number(store.shotCamera.yawDeg.value).toFixed(2);
-	const shotCameraPitchDeg = Number(store.shotCamera.pitchDeg.value).toFixed(2);
-	const shotCameraRollDeg = Number(store.shotCamera.rollDeg.value).toFixed(2);
-	const shotCameraRollLock = store.shotCamera.rollLock.value;
-
 	return html`
 		<section class="panel-section">
-			<${SectionHeading} icon="camera" title=${t("section.shotCamera")}>
+			<${SectionHeading} icon="camera" title=${t("section.shotCameraManager")}>
 				${headingActions}
 			<//>
 			<div class="shot-camera-head-row">
@@ -1277,6 +1268,41 @@ export function ShotCameraSection({
 					/>
 				</div>
 			</div>
+		</section>
+	`;
+}
+
+export function ShotCameraPropertiesSection({
+	controller,
+	equivalentMmValue,
+	fovLabel,
+	headingActions = null,
+	shotCameraClipMode,
+	store,
+	t,
+}) {
+	const shotCameraPositionX = Number(store.shotCamera.positionX.value).toFixed(
+		2,
+	);
+	const shotCameraPositionY = Number(store.shotCamera.positionY.value).toFixed(
+		2,
+	);
+	const shotCameraPositionZ = Number(store.shotCamera.positionZ.value).toFixed(
+		2,
+	);
+	const shotCameraYawDeg = Number(store.shotCamera.yawDeg.value).toFixed(2);
+	const shotCameraPitchDeg = Number(store.shotCamera.pitchDeg.value).toFixed(2);
+	const shotCameraRollDeg = Number(store.shotCamera.rollDeg.value).toFixed(2);
+	const shotCameraRollLock = store.shotCamera.rollLock.value;
+
+	return html`
+		<section class="panel-section">
+			<${SectionHeading}
+				icon="lens"
+				title=${t("section.shotCameraProperties")}
+			>
+				${headingActions}
+			<//>
 			<label class="field field--range">
 				<span>${t("field.shotCameraEquivalentMm")}</span>
 				<div class="range-row">

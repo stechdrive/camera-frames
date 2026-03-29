@@ -17,6 +17,7 @@ import {
 	INSPECTOR_QUICK_SECTION_REFERENCE,
 	INSPECTOR_QUICK_SECTION_SCENE,
 	INSPECTOR_QUICK_SECTION_SHOT_CAMERA,
+	INSPECTOR_QUICK_SECTION_SHOT_CAMERA_PROPERTIES,
 	INSPECTOR_QUICK_SECTION_VIEW,
 	INSPECTOR_TAB_CAMERA,
 	INSPECTOR_TAB_EXPORT,
@@ -27,6 +28,7 @@ import {
 	OutputFrameSection,
 	ReferenceSection,
 	SceneSection,
+	ShotCameraPropertiesSection,
 	ShotCameraSection,
 	ToolRailSection,
 	ViewSettingsSection,
@@ -462,6 +464,7 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 			return [
 				INSPECTOR_QUICK_SECTION_VIEW,
 				INSPECTOR_QUICK_SECTION_SHOT_CAMERA,
+				INSPECTOR_QUICK_SECTION_SHOT_CAMERA_PROPERTIES,
 				INSPECTOR_QUICK_SECTION_OUTPUT_FRAME,
 				INSPECTOR_QUICK_SECTION_REFERENCE,
 				INSPECTOR_QUICK_SECTION_FRAMES,
@@ -523,6 +526,14 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 					<${ShotCameraSection}
 						activeShotCamera=${activeShotCamera}
 						controller=${controller}
+						headingActions=${pinAction}
+						store=${store}
+						t=${t}
+					/>
+				`;
+			case INSPECTOR_QUICK_SECTION_SHOT_CAMERA_PROPERTIES:
+				return html`
+					<${ShotCameraPropertiesSection}
 						equivalentMmValue=${equivalentMmValue}
 						fovLabel=${fovLabel}
 						headingActions=${pinAction}
