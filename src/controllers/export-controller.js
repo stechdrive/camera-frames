@@ -14,6 +14,7 @@ import {
 	buildExportReadinessPlan,
 	finalizeExportReadiness,
 } from "../engine/export-readiness.js";
+import { createAllFrameMaskPsdLayerDocument } from "../engine/frame-mask-export.js";
 import { downloadPsdDocument } from "../engine/psd-export.js";
 import { getPsdReferenceImageGroupLayers } from "../engine/reference-image-export-order.js";
 import { createSparkExportRendererManager } from "../engine/spark-export-renderer.js";
@@ -1605,7 +1606,7 @@ export function createExportController({
 			exportSettings?.exportGridOverlay && gridGuidePixels
 				? createExportPass({
 						id: "guide-grid",
-						name: "Infinite Grid",
+						name: "Grid",
 						category: "guide",
 						metadata: {
 							role: "guide-grid",
@@ -1613,7 +1614,7 @@ export function createExportController({
 						},
 						layers: [
 							createPixelLayer({
-								name: "Infinite Grid",
+								name: "Grid",
 								pixels: gridGuidePixels,
 								width,
 								height,
@@ -1815,7 +1816,7 @@ export function createExportController({
 		return renderExportBundleToCanvas(buildExportBundle(snapshot, frames));
 	}
 
-	function buildPsdExportDocument(bundle) {
+	function buildPsdExportDocument(bundle, frames = getActiveFrames()) {
 		const passes = getAllExportBundlePasses(bundle).filter(
 			(pass) => pass.enabled !== false && pass.layers?.length,
 		);
@@ -1870,7 +1871,7 @@ export function createExportController({
 			: null;
 		const gridLayerDocument = gridPass
 			? {
-					name: "Infinite Grid",
+					name: "Grid",
 					canvas: renderExportPassToCanvas(bundle, gridPass),
 				}
 			: null;
@@ -1884,7 +1885,7 @@ export function createExportController({
 			(layer) => layer.group === REFERENCE_IMAGE_GROUP_BACK,
 		)
 			? {
-					name: `${t("section.referenceImages")} ${t("referenceImage.group.back")}`,
+					name: t("section.referenceImages"),
 					opened: false,
 					children: getPsdReferenceImageGroupLayers(
 						referenceImageLayers,
@@ -1902,7 +1903,7 @@ export function createExportController({
 			(layer) => layer.group === REFERENCE_IMAGE_GROUP_FRONT,
 		)
 			? {
-					name: `${t("section.referenceImages")} ${t("referenceImage.group.front")}`,
+					name: t("section.referenceImages"),
 					opened: false,
 					children: getPsdReferenceImageGroupLayers(
 						referenceImageLayers,
@@ -1929,6 +1930,11 @@ export function createExportController({
 					})),
 				}
 			: null;
+		const frameMaskLayerDocument = createAllFrameMaskPsdLayerDocument(
+			frames,
+			bundle.width,
+			bundle.height,
+		);
 		const orderedLayers = [];
 		if (backgroundLayerDocument) {
 			orderedLayers.push(backgroundLayerDocument);
@@ -1965,7 +1971,12 @@ export function createExportController({
 		return {
 			width: bundle.width,
 			height: bundle.height,
-			layers: [...orderedLayers, ...splatDebugGroups, ...modelDebugGroups],
+			layers: [
+				...orderedLayers,
+				...splatDebugGroups,
+				...modelDebugGroups,
+				...(frameMaskLayerDocument ? [frameMaskLayerDocument] : []),
+			],
 		};
 	}
 
@@ -1995,7 +2006,10 @@ export function createExportController({
 		sequenceIndex = null,
 	) {
 		const bundle = buildExportBundle(snapshot, documentState.frames ?? []);
-		const psdDocument = buildPsdExportDocument(bundle);
+		const psdDocument = buildPsdExportDocument(
+			bundle,
+			documentState.frames ?? [],
+		);
 		downloadPsdDocument({
 			...psdDocument,
 			filename: buildShotCameraExportFilename(

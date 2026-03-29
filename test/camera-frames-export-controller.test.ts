@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createAllFrameMaskPsdLayerDocument } from "../src/engine/frame-mask-export.js";
 import { getPsdReferenceImageGroupLayers } from "../src/engine/reference-image-export-order.js";
 import {
 	REFERENCE_IMAGE_GROUP_BACK,
@@ -47,6 +48,69 @@ import {
 		backLayers.map((layer) => layer.id),
 		["back-only"],
 	);
+}
+
+{
+	let fillRectCount = 0;
+	let fillCount = 0;
+	let beginPathCount = 0;
+	const mockContext = {
+		save() {},
+		restore() {},
+		translate() {},
+		rotate() {},
+		rect() {},
+		clearRect() {},
+		fillRect() {
+			fillRectCount += 1;
+		},
+		beginPath() {
+			beginPathCount += 1;
+		},
+		fill() {
+			fillCount += 1;
+		},
+		set fillStyle(_value) {},
+		set globalCompositeOperation(_value) {},
+	};
+	const mockCanvas = {
+		width: 0,
+		height: 0,
+		getContext(kind) {
+			return kind === "2d" ? mockContext : null;
+		},
+	};
+	const layer = createAllFrameMaskPsdLayerDocument(
+		[
+			{
+				id: "frame-a",
+				x: 0.5,
+				y: 0.5,
+				scale: 1,
+				rotation: 0,
+			},
+		],
+		1536,
+		864,
+		{
+			createCanvas(width, height) {
+				mockCanvas.width = width;
+				mockCanvas.height = height;
+				return mockCanvas;
+			},
+		},
+	);
+
+	assert.ok(layer);
+	assert.equal(layer.name, "Mask");
+	assert.equal(layer.hidden, true);
+	assert.equal(layer.opacity, 0.8);
+	assert.equal(layer.canvas, mockCanvas);
+	assert.equal(layer.canvas.width, 1536);
+	assert.equal(layer.canvas.height, 864);
+	assert.equal(fillRectCount, 1);
+	assert.equal(beginPathCount, 1);
+	assert.equal(fillCount, 1);
 }
 
 console.log("✅ CAMERA_FRAMES export controller tests passed!");
