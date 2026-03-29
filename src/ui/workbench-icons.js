@@ -23,9 +23,9 @@ function renderIconPath(name) {
 			`;
 		case "scene":
 			return html`
-				<path d="M12 3l7 4-7 4-7-4 7-4z"></path>
-				<path d="M5 11l7 4 7-4"></path>
-				<path d="M5 15l7 4 7-4"></path>
+				<path d="M12 3.5l7 4-7 4-7-4 7-4z"></path>
+				<path d="M5 11.5l7 4 7-4"></path>
+				<path d="M5 15.5l7 4 7-4"></path>
 			`;
 		case "camera":
 			return html`

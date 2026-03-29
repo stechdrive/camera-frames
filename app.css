@@ -1765,6 +1765,7 @@ input[type="range"] {
 	justify-content: center;
 	flex: 0 0 auto;
 	color: var(--accent-cool);
+	opacity: 0.86;
 }
 
 .workbench-inspector-tab-title {
@@ -1884,6 +1885,11 @@ input[type="range"] {
 	background: var(--accent-soft);
 	border-color: rgba(255, 103, 77, 0.4);
 	color: var(--accent);
+}
+
+.workbench-tab--active .workbench-tab__icon {
+	color: var(--accent);
+	opacity: 1;
 }
 
 .workbench-icon {
