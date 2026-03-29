@@ -3417,9 +3417,14 @@ export function OutputFrameSection({
 					<output id="box-height-value">${heightLabel}</output>
 				</div>
 			</label>
-			<label class="field">
+			<div class="field field--inline-compact field--anchor-compact">
 				<span>${t("field.anchor")}</span>
-				<div class="anchor-grid" role="grid" aria-label=${t("field.anchor")}>
+				<div class="field--inline-compact__value field--anchor-compact__value">
+					<div
+						class="anchor-matrix"
+						role="grid"
+						aria-label=${t("field.anchor")}
+					>
 					${anchorOptions.map(
 						(option) => html`
 							<button
@@ -3427,8 +3432,8 @@ export function OutputFrameSection({
 								type="button"
 								class=${
 									option.value === anchorValue
-										? "anchor-grid__button anchor-grid__button--active"
-										: "anchor-grid__button"
+										? "anchor-matrix__cell anchor-matrix__cell--active"
+										: "anchor-matrix__cell"
 								}
 								aria-label=${option.label}
 								title=${option.label}
@@ -3438,12 +3443,13 @@ export function OutputFrameSection({
 									controller()?.setAnchor(option.value);
 								}}
 							>
-								<span class="anchor-grid__dot"></span>
+								<span class="anchor-matrix__dot"></span>
 							</button>
 						`,
 					)}
+					</div>
 				</div>
-			</label>
+			</div>
 		<//>
 	`;
 }
