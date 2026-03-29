@@ -832,6 +832,22 @@ code {
 	gap: 0.34rem;
 }
 
+.transform-selection-header {
+	display: flex;
+	align-items: center;
+	gap: 0.4rem;
+	min-width: 0;
+}
+
+.transform-selection-header__summary {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.transform-selection-header__action {
+	flex: 0 0 auto;
+}
+
 .transform-row {
 	display: grid;
 	grid-template-columns: max-content minmax(0, 1fr);

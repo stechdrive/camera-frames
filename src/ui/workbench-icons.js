@@ -337,8 +337,10 @@ function renderIconPath(name) {
 			`;
 		case "apply-transform":
 			return html`
-				<rect x="4.5" y="6" width="7" height="7" rx="1.2"></rect>
-				<path d="M13.8 12.2l2 2 4-4"></path>
+				<path d="M6 8.5l4-2.3 4 2.3v4.8l-4 2.3-4-2.3z"></path>
+				<path d="M10 6.2v9.4"></path>
+				<path d="M6 8.5l4 2.3 4-2.3"></path>
+				<path d="M12.8 14.2l2.2 2.2 4.2-4.2"></path>
 			`;
 		default:
 			return html`<circle cx="12" cy="12" r="8"></circle>`;

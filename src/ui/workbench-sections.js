@@ -1589,28 +1589,12 @@ export function SelectedSceneAssetInspector({
 	`;
 
 	function renderTransformContent(content) {
-		const combinedSummaryActions =
-			selectionCount === 1 && targetAsset
-				? html`
-						<${IconButton}
-							icon="apply-transform"
-							label=${t("action.applyAssetTransform")}
-							compact=${true}
-							onClick=${() => controller()?.applyAssetTransform?.(targetAsset.id)}
-							tooltip=${{
-								title: t("action.applyAssetTransform"),
-								placement: "bottom",
-							}}
-						/>
-						${summaryActions}
-					`
-				: summaryActions;
 		return html`
 			<${DisclosureBlock}
 				icon="move"
 				label=${transformSectionTitle}
 				open=${open}
-				summaryActions=${combinedSummaryActions}
+				summaryActions=${summaryActions}
 				onToggle=${onToggle}
 				className="panel-disclosure--selection-dock"
 			>
@@ -1861,7 +1845,20 @@ export function SelectedSceneAssetInspector({
 	}
 
 	return renderTransformContent(html`
-			<p class="summary">${targetAsset.label}</p>
+			<div class="transform-selection-header">
+				<p class="summary transform-selection-header__summary">${targetAsset.label}</p>
+				<${IconButton}
+					icon="apply-transform"
+					label=${t("action.applyAssetTransform")}
+					compact=${true}
+					className="transform-selection-header__action"
+					onClick=${() => controller()?.applyAssetTransform?.(targetAsset.id)}
+					tooltip=${{
+						title: t("action.applyAssetTransform"),
+						placement: "left",
+					}}
+				/>
+			</div>
 			<div class="transform-inspector">
 				<div class="transform-row transform-row--single">
 					<span class="transform-row__label">${t("field.assetScale")}</span>
