@@ -272,22 +272,32 @@ function renderIconPath(name) {
 			`;
 		case "mask-selected":
 			return html`
-				<path d="M4 6h16v12H4z"></path>
-				<rect x="8" y="9" width="8" height="6" rx="1"></rect>
-				<path d="M6.5 7.5v9"></path>
-				<path d="M17.5 7.5v9"></path>
+				<path
+					d="M3.5 5h17v14h-17z M5.9 8.3h5.2v7.4h-5.2z M12.9 8.3h5.2v7.4h-5.2z"
+					fill="currentColor"
+					stroke="none"
+					fill-rule="evenodd"
+				></path>
 			`;
 		case "mask":
 			return html`
-				<path d="M4 6h16v12H4z"></path>
-				<rect x="8.25" y="8.75" width="7.5" height="6.5" rx="1.1"></rect>
-				<path d="M6.4 8v8"></path>
+				<path
+					d="M3.5 5h17v14h-17z M7 8.1h10v7.8h-10z"
+					fill="currentColor"
+					stroke="none"
+					fill-rule="evenodd"
+				></path>
 			`;
 		case "mask-all":
 			return html`
-				<path d="M4 6h16v12H4z"></path>
-				<rect x="6.5" y="8.5" width="5.5" height="7" rx="0.8"></rect>
-				<rect x="12" y="8.5" width="5.5" height="7" rx="0.8"></rect>
+				<path
+					d="M3.5 5h17v14h-17z M7.7 8.6h8.6v6.8h-8.6z"
+					fill="currentColor"
+					stroke="none"
+					fill-rule="evenodd"
+				></path>
+				<path d="M5.6 8v8"></path>
+				<path d="M18.4 8v8"></path>
 			`;
 		case "viewport":
 			return html`
