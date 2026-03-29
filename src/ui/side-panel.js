@@ -862,12 +862,15 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 										})}
 									</div>
 									${
-										selectedSceneAsset &&
+										(selectedSceneAsset ||
+											store.selectedSceneAssetIds.value.length > 0) &&
 										html`
 											<div class="workbench-inspector-selection-dock">
 												<${SelectedSceneAssetInspector}
 													controller=${controller}
+													sceneAssets=${sceneAssets}
 													selectedSceneAsset=${selectedSceneAsset}
+													store=${store}
 													t=${t}
 												/>
 											</div>

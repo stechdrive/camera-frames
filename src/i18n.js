@@ -138,6 +138,9 @@ const MESSAGES = {
 			transform: "変形",
 			pivot: "オブジェクト原点",
 		},
+		selection: {
+			multipleSceneAssetsTitle: "{count}件の3Dオブジェクト",
+		},
 		viewportTool: {
 			moveCenter: "移動",
 		},
@@ -639,6 +642,9 @@ const MESSAGES = {
 			reference: "Reference",
 			transform: "Transform",
 			pivot: "Object Origin",
+		},
+		selection: {
+			multipleSceneAssetsTitle: "{count} selected 3D objects",
 		},
 		viewportTool: {
 			moveCenter: "Move",

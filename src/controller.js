@@ -1662,10 +1662,20 @@ export function createCameraFramesController(elements, store) {
 		setAssetWorldScale: assetController.setAssetWorldScale,
 		setAssetTransform: assetController.setAssetTransform,
 		resetAssetWorldScale: assetController.resetAssetWorldScale,
+		resetSelectedSceneAssetsWorldScale:
+			assetController.resetSelectedSceneAssetsWorldScale,
 		resetSelectedAssetWorkingPivot,
 		setAssetPosition: assetController.setAssetPosition,
+		offsetSelectedSceneAssetsPosition:
+			assetController.offsetSelectedSceneAssetsPosition,
 		setAssetRotationDegrees: assetController.setAssetRotationDegrees,
+		offsetSelectedSceneAssetsRotationDegrees:
+			assetController.offsetSelectedSceneAssetsRotationDegrees,
 		setAssetVisibility: assetController.setAssetVisibility,
+		setSelectedSceneAssetsVisibility:
+			assetController.setSelectedSceneAssetsVisibility,
+		scaleSelectedSceneAssetsByFactor:
+			assetController.scaleSelectedSceneAssetsByFactor,
 		moveAssetUp: assetController.moveAssetUp,
 		moveAssetDown: assetController.moveAssetDown,
 		moveAssetToIndex: assetController.moveAssetToIndex,

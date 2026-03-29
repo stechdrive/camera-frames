@@ -580,6 +580,12 @@ export function createAssetController({
 			.map((asset) => asset.object);
 	}
 
+	function getSelectedSceneAssets() {
+		return store.selectedSceneAssetIds.value
+			.map((assetId) => getSceneAsset(assetId))
+			.filter(Boolean);
+	}
+
 	function selectSceneAsset(
 		assetId,
 		{ additive = false, toggle = false } = {},
@@ -1806,6 +1812,21 @@ export function createAssetController({
 		setAssetWorldScale(assetId, 1);
 	}
 
+	function resetSelectedSceneAssetsWorldScale() {
+		const selectedAssets = getSelectedSceneAssets();
+		if (selectedAssets.length === 0) {
+			return;
+		}
+
+		runHistoryAction?.("asset.scale", () => {
+			for (const asset of selectedAssets) {
+				asset.worldScale = 1;
+				applyAssetWorldScale(asset);
+			}
+		});
+		updateUi();
+	}
+
 	function setAssetPosition(assetId, axis, nextValue) {
 		const asset = getSceneAsset(assetId);
 		if (!asset || !["x", "y", "z"].includes(axis)) {
@@ -1818,6 +1839,33 @@ export function createAssetController({
 				asset.object.position[axis],
 			);
 			asset.object.updateMatrixWorld(true);
+		});
+		updateUi();
+	}
+
+	function offsetSelectedSceneAssetsPosition(axis, deltaValue) {
+		if (!["x", "y", "z"].includes(axis)) {
+			return;
+		}
+
+		const numericDelta = Number(deltaValue);
+		if (!Number.isFinite(numericDelta) || Math.abs(numericDelta) <= 1e-8) {
+			return;
+		}
+
+		const selectedAssets = getSelectedSceneAssets();
+		if (selectedAssets.length === 0) {
+			return;
+		}
+
+		runHistoryAction?.("asset.position", () => {
+			for (const asset of selectedAssets) {
+				asset.object.position[axis] = clampAssetTransformValue(
+					asset.object.position[axis] + numericDelta,
+					asset.object.position[axis],
+				);
+				asset.object.updateMatrixWorld(true);
+			}
 		});
 		updateUi();
 	}
@@ -1840,6 +1888,30 @@ export function createAssetController({
 		updateUi();
 	}
 
+	function offsetSelectedSceneAssetsRotationDegrees(axis, deltaValue) {
+		if (!["x", "y", "z"].includes(axis)) {
+			return;
+		}
+
+		const numericDelta = Number(deltaValue);
+		if (!Number.isFinite(numericDelta) || Math.abs(numericDelta) <= 1e-8) {
+			return;
+		}
+
+		const selectedAssets = getSelectedSceneAssets();
+		if (selectedAssets.length === 0) {
+			return;
+		}
+
+		runHistoryAction?.("asset.rotation", () => {
+			for (const asset of selectedAssets) {
+				asset.object.rotation[axis] += THREE.MathUtils.degToRad(numericDelta);
+				asset.object.updateMatrixWorld(true);
+			}
+		});
+		updateUi();
+	}
+
 	function setAssetVisibility(assetId, nextVisible) {
 		const asset = getSceneAsset(assetId);
 		if (!asset) {
@@ -1858,6 +1930,46 @@ export function createAssetController({
 					: t("assetVisibility.hidden"),
 			}),
 		);
+	}
+
+	function setSelectedSceneAssetsVisibility(nextVisible) {
+		const selectedAssets = getSelectedSceneAssets();
+		if (selectedAssets.length === 0) {
+			return;
+		}
+
+		runHistoryAction?.("asset.visibility", () => {
+			for (const asset of selectedAssets) {
+				asset.object.visible = Boolean(nextVisible);
+			}
+		});
+		updateUi();
+	}
+
+	function scaleSelectedSceneAssetsByFactor(scaleFactor) {
+		const numericScaleFactor = Number(scaleFactor);
+		if (
+			!Number.isFinite(numericScaleFactor) ||
+			numericScaleFactor <= 0 ||
+			Math.abs(numericScaleFactor - 1) <= 1e-8
+		) {
+			return;
+		}
+
+		const selectedAssets = getSelectedSceneAssets();
+		if (selectedAssets.length === 0) {
+			return;
+		}
+
+		runHistoryAction?.("asset.scale", () => {
+			for (const asset of selectedAssets) {
+				asset.worldScale = clampAssetWorldScale(
+					asset.worldScale * numericScaleFactor,
+				);
+				applyAssetWorldScale(asset);
+			}
+		});
+		updateUi();
 	}
 
 	function moveAsset(assetId, direction) {
@@ -2087,9 +2199,14 @@ export function createAssetController({
 		setAssetWorkingPivotWorld,
 		resetAssetWorkingPivot,
 		resetAssetWorldScale,
+		resetSelectedSceneAssetsWorldScale,
 		setAssetPosition,
+		offsetSelectedSceneAssetsPosition,
 		setAssetRotationDegrees,
+		offsetSelectedSceneAssetsRotationDegrees,
 		setAssetVisibility,
+		setSelectedSceneAssetsVisibility,
+		scaleSelectedSceneAssetsByFactor,
 		moveAssetUp,
 		moveAssetDown,
 		moveAssetToIndex,

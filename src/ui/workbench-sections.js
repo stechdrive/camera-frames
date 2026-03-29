@@ -1181,38 +1181,301 @@ export function FramesBrowserSection({ controller, frameDocuments, store, t }) {
 
 export function SelectedSceneAssetInspector({
 	controller,
+	sceneAssets = [],
 	selectedSceneAsset,
+	store,
 	t,
 }) {
-	if (!selectedSceneAsset) {
+	const selectedSceneAssetIds = store?.selectedSceneAssetIds?.value ?? [];
+	const selectedSceneAssets = selectedSceneAssetIds
+		.map((assetId) => sceneAssets.find((asset) => asset.id === assetId) ?? null)
+		.filter(Boolean);
+	const selectionCount = selectedSceneAssets.length;
+	const selectionSignature = selectedSceneAssetIds.join("|");
+	const selectionBaselineRef = useRef({
+		signature: "",
+		assets: new Map(),
+	});
+
+	if (selectionBaselineRef.current.signature !== selectionSignature) {
+		selectionBaselineRef.current = {
+			signature: selectionSignature,
+			assets: new Map(
+				selectedSceneAssets.map((asset) => [
+					asset.id,
+					{
+						position: {
+							x: Number(asset.position?.x ?? 0),
+							y: Number(asset.position?.y ?? 0),
+							z: Number(asset.position?.z ?? 0),
+						},
+						rotationDegrees: {
+							x: Number(asset.rotationDegrees?.x ?? 0),
+							y: Number(asset.rotationDegrees?.y ?? 0),
+							z: Number(asset.rotationDegrees?.z ?? 0),
+						},
+						worldScale: Number(asset.worldScale ?? 1),
+					},
+				]),
+			),
+		};
+	}
+	const selectionBaseline = selectionBaselineRef.current;
+
+	if (selectionCount === 0 && !selectedSceneAsset) {
+		return null;
+	}
+
+	function formatDeltaInputValue(value) {
+		if (!Number.isFinite(value)) {
+			return "--";
+		}
+		return `${value >= 0 ? "+" : ""}${Number(value).toFixed(2)}`;
+	}
+
+	function normalizeDeltaDegrees(value) {
+		const numericValue = Number(value);
+		if (!Number.isFinite(numericValue)) {
+			return 0;
+		}
+		const wrapped = ((((numericValue + 180) % 360) + 360) % 360) - 180;
+		return wrapped === -180 ? 180 : wrapped;
+	}
+
+	function getSharedSelectionDelta(getValue, { normalize = null } = {}) {
+		let sharedValue = null;
+		for (const asset of selectedSceneAssets) {
+			const baselineAsset = selectionBaseline.assets.get(asset.id);
+			if (!baselineAsset) {
+				return null;
+			}
+			let nextValue = getValue(asset, baselineAsset);
+			if (normalize) {
+				nextValue = normalize(nextValue);
+			}
+			if (!Number.isFinite(nextValue)) {
+				return null;
+			}
+			if (sharedValue === null) {
+				sharedValue = nextValue;
+				continue;
+			}
+			if (Math.abs(sharedValue - nextValue) > 1e-4) {
+				return null;
+			}
+		}
+		return sharedValue;
+	}
+
+	if (selectionCount > 1) {
+		const allVisible = selectedSceneAssets.every((asset) => asset.visible);
+		const anyVisible = selectedSceneAssets.some((asset) => asset.visible);
+		const kindLabels = [
+			...new Set(
+				selectedSceneAssets.map((asset) =>
+					t(asset.kindLabelKey ?? "assetKind.model"),
+				),
+			),
+		];
+		const currentScaleFactor = getSharedSelectionDelta(
+			(asset, baselineAsset) =>
+				Number(asset.worldScale ?? 1) / Number(baselineAsset.worldScale ?? 1),
+		);
+
+		return html`
+			<section class="panel-section panel-section--selection-dock">
+				<${SectionHeading}
+					icon="scene"
+					title=${t("selection.multipleSceneAssetsTitle", {
+						count: selectionCount,
+					})}
+				>
+					<div class="button-row">
+						<${IconButton}
+							icon=${anyVisible ? "eye" : "eye-off"}
+							label=${t(
+								allVisible
+									? "assetVisibility.visible"
+									: "assetVisibility.hidden",
+							)}
+							active=${allVisible}
+							compact=${true}
+							onClick=${() =>
+								controller()?.setSelectedSceneAssetsVisibility?.(!allVisible)}
+						/>
+						<${IconButton}
+							icon="reset"
+							label=${t("action.resetScale")}
+							compact=${true}
+							onClick=${() =>
+								controller()?.resetSelectedSceneAssetsWorldScale?.()}
+						/>
+					</div>
+				<//>
+				<p class="summary">${kindLabels.join(" / ")}</p>
+				<label class="field field--delta">
+					<span>${t("field.assetScale")}</span>
+					<${NumericDraftInput}
+						inputMode="decimal"
+						step="0.25"
+						value=${
+							Number.isFinite(currentScaleFactor)
+								? formatDeltaInputValue((Number(currentScaleFactor) - 1) * 100)
+								: "--"
+						}
+						scrubStartValue=${
+							Number.isFinite(currentScaleFactor)
+								? (Number(currentScaleFactor) - 1) * 100
+								: 0
+						}
+						controller=${controller}
+						historyLabel="asset.scale"
+						onScrubDelta=${(deltaValue) => {
+							const scaleDelta = deltaValue / 100;
+							controller()?.scaleSelectedSceneAssetsByFactor?.(
+								Math.max(0.01, 1 + scaleDelta),
+							);
+						}}
+						onCommit=${(nextValue) => {
+							const numericValue = Number(nextValue);
+							if (
+								!Number.isFinite(numericValue) ||
+								Math.abs(numericValue) <= 1e-8
+							) {
+								return;
+							}
+							const currentFactor = Number.isFinite(currentScaleFactor)
+								? currentScaleFactor
+								: 1;
+							const targetScaleFactor = Math.max(0.01, 1 + numericValue / 100);
+							controller()?.scaleSelectedSceneAssetsByFactor?.(
+								Math.max(0.01, targetScaleFactor / currentFactor),
+							);
+						}}
+					/>
+				</label>
+				<div class="triple-field-row">
+					${["x", "y", "z"].map((axis) => {
+						const currentDelta = getSharedSelectionDelta(
+							(asset, baselineAsset) =>
+								Number(asset.position?.[axis] ?? 0) -
+								Number(baselineAsset.position?.[axis] ?? 0),
+						);
+						return html`
+							<label class="field field--delta">
+								<span>${t("field.assetPosition")} ${axis.toUpperCase()}</span>
+								<${NumericDraftInput}
+									inputMode="decimal"
+									step="0.01"
+									value=${formatDeltaInputValue(currentDelta)}
+									scrubStartValue=${Number(currentDelta ?? 0)}
+									controller=${controller}
+									historyLabel="asset.position"
+									onScrubDelta=${(deltaValue) => {
+										controller()?.offsetSelectedSceneAssetsPosition?.(
+											axis,
+											deltaValue,
+										);
+									}}
+									onCommit=${(nextValue) => {
+										const numericValue = Number(nextValue);
+										if (
+											!Number.isFinite(numericValue) ||
+											Math.abs(numericValue) <= 1e-8
+										) {
+											return;
+										}
+										const currentValue = Number.isFinite(currentDelta)
+											? currentDelta
+											: 0;
+										controller()?.offsetSelectedSceneAssetsPosition?.(
+											axis,
+											numericValue - currentValue,
+										);
+									}}
+								/>
+							</label>
+						`;
+					})}
+				</div>
+				<div class="triple-field-row">
+					${["x", "y", "z"].map((axis) => {
+						const currentDelta = getSharedSelectionDelta(
+							(asset, baselineAsset) =>
+								Number(asset.rotationDegrees?.[axis] ?? 0) -
+								Number(baselineAsset.rotationDegrees?.[axis] ?? 0),
+							{ normalize: normalizeDeltaDegrees },
+						);
+						return html`
+							<label class="field field--delta">
+								<span>${t("field.assetRotation")} ${axis.toUpperCase()}</span>
+								<${NumericDraftInput}
+									inputMode="decimal"
+									step="0.15"
+									value=${formatDeltaInputValue(currentDelta)}
+									scrubStartValue=${Number(currentDelta ?? 0)}
+									controller=${controller}
+									historyLabel="asset.rotation"
+									onScrubDelta=${(deltaValue) => {
+										controller()?.offsetSelectedSceneAssetsRotationDegrees?.(
+											axis,
+											deltaValue,
+										);
+									}}
+									onCommit=${(nextValue) => {
+										const numericValue = Number(nextValue);
+										if (
+											!Number.isFinite(numericValue) ||
+											Math.abs(numericValue) <= 1e-8
+										) {
+											return;
+										}
+										const currentValue = Number.isFinite(currentDelta)
+											? currentDelta
+											: 0;
+										controller()?.offsetSelectedSceneAssetsRotationDegrees?.(
+											axis,
+											numericValue - currentValue,
+										);
+									}}
+								/>
+							</label>
+						`;
+					})}
+				</div>
+			</section>
+		`;
+	}
+
+	const targetAsset = selectedSceneAsset ?? selectedSceneAssets[0];
+	if (!targetAsset) {
 		return null;
 	}
 
 	return html`
 		<section class="panel-section panel-section--selection-dock">
-			<${SectionHeading} icon="scene" title=${selectedSceneAsset.label}>
+			<${SectionHeading} icon="scene" title=${targetAsset.label}>
 				<div class="button-row">
 					<${IconButton}
-						icon=${selectedSceneAsset.visible ? "eye" : "eye-off"}
+						icon=${targetAsset.visible ? "eye" : "eye-off"}
 						label=${t(
-							selectedSceneAsset.visible
+							targetAsset.visible
 								? "assetVisibility.visible"
 								: "assetVisibility.hidden",
 						)}
-						active=${selectedSceneAsset.visible}
+						active=${targetAsset.visible}
 						compact=${true}
 						onClick=${() =>
 							controller()?.setAssetVisibility(
-								selectedSceneAsset.id,
-								!selectedSceneAsset.visible,
+								targetAsset.id,
+								!targetAsset.visible,
 							)}
 					/>
 					<${IconButton}
 						icon="reset"
 						label=${t("action.resetScale")}
 						compact=${true}
-						onClick=${() =>
-							controller()?.resetAssetWorldScale(selectedSceneAsset.id)}
+						onClick=${() => controller()?.resetAssetWorldScale(targetAsset.id)}
 					/>
 				</div>
 			<//>
@@ -1222,11 +1485,11 @@ export function SelectedSceneAssetInspector({
 					inputMode="decimal"
 					min="0.01"
 					step="0.01"
-					value=${Number(selectedSceneAsset.worldScale).toFixed(2)}
+					value=${Number(targetAsset.worldScale).toFixed(2)}
 					controller=${controller}
 					historyLabel="asset.scale"
 					onCommit=${(nextValue) =>
-						controller()?.setAssetWorldScale(selectedSceneAsset.id, nextValue)}
+						controller()?.setAssetWorldScale(targetAsset.id, nextValue)}
 				/>
 			</label>
 			<div class="triple-field-row">
@@ -1237,12 +1500,12 @@ export function SelectedSceneAssetInspector({
 							<${NumericDraftInput}
 								inputMode="decimal"
 								step="0.01"
-								value=${Number(selectedSceneAsset.position[axis]).toFixed(2)}
+								value=${Number(targetAsset.position[axis]).toFixed(2)}
 								controller=${controller}
 								historyLabel=${`asset.position.${axis}`}
 								onCommit=${(nextValue) =>
 									controller()?.setAssetPosition(
-										selectedSceneAsset.id,
+										targetAsset.id,
 										axis,
 										nextValue,
 									)}
@@ -1259,12 +1522,12 @@ export function SelectedSceneAssetInspector({
 							<${NumericDraftInput}
 								inputMode="decimal"
 								step="0.01"
-								value=${Number(selectedSceneAsset.rotationDegrees[axis]).toFixed(2)}
+								value=${Number(targetAsset.rotationDegrees[axis]).toFixed(2)}
 								controller=${controller}
 								historyLabel=${`asset.rotation.${axis}`}
 								onCommit=${(nextValue) =>
 									controller()?.setAssetRotationDegrees(
-										selectedSceneAsset.id,
+										targetAsset.id,
 										axis,
 										nextValue,
 									)}
@@ -1531,7 +1794,9 @@ export function SceneSection({
 				showSelectedInspector &&
 				html`<${SelectedSceneAssetInspector}
 				controller=${controller}
+				sceneAssets=${sceneAssets}
 				selectedSceneAsset=${selectedSceneAsset}
+				store=${store}
 				t=${t}
 			/>`
 			}
