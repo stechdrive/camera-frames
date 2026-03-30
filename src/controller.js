@@ -1669,6 +1669,7 @@ export function createCameraFramesController(elements, store) {
 		selectShotCamera: cameraController.selectShotCamera,
 		createShotCamera: cameraController.createShotCamera,
 		duplicateActiveShotCamera: cameraController.duplicateActiveShotCamera,
+		deleteActiveShotCamera: cameraController.deleteActiveShotCamera,
 		selectSceneAsset: assetController.selectSceneAsset,
 		clearSceneAssetSelection,
 		pickViewportAssetAtPointer:

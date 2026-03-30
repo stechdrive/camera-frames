@@ -3406,138 +3406,35 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	grid-template-columns: minmax(0, 1fr) auto;
 }
 
-.shot-camera-head-row {
-	display: grid;
-	grid-template-columns: minmax(0, 1fr) auto;
-	gap: 10px;
-	align-items: stretch;
-}
-
-.shot-camera-picker {
-	position: relative;
-	min-width: 0;
-}
-
-.shot-camera-picker__surface {
-	display: grid;
-	grid-template-columns: minmax(0, 1fr) auto;
-	min-width: 0;
-	min-height: 2.35rem;
-	border: 1px solid var(--line);
-	border-radius: 12px;
-	background: rgba(2, 8, 16, 0.62);
-	overflow: hidden;
-}
-
-.shot-camera-picker:focus-within .shot-camera-picker__surface,
-.shot-camera-picker--open .shot-camera-picker__surface {
-	border-color: rgba(98, 208, 255, 0.45);
-	box-shadow: 0 0 0 1px rgba(98, 208, 255, 0.16);
-}
-
-.shot-camera-picker__input,
-.shot-camera-picker__toggle {
-	min-width: 0;
-	min-height: 100%;
-	border: 0;
-	border-radius: 0;
-	background: transparent;
-	color: var(--text);
-	font: 500 0.84rem / 1.2 "Consolas", "Andale Mono", monospace;
-}
-
-.shot-camera-picker__input {
-	width: 100%;
-	padding: 0.58rem 0.82rem;
-}
-
-.shot-camera-picker__toggle {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	width: 2.35rem;
-	padding: 0;
-	border-left: 1px solid var(--line);
-	cursor: pointer;
-	color: var(--text-dim);
-	transition: color 120ms ease, background-color 120ms ease;
-}
-
-.shot-camera-picker__toggle:hover {
-	color: var(--text);
-	background: rgba(255, 255, 255, 0.04);
-}
-
-.shot-camera-picker__input:focus,
-.shot-camera-picker__toggle:focus {
-	outline: none;
-	box-shadow: none;
-}
-
-.shot-camera-picker__toggle-icon {
-	transform: rotate(90deg);
-}
-
-.shot-camera-picker__panel {
-	position: absolute;
-	top: calc(100% + 0.45rem);
-	left: 0;
-	right: 0;
-	z-index: 10;
+.shot-camera-manager {
 	display: flex;
 	flex-direction: column;
-	gap: 0.25rem;
-	padding: 0.4rem;
-	border: 1px solid var(--line);
-	border-radius: 12px;
-	background: linear-gradient(
-		180deg,
-		var(--bg-elev-strong) 0%,
-		var(--bg-elev) 100%
-	);
-	box-shadow: var(--shadow);
-	backdrop-filter: blur(20px);
+	gap: 0.45rem;
+	min-height: 0;
 }
 
-.shot-camera-picker__item {
-	appearance: none;
-	display: flex;
-	align-items: center;
-	width: 100%;
-	min-height: 2.15rem;
-	padding: 0.5rem 0.65rem;
-	border: 1px solid transparent;
-	border-radius: 10px;
-	background: transparent;
-	color: var(--text);
-	cursor: pointer;
-	font: 600 0.82rem / 1.1 "Avenir Next", "Segoe UI", sans-serif;
-	text-align: left;
-	transition: border-color 120ms ease, background-color 120ms ease, color 120ms
-		ease;
-}
-
-.shot-camera-picker__item:hover {
-	border-color: var(--line);
-	background: rgba(255, 255, 255, 0.05);
-}
-
-.shot-camera-picker__item--active {
-	border-color: rgba(98, 208, 255, 0.22);
-	background: rgba(98, 208, 255, 0.08);
-	color: #eaf8ff;
-}
-
-.shot-camera-picker__item-name {
-	min-width: 0;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-.shot-camera-head-row__actions {
+.shot-camera-manager__actions {
 	flex-wrap: nowrap;
-	align-self: stretch;
+	justify-content: flex-start;
+}
+
+.shot-camera-manager__list {
+	flex: 0 0 auto;
+	min-height: 0;
+	max-height: min(14rem, 34vh);
+	overflow: auto;
+	padding-right: 0.1rem;
+}
+
+.shot-camera-manager__inline-name-field {
+	width: 100%;
+	gap: 0;
+}
+
+.shot-camera-manager__inline-name-input {
+	min-height: 1.68rem !important;
+	padding: 0.28rem 0.42rem !important;
+	font-size: 0.76rem !important;
 }
 
 .triple-field-row {
@@ -3557,7 +3454,76 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	justify-content: flex-end;
 	flex-wrap: wrap;
 	gap: 0.35rem;
-	margin-bottom: 0.35rem;
+	margin-bottom: 0.1rem;
+}
+
+.camera-property-inline-row {
+	display: grid;
+	grid-template-columns: max-content minmax(0, 1fr);
+	align-items: center;
+	gap: 0.38rem;
+}
+
+.camera-property-inline-row--action {
+	grid-template-columns: max-content minmax(0, 1fr) auto;
+}
+
+.camera-property-inline-row--clip {
+	grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.camera-property-inline-row__label {
+	color: var(--text-dim);
+	font-size: 0.68rem;
+	line-height: 1;
+	white-space: nowrap;
+}
+
+.camera-property-inline-row__content {
+	min-width: 0;
+}
+
+.camera-property-inline-row__content--triplet {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 0.22rem;
+}
+
+.camera-property-inline-row__content--clip {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 0.28rem;
+	min-width: 0;
+}
+
+.camera-property-axis-field {
+	display: grid;
+	grid-template-columns: max-content minmax(0, 1fr);
+	align-items: center;
+	gap: 0.2rem;
+	min-width: 0;
+}
+
+.camera-property-axis-field__prefix {
+	color: var(--text-dim);
+	font: 600 0.7rem / 1 "Consolas", "Andale Mono", monospace;
+	white-space: nowrap;
+}
+
+.camera-property-axis-field__input {
+	min-width: 0;
+}
+
+.camera-property-axis-field__input .numeric-scrub input {
+	width: 100%;
+}
+
+.camera-property-inline-row__action {
+	flex: 0 0 auto;
+}
+
+.camera-property-inline-row__switch {
+	align-self: center;
 }
 
 .asset-calibration-list {
@@ -3847,23 +3813,20 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 
 .anchor-matrix__cell {
 	appearance: none;
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
+	display: block;
 	width: 100%;
 	height: 100%;
 	border: 0;
 	padding: 0;
-	background: transparent;
+	background: rgba(255, 255, 255, 0.01);
 	color: var(--text-dim);
 	cursor: pointer;
-	transition: color 120ms ease, background-color 120ms ease, transform 120ms
-		ease;
+	transition: background-color 120ms ease, box-shadow 120ms ease, transform
+		120ms ease;
 }
 
 .anchor-matrix__cell:hover {
-	background: rgba(255, 255, 255, 0.06);
-	color: var(--text);
+	background: rgba(255, 255, 255, 0.07);
 }
 
 .anchor-matrix__cell:active {
@@ -3871,25 +3834,9 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 }
 
 .anchor-matrix__cell--active {
-	background: rgba(114, 227, 157, 0.18);
-	color: rgba(237, 255, 244, 0.98);
-	box-shadow: inset 0 0 0 1px rgba(114, 227, 157, 0.34);
-}
-
-.anchor-matrix__dot {
-	display: block;
-	width: 0.28rem;
-	height: 0.28rem;
-	border-radius: 999px;
-	background: currentColor;
-	box-shadow: 0 0 0 1px rgba(8, 17, 29, 0.35);
-}
-
-.anchor-matrix__cell--active .anchor-matrix__dot {
-	width: 0.38rem;
-	height: 0.38rem;
-	box-shadow: 0 0 0 1px rgba(8, 17, 29, 0.42), 0 0 0 3px
-		rgba(114, 227, 157, 0.18);
+	background: rgba(114, 227, 157, 0.2);
+	box-shadow: inset 0 0 0 1px rgba(114, 227, 157, 0.42), inset 0 0 14px
+		rgba(114, 227, 157, 0.08);
 }
 
 .browser-marker {
