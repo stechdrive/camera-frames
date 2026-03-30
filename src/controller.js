@@ -1448,10 +1448,10 @@ export function createCameraFramesController(elements, store) {
 		store.exportBusy.value = busy;
 	}
 
-	function updateUi() {
+	function updateUi({ syncProjectPresentation = true } = {}) {
 		safeSyncReferenceImageUi();
 		safeSyncReferenceImagePreview();
-		if (!projectPresentationSyncSuspended) {
+		if (!projectPresentationSyncSuspended && syncProjectPresentation) {
 			projectController?.syncProjectPresentation?.();
 		}
 		return uiSyncController?.updateUi();

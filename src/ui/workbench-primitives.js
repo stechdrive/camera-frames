@@ -381,6 +381,13 @@ export function IconButton({
 	type = "button",
 	tooltip = null,
 }) {
+	const handlePointerDown = (event) => {
+		event.stopPropagation();
+	};
+	const handleClick = (event) => {
+		event.stopPropagation();
+		onClick?.(event);
+	};
 	const classes = [
 		"button",
 		"button--icon",
@@ -398,7 +405,8 @@ export function IconButton({
 			class=${classes}
 			aria-label=${label}
 			disabled=${disabled}
-			onClick=${onClick}
+			onPointerDown=${handlePointerDown}
+			onClick=${handleClick}
 		>
 			<${WorkbenchIcon}
 				name=${icon}
