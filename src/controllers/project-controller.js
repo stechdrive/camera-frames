@@ -18,6 +18,7 @@ import {
 	saveCameraFramesWorkingState,
 	supportsWorkingProjectStateStorage,
 } from "../project-working-state.js";
+import { getProjectStatusDisplay } from "../ui/project-status.js";
 
 const DEFAULT_SOG_MAX_SH_BANDS = 2;
 const DEFAULT_SOG_ITERATIONS = 10;
@@ -429,11 +430,20 @@ export function createProjectController({
 		pendingAfterSuccessfulSave = null;
 	}
 
+	function getVisibleProjectSaveState(projectSnapshot = captureProjectState()) {
+		syncProjectPresentation(projectSnapshot);
+		const status = getProjectStatusDisplay(store, t);
+		return {
+			hasWorkingChanges: Boolean(status.projectDirty),
+			hasPortableChanges:
+				!status.projectDirty && Boolean(status.showProjectPackageDirty),
+		};
+	}
+
 	async function confirmBeforeReplacingProject(proceed) {
 		const projectSnapshot = captureProjectState();
-		const hasWorkingChanges = isProjectDirty(projectSnapshot);
-		const hasPortableChanges =
-			shouldWarnBeforeUnload(projectSnapshot) && !hasWorkingChanges;
+		const { hasWorkingChanges, hasPortableChanges } =
+			getVisibleProjectSaveState(projectSnapshot);
 		if (!hasWorkingChanges && !hasPortableChanges) {
 			await proceed?.();
 			return true;
@@ -1138,9 +1148,8 @@ export function createProjectController({
 
 	async function startNewProject() {
 		const projectSnapshot = captureProjectState();
-		const hasWorkingChanges = isProjectDirty(projectSnapshot);
-		const hasPortableChanges =
-			shouldWarnBeforeUnload(projectSnapshot) && !hasWorkingChanges;
+		const { hasWorkingChanges, hasPortableChanges } =
+			getVisibleProjectSaveState(projectSnapshot);
 		if (!hasWorkingChanges && !hasPortableChanges) {
 			await performNewProjectReset();
 			return;
