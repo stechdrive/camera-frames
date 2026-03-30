@@ -36,6 +36,8 @@ export function createRuntimeController({
 	isPackageDirty,
 	shouldWarnBeforeUnload,
 	syncProjectPresentation,
+	suspendProjectPresentationSync,
+	establishProjectDirtyBaseline,
 	undoHistory,
 	redoHistory,
 	clearSceneAssetSelection,
@@ -356,6 +358,7 @@ export function createRuntimeController({
 	}
 
 	function init() {
+		suspendProjectPresentationSync?.(true);
 		document.body.dataset.mode = state.mode;
 		store.sceneSummary.value = "";
 		store.sceneScaleSummary.value = "";
@@ -367,6 +370,8 @@ export function createRuntimeController({
 		applyInitialNavigateInteractionMode();
 		handleResize();
 		bindViewportInteractions();
+		suspendProjectPresentationSync?.(false);
+		establishProjectDirtyBaseline?.();
 		updateUi();
 		renderer.setAnimationLoop(animate);
 		loadStartupUrls();

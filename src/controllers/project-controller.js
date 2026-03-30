@@ -405,6 +405,13 @@ export function createProjectController({
 		store.project.packageDirty.value = isPackageDirty(projectSnapshot);
 	}
 
+	function establishProjectDirtyBaseline(
+		projectSnapshot = captureProjectState(),
+	) {
+		markCurrentProjectClean(projectSnapshot);
+		syncProjectPresentation(projectSnapshot);
+	}
+
 	function rememberProjectContext({
 		projectId = "",
 		packageRevision = 0,
@@ -1258,5 +1265,6 @@ export function createProjectController({
 		syncProjectPresentation,
 		handleProjectInputChange,
 		clearProjectContext,
+		establishProjectDirtyBaseline,
 	};
 }

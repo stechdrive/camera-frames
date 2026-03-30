@@ -338,6 +338,7 @@ export function createCameraFramesController(elements, store) {
 	let sceneFramingController = null;
 	let uiSyncController = null;
 	let viewportToolController = null;
+	let projectPresentationSyncSuspended = true;
 
 	function currentLocale() {
 		return store.locale.value;
@@ -998,6 +999,11 @@ export function createCameraFramesController(elements, store) {
 			projectController?.shouldWarnBeforeUnload?.() ?? false,
 		syncProjectPresentation: () =>
 			projectController?.syncProjectPresentation?.(),
+		suspendProjectPresentationSync: (nextSuspended) => {
+			projectPresentationSyncSuspended = Boolean(nextSuspended);
+		},
+		establishProjectDirtyBaseline: () =>
+			projectController?.establishProjectDirtyBaseline?.(),
 		saveProject: () => projectController?.saveProject(),
 		exportProject: () => projectController?.exportProject(),
 		undoHistory: () => historyController?.undoHistory(),
@@ -1445,7 +1451,9 @@ export function createCameraFramesController(elements, store) {
 	function updateUi() {
 		safeSyncReferenceImageUi();
 		safeSyncReferenceImagePreview();
-		projectController?.syncProjectPresentation?.();
+		if (!projectPresentationSyncSuspended) {
+			projectController?.syncProjectPresentation?.();
+		}
 		return uiSyncController?.updateUi();
 	}
 
