@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="cf-bg" x1="92" y1="80" x2="414" y2="436" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFAE1A" />
+      <stop offset="1" stop-color="#F29400" />
+    </linearGradient>
+    <linearGradient id="cf-mark" x1="146" y1="134" x2="384" y2="354" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFEA9E" />
+      <stop offset="0.54" stop-color="#FFD244" />
+      <stop offset="1" stop-color="#FFCD39" />
+    </linearGradient>
+    <radialGradient id="cf-mark-highlight" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(208 164) rotate(41) scale(164 198)">
+      <stop stop-color="#FFF4C1" stop-opacity="0.34" />
+      <stop offset="0.62" stop-color="#FFF4C1" stop-opacity="0.05" />
+      <stop offset="1" stop-color="#FFF1B3" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+
+  <rect x="40" y="40" width="432" height="432" rx="108" fill="url(#cf-bg)" />
+
+  <path
+    d="M308.17 149.73C285.87 131.37 258.05 122.02 228.07 122.02C157.04 122.02 103.9 177.64 103.9 251.17C103.9 324.7 157.04 380.32 228.07 380.32C299.1 380.32 352.24 329.08 352.24 260.23H275.56C272.99 293.99 253.35 314.59 227.34 314.59C194.11 314.59 169.57 287.31 169.57 250.8C169.57 214.29 194.11 187.01 227.34 187.01C243.85 187.01 258.78 194.04 269.46 207.23L308.17 149.73Z"
+    fill="url(#cf-mark)"
+    transform="translate(-26 16)"
+  />
+  <path
+    d="M308.17 149.73C285.87 131.37 258.05 122.02 228.07 122.02C157.04 122.02 103.9 177.64 103.9 251.17C103.9 324.7 157.04 380.32 228.07 380.32C299.1 380.32 352.24 329.08 352.24 260.23H275.56C272.99 293.99 253.35 314.59 227.34 314.59C194.11 314.59 169.57 287.31 169.57 250.8C169.57 214.29 194.11 187.01 227.34 187.01C243.85 187.01 258.78 194.04 269.46 207.23L308.17 149.73Z"
+    fill="url(#cf-mark-highlight)"
+    transform="translate(-26 16)"
+  />
+
+  <path
+    d="M391.02 104.8C346.94 104.8 321.62 129.39 321.62 170.86V184.18H379.64V178.26C379.64 167.91 386.79 160.76 398.37 160.76H419.08C440.53 160.76 455.7 149.17 458.66 104.8H391.02Z"
+    fill="url(#cf-mark)"
+    transform="translate(-26 16)"
+  />
+  <path
+    d="M391.02 104.8C346.94 104.8 321.62 129.39 321.62 170.86V184.18H379.64V178.26C379.64 167.91 386.79 160.76 398.37 160.76H419.08C440.53 160.76 455.7 149.17 458.66 104.8H391.02Z"
+    fill="url(#cf-mark-highlight)"
+    transform="translate(-26 16)"
+  />
+
+  <rect
+    x="274.27"
+    y="194.76"
+    width="165.8"
+    height="46.53"
+    rx="23.265"
+    fill="url(#cf-mark)"
+    transform="translate(-26 16)"
+  />
+  <rect
+    x="274.27"
+    y="194.76"
+    width="165.8"
+    height="46.53"
+    rx="23.265"
+    fill="url(#cf-mark-highlight)"
+    transform="translate(-26 16)"
+  />
+
+  <rect
+    x="331.24"
+    y="238.33"
+    width="58.09"
+    height="144.47"
+    rx="29.045"
+    fill="url(#cf-mark)"
+    transform="translate(-26 16)"
+  />
+  <rect
+    x="331.24"
+    y="238.33"
+    width="58.09"
+    height="144.47"
+    rx="29.045"
+    fill="url(#cf-mark-highlight)"
+    transform="translate(-28 18)"
+  />
+</svg>
