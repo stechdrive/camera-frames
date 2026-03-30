@@ -430,8 +430,7 @@ export function createProjectController({
 		pendingAfterSuccessfulSave = null;
 	}
 
-	function getVisibleProjectSaveState(projectSnapshot = captureProjectState()) {
-		syncProjectPresentation(projectSnapshot);
+	function getVisibleProjectSaveState() {
 		const status = getProjectStatusDisplay(store, t);
 		return {
 			hasWorkingChanges: Boolean(status.projectDirty),
@@ -441,9 +440,8 @@ export function createProjectController({
 	}
 
 	async function confirmBeforeReplacingProject(proceed) {
-		const projectSnapshot = captureProjectState();
 		const { hasWorkingChanges, hasPortableChanges } =
-			getVisibleProjectSaveState(projectSnapshot);
+			getVisibleProjectSaveState();
 		if (!hasWorkingChanges && !hasPortableChanges) {
 			await proceed?.();
 			return true;
@@ -1147,9 +1145,8 @@ export function createProjectController({
 	}
 
 	async function startNewProject() {
-		const projectSnapshot = captureProjectState();
 		const { hasWorkingChanges, hasPortableChanges } =
-			getVisibleProjectSaveState(projectSnapshot);
+			getVisibleProjectSaveState();
 		if (!hasWorkingChanges && !hasPortableChanges) {
 			await performNewProjectReset();
 			return;

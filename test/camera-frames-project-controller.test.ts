@@ -162,6 +162,7 @@ function createHarness(overrides = {}) {
 			referenceImages: createDefaultReferenceImageDocument(),
 		},
 	});
+	harness.projectController.syncProjectPresentation();
 	const archive = await buildCameraFramesProjectArchive({
 		workspace: {
 			activeShotCameraId: "",
@@ -320,6 +321,7 @@ function createHarness(overrides = {}) {
 			referenceImages: createDefaultReferenceImageDocument(),
 		},
 	});
+	harness.projectController.syncProjectPresentation();
 	await harness.projectController.startNewProject();
 	assert.equal(harness.resetProjectWorkspaceCalls.length, 1);
 	assert.equal(harness.store.overlay.value?.kind, "confirm");

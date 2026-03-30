@@ -1,7 +1,6 @@
 import { html } from "htm/preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import { getAnchorOptions } from "../i18n.js";
-import { getProjectStatusDisplay } from "./project-status.js";
 import { WorkbenchIcon } from "./workbench-icons.js";
 import { HeaderMenu, IconButton } from "./workbench-primitives.js";
 import {
@@ -112,8 +111,6 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 	const exportBusy = store.exportBusy.value;
 	const exportTarget = store.exportOptions.target.value;
 	const exportPresetIds = store.exportOptions.presetIds.value;
-	const { projectDisplayName, projectDirty, showProjectPackageDirty } =
-		getProjectStatusDisplay(store, t);
 	const exportSelectionMissing =
 		exportTarget === "selected" && exportPresetIds.length === 0;
 	const anchorOptions = getAnchorOptions(locale);
@@ -254,41 +251,7 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 			onClick: () => controller()?.exportProject(),
 		},
 	];
-	const renderProjectStatus = (className = "") => html`
-		<div
-			class=${
-				className
-					? `workbench-project-status ${className}`
-					: "workbench-project-status"
-			}
-		>
-			<span class="workbench-project-status__name">${projectDisplayName}</span>
-			${
-				projectDirty &&
-				html`
-					<span
-						class="workbench-project-status__badge"
-						title=${t("project.dirtyHint")}
-					>
-						*
-					</span>
-				`
-			}
-			${
-				showProjectPackageDirty &&
-				html`
-					<span
-						class="workbench-project-status__badge workbench-project-status__badge--package"
-						title=${t("project.packageHint")}
-					>
-						PKG
-					</span>
-				`
-			}
-		</div>
-	`;
 	const fileMenuChildren = html`
-		${renderProjectStatus("workbench-project-status--menu")}
 		<div class="workbench-menu__group">
 			<div class="workbench-menu__field">
 				<label for="header-url-input">${t("field.remoteUrl")}</label>
@@ -834,7 +797,6 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 											<${WorkbenchIcon} name="close" size=${14} />
 										</button>
 									</div>
-									${renderProjectStatus()}
 									<div class="workbench-inspector-stack workbench-inspector-stack--mobile">
 										${renderInspectorContent(activeInspectorTab)}
 									</div>
@@ -937,7 +899,6 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 											<${WorkbenchIcon} name="chevron-right" size=${14} />
 										</button>
 									</div>
-									${renderProjectStatus()}
 									<div class="workbench-inspector-tab-title">
 										<span class="workbench-inspector-tab-title__icon">
 											<${WorkbenchIcon}
