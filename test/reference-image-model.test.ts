@@ -8,7 +8,14 @@ import {
 	createShotCameraReferenceImagesState,
 	getReferenceImageCompositeItems,
 	getReferenceImageDisplayItems,
+	getReferenceImageOrderForImportIndex,
 } from "../src/reference-image-model.js";
+
+assert.equal(getReferenceImageOrderForImportIndex(0, 0), 0);
+assert.equal(getReferenceImageOrderForImportIndex(1, 0), 1);
+assert.equal(getReferenceImageOrderForImportIndex(2, 0), 2);
+assert.equal(getReferenceImageOrderForImportIndex(0, 4), 4);
+assert.equal(getReferenceImageOrderForImportIndex(1, 4), 5);
 
 {
 	const asset = createReferenceImageAsset(null);

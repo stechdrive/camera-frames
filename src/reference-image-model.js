@@ -255,6 +255,18 @@ export function getReferenceImageDisplayItems(items = [], group = null) {
 	return [...getReferenceImageEntriesForCompositeOrder(items, group)].reverse();
 }
 
+export function getReferenceImageOrderForImportIndex(
+	importIndex,
+	existingGroupCount = 0,
+) {
+	const normalizedIndex = Math.max(0, Math.floor(Number(importIndex) || 0));
+	const normalizedExistingCount = Math.max(
+		0,
+		Math.floor(Number(existingGroupCount) || 0),
+	);
+	return normalizedExistingCount + normalizedIndex;
+}
+
 function sortReferenceImageItemsInPlace(items) {
 	const nextItems = getReferenceImageCompositeItems(items);
 	let backIndex = 0;
