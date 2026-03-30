@@ -3770,10 +3770,12 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	align-items: center;
 	gap: 0.48rem;
 	min-width: 0;
+	cursor: grab;
 }
 
 .scene-asset-row__main--flat {
 	grid-template-columns: minmax(0, 1fr);
+	cursor: pointer;
 }
 
 .scene-asset-row__handle {
@@ -3785,6 +3787,7 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	color: var(--text-dim);
 	user-select: none;
 	flex: 0 0 auto;
+	cursor: grab;
 }
 
 .scene-asset-row__title-group {

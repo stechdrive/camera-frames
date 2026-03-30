@@ -147,6 +147,7 @@ const MESSAGES = {
 		},
 		selection: {
 			multipleSceneAssetsTitle: "{count}件の3Dオブジェクト",
+			multipleReferenceImagesTitle: "{count}件の下絵",
 		},
 		viewportTool: {
 			moveCenter: "移動",
@@ -687,6 +688,7 @@ const MESSAGES = {
 		},
 		selection: {
 			multipleSceneAssetsTitle: "{count} selected 3D objects",
+			multipleReferenceImagesTitle: "{count} selected references",
 		},
 		viewportTool: {
 			moveCenter: "Move",

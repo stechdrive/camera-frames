@@ -1006,6 +1006,169 @@ export function createReferenceImageController({
 		);
 	}
 
+	function applyReferenceImageSelectionMoveDelta(
+		selectionState,
+		deltaLogicalX,
+		deltaLogicalY,
+	) {
+		if (!selectionState) {
+			return false;
+		}
+		if (selectionState.geometries.length > 1) {
+			setStoredSelectionBox(
+				{
+					...selectionState.selectionBoxLogical,
+					left: selectionState.selectionBoxLogical.left + deltaLogicalX,
+					top: selectionState.selectionBoxLogical.top + deltaLogicalY,
+				},
+				selectionState.context,
+				selectionState.anchorLocal,
+			);
+		}
+		return applyGeometryUpdates(
+			selectionState.geometries,
+			(geometry, context) => {
+				const nextEffectiveOffset = {
+					x: geometry.effectiveOffset.x - deltaLogicalX,
+					y: geometry.effectiveOffset.y - deltaLogicalY,
+				};
+				const nextOffset = removeRenderBoxOffsetCorrection(
+					nextEffectiveOffset,
+					geometry.item.anchor,
+					context.resolved.preset.baseRenderBox,
+					context.outputSize,
+					context.renderBoxAnchor,
+					context.resolved.override?.renderBoxCorrection ?? null,
+				);
+				return {
+					offsetPx: {
+						x: Math.round(nextOffset.x),
+						y: Math.round(nextOffset.y),
+					},
+				};
+			},
+		);
+	}
+
+	function applyReferenceImageSelectionRotationDelta(
+		selectionState,
+		deltaAngleDeg,
+	) {
+		if (!selectionState) {
+			return false;
+		}
+		const deltaAngleRad = (deltaAngleDeg * Math.PI) / 180;
+		const pivot = selectionState.pivot;
+		if (selectionState.geometries.length > 1) {
+			setStoredSelectionBox(
+				{
+					...selectionState.selectionBoxLogical,
+					rotationDeg:
+						(selectionState.selectionBoxLogical.rotationDeg ?? 0) +
+						deltaAngleDeg,
+				},
+				selectionState.context,
+				selectionState.anchorLocal,
+			);
+		}
+		return applyGeometryUpdates(
+			selectionState.geometries,
+			(geometry, context) => {
+				const deltaX = geometry.anchorPoint.x - pivot.x;
+				const deltaY = geometry.anchorPoint.y - pivot.y;
+				const cosine = Math.cos(deltaAngleRad);
+				const sine = Math.sin(deltaAngleRad);
+				const nextAnchorPoint = {
+					x: pivot.x + deltaX * cosine - deltaY * sine,
+					y: pivot.y + deltaX * sine + deltaY * cosine,
+				};
+				const nextEffectiveOffset = {
+					x: geometry.itemAnchorPx.x - nextAnchorPoint.x,
+					y: geometry.itemAnchorPx.y - nextAnchorPoint.y,
+				};
+				const nextOffset = removeRenderBoxOffsetCorrection(
+					nextEffectiveOffset,
+					geometry.item.anchor,
+					context.resolved.preset.baseRenderBox,
+					context.outputSize,
+					context.renderBoxAnchor,
+					context.resolved.override?.renderBoxCorrection ?? null,
+				);
+				return {
+					rotationDeg: geometry.item.rotationDeg + deltaAngleDeg,
+					offsetPx: {
+						x: Math.round(nextOffset.x),
+						y: Math.round(nextOffset.y),
+					},
+				};
+			},
+		);
+	}
+
+	function applyReferenceImageSelectionScaleRatio(
+		selectionState,
+		scaleRatio,
+		pivotOverride = null,
+	) {
+		if (!selectionState) {
+			return false;
+		}
+		const pivot = pivotOverride ?? selectionState.pivot;
+		if (selectionState.geometries.length > 1) {
+			const nextWidth = Math.max(
+				selectionState.selectionBoxLogical.width * scaleRatio,
+				1e-6,
+			);
+			const nextHeight = Math.max(
+				selectionState.selectionBoxLogical.height * scaleRatio,
+				1e-6,
+			);
+			const nextSelectionPivot = {
+				x: pivot.x + (selectionState.pivot.x - pivot.x) * scaleRatio,
+				y: pivot.y + (selectionState.pivot.y - pivot.y) * scaleRatio,
+			};
+			setStoredSelectionBox(
+				{
+					...selectionState.selectionBoxLogical,
+					left: nextSelectionPivot.x - nextWidth * selectionState.anchorLocal.x,
+					top: nextSelectionPivot.y - nextHeight * selectionState.anchorLocal.y,
+					width: nextWidth,
+					height: nextHeight,
+				},
+				selectionState.context,
+				selectionState.anchorLocal,
+			);
+		}
+		return applyGeometryUpdates(
+			selectionState.geometries,
+			(geometry, context) => {
+				const nextAnchorPoint = {
+					x: pivot.x + (geometry.anchorPoint.x - pivot.x) * scaleRatio,
+					y: pivot.y + (geometry.anchorPoint.y - pivot.y) * scaleRatio,
+				};
+				const nextEffectiveOffset = {
+					x: geometry.itemAnchorPx.x - nextAnchorPoint.x,
+					y: geometry.itemAnchorPx.y - nextAnchorPoint.y,
+				};
+				const nextOffset = removeRenderBoxOffsetCorrection(
+					nextEffectiveOffset,
+					geometry.item.anchor,
+					context.resolved.preset.baseRenderBox,
+					context.outputSize,
+					context.renderBoxAnchor,
+					context.resolved.override?.renderBoxCorrection ?? null,
+				);
+				return {
+					scalePct: geometry.item.scalePct * scaleRatio,
+					offsetPx: {
+						x: Math.round(nextOffset.x),
+						y: Math.round(nextOffset.y),
+					},
+				};
+			},
+		);
+	}
+
 	function stopReferenceImageDrag({
 		shouldCommit = false,
 		label = referenceImageDragState?.historyLabel,
@@ -1990,6 +2153,32 @@ export function createReferenceImageController({
 		return true;
 	}
 
+	function setSelectedReferenceImagesOpacity(nextOpacityPercent) {
+		const selectedItemIdSet = new Set(getSelectedItemIds());
+		if (selectedItemIdSet.size === 0) {
+			return false;
+		}
+		const numericValue = Math.round(Number(nextOpacityPercent));
+		if (!Number.isFinite(numericValue)) {
+			return false;
+		}
+		const clampedOpacity = Math.max(0, Math.min(1, numericValue / 100));
+		const documentState = getDocument();
+		const resolved = getResolvedShotItems(documentState);
+		runReferenceImageHistoryAction("reference-image.opacity", () => {
+			const nextItems = resolved.items.map((item) =>
+				selectedItemIdSet.has(item.id)
+					? createReferenceImageItem({
+							...item,
+							opacity: clampedOpacity,
+						})
+					: item,
+			);
+			commitResolvedItems(documentState, resolved, nextItems);
+		});
+		return true;
+	}
+
 	function setReferenceImageOpacity(itemId, nextOpacityPercent) {
 		const numericValue = Math.round(Number(nextOpacityPercent));
 		if (!Number.isFinite(numericValue)) {
@@ -2042,6 +2231,68 @@ export function createReferenceImageController({
 					},
 				}));
 			},
+		);
+	}
+
+	function offsetSelectedReferenceImagesPosition(axis, deltaValue) {
+		const normalizedAxis = axis === "y" ? "y" : "x";
+		const numericDelta = Number(deltaValue);
+		if (!Number.isFinite(numericDelta) || Math.abs(numericDelta) <= 1e-8) {
+			return false;
+		}
+		const selectionState = buildSelectionTransformState();
+		if (!selectionState) {
+			return false;
+		}
+		return (
+			runReferenceImageHistoryAction(
+				`reference-image.offset.${normalizedAxis}`,
+				() =>
+					applyReferenceImageSelectionMoveDelta(
+						selectionState,
+						normalizedAxis === "x" ? numericDelta : 0,
+						normalizedAxis === "y" ? numericDelta : 0,
+					),
+			) ?? false
+		);
+	}
+
+	function offsetSelectedReferenceImagesRotationDeg(deltaAngleDeg) {
+		const numericDelta = Number(deltaAngleDeg);
+		if (!Number.isFinite(numericDelta) || Math.abs(numericDelta) <= 1e-8) {
+			return false;
+		}
+		const selectionState = buildSelectionTransformState();
+		if (!selectionState) {
+			return false;
+		}
+		return (
+			runReferenceImageHistoryAction("reference-image.rotation", () =>
+				applyReferenceImageSelectionRotationDelta(selectionState, numericDelta),
+			) ?? false
+		);
+	}
+
+	function scaleSelectedReferenceImagesByFactor(scaleFactor) {
+		const numericScaleFactor = Number(scaleFactor);
+		if (
+			!Number.isFinite(numericScaleFactor) ||
+			numericScaleFactor <= 0 ||
+			Math.abs(numericScaleFactor - 1) <= 1e-8
+		) {
+			return false;
+		}
+		const selectionState = buildSelectionTransformState();
+		if (!selectionState) {
+			return false;
+		}
+		return (
+			runReferenceImageHistoryAction("reference-image.scale", () =>
+				applyReferenceImageSelectionScaleRatio(
+					selectionState,
+					numericScaleFactor,
+				),
+			) ?? false
 		);
 	}
 
@@ -2417,37 +2668,11 @@ export function createReferenceImageController({
 				referenceImageDragState.dragActivated = true;
 				beginHistoryTransaction("reference-image.move");
 			}
-			if (selectionState.geometries.length > 1) {
-				setStoredSelectionBox(
-					{
-						...selectionState.selectionBoxLogical,
-						left: selectionState.selectionBoxLogical.left + deltaLogicalX,
-						top: selectionState.selectionBoxLogical.top + deltaLogicalY,
-					},
-					selectionState.context,
-					selectionState.anchorLocal,
-				);
-			}
-			applyGeometryUpdates(selectionState.geometries, (geometry, context) => {
-				const nextEffectiveOffset = {
-					x: geometry.effectiveOffset.x - deltaLogicalX,
-					y: geometry.effectiveOffset.y - deltaLogicalY,
-				};
-				const nextOffset = removeRenderBoxOffsetCorrection(
-					nextEffectiveOffset,
-					geometry.item.anchor,
-					context.resolved.preset.baseRenderBox,
-					context.outputSize,
-					context.renderBoxAnchor,
-					context.resolved.override?.renderBoxCorrection ?? null,
-				);
-				return {
-					offsetPx: {
-						x: Math.round(nextOffset.x),
-						y: Math.round(nextOffset.y),
-					},
-				};
-			});
+			applyReferenceImageSelectionMoveDelta(
+				selectionState,
+				deltaLogicalX,
+				deltaLogicalY,
+			);
 			return;
 		}
 
@@ -2462,49 +2687,7 @@ export function createReferenceImageController({
 			const deltaAngleDeg = normalizeAngleDeltaDeg(
 				nextPointerAngleDeg - referenceImageDragState.startPointerAngleDeg,
 			);
-			const deltaAngleRad = (deltaAngleDeg * Math.PI) / 180;
-			const pivot = selectionState.pivot;
-			if (selectionState.geometries.length > 1) {
-				setStoredSelectionBox(
-					{
-						...selectionState.selectionBoxLogical,
-						rotationDeg:
-							(selectionState.selectionBoxLogical.rotationDeg ?? 0) +
-							deltaAngleDeg,
-					},
-					selectionState.context,
-					selectionState.anchorLocal,
-				);
-			}
-			applyGeometryUpdates(selectionState.geometries, (geometry, context) => {
-				const deltaX = geometry.anchorPoint.x - pivot.x;
-				const deltaY = geometry.anchorPoint.y - pivot.y;
-				const cosine = Math.cos(deltaAngleRad);
-				const sine = Math.sin(deltaAngleRad);
-				const nextAnchorPoint = {
-					x: pivot.x + deltaX * cosine - deltaY * sine,
-					y: pivot.y + deltaX * sine + deltaY * cosine,
-				};
-				const nextEffectiveOffset = {
-					x: geometry.itemAnchorPx.x - nextAnchorPoint.x,
-					y: geometry.itemAnchorPx.y - nextAnchorPoint.y,
-				};
-				const nextOffset = removeRenderBoxOffsetCorrection(
-					nextEffectiveOffset,
-					geometry.item.anchor,
-					context.resolved.preset.baseRenderBox,
-					context.outputSize,
-					context.renderBoxAnchor,
-					context.resolved.override?.renderBoxCorrection ?? null,
-				);
-				return {
-					rotationDeg: geometry.item.rotationDeg + deltaAngleDeg,
-					offsetPx: {
-						x: Math.round(nextOffset.x),
-						y: Math.round(nextOffset.y),
-					},
-				};
-			});
+			applyReferenceImageSelectionRotationDelta(selectionState, deltaAngleDeg);
 			return;
 		}
 
@@ -2522,59 +2705,11 @@ export function createReferenceImageController({
 				currentProjection /
 					Math.max(referenceImageDragState.startProjectionDistance, 1e-6),
 			);
-			const pivot = referenceImageDragState.anchorLogical;
-			if (selectionState.geometries.length > 1) {
-				const nextWidth = Math.max(
-					selectionState.selectionBoxLogical.width * scaleRatio,
-					1e-6,
-				);
-				const nextHeight = Math.max(
-					selectionState.selectionBoxLogical.height * scaleRatio,
-					1e-6,
-				);
-				const nextSelectionPivot = {
-					x: pivot.x + (selectionState.pivot.x - pivot.x) * scaleRatio,
-					y: pivot.y + (selectionState.pivot.y - pivot.y) * scaleRatio,
-				};
-				setStoredSelectionBox(
-					{
-						...selectionState.selectionBoxLogical,
-						left:
-							nextSelectionPivot.x - nextWidth * selectionState.anchorLocal.x,
-						top:
-							nextSelectionPivot.y - nextHeight * selectionState.anchorLocal.y,
-						width: nextWidth,
-						height: nextHeight,
-					},
-					selectionState.context,
-					selectionState.anchorLocal,
-				);
-			}
-			applyGeometryUpdates(selectionState.geometries, (geometry, context) => {
-				const nextAnchorPoint = {
-					x: pivot.x + (geometry.anchorPoint.x - pivot.x) * scaleRatio,
-					y: pivot.y + (geometry.anchorPoint.y - pivot.y) * scaleRatio,
-				};
-				const nextEffectiveOffset = {
-					x: geometry.itemAnchorPx.x - nextAnchorPoint.x,
-					y: geometry.itemAnchorPx.y - nextAnchorPoint.y,
-				};
-				const nextOffset = removeRenderBoxOffsetCorrection(
-					nextEffectiveOffset,
-					geometry.item.anchor,
-					context.resolved.preset.baseRenderBox,
-					context.outputSize,
-					context.renderBoxAnchor,
-					context.resolved.override?.renderBoxCorrection ?? null,
-				);
-				return {
-					scalePct: geometry.item.scalePct * scaleRatio,
-					offsetPx: {
-						x: Math.round(nextOffset.x),
-						y: Math.round(nextOffset.y),
-					},
-				};
-			});
+			applyReferenceImageSelectionScaleRatio(
+				selectionState,
+				scaleRatio,
+				referenceImageDragState.anchorLogical,
+			);
 			return;
 		}
 
@@ -2752,9 +2887,13 @@ export function createReferenceImageController({
 		setSelectedReferenceImagesPreviewVisible,
 		setReferenceImageExportEnabled,
 		setSelectedReferenceImagesExportEnabled,
+		setSelectedReferenceImagesOpacity,
 		setReferenceImageOpacity,
+		scaleSelectedReferenceImagesByFactor,
 		setReferenceImageScalePct,
+		offsetSelectedReferenceImagesRotationDeg,
 		setReferenceImageRotationDeg,
+		offsetSelectedReferenceImagesPosition,
 		setReferenceImageOffsetPx,
 		setReferenceImageGroup,
 		setReferenceImageOrder,

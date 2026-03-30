@@ -1603,6 +1603,7 @@ export function ReferenceManagerSection({
 								: t("action.showSelectedReferenceImages")
 						}
 						disabled=${!selectedItems.length}
+						active=${selectedItems.length > 0 && allSelectedPreviewVisible}
 						onClick=${() =>
 							controller()?.setSelectedReferenceImagesPreviewVisible?.(
 								!allSelectedPreviewVisible,
@@ -1617,6 +1618,7 @@ export function ReferenceManagerSection({
 								: t("action.includeSelectedReferenceImagesInExport")
 						}
 						disabled=${!selectedItems.length}
+						active=${selectedItems.length > 0 && allSelectedExportEnabled}
 						onClick=${() =>
 							controller()?.setSelectedReferenceImagesExportEnabled?.(
 								!allSelectedExportEnabled,
@@ -1641,7 +1643,6 @@ export function ReferenceManagerSection({
 													<article
 														key=${item.id}
 														class=${getRowClass(item.id)}
-														draggable="true"
 														onClick=${(event) =>
 															controller()?.selectReferenceImageItem?.(
 																item.id,
@@ -1654,15 +1655,6 @@ export function ReferenceManagerSection({
 																	),
 																},
 															)}
-														onDragStart=${(event) => {
-															setDraggedItemId(item.id);
-															setDragHoverState(null);
-															event.dataTransfer.effectAllowed = "move";
-															event.dataTransfer.setData(
-																"text/plain",
-																String(item.id),
-															);
-														}}
 														onDragOver=${(event) => {
 															event.preventDefault();
 															event.dataTransfer.dropEffect = "move";
@@ -1703,7 +1695,23 @@ export function ReferenceManagerSection({
 															setDragHoverState(null);
 														}}
 													>
-														<div class="scene-asset-row__main">
+														<div
+															class="scene-asset-row__main"
+															draggable="true"
+															onDragStart=${(event) => {
+																setDraggedItemId(item.id);
+																setDragHoverState(null);
+																event.dataTransfer.effectAllowed = "move";
+																event.dataTransfer.setData(
+																	"text/plain",
+																	String(item.id),
+																);
+															}}
+															onDragEnd=${() => {
+																setDraggedItemId(null);
+																setDragHoverState(null);
+															}}
+														>
 															<span class="scene-asset-row__handle" aria-hidden="true">
 																<${WorkbenchIcon}
 																	name="grip"
@@ -1713,9 +1721,6 @@ export function ReferenceManagerSection({
 															</span>
 															<div class="scene-asset-row__title-group">
 																<strong>${item.name}</strong>
-																<span class="scene-asset-row__meta">
-																	${item.fileName || t("referenceImage.untitled")}
-																</span>
 															</div>
 														</div>
 														<div class="scene-asset-row__toolbar">
@@ -1764,6 +1769,7 @@ export function ReferenceManagerSection({
 																			)
 																		: t("action.includeReferenceImageInExport")
 																}
+																active=${item.exportEnabled}
 																compact=${true}
 																className="scene-asset-row__icon-button"
 																onClick=${(event) => {
@@ -1800,6 +1806,8 @@ function ReferencePropertyInlineField({
 	controller,
 	historyLabel,
 	onCommit,
+	onScrubDelta = null,
+	scrubStartValue = null,
 	inputMode = "decimal",
 	min = undefined,
 	max = undefined,
@@ -1820,6 +1828,8 @@ function ReferencePropertyInlineField({
 					controller=${controller}
 					historyLabel=${historyLabel}
 					disabled=${disabled}
+					onScrubDelta=${onScrubDelta}
+					scrubStartValue=${scrubStartValue}
 					onCommit=${onCommit}
 				/>
 			</div>
@@ -1835,12 +1845,43 @@ export function ReferencePropertiesSection({
 	store,
 	t,
 }) {
-	const assets = store.referenceImages.assets.value;
 	const items = store.referenceImages.items.value;
 	const selectedItemId = store.referenceImages.selectedItemId.value;
-	const selectedItem = items.find((item) => item.id === selectedItemId) ?? null;
-	const selectedAsset =
-		assets.find((asset) => asset.id === (selectedItem?.assetId ?? "")) ?? null;
+	const selectedItemIds = store.referenceImages.selectedItemIds.value ?? [];
+	const selectedItemIdSet = new Set(selectedItemIds);
+	const selectedItems = items.filter((item) => selectedItemIdSet.has(item.id));
+	const selectionCount = selectedItems.length;
+	const selectionSignature = selectedItemIds.join("|");
+	const selectionBaselineRef = useRef({
+		signature: "",
+		items: new Map(),
+	});
+
+	if (selectionBaselineRef.current.signature !== selectionSignature) {
+		selectionBaselineRef.current = {
+			signature: selectionSignature,
+			items: new Map(
+				selectedItems.map((item) => [
+					item.id,
+					{
+						opacityPct: Math.round(Number(item.opacity ?? 1) * 100),
+						scalePct: Number(item.scalePct ?? 100),
+						offsetPx: {
+							x: Number(item.offsetPx?.x ?? 0),
+							y: Number(item.offsetPx?.y ?? 0),
+						},
+						rotationDeg: Number(item.rotationDeg ?? 0),
+					},
+				]),
+			),
+		};
+	}
+
+	const selectionBaseline = selectionBaselineRef.current;
+	const selectedItem =
+		selectedItems.find((item) => item.id === selectedItemId) ??
+		selectedItems[0] ??
+		null;
 
 	const renderContent = (content) => html`
 		<${DisclosureBlock}
@@ -1855,7 +1896,7 @@ export function ReferencePropertiesSection({
 		<//>
 	`;
 
-	if (!selectedItem || !selectedAsset) {
+	if (!selectedItem || selectionCount === 0) {
 		return renderContent(html`
 			<div class="reference-properties-panel">
 				<div class="camera-property-inline-row camera-property-inline-row--no-label">
@@ -1910,12 +1951,228 @@ export function ReferencePropertiesSection({
 		`);
 	}
 
+	function formatDeltaInputValue(value) {
+		if (!Number.isFinite(value)) {
+			return "--";
+		}
+		return `${value >= 0 ? "+" : ""}${Number(value).toFixed(2)}`;
+	}
+
+	function normalizeDeltaDegrees(value) {
+		const numericValue = Number(value);
+		if (!Number.isFinite(numericValue)) {
+			return 0;
+		}
+		const wrapped = ((((numericValue + 180) % 360) + 360) % 360) - 180;
+		return wrapped === -180 ? 180 : wrapped;
+	}
+
+	function getSharedSelectionDelta(getValue, { normalize = null } = {}) {
+		let sharedValue = null;
+		for (const item of selectedItems) {
+			const baselineItem = selectionBaseline.items.get(item.id);
+			if (!baselineItem) {
+				return null;
+			}
+			let nextValue = getValue(item, baselineItem);
+			if (normalize) {
+				nextValue = normalize(nextValue);
+			}
+			if (!Number.isFinite(nextValue)) {
+				return null;
+			}
+			if (sharedValue === null) {
+				sharedValue = nextValue;
+				continue;
+			}
+			if (Math.abs(sharedValue - nextValue) > 1e-4) {
+				return null;
+			}
+		}
+		return sharedValue;
+	}
+
+	if (selectionCount > 1) {
+		const currentScaleFactor = getSharedSelectionDelta(
+			(item, baselineItem) =>
+				Number(item.scalePct ?? 100) / Number(baselineItem.scalePct ?? 100),
+		);
+		const currentOffsetX = getSharedSelectionDelta(
+			(item, baselineItem) =>
+				Number(item.offsetPx?.x ?? 0) - Number(baselineItem.offsetPx?.x ?? 0),
+		);
+		const currentOffsetY = getSharedSelectionDelta(
+			(item, baselineItem) =>
+				Number(item.offsetPx?.y ?? 0) - Number(baselineItem.offsetPx?.y ?? 0),
+		);
+		const currentRotation = getSharedSelectionDelta(
+			(item, baselineItem) =>
+				Number(item.rotationDeg ?? 0) - Number(baselineItem.rotationDeg ?? 0),
+			{ normalize: normalizeDeltaDegrees },
+		);
+
+		return renderContent(html`
+			<div class="reference-properties-panel">
+				<p class="summary"
+					>${t("selection.multipleReferenceImagesTitle", {
+						count: selectionCount,
+					})}</p
+				>
+				<div class="camera-property-inline-row camera-property-inline-row--no-label">
+					<div class="camera-property-inline-row__content camera-property-inline-row__content--pair">
+						<${ReferencePropertyInlineField}
+							prefix=${t("field.referenceImageOpacity")}
+							id="reference-opacity-multi"
+							value=""
+							controller=${controller}
+							historyLabel="reference-image.opacity"
+							disabled=${true}
+						/>
+						<${ReferencePropertyInlineField}
+							prefix=${t("field.assetScale")}
+							id="reference-scale-multi"
+							value=${
+								Number.isFinite(currentScaleFactor)
+									? formatDeltaInputValue(
+											(Number(currentScaleFactor) - 1) * 100,
+										)
+									: "--"
+							}
+							scrubStartValue=${
+								Number.isFinite(currentScaleFactor)
+									? (Number(currentScaleFactor) - 1) * 100
+									: 0
+							}
+							controller=${controller}
+							historyLabel="reference-image.scale"
+							step="0.01"
+							onScrubDelta=${(deltaValue) => {
+								const scaleDelta = deltaValue / 100;
+								controller()?.scaleSelectedReferenceImagesByFactor?.(
+									Math.max(0.01, 1 + scaleDelta),
+								);
+							}}
+							onCommit=${(nextValue) => {
+								const numericValue = Number(nextValue);
+								if (
+									!Number.isFinite(numericValue) ||
+									Math.abs(numericValue) <= 1e-8
+								) {
+									return;
+								}
+								const currentFactor = Number.isFinite(currentScaleFactor)
+									? currentScaleFactor
+									: 1;
+								const targetScaleFactor = Math.max(
+									0.01,
+									1 + numericValue / 100,
+								);
+								controller()?.scaleSelectedReferenceImagesByFactor?.(
+									Math.max(0.01, targetScaleFactor / currentFactor),
+								);
+							}}
+						/>
+					</div>
+				</div>
+				<div class="camera-property-inline-row camera-property-inline-row--no-label">
+					<div class="camera-property-inline-row__content camera-property-inline-row__content--triplet">
+						<${ReferencePropertyInlineField}
+							prefix="X"
+							id="reference-offset-x-multi"
+							value=${formatDeltaInputValue(currentOffsetX)}
+							scrubStartValue=${Number.isFinite(currentOffsetX) ? currentOffsetX : 0}
+							controller=${controller}
+							historyLabel="reference-image.offset.x"
+							step="1"
+							onScrubDelta=${(deltaValue) =>
+								controller()?.offsetSelectedReferenceImagesPosition?.(
+									"x",
+									deltaValue,
+								)}
+							onCommit=${(nextValue) => {
+								const numericValue = Number(nextValue);
+								if (
+									!Number.isFinite(numericValue) ||
+									Math.abs(numericValue) <= 1e-8
+								) {
+									return;
+								}
+								const currentValue = Number.isFinite(currentOffsetX)
+									? currentOffsetX
+									: 0;
+								controller()?.offsetSelectedReferenceImagesPosition?.(
+									"x",
+									numericValue - currentValue,
+								);
+							}}
+						/>
+						<${ReferencePropertyInlineField}
+							prefix="Y"
+							id="reference-offset-y-multi"
+							value=${formatDeltaInputValue(currentOffsetY)}
+							scrubStartValue=${Number.isFinite(currentOffsetY) ? currentOffsetY : 0}
+							controller=${controller}
+							historyLabel="reference-image.offset.y"
+							step="1"
+							onScrubDelta=${(deltaValue) =>
+								controller()?.offsetSelectedReferenceImagesPosition?.(
+									"y",
+									deltaValue,
+								)}
+							onCommit=${(nextValue) => {
+								const numericValue = Number(nextValue);
+								if (
+									!Number.isFinite(numericValue) ||
+									Math.abs(numericValue) <= 1e-8
+								) {
+									return;
+								}
+								const currentValue = Number.isFinite(currentOffsetY)
+									? currentOffsetY
+									: 0;
+								controller()?.offsetSelectedReferenceImagesPosition?.(
+									"y",
+									numericValue - currentValue,
+								);
+							}}
+						/>
+						<${ReferencePropertyInlineField}
+							prefix=${t("field.assetRotation")}
+							id="reference-rotation-multi"
+							value=${formatDeltaInputValue(currentRotation)}
+							scrubStartValue=${Number.isFinite(currentRotation) ? currentRotation : 0}
+							controller=${controller}
+							historyLabel="reference-image.rotation"
+							step="0.01"
+							onScrubDelta=${(deltaValue) =>
+								controller()?.offsetSelectedReferenceImagesRotationDeg?.(
+									deltaValue,
+								)}
+							onCommit=${(nextValue) => {
+								const numericValue = Number(nextValue);
+								if (
+									!Number.isFinite(numericValue) ||
+									Math.abs(numericValue) <= 1e-8
+								) {
+									return;
+								}
+								const currentValue = Number.isFinite(currentRotation)
+									? currentRotation
+									: 0;
+								controller()?.offsetSelectedReferenceImagesRotationDeg?.(
+									numericValue - currentValue,
+								);
+							}}
+						/>
+					</div>
+				</div>
+			</div>
+		`);
+	}
+
 	return renderContent(html`
 		<div class="reference-properties-panel">
-			<p class="summary">
-				${selectedItem.name} ·
-				${selectedAsset.fileName || t("referenceImage.untitled")}
-			</p>
+			<p class="summary">${selectedItem.name}</p>
 			<div class="camera-property-inline-row camera-property-inline-row--no-label">
 				<div class="camera-property-inline-row__content camera-property-inline-row__content--pair">
 					<${ReferencePropertyInlineField}
