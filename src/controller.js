@@ -1770,16 +1770,28 @@ export function createCameraFramesController(elements, store) {
 		setReferenceImageOpacity: referenceImageController.setReferenceImageOpacity,
 		scaleSelectedReferenceImagesByFactor:
 			referenceImageController.scaleSelectedReferenceImagesByFactor,
+		applySelectedReferenceImagesScaleFromSession:
+			referenceImageController.applySelectedReferenceImagesScaleFromSession,
 		setReferenceImageScalePct:
 			referenceImageController.setReferenceImageScalePct,
 		offsetSelectedReferenceImagesRotationDeg:
 			referenceImageController.offsetSelectedReferenceImagesRotationDeg,
+		applySelectedReferenceImagesRotationFromSession:
+			referenceImageController.applySelectedReferenceImagesRotationFromSession,
 		setReferenceImageRotationDeg:
 			referenceImageController.setReferenceImageRotationDeg,
 		offsetSelectedReferenceImagesPosition:
 			referenceImageController.offsetSelectedReferenceImagesPosition,
+		offsetReferenceImageBoundsPosition:
+			referenceImageController.offsetReferenceImageBoundsPosition,
+		getReferenceImageLogicalBounds:
+			referenceImageController.getReferenceImageLogicalBounds,
+		getSelectedReferenceImageTransformSession:
+			referenceImageController.getSelectedReferenceImageTransformSession,
 		setReferenceImageOffsetPx:
 			referenceImageController.setReferenceImageOffsetPx,
+		setReferenceImageBoundsPosition:
+			referenceImageController.setReferenceImageBoundsPosition,
 		setReferenceImageGroup: referenceImageController.setReferenceImageGroup,
 		setReferenceImageOrder: referenceImageController.setReferenceImageOrder,
 		moveReferenceImageToDisplayTarget:

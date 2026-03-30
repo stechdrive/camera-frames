@@ -985,10 +985,13 @@ export function createReferenceImageController({
 			if (!nextPatch) {
 				continue;
 			}
+			const currentItem =
+				context.resolved.items.find((item) => item.id === geometry.item.id) ??
+				geometry.item;
 			nextById.set(
 				geometry.item.id,
 				createReferenceImageItem({
-					...geometry.item,
+					...currentItem,
 					...nextPatch,
 				}),
 			);
@@ -2234,6 +2237,95 @@ export function createReferenceImageController({
 		);
 	}
 
+	function getReferenceImageLogicalBounds(itemId) {
+		const context = getTransformContext();
+		if (!context) {
+			return null;
+		}
+		const item =
+			context.resolved.items.find((entry) => entry.id === itemId) ?? null;
+		if (!item) {
+			return null;
+		}
+		const asset = context.resolved.assetsById.get(item.assetId) ?? null;
+		if (!asset?.sourceMeta) {
+			return null;
+		}
+		const geometry = buildLogicalItemGeometry(item, asset, context);
+		return {
+			left: Number(geometry.bounds?.left ?? geometry.left ?? 0),
+			top: Number(geometry.bounds?.top ?? geometry.top ?? 0),
+		};
+	}
+
+	function offsetReferenceImageBoundsPosition(itemId, axis, deltaValue) {
+		const normalizedAxis = axis === "y" ? "y" : "x";
+		const numericDelta = Number(deltaValue);
+		if (!Number.isFinite(numericDelta) || Math.abs(numericDelta) <= 1e-8) {
+			return false;
+		}
+		const context = getTransformContext();
+		if (!context) {
+			return false;
+		}
+		const item =
+			context.resolved.items.find((entry) => entry.id === itemId) ?? null;
+		if (!item) {
+			return false;
+		}
+		const asset = context.resolved.assetsById.get(item.assetId) ?? null;
+		if (!asset?.sourceMeta) {
+			return false;
+		}
+		const geometry = buildLogicalItemGeometry(item, asset, context);
+		return (
+			runReferenceImageHistoryAction(
+				`reference-image.offset.${normalizedAxis}`,
+				() => {
+					const nextEffectiveOffset = {
+						x:
+							geometry.effectiveOffset.x -
+							(normalizedAxis === "x" ? numericDelta : 0),
+						y:
+							geometry.effectiveOffset.y -
+							(normalizedAxis === "y" ? numericDelta : 0),
+					};
+					const nextOffset = removeRenderBoxOffsetCorrection(
+						nextEffectiveOffset,
+						geometry.item.anchor,
+						context.resolved.preset.baseRenderBox,
+						context.outputSize,
+						context.renderBoxAnchor,
+						context.resolved.override?.renderBoxCorrection ?? null,
+					);
+					updateResolvedReferenceImageItem(itemId, {
+						offsetPx: {
+							x: Math.round(nextOffset.x),
+							y: Math.round(nextOffset.y),
+						},
+					});
+				},
+			) ?? false
+		);
+	}
+
+	function setReferenceImageBoundsPosition(itemId, axis, nextBoundValue) {
+		const normalizedAxis = axis === "y" ? "y" : "x";
+		const numericTarget = Number(nextBoundValue);
+		if (!Number.isFinite(numericTarget)) {
+			return false;
+		}
+		const currentBounds = getReferenceImageLogicalBounds(itemId);
+		if (!currentBounds) {
+			return false;
+		}
+		return offsetReferenceImageBoundsPosition(
+			itemId,
+			normalizedAxis,
+			numericTarget - Number(currentBounds[normalizedAxis] ?? 0),
+		);
+	}
+
 	function offsetSelectedReferenceImagesPosition(axis, deltaValue) {
 		const normalizedAxis = axis === "y" ? "y" : "x";
 		const numericDelta = Number(deltaValue);
@@ -2284,6 +2376,47 @@ export function createReferenceImageController({
 		}
 		const selectionState = buildSelectionTransformState();
 		if (!selectionState) {
+			return false;
+		}
+		return (
+			runReferenceImageHistoryAction("reference-image.scale", () =>
+				applyReferenceImageSelectionScaleRatio(
+					selectionState,
+					numericScaleFactor,
+				),
+			) ?? false
+		);
+	}
+
+	function getSelectedReferenceImageTransformSession() {
+		return buildSelectionTransformState();
+	}
+
+	function applySelectedReferenceImagesRotationFromSession(
+		selectionState,
+		totalDeltaAngleDeg,
+	) {
+		const numericDelta = Number(totalDeltaAngleDeg);
+		if (!selectionState || !Number.isFinite(numericDelta)) {
+			return false;
+		}
+		return (
+			runReferenceImageHistoryAction("reference-image.rotation", () =>
+				applyReferenceImageSelectionRotationDelta(selectionState, numericDelta),
+			) ?? false
+		);
+	}
+
+	function applySelectedReferenceImagesScaleFromSession(
+		selectionState,
+		totalScaleFactor,
+	) {
+		const numericScaleFactor = Number(totalScaleFactor);
+		if (
+			!selectionState ||
+			!Number.isFinite(numericScaleFactor) ||
+			numericScaleFactor <= 0
+		) {
 			return false;
 		}
 		return (
@@ -2908,11 +3041,17 @@ export function createReferenceImageController({
 		setSelectedReferenceImagesOpacity,
 		setReferenceImageOpacity,
 		scaleSelectedReferenceImagesByFactor,
+		applySelectedReferenceImagesScaleFromSession,
 		setReferenceImageScalePct,
 		offsetSelectedReferenceImagesRotationDeg,
+		applySelectedReferenceImagesRotationFromSession,
 		setReferenceImageRotationDeg,
 		offsetSelectedReferenceImagesPosition,
+		offsetReferenceImageBoundsPosition,
+		getReferenceImageLogicalBounds,
+		getSelectedReferenceImageTransformSession,
 		setReferenceImageOffsetPx,
+		setReferenceImageBoundsPosition,
 		setReferenceImageGroup,
 		setReferenceImageOrder,
 		moveReferenceImageToDisplayTarget,

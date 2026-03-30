@@ -1837,6 +1837,7 @@ function ReferencePropertyInlineField({
 	historyLabel,
 	onCommit,
 	onScrubDelta = null,
+	onScrubStart = null,
 	scrubStartValue = null,
 	inputMode = "decimal",
 	min = undefined,
@@ -1859,6 +1860,7 @@ function ReferencePropertyInlineField({
 					historyLabel=${historyLabel}
 					disabled=${disabled}
 					onScrubDelta=${onScrubDelta}
+					onScrubStart=${onScrubStart}
 					scrubStartValue=${scrubStartValue}
 					onCommit=${onCommit}
 				/>
@@ -1886,6 +1888,10 @@ export function ReferencePropertiesSection({
 		signature: "",
 		items: new Map(),
 	});
+	const transformSessionRef = useRef({
+		signature: "",
+		session: null,
+	});
 
 	if (selectionBaselineRef.current.signature !== selectionSignature) {
 		selectionBaselineRef.current = {
@@ -1906,12 +1912,27 @@ export function ReferencePropertiesSection({
 			),
 		};
 	}
+	if (transformSessionRef.current.signature !== selectionSignature) {
+		transformSessionRef.current = {
+			signature: selectionSignature,
+			session:
+				selectionCount > 1
+					? (controller()?.getSelectedReferenceImageTransformSession?.() ??
+						null)
+					: null,
+		};
+	}
 
 	const selectionBaseline = selectionBaselineRef.current;
 	const selectedItem =
 		selectedItems.find((item) => item.id === selectedItemId) ??
 		selectedItems[0] ??
 		null;
+	const selectedItemLogicalBounds =
+		selectedItem && selectionCount === 1
+			? (controller()?.getReferenceImageLogicalBounds?.(selectedItem.id) ??
+				null)
+			: null;
 
 	const renderContent = (content) => html`
 		<${DisclosureBlock}
@@ -2022,7 +2043,38 @@ export function ReferencePropertiesSection({
 		return sharedValue;
 	}
 
+	function getSharedSelectionValue(getValue) {
+		let sharedValue = null;
+		for (const item of selectedItems) {
+			const nextValue = getValue(item);
+			if (!Number.isFinite(nextValue)) {
+				return null;
+			}
+			if (sharedValue === null) {
+				sharedValue = nextValue;
+				continue;
+			}
+			if (Math.abs(sharedValue - nextValue) > 1e-4) {
+				return null;
+			}
+		}
+		return sharedValue;
+	}
+
 	if (selectionCount > 1) {
+		const sessionTransform = transformSessionRef.current.session;
+		const sharedOpacityPercent = getSharedSelectionValue((item) =>
+			Math.round(Number(item.opacity ?? 1) * 100),
+		);
+		const averageOpacityPercent =
+			selectedItems.length > 0
+				? Math.round(
+						selectedItems.reduce(
+							(sum, item) => sum + Math.round(Number(item.opacity ?? 1) * 100),
+							0,
+						) / selectedItems.length,
+					)
+				: 100;
 		const currentScaleFactor = getSharedSelectionDelta(
 			(item, baselineItem) =>
 				Number(item.scalePct ?? 100) / Number(baselineItem.scalePct ?? 100),
@@ -2053,10 +2105,21 @@ export function ReferencePropertiesSection({
 						<${ReferencePropertyInlineField}
 							prefix=${t("field.referenceImageOpacity")}
 							id="reference-opacity-multi"
-							value=""
+							value=${Number.isFinite(sharedOpacityPercent) ? sharedOpacityPercent : "--"}
+							scrubStartValue=${
+								Number.isFinite(sharedOpacityPercent)
+									? sharedOpacityPercent
+									: averageOpacityPercent
+							}
 							controller=${controller}
 							historyLabel="reference-image.opacity"
-							disabled=${true}
+							min="0"
+							max="100"
+							step="1"
+							onScrubDelta=${(_deltaValue, nextValue) =>
+								controller()?.setSelectedReferenceImagesOpacity?.(nextValue)}
+							onCommit=${(nextValue) =>
+								controller()?.setSelectedReferenceImagesOpacity?.(nextValue)}
 						/>
 						<${ReferencePropertyInlineField}
 							prefix=${t("field.assetScale")}
@@ -2076,29 +2139,29 @@ export function ReferencePropertiesSection({
 							controller=${controller}
 							historyLabel="reference-image.scale"
 							step="0.01"
-							onScrubDelta=${(deltaValue) => {
-								const scaleDelta = deltaValue / 100;
-								controller()?.scaleSelectedReferenceImagesByFactor?.(
-									Math.max(0.01, 1 + scaleDelta),
-								);
-							}}
+							onScrubDelta=${(_deltaValue, nextValue) =>
+								controller()?.applySelectedReferenceImagesScaleFromSession?.(
+									sessionTransform,
+									Math.max(0.01, 1 + Number(nextValue) / 100),
+								)}
 							onCommit=${(nextValue) => {
 								const numericValue = Number(nextValue);
-								if (
-									!Number.isFinite(numericValue) ||
-									Math.abs(numericValue) <= 1e-8
-								) {
+								if (!Number.isFinite(numericValue)) {
 									return;
 								}
-								const currentFactor = Number.isFinite(currentScaleFactor)
-									? currentScaleFactor
-									: 1;
+								const currentDeltaPct = Number.isFinite(currentScaleFactor)
+									? (Number(currentScaleFactor) - 1) * 100
+									: 0;
+								if (Math.abs(numericValue - currentDeltaPct) <= 1e-8) {
+									return;
+								}
 								const targetScaleFactor = Math.max(
 									0.01,
 									1 + numericValue / 100,
 								);
-								controller()?.scaleSelectedReferenceImagesByFactor?.(
-									Math.max(0.01, targetScaleFactor / currentFactor),
+								controller()?.applySelectedReferenceImagesScaleFromSession?.(
+									sessionTransform,
+									targetScaleFactor,
 								);
 							}}
 						/>
@@ -2121,15 +2184,15 @@ export function ReferencePropertiesSection({
 								)}
 							onCommit=${(nextValue) => {
 								const numericValue = Number(nextValue);
-								if (
-									!Number.isFinite(numericValue) ||
-									Math.abs(numericValue) <= 1e-8
-								) {
+								if (!Number.isFinite(numericValue)) {
 									return;
 								}
 								const currentValue = Number.isFinite(currentOffsetX)
 									? currentOffsetX
 									: 0;
+								if (Math.abs(numericValue - currentValue) <= 1e-8) {
+									return;
+								}
 								controller()?.offsetSelectedReferenceImagesPosition?.(
 									"x",
 									numericValue - currentValue,
@@ -2151,15 +2214,15 @@ export function ReferencePropertiesSection({
 								)}
 							onCommit=${(nextValue) => {
 								const numericValue = Number(nextValue);
-								if (
-									!Number.isFinite(numericValue) ||
-									Math.abs(numericValue) <= 1e-8
-								) {
+								if (!Number.isFinite(numericValue)) {
 									return;
 								}
 								const currentValue = Number.isFinite(currentOffsetY)
 									? currentOffsetY
 									: 0;
+								if (Math.abs(numericValue - currentValue) <= 1e-8) {
+									return;
+								}
 								controller()?.offsetSelectedReferenceImagesPosition?.(
 									"y",
 									numericValue - currentValue,
@@ -2174,23 +2237,27 @@ export function ReferencePropertiesSection({
 							controller=${controller}
 							historyLabel="reference-image.rotation"
 							step="0.01"
-							onScrubDelta=${(deltaValue) =>
-								controller()?.offsetSelectedReferenceImagesRotationDeg?.(
-									deltaValue,
+							onScrubDelta=${(_deltaValue, nextValue) =>
+								controller()?.applySelectedReferenceImagesRotationFromSession?.(
+									sessionTransform,
+									nextValue,
 								)}
 							onCommit=${(nextValue) => {
 								const numericValue = Number(nextValue);
+								if (!Number.isFinite(numericValue)) {
+									return;
+								}
 								if (
-									!Number.isFinite(numericValue) ||
-									Math.abs(numericValue) <= 1e-8
+									Math.abs(
+										numericValue -
+											(Number.isFinite(currentRotation) ? currentRotation : 0),
+									) <= 1e-8
 								) {
 									return;
 								}
-								const currentValue = Number.isFinite(currentRotation)
-									? currentRotation
-									: 0;
-								controller()?.offsetSelectedReferenceImagesRotationDeg?.(
-									numericValue - currentValue,
+								controller()?.applySelectedReferenceImagesRotationFromSession?.(
+									sessionTransform,
+									numericValue,
 								);
 							}}
 						/>
@@ -2241,12 +2308,18 @@ export function ReferencePropertiesSection({
 					<${ReferencePropertyInlineField}
 						prefix="X"
 						id="reference-offset-x"
-						value=${Number(selectedItem.offsetPx?.x ?? 0).toFixed(0)}
+						value=${Number(selectedItemLogicalBounds?.left ?? 0).toFixed(0)}
 						controller=${controller}
 						historyLabel="reference-image.offset.x"
 						step="1"
+						onScrubDelta=${(deltaValue) =>
+							controller()?.offsetReferenceImageBoundsPosition?.(
+								selectedItem.id,
+								"x",
+								deltaValue,
+							)}
 						onCommit=${(nextValue) =>
-							controller()?.setReferenceImageOffsetPx?.(
+							controller()?.setReferenceImageBoundsPosition?.(
 								selectedItem.id,
 								"x",
 								nextValue,
@@ -2255,12 +2328,18 @@ export function ReferencePropertiesSection({
 					<${ReferencePropertyInlineField}
 						prefix="Y"
 						id="reference-offset-y"
-						value=${Number(selectedItem.offsetPx?.y ?? 0).toFixed(0)}
+						value=${Number(selectedItemLogicalBounds?.top ?? 0).toFixed(0)}
 						controller=${controller}
 						historyLabel="reference-image.offset.y"
 						step="1"
+						onScrubDelta=${(deltaValue) =>
+							controller()?.offsetReferenceImageBoundsPosition?.(
+								selectedItem.id,
+								"y",
+								deltaValue,
+							)}
 						onCommit=${(nextValue) =>
-							controller()?.setReferenceImageOffsetPx?.(
+							controller()?.setReferenceImageBoundsPosition?.(
 								selectedItem.id,
 								"y",
 								nextValue,
