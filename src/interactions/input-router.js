@@ -88,18 +88,24 @@ export function bindInputRouter({
 	}
 
 	function isNativeHistoryTarget(target) {
+		if (!(target instanceof Element)) {
+			return false;
+		}
+		const draftEditingTarget = target.closest(
+			'input[data-draft-editing="true"]',
+		);
+		if (draftEditingTarget) {
+			return true;
+		}
 		return (
-			target instanceof Element &&
 			target.closest(
 				[
 					"textarea",
 					'[contenteditable="true"]',
-					'input[type="text"]',
 					'input[type="search"]',
 					'input[type="url"]',
 					'input[type="email"]',
 					'input[type="password"]',
-					'input[data-draft-editing="true"]',
 				].join(", "),
 			) !== null
 		);
