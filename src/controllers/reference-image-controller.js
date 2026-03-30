@@ -2379,6 +2379,17 @@ export function createReferenceImageController({
 		if (!draggedItem || !targetItem) {
 			return false;
 		}
+		const currentSelectedIds = getSelectedItemIds().filter((selectedId) =>
+			itemsById.has(selectedId),
+		);
+		const movedItemIdSet = new Set(
+			currentSelectedIds.includes(draggedItemId)
+				? currentSelectedIds
+				: [draggedItemId],
+		);
+		if (movedItemIdSet.has(nextTargetItemId)) {
+			return false;
+		}
 		const displayItems = (
 			Array.isArray(orderedIds) && orderedIds.length > 0
 				? orderedIds
@@ -2388,24 +2399,31 @@ export function createReferenceImageController({
 						.filter(Boolean)
 				: [...resolved.items].reverse()
 		).filter((item, index, source) => source.indexOf(item) === index);
-		const withoutDragged = displayItems.filter(
-			(item) => item.id !== draggedItemId,
+		const movedItems = displayItems
+			.filter((item) => movedItemIdSet.has(item.id))
+			.map((item) =>
+				createReferenceImageItem({
+					...item,
+					group: targetItem.group,
+				}),
+			);
+		if (movedItems.length === 0) {
+			return false;
+		}
+		const remainingItems = displayItems.filter(
+			(item) => !movedItemIdSet.has(item.id),
 		);
-		const targetIndex = withoutDragged.findIndex(
+		const targetIndex = remainingItems.findIndex(
 			(item) => item.id === nextTargetItemId,
 		);
 		if (targetIndex < 0) {
 			return false;
 		}
-		const insertedItem = createReferenceImageItem({
-			...draggedItem,
-			group: targetItem.group,
-		});
 		const insertionIndex = position === "after" ? targetIndex + 1 : targetIndex;
 		const nextDisplayItems = [
-			...withoutDragged.slice(0, insertionIndex),
-			insertedItem,
-			...withoutDragged.slice(insertionIndex),
+			...remainingItems.slice(0, insertionIndex),
+			...movedItems,
+			...remainingItems.slice(insertionIndex),
 		];
 		const rebuildGroupItems = (group) =>
 			nextDisplayItems
