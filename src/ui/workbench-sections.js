@@ -192,7 +192,7 @@ export function getInspectorQuickSections(t) {
 			id: INSPECTOR_QUICK_SECTION_SHOT_CAMERA_PROPERTIES,
 			tabId: INSPECTOR_TAB_CAMERA,
 			label: t("section.shotCameraProperties"),
-			icon: "camera-dslr",
+			icon: "camera-property",
 		},
 		{
 			id: INSPECTOR_QUICK_SECTION_LIGHTING,
@@ -2300,7 +2300,7 @@ export function ShotCameraPropertiesSection({
 
 	return html`
 		<${DisclosureBlock}
-			icon="camera-dslr"
+			icon="camera-property"
 			label=${t("section.shotCameraProperties")}
 			open=${open}
 			summaryActions=${summaryActions}

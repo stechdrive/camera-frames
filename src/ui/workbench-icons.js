@@ -32,18 +32,20 @@ function renderReferenceImageMotif({
 
 function renderCameraPanelMotif() {
 	return html`
-		<path
-			d="M3.2 6.1A2.1 2.1 0 0 1 5.3 4h6.8a2.1 2.1 0 0 1 2.1 2.1v5.8a2.1 2.1 0 0 1-2.1 2.1H5.3a2.1 2.1 0 0 1-2.1-2.1V6.1Zm2.1-.7a0.7 0.7 0 0 0-.7.7v5.8a0.7 0.7 0 0 0 .7.7h6.8a0.7 0.7 0 0 0 .7-.7V6.1a0.7 0.7 0 0 0-.7-.7H5.3Z"
-			fill="currentColor"
-			stroke="none"
-			fill-rule="evenodd"
-			clip-rule="evenodd"
-		></path>
-		<path
-			d="M16.1 4.9a1.55 1.55 0 0 0-.72.2l-2 1.28v5.26l2 1.28a1.56 1.56 0 0 0 .72.2 1.55 1.55 0 0 0 1.55-1.55V6.45A1.55 1.55 0 0 0 16.1 4.9Z"
-			fill="currentColor"
-			stroke="none"
-		></path>
+		<g transform="translate(-1.2 1.5) scale(1.5)">
+			<path
+				d="M2 6C2 4.89543 2.89543 4 4 4H8.66667C9.77124 4 10.6667 4.89543 10.6667 6V10C10.6667 11.1046 9.77124 12 8.66667 12H4C2.89543 12 2 11.1046 2 10V6ZM4 5.33333C3.63181 5.33333 3.33333 5.63181 3.33333 6V10C3.33333 10.3682 3.63181 10.6667 4 10.6667H8.66667C9.03486 10.6667 9.33333 10.3682 9.33333 10V6C9.33333 5.63181 9.03486 5.33333 8.66667 5.33333H4Z"
+				fill="currentColor"
+				stroke="none"
+				fill-rule="evenodd"
+				clip-rule="evenodd"
+			></path>
+			<path
+				d="M12.8153 4.92867C12.7625 4.95108 12.7139 4.98191 12.6678 5.01591L11.3333 6V10L12.6678 10.9841C12.7139 11.0181 12.7625 11.0489 12.8153 11.0713C13.6837 11.4404 14.6667 10.8048 14.6667 9.84262V6.15738C14.6667 5.19521 13.6837 4.55957 12.8153 4.92867Z"
+				fill="currentColor"
+				stroke="none"
+			></path>
+		</g>
 	`;
 }
 
@@ -78,6 +80,33 @@ function renderIconPath(name) {
 			return renderCameraPanelMotif();
 		case "camera-dslr":
 			return renderCameraPanelMotif();
+		case "camera-property":
+			return html`
+				<defs>
+					<mask id="camera-property-cutout">
+						<rect width="24" height="24" fill="white"></rect>
+						<circle cx="18" cy="18" r="5.5" fill="black"></circle>
+					</mask>
+				</defs>
+				<g
+					mask="url(#camera-property-cutout)"
+					stroke-width="1.5"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				>
+					<path d="M4 7H7.5L9 5H13L14.5 7H18C19.1046 7 20 7.89543 20 9V15C20 16.1046 19.1046 17 18 17H4C2.89543 17 2 16.1046 2 15V9C2 7.89543 2.89543 7 4 7Z"></path>
+					<circle cx="11" cy="12" r="3"></circle>
+				</g>
+				<g
+					transform="translate(18, 18)"
+					stroke-width="1.5"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				>
+					<path d="M0 -3V-4M0 3V4M3 0H4M-3 0H-4M2.12 -2.12L2.83 -2.83M-2.12 2.12L-2.83 2.83M2.12 2.12L2.83 2.83M-2.12 -2.12L-2.83 -2.83"></path>
+					<circle cx="0" cy="0" r="2"></circle>
+				</g>
+			`;
 		case "lens":
 			return html`
 				<circle cx="12" cy="12" r="7"></circle>
