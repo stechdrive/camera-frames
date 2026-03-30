@@ -300,6 +300,7 @@ code {
 	padding: 0.55rem;
 	border-radius: 22px;
 	pointer-events: auto;
+	overflow: hidden;
 }
 
 .workbench-inspector-stack--mobile {
@@ -3681,6 +3682,10 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	.workbench-card--scene,
 	.workbench-card--inspector {
 		max-height: min(38vh, 420px);
+	}
+
+	.workbench-card--mobile-drawer.workbench-card--inspector {
+		max-height: min(70vh, calc(100% - 5.6rem));
 	}
 
 	.header-meta-row {

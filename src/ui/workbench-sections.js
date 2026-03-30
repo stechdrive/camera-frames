@@ -1105,6 +1105,8 @@ export function SceneBrowserSection({
 		},
 	];
 	const selectedSceneAssetIds = new Set(store.selectedSceneAssetIds.value);
+	const showSelectedInspector =
+		selectedSceneAssetIds.size > 0 || Boolean(selectedSceneAsset);
 	const getSceneAssetById = (assetId) =>
 		sceneAssets.find((asset) => asset.id === assetId) ?? null;
 	const getDropPosition = (event) => {
@@ -3028,6 +3030,8 @@ export function SceneSection({
 			})),
 	];
 	const selectedSceneAssetIds = new Set(store.selectedSceneAssetIds.value);
+	const showSelectedInspector =
+		selectedSceneAssetIds.size > 0 || Boolean(selectedSceneAsset);
 	const getSceneAssetById = (assetId) =>
 		sceneAssets.find((asset) => asset.id === assetId) ?? null;
 	const getDropPosition = (event) => {
