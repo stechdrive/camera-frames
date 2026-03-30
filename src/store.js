@@ -23,6 +23,7 @@ import {
 	getActiveShotCameraDocument,
 	getActiveWorkspacePane,
 	getWorkspaceModeLabelKey,
+	resolveFrameMaskPreferredMode,
 	resolveFrameMaskSelectedIds,
 } from "./workspace-model.js";
 
@@ -227,6 +228,12 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	const frameMaskMode = computed(
 		() => activeShotCamera.value?.frameMask?.mode ?? "off",
 	);
+	const frameMaskPreferredMode = computed(() =>
+		resolveFrameMaskPreferredMode(
+			activeShotCamera.value?.frameMask?.mode,
+			activeShotCamera.value?.frameMask?.preferredMode,
+		),
+	);
 	const frameMaskOpacityPct = computed(() =>
 		Number.isFinite(activeShotCamera.value?.frameMask?.opacityPct)
 			? activeShotCamera.value.frameMask.opacityPct
@@ -354,6 +361,7 @@ export function createCameraFramesStore(runtimeInfo = null) {
 			selectionBoxLogical: frameSelectionBoxLogical,
 			maskSelectedIds: frameMaskSelectedIds,
 			maskMode: frameMaskMode,
+			maskPreferredMode: frameMaskPreferredMode,
 			maskOpacityPct: frameMaskOpacityPct,
 		},
 		history: {

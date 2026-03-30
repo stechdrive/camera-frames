@@ -224,6 +224,8 @@ const MESSAGES = {
 			renameFrame: "FRAME名を編集",
 			toggleSelectedFrameMask: "選択中マスク",
 			toggleAllFrameMask: "全体マスク",
+			enableFrameMask: "マスクを有効",
+			disableFrameMask: "マスクを無効",
 			fitOutputFrameToSafeArea: "表示をフィット",
 		},
 		unit: {
@@ -747,6 +749,8 @@ const MESSAGES = {
 			renameFrame: "Rename FRAME",
 			toggleSelectedFrameMask: "Selected Mask",
 			toggleAllFrameMask: "All Frames Mask",
+			enableFrameMask: "Enable Mask",
+			disableFrameMask: "Disable Mask",
 			fitOutputFrameToSafeArea: "Fit View",
 		},
 		unit: {

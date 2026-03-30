@@ -46,7 +46,11 @@ assert.equal(
 );
 assert.equal(
 	cameraActions.find((action) => action.id === "frame-mask-toggle")?.icon,
-	"mask-all",
+	"mask",
+);
+assert.equal(
+	cameraActions.find((action) => action.id === "frame-mask-toggle")?.label,
+	"Enable Mask",
 );
 assert.equal(
 	cameraActions.find((action) => action.id === "frame-mask-toggle")?.active,
@@ -97,8 +101,18 @@ assert.equal(
 		hasReferenceImages: true,
 		frameMaskMode: "off",
 		hasRememberedFrameMaskSelection: true,
-	}).find((action) => action.id === "frame-mask-toggle")?.icon,
-	"mask-selected",
+	}).find((action) => action.id === "frame-mask-toggle")?.label,
+	"Enable Mask",
+);
+assert.equal(
+	buildViewportPieActions({
+		mode: "camera",
+		t,
+		referencePreviewSessionVisible: true,
+		hasReferenceImages: true,
+		frameMaskMode: "all",
+	}).find((action) => action.id === "frame-mask-toggle")?.label,
+	"Disable Mask",
 );
 
 console.log("✅ CAMERA_FRAMES viewport pie tests passed!");

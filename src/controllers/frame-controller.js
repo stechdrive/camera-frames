@@ -523,6 +523,10 @@ export function createFrameController({
 				documentState.frameMask = {
 					...documentState.frameMask,
 					mode,
+					preferredMode:
+						mode === "selected" || mode === "all"
+							? mode
+							: (documentState.frameMask?.preferredMode ?? "all"),
 				};
 				return documentState;
 			});

@@ -204,6 +204,14 @@ export function sanitizeShotCameraDocument(
 				normalized.frameMask?.mode === "all"
 					? normalized.frameMask.mode
 					: "off",
+			preferredMode:
+				normalized.frameMask?.preferredMode === "selected" ||
+				normalized.frameMask?.preferredMode === "all"
+					? normalized.frameMask.preferredMode
+					: normalized.frameMask?.mode === "selected" ||
+							normalized.frameMask?.mode === "all"
+						? normalized.frameMask.mode
+						: "all",
 			opacityPct: Number(normalized.frameMask?.opacityPct ?? 80),
 			selectedIds: [...(normalized.frameMask?.selectedIds ?? [])],
 		},

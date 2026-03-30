@@ -46,14 +46,9 @@ export function buildViewportPieActions({
 	referencePreviewSessionVisible = true,
 	hasReferenceImages = false,
 	frameMaskMode = "off",
-	hasRememberedFrameMaskSelection = false,
 }) {
-	const resolvedFrameMaskMode =
-		frameMaskMode === "selected" || frameMaskMode === "all"
-			? frameMaskMode
-			: hasRememberedFrameMaskSelection
-				? "selected"
-				: "all";
+	const frameMaskEnabled =
+		frameMaskMode === "selected" || frameMaskMode === "all";
 	return VIEWPORT_PIE_LAYOUT.map((entry) => {
 		switch (entry.id) {
 			case "tool-select":
@@ -105,15 +100,11 @@ export function buildViewportPieActions({
 			case "frame-mask-toggle":
 				return {
 					...entry,
-					icon:
-						resolvedFrameMaskMode === "selected" ? "mask-selected" : "mask-all",
-					label:
-						resolvedFrameMaskMode === "selected"
-							? t("action.toggleSelectedFrameMask")
-							: t("action.toggleAllFrameMask"),
-					active:
-						mode === "camera" &&
-						(frameMaskMode === "selected" || frameMaskMode === "all"),
+					icon: "mask",
+					label: frameMaskEnabled
+						? t("action.disableFrameMask")
+						: t("action.enableFrameMask"),
+					active: mode === "camera" && frameMaskEnabled,
 					disabled: mode !== "camera",
 				};
 			case "toggle-view-mode":

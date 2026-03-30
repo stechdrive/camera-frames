@@ -22,6 +22,7 @@ const DEFAULT_FRAME_X = 0.5;
 const DEFAULT_FRAME_Y = 0.5;
 const DEFAULT_FRAME_SCALE = 1;
 const DEFAULT_FRAME_MASK_OPACITY_PCT = 80;
+const DEFAULT_FRAME_MASK_PREFERRED_MODE = "all";
 
 export const WORKSPACE_PANE_CAMERA = "camera";
 export const WORKSPACE_PANE_VIEWPORT = "viewport";
@@ -92,6 +93,33 @@ export function resolveFrameMaskSelectedIds(frames, selectedIds) {
 	return normalizedSelectedIds.length > 0
 		? normalizedSelectedIds
 		: availableFrameIds;
+}
+
+export function resolveFrameMaskPreferredMode(mode, preferredMode) {
+	if (preferredMode === "selected" || preferredMode === "all") {
+		return preferredMode;
+	}
+	if (mode === "selected" || mode === "all") {
+		return mode;
+	}
+	return DEFAULT_FRAME_MASK_PREFERRED_MODE;
+}
+
+export function resolveFrameMaskToggleMode({
+	mode,
+	preferredMode,
+	hasRememberedSelection = false,
+}) {
+	if (mode === "selected" || mode === "all") {
+		return "off";
+	}
+	const resolvedPreferredMode = resolveFrameMaskPreferredMode(
+		mode,
+		preferredMode,
+	);
+	return resolvedPreferredMode === "selected" && !hasRememberedSelection
+		? "all"
+		: resolvedPreferredMode;
 }
 
 export function getNextShotCameraNumber(shotCameras) {
@@ -277,6 +305,7 @@ export function createShotCameraDocument({ id, name, source } = {}) {
 				},
 				frameMask: {
 					mode: "off",
+					preferredMode: DEFAULT_FRAME_MASK_PREFERRED_MODE,
 					opacityPct: DEFAULT_FRAME_MASK_OPACITY_PCT,
 					selectedIds: [],
 				},
@@ -434,6 +463,10 @@ export function cloneShotCameraDocument(documentState) {
 				documentState.frameMask?.mode === "all"
 					? documentState.frameMask.mode
 					: "off",
+			preferredMode: resolveFrameMaskPreferredMode(
+				documentState.frameMask?.mode,
+				documentState.frameMask?.preferredMode,
+			),
 			opacityPct: Number.isFinite(documentState.frameMask?.opacityPct)
 				? Math.min(
 						100,
