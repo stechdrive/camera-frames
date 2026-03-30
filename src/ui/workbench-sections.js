@@ -1858,10 +1858,7 @@ export function ReferencePropertiesSection({
 	if (!selectedItem || !selectedAsset) {
 		return renderContent(html`
 			<div class="reference-properties-panel">
-				<div class="camera-property-inline-row">
-					<span class="camera-property-inline-row__label">${t(
-						"field.referenceImageOpacity",
-					)}</span>
+				<div class="camera-property-inline-row camera-property-inline-row--no-label">
 					<div class="camera-property-inline-row__content camera-property-inline-row__content--pair">
 						<${ReferencePropertyInlineField}
 							prefix=${t("field.referenceImageOpacity")}
@@ -1872,7 +1869,7 @@ export function ReferencePropertiesSection({
 							disabled=${true}
 						/>
 						<${ReferencePropertyInlineField}
-							prefix=${t("field.referenceImageScale")}
+							prefix=${t("field.assetScale")}
 							id="reference-scale-empty"
 							value=""
 							controller=${controller}
@@ -1881,11 +1878,8 @@ export function ReferencePropertiesSection({
 						/>
 					</div>
 				</div>
-				<div class="camera-property-inline-row">
-					<span class="camera-property-inline-row__label">${t(
-						"field.assetPosition",
-					)}</span>
-					<div class="camera-property-inline-row__content camera-property-inline-row__content--pair">
+				<div class="camera-property-inline-row camera-property-inline-row--no-label">
+					<div class="camera-property-inline-row__content camera-property-inline-row__content--triplet">
 						<${ReferencePropertyInlineField}
 							prefix="X"
 							id="reference-offset-x-empty"
@@ -1902,15 +1896,8 @@ export function ReferencePropertiesSection({
 							historyLabel="reference-image.offset.y"
 							disabled=${true}
 						/>
-					</div>
-				</div>
-				<div class="camera-property-inline-row">
-					<span class="camera-property-inline-row__label">${t(
-						"field.assetRotation",
-					)}</span>
-					<div class="camera-property-inline-row__content camera-property-inline-row__content--single">
 						<${ReferencePropertyInlineField}
-							prefix="R"
+							prefix=${t("field.assetRotation")}
 							id="reference-rotation-empty"
 							value=""
 							controller=${controller}
@@ -1929,10 +1916,7 @@ export function ReferencePropertiesSection({
 				${selectedItem.name} ·
 				${selectedAsset.fileName || t("referenceImage.untitled")}
 			</p>
-			<div class="camera-property-inline-row">
-				<span class="camera-property-inline-row__label">${t(
-					"field.referenceImageOpacity",
-				)}</span>
+			<div class="camera-property-inline-row camera-property-inline-row--no-label">
 				<div class="camera-property-inline-row__content camera-property-inline-row__content--pair">
 					<${ReferencePropertyInlineField}
 						prefix=${t("field.referenceImageOpacity")}
@@ -1950,7 +1934,7 @@ export function ReferencePropertiesSection({
 							)}
 					/>
 					<${ReferencePropertyInlineField}
-						prefix=${t("field.referenceImageScale")}
+						prefix=${t("field.assetScale")}
 						id="reference-scale"
 						value=${Number(selectedItem.scalePct).toFixed(2)}
 						controller=${controller}
@@ -1965,11 +1949,8 @@ export function ReferencePropertiesSection({
 					/>
 				</div>
 			</div>
-			<div class="camera-property-inline-row">
-				<span class="camera-property-inline-row__label">${t(
-					"field.assetPosition",
-				)}</span>
-				<div class="camera-property-inline-row__content camera-property-inline-row__content--pair">
+			<div class="camera-property-inline-row camera-property-inline-row--no-label">
+				<div class="camera-property-inline-row__content camera-property-inline-row__content--triplet">
 					<${ReferencePropertyInlineField}
 						prefix="X"
 						id="reference-offset-x"
@@ -1998,15 +1979,8 @@ export function ReferencePropertiesSection({
 								nextValue,
 							)}
 					/>
-				</div>
-			</div>
-			<div class="camera-property-inline-row">
-				<span class="camera-property-inline-row__label">${t(
-					"field.assetRotation",
-				)}</span>
-				<div class="camera-property-inline-row__content camera-property-inline-row__content--single">
 					<${ReferencePropertyInlineField}
-						prefix="R"
+						prefix=${t("field.assetRotation")}
 						id="reference-rotation"
 						value=${Number(selectedItem.rotationDeg).toFixed(2)}
 						controller=${controller}
