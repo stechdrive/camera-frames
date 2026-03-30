@@ -200,6 +200,9 @@ const MESSAGES = {
 			saveAndNewProject: "保存して新規",
 			savePackageAndNewProject: "保存して新規",
 			discardAndNewProject: "保存せず新規",
+			saveAndOpenProject: "保存して開く",
+			savePackageAndOpenProject: "保存して開く",
+			discardAndOpenProject: "保存せず開く",
 			close: "閉じる",
 			continueSave: "保存する",
 			continueLoad: "読み込む",
@@ -366,6 +369,11 @@ const MESSAGES = {
 				"保存していない変更があります。作業状態を保存してから新しいプロジェクトを開始しますか？",
 			newProjectMessageWithPackage:
 				"保存していない変更があります。新しいプロジェクトを始める前に保存しますか？",
+			openProjectTitle: "別のプロジェクトを開く",
+			openProjectMessage:
+				"保存していない変更があります。作業状態を保存してから別のプロジェクトを開きますか？",
+			openProjectMessageWithPackage:
+				"保存していない変更があります。別のプロジェクトを開く前に保存しますか？",
 			workingSaveNoticeTitle: "作業状態を保存",
 			workingSaveNoticeMessage:
 				"Ctrl+S はこのブラウザ内の高速保存です。共有・受け渡しには「共有用 .ssproj を保存」を使ってください。",
@@ -826,6 +834,9 @@ const MESSAGES = {
 			saveAndNewProject: "Save and New",
 			savePackageAndNewProject: "Save and New",
 			discardAndNewProject: "Don't Save",
+			saveAndOpenProject: "Save and Open",
+			savePackageAndOpenProject: "Save and Open",
+			discardAndOpenProject: "Don't Save",
 			close: "Close",
 			continueSave: "Save",
 			continueLoad: "Load",
@@ -996,6 +1007,11 @@ const MESSAGES = {
 				"You have unsaved changes. Save the working state before starting a new project?",
 			newProjectMessageWithPackage:
 				"You have unsaved changes. Save before starting a new project?",
+			openProjectTitle: "Open Another Project",
+			openProjectMessage:
+				"You have unsaved changes. Save the working state before opening another project?",
+			openProjectMessageWithPackage:
+				"You have unsaved changes. Save before opening another project?",
 			workingSaveNoticeTitle: "Save Working State",
 			workingSaveNoticeMessage:
 				"Ctrl+S performs a fast local save in this browser. Use “Save Shareable .ssproj” when you need a portable project file.",

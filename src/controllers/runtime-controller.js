@@ -35,6 +35,7 @@ export function createRuntimeController({
 	isProjectDirty,
 	isPackageDirty,
 	shouldWarnBeforeUnload,
+	syncProjectPresentation,
 	undoHistory,
 	redoHistory,
 	clearSceneAssetSelection,
@@ -308,6 +309,9 @@ export function createRuntimeController({
 				hasPointerNavigationActivity(),
 			deltaMs: deltaTime * 1000,
 		});
+		if (poseBefore !== poseAfter) {
+			syncProjectPresentation?.();
+		}
 
 		syncViewportProjection();
 		syncShotProjection();
@@ -358,12 +362,12 @@ export function createRuntimeController({
 		store.exportSummary.value = t("exportSummary.empty");
 		setStatus("");
 		setExportStatus("export.idle");
-		updateUi();
 		placeAllCamerasAtHome();
 		syncControlsToMode();
 		applyInitialNavigateInteractionMode();
 		handleResize();
 		bindViewportInteractions();
+		updateUi();
 		renderer.setAnimationLoop(animate);
 		loadStartupUrls();
 	}

@@ -996,6 +996,8 @@ export function createCameraFramesController(elements, store) {
 		isPackageDirty: () => projectController?.isPackageDirty?.() ?? true,
 		shouldWarnBeforeUnload: () =>
 			projectController?.shouldWarnBeforeUnload?.() ?? false,
+		syncProjectPresentation: () =>
+			projectController?.syncProjectPresentation?.(),
 		saveProject: () => projectController?.saveProject(),
 		exportProject: () => projectController?.exportProject(),
 		undoHistory: () => historyController?.undoHistory(),

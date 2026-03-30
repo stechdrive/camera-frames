@@ -439,6 +439,68 @@ export function createProjectController({
 		pendingAfterSuccessfulSave = null;
 	}
 
+	async function confirmBeforeReplacingProject(proceed) {
+		const projectSnapshot = captureProjectState();
+		const hasWorkingChanges = isProjectDirty(projectSnapshot);
+		const hasPortableChanges =
+			shouldWarnBeforeUnload(projectSnapshot) && !hasWorkingChanges;
+		if (!hasWorkingChanges && !hasPortableChanges) {
+			await proceed?.();
+			return true;
+		}
+
+		const canSaveWorkingStateDirectly =
+			supportsWorkingProjectStateStorage() &&
+			Boolean(currentProjectId) &&
+			Boolean(currentPackageFingerprint) &&
+			!hasPortableChanges;
+
+		setOverlay({
+			kind: "confirm",
+			title: t("overlay.openProjectTitle"),
+			message: hasPortableChanges
+				? t("overlay.openProjectMessageWithPackage")
+				: canSaveWorkingStateDirectly
+					? t("overlay.openProjectMessage")
+					: t("overlay.openProjectMessageWithPackage"),
+			actions: [
+				{
+					label: t("action.cancel"),
+					onClick: () => {
+						clearPendingAfterSuccessfulSave();
+						clearOverlay();
+					},
+				},
+				{
+					label: t("action.discardAndOpenProject"),
+					onClick: async () => {
+						clearPendingAfterSuccessfulSave();
+						clearOverlay();
+						await proceed?.();
+					},
+				},
+				{
+					label: canSaveWorkingStateDirectly
+						? t("action.saveAndOpenProject")
+						: t("action.savePackageAndOpenProject"),
+					primary: true,
+					onClick: async () => {
+						clearOverlay();
+						pendingAfterSuccessfulSave = async () => {
+							await proceed?.();
+						};
+						if (canSaveWorkingStateDirectly) {
+							await saveWorkingState();
+							return;
+						}
+						await exportProject();
+					},
+				},
+			],
+		});
+		return false;
+	}
+
 	function serializeProjectSourceForDirty(source) {
 		if (!source || typeof source !== "object") {
 			return null;
@@ -669,7 +731,18 @@ export function createProjectController({
 		return true;
 	}
 
-	async function openProjectSource(source, { fileHandle = null } = {}) {
+	async function openProjectSource(
+		source,
+		{ fileHandle = null, skipReplaceConfirm = false } = {},
+	) {
+		if (!skipReplaceConfirm) {
+			return confirmBeforeReplacingProject(async () => {
+				await openProjectSource(source, {
+					fileHandle,
+					skipReplaceConfirm: true,
+				});
+			});
+		}
 		const projectName = getProjectBaseName(source?.name || fileHandle?.name);
 		try {
 			setOverlay(buildImportProgressOverlay(t, "verify"));
