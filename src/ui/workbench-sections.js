@@ -167,7 +167,7 @@ export function getInspectorTabs(t) {
 		{
 			id: INSPECTOR_TAB_EXPORT,
 			label: t("section.export"),
-			icon: "export",
+			icon: "export-tab",
 			tooltip: {
 				title: t("section.export"),
 				description: t("tooltip.tabExport"),
@@ -237,7 +237,7 @@ export function getInspectorQuickSections(t) {
 			id: INSPECTOR_QUICK_SECTION_EXPORT,
 			tabId: INSPECTOR_TAB_EXPORT,
 			label: t("section.output"),
-			icon: "export",
+			icon: "export-tab",
 		},
 		{
 			id: INSPECTOR_QUICK_SECTION_EXPORT_SETTINGS,
