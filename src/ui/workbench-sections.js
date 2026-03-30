@@ -576,6 +576,8 @@ export function ToolRailSection({
 	const interactionMode = store.interactionMode.value;
 	const frameMaskMode = store.frames.maskMode.value;
 	const hasFrames = store.frames.count.value > 0;
+	const canUndo = store.history.canUndo.value;
+	const canRedo = store.history.canRedo.value;
 	const [maskToolPopoverOpen, setMaskToolPopoverOpen] = useState(false);
 	const maskToolSlotRef = useRef(null);
 	const showTransformSpaceToggle =
@@ -649,6 +651,37 @@ export function ToolRailSection({
 			>
 				${menuChildren}
 			<//>
+			${
+				showQuickMenu &&
+				html`
+					<${IconButton}
+						icon="undo"
+						label=${t("action.undo")}
+						disabled=${!canUndo}
+						className="workbench-tool-rail__button"
+						tooltip=${{
+							title: t("action.undo"),
+							description: t("tooltip.undo"),
+							shortcut: "Ctrl+Z",
+							placement: tooltipPlacement,
+						}}
+						onClick=${() => controller()?.undoHistory?.()}
+					/>
+					<${IconButton}
+						icon="redo"
+						label=${t("action.redo")}
+						disabled=${!canRedo}
+						className="workbench-tool-rail__button"
+						tooltip=${{
+							title: t("action.redo"),
+							description: t("tooltip.redo"),
+							shortcut: "Ctrl+Shift+Z",
+							placement: tooltipPlacement,
+						}}
+						onClick=${() => controller()?.redoHistory?.()}
+					/>
+				`
+			}
 			${
 				showQuickMenu &&
 				html`
