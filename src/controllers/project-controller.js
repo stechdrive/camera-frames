@@ -2,6 +2,7 @@ import { prewarmSogCompressionWorker } from "../engine/sog-compress-worker-clien
 import {
 	buildProjectFingerprint,
 	generateProjectId,
+	getProjectSourceStableKey,
 	normalizeProjectDocument,
 } from "../project-document.js";
 import {
@@ -10,11 +11,6 @@ import {
 	writeCameraFramesProjectPackageToWritable,
 } from "../project-file.js";
 import { ZipReader } from "../project-package.js";
-import {
-	pickWorkingProjectDirectory,
-	readCameraFramesWorkingProject,
-	supportsWorkingProjectStorage,
-} from "../project-storage-working.js";
 import {
 	cleanupCameraFramesWorkingState,
 	deleteCameraFramesWorkingState,
@@ -27,6 +23,7 @@ const DEFAULT_SOG_MAX_SH_BANDS = 2;
 const DEFAULT_SOG_ITERATIONS = 10;
 const PACKAGE_SOG_ITERATION_OPTIONS = [4, 8, 10, 12, 16];
 const PROJECT_PICKER_MIME = "application/x-camera-frames-project";
+const WORKING_SAVE_NOTICE_STORAGE_KEY = "camera-frames.workingSaveNoticeSeen";
 
 function getProjectBaseName(value) {
 	const fileName = String(value ?? "").trim();
@@ -372,6 +369,7 @@ export function createProjectController({
 	applySavedProjectState,
 	applyOpenedProject,
 	clearProjectSidecars = () => {},
+	resetProjectWorkspace = () => {},
 	buildProjectFilename = () => getDefaultProjectFilename(),
 	captureProjectState,
 	clearHistory,
@@ -384,6 +382,9 @@ export function createProjectController({
 	let currentPackageRevision = 0;
 	let currentPackageFingerprint = "";
 	let currentProjectName = "";
+	let currentDirtySignature = "";
+	let currentPackageDirtySignature = "";
+	let pendingAfterSuccessfulSave = null;
 	let preferredPackageSaveOptions = {
 		compressSplatsToSog: false,
 		sogMaxShBands: DEFAULT_SOG_MAX_SH_BANDS,
@@ -396,6 +397,12 @@ export function createProjectController({
 
 	function clearOverlay() {
 		store.overlay.value = null;
+	}
+
+	function syncProjectPresentation(projectSnapshot = captureProjectState()) {
+		store.project.name.value = currentProjectName;
+		store.project.dirty.value = isProjectDirty(projectSnapshot);
+		store.project.packageDirty.value = isPackageDirty(projectSnapshot);
 	}
 
 	function rememberProjectContext({
@@ -421,6 +428,125 @@ export function createProjectController({
 		currentPackageRevision = 0;
 		currentPackageFingerprint = "";
 		currentProjectName = "";
+		currentDirtySignature = "";
+		currentPackageDirtySignature = "";
+		store.project.name.value = "";
+		store.project.dirty.value = false;
+		store.project.packageDirty.value = true;
+	}
+
+	function clearPendingAfterSuccessfulSave() {
+		pendingAfterSuccessfulSave = null;
+	}
+
+	function serializeProjectSourceForDirty(source) {
+		if (!source || typeof source !== "object") {
+			return null;
+		}
+
+		return {
+			sourceType: source.sourceType ?? null,
+			kind: source.kind ?? null,
+			fileName: source.fileName ?? source.file?.name ?? source.name ?? null,
+			path: source.path ?? null,
+			url: source.url ?? null,
+			resourceId: source.resource?.id ?? source.resourceId ?? null,
+			resourcePath: source.resource?.path ?? null,
+			stableKey: getProjectSourceStableKey(source) ?? null,
+		};
+	}
+
+	function buildProjectDirtyPayload(projectSnapshot) {
+		const normalizedProject = normalizeProjectDocument(projectSnapshot);
+		return {
+			workspace: normalizedProject.workspace,
+			shotCameras: normalizedProject.shotCameras,
+			scene: {
+				assets: normalizedProject.scene.assets.map((asset) => ({
+					...asset,
+					source: serializeProjectSourceForDirty(asset.source),
+				})),
+				lighting: normalizedProject.scene.lighting,
+				referenceImages: normalizedProject.scene.referenceImages,
+			},
+		};
+	}
+
+	function getProjectDirtySignature(projectSnapshot = captureProjectState()) {
+		return JSON.stringify(buildProjectDirtyPayload(projectSnapshot));
+	}
+
+	function markCurrentProjectClean(projectSnapshot = captureProjectState()) {
+		currentDirtySignature = getProjectDirtySignature(projectSnapshot);
+	}
+
+	function markCurrentPackageClean(projectSnapshot = captureProjectState()) {
+		currentPackageDirtySignature = getProjectDirtySignature(projectSnapshot);
+	}
+
+	function isProjectDirty(projectSnapshot = captureProjectState()) {
+		const nextSignature = getProjectDirtySignature(projectSnapshot);
+		if (!currentDirtySignature) {
+			currentDirtySignature = nextSignature;
+			return false;
+		}
+		return nextSignature !== currentDirtySignature;
+	}
+
+	function isPackageDirty(projectSnapshot = captureProjectState()) {
+		if (!currentPackageFingerprint) {
+			return true;
+		}
+		const nextSignature = getProjectDirtySignature(projectSnapshot);
+		if (!currentPackageDirtySignature) {
+			currentPackageDirtySignature = nextSignature;
+			return false;
+		}
+		return nextSignature !== currentPackageDirtySignature;
+	}
+
+	function hasMeaningfulProjectContent(
+		projectSnapshot = captureProjectState(),
+	) {
+		const normalizedProject = normalizeProjectDocument(projectSnapshot);
+		const referenceImages = normalizedProject.scene?.referenceImages ?? null;
+		const referenceImageCount =
+			(referenceImages?.assets?.length ?? 0) +
+			(referenceImages?.presets?.reduce(
+				(total, preset) => total + (preset?.items?.length ?? 0),
+				0,
+			) ?? 0);
+		return (
+			normalizedProject.scene.assets.length > 0 ||
+			referenceImageCount > 0 ||
+			normalizedProject.shotCameras.length > 1 ||
+			Boolean(currentProjectName) ||
+			Boolean(projectFileHandle)
+		);
+	}
+
+	function shouldWarnBeforeUnload(projectSnapshot = captureProjectState()) {
+		if (isProjectDirty(projectSnapshot)) {
+			return true;
+		}
+		return (
+			hasMeaningfulProjectContent(projectSnapshot) &&
+			isPackageDirty(projectSnapshot)
+		);
+	}
+
+	function hasSeenWorkingSaveNotice() {
+		if (typeof window === "undefined" || !window.localStorage) {
+			return false;
+		}
+		return window.localStorage.getItem(WORKING_SAVE_NOTICE_STORAGE_KEY) === "1";
+	}
+
+	function markWorkingSaveNoticeSeen() {
+		if (typeof window === "undefined" || !window.localStorage) {
+			return;
+		}
+		window.localStorage.setItem(WORKING_SAVE_NOTICE_STORAGE_KEY, "1");
 	}
 
 	function getSuggestedPackageFilename() {
@@ -451,6 +577,7 @@ export function createProjectController({
 		await assetController.applyWorkingProjectSceneState(record.snapshot.scene);
 		updateUi?.();
 		clearHistory?.();
+		syncProjectPresentation(captureProjectState());
 		return true;
 	}
 
@@ -469,6 +596,8 @@ export function createProjectController({
 		}
 
 		await applyWorkingStateRecord(record);
+		markCurrentProjectClean(captureProjectState());
+		syncProjectPresentation(captureProjectState());
 		setStatus(
 			t("status.workingStateRestored", {
 				name: projectContext.projectName || "",
@@ -524,12 +653,15 @@ export function createProjectController({
 				projectName,
 				fileHandle,
 			});
+			markCurrentPackageClean(parsedProject.project);
 			await tryApplyCompatibleWorkingState({
 				projectId: projectIdentity.projectId,
 				packageRevision: projectIdentity.packageRevision,
 				packageFingerprint,
 				projectName,
 			});
+			markCurrentProjectClean(captureProjectState());
+			syncProjectPresentation(captureProjectState());
 		} catch (error) {
 			clearOverlay();
 			throw error;
@@ -592,18 +724,53 @@ export function createProjectController({
 				projectName,
 				fileHandle,
 			});
+			markCurrentPackageClean(normalizedProject);
 			await tryApplyCompatibleWorkingState({
 				projectId,
 				packageRevision: 0,
 				packageFingerprint,
 				projectName,
 			});
+			markCurrentProjectClean(captureProjectState());
+			syncProjectPresentation(captureProjectState());
 			setStatus(t("status.projectLoaded"));
 			return true;
 		}
 	}
 
 	async function saveWorkingState() {
+		const projectSnapshot = captureProjectState();
+		const canUseWorkingSaveDirectly =
+			supportsWorkingProjectStateStorage() &&
+			Boolean(currentProjectId) &&
+			Boolean(currentPackageFingerprint);
+		if (canUseWorkingSaveDirectly && !hasSeenWorkingSaveNotice()) {
+			setOverlay({
+				kind: "confirm",
+				title: t("overlay.workingSaveNoticeTitle"),
+				message: t("overlay.workingSaveNoticeMessage"),
+				actions: [
+					{
+						label: t("action.cancel"),
+						onClick: () => {
+							clearPendingAfterSuccessfulSave();
+							clearOverlay();
+						},
+					},
+					{
+						label: t("action.continueSave"),
+						primary: true,
+						onClick: async () => {
+							markWorkingSaveNoticeSeen();
+							clearOverlay();
+							await saveWorkingState();
+						},
+					},
+				],
+			});
+			return;
+		}
+
 		if (
 			!supportsWorkingProjectStateStorage() ||
 			!currentProjectId ||
@@ -611,8 +778,6 @@ export function createProjectController({
 		) {
 			return exportProject();
 		}
-
-		const projectSnapshot = captureProjectState();
 		const record = buildWorkingSaveRecord({
 			projectId: currentProjectId,
 			projectName:
@@ -629,6 +794,7 @@ export function createProjectController({
 		try {
 			await commitWorkingSave();
 		} catch (error) {
+			clearPendingAfterSuccessfulSave();
 			if (!isQuotaExceededError(error)) {
 				throw error;
 			}
@@ -638,11 +804,18 @@ export function createProjectController({
 			});
 			await commitWorkingSave();
 		}
+		markCurrentProjectClean(projectSnapshot);
+		syncProjectPresentation(projectSnapshot);
 		setStatus(
 			t("status.workingStateSaved", {
 				name: record.projectName || "",
 			}),
 		);
+		const nextAction = pendingAfterSuccessfulSave;
+		clearPendingAfterSuccessfulSave();
+		if (typeof nextAction === "function") {
+			await nextAction();
+		}
 	}
 
 	async function resolvePackageSaveTarget(
@@ -762,12 +935,21 @@ export function createProjectController({
 				projectName: getProjectBaseName(resolvedSaveTarget.fileName),
 				fileHandle: resolvedSaveTarget.fileHandle,
 			});
+			markCurrentProjectClean(normalizedProject);
+			markCurrentPackageClean(normalizedProject);
+			syncProjectPresentation(normalizedProject);
 			setStatus(
 				t("status.packageSaved", {
 					name: resolvedSaveTarget.fileName || suggestedName,
 				}),
 			);
+			const nextAction = pendingAfterSuccessfulSave;
+			clearPendingAfterSuccessfulSave();
+			if (typeof nextAction === "function") {
+				await nextAction();
+			}
 		} catch (error) {
+			clearPendingAfterSuccessfulSave();
 			if (error?.name === "AbortError") {
 				clearOverlay();
 				return;
@@ -841,7 +1023,10 @@ export function createProjectController({
 			actions: [
 				{
 					label: t("action.cancel"),
-					onClick: () => clearOverlay(),
+					onClick: () => {
+						clearPendingAfterSuccessfulSave();
+						clearOverlay();
+					},
 				},
 				...(showOverwriteActions
 					? [
@@ -902,30 +1087,73 @@ export function createProjectController({
 		projectInput?.click?.();
 	}
 
-	async function openWorkingProject() {
-		if (!supportsWorkingProjectStorage()) {
-			setStatus(t("error.projectWorkingFolderUnsupported"));
+	async function performNewProjectReset() {
+		clearProjectContext();
+		resetProjectWorkspace?.();
+		const projectSnapshot = captureProjectState();
+		markCurrentProjectClean(projectSnapshot);
+		syncProjectPresentation(projectSnapshot);
+		setStatus(t("status.newProjectReady"));
+	}
+
+	async function startNewProject() {
+		const projectSnapshot = captureProjectState();
+		const hasWorkingChanges = isProjectDirty(projectSnapshot);
+		const hasPortableChanges =
+			shouldWarnBeforeUnload(projectSnapshot) && !hasWorkingChanges;
+		if (!hasWorkingChanges && !hasPortableChanges) {
+			await performNewProjectReset();
 			return;
 		}
 
-		try {
-			const directoryHandle = await pickWorkingProjectDirectory();
-			const parsedProject =
-				await readCameraFramesWorkingProject(directoryHandle);
-			await openParsedProject(parsedProject, {
-				projectName: parsedProject.projectName,
-				fileHandle: null,
-				loadedStatus: t("status.projectLoadedFromFolder", {
-					name: parsedProject.projectName || directoryHandle?.name || "",
-				}),
-			});
-		} catch (error) {
-			if (error?.name === "AbortError") {
-				return;
-			}
-			console.error(error);
-			setStatus(error.message);
-		}
+		const canSaveWorkingStateDirectly =
+			supportsWorkingProjectStateStorage() &&
+			Boolean(currentProjectId) &&
+			Boolean(currentPackageFingerprint) &&
+			!hasPortableChanges;
+		setOverlay({
+			kind: "confirm",
+			title: t("overlay.newProjectTitle"),
+			message: hasPortableChanges
+				? t("overlay.newProjectMessageWithPackage")
+				: canSaveWorkingStateDirectly
+					? t("overlay.newProjectMessage")
+					: t("overlay.newProjectMessageWithPackage"),
+			actions: [
+				{
+					label: t("action.cancel"),
+					onClick: () => {
+						clearPendingAfterSuccessfulSave();
+						clearOverlay();
+					},
+				},
+				{
+					label: t("action.discardAndNewProject"),
+					onClick: async () => {
+						clearPendingAfterSuccessfulSave();
+						clearOverlay();
+						await performNewProjectReset();
+					},
+				},
+				{
+					label: canSaveWorkingStateDirectly
+						? t("action.saveAndNewProject")
+						: t("action.savePackageAndNewProject"),
+					primary: true,
+					onClick: async () => {
+						clearOverlay();
+						pendingAfterSuccessfulSave = async () => {
+							await performNewProjectReset();
+						};
+						if (canSaveWorkingStateDirectly) {
+							await saveWorkingState();
+							return;
+						}
+						await exportProject();
+					},
+				},
+			],
+		});
 	}
 
 	async function handleProjectInputChange(event) {
@@ -950,7 +1178,11 @@ export function createProjectController({
 		saveProject: saveWorkingState,
 		exportProject,
 		openProject,
-		openWorkingProject,
+		startNewProject,
+		isProjectDirty,
+		isPackageDirty,
+		shouldWarnBeforeUnload,
+		syncProjectPresentation,
 		handleProjectInputChange,
 		clearProjectContext,
 	};

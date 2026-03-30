@@ -30,6 +30,11 @@ export function createRuntimeController({
 	toggleViewportPivotEditMode,
 	saveProject,
 	exportProject,
+	openProject,
+	startNewProject,
+	isProjectDirty,
+	isPackageDirty,
+	shouldWarnBeforeUnload,
 	undoHistory,
 	redoHistory,
 	clearSceneAssetSelection,
@@ -198,6 +203,8 @@ export function createRuntimeController({
 			toggleViewportPivotEditMode,
 			saveProject,
 			exportProject,
+			openProject,
+			startNewProject,
 			undoHistory,
 			redoHistory,
 			clearSceneAssetSelection,
@@ -251,6 +258,18 @@ export function createRuntimeController({
 			pickViewportAssetAtPointer,
 			startOutputFrameAnchorDrag,
 			isInteractionBlocked: () => exportController.isRenderLocked(),
+		});
+
+		listen(window, "beforeunload", (event) => {
+			const shouldWarn =
+				typeof shouldWarnBeforeUnload === "function"
+					? shouldWarnBeforeUnload()
+					: (isProjectDirty?.() ?? false) || (isPackageDirty?.() ?? false);
+			if (!shouldWarn) {
+				return;
+			}
+			event.preventDefault();
+			event.returnValue = "";
 		});
 	}
 

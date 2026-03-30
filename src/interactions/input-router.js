@@ -45,8 +45,10 @@ export function bindInputRouter({
 	toggleViewportReferenceImageEditMode,
 	toggleViewportTransformMode,
 	toggleViewportPivotEditMode,
+	startNewProject,
 	saveProject,
 	exportProject,
+	openProject,
 	undoHistory,
 	redoHistory,
 	clearSceneAssetSelection,
@@ -522,6 +524,28 @@ export function bindInputRouter({
 			} else {
 				undoHistory?.();
 			}
+			return;
+		}
+
+		if (
+			(event.ctrlKey || event.metaKey) &&
+			event.code === "KeyN" &&
+			!event.altKey &&
+			!event.shiftKey
+		) {
+			event.preventDefault();
+			startNewProject?.();
+			return;
+		}
+
+		if (
+			(event.ctrlKey || event.metaKey) &&
+			event.code === "KeyO" &&
+			!event.altKey &&
+			!event.shiftKey
+		) {
+			event.preventDefault();
+			openProject?.();
 			return;
 		}
 

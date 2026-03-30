@@ -131,6 +131,17 @@ const MESSAGES = {
 			export: "書き出し",
 			exportSettings: "書き出し設定",
 		},
+		menu: {
+			newProjectAction: "新規プロジェクト",
+			openProjectAction: "プロジェクトを開く",
+			saveWorkingStateAction: "作業状態を保存",
+			savePackageAction: "共有用 .ssproj を保存",
+		},
+		project: {
+			untitled: "無題",
+			dirtyHint: "作業状態に未保存の変更があります",
+			packageHint: "共有・持ち出しには .ssproj 保存が必要です",
+		},
 		mode: {
 			viewport: "ビューポート",
 			camera: "カメラビュー",
@@ -171,8 +182,8 @@ const MESSAGES = {
 			manual: "手動",
 		},
 		action: {
+			newProject: "新規プロジェクト",
 			openProject: "プロジェクトを開く",
-			openWorkingProject: "作業フォルダを開く",
 			saveProject: "作業状態を保存",
 			exportProject: "パッケージ保存",
 			savePackageAs: "別名で保存",
@@ -186,7 +197,11 @@ const MESSAGES = {
 			collapseWorkbench: "パネルを最小化",
 			expandWorkbench: "パネルを開く",
 			cancel: "キャンセル",
+			saveAndNewProject: "保存して新規",
+			savePackageAndNewProject: "保存して新規",
+			discardAndNewProject: "保存せず新規",
 			close: "閉じる",
+			continueSave: "保存する",
 			continueLoad: "読み込む",
 			showAsset: "表示",
 			hideAsset: "非表示",
@@ -346,6 +361,14 @@ const MESSAGES = {
 			exporting: "書き出し中",
 		},
 		overlay: {
+			newProjectTitle: "新規プロジェクト",
+			newProjectMessage:
+				"保存していない変更があります。作業状態を保存してから新しいプロジェクトを開始しますか？",
+			newProjectMessageWithPackage:
+				"保存していない変更があります。新しいプロジェクトを始める前に保存しますか？",
+			workingSaveNoticeTitle: "作業状態を保存",
+			workingSaveNoticeMessage:
+				"Ctrl+S はこのブラウザ内の高速保存です。共有・受け渡しには「共有用 .ssproj を保存」を使ってください。",
 			startupImportTitle: "共有データを読み込みますか？",
 			startupImportMessage:
 				"このリンクは外部の共有データを読み込みます。読み込みを続けると、下の URL へアクセスします。",
@@ -484,6 +507,7 @@ const MESSAGES = {
 			workingStateSaved: "{name} の作業状態を保存しました。",
 			workingStateRestored: "{name} の作業状態を復元しました。",
 			packageSaved: "{name} をパッケージ保存しました。",
+			newProjectReady: "新規プロジェクトを開始しました。",
 			projectExporting: "プロジェクトを書き出し中...",
 			projectExported: "プロジェクトを書き出しました。",
 			viewportEnabled: "ビューポートに切り替えました。",
@@ -603,8 +627,6 @@ const MESSAGES = {
 				"出力プレビューの前に 3DGS かモデルを読み込んでください。",
 			exportRequiresPreset:
 				"書き出し対象の Camera を 1 つ以上選択してください。",
-			projectWorkingFolderUnsupported:
-				"この環境では作業フォルダ保存を利用できません。",
 			projectPackageSaveUnsupported:
 				"この環境ではパッケージ保存ダイアログを利用できません。",
 			projectPackageSaveUnavailable:
@@ -734,6 +756,18 @@ const MESSAGES = {
 			export: "Export",
 			exportSettings: "Export Settings",
 		},
+		menu: {
+			newProjectAction: "New Project",
+			openProjectAction: "Open Project",
+			saveWorkingStateAction: "Save Working State",
+			savePackageAction: "Save Shareable .ssproj",
+		},
+		project: {
+			untitled: "Untitled",
+			dirtyHint: "There are unsaved working-state changes",
+			packageHint:
+				"Save a .ssproj package before sharing or moving this project",
+		},
 		mode: {
 			viewport: "Viewport",
 			camera: "Camera View",
@@ -774,8 +808,8 @@ const MESSAGES = {
 			manual: "Manual",
 		},
 		action: {
+			newProject: "New Project",
 			openProject: "Open Project",
-			openWorkingProject: "Open Working Folder",
 			saveProject: "Save Working State",
 			exportProject: "Save Package",
 			savePackageAs: "Save As",
@@ -789,7 +823,11 @@ const MESSAGES = {
 			collapseWorkbench: "Minimize panel",
 			expandWorkbench: "Open panel",
 			cancel: "Cancel",
+			saveAndNewProject: "Save and New",
+			savePackageAndNewProject: "Save and New",
+			discardAndNewProject: "Don't Save",
 			close: "Close",
+			continueSave: "Save",
 			continueLoad: "Load",
 			showAsset: "Show",
 			hideAsset: "Hide",
@@ -953,6 +991,14 @@ const MESSAGES = {
 			exporting: "Exporting",
 		},
 		overlay: {
+			newProjectTitle: "New Project",
+			newProjectMessage:
+				"You have unsaved changes. Save the working state before starting a new project?",
+			newProjectMessageWithPackage:
+				"You have unsaved changes. Save before starting a new project?",
+			workingSaveNoticeTitle: "Save Working State",
+			workingSaveNoticeMessage:
+				"Ctrl+S performs a fast local save in this browser. Use “Save Shareable .ssproj” when you need a portable project file.",
 			startupImportTitle: "Load shared data?",
 			startupImportMessage:
 				"This link will load external shared data. Continuing will access the URLs below.",
@@ -1095,6 +1141,7 @@ const MESSAGES = {
 			workingStateRestored: "Restored working state for {name}.",
 			referenceImagesImported: "Loaded {count} reference image file(s).",
 			packageSaved: "Saved package {name}.",
+			newProjectReady: "Started a new project.",
 			projectExporting: "Exporting project...",
 			projectExported: "Project exported.",
 			viewportEnabled: "Switched to Viewport.",
@@ -1214,8 +1261,6 @@ const MESSAGES = {
 			exportRequiresAsset:
 				"Load a splat or model before rendering output preview.",
 			exportRequiresPreset: "Select at least one Camera for export.",
-			projectWorkingFolderUnsupported:
-				"Working project folders are not supported in this environment.",
 			projectPackageSaveUnsupported:
 				"Package save dialogs are not supported in this environment.",
 			projectPackageSaveUnavailable:

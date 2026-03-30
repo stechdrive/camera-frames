@@ -30,10 +30,34 @@ function t(key, values = {}) {
 function createHarness(overrides = {}) {
 	const store = {
 		overlay: { value: null },
+		project: {
+			name: { value: "" },
+			dirty: { value: false },
+			packageDirty: { value: true },
+		},
 	};
 	const statusEvents = [];
 	const applyOpenedProjectCalls = [];
 	const clearProjectSidecarsCalls = [];
+	const resetProjectWorkspaceCalls = [];
+	let currentProjectState = overrides.captureProjectState?.() ?? {
+		workspace: {
+			activeShotCameraId: "",
+			viewport: {
+				baseFovX: 55,
+				pose: {
+					position: { x: 0, y: 0, z: 0 },
+					quaternion: { x: 0, y: 0, z: 0, w: 1 },
+					up: { x: 0, y: 1, z: 0 },
+				},
+			},
+		},
+		shotCameras: [],
+		scene: {
+			assets: [],
+			referenceImages: createDefaultReferenceImageDocument(),
+		},
+	};
 	const projectController = createProjectController({
 		store,
 		projectInput: null,
@@ -56,25 +80,12 @@ function createHarness(overrides = {}) {
 			clearProjectSidecarsCalls.push(true);
 			overrides.clearProjectSidecars?.();
 		},
+		resetProjectWorkspace: () => {
+			resetProjectWorkspaceCalls.push(true);
+			overrides.resetProjectWorkspace?.();
+		},
 		buildProjectFilename: () => "test-project.ssproj",
-		captureProjectState: () => ({
-			workspace: {
-				activeShotCameraId: "",
-				viewport: {
-					baseFovX: 55,
-					pose: {
-						position: { x: 0, y: 0, z: 0 },
-						quaternion: { x: 0, y: 0, z: 0, w: 1 },
-						up: { x: 0, y: 1, z: 0 },
-					},
-				},
-			},
-			shotCameras: [],
-			scene: {
-				assets: [],
-				referenceImages: createDefaultReferenceImageDocument(),
-			},
-		}),
+		captureProjectState: () => currentProjectState,
 		clearHistory: () => {},
 		updateUi: () => {},
 		setStatus: (status) => {
@@ -89,6 +100,10 @@ function createHarness(overrides = {}) {
 		statusEvents,
 		applyOpenedProjectCalls,
 		clearProjectSidecarsCalls,
+		resetProjectWorkspaceCalls,
+		setProjectState: (nextState) => {
+			currentProjectState = nextState;
+		},
 	};
 }
 
@@ -144,6 +159,50 @@ function createHarness(overrides = {}) {
 	await harness.projectController.openProjectSource(legacyProjectFile);
 	assert.equal(harness.store.overlay.value, null);
 	assert.equal(harness.clearProjectSidecarsCalls.length, 1);
+}
+
+{
+	const harness = createHarness();
+	await harness.projectController.startNewProject();
+	assert.equal(harness.resetProjectWorkspaceCalls.length, 1);
+	assert.equal(harness.store.overlay.value, null);
+}
+
+{
+	const harness = createHarness();
+	await harness.projectController.startNewProject();
+	harness.setProjectState({
+		workspace: {
+			activeShotCameraId: "",
+			viewport: {
+				baseFovX: 55,
+				pose: {
+					position: { x: 0, y: 0, z: 0 },
+					quaternion: { x: 0, y: 0, z: 0, w: 1 },
+					up: { x: 0, y: 1, z: 0 },
+				},
+			},
+		},
+		shotCameras: [],
+		scene: {
+			assets: [
+				{
+					id: "asset-1",
+					kind: "model",
+					label: "Asset 1",
+					source: null,
+					transform: {
+						position: { x: 1, y: 0, z: 0 },
+						quaternion: { x: 0, y: 0, z: 0, w: 1 },
+					},
+				},
+			],
+			referenceImages: createDefaultReferenceImageDocument(),
+		},
+	});
+	await harness.projectController.startNewProject();
+	assert.equal(harness.resetProjectWorkspaceCalls.length, 1);
+	assert.equal(harness.store.overlay.value?.kind, "confirm");
 }
 
 console.log("✅ CAMERA_FRAMES project controller tests passed!");

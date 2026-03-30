@@ -111,6 +111,17 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 	const exportBusy = store.exportBusy.value;
 	const exportTarget = store.exportOptions.target.value;
 	const exportPresetIds = store.exportOptions.presetIds.value;
+	const projectDisplayNameRaw = store.project.name.value?.trim?.() ?? "";
+	const projectDisplayName = projectDisplayNameRaw || t("project.untitled");
+	const projectDirty = store.project.dirty.value;
+	const projectPackageDirty = store.project.packageDirty.value;
+	const showProjectPackageDirty =
+		projectPackageDirty &&
+		(projectDirty ||
+			sceneAssets.length > 0 ||
+			(store.referenceImages.items.value?.length ?? 0) > 0 ||
+			(store.workspace.shotCameras.value?.length ?? 0) > 1 ||
+			Boolean(projectDisplayNameRaw));
 	const exportSelectionMissing =
 		exportTarget === "selected" && exportPresetIds.length === 0;
 	const anchorOptions = getAnchorOptions(locale);
@@ -223,38 +234,69 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 	};
 	const projectMenuItems = [
 		{
-			id: "open-project",
-			icon: "package-open",
-			label: t("action.openProject"),
-			onClick: () => controller()?.openProject(),
+			id: "new-project",
+			icon: "plus",
+			label: t("menu.newProjectAction"),
+			shortcut: "Ctrl+N",
+			onClick: () => controller()?.startNewProject(),
 		},
 		{
-			id: "open-working-project",
-			icon: "clock",
-			label: t("action.openWorkingProject"),
-			onClick: () => controller()?.openWorkingProject(),
+			id: "open-project",
+			icon: "package-open",
+			label: t("menu.openProjectAction"),
+			shortcut: "Ctrl+O",
+			onClick: () => controller()?.openProject(),
 		},
 		{
 			id: "save-project",
 			icon: "save",
-			label: t("action.saveProject"),
+			label: t("menu.saveWorkingStateAction"),
+			shortcut: "Ctrl+S",
 			onClick: () => controller()?.saveProject(),
 		},
 		{
 			id: "export-project",
 			icon: "package",
-			label: t("action.exportProject"),
+			label: t("menu.savePackageAction"),
+			shortcut: "Ctrl+Shift+S",
 			onClick: () => controller()?.exportProject(),
 		},
-		{
-			id: "clear-scene",
-			icon: "trash",
-			label: t("action.clear"),
-			destructive: true,
-			onClick: () => controller()?.clearScene(),
-		},
 	];
+	const renderProjectStatus = (className = "") => html`
+		<div
+			class=${
+				className
+					? `workbench-project-status ${className}`
+					: "workbench-project-status"
+			}
+		>
+			<span class="workbench-project-status__name">${projectDisplayName}</span>
+			${
+				projectDirty &&
+				html`
+					<span
+						class="workbench-project-status__badge"
+						title=${t("project.dirtyHint")}
+					>
+						*
+					</span>
+				`
+			}
+			${
+				showProjectPackageDirty &&
+				html`
+					<span
+						class="workbench-project-status__badge workbench-project-status__badge--package"
+						title=${t("project.packageHint")}
+					>
+						PKG
+					</span>
+				`
+			}
+		</div>
+	`;
 	const fileMenuChildren = html`
+		${renderProjectStatus("workbench-project-status--menu")}
 		<div class="workbench-menu__group">
 			<button
 				id="open-files"
@@ -807,13 +849,14 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 										class="workbench-inspector-toggle"
 										aria-label=${t("action.close")}
 										onClick=${collapseWorkbench}
-									>
-										<${WorkbenchIcon} name="close" size=${14} />
-									</button>
-								</div>
-								<div class="workbench-inspector-stack workbench-inspector-stack--mobile">
-									${renderInspectorContent(activeInspectorTab)}
-								</div>
+										>
+											<${WorkbenchIcon} name="close" size=${14} />
+										</button>
+									</div>
+									${renderProjectStatus()}
+									<div class="workbench-inspector-stack workbench-inspector-stack--mobile">
+										${renderInspectorContent(activeInspectorTab)}
+									</div>
 							</section>
 						</div>
 					`
@@ -913,6 +956,7 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 											<${WorkbenchIcon} name="chevron-right" size=${14} />
 										</button>
 									</div>
+									${renderProjectStatus()}
 									<div class="workbench-inspector-tab-title">
 										<span class="workbench-inspector-tab-title__icon">
 											<${WorkbenchIcon}

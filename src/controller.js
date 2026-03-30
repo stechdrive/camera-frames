@@ -948,6 +948,12 @@ export function createCameraFramesController(elements, store) {
 			referenceImageController?.clearReferenceImages?.();
 			lightingController?.resetLighting?.();
 		},
+		resetProjectWorkspace: () => {
+			viewportToolController.setViewportTransformMode(false);
+			referenceImageController?.clearReferenceImages?.();
+			lightingController?.resetLighting?.();
+			assetController.clearScene();
+		},
 		buildProjectFilename,
 		captureProjectState,
 		clearHistory: () => historyController?.clearHistory(),
@@ -984,6 +990,12 @@ export function createCameraFramesController(elements, store) {
 		toggleViewportReferenceImageEditMode,
 		toggleViewportTransformMode,
 		toggleViewportPivotEditMode,
+		openProject: () => projectController?.openProject(),
+		startNewProject: () => projectController?.startNewProject(),
+		isProjectDirty: () => projectController?.isProjectDirty?.() ?? false,
+		isPackageDirty: () => projectController?.isPackageDirty?.() ?? true,
+		shouldWarnBeforeUnload: () =>
+			projectController?.shouldWarnBeforeUnload?.() ?? false,
 		saveProject: () => projectController?.saveProject(),
 		exportProject: () => projectController?.exportProject(),
 		undoHistory: () => historyController?.undoHistory(),
@@ -1431,6 +1443,7 @@ export function createCameraFramesController(elements, store) {
 	function updateUi() {
 		safeSyncReferenceImageUi();
 		safeSyncReferenceImagePreview();
+		projectController?.syncProjectPresentation?.();
 		return uiSyncController?.updateUi();
 	}
 
@@ -1596,8 +1609,8 @@ export function createCameraFramesController(elements, store) {
 		return projectController?.openProject();
 	}
 
-	function openWorkingProject() {
-		return projectController?.openWorkingProject();
+	function startNewProject() {
+		return projectController?.startNewProject();
 	}
 
 	function saveProject() {
@@ -1731,7 +1744,7 @@ export function createCameraFramesController(elements, store) {
 		supportsReferenceImageFile:
 			referenceImageController.supportsReferenceImageFile,
 		openProject,
-		openWorkingProject,
+		startNewProject,
 		saveProject,
 		exportProject,
 		clearScene,

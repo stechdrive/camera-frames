@@ -350,7 +350,15 @@ export function HeaderMenu({
 									</span>
 								`
 							}
-							<span>${item.label}</span>
+							<span class="workbench-menu__item-label">${item.label}</span>
+							${
+								item.shortcut &&
+								html`
+									<span class="workbench-menu__item-shortcut" aria-hidden="true">
+										<kbd>${item.shortcut}</kbd>
+									</span>
+								`
+							}
 						</button>
 					`,
 				)}
