@@ -3252,7 +3252,14 @@ export function LightingSection({
 			onToggle=${onToggle}
 		>
 			<div class="lighting-field-row lighting-field-row--direction">
-				<span class="lighting-field-row__label">${t("field.lightDirection")}</span>
+				<span class="lighting-field-row__label field-label-tooltip">
+					${t("field.lightDirection")}
+					<${TooltipBubble}
+						title=${t("field.lightDirection")}
+						description=${t("hint.lightDirection")}
+						placement="right"
+					/>
+				</span>
 				<div class="lighting-field-row__control">
 					<${LightingDirectionControl}
 						controller=${controller}
@@ -3397,7 +3404,14 @@ export function ShotCameraPropertiesSection({
 			onToggle=${onToggle}
 		>
 			<label class="field field--range">
-				<span>${t("field.shotCameraEquivalentMm")}</span>
+				<span class="field-label-tooltip">
+					${t("field.shotCameraEquivalentMm")}
+					<${TooltipBubble}
+						title=${t("field.shotCameraEquivalentMm")}
+						description=${t("tooltip.shotCameraEquivalentMmField")}
+						placement="right"
+					/>
+				</span>
 				<div class="range-row">
 					<${HistoryRangeInput}
 						id="fov-mm"
@@ -3597,7 +3611,14 @@ export function ShotCameraPropertiesSection({
 					<span class="switch-toggle__control" aria-hidden="true">
 						<span class="switch-toggle__thumb"></span>
 					</span>
-					<span class="switch-toggle__label">${t("clipMode.auto")}</span>
+					<span class="switch-toggle__label field-label-tooltip">
+						${t("clipMode.auto")}
+						<${TooltipBubble}
+							title=${t("clipMode.auto")}
+							description=${t("hint.shotCameraClip")}
+							placement="left"
+						/>
+					</span>
 				</label>
 			</div>
 				<div class="pose-grid">
@@ -4388,7 +4409,14 @@ export function OutputFrameSection({
 				</div>
 			</label>
 			<div class="field field--inline-compact field--anchor-compact">
-				<span>${t("field.anchor")}</span>
+				<span class="field-label-tooltip">
+					${t("field.anchor")}
+					<${TooltipBubble}
+						title=${t("field.anchor")}
+						description=${t("tooltip.outputFrameAnchorField")}
+						placement="right"
+					/>
+				</span>
 				<div class="field--inline-compact__value field--anchor-compact__value">
 					<div
 						class="anchor-matrix"

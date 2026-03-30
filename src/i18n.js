@@ -303,6 +303,10 @@ const MESSAGES = {
 				"この項目だけをクイックパネルで開きます。もう一度押すと閉じます。",
 			pinQuickSection: "この項目を右レールのショートカットに追加します。",
 			unpinQuickSection: "この項目を右レールのショートカットから外します。",
+			shotCameraEquivalentMmField:
+				"フルサイズ換算の焦点距離です。数値を変えるとアクティブなショットカメラの画角が変わります。",
+			outputFrameAnchorField:
+				"用紙サイズを変える時に、どの基準点を固定してフレームを広げるかを選びます。",
 			shotCameraExportName:
 				"書き出しファイル名のテンプレートです。%cam は現在のカメラ名に置き換わります。",
 			exportFormatField:
@@ -942,6 +946,10 @@ const MESSAGES = {
 				"Open only this section as a quick panel. Press again to close it.",
 			pinQuickSection: "Add this section to the right rail shortcuts.",
 			unpinQuickSection: "Remove this section from the right rail shortcuts.",
+			shotCameraEquivalentMmField:
+				"Full-frame-equivalent focal length. Changing it updates the active shot camera lens angle.",
+			outputFrameAnchorField:
+				"Choose which point stays fixed when the paper size changes.",
 			shotCameraExportName:
 				"Template for the exported filename. %cam is replaced with the current camera name.",
 			exportFormatField:
