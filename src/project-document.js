@@ -198,6 +198,15 @@ export function sanitizeShotCameraDocument(
 				normalized.exportSettings?.exportModelLayers !== false &&
 				Boolean(normalized.exportSettings?.exportSplatLayers),
 		},
+		frameMask: {
+			mode:
+				normalized.frameMask?.mode === "selected" ||
+				normalized.frameMask?.mode === "all"
+					? normalized.frameMask.mode
+					: "off",
+			opacityPct: Number(normalized.frameMask?.opacityPct ?? 80),
+			selectedIds: [...(normalized.frameMask?.selectedIds ?? [])],
+		},
 		navigation: {
 			rollLock: Boolean(normalized.navigation?.rollLock),
 		},

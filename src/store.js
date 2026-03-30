@@ -23,6 +23,7 @@ import {
 	getActiveShotCameraDocument,
 	getActiveWorkspacePane,
 	getWorkspaceModeLabelKey,
+	resolveFrameMaskSelectedIds,
 } from "./workspace-model.js";
 
 function formatNumber(value, digits = 0) {
@@ -162,8 +163,11 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	);
 	const activeFrameId = computed(() => activeFrame.value?.id ?? "");
 	const frameCount = computed(() => frameDocuments.value.length);
-	const frameMaskSelectedIds = computed(
-		() => activeShotCamera.value?.frameMask?.selectedIds ?? [],
+	const frameMaskSelectedIds = computed(() =>
+		resolveFrameMaskSelectedIds(
+			activeShotCamera.value?.frames ?? [],
+			activeShotCamera.value?.frameMask?.selectedIds ?? [],
+		),
 	);
 	const mode = computed(() => activeWorkspacePane.value.role);
 	const baseFovX = computed(

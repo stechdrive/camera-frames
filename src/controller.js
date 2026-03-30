@@ -1465,6 +1465,9 @@ export function createCameraFramesController(elements, store) {
 
 	function setViewportReferenceImageEditMode(nextEnabled) {
 		setViewportToolMode(nextEnabled ? "reference" : "none");
+		if (nextEnabled) {
+			referenceImageController?.ensureReferenceImageEditingSelection?.();
+		}
 	}
 
 	function setViewportTransformMode(nextEnabled) {
@@ -1535,20 +1538,39 @@ export function createCameraFramesController(elements, store) {
 			case "frame-create":
 				frameController.createFrame();
 				return true;
+			case "frame-mask-all":
+				if (state.mode !== WORKSPACE_PANE_CAMERA) {
+					return false;
+				}
+				frameController.toggleFrameMaskMode("all");
+				return true;
+			case "frame-mask-selected":
+				if (
+					state.mode !== WORKSPACE_PANE_CAMERA ||
+					frameController.getRememberedFrameMaskSelectedIds().length === 0
+				) {
+					return false;
+				}
+				frameController.toggleFrameMaskMode("selected");
+				return true;
 			case "frame-mask-toggle": {
 				if (state.mode !== WORKSPACE_PANE_CAMERA) {
 					return false;
 				}
 				const rememberedSelectedIds =
 					frameController.getRememberedFrameMaskSelectedIds();
+				const currentFrameMaskMode = store.frames.maskMode.value;
 				const resolvedFrameMaskMode =
-					store.frames.maskMode.value === "selected" ||
-					store.frames.maskMode.value === "all"
-						? store.frames.maskMode.value
+					currentFrameMaskMode === "selected" || currentFrameMaskMode === "all"
+						? currentFrameMaskMode
 						: rememberedSelectedIds.length > 0
 							? "selected"
 							: "all";
-				frameController.toggleFrameMaskMode(resolvedFrameMaskMode);
+				frameController.setFrameMaskMode(
+					currentFrameMaskMode === "selected" || currentFrameMaskMode === "all"
+						? "off"
+						: resolvedFrameMaskMode,
+				);
 				return true;
 			}
 			case "adjust-lens":
@@ -1740,6 +1762,8 @@ export function createCameraFramesController(elements, store) {
 			referenceImageController.duplicateActiveReferenceImagePreset,
 		clearReferenceImageSelection:
 			referenceImageController.clearReferenceImageSelection,
+		ensureReferenceImageEditingSelection:
+			referenceImageController.ensureReferenceImageEditingSelection,
 		selectReferenceImageAsset:
 			referenceImageController.selectReferenceImageAsset,
 		selectReferenceImageItem: referenceImageController.selectReferenceImageItem,

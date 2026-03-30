@@ -301,6 +301,10 @@ export function createReferenceImageController({
 	}
 
 	let referenceImageDragState = null;
+	let lastNonEmptyReferenceSelectionState = {
+		selectedItemIds: [],
+		activeItemId: "",
+	};
 
 	function getSelectedItemIds() {
 		return Array.isArray(store.referenceImages.selectedItemIds.value)
@@ -501,6 +505,12 @@ export function createReferenceImageController({
 		store.referenceImages.selectedItemIds.value = normalized.selectedItemIds;
 		store.referenceImages.selectedItemId.value = normalized.activeItemId;
 		store.referenceImages.selectedAssetId.value = nextActiveAssetId;
+		if (normalized.selectedItemIds.length > 0) {
+			lastNonEmptyReferenceSelectionState = {
+				selectedItemIds: [...normalized.selectedItemIds],
+				activeItemId: normalized.activeItemId,
+			};
+		}
 		if (previousSelectionKey !== nextSelectionKey) {
 			if (normalized.selectedItemIds.length > 1) {
 				initializeMultiSelectionTransformBox(items);
@@ -600,6 +610,46 @@ export function createReferenceImageController({
 			activeItemId: "",
 			activeAssetId: "",
 		});
+	}
+
+	function ensureEditingSelection() {
+		const items = store.referenceImages.items.value;
+		if (!Array.isArray(items) || items.length === 0) {
+			return false;
+		}
+		const currentSelectedItemIds = getSelectedItemIds().filter((itemId) =>
+			items.some((item) => item.id === itemId),
+		);
+		if (currentSelectedItemIds.length > 0) {
+			return false;
+		}
+		const rememberedSelectedItemIds = (
+			lastNonEmptyReferenceSelectionState.selectedItemIds ?? []
+		).filter((itemId) => items.some((item) => item.id === itemId));
+		if (rememberedSelectedItemIds.length > 0) {
+			const activeItemId = rememberedSelectedItemIds.includes(
+				lastNonEmptyReferenceSelectionState.activeItemId,
+			)
+				? lastNonEmptyReferenceSelectionState.activeItemId
+				: rememberedSelectedItemIds[rememberedSelectedItemIds.length - 1];
+			setSelectionState({
+				items,
+				selectedItemIds: rememberedSelectedItemIds,
+				activeItemId,
+			});
+			return true;
+		}
+		const fallbackItem = items[0] ?? null;
+		if (!fallbackItem) {
+			return false;
+		}
+		setSelectionState({
+			items,
+			selectedItemIds: [fallbackItem.id],
+			activeItemId: fallbackItem.id,
+			activeAssetId: fallbackItem.assetId,
+		});
+		return true;
 	}
 
 	function parseSelectionOptions(optionsOrEvent = null) {
@@ -2365,6 +2415,7 @@ export function createReferenceImageController({
 		setActiveReferenceImagePreset,
 		duplicateActiveReferenceImagePreset,
 		clearReferenceImageSelection: clearSelection,
+		ensureReferenceImageEditingSelection: ensureEditingSelection,
 		selectReferenceImageAsset,
 		selectReferenceImageItem,
 		setReferenceImagePreviewVisible,

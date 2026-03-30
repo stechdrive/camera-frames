@@ -70,6 +70,30 @@ export function sanitizeFrameName(value, fallback = "FRAME A") {
 	return truncated || fallback;
 }
 
+export function resolveFrameMaskSelectedIds(frames, selectedIds) {
+	const availableFrameIds = Array.isArray(frames)
+		? frames
+				.map((frame) => frame?.id)
+				.filter((frameId) => typeof frameId === "string" && frameId.length > 0)
+		: [];
+	const availableFrameIdSet = new Set(availableFrameIds);
+	const normalizedSelectedIds = [];
+	for (const frameId of selectedIds ?? []) {
+		if (
+			typeof frameId !== "string" ||
+			!availableFrameIdSet.has(frameId) ||
+			normalizedSelectedIds.includes(frameId)
+		) {
+			continue;
+		}
+		normalizedSelectedIds.push(frameId);
+	}
+
+	return normalizedSelectedIds.length > 0
+		? normalizedSelectedIds
+		: availableFrameIds;
+}
+
 export function getNextShotCameraNumber(shotCameras) {
 	let maxNumber = 0;
 
@@ -278,6 +302,13 @@ export function createShotCameraDocument({ id, name, source } = {}) {
 		...baseDocument,
 		id: id ?? baseDocument.id ?? getShotCameraDocumentId(1),
 		name: name ?? baseDocument.name ?? "Camera 1",
+		frameMask: {
+			...baseDocument.frameMask,
+			selectedIds: resolveFrameMaskSelectedIds(
+				frames,
+				baseDocument.frameMask?.selectedIds,
+			),
+		},
 		frames,
 		activeFrameId: baseDocument.activeFrameId ?? frames[0]?.id ?? null,
 	};
@@ -409,12 +440,9 @@ export function cloneShotCameraDocument(documentState) {
 						Math.max(0, Math.round(documentState.frameMask.opacityPct)),
 					)
 				: DEFAULT_FRAME_MASK_OPACITY_PCT,
-			selectedIds: Array.from(
-				new Set(
-					(documentState.frameMask?.selectedIds ?? []).filter((frameId) =>
-						frames.some((frame) => frame.id === frameId),
-					),
-				),
+			selectedIds: resolveFrameMaskSelectedIds(
+				frames,
+				documentState.frameMask?.selectedIds,
 			),
 		},
 		navigation: {

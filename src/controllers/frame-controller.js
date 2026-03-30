@@ -28,6 +28,7 @@ import {
 	getFrameDocumentId,
 	getNextFrameNumber,
 	getActiveFrameDocument as resolveActiveFrameDocument,
+	resolveFrameMaskSelectedIds,
 	sanitizeFrameName,
 } from "../workspace-model.js";
 
@@ -536,8 +537,9 @@ export function createFrameController({
 	}
 
 	function getRememberedFrameMaskSelectedIds() {
-		return (getActiveShotCameraDocument()?.frameMask?.selectedIds ?? []).filter(
-			(frameId) => getActiveFrames().some((frame) => frame.id === frameId),
+		return resolveFrameMaskSelectedIds(
+			getActiveFrames(),
+			getActiveShotCameraDocument()?.frameMask?.selectedIds ?? [],
 		);
 	}
 
