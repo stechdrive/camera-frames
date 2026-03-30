@@ -2438,6 +2438,7 @@ input[type="range"] {
 	color: var(--text-dim);
 	font: 600 0.72rem / 1 "Avenir Next", "Segoe UI", sans-serif;
 	letter-spacing: 0.04em;
+	line-height: 1;
 }
 
 .viewport-shell--inspector-open .viewport-project-status {
@@ -2449,11 +2450,15 @@ input[type="range"] {
 }
 
 .viewport-project-status__name {
+	display: inline-flex;
+	align-items: center;
 	min-width: 0;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	color: var(--text);
+	line-height: 1;
+	transform: translateY(-0.04em);
 }
 
 .viewport-project-status__badge {
@@ -2463,6 +2468,7 @@ input[type="range"] {
 	min-width: 1rem;
 	height: 1rem;
 	padding: 0 0.3rem;
+	vertical-align: middle;
 	border-radius: 999px;
 	border: 1px solid rgba(255, 184, 140, 0.28);
 	background: rgba(255, 148, 104, 0.12);
