@@ -1,6 +1,7 @@
 import { html } from "htm/preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import { getAnchorOptions } from "../i18n.js";
+import { getProjectStatusDisplay } from "./project-status.js";
 import { WorkbenchIcon } from "./workbench-icons.js";
 import { HeaderMenu, IconButton } from "./workbench-primitives.js";
 import {
@@ -111,17 +112,8 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 	const exportBusy = store.exportBusy.value;
 	const exportTarget = store.exportOptions.target.value;
 	const exportPresetIds = store.exportOptions.presetIds.value;
-	const projectDisplayNameRaw = store.project.name.value?.trim?.() ?? "";
-	const projectDisplayName = projectDisplayNameRaw || t("project.untitled");
-	const projectDirty = store.project.dirty.value;
-	const projectPackageDirty = store.project.packageDirty.value;
-	const showProjectPackageDirty =
-		projectPackageDirty &&
-		(projectDirty ||
-			sceneAssets.length > 0 ||
-			(store.referenceImages.items.value?.length ?? 0) > 0 ||
-			(store.workspace.shotCameras.value?.length ?? 0) > 1 ||
-			Boolean(projectDisplayNameRaw));
+	const { projectDisplayName, projectDirty, showProjectPackageDirty } =
+		getProjectStatusDisplay(store, t);
 	const exportSelectionMissing =
 		exportTarget === "selected" && exportPresetIds.length === 0;
 	const anchorOptions = getAnchorOptions(locale);

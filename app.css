@@ -2419,6 +2419,74 @@ input[type="range"] {
 	overflow: hidden;
 }
 
+.viewport-project-status {
+	position: absolute;
+	top: 1rem;
+	right: 1rem;
+	z-index: 8;
+	display: inline-flex;
+	align-items: center;
+	gap: 0.34rem;
+	max-width: min(18rem, calc(100% - 6rem));
+	padding: 0.4rem 0.56rem;
+	border: 1px solid rgba(255, 255, 255, 0.14);
+	border-radius: 999px;
+	background: rgba(5, 15, 27, 0.82);
+	box-shadow: 0 16px 28px rgba(0, 0, 0, 0.28);
+	backdrop-filter: blur(14px);
+	pointer-events: none;
+	color: var(--text-dim);
+	font: 600 0.72rem / 1 "Avenir Next", "Segoe UI", sans-serif;
+	letter-spacing: 0.04em;
+}
+
+.viewport-shell--inspector-open .viewport-project-status {
+	right: calc(var(--panel-width) + 1rem);
+}
+
+.viewport-shell--inspector-collapsed .viewport-project-status {
+	right: 4.6rem;
+}
+
+.viewport-project-status__name {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: var(--text);
+}
+
+.viewport-project-status__badge {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 1rem;
+	height: 1rem;
+	padding: 0 0.3rem;
+	border-radius: 999px;
+	border: 1px solid rgba(255, 184, 140, 0.28);
+	background: rgba(255, 148, 104, 0.12);
+	color: #ffc6a8;
+	font: 700 0.64rem / 1 "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+	letter-spacing: 0.02em;
+}
+
+.viewport-project-status__badge--package {
+	border-color: rgba(137, 208, 255, 0.24);
+	background: rgba(84, 162, 214, 0.14);
+	color: #bfe6ff;
+}
+
+@media (max-width: 900px) {
+	.viewport-project-status,
+	.viewport-shell--inspector-open .viewport-project-status,
+	.viewport-shell--inspector-collapsed .viewport-project-status {
+		top: 0.8rem;
+		right: 0.8rem;
+		max-width: min(15rem, calc(100% - 2rem));
+	}
+}
+
 .viewport-debug-meta {
 	position: absolute;
 	top: 0.9rem;
