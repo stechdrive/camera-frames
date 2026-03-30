@@ -1147,6 +1147,23 @@ export function SceneBrowserSection({
 		}
 		return classes.join(" ");
 	};
+	const renderSceneAssetTitle = (asset) =>
+		asset.id === selectedSceneAsset?.id
+			? html`
+					<div class="field scene-asset-row__inline-name-field">
+						<${TextDraftInput}
+							id=${`scene-asset-name-${asset.id}`}
+							class="scene-asset-row__inline-name-input"
+							placeholder=${asset.label}
+							selectOnFocus=${true}
+							value=${asset.label}
+							maxLength="128"
+							onCommit=${(nextValue) =>
+								controller()?.setAssetLabel?.(asset.id, nextValue)}
+						/>
+					</div>
+				`
+			: html`<strong>${asset.label}</strong>`;
 
 	return html`
 		<div class="browser-list">
@@ -1242,7 +1259,7 @@ export function SceneBrowserSection({
 												<${WorkbenchIcon} name="grip" size=${12} strokeWidth=${0} />
 											</span>
 											<div class="scene-asset-row__title-group">
-												<strong>${asset.label}</strong>
+												${renderSceneAssetTitle(asset)}
 											</div>
 										</div>
 										<div class="scene-asset-row__toolbar">

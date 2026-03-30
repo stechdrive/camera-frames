@@ -19,6 +19,7 @@ export const PROJECT_JOURNAL_PATH = "journal.json";
 export const DEFAULT_PROJECT_FILENAME = "camera-frames-project.ssproj";
 export const PROJECT_FILE_EMBEDDED_FILE_SOURCE = "project-file-embedded-file";
 export const PROJECT_FILE_PACKED_SPLAT_SOURCE = "project-file-packed-splat";
+export const PROJECT_ASSET_LABEL_MAX_LENGTH = 128;
 
 function isFiniteNumber(value) {
 	return typeof value === "number" && Number.isFinite(value);
@@ -59,6 +60,21 @@ function sanitizeScaleVector(value) {
 		y: isFiniteNumber(value?.y) ? value.y : 1,
 		z: isFiniteNumber(value?.z) ? value.z : 1,
 	};
+}
+
+export function sanitizeProjectAssetLabel(value, fallback = "Asset 1") {
+	const normalized = Array.from(String(value ?? ""))
+		.map((character) => {
+			const codePoint = character.codePointAt(0) ?? 0;
+			return codePoint < 32 || codePoint === 127 ? " " : character;
+		})
+		.join("")
+		.replace(/\s+/g, " ")
+		.trim();
+	const truncated = Array.from(normalized)
+		.slice(0, PROJECT_ASSET_LABEL_MAX_LENGTH)
+		.join("");
+	return truncated || fallback;
 }
 
 function clampNormalizedValue(value, fallback = 0.5) {
@@ -250,7 +266,7 @@ export function sanitizeProjectAssetState(asset, index = 0) {
 	return {
 		id: String(asset?.id ?? `asset-${index + 1}`),
 		kind: asset?.kind === "model" ? "model" : "splat",
-		label: String(asset?.label ?? `Asset ${index + 1}`),
+		label: sanitizeProjectAssetLabel(asset?.label, `Asset ${index + 1}`),
 		source: asset?.source ?? null,
 		transform: {
 			position: {

@@ -3907,6 +3907,17 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	min-width: 0;
 }
 
+.scene-asset-row__inline-name-field {
+	width: 100%;
+	gap: 0;
+}
+
+.scene-asset-row__inline-name-input {
+	min-height: 1.68rem !important;
+	padding: 0.28rem 0.42rem !important;
+	font-size: 0.76rem !important;
+}
+
 .scene-asset-row__title-group strong {
 	font-size: 0.84rem;
 	word-break: break-word;

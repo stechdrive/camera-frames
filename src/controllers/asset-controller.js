@@ -9,6 +9,7 @@ import {
 	getProjectSourceStableKey,
 	isProjectFileEmbeddedFileSource,
 	isProjectFilePackedSplatSource,
+	sanitizeProjectAssetLabel,
 } from "../project-document.js";
 import {
 	isProjectPackageFileSource,
@@ -2107,6 +2108,25 @@ export function createAssetController({
 		);
 	}
 
+	function setAssetLabel(assetId, nextLabel) {
+		const asset = getSceneAsset(assetId);
+		if (!asset) {
+			return;
+		}
+
+		const sanitizedLabel = sanitizeProjectAssetLabel(nextLabel, asset.label);
+		if (sanitizedLabel === asset.label) {
+			updateUi();
+			return;
+		}
+
+		runHistoryAction?.("asset.label", () => {
+			asset.label = sanitizedLabel;
+			asset.object.name = sanitizedLabel;
+		});
+		updateUi();
+	}
+
 	function setSelectedSceneAssetsVisibility(nextVisible) {
 		const selectedAssets = getSelectedSceneAssets();
 		if (selectedAssets.length === 0) {
@@ -2425,6 +2445,7 @@ export function createAssetController({
 		setAssetRotationDegrees,
 		offsetSelectedSceneAssetsRotationDegrees,
 		setAssetVisibility,
+		setAssetLabel,
 		setSelectedSceneAssetsVisibility,
 		applyAssetTransform,
 		scaleSelectedSceneAssetsByFactor,

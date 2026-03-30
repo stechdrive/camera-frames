@@ -1704,6 +1704,7 @@ export function createCameraFramesController(elements, store) {
 		offsetSelectedSceneAssetsRotationDegrees:
 			assetController.offsetSelectedSceneAssetsRotationDegrees,
 		setAssetVisibility: assetController.setAssetVisibility,
+		setAssetLabel: assetController.setAssetLabel,
 		setSelectedSceneAssetsVisibility:
 			assetController.setSelectedSceneAssetsVisibility,
 		applyAssetTransform: assetController.applyAssetTransform,
