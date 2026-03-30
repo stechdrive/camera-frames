@@ -1616,7 +1616,6 @@ export function ReferenceManagerSection({
 		selectedItems.length > 0 &&
 		selectedItems.every((item) => item.exportEnabled !== false);
 	const resolvedSummaryActions = html`
-		${summaryActions && html`${summaryActions}`}
 		<${IconButton}
 			id="toggle-reference-preview-session"
 			icon=${previewSessionVisible ? "reference-preview-on" : "reference-preview-off"}
@@ -1626,6 +1625,7 @@ export function ReferenceManagerSection({
 					: t("action.showReferenceImages")
 			}
 			active=${previewSessionVisible && items.length > 0}
+			compact=${true}
 			disabled=${items.length === 0}
 			tooltip=${{
 				title: previewSessionVisible
@@ -1640,6 +1640,7 @@ export function ReferenceManagerSection({
 					!previewSessionVisible,
 				)}
 		/>
+		${summaryActions && html`${summaryActions}`}
 	`;
 
 	function getRowClass(itemId) {
