@@ -1102,34 +1102,12 @@ code {
 	color: var(--text-dim);
 }
 
-.field-label-with-tooltip {
+.field-label-tooltip {
 	display: inline-flex;
 	align-items: center;
-	gap: 0.34rem;
-	min-width: 0;
-}
-
-.field-label-help {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	width: 0.92rem;
-	height: 0.92rem;
-	padding: 0;
-	border: 1px solid rgba(255, 255, 255, 0.14);
-	border-radius: 999px;
-	background: rgba(255, 255, 255, 0.04);
-	color: var(--text-dim);
-	font: 700 0.58rem / 1 "Avenir Next", "Segoe UI", sans-serif;
+	gap: 0;
+	width: fit-content;
 	cursor: help;
-	flex: 0 0 auto;
-}
-
-.field-label-help:hover,
-.field-label-help:focus-visible {
-	border-color: rgba(255, 255, 255, 0.22);
-	background: rgba(255, 255, 255, 0.08);
-	color: var(--text);
 }
 
 .field--inline-compact {
