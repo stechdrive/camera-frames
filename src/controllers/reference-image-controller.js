@@ -2318,10 +2318,11 @@ export function createReferenceImageController({
 		if (!currentBounds) {
 			return false;
 		}
+		const boundsKey = normalizedAxis === "x" ? "left" : "top";
 		return offsetReferenceImageBoundsPosition(
 			itemId,
 			normalizedAxis,
-			numericTarget - Number(currentBounds[normalizedAxis] ?? 0),
+			numericTarget - Number(currentBounds[boundsKey] ?? 0),
 		);
 	}
 

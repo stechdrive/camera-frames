@@ -314,6 +314,112 @@ function createTestController() {
 		cancelHistoryTransaction: () => {},
 	});
 	const asset = createReferenceImageAsset({
+		id: "asset-bounds",
+		label: "Bounds",
+		sourceMeta: createSourceMeta("bounds.png"),
+	});
+	const preset = createReferenceImagePreset({
+		id: "preset-bounds",
+		name: "Bounds",
+		items: [
+			createReferenceImageItem({
+				id: "item-bounds",
+				assetId: asset.id,
+				name: "Bounds Layer",
+				order: 0,
+				offsetPx: { x: -120, y: -60 },
+			}),
+		],
+	});
+	const documentState = createDefaultReferenceImageDocument();
+	documentState.assets.push(asset);
+	documentState.presets.push(preset);
+	documentState.activePresetId = preset.id;
+	shotCameraDocument.referenceImages.presetId = preset.id;
+	store.referenceImages.document.value = documentState;
+	store.viewportToolMode.value = "reference";
+	controller.syncUiState();
+
+	const initialBounds =
+		controller.getReferenceImageLogicalBounds("item-bounds");
+	assert.ok(initialBounds);
+	assert.notEqual(initialBounds.left, 0);
+	assert.notEqual(initialBounds.top, 0);
+
+	assert.equal(
+		controller.setReferenceImageBoundsPosition("item-bounds", "x", 0),
+		true,
+	);
+	assert.equal(
+		controller.setReferenceImageBoundsPosition("item-bounds", "y", 0),
+		true,
+	);
+
+	const nextBounds = controller.getReferenceImageLogicalBounds("item-bounds");
+	assert.ok(nextBounds);
+	assert.equal(nextBounds.left, 0);
+	assert.equal(nextBounds.top, 0);
+}
+
+{
+	const store = createCameraFramesStore();
+	let shotCameraDocument = createShotCameraDocument({
+		name: "Camera A",
+	});
+	const renderBoxElement = {
+		clientWidth: 1536,
+		clientHeight: 864,
+		clientLeft: 0,
+		clientTop: 0,
+		getBoundingClientRect() {
+			return {
+				left: 0,
+				top: 0,
+				width: 1536,
+				height: 864,
+			};
+		},
+	};
+	globalThis.document = {
+		getElementById(id) {
+			if (id !== "viewport-shell") {
+				return null;
+			}
+			return {
+				getBoundingClientRect() {
+					return {
+						left: 0,
+						top: 0,
+						width: 1536,
+						height: 864,
+					};
+				},
+			};
+		},
+	};
+	const controller = createReferenceImageController({
+		store,
+		referenceImageInput: null,
+		renderBox: renderBoxElement,
+		t: (key) => key,
+		setStatus: () => {},
+		updateUi: () => {},
+		ensureCameraMode: () => {},
+		getActiveShotCameraDocument: () => shotCameraDocument,
+		updateActiveShotCameraDocument: (updater) => {
+			shotCameraDocument = updater(shotCameraDocument);
+			return shotCameraDocument;
+		},
+		getOutputSizeState: () => ({ width: 1536, height: 864 }),
+		runHistoryAction: (_label, applyChange) => {
+			applyChange?.();
+			return true;
+		},
+		beginHistoryTransaction: () => true,
+		commitHistoryTransaction: () => true,
+		cancelHistoryTransaction: () => {},
+	});
+	const asset = createReferenceImageAsset({
 		id: "asset-anchor",
 		label: "Anchor",
 		sourceMeta: createSourceMeta("anchor.png"),
