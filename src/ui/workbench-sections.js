@@ -1544,6 +1544,18 @@ export function ReferenceManagerSection({
 		selectedItemIds.has(item.id),
 	);
 	const selectedItemId = store.referenceImages.selectedItemId.value;
+	const referenceGroups = [
+		{
+			group: "front",
+			label: t("referenceImage.group.front"),
+			items: itemsForDisplay.filter((item) => item.group === "front"),
+		},
+		{
+			group: "back",
+			label: t("referenceImage.group.back"),
+			items: itemsForDisplay.filter((item) => item.group === "back"),
+		},
+	];
 	const [draggedItemId, setDraggedItemId] = useState(null);
 	const [dragHoverState, setDragHoverState] = useState(null);
 	const canDeleteItems = selectedItems.length > 0;
@@ -1637,9 +1649,22 @@ export function ReferenceManagerSection({
 						${
 							itemsForDisplay.length > 0
 								? html`
-										<div class="scene-asset-list scene-asset-list--compact">
-											${itemsForDisplay.map(
-												(item) => html`
+										<div class="browser-list">
+											${referenceGroups.map(
+												(section) => html`
+													<section key=${section.group} class="browser-group">
+														<div class="browser-group__heading">
+															<strong>${section.label}</strong>
+															<span class="pill pill--dim"
+																>${section.items.length}</span
+															>
+														</div>
+														<div class="scene-asset-list scene-asset-list--compact">
+															${
+																section.items.length === 0
+																	? html`<div class="scene-asset-list__placeholder"></div>`
+																	: section.items.map(
+																			(item) => html`
 													<article
 														key=${item.id}
 														class=${getRowClass(item.id)}
@@ -1782,6 +1807,11 @@ export function ReferenceManagerSection({
 															/>
 														</div>
 													</article>
+												`,
+																		)
+															}
+														</div>
+													</section>
 												`,
 											)}
 										</div>
