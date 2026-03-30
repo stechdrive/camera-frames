@@ -222,7 +222,7 @@ export function cloneReferenceImageItem(item) {
 
 function sortReferenceImageItemsInPlace(items) {
 	const grouped = [REFERENCE_IMAGE_GROUP_BACK, REFERENCE_IMAGE_GROUP_FRONT];
-	for (const group of grouped) {
+	const nextItems = grouped.flatMap((group) =>
 		items
 			.filter((item) => item.group === group)
 			.sort(
@@ -231,10 +231,12 @@ function sortReferenceImageItemsInPlace(items) {
 					left.name.localeCompare(right.name) ||
 					left.id.localeCompare(right.id),
 			)
-			.forEach((item, index) => {
+			.map((item, index) => {
 				item.order = index;
-			});
-	}
+				return item;
+			}),
+	);
+	items.splice(0, items.length, ...nextItems);
 }
 
 function normalizeReferenceImageOverride(value = {}) {
