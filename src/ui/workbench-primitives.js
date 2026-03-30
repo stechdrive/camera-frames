@@ -265,7 +265,14 @@ export function HeaderMenu({
 }) {
 	const visibleItems = items.filter(Boolean);
 	const [open, setOpen] = useState(false);
-	const detailsRef = useRef(null);
+	const menuRef = useRef(null);
+	const triggerRef = useRef(null);
+	const panelRef = useRef(null);
+	const [panelStyle, setPanelStyle] = useState({
+		left: "10px",
+		top: "10px",
+		visibility: "hidden",
+	});
 
 	useEffect(() => {
 		if (!open) {
@@ -273,13 +280,21 @@ export function HeaderMenu({
 		}
 
 		const handlePointerDown = (event) => {
-			if (!detailsRef.current?.contains(event.target)) {
+			const target = event.target;
+			if (
+				!menuRef.current?.contains(target) &&
+				!panelRef.current?.contains(target)
+			) {
 				setOpen(false);
 			}
 		};
 
 		const handleFocusIn = (event) => {
-			if (!detailsRef.current?.contains(event.target)) {
+			const target = event.target;
+			if (
+				!menuRef.current?.contains(target) &&
+				!panelRef.current?.contains(target)
+			) {
 				setOpen(false);
 			}
 		};
@@ -300,16 +315,131 @@ export function HeaderMenu({
 		};
 	}, [open]);
 
+	useEffect(() => {
+		if (!open) {
+			return undefined;
+		}
+
+		const updatePosition = () => {
+			const trigger = triggerRef.current;
+			const panel = panelRef.current;
+			if (!trigger || !panel) {
+				return;
+			}
+
+			const triggerRect = trigger.getBoundingClientRect();
+			const panelRect = panel.getBoundingClientRect();
+			const margin = 10;
+			const gap = 10;
+			const unclampedLeft =
+				triggerRect.left + triggerRect.width * 0.5 - panelRect.width * 0.5;
+			const maxLeft = Math.max(
+				margin,
+				window.innerWidth - panelRect.width - margin,
+			);
+			const left = Math.min(Math.max(unclampedLeft, margin), maxLeft);
+			const unclampedTop =
+				panelPlacement === "up"
+					? triggerRect.top - panelRect.height - gap
+					: triggerRect.bottom + gap;
+			const maxTop = Math.max(
+				margin,
+				window.innerHeight - panelRect.height - margin,
+			);
+			const top = Math.min(Math.max(unclampedTop, margin), maxTop);
+			setPanelStyle({
+				left: `${left}px`,
+				top: `${top}px`,
+				visibility: "visible",
+			});
+		};
+
+		updatePosition();
+		window.addEventListener("resize", updatePosition);
+		window.addEventListener("scroll", updatePosition, true);
+		return () => {
+			window.removeEventListener("resize", updatePosition);
+			window.removeEventListener("scroll", updatePosition, true);
+		};
+	}, [open, panelPlacement]);
+
+	const panelNode =
+		open && typeof document !== "undefined"
+			? createPortal(
+					html`
+						<div
+							ref=${panelRef}
+							class=${
+								panelPlacement === "up"
+									? "workbench-menu__panel workbench-menu__panel--up"
+									: "workbench-menu__panel"
+							}
+							role="menu"
+							style=${{
+								left: panelStyle.left,
+								top: panelStyle.top,
+								visibility: panelStyle.visibility,
+							}}
+						>
+							${children}
+							${visibleItems.map(
+								(item) => html`
+									<button
+										key=${item.id ?? item.label}
+										type="button"
+										role="menuitem"
+										class=${
+											item.destructive
+												? "workbench-menu__item workbench-menu__item--destructive"
+												: "workbench-menu__item"
+										}
+										onClick=${() => {
+											setOpen(false);
+											item.onClick?.();
+										}}
+									>
+										${
+											item.icon &&
+											html`
+												<span class="workbench-menu__item-icon">
+													<${WorkbenchIcon} name=${item.icon} size=${14} />
+												</span>
+											`
+										}
+										<span class="workbench-menu__item-label">${item.label}</span>
+										${
+											item.shortcut &&
+											html`
+												<span class="workbench-menu__item-shortcut" aria-hidden="true">
+													<kbd>${item.shortcut}</kbd>
+												</span>
+											`
+										}
+									</button>
+								`,
+							)}
+						</div>
+					`,
+					document.body,
+				)
+			: null;
+
 	return html`
-		<details
-			ref=${detailsRef}
-			class="workbench-menu"
-			open=${open}
-			onToggle=${(event) => setOpen(Boolean(event.currentTarget.open))}
+		<div
+			ref=${menuRef}
+			class=${open ? "workbench-menu is-open" : "workbench-menu"}
 		>
-			<summary
+			<button
+				ref=${triggerRef}
+				type="button"
 				class="workbench-menu__trigger workbench-menu__trigger--tooltip"
 				aria-label=${label}
+				aria-haspopup="menu"
+				aria-expanded=${open}
+				onClick=${(event) => {
+					event.stopPropagation();
+					setOpen((currentOpen) => !currentOpen);
+				}}
 			>
 				<${WorkbenchIcon} name=${icon} size=${16} />
 				<${TooltipBubble}
@@ -318,52 +448,9 @@ export function HeaderMenu({
 					shortcut=${tooltip?.shortcut ?? ""}
 					placement=${tooltip?.placement ?? "right"}
 				/>
-			</summary>
-			<div
-				class=${
-					panelPlacement === "up"
-						? "workbench-menu__panel workbench-menu__panel--up"
-						: "workbench-menu__panel"
-				}
-			>
-				${children}
-				${visibleItems.map(
-					(item) => html`
-						<button
-							key=${item.id ?? item.label}
-							type="button"
-							class=${
-								item.destructive
-									? "workbench-menu__item workbench-menu__item--destructive"
-									: "workbench-menu__item"
-							}
-							onClick=${(event) => {
-								setOpen(false);
-								item.onClick?.();
-							}}
-						>
-							${
-								item.icon &&
-								html`
-									<span class="workbench-menu__item-icon">
-										<${WorkbenchIcon} name=${item.icon} size=${14} />
-									</span>
-								`
-							}
-							<span class="workbench-menu__item-label">${item.label}</span>
-							${
-								item.shortcut &&
-								html`
-									<span class="workbench-menu__item-shortcut" aria-hidden="true">
-										<kbd>${item.shortcut}</kbd>
-									</span>
-								`
-							}
-						</button>
-					`,
-				)}
-			</div>
-		</details>
+			</button>
+			${panelNode}
+		</div>
 	`;
 }
 
