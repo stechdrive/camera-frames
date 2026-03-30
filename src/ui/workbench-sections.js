@@ -723,7 +723,7 @@ export function ToolRailSection({
 								tooltip=${{
 									title: t("transformMode.reference"),
 									description: t("tooltip.toolReference"),
-									shortcut: "R",
+									shortcut: "Shift+R",
 									placement: tooltipPlacement,
 								}}
 								onClick=${() =>

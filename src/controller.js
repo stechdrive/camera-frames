@@ -1535,21 +1535,22 @@ export function createCameraFramesController(elements, store) {
 			case "frame-create":
 				frameController.createFrame();
 				return true;
-			case "frame-mask-all":
+			case "frame-mask-toggle": {
 				if (state.mode !== WORKSPACE_PANE_CAMERA) {
 					return false;
 				}
-				frameController.toggleFrameMaskMode("all");
+				const rememberedSelectedIds =
+					frameController.getRememberedFrameMaskSelectedIds();
+				const resolvedFrameMaskMode =
+					store.frames.maskMode.value === "selected" ||
+					store.frames.maskMode.value === "all"
+						? store.frames.maskMode.value
+						: rememberedSelectedIds.length > 0
+							? "selected"
+							: "all";
+				frameController.toggleFrameMaskMode(resolvedFrameMaskMode);
 				return true;
-			case "frame-mask-selected":
-				if (
-					state.mode !== WORKSPACE_PANE_CAMERA ||
-					frameController.getRememberedFrameMaskSelectedIds().length === 0
-				) {
-					return false;
-				}
-				frameController.toggleFrameMaskMode("selected");
-				return true;
+			}
 			case "adjust-lens":
 				interactionController?.activateLensAdjustMode(pointerEvent);
 				return true;

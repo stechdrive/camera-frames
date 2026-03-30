@@ -13,8 +13,7 @@ const VIEWPORT_PIE_ACTION_ORDER = Object.freeze([
 	"tool-pivot",
 	"adjust-lens",
 	"frame-create",
-	"frame-mask-all",
-	"frame-mask-selected",
+	"frame-mask-toggle",
 	"toggle-view-mode",
 	"clear-selection",
 ]);
@@ -49,6 +48,12 @@ export function buildViewportPieActions({
 	frameMaskMode = "off",
 	hasRememberedFrameMaskSelection = false,
 }) {
+	const resolvedFrameMaskMode =
+		frameMaskMode === "selected" || frameMaskMode === "all"
+			? frameMaskMode
+			: hasRememberedFrameMaskSelection
+				? "selected"
+				: "all";
 	return VIEWPORT_PIE_LAYOUT.map((entry) => {
 		switch (entry.id) {
 			case "tool-select":
@@ -97,21 +102,19 @@ export function buildViewportPieActions({
 					icon: "frame-plus",
 					label: t("action.newFrame"),
 				};
-			case "frame-mask-all":
+			case "frame-mask-toggle":
 				return {
 					...entry,
-					icon: "mask-all",
-					label: t("action.toggleAllFrameMask"),
-					active: mode === "camera" && frameMaskMode === "all",
+					icon:
+						resolvedFrameMaskMode === "selected" ? "mask-selected" : "mask-all",
+					label:
+						resolvedFrameMaskMode === "selected"
+							? t("action.toggleSelectedFrameMask")
+							: t("action.toggleAllFrameMask"),
+					active:
+						mode === "camera" &&
+						(frameMaskMode === "selected" || frameMaskMode === "all"),
 					disabled: mode !== "camera",
-				};
-			case "frame-mask-selected":
-				return {
-					...entry,
-					icon: "mask-selected",
-					label: t("action.toggleSelectedFrameMask"),
-					active: mode === "camera" && frameMaskMode === "selected",
-					disabled: mode !== "camera" || !hasRememberedFrameMaskSelection,
 				};
 			case "toggle-view-mode":
 				return mode === "camera"

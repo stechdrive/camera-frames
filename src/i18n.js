@@ -239,7 +239,8 @@ const MESSAGES = {
 			modeCamera: "ショットカメラで構図と下絵を確認します。",
 			modeViewport: "作業用カメラでシーンを自由に見回します。",
 			toolSelect: "3D オブジェクトの選択モードです。もう一度押すと解除します。",
-			toolReference: "下絵の選択と変形モードです。もう一度押すと解除します。",
+			toolReference:
+				"下絵の選択と変形モードです。Shift+R で切り替えます。R は下絵表示の一時切替です。もう一度押すと解除します。",
 			toolTransform:
 				"3D オブジェクトの変形モードです。もう一度押すと解除します。",
 			toolPivot:
@@ -765,7 +766,7 @@ const MESSAGES = {
 				"Use the working camera to inspect and navigate the scene freely.",
 			toolSelect: "Select 3D objects. Press again to return to no active tool.",
 			toolReference:
-				"Edit reference images. Press again to return to no active tool.",
+				"Edit reference images. Toggle with Shift+R. R temporarily shows or hides references. Press again to return to no active tool.",
 			toolTransform:
 				"Transform 3D objects. Press again to return to no active tool.",
 			toolPivot:
