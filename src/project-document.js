@@ -24,6 +24,43 @@ function isFiniteNumber(value) {
 	return typeof value === "number" && Number.isFinite(value);
 }
 
+function sanitizeObjectLocalTransform(value) {
+	if (!value || typeof value !== "object") {
+		return null;
+	}
+
+	return {
+		position: {
+			x: Number(value?.position?.x ?? 0),
+			y: Number(value?.position?.y ?? 0),
+			z: Number(value?.position?.z ?? 0),
+		},
+		quaternion: {
+			x: Number(value?.quaternion?.x ?? 0),
+			y: Number(value?.quaternion?.y ?? 0),
+			z: Number(value?.quaternion?.z ?? 0),
+			w: Number(value?.quaternion?.w ?? 1),
+		},
+		scale: {
+			x: isFiniteNumber(value?.scale?.x) ? value.scale.x : 1,
+			y: isFiniteNumber(value?.scale?.y) ? value.scale.y : 1,
+			z: isFiniteNumber(value?.scale?.z) ? value.scale.z : 1,
+		},
+	};
+}
+
+function sanitizeScaleVector(value) {
+	if (!value || typeof value !== "object") {
+		return null;
+	}
+
+	return {
+		x: isFiniteNumber(value?.x) ? value.x : 1,
+		y: isFiniteNumber(value?.y) ? value.y : 1,
+		z: isFiniteNumber(value?.z) ? value.z : 1,
+	};
+}
+
 function clampNormalizedValue(value, fallback = 0.5) {
 	if (!isFiniteNumber(value)) {
 		return fallback;
@@ -161,6 +198,23 @@ export function sanitizeShotCameraDocument(
 				normalized.exportSettings?.exportModelLayers !== false &&
 				Boolean(normalized.exportSettings?.exportSplatLayers),
 		},
+		frameMask: {
+			mode:
+				normalized.frameMask?.mode === "selected" ||
+				normalized.frameMask?.mode === "all"
+					? normalized.frameMask.mode
+					: "off",
+			preferredMode:
+				normalized.frameMask?.preferredMode === "selected" ||
+				normalized.frameMask?.preferredMode === "all"
+					? normalized.frameMask.preferredMode
+					: normalized.frameMask?.mode === "selected" ||
+							normalized.frameMask?.mode === "all"
+						? normalized.frameMask.mode
+						: "all",
+			opacityPct: Number(normalized.frameMask?.opacityPct ?? 80),
+			selectedIds: [...(normalized.frameMask?.selectedIds ?? [])],
+		},
 		navigation: {
 			rollLock: Boolean(normalized.navigation?.rollLock),
 		},
@@ -211,6 +265,8 @@ export function sanitizeProjectAssetState(asset, index = 0) {
 				w: Number(asset?.transform?.quaternion?.w ?? 1),
 			},
 		},
+		contentTransform: sanitizeObjectLocalTransform(asset?.contentTransform),
+		baseScale: sanitizeScaleVector(asset?.baseScale),
 		worldScale:
 			isFiniteNumber(asset?.worldScale) && asset.worldScale > 0
 				? asset.worldScale

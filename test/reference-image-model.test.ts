@@ -6,7 +6,16 @@ import {
 	createReferenceImageItem,
 	createReferenceImagePreset,
 	createShotCameraReferenceImagesState,
+	getReferenceImageCompositeItems,
+	getReferenceImageDisplayItems,
+	getReferenceImageOrderForImportIndex,
 } from "../src/reference-image-model.js";
+
+assert.equal(getReferenceImageOrderForImportIndex(0, 0), 0);
+assert.equal(getReferenceImageOrderForImportIndex(1, 0), 1);
+assert.equal(getReferenceImageOrderForImportIndex(2, 0), 2);
+assert.equal(getReferenceImageOrderForImportIndex(0, 4), 4);
+assert.equal(getReferenceImageOrderForImportIndex(1, 4), 5);
 
 {
 	const asset = createReferenceImageAsset(null);
@@ -33,6 +42,51 @@ import {
 	const preset = createReferenceImagePreset(null);
 	assert.equal(preset.items.length, 0);
 	assert.equal(preset.baseRenderBox.w > 0, true);
+}
+
+{
+	const items = [
+		createReferenceImageItem({
+			id: "back-0",
+			assetId: "asset-back-0",
+			name: "back-0",
+			group: "back",
+			order: 0,
+		}),
+		createReferenceImageItem({
+			id: "front-0",
+			assetId: "asset-front-0",
+			name: "front-0",
+			group: "front",
+			order: 0,
+		}),
+		createReferenceImageItem({
+			id: "back-1",
+			assetId: "asset-back-1",
+			name: "back-1",
+			group: "back",
+			order: 1,
+		}),
+		createReferenceImageItem({
+			id: "front-1",
+			assetId: "asset-front-1",
+			name: "front-1",
+			group: "front",
+			order: 1,
+		}),
+	];
+	assert.deepEqual(
+		getReferenceImageCompositeItems(items).map((item) => item.id),
+		["back-0", "back-1", "front-0", "front-1"],
+	);
+	assert.deepEqual(
+		getReferenceImageDisplayItems(items).map((item) => item.id),
+		["front-1", "front-0", "back-1", "back-0"],
+	);
+	assert.deepEqual(
+		getReferenceImageDisplayItems(items, "front").map((item) => item.id),
+		["front-1", "front-0"],
+	);
 }
 
 {

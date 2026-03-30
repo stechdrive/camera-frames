@@ -23,6 +23,8 @@ import {
 	getActiveShotCameraDocument,
 	getActiveWorkspacePane,
 	getWorkspaceModeLabelKey,
+	resolveFrameMaskPreferredMode,
+	resolveFrameMaskSelectedIds,
 } from "./workspace-model.js";
 
 function formatNumber(value, digits = 0) {
@@ -162,8 +164,11 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	);
 	const activeFrameId = computed(() => activeFrame.value?.id ?? "");
 	const frameCount = computed(() => frameDocuments.value.length);
-	const frameMaskSelectedIds = computed(
-		() => activeShotCamera.value?.frameMask?.selectedIds ?? [],
+	const frameMaskSelectedIds = computed(() =>
+		resolveFrameMaskSelectedIds(
+			activeShotCamera.value?.frames ?? [],
+			activeShotCamera.value?.frameMask?.selectedIds ?? [],
+		),
 	);
 	const mode = computed(() => activeWorkspacePane.value.role);
 	const baseFovX = computed(
@@ -222,6 +227,12 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	);
 	const frameMaskMode = computed(
 		() => activeShotCamera.value?.frameMask?.mode ?? "off",
+	);
+	const frameMaskPreferredMode = computed(() =>
+		resolveFrameMaskPreferredMode(
+			activeShotCamera.value?.frameMask?.mode,
+			activeShotCamera.value?.frameMask?.preferredMode,
+		),
 	);
 	const frameMaskOpacityPct = computed(() =>
 		Number.isFinite(activeShotCamera.value?.frameMask?.opacityPct)
@@ -350,6 +361,7 @@ export function createCameraFramesStore(runtimeInfo = null) {
 			selectionBoxLogical: frameSelectionBoxLogical,
 			maskSelectedIds: frameMaskSelectedIds,
 			maskMode: frameMaskMode,
+			maskPreferredMode: frameMaskPreferredMode,
 			maskOpacityPct: frameMaskOpacityPct,
 		},
 		history: {

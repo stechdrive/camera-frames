@@ -1465,6 +1465,9 @@ export function createCameraFramesController(elements, store) {
 
 	function setViewportReferenceImageEditMode(nextEnabled) {
 		setViewportToolMode(nextEnabled ? "reference" : "none");
+		if (nextEnabled) {
+			referenceImageController?.ensureReferenceImageEditingSelection?.();
+		}
 	}
 
 	function setViewportTransformMode(nextEnabled) {
@@ -1508,6 +1511,14 @@ export function createCameraFramesController(elements, store) {
 			case "tool-reference":
 				setViewportToolMode("reference");
 				return true;
+			case "toggle-reference-preview":
+				if ((store.referenceImages.items.value?.length ?? 0) === 0) {
+					return false;
+				}
+				referenceImageController?.setPreviewSessionVisible?.(
+					!(store.referenceImages.previewSessionVisible.value !== false),
+				);
+				return true;
 			case "tool-transform":
 				setViewportToolMode("transform");
 				return true;
@@ -1534,14 +1545,18 @@ export function createCameraFramesController(elements, store) {
 				frameController.toggleFrameMaskMode("all");
 				return true;
 			case "frame-mask-selected":
-				if (
-					state.mode !== WORKSPACE_PANE_CAMERA ||
-					frameController.getRememberedFrameMaskSelectedIds().length === 0
-				) {
+				if (state.mode !== WORKSPACE_PANE_CAMERA) {
 					return false;
 				}
 				frameController.toggleFrameMaskMode("selected");
 				return true;
+			case "frame-mask-toggle": {
+				if (state.mode !== WORKSPACE_PANE_CAMERA) {
+					return false;
+				}
+				frameController.togglePreferredFrameMaskMode();
+				return true;
+			}
 			case "adjust-lens":
 				interactionController?.activateLensAdjustMode(pointerEvent);
 				return true;
@@ -1669,6 +1684,7 @@ export function createCameraFramesController(elements, store) {
 		selectShotCamera: cameraController.selectShotCamera,
 		createShotCamera: cameraController.createShotCamera,
 		duplicateActiveShotCamera: cameraController.duplicateActiveShotCamera,
+		deleteActiveShotCamera: cameraController.deleteActiveShotCamera,
 		selectSceneAsset: assetController.selectSceneAsset,
 		clearSceneAssetSelection,
 		pickViewportAssetAtPointer:
@@ -1690,6 +1706,7 @@ export function createCameraFramesController(elements, store) {
 		setAssetVisibility: assetController.setAssetVisibility,
 		setSelectedSceneAssetsVisibility:
 			assetController.setSelectedSceneAssetsVisibility,
+		applyAssetTransform: assetController.applyAssetTransform,
 		scaleSelectedSceneAssetsByFactor:
 			assetController.scaleSelectedSceneAssetsByFactor,
 		moveAssetUp: assetController.moveAssetUp,
@@ -1725,26 +1742,60 @@ export function createCameraFramesController(elements, store) {
 			referenceImageController.setPreviewSessionVisible,
 		setActiveReferenceImagePreset:
 			referenceImageController.setActiveReferenceImagePreset,
+		setActiveReferenceImagePresetName:
+			referenceImageController.setActiveReferenceImagePresetName,
 		duplicateActiveReferenceImagePreset:
 			referenceImageController.duplicateActiveReferenceImagePreset,
+		deleteActiveReferenceImagePreset:
+			referenceImageController.deleteActiveReferenceImagePreset,
+		deleteSelectedReferenceImageItems:
+			referenceImageController.deleteSelectedReferenceImageItems,
 		clearReferenceImageSelection:
 			referenceImageController.clearReferenceImageSelection,
+		ensureReferenceImageEditingSelection:
+			referenceImageController.ensureReferenceImageEditingSelection,
 		selectReferenceImageAsset:
 			referenceImageController.selectReferenceImageAsset,
 		selectReferenceImageItem: referenceImageController.selectReferenceImageItem,
 		setReferenceImagePreviewVisible:
 			referenceImageController.setReferenceImagePreviewVisible,
+		setSelectedReferenceImagesPreviewVisible:
+			referenceImageController.setSelectedReferenceImagesPreviewVisible,
 		setReferenceImageExportEnabled:
 			referenceImageController.setReferenceImageExportEnabled,
+		setSelectedReferenceImagesExportEnabled:
+			referenceImageController.setSelectedReferenceImagesExportEnabled,
+		setSelectedReferenceImagesOpacity:
+			referenceImageController.setSelectedReferenceImagesOpacity,
 		setReferenceImageOpacity: referenceImageController.setReferenceImageOpacity,
+		scaleSelectedReferenceImagesByFactor:
+			referenceImageController.scaleSelectedReferenceImagesByFactor,
+		applySelectedReferenceImagesScaleFromSession:
+			referenceImageController.applySelectedReferenceImagesScaleFromSession,
 		setReferenceImageScalePct:
 			referenceImageController.setReferenceImageScalePct,
+		offsetSelectedReferenceImagesRotationDeg:
+			referenceImageController.offsetSelectedReferenceImagesRotationDeg,
+		applySelectedReferenceImagesRotationFromSession:
+			referenceImageController.applySelectedReferenceImagesRotationFromSession,
 		setReferenceImageRotationDeg:
 			referenceImageController.setReferenceImageRotationDeg,
+		offsetSelectedReferenceImagesPosition:
+			referenceImageController.offsetSelectedReferenceImagesPosition,
+		offsetReferenceImageBoundsPosition:
+			referenceImageController.offsetReferenceImageBoundsPosition,
+		getReferenceImageLogicalBounds:
+			referenceImageController.getReferenceImageLogicalBounds,
+		getSelectedReferenceImageTransformSession:
+			referenceImageController.getSelectedReferenceImageTransformSession,
 		setReferenceImageOffsetPx:
 			referenceImageController.setReferenceImageOffsetPx,
+		setReferenceImageBoundsPosition:
+			referenceImageController.setReferenceImageBoundsPosition,
 		setReferenceImageGroup: referenceImageController.setReferenceImageGroup,
 		setReferenceImageOrder: referenceImageController.setReferenceImageOrder,
+		moveReferenceImageToDisplayTarget:
+			referenceImageController.moveReferenceImageToDisplayTarget,
 		startReferenceImageMove: referenceImageController.startReferenceImageMove,
 		startReferenceImageResize:
 			referenceImageController.startReferenceImageResize,

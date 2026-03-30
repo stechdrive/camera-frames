@@ -135,6 +135,12 @@ const projectSnapshot = {
 					position: { x: 1, y: 0, z: 0 },
 					quaternion: { x: 0, y: 0, z: 0, w: 1 },
 				},
+				contentTransform: {
+					position: { x: 0.25, y: -0.5, z: 0.75 },
+					quaternion: { x: 0, y: 0.382683, z: 0, w: 0.92388 },
+					scale: { x: 1.2, y: 1.2, z: 1.2 },
+				},
+				baseScale: { x: 1, y: 1, z: 1 },
 				worldScale: 1,
 				unitMode: "meters",
 				visible: true,
@@ -196,6 +202,9 @@ assert.equal(result.project.workspace.viewport.baseFovX, 55);
 assert.equal(result.project.shotCameras.length, 1);
 assert.equal(result.project.shotCameras[0].pose.position.x, 4);
 assert.equal(result.project.scene.assets.length, 2);
+assert.equal(result.project.scene.assets[0].contentTransform.position.x, 0.25);
+assert.equal(result.project.scene.assets[0].contentTransform.scale.x, 1.2);
+assert.equal(result.project.scene.assets[0].baseScale.x, 1);
 assert.equal(result.project.scene.lighting.ambient, 0.42);
 assert.equal(result.project.scene.lighting.modelLight.enabled, false);
 assert.equal(result.project.scene.lighting.modelLight.intensity, 1.65);

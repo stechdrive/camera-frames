@@ -587,11 +587,14 @@ export function bindInputRouter({
 			(state.mode === "viewport" || state.mode === "camera") &&
 			!event.altKey &&
 			!event.ctrlKey &&
-			!event.metaKey &&
-			!event.shiftKey
+			!event.metaKey
 		) {
 			event.preventDefault();
-			toggleViewportReferenceImageEditMode?.();
+			if (event.shiftKey) {
+				toggleViewportReferenceImageEditMode?.();
+				return;
+			}
+			handleViewportPieAction?.("toggle-reference-preview");
 			return;
 		}
 

@@ -57,8 +57,9 @@ assert.equal(shotCameras[0].exportSettings.exportGridLayerMode, "bottom");
 assert.equal(shotCameras[0].exportSettings.exportModelLayers, true);
 assert.equal(shotCameras[0].exportSettings.exportSplatLayers, true);
 assert.equal(shotCameras[0].frameMask.mode, "off");
+assert.equal(shotCameras[0].frameMask.preferredMode, "all");
 assert.equal(shotCameras[0].frameMask.opacityPct, 80);
-assert.deepEqual(shotCameras[0].frameMask.selectedIds, []);
+assert.deepEqual(shotCameras[0].frameMask.selectedIds, ["frame-1"]);
 assert.equal(shotCameras[0].navigation.rollLock, false);
 assert.equal(shotCameras[0].frames.length, 1);
 assert.equal(shotCameras[0].activeFrameId, "frame-1");
@@ -92,8 +93,9 @@ assert.equal(duplicatedShotCamera.exportSettings.exportGridLayerMode, "bottom");
 assert.equal(duplicatedShotCamera.exportSettings.exportModelLayers, true);
 assert.equal(duplicatedShotCamera.exportSettings.exportSplatLayers, true);
 assert.equal(duplicatedShotCamera.frameMask.mode, "off");
+assert.equal(duplicatedShotCamera.frameMask.preferredMode, "all");
 assert.equal(duplicatedShotCamera.frameMask.opacityPct, 80);
-assert.deepEqual(duplicatedShotCamera.frameMask.selectedIds, []);
+assert.deepEqual(duplicatedShotCamera.frameMask.selectedIds, ["frame-1"]);
 assert.equal(duplicatedShotCamera.navigation.rollLock, false);
 assert.notEqual(duplicatedShotCamera.outputFrame, shotCameras[0].outputFrame);
 assert.notEqual(
@@ -179,5 +181,34 @@ const sanitizedShotCamera = createShotCameraDocument({
 	},
 });
 assert.equal(sanitizedShotCamera.frames[0].name, "Odd Frame Name");
+assert.deepEqual(sanitizedShotCamera.frameMask.selectedIds, ["frame-1"]);
+
+const multiFrameShotCamera = createShotCameraDocument({
+	id: getShotCameraDocumentId(4),
+	name: "Camera 4",
+	source: {
+		...shotCameras[0],
+		frameMask: {
+			mode: "off",
+			opacityPct: 80,
+			selectedIds: [],
+		},
+		frames: [
+			{
+				...shotCameras[0].frames[0],
+				id: getFrameDocumentId(1),
+			},
+			{
+				...shotCameras[0].frames[0],
+				id: getFrameDocumentId(2),
+				name: "FRAME B",
+			},
+		],
+	},
+});
+assert.deepEqual(multiFrameShotCamera.frameMask.selectedIds, [
+	"frame-1",
+	"frame-2",
+]);
 
 console.log("✅ CAMERA_FRAMES workspace model tests passed!");

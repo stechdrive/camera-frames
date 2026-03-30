@@ -32,6 +32,9 @@ import {
 	createReferenceImagePreset,
 	createShotCameraReferenceImagesState,
 	findReferenceImagePreset,
+	getReferenceImageCompositeItems,
+	getReferenceImageDisplayItems,
+	getReferenceImageOrderForImportIndex,
 	getReferenceImageRenderBoxAnchor,
 	getShotReferenceImagePresetId,
 	normalizeReferenceImageDocument,
@@ -39,6 +42,7 @@ import {
 	removeRenderBoxOffsetCorrection,
 	resolveReferenceImageItemsForShot,
 } from "../reference-image-model.js";
+import { cloneShotCameraDocument } from "../workspace-model.js";
 import { getReferenceImagePreviewRenderBoxMetrics } from "./reference-image-render-controller.js";
 
 const REFERENCE_IMAGE_EXTENSIONS = new Set([
@@ -86,21 +90,17 @@ function ensurePresetBaseRenderBox(preset, outputSize) {
 }
 
 function normalizeReferenceImageItemOrderInPlace(items) {
-	for (const group of [
-		REFERENCE_IMAGE_GROUP_BACK,
-		REFERENCE_IMAGE_GROUP_FRONT,
-	]) {
-		items
-			.filter((item) => item.group === group)
-			.sort(
-				(left, right) =>
-					left.order - right.order ||
-					left.name.localeCompare(right.name) ||
-					left.id.localeCompare(right.id),
-			)
-			.forEach((item, index) => {
-				item.order = index;
-			});
+	const nextItems = getReferenceImageCompositeItems(items);
+	let backIndex = 0;
+	let frontIndex = 0;
+	for (const item of nextItems) {
+		if (item.group === REFERENCE_IMAGE_GROUP_BACK) {
+			item.order = backIndex;
+			backIndex += 1;
+			continue;
+		}
+		item.order = frontIndex;
+		frontIndex += 1;
 	}
 	return items;
 }
@@ -191,6 +191,25 @@ function buildDuplicatePresetName(presetName = "Reference") {
 	return normalized === REFERENCE_IMAGE_DEFAULT_PRESET_NAME
 		? "Reference Copy"
 		: `${normalized} Copy`;
+}
+
+function sanitizeReferenceImagePresetName(value, fallback = "Reference") {
+	const normalized = String(value ?? "")
+		.replace(/[\r\n\t]+/g, " ")
+		.replace(/\s+/g, " ")
+		.trim();
+	return normalized || fallback;
+}
+
+function pruneUnusedReferenceImageAssetsInDocument(documentState) {
+	const usedAssetIds = new Set(
+		(documentState?.presets ?? []).flatMap((preset) =>
+			(preset?.items ?? []).map((item) => item.assetId),
+		),
+	);
+	documentState.assets = (documentState?.assets ?? []).filter((asset) =>
+		usedAssetIds.has(asset.id),
+	);
 }
 
 export function ensureWritableReferenceImageImportPreset(
@@ -301,6 +320,10 @@ export function createReferenceImageController({
 	}
 
 	let referenceImageDragState = null;
+	let lastNonEmptyReferenceSelectionState = {
+		selectedItemIds: [],
+		activeItemId: "",
+	};
 
 	function getSelectedItemIds() {
 		return Array.isArray(store.referenceImages.selectedItemIds.value)
@@ -501,6 +524,12 @@ export function createReferenceImageController({
 		store.referenceImages.selectedItemIds.value = normalized.selectedItemIds;
 		store.referenceImages.selectedItemId.value = normalized.activeItemId;
 		store.referenceImages.selectedAssetId.value = nextActiveAssetId;
+		if (normalized.selectedItemIds.length > 0) {
+			lastNonEmptyReferenceSelectionState = {
+				selectedItemIds: [...normalized.selectedItemIds],
+				activeItemId: normalized.activeItemId,
+			};
+		}
 		if (previousSelectionKey !== nextSelectionKey) {
 			if (normalized.selectedItemIds.length > 1) {
 				initializeMultiSelectionTransformBox(items);
@@ -600,6 +629,46 @@ export function createReferenceImageController({
 			activeItemId: "",
 			activeAssetId: "",
 		});
+	}
+
+	function ensureEditingSelection() {
+		const items = store.referenceImages.items.value;
+		if (!Array.isArray(items) || items.length === 0) {
+			return false;
+		}
+		const currentSelectedItemIds = getSelectedItemIds().filter((itemId) =>
+			items.some((item) => item.id === itemId),
+		);
+		if (currentSelectedItemIds.length > 0) {
+			return false;
+		}
+		const rememberedSelectedItemIds = (
+			lastNonEmptyReferenceSelectionState.selectedItemIds ?? []
+		).filter((itemId) => items.some((item) => item.id === itemId));
+		if (rememberedSelectedItemIds.length > 0) {
+			const activeItemId = rememberedSelectedItemIds.includes(
+				lastNonEmptyReferenceSelectionState.activeItemId,
+			)
+				? lastNonEmptyReferenceSelectionState.activeItemId
+				: rememberedSelectedItemIds[rememberedSelectedItemIds.length - 1];
+			setSelectionState({
+				items,
+				selectedItemIds: rememberedSelectedItemIds,
+				activeItemId,
+			});
+			return true;
+		}
+		const fallbackItem = items[0] ?? null;
+		if (!fallbackItem) {
+			return false;
+		}
+		setSelectionState({
+			items,
+			selectedItemIds: [fallbackItem.id],
+			activeItemId: fallbackItem.id,
+			activeAssetId: fallbackItem.assetId,
+		});
+		return true;
 	}
 
 	function parseSelectionOptions(optionsOrEvent = null) {
@@ -915,10 +984,13 @@ export function createReferenceImageController({
 			if (!nextPatch) {
 				continue;
 			}
+			const currentItem =
+				context.resolved.items.find((item) => item.id === geometry.item.id) ??
+				geometry.item;
 			nextById.set(
 				geometry.item.id,
 				createReferenceImageItem({
-					...geometry.item,
+					...currentItem,
 					...nextPatch,
 				}),
 			);
@@ -933,6 +1005,169 @@ export function createReferenceImageController({
 			context.documentState,
 			context.resolved,
 			nextItems,
+		);
+	}
+
+	function applyReferenceImageSelectionMoveDelta(
+		selectionState,
+		deltaLogicalX,
+		deltaLogicalY,
+	) {
+		if (!selectionState) {
+			return false;
+		}
+		if (selectionState.geometries.length > 1) {
+			setStoredSelectionBox(
+				{
+					...selectionState.selectionBoxLogical,
+					left: selectionState.selectionBoxLogical.left + deltaLogicalX,
+					top: selectionState.selectionBoxLogical.top + deltaLogicalY,
+				},
+				selectionState.context,
+				selectionState.anchorLocal,
+			);
+		}
+		return applyGeometryUpdates(
+			selectionState.geometries,
+			(geometry, context) => {
+				const nextEffectiveOffset = {
+					x: geometry.effectiveOffset.x - deltaLogicalX,
+					y: geometry.effectiveOffset.y - deltaLogicalY,
+				};
+				const nextOffset = removeRenderBoxOffsetCorrection(
+					nextEffectiveOffset,
+					geometry.item.anchor,
+					context.resolved.preset.baseRenderBox,
+					context.outputSize,
+					context.renderBoxAnchor,
+					context.resolved.override?.renderBoxCorrection ?? null,
+				);
+				return {
+					offsetPx: {
+						x: Math.round(nextOffset.x),
+						y: Math.round(nextOffset.y),
+					},
+				};
+			},
+		);
+	}
+
+	function applyReferenceImageSelectionRotationDelta(
+		selectionState,
+		deltaAngleDeg,
+	) {
+		if (!selectionState) {
+			return false;
+		}
+		const deltaAngleRad = (deltaAngleDeg * Math.PI) / 180;
+		const pivot = selectionState.pivot;
+		if (selectionState.geometries.length > 1) {
+			setStoredSelectionBox(
+				{
+					...selectionState.selectionBoxLogical,
+					rotationDeg:
+						(selectionState.selectionBoxLogical.rotationDeg ?? 0) +
+						deltaAngleDeg,
+				},
+				selectionState.context,
+				selectionState.anchorLocal,
+			);
+		}
+		return applyGeometryUpdates(
+			selectionState.geometries,
+			(geometry, context) => {
+				const deltaX = geometry.anchorPoint.x - pivot.x;
+				const deltaY = geometry.anchorPoint.y - pivot.y;
+				const cosine = Math.cos(deltaAngleRad);
+				const sine = Math.sin(deltaAngleRad);
+				const nextAnchorPoint = {
+					x: pivot.x + deltaX * cosine - deltaY * sine,
+					y: pivot.y + deltaX * sine + deltaY * cosine,
+				};
+				const nextEffectiveOffset = {
+					x: geometry.itemAnchorPx.x - nextAnchorPoint.x,
+					y: geometry.itemAnchorPx.y - nextAnchorPoint.y,
+				};
+				const nextOffset = removeRenderBoxOffsetCorrection(
+					nextEffectiveOffset,
+					geometry.item.anchor,
+					context.resolved.preset.baseRenderBox,
+					context.outputSize,
+					context.renderBoxAnchor,
+					context.resolved.override?.renderBoxCorrection ?? null,
+				);
+				return {
+					rotationDeg: geometry.item.rotationDeg + deltaAngleDeg,
+					offsetPx: {
+						x: Math.round(nextOffset.x),
+						y: Math.round(nextOffset.y),
+					},
+				};
+			},
+		);
+	}
+
+	function applyReferenceImageSelectionScaleRatio(
+		selectionState,
+		scaleRatio,
+		pivotOverride = null,
+	) {
+		if (!selectionState) {
+			return false;
+		}
+		const pivot = pivotOverride ?? selectionState.pivot;
+		if (selectionState.geometries.length > 1) {
+			const nextWidth = Math.max(
+				selectionState.selectionBoxLogical.width * scaleRatio,
+				1e-6,
+			);
+			const nextHeight = Math.max(
+				selectionState.selectionBoxLogical.height * scaleRatio,
+				1e-6,
+			);
+			const nextSelectionPivot = {
+				x: pivot.x + (selectionState.pivot.x - pivot.x) * scaleRatio,
+				y: pivot.y + (selectionState.pivot.y - pivot.y) * scaleRatio,
+			};
+			setStoredSelectionBox(
+				{
+					...selectionState.selectionBoxLogical,
+					left: nextSelectionPivot.x - nextWidth * selectionState.anchorLocal.x,
+					top: nextSelectionPivot.y - nextHeight * selectionState.anchorLocal.y,
+					width: nextWidth,
+					height: nextHeight,
+				},
+				selectionState.context,
+				selectionState.anchorLocal,
+			);
+		}
+		return applyGeometryUpdates(
+			selectionState.geometries,
+			(geometry, context) => {
+				const nextAnchorPoint = {
+					x: pivot.x + (geometry.anchorPoint.x - pivot.x) * scaleRatio,
+					y: pivot.y + (geometry.anchorPoint.y - pivot.y) * scaleRatio,
+				};
+				const nextEffectiveOffset = {
+					x: geometry.itemAnchorPx.x - nextAnchorPoint.x,
+					y: geometry.itemAnchorPx.y - nextAnchorPoint.y,
+				};
+				const nextOffset = removeRenderBoxOffsetCorrection(
+					nextEffectiveOffset,
+					geometry.item.anchor,
+					context.resolved.preset.baseRenderBox,
+					context.outputSize,
+					context.renderBoxAnchor,
+					context.resolved.override?.renderBoxCorrection ?? null,
+				);
+				return {
+					scalePct: geometry.item.scalePct * scaleRatio,
+					offsetPx: {
+						x: Math.round(nextOffset.x),
+						y: Math.round(nextOffset.y),
+					},
+				};
+			},
 		);
 	}
 
@@ -1013,6 +1248,88 @@ export function createReferenceImageController({
 					documentState.referenceImages?.overridesByPresetId ?? {},
 			};
 			return documentState;
+		});
+	}
+
+	function updateAllShotCameraReferenceImages(updateState) {
+		const currentShotCameras = Array.isArray(store.workspace.shotCameras.value)
+			? store.workspace.shotCameras.value
+			: [];
+		store.workspace.shotCameras.value = currentShotCameras.map(
+			(documentState) => {
+				const nextDocument = cloneShotCameraDocument(documentState);
+				const nextReferenceImages = updateState(
+					createShotCameraReferenceImagesState(nextDocument.referenceImages),
+					nextDocument,
+				);
+				nextDocument.referenceImages =
+					createShotCameraReferenceImagesState(nextReferenceImages);
+				return nextDocument;
+			},
+		);
+	}
+
+	function dropReferencePresetFromAllShotCameras(
+		deletedPresetId,
+		fallbackPresetId,
+	) {
+		updateAllShotCameraReferenceImages((referenceImagesState) => {
+			const nextState =
+				createShotCameraReferenceImagesState(referenceImagesState);
+			if (nextState.presetId === deletedPresetId) {
+				nextState.presetId = fallbackPresetId ?? null;
+			}
+			const nextOverrides = {
+				...(nextState.overridesByPresetId ?? {}),
+			};
+			delete nextOverrides[deletedPresetId];
+			nextState.overridesByPresetId = nextOverrides;
+			return nextState;
+		});
+	}
+
+	function removeReferenceItemsFromAllShotCameras(presetId, deletedItemIds) {
+		if (
+			!presetId ||
+			!Array.isArray(deletedItemIds) ||
+			deletedItemIds.length === 0
+		) {
+			return;
+		}
+		const deletedItemIdSet = new Set(
+			deletedItemIds
+				.map((itemId) => String(itemId ?? "").trim())
+				.filter(Boolean),
+		);
+		if (deletedItemIdSet.size === 0) {
+			return;
+		}
+		updateAllShotCameraReferenceImages((referenceImagesState) => {
+			const nextState =
+				createShotCameraReferenceImagesState(referenceImagesState);
+			const existingOverride =
+				nextState.overridesByPresetId?.[presetId] ?? null;
+			if (!existingOverride) {
+				return nextState;
+			}
+			const nextOverride =
+				createReferenceImageCameraPresetOverride(existingOverride);
+			for (const deletedItemId of deletedItemIdSet) {
+				delete nextOverride.items[deletedItemId];
+				if (nextOverride.activeItemId === deletedItemId) {
+					nextOverride.activeItemId = null;
+				}
+			}
+			const nextOverrides = {
+				...(nextState.overridesByPresetId ?? {}),
+			};
+			if (isReferenceImageOverrideEmpty(nextOverride)) {
+				delete nextOverrides[presetId];
+			} else {
+				nextOverrides[presetId] = nextOverride;
+			}
+			nextState.overridesByPresetId = nextOverrides;
+			return nextState;
 		});
 	}
 
@@ -1210,7 +1527,7 @@ export function createReferenceImageController({
 				preset,
 				name: layer.name,
 				group: REFERENCE_IMAGE_GROUP_FRONT,
-				order: existingGroupCount + (layers.length - index - 1),
+				order: getReferenceImageOrderForImportIndex(index, existingGroupCount),
 				previewVisible: layer.visible,
 				exportEnabled: layer.visible,
 				opacity: layer.opacity,
@@ -1419,6 +1736,73 @@ export function createReferenceImageController({
 		return true;
 	}
 
+	function setActiveReferenceImagePresetName(nextValue) {
+		const documentState = cloneReferenceImageDocument(getDocument());
+		const activePreset =
+			findMutablePresetInDocument(
+				documentState,
+				documentState.activePresetId,
+			) ?? null;
+		if (
+			!activePreset ||
+			activePreset.id === REFERENCE_IMAGE_DEFAULT_PRESET_ID
+		) {
+			return false;
+		}
+		const nextName = sanitizeReferenceImagePresetName(
+			nextValue,
+			activePreset.name || "Reference",
+		);
+		if (!nextName || nextName === activePreset.name) {
+			return false;
+		}
+		runReferenceImageHistoryAction("reference-image.preset.rename", () => {
+			activePreset.name = nextName;
+			setDocument(documentState);
+			syncUiState();
+			updateUi?.();
+		});
+		return true;
+	}
+
+	function deleteActiveReferenceImagePreset() {
+		const documentState = cloneReferenceImageDocument(getDocument());
+		const activePreset =
+			findMutablePresetInDocument(
+				documentState,
+				documentState.activePresetId,
+			) ?? null;
+		if (
+			!activePreset ||
+			activePreset.id === REFERENCE_IMAGE_DEFAULT_PRESET_ID
+		) {
+			return false;
+		}
+		const nextPreset =
+			findMutablePresetInDocument(
+				documentState,
+				REFERENCE_IMAGE_DEFAULT_PRESET_ID,
+			) ??
+			documentState.presets.find((preset) => preset.id !== activePreset.id) ??
+			null;
+		if (!nextPreset) {
+			return false;
+		}
+		runReferenceImageHistoryAction("reference-image.preset.delete", () => {
+			documentState.presets = documentState.presets.filter(
+				(preset) => preset.id !== activePreset.id,
+			);
+			documentState.activePresetId = nextPreset.id;
+			pruneUnusedReferenceImageAssetsInDocument(documentState);
+			setDocument(documentState);
+			dropReferencePresetFromAllShotCameras(activePreset.id, nextPreset.id);
+			clearSelection();
+			syncUiState();
+			updateUi?.();
+		});
+		return true;
+	}
+
 	function duplicateActiveReferenceImagePreset() {
 		const documentState = getDocument();
 		const resolved = getResolvedShotItems(documentState);
@@ -1455,6 +1839,51 @@ export function createReferenceImageController({
 				shotCameraDocument.referenceImages = nextReferenceImages;
 				return shotCameraDocument;
 			});
+			clearSelection();
+			syncUiState();
+			updateUi?.();
+		});
+		return true;
+	}
+
+	function deleteSelectedReferenceImageItems(itemIds = null) {
+		const documentState = cloneReferenceImageDocument(getDocument());
+		const resolved = getResolvedShotItems(documentState);
+		const presetId = resolved?.preset?.id ?? null;
+		if (!presetId) {
+			return false;
+		}
+		const nextSelectedItemIds =
+			Array.isArray(itemIds) && itemIds.length > 0
+				? itemIds
+				: getSelectedItemIds();
+		const deletedItemIdSet = new Set(
+			nextSelectedItemIds
+				.map((itemId) => String(itemId ?? "").trim())
+				.filter(Boolean),
+		);
+		if (deletedItemIdSet.size === 0) {
+			return false;
+		}
+		const preset = findMutablePresetInDocument(documentState, presetId);
+		if (!preset) {
+			return false;
+		}
+		const nextItems = preset.items.filter(
+			(item) => !deletedItemIdSet.has(item.id),
+		);
+		if (nextItems.length === preset.items.length) {
+			return false;
+		}
+		runReferenceImageHistoryAction("reference-image.delete", () => {
+			preset.items = nextItems;
+			normalizeReferenceImageItemOrderInPlace(preset.items);
+			pruneUnusedReferenceImageAssetsInDocument(documentState);
+			setDocument(documentState);
+			removeReferenceItemsFromAllShotCameras(
+				presetId,
+				Array.from(deletedItemIdSet),
+			);
 			clearSelection();
 			syncUiState();
 			updateUi?.();
@@ -1676,12 +2105,80 @@ export function createReferenceImageController({
 		});
 	}
 
+	function setSelectedReferenceImagesPreviewVisible(nextVisible) {
+		const selectedItemIdSet = new Set(getSelectedItemIds());
+		if (selectedItemIdSet.size === 0) {
+			return false;
+		}
+		const documentState = getDocument();
+		const resolved = getResolvedShotItems(documentState);
+		runReferenceImageHistoryAction("reference-image.preview-visible", () => {
+			const nextItems = resolved.items.map((item) =>
+				selectedItemIdSet.has(item.id)
+					? createReferenceImageItem({
+							...item,
+							previewVisible: nextVisible !== false,
+						})
+					: item,
+			);
+			commitResolvedItems(documentState, resolved, nextItems);
+		});
+		return true;
+	}
+
 	function setReferenceImageExportEnabled(itemId, nextEnabled) {
 		runReferenceImageHistoryAction("reference-image.export-enabled", () => {
 			updateResolvedReferenceImageItem(itemId, {
 				exportEnabled: nextEnabled !== false,
 			});
 		});
+	}
+
+	function setSelectedReferenceImagesExportEnabled(nextEnabled) {
+		const selectedItemIdSet = new Set(getSelectedItemIds());
+		if (selectedItemIdSet.size === 0) {
+			return false;
+		}
+		const documentState = getDocument();
+		const resolved = getResolvedShotItems(documentState);
+		runReferenceImageHistoryAction("reference-image.export-enabled", () => {
+			const nextItems = resolved.items.map((item) =>
+				selectedItemIdSet.has(item.id)
+					? createReferenceImageItem({
+							...item,
+							exportEnabled: nextEnabled !== false,
+						})
+					: item,
+			);
+			commitResolvedItems(documentState, resolved, nextItems);
+		});
+		return true;
+	}
+
+	function setSelectedReferenceImagesOpacity(nextOpacityPercent) {
+		const selectedItemIdSet = new Set(getSelectedItemIds());
+		if (selectedItemIdSet.size === 0) {
+			return false;
+		}
+		const numericValue = Math.round(Number(nextOpacityPercent));
+		if (!Number.isFinite(numericValue)) {
+			return false;
+		}
+		const clampedOpacity = Math.max(0, Math.min(1, numericValue / 100));
+		const documentState = getDocument();
+		const resolved = getResolvedShotItems(documentState);
+		runReferenceImageHistoryAction("reference-image.opacity", () => {
+			const nextItems = resolved.items.map((item) =>
+				selectedItemIdSet.has(item.id)
+					? createReferenceImageItem({
+							...item,
+							opacity: clampedOpacity,
+						})
+					: item,
+			);
+			commitResolvedItems(documentState, resolved, nextItems);
+		});
+		return true;
 	}
 
 	function setReferenceImageOpacity(itemId, nextOpacityPercent) {
@@ -1736,6 +2233,199 @@ export function createReferenceImageController({
 					},
 				}));
 			},
+		);
+	}
+
+	function getReferenceImageLogicalBounds(itemId) {
+		const context = getTransformContext();
+		if (!context) {
+			return null;
+		}
+		const item =
+			context.resolved.items.find((entry) => entry.id === itemId) ?? null;
+		if (!item) {
+			return null;
+		}
+		const asset = context.resolved.assetsById.get(item.assetId) ?? null;
+		if (!asset?.sourceMeta) {
+			return null;
+		}
+		const geometry = buildLogicalItemGeometry(item, asset, context);
+		return {
+			left: Number(geometry.bounds?.left ?? geometry.left ?? 0),
+			top: Number(geometry.bounds?.top ?? geometry.top ?? 0),
+		};
+	}
+
+	function offsetReferenceImageBoundsPosition(itemId, axis, deltaValue) {
+		const normalizedAxis = axis === "y" ? "y" : "x";
+		const numericDelta = Number(deltaValue);
+		if (!Number.isFinite(numericDelta) || Math.abs(numericDelta) <= 1e-8) {
+			return false;
+		}
+		const context = getTransformContext();
+		if (!context) {
+			return false;
+		}
+		const item =
+			context.resolved.items.find((entry) => entry.id === itemId) ?? null;
+		if (!item) {
+			return false;
+		}
+		const asset = context.resolved.assetsById.get(item.assetId) ?? null;
+		if (!asset?.sourceMeta) {
+			return false;
+		}
+		const geometry = buildLogicalItemGeometry(item, asset, context);
+		return (
+			runReferenceImageHistoryAction(
+				`reference-image.offset.${normalizedAxis}`,
+				() => {
+					const nextEffectiveOffset = {
+						x:
+							geometry.effectiveOffset.x -
+							(normalizedAxis === "x" ? numericDelta : 0),
+						y:
+							geometry.effectiveOffset.y -
+							(normalizedAxis === "y" ? numericDelta : 0),
+					};
+					const nextOffset = removeRenderBoxOffsetCorrection(
+						nextEffectiveOffset,
+						geometry.item.anchor,
+						context.resolved.preset.baseRenderBox,
+						context.outputSize,
+						context.renderBoxAnchor,
+						context.resolved.override?.renderBoxCorrection ?? null,
+					);
+					updateResolvedReferenceImageItem(itemId, {
+						offsetPx: {
+							x: Math.round(nextOffset.x),
+							y: Math.round(nextOffset.y),
+						},
+					});
+				},
+			) ?? false
+		);
+	}
+
+	function setReferenceImageBoundsPosition(itemId, axis, nextBoundValue) {
+		const normalizedAxis = axis === "y" ? "y" : "x";
+		const numericTarget = Number(nextBoundValue);
+		if (!Number.isFinite(numericTarget)) {
+			return false;
+		}
+		const currentBounds = getReferenceImageLogicalBounds(itemId);
+		if (!currentBounds) {
+			return false;
+		}
+		const boundsKey = normalizedAxis === "x" ? "left" : "top";
+		return offsetReferenceImageBoundsPosition(
+			itemId,
+			normalizedAxis,
+			numericTarget - Number(currentBounds[boundsKey] ?? 0),
+		);
+	}
+
+	function offsetSelectedReferenceImagesPosition(axis, deltaValue) {
+		const normalizedAxis = axis === "y" ? "y" : "x";
+		const numericDelta = Number(deltaValue);
+		if (!Number.isFinite(numericDelta) || Math.abs(numericDelta) <= 1e-8) {
+			return false;
+		}
+		const selectionState = buildSelectionTransformState();
+		if (!selectionState) {
+			return false;
+		}
+		return (
+			runReferenceImageHistoryAction(
+				`reference-image.offset.${normalizedAxis}`,
+				() =>
+					applyReferenceImageSelectionMoveDelta(
+						selectionState,
+						normalizedAxis === "x" ? numericDelta : 0,
+						normalizedAxis === "y" ? numericDelta : 0,
+					),
+			) ?? false
+		);
+	}
+
+	function offsetSelectedReferenceImagesRotationDeg(deltaAngleDeg) {
+		const numericDelta = Number(deltaAngleDeg);
+		if (!Number.isFinite(numericDelta) || Math.abs(numericDelta) <= 1e-8) {
+			return false;
+		}
+		const selectionState = buildSelectionTransformState();
+		if (!selectionState) {
+			return false;
+		}
+		return (
+			runReferenceImageHistoryAction("reference-image.rotation", () =>
+				applyReferenceImageSelectionRotationDelta(selectionState, numericDelta),
+			) ?? false
+		);
+	}
+
+	function scaleSelectedReferenceImagesByFactor(scaleFactor) {
+		const numericScaleFactor = Number(scaleFactor);
+		if (
+			!Number.isFinite(numericScaleFactor) ||
+			numericScaleFactor <= 0 ||
+			Math.abs(numericScaleFactor - 1) <= 1e-8
+		) {
+			return false;
+		}
+		const selectionState = buildSelectionTransformState();
+		if (!selectionState) {
+			return false;
+		}
+		return (
+			runReferenceImageHistoryAction("reference-image.scale", () =>
+				applyReferenceImageSelectionScaleRatio(
+					selectionState,
+					numericScaleFactor,
+				),
+			) ?? false
+		);
+	}
+
+	function getSelectedReferenceImageTransformSession() {
+		return buildSelectionTransformState();
+	}
+
+	function applySelectedReferenceImagesRotationFromSession(
+		selectionState,
+		totalDeltaAngleDeg,
+	) {
+		const numericDelta = Number(totalDeltaAngleDeg);
+		if (!selectionState || !Number.isFinite(numericDelta)) {
+			return false;
+		}
+		return (
+			runReferenceImageHistoryAction("reference-image.rotation", () =>
+				applyReferenceImageSelectionRotationDelta(selectionState, numericDelta),
+			) ?? false
+		);
+	}
+
+	function applySelectedReferenceImagesScaleFromSession(
+		selectionState,
+		totalScaleFactor,
+	) {
+		const numericScaleFactor = Number(totalScaleFactor);
+		if (
+			!selectionState ||
+			!Number.isFinite(numericScaleFactor) ||
+			numericScaleFactor <= 0
+		) {
+			return false;
+		}
+		return (
+			runReferenceImageHistoryAction("reference-image.scale", () =>
+				applyReferenceImageSelectionScaleRatio(
+					selectionState,
+					numericScaleFactor,
+				),
+			) ?? false
 		);
 	}
 
@@ -1797,6 +2487,95 @@ export function createReferenceImageController({
 		runReferenceImageHistoryAction("reference-image.order", () => {
 			commitResolvedItems(documentState, resolved, nextItems);
 		});
+	}
+
+	function moveReferenceImageToDisplayTarget(
+		itemId,
+		targetItemId,
+		position = "before",
+		orderedIds = null,
+	) {
+		const draggedItemId = String(itemId ?? "").trim();
+		const nextTargetItemId = String(targetItemId ?? "").trim();
+		if (
+			!draggedItemId ||
+			!nextTargetItemId ||
+			draggedItemId === nextTargetItemId
+		) {
+			return false;
+		}
+		const documentState = getDocument();
+		const resolved = getResolvedShotItems(documentState);
+		const itemsById = new Map(resolved.items.map((item) => [item.id, item]));
+		const draggedItem = itemsById.get(draggedItemId) ?? null;
+		const targetItem = itemsById.get(nextTargetItemId) ?? null;
+		if (!draggedItem || !targetItem) {
+			return false;
+		}
+		const currentSelectedIds = getSelectedItemIds().filter((selectedId) =>
+			itemsById.has(selectedId),
+		);
+		const movedItemIdSet = new Set(
+			currentSelectedIds.includes(draggedItemId)
+				? currentSelectedIds
+				: [draggedItemId],
+		);
+		if (movedItemIdSet.has(nextTargetItemId)) {
+			return false;
+		}
+		const displayItems = (
+			Array.isArray(orderedIds) && orderedIds.length > 0
+				? orderedIds
+						.map(
+							(entryId) => itemsById.get(String(entryId ?? "").trim()) ?? null,
+						)
+						.filter(Boolean)
+				: getReferenceImageDisplayItems(resolved.items)
+		).filter((item, index, source) => source.indexOf(item) === index);
+		const movedItems = displayItems
+			.filter((item) => movedItemIdSet.has(item.id))
+			.map((item) =>
+				createReferenceImageItem({
+					...item,
+					group: targetItem.group,
+				}),
+			);
+		if (movedItems.length === 0) {
+			return false;
+		}
+		const remainingItems = displayItems.filter(
+			(item) => !movedItemIdSet.has(item.id),
+		);
+		const targetIndex = remainingItems.findIndex(
+			(item) => item.id === nextTargetItemId,
+		);
+		if (targetIndex < 0) {
+			return false;
+		}
+		const insertionIndex = position === "after" ? targetIndex + 1 : targetIndex;
+		const nextDisplayItems = [
+			...remainingItems.slice(0, insertionIndex),
+			...movedItems,
+			...remainingItems.slice(insertionIndex),
+		];
+		const rebuildGroupItems = (group) =>
+			nextDisplayItems
+				.filter((item) => item.group === group)
+				.reverse()
+				.map((item, index) =>
+					createReferenceImageItem({
+						...item,
+						order: index,
+					}),
+				);
+		const nextItems = [
+			...rebuildGroupItems(REFERENCE_IMAGE_GROUP_BACK),
+			...rebuildGroupItems(REFERENCE_IMAGE_GROUP_FRONT),
+		];
+		runReferenceImageHistoryAction("reference-image.order", () => {
+			commitResolvedItems(documentState, resolved, nextItems);
+		});
+		return true;
 	}
 
 	function startReferenceImageMove(itemId, event) {
@@ -2040,37 +2819,11 @@ export function createReferenceImageController({
 				referenceImageDragState.dragActivated = true;
 				beginHistoryTransaction("reference-image.move");
 			}
-			if (selectionState.geometries.length > 1) {
-				setStoredSelectionBox(
-					{
-						...selectionState.selectionBoxLogical,
-						left: selectionState.selectionBoxLogical.left + deltaLogicalX,
-						top: selectionState.selectionBoxLogical.top + deltaLogicalY,
-					},
-					selectionState.context,
-					selectionState.anchorLocal,
-				);
-			}
-			applyGeometryUpdates(selectionState.geometries, (geometry, context) => {
-				const nextEffectiveOffset = {
-					x: geometry.effectiveOffset.x - deltaLogicalX,
-					y: geometry.effectiveOffset.y - deltaLogicalY,
-				};
-				const nextOffset = removeRenderBoxOffsetCorrection(
-					nextEffectiveOffset,
-					geometry.item.anchor,
-					context.resolved.preset.baseRenderBox,
-					context.outputSize,
-					context.renderBoxAnchor,
-					context.resolved.override?.renderBoxCorrection ?? null,
-				);
-				return {
-					offsetPx: {
-						x: Math.round(nextOffset.x),
-						y: Math.round(nextOffset.y),
-					},
-				};
-			});
+			applyReferenceImageSelectionMoveDelta(
+				selectionState,
+				deltaLogicalX,
+				deltaLogicalY,
+			);
 			return;
 		}
 
@@ -2085,49 +2838,7 @@ export function createReferenceImageController({
 			const deltaAngleDeg = normalizeAngleDeltaDeg(
 				nextPointerAngleDeg - referenceImageDragState.startPointerAngleDeg,
 			);
-			const deltaAngleRad = (deltaAngleDeg * Math.PI) / 180;
-			const pivot = selectionState.pivot;
-			if (selectionState.geometries.length > 1) {
-				setStoredSelectionBox(
-					{
-						...selectionState.selectionBoxLogical,
-						rotationDeg:
-							(selectionState.selectionBoxLogical.rotationDeg ?? 0) +
-							deltaAngleDeg,
-					},
-					selectionState.context,
-					selectionState.anchorLocal,
-				);
-			}
-			applyGeometryUpdates(selectionState.geometries, (geometry, context) => {
-				const deltaX = geometry.anchorPoint.x - pivot.x;
-				const deltaY = geometry.anchorPoint.y - pivot.y;
-				const cosine = Math.cos(deltaAngleRad);
-				const sine = Math.sin(deltaAngleRad);
-				const nextAnchorPoint = {
-					x: pivot.x + deltaX * cosine - deltaY * sine,
-					y: pivot.y + deltaX * sine + deltaY * cosine,
-				};
-				const nextEffectiveOffset = {
-					x: geometry.itemAnchorPx.x - nextAnchorPoint.x,
-					y: geometry.itemAnchorPx.y - nextAnchorPoint.y,
-				};
-				const nextOffset = removeRenderBoxOffsetCorrection(
-					nextEffectiveOffset,
-					geometry.item.anchor,
-					context.resolved.preset.baseRenderBox,
-					context.outputSize,
-					context.renderBoxAnchor,
-					context.resolved.override?.renderBoxCorrection ?? null,
-				);
-				return {
-					rotationDeg: geometry.item.rotationDeg + deltaAngleDeg,
-					offsetPx: {
-						x: Math.round(nextOffset.x),
-						y: Math.round(nextOffset.y),
-					},
-				};
-			});
+			applyReferenceImageSelectionRotationDelta(selectionState, deltaAngleDeg);
 			return;
 		}
 
@@ -2145,59 +2856,11 @@ export function createReferenceImageController({
 				currentProjection /
 					Math.max(referenceImageDragState.startProjectionDistance, 1e-6),
 			);
-			const pivot = referenceImageDragState.anchorLogical;
-			if (selectionState.geometries.length > 1) {
-				const nextWidth = Math.max(
-					selectionState.selectionBoxLogical.width * scaleRatio,
-					1e-6,
-				);
-				const nextHeight = Math.max(
-					selectionState.selectionBoxLogical.height * scaleRatio,
-					1e-6,
-				);
-				const nextSelectionPivot = {
-					x: pivot.x + (selectionState.pivot.x - pivot.x) * scaleRatio,
-					y: pivot.y + (selectionState.pivot.y - pivot.y) * scaleRatio,
-				};
-				setStoredSelectionBox(
-					{
-						...selectionState.selectionBoxLogical,
-						left:
-							nextSelectionPivot.x - nextWidth * selectionState.anchorLocal.x,
-						top:
-							nextSelectionPivot.y - nextHeight * selectionState.anchorLocal.y,
-						width: nextWidth,
-						height: nextHeight,
-					},
-					selectionState.context,
-					selectionState.anchorLocal,
-				);
-			}
-			applyGeometryUpdates(selectionState.geometries, (geometry, context) => {
-				const nextAnchorPoint = {
-					x: pivot.x + (geometry.anchorPoint.x - pivot.x) * scaleRatio,
-					y: pivot.y + (geometry.anchorPoint.y - pivot.y) * scaleRatio,
-				};
-				const nextEffectiveOffset = {
-					x: geometry.itemAnchorPx.x - nextAnchorPoint.x,
-					y: geometry.itemAnchorPx.y - nextAnchorPoint.y,
-				};
-				const nextOffset = removeRenderBoxOffsetCorrection(
-					nextEffectiveOffset,
-					geometry.item.anchor,
-					context.resolved.preset.baseRenderBox,
-					context.outputSize,
-					context.renderBoxAnchor,
-					context.resolved.override?.renderBoxCorrection ?? null,
-				);
-				return {
-					scalePct: geometry.item.scalePct * scaleRatio,
-					offsetPx: {
-						x: Math.round(nextOffset.x),
-						y: Math.round(nextOffset.y),
-					},
-				};
-			});
+			applyReferenceImageSelectionScaleRatio(
+				selectionState,
+				scaleRatio,
+				referenceImageDragState.anchorLogical,
+			);
 			return;
 		}
 
@@ -2363,18 +3026,35 @@ export function createReferenceImageController({
 		isReferenceImageSelectionActive: () => getSelectedItemIds().length > 0,
 		setPreviewSessionVisible,
 		setActiveReferenceImagePreset,
+		setActiveReferenceImagePresetName,
 		duplicateActiveReferenceImagePreset,
+		deleteActiveReferenceImagePreset,
+		deleteSelectedReferenceImageItems,
 		clearReferenceImageSelection: clearSelection,
+		ensureReferenceImageEditingSelection: ensureEditingSelection,
 		selectReferenceImageAsset,
 		selectReferenceImageItem,
 		setReferenceImagePreviewVisible,
+		setSelectedReferenceImagesPreviewVisible,
 		setReferenceImageExportEnabled,
+		setSelectedReferenceImagesExportEnabled,
+		setSelectedReferenceImagesOpacity,
 		setReferenceImageOpacity,
+		scaleSelectedReferenceImagesByFactor,
+		applySelectedReferenceImagesScaleFromSession,
 		setReferenceImageScalePct,
+		offsetSelectedReferenceImagesRotationDeg,
+		applySelectedReferenceImagesRotationFromSession,
 		setReferenceImageRotationDeg,
+		offsetSelectedReferenceImagesPosition,
+		offsetReferenceImageBoundsPosition,
+		getReferenceImageLogicalBounds,
+		getSelectedReferenceImageTransformSession,
 		setReferenceImageOffsetPx,
+		setReferenceImageBoundsPosition,
 		setReferenceImageGroup,
 		setReferenceImageOrder,
+		moveReferenceImageToDisplayTarget,
 		startReferenceImageMove,
 		startReferenceImageResize,
 		startReferenceImageRotate,

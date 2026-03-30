@@ -149,6 +149,12 @@ const baseProjectSnapshot = {
 					position: { x: 1, y: 0, z: 0 },
 					quaternion: { x: 0, y: 0, z: 0, w: 1 },
 				},
+				contentTransform: {
+					position: { x: 0.1, y: 0.2, z: 0.3 },
+					quaternion: { x: 0, y: 0, z: 0, w: 1 },
+					scale: { x: 0.9, y: 0.9, z: 0.9 },
+				},
+				baseScale: { x: 1, y: 1, z: 1 },
 				worldScale: 1,
 				unitMode: "meters",
 				visible: true,
@@ -198,6 +204,12 @@ assert.equal(firstSave.reusedResourceCount, 0);
 const readResult = await readCameraFramesWorkingProject(workingDirectory);
 assert.equal(readResult.project.workspace.activeShotCameraId, "shot-camera-1");
 assert.equal(readResult.assetEntries.length, 2);
+assert.equal(
+	readResult.project.scene.assets[0].contentTransform.position.x,
+	0.1,
+);
+assert.equal(readResult.project.scene.assets[0].contentTransform.scale.x, 0.9);
+assert.equal(readResult.project.scene.assets[0].baseScale.x, 1);
 assert.equal(readResult.assetEntries[0].source.resource.type, "file");
 assert.equal(readResult.assetEntries[1].source.resource.type, "packed-splat");
 

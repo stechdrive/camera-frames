@@ -68,6 +68,82 @@ function compensateWrapperForChildLocalTransform(wrapper, child) {
 	wrapper.updateMatrixWorld(true);
 }
 
+function captureObjectLocalTransformState(object) {
+	if (!object) {
+		return null;
+	}
+
+	return {
+		position: {
+			x: object.position.x,
+			y: object.position.y,
+			z: object.position.z,
+		},
+		quaternion: {
+			x: object.quaternion.x,
+			y: object.quaternion.y,
+			z: object.quaternion.z,
+			w: object.quaternion.w,
+		},
+		scale: {
+			x: object.scale.x,
+			y: object.scale.y,
+			z: object.scale.z,
+		},
+	};
+}
+
+function applyObjectLocalTransformState(object, state) {
+	if (!object || !state) {
+		return;
+	}
+
+	object.position.set(
+		Number(state?.position?.x ?? object.position.x),
+		Number(state?.position?.y ?? object.position.y),
+		Number(state?.position?.z ?? object.position.z),
+	);
+	object.quaternion.set(
+		Number(state?.quaternion?.x ?? object.quaternion.x),
+		Number(state?.quaternion?.y ?? object.quaternion.y),
+		Number(state?.quaternion?.z ?? object.quaternion.z),
+		Number(state?.quaternion?.w ?? object.quaternion.w),
+	);
+	object.scale.set(
+		Number(state?.scale?.x ?? object.scale.x),
+		Number(state?.scale?.y ?? object.scale.y),
+		Number(state?.scale?.z ?? object.scale.z),
+	);
+	object.updateMatrixWorld(true);
+}
+
+function buildBakedContentTransformState(wrapper, contentObject) {
+	if (!wrapper || !contentObject) {
+		return null;
+	}
+
+	wrapper.updateMatrixWorld(true);
+	contentObject.updateMatrixWorld(true);
+	const bakedLocalMatrix = new THREE.Matrix4().multiplyMatrices(
+		wrapper.matrix.clone(),
+		contentObject.matrix.clone(),
+	);
+	const position = new THREE.Vector3();
+	const quaternion = new THREE.Quaternion();
+	const scale = new THREE.Vector3();
+	bakedLocalMatrix.decompose(position, quaternion, scale);
+	return {
+		position: { x: position.x, y: position.y, z: position.z },
+		quaternion: {
+			x: quaternion.x,
+			y: quaternion.y,
+			z: quaternion.z,
+			w: quaternion.w,
+		},
+		scale: { x: scale.x, y: scale.y, z: scale.z },
+	};
+}
+
 function findLegacyModelCompensationTarget(root) {
 	if (!root) {
 		return null;
@@ -309,6 +385,12 @@ export function createAssetController({
 							z: asset.workingPivotLocal.z,
 						}
 					: null,
+				baseScale: {
+					x: asset.baseScale.x,
+					y: asset.baseScale.y,
+					z: asset.baseScale.z,
+				},
+				contentTransform: captureObjectLocalTransformState(asset.contentObject),
 				visible: asset.object.visible !== false,
 				position: {
 					x: asset.object.position.x,
@@ -367,6 +449,15 @@ export function createAssetController({
 			asset.maskGroup = String(item.maskGroup ?? "").trim();
 			asset.workingPivotLocal = normalizeWorkingPivotLocal(
 				item.workingPivotLocal,
+			);
+			asset.baseScale.set(
+				clampAssetTransformValue(item.baseScale?.x, asset.baseScale.x),
+				clampAssetTransformValue(item.baseScale?.y, asset.baseScale.y),
+				clampAssetTransformValue(item.baseScale?.z, asset.baseScale.z),
+			);
+			applyObjectLocalTransformState(
+				asset.contentObject,
+				item.contentTransform,
 			);
 			asset.object.visible = item.visible !== false;
 			asset.object.position.set(
@@ -530,6 +621,7 @@ export function createAssetController({
 		kind,
 		label,
 		object,
+		contentObject = object?.children?.[0] ?? null,
 		disposeTarget = null,
 		source = null,
 	}) {
@@ -538,6 +630,7 @@ export function createAssetController({
 			kind,
 			label,
 			object,
+			contentObject,
 			disposeTarget,
 			source,
 			localBoundsHint: null,
@@ -1232,6 +1325,24 @@ export function createAssetController({
 		asset.workingPivotLocal = normalizeWorkingPivotLocal(
 			projectAssetState.workingPivotLocal,
 		);
+		asset.baseScale.set(
+			clampAssetTransformValue(
+				projectAssetState.baseScale?.x,
+				asset.baseScale.x,
+			),
+			clampAssetTransformValue(
+				projectAssetState.baseScale?.y,
+				asset.baseScale.y,
+			),
+			clampAssetTransformValue(
+				projectAssetState.baseScale?.z,
+				asset.baseScale.z,
+			),
+		);
+		applyObjectLocalTransformState(
+			asset.contentObject,
+			projectAssetState.contentTransform,
+		);
 		asset.object.visible = projectAssetState.visible !== false;
 		asset.object.position.set(
 			clampAssetTransformValue(
@@ -1288,6 +1399,12 @@ export function createAssetController({
 					w: asset.object.quaternion.w,
 				},
 			},
+			contentTransform: captureObjectLocalTransformState(asset.contentObject),
+			baseScale: {
+				x: asset.baseScale.x,
+				y: asset.baseScale.y,
+				z: asset.baseScale.z,
+			},
 			worldScale: asset.worldScale,
 			unitMode: asset.unitMode,
 			visible: asset.object.visible !== false,
@@ -1332,6 +1449,7 @@ export function createAssetController({
 				kind: "splat",
 				label: displayName,
 				object,
+				contentObject: correctionGroup,
 				disposeTarget: mesh,
 				source: persistentSource,
 			});
@@ -1515,6 +1633,7 @@ export function createAssetController({
 				kind: "model",
 				label: displayName,
 				object,
+				contentObject: modelScene,
 				source: persistentSource,
 			});
 			applyProjectAssetState(asset, projectAssetState);
@@ -2002,6 +2121,51 @@ export function createAssetController({
 		updateUi();
 	}
 
+	function applyAssetTransform(assetId) {
+		const asset = getSceneAsset(assetId);
+		if (
+			!asset ||
+			!asset.contentObject ||
+			asset.contentObject === asset.object
+		) {
+			return;
+		}
+
+		runHistoryAction?.("asset.apply-transform", () => {
+			const pivotWorld = getAssetWorkingPivotWorld(asset)?.clone() ?? null;
+			const bakedContentTransform = buildBakedContentTransformState(
+				asset.object,
+				asset.contentObject,
+			);
+			if (!bakedContentTransform) {
+				return;
+			}
+
+			applyObjectLocalTransformState(
+				asset.contentObject,
+				bakedContentTransform,
+			);
+			asset.baseScale.set(1, 1, 1);
+			asset.worldScale = 1;
+			asset.object.position.set(0, 0, 0);
+			asset.object.quaternion.identity();
+			applyAssetWorldScale(asset);
+			asset.object.updateMatrixWorld(true);
+
+			if (pivotWorld) {
+				const nextLocalPivot = asset.object.worldToLocal(pivotWorld);
+				asset.workingPivotLocal = normalizeWorkingPivotLocal(nextLocalPivot);
+			}
+		});
+
+		updateUi();
+		setStatus(
+			t("status.assetTransformApplied", {
+				name: asset.label,
+			}),
+		);
+	}
+
 	function scaleSelectedSceneAssetsByFactor(scaleFactor) {
 		const numericScaleFactor = Number(scaleFactor);
 		if (
@@ -2262,6 +2426,7 @@ export function createAssetController({
 		offsetSelectedSceneAssetsRotationDegrees,
 		setAssetVisibility,
 		setSelectedSceneAssetsVisibility,
+		applyAssetTransform,
 		scaleSelectedSceneAssetsByFactor,
 		moveAssetUp,
 		moveAssetDown,

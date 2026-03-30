@@ -651,6 +651,42 @@ export function createCameraController({
 		);
 	}
 
+	function deleteActiveShotCamera() {
+		const activeDocument = getActiveShotCameraDocument();
+		if (!activeDocument || store.workspace.shotCameras.value.length <= 1) {
+			return;
+		}
+
+		const currentDocuments = store.workspace.shotCameras.value;
+		const activeIndex = currentDocuments.findIndex(
+			(documentState) => documentState.id === activeDocument.id,
+		);
+		const nextDocuments = currentDocuments.filter(
+			(documentState) => documentState.id !== activeDocument.id,
+		);
+		const nextActiveDocument =
+			nextDocuments[Math.min(activeIndex, nextDocuments.length - 1)] ??
+			nextDocuments[0] ??
+			null;
+		if (!nextActiveDocument) {
+			return;
+		}
+
+		runHistoryAction?.("camera.delete", () => {
+			setShotCameraDocuments(nextDocuments);
+			store.workspace.activeShotCameraId.value = nextActiveDocument.id;
+			clearFrameDrag();
+			clearOutputFramePan();
+			clearControlMomentum();
+			updateUi();
+		});
+		setStatus(
+			t("status.deletedShotCamera", {
+				name: activeDocument.name,
+			}),
+		);
+	}
+
 	function copyViewportToShotCamera() {
 		const shotCamera = getActiveShotCamera();
 		runHistoryAction?.("camera.copy-viewport", () => {
@@ -768,6 +804,7 @@ export function createCameraController({
 		selectShotCamera,
 		createShotCamera,
 		duplicateActiveShotCamera,
+		deleteActiveShotCamera,
 		copyViewportToShotCamera,
 		copyShotCameraToViewport,
 		resetActiveView,

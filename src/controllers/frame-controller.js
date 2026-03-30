@@ -28,6 +28,9 @@ import {
 	getFrameDocumentId,
 	getNextFrameNumber,
 	getActiveFrameDocument as resolveActiveFrameDocument,
+	resolveFrameMaskPreferredMode,
+	resolveFrameMaskSelectedIds,
+	resolveFrameMaskToggleMode,
 	sanitizeFrameName,
 } from "../workspace-model.js";
 
@@ -514,6 +517,13 @@ export function createFrameController({
 		return getActiveShotCameraDocument()?.frameMask?.mode ?? "off";
 	}
 
+	function getFrameMaskPreferredMode() {
+		return resolveFrameMaskPreferredMode(
+			getActiveShotCameraDocument()?.frameMask?.mode,
+			getActiveShotCameraDocument()?.frameMask?.preferredMode,
+		);
+	}
+
 	function setFrameMaskMode(nextValue) {
 		const mode =
 			nextValue === "selected" || nextValue === "all" ? nextValue : "off";
@@ -522,6 +532,10 @@ export function createFrameController({
 				documentState.frameMask = {
 					...documentState.frameMask,
 					mode,
+					preferredMode:
+						mode === "selected" || mode === "all"
+							? mode
+							: (documentState.frameMask?.preferredMode ?? "all"),
 				};
 				return documentState;
 			});
@@ -535,9 +549,20 @@ export function createFrameController({
 		setFrameMaskMode(getFrameMaskMode() === mode ? "off" : mode);
 	}
 
+	function togglePreferredFrameMaskMode() {
+		setFrameMaskMode(
+			resolveFrameMaskToggleMode({
+				mode: getFrameMaskMode(),
+				preferredMode: getFrameMaskPreferredMode(),
+				hasRememberedSelection: getRememberedFrameMaskSelectedIds().length > 0,
+			}),
+		);
+	}
+
 	function getRememberedFrameMaskSelectedIds() {
-		return (getActiveShotCameraDocument()?.frameMask?.selectedIds ?? []).filter(
-			(frameId) => getActiveFrames().some((frame) => frame.id === frameId),
+		return resolveFrameMaskSelectedIds(
+			getActiveFrames(),
+			getActiveShotCameraDocument()?.frameMask?.selectedIds ?? [],
 		);
 	}
 
@@ -1892,7 +1917,9 @@ export function createFrameController({
 		isFrameSelectionActive,
 		getFrameMaskMode,
 		setFrameMaskMode,
+		getFrameMaskPreferredMode,
 		toggleFrameMaskMode,
+		togglePreferredFrameMaskMode,
 		setFrameMaskOpacity,
 		syncFrameSelectionTransformState,
 		clearFrameDrag,

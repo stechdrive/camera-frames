@@ -10,10 +10,13 @@ import {
 	INSPECTOR_QUICK_SECTION_EXPORT_SETTINGS,
 	INSPECTOR_QUICK_SECTION_LIGHTING,
 	INSPECTOR_QUICK_SECTION_OUTPUT_FRAME,
-	INSPECTOR_QUICK_SECTION_REFERENCE,
+	INSPECTOR_QUICK_SECTION_REFERENCE_MANAGER,
+	INSPECTOR_QUICK_SECTION_REFERENCE_PRESETS,
+	INSPECTOR_QUICK_SECTION_REFERENCE_PROPERTIES,
 	INSPECTOR_QUICK_SECTION_SCENE,
 	INSPECTOR_QUICK_SECTION_SHOT_CAMERA,
 	INSPECTOR_QUICK_SECTION_SHOT_CAMERA_PROPERTIES,
+	INSPECTOR_QUICK_SECTION_TRANSFORM,
 	INSPECTOR_TAB_CAMERA,
 	INSPECTOR_TAB_EXPORT,
 	INSPECTOR_TAB_REFERENCE,
@@ -22,7 +25,9 @@ import {
 	InspectorTabs,
 	LightingSection,
 	OutputFrameSection,
-	ReferenceSection,
+	ReferenceManagerSection,
+	ReferencePresetSection,
+	ReferencePropertiesSection,
 	SceneSection,
 	SceneWorkspaceSection,
 	SelectedSceneAssetInspector,
@@ -465,7 +470,11 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 
 	const getTabSectionIds = (tabId) => {
 		if (tabId === INSPECTOR_TAB_SCENE) {
-			return [INSPECTOR_QUICK_SECTION_SCENE, INSPECTOR_QUICK_SECTION_LIGHTING];
+			return [
+				INSPECTOR_QUICK_SECTION_SCENE,
+				INSPECTOR_QUICK_SECTION_LIGHTING,
+				INSPECTOR_QUICK_SECTION_TRANSFORM,
+			];
 		}
 		if (tabId === INSPECTOR_TAB_CAMERA) {
 			return [
@@ -475,7 +484,11 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 			];
 		}
 		if (tabId === INSPECTOR_TAB_REFERENCE) {
-			return [INSPECTOR_QUICK_SECTION_REFERENCE];
+			return [
+				INSPECTOR_QUICK_SECTION_REFERENCE_PRESETS,
+				INSPECTOR_QUICK_SECTION_REFERENCE_MANAGER,
+				INSPECTOR_QUICK_SECTION_REFERENCE_PROPERTIES,
+			];
 		}
 		return [
 			INSPECTOR_QUICK_SECTION_EXPORT,
@@ -537,6 +550,20 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 						t=${t}
 					/>
 				`;
+			case INSPECTOR_QUICK_SECTION_TRANSFORM:
+				return html`
+					<${SelectedSceneAssetInspector}
+						controller=${controller}
+						open=${open}
+						onToggle=${onToggle}
+						sceneAssets=${sceneAssets}
+						selectedSceneAsset=${selectedSceneAsset}
+						showEmpty=${true}
+						store=${store}
+						summaryActions=${pinAction}
+						t=${t}
+					/>
+				`;
 			case INSPECTOR_QUICK_SECTION_SHOT_CAMERA:
 				return html`
 					<${ShotCameraSection}
@@ -578,13 +605,34 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 						widthLabel=${widthLabel}
 					/>
 				`;
-			case INSPECTOR_QUICK_SECTION_REFERENCE:
+			case INSPECTOR_QUICK_SECTION_REFERENCE_PRESETS:
 				return html`
-					<${ReferenceSection}
+					<${ReferencePresetSection}
 						controller=${controller}
 						open=${open}
 						onToggle=${onToggle}
-						showList=${true}
+						store=${store}
+						summaryActions=${pinAction}
+						t=${t}
+					/>
+				`;
+			case INSPECTOR_QUICK_SECTION_REFERENCE_MANAGER:
+				return html`
+					<${ReferenceManagerSection}
+						controller=${controller}
+						open=${open}
+						onToggle=${onToggle}
+						store=${store}
+						summaryActions=${pinAction}
+						t=${t}
+					/>
+				`;
+			case INSPECTOR_QUICK_SECTION_REFERENCE_PROPERTIES:
+				return html`
+					<${ReferencePropertiesSection}
+						controller=${controller}
+						open=${open}
+						onToggle=${onToggle}
 						store=${store}
 						summaryActions=${pinAction}
 						t=${t}
@@ -630,11 +678,71 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 	};
 
 	const renderInspectorContent = (tabId, options = null) =>
-		html`${getTabSectionIds(tabId)
-			.map((sectionId) =>
-				renderInspectorSection(sectionId, options ?? undefined),
-			)
-			.filter(Boolean)}`;
+		options?.desktopFull && tabId === INSPECTOR_TAB_SCENE
+			? html`
+					<div class="workbench-inspector-split">
+						<div class="workbench-inspector-split__top">
+							${renderInspectorSection(INSPECTOR_QUICK_SECTION_SCENE, options)}
+							${renderInspectorSection(
+								INSPECTOR_QUICK_SECTION_LIGHTING,
+								options,
+							)}
+						</div>
+						<div class="workbench-inspector-split__bottom">
+							${renderInspectorSection(
+								INSPECTOR_QUICK_SECTION_TRANSFORM,
+								options,
+							)}
+						</div>
+					</div>
+				`
+			: options?.desktopFull && tabId === INSPECTOR_TAB_CAMERA
+				? html`
+						<div class="workbench-inspector-split">
+							<div class="workbench-inspector-split__top">
+								${renderInspectorSection(
+									INSPECTOR_QUICK_SECTION_SHOT_CAMERA,
+									options,
+								)}
+								${renderInspectorSection(
+									INSPECTOR_QUICK_SECTION_OUTPUT_FRAME,
+									options,
+								)}
+							</div>
+							<div class="workbench-inspector-split__bottom">
+								${renderInspectorSection(
+									INSPECTOR_QUICK_SECTION_SHOT_CAMERA_PROPERTIES,
+									options,
+								)}
+							</div>
+						</div>
+					`
+				: options?.desktopFull && tabId === INSPECTOR_TAB_REFERENCE
+					? html`
+							<div class="workbench-inspector-split">
+								<div class="workbench-inspector-split__top">
+									${renderInspectorSection(
+										INSPECTOR_QUICK_SECTION_REFERENCE_PRESETS,
+										options,
+									)}
+									${renderInspectorSection(
+										INSPECTOR_QUICK_SECTION_REFERENCE_MANAGER,
+										options,
+									)}
+								</div>
+								<div class="workbench-inspector-split__bottom">
+									${renderInspectorSection(
+										INSPECTOR_QUICK_SECTION_REFERENCE_PROPERTIES,
+										options,
+									)}
+								</div>
+							</div>
+						`
+					: html`${getTabSectionIds(tabId)
+							.map((sectionId) =>
+								renderInspectorSection(sectionId, options ?? undefined),
+							)
+							.filter(Boolean)}`;
 
 	const mobileInspectorDock = html`
 		<div class="workbench-tool-rail__divider"></div>
@@ -785,17 +893,6 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 									activeQuickSectionDefinition &&
 									html`
 										<section class="workbench-card workbench-card--inspector-peek">
-											<div class="workbench-inspector-peek__header">
-												<div class="workbench-inspector-peek__title">
-													<span class="workbench-inspector-peek__title-icon">
-														<${WorkbenchIcon}
-															name=${activeQuickSectionDefinition.icon}
-															size=${14}
-														/>
-													</span>
-													<strong>${activeQuickSectionDefinition.label}</strong>
-												</div>
-											</div>
 											<div class="workbench-inspector-stack workbench-inspector-stack--peek">
 												${renderInspectorSection(
 													activeQuickSectionDefinition.id,
@@ -832,28 +929,18 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 										</span>
 										<strong>${activeInspectorTabDefinition?.label ?? ""}</strong>
 									</div>
-									<div class="workbench-inspector-stack">
+									<div
+										class=${
+											activeInspectorTab === INSPECTOR_TAB_SCENE ||
+											activeInspectorTab === INSPECTOR_TAB_CAMERA
+												? "workbench-inspector-stack workbench-inspector-stack--split"
+												: "workbench-inspector-stack"
+										}
+									>
 										${renderInspectorContent(activeInspectorTab, {
 											desktopFull: true,
 										})}
 									</div>
-									${
-										(activeInspectorTab === INSPECTOR_TAB_SCENE ||
-											selectedSceneAsset ||
-											store.selectedSceneAssetIds.value.length > 0) &&
-										html`
-											<div class="workbench-inspector-selection-dock">
-												<${SelectedSceneAssetInspector}
-													controller=${controller}
-													sceneAssets=${sceneAssets}
-													selectedSceneAsset=${selectedSceneAsset}
-													showEmpty=${activeInspectorTab === INSPECTOR_TAB_SCENE}
-													store=${store}
-													t=${t}
-												/>
-											</div>
-										`
-									}
 								</section>
 							`
 				}

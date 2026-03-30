@@ -8,12 +8,12 @@ const VIEWPORT_PIE_COARSE_SCALE = 1.28;
 const VIEWPORT_PIE_ACTION_ORDER = Object.freeze([
 	"tool-select",
 	"tool-reference",
+	"toggle-reference-preview",
 	"tool-transform",
 	"tool-pivot",
 	"adjust-lens",
 	"frame-create",
-	"frame-mask-all",
-	"frame-mask-selected",
+	"frame-mask-toggle",
 	"toggle-view-mode",
 	"clear-selection",
 ]);
@@ -43,9 +43,12 @@ export function getViewportPieMetrics({ coarse = false } = {}) {
 export function buildViewportPieActions({
 	mode,
 	t,
+	referencePreviewSessionVisible = true,
+	hasReferenceImages = false,
 	frameMaskMode = "off",
-	hasRememberedFrameMaskSelection = false,
 }) {
+	const frameMaskEnabled =
+		frameMaskMode === "selected" || frameMaskMode === "all";
 	return VIEWPORT_PIE_LAYOUT.map((entry) => {
 		switch (entry.id) {
 			case "tool-select":
@@ -59,6 +62,16 @@ export function buildViewportPieActions({
 					...entry,
 					icon: "reference-tool",
 					label: t("transformMode.reference"),
+				};
+			case "toggle-reference-preview":
+				return {
+					...entry,
+					icon: referencePreviewSessionVisible ? "eye" : "eye-off",
+					label: referencePreviewSessionVisible
+						? t("action.hideReferenceImages")
+						: t("action.showReferenceImages"),
+					active: hasReferenceImages && referencePreviewSessionVisible,
+					disabled: !hasReferenceImages,
 				};
 			case "tool-transform":
 				return {
@@ -84,21 +97,15 @@ export function buildViewportPieActions({
 					icon: "frame-plus",
 					label: t("action.newFrame"),
 				};
-			case "frame-mask-all":
+			case "frame-mask-toggle":
 				return {
 					...entry,
-					icon: "mask-all",
-					label: t("action.toggleAllFrameMask"),
-					active: mode === "camera" && frameMaskMode === "all",
+					icon: "mask",
+					label: frameMaskEnabled
+						? t("action.disableFrameMask")
+						: t("action.enableFrameMask"),
+					active: mode === "camera" && frameMaskEnabled,
 					disabled: mode !== "camera",
-				};
-			case "frame-mask-selected":
-				return {
-					...entry,
-					icon: "mask-selected",
-					label: t("action.toggleSelectedFrameMask"),
-					active: mode === "camera" && frameMaskMode === "selected",
-					disabled: mode !== "camera" || !hasRememberedFrameMaskSelection,
 				};
 			case "toggle-view-mode":
 				return mode === "camera"

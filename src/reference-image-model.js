@@ -220,21 +220,67 @@ export function cloneReferenceImageItem(item) {
 	return createReferenceImageItem(item);
 }
 
+function compareReferenceImageEntriesForCompositeOrder(left, right) {
+	const leftName = String(left?.name ?? "");
+	const rightName = String(right?.name ?? "");
+	return (
+		Number(left?.order ?? 0) - Number(right?.order ?? 0) ||
+		leftName.localeCompare(rightName) ||
+		String(left?.id ?? "").localeCompare(String(right?.id ?? ""))
+	);
+}
+
+function getReferenceImageEntriesForCompositeOrder(items = [], group = null) {
+	const normalizedGroup =
+		group === REFERENCE_IMAGE_GROUP_BACK ||
+		group === REFERENCE_IMAGE_GROUP_FRONT
+			? group
+			: null;
+	const sourceItems = Array.isArray(items) ? items : [];
+	const grouped = normalizedGroup
+		? [normalizedGroup]
+		: [REFERENCE_IMAGE_GROUP_BACK, REFERENCE_IMAGE_GROUP_FRONT];
+	return grouped.flatMap((currentGroup) =>
+		sourceItems
+			.filter((item) => item.group === currentGroup)
+			.sort(compareReferenceImageEntriesForCompositeOrder),
+	);
+}
+
+export function getReferenceImageCompositeItems(items = [], group = null) {
+	return getReferenceImageEntriesForCompositeOrder(items, group);
+}
+
+export function getReferenceImageDisplayItems(items = [], group = null) {
+	return [...getReferenceImageEntriesForCompositeOrder(items, group)].reverse();
+}
+
+export function getReferenceImageOrderForImportIndex(
+	importIndex,
+	existingGroupCount = 0,
+) {
+	const normalizedIndex = Math.max(0, Math.floor(Number(importIndex) || 0));
+	const normalizedExistingCount = Math.max(
+		0,
+		Math.floor(Number(existingGroupCount) || 0),
+	);
+	return normalizedExistingCount + normalizedIndex;
+}
+
 function sortReferenceImageItemsInPlace(items) {
-	const grouped = [REFERENCE_IMAGE_GROUP_BACK, REFERENCE_IMAGE_GROUP_FRONT];
-	for (const group of grouped) {
-		items
-			.filter((item) => item.group === group)
-			.sort(
-				(left, right) =>
-					left.order - right.order ||
-					left.name.localeCompare(right.name) ||
-					left.id.localeCompare(right.id),
-			)
-			.forEach((item, index) => {
-				item.order = index;
-			});
+	const nextItems = getReferenceImageCompositeItems(items);
+	let backIndex = 0;
+	let frontIndex = 0;
+	for (const item of nextItems) {
+		if (item.group === REFERENCE_IMAGE_GROUP_BACK) {
+			item.order = backIndex;
+			backIndex += 1;
+			continue;
+		}
+		item.order = frontIndex;
+		frontIndex += 1;
 	}
+	items.splice(0, items.length, ...nextItems);
 }
 
 function normalizeReferenceImageOverride(value = {}) {

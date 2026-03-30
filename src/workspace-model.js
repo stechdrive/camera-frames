@@ -22,6 +22,7 @@ const DEFAULT_FRAME_X = 0.5;
 const DEFAULT_FRAME_Y = 0.5;
 const DEFAULT_FRAME_SCALE = 1;
 const DEFAULT_FRAME_MASK_OPACITY_PCT = 80;
+const DEFAULT_FRAME_MASK_PREFERRED_MODE = "all";
 
 export const WORKSPACE_PANE_CAMERA = "camera";
 export const WORKSPACE_PANE_VIEWPORT = "viewport";
@@ -68,6 +69,57 @@ export function sanitizeFrameName(value, fallback = "FRAME A") {
 		.slice(0, FRAME_NAME_MAX_LENGTH)
 		.join("");
 	return truncated || fallback;
+}
+
+export function resolveFrameMaskSelectedIds(frames, selectedIds) {
+	const availableFrameIds = Array.isArray(frames)
+		? frames
+				.map((frame) => frame?.id)
+				.filter((frameId) => typeof frameId === "string" && frameId.length > 0)
+		: [];
+	const availableFrameIdSet = new Set(availableFrameIds);
+	const normalizedSelectedIds = [];
+	for (const frameId of selectedIds ?? []) {
+		if (
+			typeof frameId !== "string" ||
+			!availableFrameIdSet.has(frameId) ||
+			normalizedSelectedIds.includes(frameId)
+		) {
+			continue;
+		}
+		normalizedSelectedIds.push(frameId);
+	}
+
+	return normalizedSelectedIds.length > 0
+		? normalizedSelectedIds
+		: availableFrameIds;
+}
+
+export function resolveFrameMaskPreferredMode(mode, preferredMode) {
+	if (preferredMode === "selected" || preferredMode === "all") {
+		return preferredMode;
+	}
+	if (mode === "selected" || mode === "all") {
+		return mode;
+	}
+	return DEFAULT_FRAME_MASK_PREFERRED_MODE;
+}
+
+export function resolveFrameMaskToggleMode({
+	mode,
+	preferredMode,
+	hasRememberedSelection = false,
+}) {
+	if (mode === "selected" || mode === "all") {
+		return "off";
+	}
+	const resolvedPreferredMode = resolveFrameMaskPreferredMode(
+		mode,
+		preferredMode,
+	);
+	return resolvedPreferredMode === "selected" && !hasRememberedSelection
+		? "all"
+		: resolvedPreferredMode;
 }
 
 export function getNextShotCameraNumber(shotCameras) {
@@ -253,6 +305,7 @@ export function createShotCameraDocument({ id, name, source } = {}) {
 				},
 				frameMask: {
 					mode: "off",
+					preferredMode: DEFAULT_FRAME_MASK_PREFERRED_MODE,
 					opacityPct: DEFAULT_FRAME_MASK_OPACITY_PCT,
 					selectedIds: [],
 				},
@@ -278,6 +331,13 @@ export function createShotCameraDocument({ id, name, source } = {}) {
 		...baseDocument,
 		id: id ?? baseDocument.id ?? getShotCameraDocumentId(1),
 		name: name ?? baseDocument.name ?? "Camera 1",
+		frameMask: {
+			...baseDocument.frameMask,
+			selectedIds: resolveFrameMaskSelectedIds(
+				frames,
+				baseDocument.frameMask?.selectedIds,
+			),
+		},
 		frames,
 		activeFrameId: baseDocument.activeFrameId ?? frames[0]?.id ?? null,
 	};
@@ -403,18 +463,19 @@ export function cloneShotCameraDocument(documentState) {
 				documentState.frameMask?.mode === "all"
 					? documentState.frameMask.mode
 					: "off",
+			preferredMode: resolveFrameMaskPreferredMode(
+				documentState.frameMask?.mode,
+				documentState.frameMask?.preferredMode,
+			),
 			opacityPct: Number.isFinite(documentState.frameMask?.opacityPct)
 				? Math.min(
 						100,
 						Math.max(0, Math.round(documentState.frameMask.opacityPct)),
 					)
 				: DEFAULT_FRAME_MASK_OPACITY_PCT,
-			selectedIds: Array.from(
-				new Set(
-					(documentState.frameMask?.selectedIds ?? []).filter((frameId) =>
-						frames.some((frame) => frame.id === frameId),
-					),
-				),
+			selectedIds: resolveFrameMaskSelectedIds(
+				frames,
+				documentState.frameMask?.selectedIds,
 			),
 		},
 		navigation: {
