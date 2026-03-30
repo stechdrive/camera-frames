@@ -55,9 +55,9 @@ function renderIconPath(name) {
 			`;
 		case "image":
 			return html`
-				<rect x="4" y="5" width="16" height="14" rx="2"></rect>
-				<circle cx="9" cy="10" r="1.5"></circle>
-				<path d="M6.5 17l4.5-4.5 2.8 2.8 2.2-2.2 1.5 1.5"></path>
+				<rect x="3.5" y="4.5" width="17" height="15" rx="2.2"></rect>
+				<circle cx="16.4" cy="9.1" r="1.9"></circle>
+				<path d="M6.2 17.6l4.7-5.5 3.1 3.4 3.8-4.4 1.8 2"></path>
 			`;
 		case "reference":
 			return html`
@@ -223,8 +223,16 @@ function renderIconPath(name) {
 			`;
 		case "cursor-off":
 			return html`
-				<path d="M4.5 4.5l7.2 16.8 2.2-6.1 6.1-2.2-15.5-8.5z"></path>
-				<path d="M18 6l-9.5 9.5"></path>
+				<rect
+					x="4.5"
+					y="4.5"
+					width="11"
+					height="11"
+					rx="2"
+					stroke-dasharray="3.2 3.6"
+				></rect>
+				<path d="M14.1 14.1l5.1 5.1"></path>
+				<path d="M19.2 14.1l-5.1 5.1"></path>
 			`;
 		case "selection-clear":
 			return html`
