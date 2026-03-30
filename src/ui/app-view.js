@@ -30,18 +30,10 @@ export function AppView({ store, controller, refs }) {
 			id="asset-input"
 			ref=${refs.assetInputRef}
 			type="file"
-			accept=".ply,.spz,.splat,.ksplat,.zip,.sog,.rad,.glb,.gltf,.ssproj"
+			accept=".ply,.spz,.splat,.ksplat,.zip,.sog,.rad,.glb,.gltf,.ssproj,.png,.jpg,.jpeg,.webp,.psd"
 			multiple
 			hidden
 			onChange=${(event) => controller()?.handleAssetInputChange(event)}
-		/>
-		<input
-			id="project-input"
-			ref=${refs.projectInputRef}
-			type="file"
-			accept=".ssproj"
-			hidden
-			onChange=${(event) => controller()?.handleProjectInputChange(event)}
 		/>
 		<input
 			id="reference-image-input"

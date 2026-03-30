@@ -9,6 +9,7 @@ import {
 	buildViewportPieActions,
 } from "../engine/viewport-pie.js";
 import { FrameLayer } from "./frame-layer.js";
+import { getProjectStatusDisplay } from "./project-status.js";
 import { WorkbenchIcon } from "./workbench-icons.js";
 
 const OUTPUT_FRAME_RESIZE_HANDLES = [
@@ -124,6 +125,7 @@ function getAggregateFrameBoundingBoxPercent(
 
 export function ViewportShell({ store, controller, refs, t }) {
 	const mode = store.mode.value;
+	const workbenchCollapsed = store.workbenchCollapsed.value;
 	const frames = store.frames.documents.value;
 	const selectedFrameIds = new Set(store.frames.selectedIds.value ?? []);
 	const rememberedMaskFrameIds = new Set(
@@ -208,6 +210,7 @@ export function ViewportShell({ store, controller, refs, t }) {
 		? buildViewportPieActions({
 				mode: store.mode.value,
 				t,
+				viewportToolMode: store.viewportToolMode.value,
 				referencePreviewSessionVisible:
 					store.referenceImages.previewSessionVisible.value !== false,
 				hasReferenceImages:
@@ -301,6 +304,8 @@ export function ViewportShell({ store, controller, refs, t }) {
 		1,
 		Math.max(0, (Number(frameMaskOpacityPct) || 0) / 100),
 	);
+	const { projectDisplayName, projectDirty, showProjectPackageDirty } =
+		getProjectStatusDisplay(store, t);
 	const startReferenceImageMove = (itemId, event) =>
 		controller()?.startReferenceImageMove?.(itemId, event);
 	const startReferenceImageResize = (handleKey, event) =>
@@ -336,8 +341,35 @@ export function ViewportShell({ store, controller, refs, t }) {
 	];
 
 	return html`
-		<main id="viewport-shell" ref=${refs.viewportShellRef} class="viewport-shell">
+		<main
+			id="viewport-shell"
+			ref=${refs.viewportShellRef}
+			class=${
+				workbenchCollapsed
+					? "viewport-shell viewport-shell--inspector-collapsed"
+					: "viewport-shell viewport-shell--inspector-open"
+			}
+		>
 			<canvas id="viewport" ref=${refs.viewportCanvasRef} tabindex="0"></canvas>
+			<div class="viewport-project-status" aria-hidden="true">
+				<span class="viewport-project-status__name">${projectDisplayName}</span>
+				${
+					projectDirty &&
+					html`
+					<span class="viewport-project-status__badge">*</span>
+				`
+				}
+				${
+					showProjectPackageDirty &&
+					html`
+					<span
+						class="viewport-project-status__badge viewport-project-status__badge--package"
+					>
+						PKG
+					</span>
+				`
+				}
+			</div>
 			<div id="drop-hint" ref=${refs.dropHintRef} class="drop-hint">
 				<span class="drop-hint__meta">
 					${`CAMERA_FRAMES ${getBuildVersionLabel()}`}

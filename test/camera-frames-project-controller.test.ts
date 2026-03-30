@@ -30,13 +30,36 @@ function t(key, values = {}) {
 function createHarness(overrides = {}) {
 	const store = {
 		overlay: { value: null },
+		project: {
+			name: { value: "" },
+			dirty: { value: false },
+			packageDirty: { value: true },
+		},
 	};
 	const statusEvents = [];
 	const applyOpenedProjectCalls = [];
 	const clearProjectSidecarsCalls = [];
+	const resetProjectWorkspaceCalls = [];
+	let currentProjectState = overrides.captureProjectState?.() ?? {
+		workspace: {
+			activeShotCameraId: "",
+			viewport: {
+				baseFovX: 55,
+				pose: {
+					position: { x: 0, y: 0, z: 0 },
+					quaternion: { x: 0, y: 0, z: 0, w: 1 },
+					up: { x: 0, y: 1, z: 0 },
+				},
+			},
+		},
+		shotCameras: [],
+		scene: {
+			assets: [],
+			referenceImages: createDefaultReferenceImageDocument(),
+		},
+	};
 	const projectController = createProjectController({
 		store,
-		projectInput: null,
 		assetController: {
 			loadSources: async () => {},
 			applyWorkingProjectSceneState: async () => {},
@@ -56,25 +79,12 @@ function createHarness(overrides = {}) {
 			clearProjectSidecarsCalls.push(true);
 			overrides.clearProjectSidecars?.();
 		},
+		resetProjectWorkspace: () => {
+			resetProjectWorkspaceCalls.push(true);
+			overrides.resetProjectWorkspace?.();
+		},
 		buildProjectFilename: () => "test-project.ssproj",
-		captureProjectState: () => ({
-			workspace: {
-				activeShotCameraId: "",
-				viewport: {
-					baseFovX: 55,
-					pose: {
-						position: { x: 0, y: 0, z: 0 },
-						quaternion: { x: 0, y: 0, z: 0, w: 1 },
-						up: { x: 0, y: 1, z: 0 },
-					},
-				},
-			},
-			shotCameras: [],
-			scene: {
-				assets: [],
-				referenceImages: createDefaultReferenceImageDocument(),
-			},
-		}),
+		captureProjectState: () => currentProjectState,
 		clearHistory: () => {},
 		updateUi: () => {},
 		setStatus: (status) => {
@@ -89,6 +99,10 @@ function createHarness(overrides = {}) {
 		statusEvents,
 		applyOpenedProjectCalls,
 		clearProjectSidecarsCalls,
+		resetProjectWorkspaceCalls,
+		setProjectState: (nextState) => {
+			currentProjectState = nextState;
+		},
 	};
 }
 
@@ -102,6 +116,76 @@ function createHarness(overrides = {}) {
 		harness.projectController.openProjectSource(brokenProjectFile),
 	);
 	assert.equal(harness.store.overlay.value, null);
+}
+
+{
+	const harness = createHarness();
+	await harness.projectController.startNewProject();
+	harness.setProjectState({
+		workspace: {
+			activeShotCameraId: "shot-1",
+			viewport: {
+				baseFovX: 55,
+				pose: {
+					position: { x: 0, y: 0, z: 0 },
+					quaternion: { x: 0, y: 0, z: 0, w: 1 },
+					up: { x: 0, y: 1, z: 0 },
+				},
+			},
+		},
+		shotCameras: [
+			{
+				id: "shot-1",
+				name: "Camera 1",
+				pose: {
+					position: { x: 1, y: 0, z: 0 },
+					quaternion: { x: 0, y: 0, z: 0, w: 1 },
+					up: { x: 0, y: 1, z: 0 },
+				},
+				lens: { baseFovX: 55 },
+				clipping: { mode: "auto", near: 0.1, far: 1000 },
+				exportSettings: { exportName: "", exportFormat: "psd" },
+				outputFrame: {
+					widthScale: 1,
+					heightScale: 1,
+					viewZoom: 1,
+					anchor: "center",
+				},
+				frames: [],
+				activeFrameId: "",
+				frameMask: { mode: "off", opacityPct: 80, selectedIds: [] },
+				navigation: { rollLock: false },
+			},
+		],
+		scene: {
+			assets: [],
+			referenceImages: createDefaultReferenceImageDocument(),
+		},
+	});
+	harness.projectController.syncProjectPresentation();
+	const archive = await buildCameraFramesProjectArchive({
+		workspace: {
+			activeShotCameraId: "",
+			viewport: {
+				baseFovX: 55,
+				pose: {
+					position: { x: 0, y: 0, z: 0 },
+					quaternion: { x: 0, y: 0, z: 0, w: 1 },
+					up: { x: 0, y: 1, z: 0 },
+				},
+			},
+		},
+		shotCameras: [],
+		scene: {
+			assets: [],
+			referenceImages: createDefaultReferenceImageDocument(),
+		},
+	});
+	const projectFile = new File([archive], "scene.ssproj");
+	const opened = await harness.projectController.openProjectSource(projectFile);
+	assert.equal(opened, false);
+	assert.equal(harness.applyOpenedProjectCalls.length, 0);
+	assert.equal(harness.store.overlay.value?.kind, "confirm");
 }
 
 {
@@ -144,6 +228,103 @@ function createHarness(overrides = {}) {
 	await harness.projectController.openProjectSource(legacyProjectFile);
 	assert.equal(harness.store.overlay.value, null);
 	assert.equal(harness.clearProjectSidecarsCalls.length, 1);
+}
+
+{
+	const harness = createHarness();
+	await harness.projectController.startNewProject();
+	assert.equal(harness.resetProjectWorkspaceCalls.length, 1);
+	assert.equal(harness.store.overlay.value, null);
+}
+
+{
+	const harness = createHarness();
+	harness.projectController.syncProjectPresentation();
+	harness.setProjectState({
+		workspace: {
+			activeShotCameraId: "",
+			viewport: {
+				baseFovX: 55,
+				pose: {
+					position: { x: 0, y: 0, z: 0 },
+					quaternion: { x: 0, y: 0, z: 0, w: 1 },
+					up: { x: 0, y: 1, z: 0 },
+				},
+			},
+		},
+		shotCameras: [
+			{
+				id: "shot-1",
+				name: "Camera 1",
+				pose: {
+					position: { x: 1.2, y: 1.5, z: 3.0 },
+					quaternion: { x: 0, y: 0, z: 0, w: 1 },
+					up: { x: 0, y: 1, z: 0 },
+				},
+				lens: { baseFovX: 55 },
+				clipping: { mode: "auto", near: 0.1, far: 1000 },
+				exportSettings: { exportName: "", exportFormat: "psd" },
+				outputFrame: {
+					widthScale: 1,
+					heightScale: 1,
+					viewZoom: 1,
+					anchor: "center",
+					fitScale: 1,
+					fitViewportWidth: 1280,
+					fitViewportHeight: 720,
+				},
+				frames: [],
+				activeFrameId: "",
+				frameMask: { mode: "off", opacityPct: 80, selectedIds: [] },
+				navigation: { rollLock: false },
+			},
+		],
+		scene: {
+			assets: [],
+			referenceImages: createDefaultReferenceImageDocument(),
+		},
+	});
+	assert.equal(harness.projectController.isProjectDirty(), true);
+	harness.projectController.establishProjectDirtyBaseline();
+	assert.equal(harness.store.project.dirty.value, false);
+}
+
+{
+	const harness = createHarness();
+	await harness.projectController.startNewProject();
+	harness.setProjectState({
+		workspace: {
+			activeShotCameraId: "",
+			viewport: {
+				baseFovX: 55,
+				pose: {
+					position: { x: 0, y: 0, z: 0 },
+					quaternion: { x: 0, y: 0, z: 0, w: 1 },
+					up: { x: 0, y: 1, z: 0 },
+				},
+			},
+		},
+		shotCameras: [],
+		scene: {
+			assets: [
+				{
+					id: "asset-1",
+					kind: "model",
+					label: "Asset 1",
+					source: null,
+					transform: {
+						position: { x: 1, y: 0, z: 0 },
+						quaternion: { x: 0, y: 0, z: 0, w: 1 },
+					},
+				},
+			],
+			referenceImages: createDefaultReferenceImageDocument(),
+		},
+	});
+	harness.projectController.syncProjectPresentation();
+	await harness.projectController.startNewProject();
+	assert.equal(harness.resetProjectWorkspaceCalls.length, 1);
+	assert.equal(harness.store.overlay.value?.kind, "confirm");
 }
 
 console.log("✅ CAMERA_FRAMES project controller tests passed!");

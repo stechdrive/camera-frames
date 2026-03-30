@@ -128,6 +128,9 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	);
 	const cameraSummary = signal("");
 	const statusLine = signal(translate(initialLocale, "status.ready"));
+	const projectName = signal("");
+	const projectDirty = signal(false);
+	const projectPackageDirty = signal(true);
 	const overlay = signal(null);
 	const exportBusy = signal(false);
 	const exportStatusKey = signal("export.idle");
@@ -405,6 +408,11 @@ export function createCameraFramesStore(runtimeInfo = null) {
 		selectedSceneAsset,
 		cameraSummary,
 		statusLine,
+		project: {
+			name: projectName,
+			dirty: projectDirty,
+			packageDirty: projectPackageDirty,
+		},
 		overlay,
 		exportBusy,
 		exportStatusKey,

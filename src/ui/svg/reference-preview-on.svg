@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+	<defs>
+		<mask id="reference-preview-on-cutout-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24">
+			<rect width="24" height="24" fill="white" />
+			<g transform="translate(8.9 7.5) scale(0.58)" fill="none" stroke="black" stroke-linecap="round" stroke-linejoin="round">
+				<path d="M2 12s3.8-6 10-6 10 6 10 6-3.8 6-10 6S2 12 2 12z" fill="black" stroke="none" />
+				<path d="M2 12s3.8-6 10-6 10 6 10 6-3.8 6-10 6S2 12 2 12z" stroke-width="5.4" />
+				<circle cx="12" cy="12" r="3.1" fill="black" stroke="none" />
+			</g>
+		</mask>
+	</defs>
+	<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" mask="url(#reference-preview-on-cutout-mask)">
+		<rect x="2.9" y="4.2" width="16.1" height="13.3" rx="2.1" />
+		<circle cx="7.15" cy="8.15" r="1.7" />
+		<path d="M19 14.2 14.25 9.95 4.6 17.45" />
+	</g>
+	<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+		<g transform="translate(8.9 7.5) scale(0.58)">
+			<path d="M2 12s3.8-6 10-6 10 6 10 6-3.8 6-10 6S2 12 2 12z" />
+			<circle cx="12" cy="12" r="3" />
+		</g>
+	</g>
+</svg>

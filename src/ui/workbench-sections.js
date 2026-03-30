@@ -244,7 +244,7 @@ export function getInspectorQuickSections(t) {
 			id: INSPECTOR_QUICK_SECTION_EXPORT_SETTINGS,
 			tabId: INSPECTOR_TAB_EXPORT,
 			label: t("section.exportSettings"),
-			icon: "package",
+			icon: "export-tab",
 		},
 	];
 }
@@ -1147,6 +1147,23 @@ export function SceneBrowserSection({
 		}
 		return classes.join(" ");
 	};
+	const renderSceneAssetTitle = (asset) =>
+		asset.id === selectedSceneAsset?.id
+			? html`
+					<div class="field scene-asset-row__inline-name-field">
+						<${TextDraftInput}
+							id=${`scene-asset-name-${asset.id}`}
+							class="scene-asset-row__inline-name-input"
+							placeholder=${asset.label}
+							selectOnFocus=${true}
+							value=${asset.label}
+							maxLength="128"
+							onCommit=${(nextValue) =>
+								controller()?.setAssetLabel?.(asset.id, nextValue)}
+						/>
+					</div>
+				`
+			: html`<strong>${asset.label}</strong>`;
 
 	return html`
 		<div class="browser-list">
@@ -1242,7 +1259,7 @@ export function SceneBrowserSection({
 												<${WorkbenchIcon} name="grip" size=${12} strokeWidth=${0} />
 											</span>
 											<div class="scene-asset-row__title-group">
-												<strong>${asset.label}</strong>
+												${renderSceneAssetTitle(asset)}
 											</div>
 										</div>
 										<div class="scene-asset-row__toolbar">
@@ -1275,6 +1292,34 @@ export function SceneBrowserSection({
 				`,
 			)}
 		</div>
+	`;
+}
+
+function renderSceneManagerSummaryActions({
+	controller,
+	store,
+	summaryActions,
+	t,
+}) {
+	const canDeleteSelectedSceneAssets =
+		store.selectedSceneAssetIds.value.length > 0;
+	if (!canDeleteSelectedSceneAssets && !summaryActions) {
+		return null;
+	}
+	return html`
+		${
+			canDeleteSelectedSceneAssets &&
+			html`
+				<${IconButton}
+					icon="trash"
+					label=${t("action.deleteSelectedSceneAssets")}
+					disabled=${!canDeleteSelectedSceneAssets}
+					compact=${true}
+					onClick=${() => controller()?.deleteSelectedSceneAssets?.()}
+				/>
+			`
+		}
+		${summaryActions}
 	`;
 }
 
@@ -1562,12 +1607,41 @@ export function ReferenceManagerSection({
 	const [draggedItemId, setDraggedItemId] = useState(null);
 	const [dragHoverState, setDragHoverState] = useState(null);
 	const canDeleteItems = selectedItems.length > 0;
+	const previewSessionVisible =
+		store.referenceImages.previewSessionVisible.value !== false;
 	const allSelectedPreviewVisible =
 		selectedItems.length > 0 &&
 		selectedItems.every((item) => item.previewVisible !== false);
 	const allSelectedExportEnabled =
 		selectedItems.length > 0 &&
 		selectedItems.every((item) => item.exportEnabled !== false);
+	const resolvedSummaryActions = html`
+		<${IconButton}
+			id="toggle-reference-preview-session"
+			icon=${previewSessionVisible ? "reference-preview-on" : "reference-preview-off"}
+			label=${
+				previewSessionVisible
+					? t("action.hideReferenceImages")
+					: t("action.showReferenceImages")
+			}
+			active=${previewSessionVisible && items.length > 0}
+			compact=${true}
+			disabled=${items.length === 0}
+			tooltip=${{
+				title: previewSessionVisible
+					? t("action.hideReferenceImages")
+					: t("action.showReferenceImages"),
+				description: t("tooltip.referencePreviewSessionVisible"),
+				shortcut: "R",
+				placement: "left",
+			}}
+			onClick=${() =>
+				controller()?.setReferenceImagePreviewSessionVisible?.(
+					!previewSessionVisible,
+				)}
+		/>
+		${summaryActions && html`${summaryActions}`}
+	`;
 
 	function getRowClass(itemId) {
 		const classes = ["scene-asset-row", "scene-asset-row--compact"];
@@ -1597,18 +1671,12 @@ export function ReferenceManagerSection({
 			icon="reference-tool"
 			label=${t("section.referenceManager")}
 			open=${open}
-			summaryActions=${summaryActions}
+			summaryActions=${resolvedSummaryActions}
 			onToggle=${onToggle}
 			className="panel-disclosure--browser-stack"
 		>
 			<div class="scene-workspace-browser">
 				<div class="button-row reference-manager__actions">
-					<${IconButton}
-						id="open-reference-images"
-						icon="folder-open"
-						label=${t("action.openReferenceImages")}
-						onClick=${() => controller()?.openReferenceImageFiles?.()}
-					/>
 					<${IconButton}
 						id="toggle-selected-reference-preview"
 						icon=${allSelectedPreviewVisible ? "eye-off" : "eye"}
@@ -1618,7 +1686,6 @@ export function ReferenceManagerSection({
 								: t("action.showSelectedReferenceImages")
 						}
 						disabled=${!selectedItems.length}
-						active=${selectedItems.length > 0 && allSelectedPreviewVisible}
 						onClick=${() =>
 							controller()?.setSelectedReferenceImagesPreviewVisible?.(
 								!allSelectedPreviewVisible,
@@ -1633,7 +1700,6 @@ export function ReferenceManagerSection({
 								: t("action.includeSelectedReferenceImagesInExport")
 						}
 						disabled=${!selectedItems.length}
-						active=${selectedItems.length > 0 && allSelectedExportEnabled}
 						onClick=${() =>
 							controller()?.setSelectedReferenceImagesExportEnabled?.(
 								!allSelectedExportEnabled,
@@ -2381,12 +2447,18 @@ export function SceneWorkspaceSection({
 	dragHoverState,
 	setDragHoverState,
 }) {
+	const resolvedSummaryActions = renderSceneManagerSummaryActions({
+		controller,
+		store,
+		summaryActions,
+		t,
+	});
 	return html`
 		<${DisclosureBlock}
 			icon="scene"
 			label=${t("section.sceneManager")}
 			open=${open}
-			summaryActions=${summaryActions}
+			summaryActions=${resolvedSummaryActions}
 			onToggle=${onToggle}
 			className="panel-disclosure--browser-stack"
 		>
@@ -2925,6 +2997,12 @@ export function SceneSection({
 	dragHoverState,
 	setDragHoverState,
 }) {
+	const resolvedSummaryActions = renderSceneManagerSummaryActions({
+		controller,
+		store,
+		summaryActions,
+		t,
+	});
 	const groupedSceneAssets = groupSceneAssetsByKind(sceneAssets);
 	const sceneAssetSections = [
 		{
@@ -2997,7 +3075,7 @@ export function SceneSection({
 			icon="scene"
 			label=${t("section.sceneManager")}
 			open=${open}
-			summaryActions=${summaryActions}
+			summaryActions=${resolvedSummaryActions}
 			onToggle=${onToggle}
 		>
 			<div class="scene-asset-section-list">
@@ -3174,7 +3252,14 @@ export function LightingSection({
 			onToggle=${onToggle}
 		>
 			<div class="lighting-field-row lighting-field-row--direction">
-				<span class="lighting-field-row__label">${t("field.lightDirection")}</span>
+				<span class="lighting-field-row__label field-label-tooltip">
+					${t("field.lightDirection")}
+					<${TooltipBubble}
+						title=${t("field.lightDirection")}
+						description=${t("hint.lightDirection")}
+						placement="right"
+					/>
+				</span>
 				<div class="lighting-field-row__control">
 					<${LightingDirectionControl}
 						controller=${controller}
@@ -3319,7 +3404,14 @@ export function ShotCameraPropertiesSection({
 			onToggle=${onToggle}
 		>
 			<label class="field field--range">
-				<span>${t("field.shotCameraEquivalentMm")}</span>
+				<span class="field-label-tooltip">
+					${t("field.shotCameraEquivalentMm")}
+					<${TooltipBubble}
+						title=${t("field.shotCameraEquivalentMm")}
+						description=${t("tooltip.shotCameraEquivalentMmField")}
+						placement="right"
+					/>
+				</span>
 				<div class="range-row">
 					<${HistoryRangeInput}
 						id="fov-mm"
@@ -3519,7 +3611,14 @@ export function ShotCameraPropertiesSection({
 					<span class="switch-toggle__control" aria-hidden="true">
 						<span class="switch-toggle__thumb"></span>
 					</span>
-					<span class="switch-toggle__label">${t("clipMode.auto")}</span>
+					<span class="switch-toggle__label field-label-tooltip">
+						${t("clipMode.auto")}
+						<${TooltipBubble}
+							title=${t("clipMode.auto")}
+							description=${t("hint.shotCameraClip")}
+							placement="left"
+						/>
+					</span>
 				</label>
 			</div>
 				<div class="pose-grid">
@@ -3586,14 +3685,21 @@ export function ExportSettingsSection({
 }) {
 	return html`
 		<${DisclosureBlock}
-			icon="export"
+			icon="export-tab"
 			label=${t("section.exportSettings")}
 			open=${open}
 			summaryActions=${summaryActions}
 			onToggle=${onToggle}
 		>
 			<label class="field">
-				<span>${t("field.shotCameraExportName")}</span>
+				<span class="field-label-tooltip">
+					${t("field.shotCameraExportName")}
+					<${TooltipBubble}
+						title=${t("field.shotCameraExportName")}
+						description=${t("tooltip.shotCameraExportName")}
+						placement="right"
+					/>
+				</span>
 				<${TextDraftInput}
 					id="shot-camera-export-name"
 					placeholder=${activeShotCamera?.name ?? "Camera"}
@@ -3631,7 +3737,14 @@ export function ExportSettingsSection({
 				exportGridOverlay &&
 				html`
 					<label class="field">
-						<span>${t("field.exportGridLayerMode")}</span>
+						<span class="field-label-tooltip">
+							${t("field.exportGridLayerMode")}
+							<${TooltipBubble}
+								title=${t("field.exportGridLayerMode")}
+								description=${t("tooltip.exportGridLayerModeField")}
+								placement="right"
+							/>
+						</span>
 						<select
 							id="shot-camera-export-grid-layer-mode"
 							value=${exportGridLayerMode}
@@ -3660,7 +3773,14 @@ export function ExportSettingsSection({
 									event.currentTarget.checked,
 								)}
 						/>
-						<span>${t("field.exportModelLayers")}</span>
+						<span class="field-label-tooltip">
+							${t("field.exportModelLayers")}
+							<${TooltipBubble}
+								title=${t("field.exportModelLayers")}
+								description=${t("tooltip.exportModelLayersField")}
+								placement="right"
+							/>
+						</span>
 					</label>
 					<label class="checkbox-field">
 						<input
@@ -3673,7 +3793,14 @@ export function ExportSettingsSection({
 									event.currentTarget.checked,
 								)}
 						/>
-						<span>${t("field.exportSplatLayers")}</span>
+						<span class="field-label-tooltip">
+							${t("field.exportSplatLayers")}
+							<${TooltipBubble}
+								title=${t("field.exportSplatLayers")}
+								description=${t("tooltip.exportSplatLayersField")}
+								placement="right"
+							/>
+						</span>
 					</label>
 				`
 			}
@@ -3877,13 +4004,6 @@ export function ReferenceSection({
 			onToggle=${onToggle}
 		>
 			<div class="button-row">
-				<button
-					type="button"
-					class="button button--compact"
-					onClick=${() => controller()?.openReferenceImageFiles?.()}
-				>
-					${t("action.openReferenceImages")}
-				</button>
 				<button
 					type="button"
 					class=${
@@ -4289,7 +4409,14 @@ export function OutputFrameSection({
 				</div>
 			</label>
 			<div class="field field--inline-compact field--anchor-compact">
-				<span>${t("field.anchor")}</span>
+				<span class="field-label-tooltip">
+					${t("field.anchor")}
+					<${TooltipBubble}
+						title=${t("field.anchor")}
+						description=${t("tooltip.outputFrameAnchorField")}
+						placement="right"
+					/>
+				</span>
 				<div class="field--inline-compact__value field--anchor-compact__value">
 					<div
 						class="anchor-matrix"
@@ -4326,10 +4453,8 @@ export function OutputFrameSection({
 export function ExportSection({
 	controller,
 	exportBusy,
-	exportFormatLabel,
 	exportPresetIds,
 	exportSelectionMissing,
-	exportStatusLabel,
 	exportTarget,
 	open = true,
 	summaryActions = null,
@@ -4337,21 +4462,14 @@ export function ExportSection({
 	store,
 	t,
 }) {
-	const exportStatusClass =
-		exportBusy || exportStatusLabel !== t("export.idle")
-			? "pill"
-			: "pill pill--dim";
 	const exportReferenceImagesEnabled =
 		store.referenceImages.exportSessionEnabled.value !== false;
 
 	return html`
 		<${DisclosureBlock}
-			icon="export"
+			icon="export-tab"
 			label=${t("section.export")}
 			open=${open}
-			summaryMeta=${html`<span id="export-status-pill" class=${exportStatusClass}>
-				${exportStatusLabel}
-			</span>`}
 			summaryActions=${summaryActions}
 			onToggle=${onToggle}
 			className="panel-disclosure--preview"
@@ -4373,7 +4491,9 @@ export function ExportSection({
 			${
 				exportTarget === "selected" &&
 				html`
-					<div class="export-selection-list">
+					<div class="field">
+						<span>${t("field.exportPresetSelection")}</span>
+						<div class="export-selection-list">
 						${store.workspace.shotCameras.value.map(
 							(shotCamera) => html`
 								<label class="export-selection-item">
@@ -4393,6 +4513,7 @@ export function ExportSection({
 								</label>
 							`,
 						)}
+						</div>
 					</div>
 				`
 			}
@@ -4418,9 +4539,6 @@ export function ExportSection({
 					${t("action.downloadOutput")}
 				</button>
 			</div>
-			<p id="export-summary" class="summary">
-				${exportFormatLabel} · ${store.exportSummary.value}
-			</p>
 		<//>
 	`;
 }

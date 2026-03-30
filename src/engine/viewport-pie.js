@@ -43,6 +43,7 @@ export function getViewportPieMetrics({ coarse = false } = {}) {
 export function buildViewportPieActions({
 	mode,
 	t,
+	viewportToolMode = "none",
 	referencePreviewSessionVisible = true,
 	hasReferenceImages = false,
 	frameMaskMode = "off",
@@ -56,17 +57,21 @@ export function buildViewportPieActions({
 					...entry,
 					icon: "cursor",
 					label: t("transformMode.select"),
+					active: viewportToolMode === "select",
 				};
 			case "tool-reference":
 				return {
 					...entry,
 					icon: "reference-tool",
 					label: t("transformMode.reference"),
+					active: viewportToolMode === "reference",
 				};
 			case "toggle-reference-preview":
 				return {
 					...entry,
-					icon: referencePreviewSessionVisible ? "eye" : "eye-off",
+					icon: referencePreviewSessionVisible
+						? "reference-preview-on"
+						: "reference-preview-off",
 					label: referencePreviewSessionVisible
 						? t("action.hideReferenceImages")
 						: t("action.showReferenceImages"),
@@ -78,12 +83,14 @@ export function buildViewportPieActions({
 					...entry,
 					icon: "move",
 					label: t("transformMode.transform"),
+					active: viewportToolMode === "transform",
 				};
 			case "tool-pivot":
 				return {
 					...entry,
 					icon: "pivot",
 					label: t("transformMode.pivot"),
+					active: viewportToolMode === "pivot",
 				};
 			case "adjust-lens":
 				return {

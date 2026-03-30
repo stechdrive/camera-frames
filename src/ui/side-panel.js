@@ -109,13 +109,8 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 	const widthLabel = store.widthLabel.value;
 	const heightLabel = store.heightLabel.value;
 	const exportBusy = store.exportBusy.value;
-	const exportStatusLabel = store.exportStatusLabel.value;
 	const exportTarget = store.exportOptions.target.value;
 	const exportPresetIds = store.exportOptions.presetIds.value;
-	const exportFormatLabel =
-		exportTarget === "current"
-			? t(`exportFormat.${exportFormat}`)
-			: t("field.exportFormat");
 	const exportSelectionMissing =
 		exportTarget === "selected" && exportPresetIds.length === 0;
 	const anchorOptions = getAnchorOptions(locale);
@@ -228,50 +223,36 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 	};
 	const projectMenuItems = [
 		{
-			id: "open-project",
-			icon: "package-open",
-			label: t("action.openProject"),
-			onClick: () => controller()?.openProject(),
+			id: "new-project",
+			icon: "plus",
+			label: t("menu.newProjectAction"),
+			shortcut: "Ctrl+N",
+			onClick: () => controller()?.startNewProject(),
 		},
 		{
-			id: "open-working-project",
-			icon: "clock",
-			label: t("action.openWorkingProject"),
-			onClick: () => controller()?.openWorkingProject(),
+			id: "open-files",
+			icon: "folder-open",
+			label: t("action.openFiles"),
+			shortcut: "Ctrl+O",
+			onClick: () => controller()?.openFiles(),
 		},
 		{
 			id: "save-project",
 			icon: "save",
-			label: t("action.saveProject"),
+			label: t("menu.saveWorkingStateAction"),
+			shortcut: "Ctrl+S",
 			onClick: () => controller()?.saveProject(),
 		},
 		{
 			id: "export-project",
 			icon: "package",
-			label: t("action.exportProject"),
+			label: t("menu.savePackageAction"),
+			shortcut: "Ctrl+Shift+S",
 			onClick: () => controller()?.exportProject(),
-		},
-		{
-			id: "clear-scene",
-			icon: "trash",
-			label: t("action.clear"),
-			destructive: true,
-			onClick: () => controller()?.clearScene(),
 		},
 	];
 	const fileMenuChildren = html`
 		<div class="workbench-menu__group">
-			<button
-				id="open-files"
-				type="button"
-				class="workbench-menu__item"
-				onClick=${() => controller()?.openFiles()}
-			>
-				<span class="workbench-menu__item-icon">
-					<${WorkbenchIcon} name="folder-open" size=${14} />
-				</span>
-				<span>${t("action.openFiles")}</span>
-			</button>
 			<div class="workbench-menu__field">
 				<label for="header-url-input">${t("field.remoteUrl")}</label>
 				<input
@@ -643,10 +624,8 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 					<${ExportSection}
 						controller=${controller}
 						exportBusy=${exportBusy}
-						exportFormatLabel=${exportFormatLabel}
 						exportPresetIds=${exportPresetIds}
 						exportSelectionMissing=${exportSelectionMissing}
-						exportStatusLabel=${exportStatusLabel}
 						exportTarget=${exportTarget}
 						open=${open}
 						onToggle=${onToggle}
@@ -814,13 +793,13 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 										class="workbench-inspector-toggle"
 										aria-label=${t("action.close")}
 										onClick=${collapseWorkbench}
-									>
-										<${WorkbenchIcon} name="close" size=${14} />
-									</button>
-								</div>
-								<div class="workbench-inspector-stack workbench-inspector-stack--mobile">
-									${renderInspectorContent(activeInspectorTab)}
-								</div>
+										>
+											<${WorkbenchIcon} name="close" size=${14} />
+										</button>
+									</div>
+									<div class="workbench-inspector-stack workbench-inspector-stack--mobile">
+										${renderInspectorContent(activeInspectorTab)}
+									</div>
 							</section>
 						</div>
 					`

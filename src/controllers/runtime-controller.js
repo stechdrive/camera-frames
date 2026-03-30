@@ -30,6 +30,14 @@ export function createRuntimeController({
 	toggleViewportPivotEditMode,
 	saveProject,
 	exportProject,
+	openFiles,
+	startNewProject,
+	isProjectDirty,
+	isPackageDirty,
+	shouldWarnBeforeUnload,
+	syncProjectPresentation,
+	suspendProjectPresentationSync,
+	establishProjectDirtyBaseline,
 	undoHistory,
 	redoHistory,
 	clearSceneAssetSelection,
@@ -198,6 +206,8 @@ export function createRuntimeController({
 			toggleViewportPivotEditMode,
 			saveProject,
 			exportProject,
+			openFiles,
+			startNewProject,
 			undoHistory,
 			redoHistory,
 			clearSceneAssetSelection,
@@ -250,6 +260,19 @@ export function createRuntimeController({
 			handleViewportTransformDragEnd,
 			pickViewportAssetAtPointer,
 			startOutputFrameAnchorDrag,
+			isInteractionBlocked: () => exportController.isRenderLocked(),
+		});
+
+		listen(window, "beforeunload", (event) => {
+			const shouldWarn =
+				typeof shouldWarnBeforeUnload === "function"
+					? shouldWarnBeforeUnload()
+					: (isProjectDirty?.() ?? false) || (isPackageDirty?.() ?? false);
+			if (!shouldWarn) {
+				return;
+			}
+			event.preventDefault();
+			event.returnValue = "";
 		});
 	}
 
@@ -288,6 +311,9 @@ export function createRuntimeController({
 				hasPointerNavigationActivity(),
 			deltaMs: deltaTime * 1000,
 		});
+		if (poseBefore !== poseAfter) {
+			syncProjectPresentation?.();
+		}
 
 		syncViewportProjection();
 		syncShotProjection();
@@ -332,18 +358,21 @@ export function createRuntimeController({
 	}
 
 	function init() {
+		suspendProjectPresentationSync?.(true);
 		document.body.dataset.mode = state.mode;
 		store.sceneSummary.value = "";
 		store.sceneScaleSummary.value = "";
 		store.exportSummary.value = t("exportSummary.empty");
 		setStatus("");
 		setExportStatus("export.idle");
-		updateUi();
 		placeAllCamerasAtHome();
 		syncControlsToMode();
 		applyInitialNavigateInteractionMode();
 		handleResize();
 		bindViewportInteractions();
+		suspendProjectPresentationSync?.(false);
+		establishProjectDirtyBaseline?.();
+		updateUi();
 		renderer.setAnimationLoop(animate);
 		loadStartupUrls();
 	}

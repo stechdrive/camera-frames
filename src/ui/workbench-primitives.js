@@ -350,7 +350,15 @@ export function HeaderMenu({
 									</span>
 								`
 							}
-							<span>${item.label}</span>
+							<span class="workbench-menu__item-label">${item.label}</span>
+							${
+								item.shortcut &&
+								html`
+									<span class="workbench-menu__item-shortcut" aria-hidden="true">
+										<kbd>${item.shortcut}</kbd>
+									</span>
+								`
+							}
 						</button>
 					`,
 				)}
@@ -373,6 +381,13 @@ export function IconButton({
 	type = "button",
 	tooltip = null,
 }) {
+	const handlePointerDown = (event) => {
+		event.stopPropagation();
+	};
+	const handleClick = (event) => {
+		event.stopPropagation();
+		onClick?.(event);
+	};
 	const classes = [
 		"button",
 		"button--icon",
@@ -390,7 +405,8 @@ export function IconButton({
 			class=${classes}
 			aria-label=${label}
 			disabled=${disabled}
-			onClick=${onClick}
+			onPointerDown=${handlePointerDown}
+			onClick=${handleClick}
 		>
 			<${WorkbenchIcon}
 				name=${icon}

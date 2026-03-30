@@ -244,7 +244,7 @@ export function createInteractionController({
 								: "",
 			);
 		}
-		updateUi();
+		updateUi({ syncProjectPresentation: false });
 	}
 
 	function applyNavigateInteractionMode(options) {
@@ -757,7 +757,7 @@ export function createInteractionController({
 			state.interactionMode === INTERACTION_MODE_NAVIGATE;
 		fpsMovement.enable = false;
 		pointerControls.enable = navigationEnabled;
-		updateUi();
+		updateUi({ syncProjectPresentation: false });
 	}
 
 	return {

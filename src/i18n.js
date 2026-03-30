@@ -87,6 +87,7 @@ const MESSAGES = {
 			activeFrame: "FRAME",
 			frameMaskOpacity: "マスク不透明度",
 			exportTarget: "書き出し対象",
+			exportPresetSelection: "選択カメラ",
 			referenceImageOpacity: "不透明度",
 			referenceImageScale: "拡縮",
 			referencePresetName: "プリセット名",
@@ -130,6 +131,16 @@ const MESSAGES = {
 			export: "書き出し",
 			exportSettings: "書き出し設定",
 		},
+		menu: {
+			newProjectAction: "新規プロジェクト",
+			saveWorkingStateAction: "プロジェクトを保存",
+			savePackageAction: "プロジェクトを書き出し",
+		},
+		project: {
+			untitled: "無題",
+			dirtyHint: "作業状態に未保存の変更があります",
+			packageHint: "共有・持ち出しには .ssproj 保存が必要です",
+		},
 		mode: {
 			viewport: "ビューポート",
 			camera: "カメラビュー",
@@ -170,13 +181,12 @@ const MESSAGES = {
 			manual: "手動",
 		},
 		action: {
-			openProject: "プロジェクトを開く",
-			openWorkingProject: "作業フォルダを開く",
-			saveProject: "作業状態を保存",
-			exportProject: "パッケージ保存",
+			newProject: "新規プロジェクト",
+			saveProject: "プロジェクトを保存",
+			exportProject: "プロジェクトを書き出し",
 			savePackageAs: "別名で保存",
 			overwritePackage: "上書き保存",
-			openFiles: "ファイルを開く",
+			openFiles: "開く...",
 			openReferenceImages: "下絵を開く",
 			duplicateReferencePreset: "プリセットを複製",
 			deleteReferencePreset: "プリセットを削除",
@@ -185,7 +195,14 @@ const MESSAGES = {
 			collapseWorkbench: "パネルを最小化",
 			expandWorkbench: "パネルを開く",
 			cancel: "キャンセル",
+			saveAndNewProject: "保存して新規",
+			savePackageAndNewProject: "保存して新規",
+			discardAndNewProject: "保存せず新規",
+			saveAndOpenProject: "保存して開く",
+			savePackageAndOpenProject: "保存して開く",
+			discardAndOpenProject: "保存せず開く",
 			close: "閉じる",
+			continueSave: "保存する",
 			continueLoad: "読み込む",
 			showAsset: "表示",
 			hideAsset: "非表示",
@@ -196,6 +213,7 @@ const MESSAGES = {
 			showSelectedReferenceImages: "選択中の下絵を表示",
 			hideSelectedReferenceImages: "選択中の下絵を非表示",
 			clearSelection: "選択を解除",
+			deleteSelectedSceneAssets: "選択中のオブジェクトを削除",
 			includeReferenceImageInExport: "書き出しに含める",
 			excludeReferenceImageFromExport: "書き出しから外す",
 			includeSelectedReferenceImagesInExport: "選択中の下絵を書き出しに含める",
@@ -265,6 +283,8 @@ const MESSAGES = {
 				"ツールのクイックメニューを開きます。モバイルではここから使うのが安全です。",
 			clearSelection:
 				"3Dオブジェクト、下絵、FRAME の選択を解除して、アクティブツールを外します。",
+			referencePreviewSessionVisible:
+				"下絵のプレビュー表示だけを一時的に切り替えます。保存済みの表示状態は変えません。R で切り替えます。",
 			tabScene: "シーン、アセット、ライティングを管理します。",
 			tabCamera: "ショットカメラと用紙設定を編集します。",
 			tabReference: "下絵プリセットと下絵レイヤーを編集します。",
@@ -283,6 +303,30 @@ const MESSAGES = {
 				"この項目だけをクイックパネルで開きます。もう一度押すと閉じます。",
 			pinQuickSection: "この項目を右レールのショートカットに追加します。",
 			unpinQuickSection: "この項目を右レールのショートカットから外します。",
+			shotCameraEquivalentMmField:
+				"フルサイズ換算の焦点距離です。数値を変えるとアクティブなショットカメラの画角が変わります。",
+			outputFrameAnchorField:
+				"用紙サイズを変える時に、どの基準点を固定してフレームを広げるかを選びます。",
+			shotCameraExportName:
+				"書き出しファイル名のテンプレートです。%cam は現在のカメラ名に置き換わります。",
+			exportFormatField:
+				"このカメラの書き出し形式を選びます。PNG は統合画像、PSD はレイヤー付きです。",
+			exportGridOverlayField:
+				"Infinite Grid と Eye Level を書き出しに含めます。",
+			exportGridLayerModeField:
+				"ガイドを出力画像の下に入れるか、上に重ねるかを選びます。",
+			exportModelLayersField:
+				"PSD 書き出し時に GLB モデルを個別レイヤー化します。",
+			exportSplatLayersField:
+				"PSD 書き出し時に 3DGS を個別レイヤー化します。GLB レイヤー化が前提です。",
+			exportTargetField:
+				"現在のカメラ、全カメラ、または選択したカメラだけを書き出します。",
+			exportPresetSelectionField:
+				"選択書き出しの対象に含めるカメラをここで選びます。",
+			exportReferenceImagesField:
+				"下絵を今回の書き出しに含めるかどうかを一時的に切り替えます。",
+			downloadOutput:
+				"現在の対象と各カメラの設定に従って PNG または PSD を書き出します。",
 		},
 		hint: {
 			viewMode:
@@ -324,6 +368,19 @@ const MESSAGES = {
 			exporting: "書き出し中",
 		},
 		overlay: {
+			newProjectTitle: "新規プロジェクト",
+			newProjectMessage:
+				"保存していない変更があります。作業状態を保存してから新しいプロジェクトを開始しますか？",
+			newProjectMessageWithPackage:
+				"保存していない変更があります。新しいプロジェクトを始める前に保存しますか？",
+			openProjectTitle: "別のプロジェクトを開く",
+			openProjectMessage:
+				"保存していない変更があります。作業状態を保存してから別のプロジェクトを開きますか？",
+			openProjectMessageWithPackage:
+				"保存していない変更があります。別のプロジェクトを開く前に保存しますか？",
+			workingSaveNoticeTitle: "プロジェクトを保存",
+			workingSaveNoticeMessage:
+				"Ctrl+S はこのブラウザ内にプロジェクトの作業状態を保存します。他の環境へ持ち出したり共有したりする時は「プロジェクトを書き出し」を使ってください。",
 			startupImportTitle: "共有データを読み込みますか？",
 			startupImportMessage:
 				"このリンクは外部の共有データを読み込みます。読み込みを続けると、下の URL へアクセスします。",
@@ -353,13 +410,52 @@ const MESSAGES = {
 			importErrorMessageGeneric: "このデータは読み込めませんでした。",
 			importErrorMessageRemote: "このリンクはアプリから直接開けませんでした。",
 			errorDetails: "詳細",
-			packageSaveTitle: "パッケージ保存",
-			packageSaveMessage: "共有・受け渡し用の .ssproj を保存します。",
+			packageSaveTitle: "プロジェクトを書き出し",
+			packageSaveMessage:
+				"共有や他の環境への持ち出し用に、プロジェクトを .ssproj として書き出します。",
 			packageSaveMessageWithOverwrite:
-				"共有・受け渡し用の .ssproj を保存します。現在のファイル {name} に上書き保存するか、別名で保存するかを選んでください。",
-			packageSaveErrorTitle: "パッケージ保存に失敗しました",
+				"共有や他の環境への持ち出し用に、プロジェクトを .ssproj として書き出します。現在のファイル {name} に上書き保存するか、別名で保存するかを選んでください。",
+			exportTitle: "書き出し中",
+			exportMessage:
+				"書き出しが終わるまで少し待ってください。完了するまで他の操作は無効です。",
+			exportDetailSingle: "{camera} を {format} で書き出し中…",
+			exportDetailBatch: "{index}/{count} {camera} を {format} で書き出し中…",
+			exportPhasePrepare: "準備",
+			exportPhaseBeauty: "レンダリング",
+			exportPhaseGuides: "ガイド",
+			exportPhaseMasks: "マスク",
+			exportPhasePsdBase: "PSDベース",
+			exportPhaseModelLayers: "GLBレイヤー",
+			exportPhaseSplatLayers: "3DGSレイヤー",
+			exportPhaseReferenceImages: "下絵",
+			exportPhaseWrite: "書き出し",
+			exportPhaseDetailPrepare: "カメラと出力設定を切り替えています…",
+			exportPhaseDetailBeauty: "最終レンダリングを取得しています…",
+			exportPhaseDetailGuides: "ガイド描画を準備しています…",
+			exportPhaseDetailGuidesGrid:
+				"Infinite Grid を書き出し用に描画しています…",
+			exportPhaseDetailGuidesEyeLevel:
+				"Eye Level を書き出し用に描画しています…",
+			exportPhaseDetailMasks: "マスクを構築しています…",
+			exportPhaseDetailMaskBatch: "{index}/{count} {name} のマスクを作成中…",
+			exportPhaseDetailPsdBase: "PSD のベース画像を構築しています…",
+			exportPhaseDetailModelLayers: "GLB レイヤーを準備しています…",
+			exportPhaseDetailModelLayersBatch:
+				"{index}/{count} {name} の GLB レイヤーを構築中…",
+			exportPhaseDetailSplatLayers: "3DGS レイヤーを準備しています…",
+			exportPhaseDetailSplatLayersBatch:
+				"{index}/{count} {name} の 3DGS レイヤーを構築中…",
+			exportPhaseDetailReferenceImages: "下絵レイヤーを合成しています…",
+			exportPhaseDetailReferenceImagesBatch:
+				"{index}/{count} {name} の下絵を配置中…",
+			exportPhaseDetailWritePng: "PNG ファイルを書き出しています…",
+			exportPhaseDetailWritePsd: "PSD ドキュメントを書き出しています…",
+			exportErrorTitle: "書き出しに失敗しました",
+			exportErrorMessage:
+				"書き出し中にエラーが発生しました。詳細を確認してください。",
+			packageSaveErrorTitle: "プロジェクトの書き出しに失敗しました",
 			packageSaveErrorMessage:
-				"パッケージ保存の途中でエラーが発生しました。詳細を確認してください。",
+				"プロジェクトの書き出し中にエラーが発生しました。詳細を確認してください。",
 			packagePhaseCollect: "状態を収集",
 			packagePhaseResolve: "asset を解決",
 			packagePhaseCompress: "3DGS を圧縮",
@@ -421,9 +517,10 @@ const MESSAGES = {
 			projectLoadedFromFolder: "{name} からプロジェクトを読み込みました。",
 			projectSaved: "プロジェクトを保存しました。",
 			projectSavedToFolder: "{name} にプロジェクトを保存しました。",
-			workingStateSaved: "{name} の作業状態を保存しました。",
+			workingStateSaved: "{name} を保存しました。",
 			workingStateRestored: "{name} の作業状態を復元しました。",
-			packageSaved: "{name} をパッケージ保存しました。",
+			packageSaved: "{name} を書き出しました。",
+			newProjectReady: "新規プロジェクトを開始しました。",
 			projectExporting: "プロジェクトを書き出し中...",
 			projectExported: "プロジェクトを書き出しました。",
 			viewportEnabled: "ビューポートに切り替えました。",
@@ -461,6 +558,8 @@ const MESSAGES = {
 			assetTransformUpdated: "{name} のトランスフォームを更新しました。",
 			assetTransformApplied: "{name} の変形を適用しました。",
 			assetVisibilityUpdated: "{name} を {visibility} にしました。",
+			deletedSceneAsset: "{name} を削除しました。",
+			deletedSceneAssets: "{count} 件のオブジェクトを削除しました。",
 			assetOrderUpdated: "{name} の順序を {index} にしました。",
 			selectedShotCamera: "Camera を {name} に切り替えました。",
 			createdShotCamera: "Camera {name} を追加しました。",
@@ -541,8 +640,6 @@ const MESSAGES = {
 				"出力プレビューの前に 3DGS かモデルを読み込んでください。",
 			exportRequiresPreset:
 				"書き出し対象の Camera を 1 つ以上選択してください。",
-			projectWorkingFolderUnsupported:
-				"この環境では作業フォルダ保存を利用できません。",
 			projectPackageSaveUnsupported:
 				"この環境ではパッケージ保存ダイアログを利用できません。",
 			projectPackageSaveUnavailable:
@@ -628,6 +725,7 @@ const MESSAGES = {
 			activeFrame: "FRAME",
 			frameMaskOpacity: "Mask Opacity",
 			exportTarget: "Export Target",
+			exportPresetSelection: "Selected Cameras",
 			referenceImageOpacity: "Opacity",
 			referenceImageScale: "Scale",
 			referencePresetName: "Preset Name",
@@ -671,6 +769,17 @@ const MESSAGES = {
 			export: "Export",
 			exportSettings: "Export Settings",
 		},
+		menu: {
+			newProjectAction: "New Project",
+			saveWorkingStateAction: "Save Project",
+			savePackageAction: "Export Project",
+		},
+		project: {
+			untitled: "Untitled",
+			dirtyHint: "There are unsaved working-state changes",
+			packageHint:
+				"Save a .ssproj package before sharing or moving this project",
+		},
 		mode: {
 			viewport: "Viewport",
 			camera: "Camera View",
@@ -711,13 +820,12 @@ const MESSAGES = {
 			manual: "Manual",
 		},
 		action: {
-			openProject: "Open Project",
-			openWorkingProject: "Open Working Folder",
-			saveProject: "Save Working State",
-			exportProject: "Save Package",
+			newProject: "New Project",
+			saveProject: "Save Project",
+			exportProject: "Export Project",
 			savePackageAs: "Save As",
 			overwritePackage: "Overwrite",
-			openFiles: "Open Files",
+			openFiles: "Open…",
 			openReferenceImages: "Open Reference Images",
 			duplicateReferencePreset: "Duplicate Preset",
 			deleteReferencePreset: "Delete Preset",
@@ -726,7 +834,14 @@ const MESSAGES = {
 			collapseWorkbench: "Minimize panel",
 			expandWorkbench: "Open panel",
 			cancel: "Cancel",
+			saveAndNewProject: "Save and New",
+			savePackageAndNewProject: "Save and New",
+			discardAndNewProject: "Don't Save",
+			saveAndOpenProject: "Save and Open",
+			savePackageAndOpenProject: "Save and Open",
+			discardAndOpenProject: "Don't Save",
 			close: "Close",
+			continueSave: "Save",
 			continueLoad: "Load",
 			showAsset: "Show",
 			hideAsset: "Hide",
@@ -744,6 +859,7 @@ const MESSAGES = {
 			excludeSelectedReferenceImagesFromExport:
 				"Exclude Selected References from Export",
 			deleteSelectedReferenceImages: "Delete Selected References",
+			deleteSelectedSceneAssets: "Delete Selected Objects",
 			moveAssetUp: "Up",
 			moveAssetDown: "Down",
 			newShotCamera: "Add Camera",
@@ -810,6 +926,8 @@ const MESSAGES = {
 				"Open the quick tool menu. On mobile, this is the safer way to use it.",
 			clearSelection:
 				"Clear selected 3D objects, reference images, and FRAMEs, then return to no active tool.",
+			referencePreviewSessionVisible:
+				"Temporarily show or hide reference previews without changing their saved visibility state. Toggle with R.",
 			tabScene: "Manage scene assets and lighting.",
 			tabCamera: "Edit the active shot camera and paper setup.",
 			tabReference: "Edit reference presets and reference image layers.",
@@ -828,6 +946,29 @@ const MESSAGES = {
 				"Open only this section as a quick panel. Press again to close it.",
 			pinQuickSection: "Add this section to the right rail shortcuts.",
 			unpinQuickSection: "Remove this section from the right rail shortcuts.",
+			shotCameraEquivalentMmField:
+				"Full-frame-equivalent focal length. Changing it updates the active shot camera lens angle.",
+			outputFrameAnchorField:
+				"Choose which point stays fixed when the paper size changes.",
+			shotCameraExportName:
+				"Template for the exported filename. %cam is replaced with the current camera name.",
+			exportFormatField:
+				"Choose the export format for this camera. PNG is flattened; PSD keeps layers.",
+			exportGridOverlayField:
+				"Include Infinite Grid and Eye Level in the export.",
+			exportGridLayerModeField:
+				"Choose whether guide overlays render below or above the beauty image.",
+			exportModelLayersField: "Write GLB models as separate PSD layers.",
+			exportSplatLayersField:
+				"Write 3DGS objects as separate PSD layers. GLB model layers must also be enabled.",
+			exportTargetField:
+				"Export only the current camera, every camera, or a selected subset.",
+			exportPresetSelectionField:
+				"Choose which cameras are included when Export Target is set to Selected.",
+			exportReferenceImagesField:
+				"Temporarily include or exclude reference images from this export run.",
+			downloadOutput:
+				"Export PNG or PSD files using the current target and per-camera export settings.",
 		},
 		hint: {
 			viewMode:
@@ -870,6 +1011,19 @@ const MESSAGES = {
 			exporting: "Exporting",
 		},
 		overlay: {
+			newProjectTitle: "New Project",
+			newProjectMessage:
+				"You have unsaved changes. Save the working state before starting a new project?",
+			newProjectMessageWithPackage:
+				"You have unsaved changes. Save before starting a new project?",
+			openProjectTitle: "Open Another Project",
+			openProjectMessage:
+				"You have unsaved changes. Save the working state before opening another project?",
+			openProjectMessageWithPackage:
+				"You have unsaved changes. Save before opening another project?",
+			workingSaveNoticeTitle: "Save Project",
+			workingSaveNoticeMessage:
+				"Ctrl+S saves the project's working state in this browser. Use “Export Project” when you need a portable .ssproj file for sharing or moving to another environment.",
 			startupImportTitle: "Load shared data?",
 			startupImportMessage:
 				"This link will load external shared data. Continuing will access the URLs below.",
@@ -903,14 +1057,50 @@ const MESSAGES = {
 			importErrorMessageRemote:
 				"This link could not be opened directly from the app.",
 			errorDetails: "Details",
-			packageSaveTitle: "Save Package",
+			packageSaveTitle: "Export Project",
 			packageSaveMessage:
-				"Save a portable .ssproj package for sharing or handoff.",
+				"Export a portable .ssproj project file for sharing or moving to another environment.",
 			packageSaveMessageWithOverwrite:
-				"Save a portable .ssproj package for sharing or handoff. Choose whether to overwrite {name} or save to a new file.",
-			packageSaveErrorTitle: "Package save failed",
+				"Export a portable .ssproj project file for sharing or moving to another environment. Choose whether to overwrite {name} or save to a new file.",
+			exportTitle: "Exporting",
+			exportMessage:
+				"Please wait until export finishes. Other interactions are temporarily disabled.",
+			exportDetailSingle: "Exporting {camera} as {format}…",
+			exportDetailBatch: "Exporting {index}/{count} {camera} as {format}…",
+			exportPhasePrepare: "Preparing",
+			exportPhaseBeauty: "Rendering",
+			exportPhaseGuides: "Guides",
+			exportPhaseMasks: "Masks",
+			exportPhasePsdBase: "PSD Base",
+			exportPhaseModelLayers: "GLB Layers",
+			exportPhaseSplatLayers: "3DGS Layers",
+			exportPhaseReferenceImages: "Reference Images",
+			exportPhaseWrite: "Writing",
+			exportPhaseDetailPrepare: "Switching camera and export state…",
+			exportPhaseDetailBeauty: "Rendering the final beauty image…",
+			exportPhaseDetailGuides: "Preparing guide layers…",
+			exportPhaseDetailGuidesGrid: "Rendering Infinite Grid for export…",
+			exportPhaseDetailGuidesEyeLevel: "Rendering Eye Level for export…",
+			exportPhaseDetailMasks: "Building mask passes…",
+			exportPhaseDetailMaskBatch: "Building mask {index}/{count}: {name}…",
+			exportPhaseDetailPsdBase: "Preparing the PSD base image…",
+			exportPhaseDetailModelLayers: "Preparing GLB layer exports…",
+			exportPhaseDetailModelLayersBatch:
+				"Building GLB layer {index}/{count}: {name}…",
+			exportPhaseDetailSplatLayers: "Preparing 3DGS layer exports…",
+			exportPhaseDetailSplatLayersBatch:
+				"Building 3DGS layer {index}/{count}: {name}…",
+			exportPhaseDetailReferenceImages: "Compositing reference image layers…",
+			exportPhaseDetailReferenceImagesBatch:
+				"Placing reference image {index}/{count}: {name}…",
+			exportPhaseDetailWritePng: "Writing PNG file…",
+			exportPhaseDetailWritePsd: "Writing PSD document…",
+			exportErrorTitle: "Export failed",
+			exportErrorMessage:
+				"An error occurred during export. Review the details and try again.",
+			packageSaveErrorTitle: "Project export failed",
 			packageSaveErrorMessage:
-				"An error occurred while saving the package. Check the details below.",
+				"An error occurred while exporting the project. Check the details below.",
 			packagePhaseCollect: "Collecting state",
 			packagePhaseResolve: "Resolving assets",
 			packagePhaseCompress: "Compressing 3DGS",
@@ -972,10 +1162,11 @@ const MESSAGES = {
 			projectLoadedFromFolder: "Loaded project from {name}.",
 			projectSaved: "Project saved.",
 			projectSavedToFolder: "Saved project to {name}.",
-			workingStateSaved: "Saved working state for {name}.",
+			workingStateSaved: "Saved {name}.",
 			workingStateRestored: "Restored working state for {name}.",
 			referenceImagesImported: "Loaded {count} reference image file(s).",
-			packageSaved: "Saved package {name}.",
+			packageSaved: "Exported {name}.",
+			newProjectReady: "Started a new project.",
 			projectExporting: "Exporting project...",
 			projectExported: "Project exported.",
 			viewportEnabled: "Switched to Viewport.",
@@ -1012,6 +1203,8 @@ const MESSAGES = {
 			assetTransformUpdated: "Updated {name} transform.",
 			assetTransformApplied: "Applied transform for {name}.",
 			assetVisibilityUpdated: "Set {name} to {visibility}.",
+			deletedSceneAsset: "Deleted {name}.",
+			deletedSceneAssets: "Deleted {count} objects.",
 			assetOrderUpdated: "Moved {name} to order {index}.",
 			selectedShotCamera: "Camera switched to {name}.",
 			createdShotCamera: "Added Camera {name}.",
@@ -1093,8 +1286,6 @@ const MESSAGES = {
 			exportRequiresAsset:
 				"Load a splat or model before rendering output preview.",
 			exportRequiresPreset: "Select at least one Camera for export.",
-			projectWorkingFolderUnsupported:
-				"Working project folders are not supported in this environment.",
 			projectPackageSaveUnsupported:
 				"Package save dialogs are not supported in this environment.",
 			projectPackageSaveUnavailable:

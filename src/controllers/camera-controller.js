@@ -39,6 +39,8 @@ export function createCameraController({
 	clearOutputFramePan,
 	clearOutputFrameSelection,
 	clearControlMomentum,
+	beforeActiveShotCameraChange = null,
+	afterActiveShotCameraChange = null,
 	applyNavigateInteractionMode,
 	copyPose,
 	placeCameraAtHome,
@@ -575,11 +577,19 @@ export function createCameraController({
 			return;
 		}
 
+		beforeActiveShotCameraChange?.(
+			store.workspace.activeShotCameraId.value,
+			documentState.id,
+		);
 		store.workspace.activeShotCameraId.value = documentState.id;
 		clearFrameDrag();
 		clearOutputFramePan();
 		clearControlMomentum();
 		updateUi();
+		afterActiveShotCameraChange?.(
+			documentState.id,
+			store.workspace.activeShotCameraId.value,
+		);
 		setStatus(
 			t("status.selectedShotCamera", {
 				name: documentState.name,
@@ -605,11 +615,19 @@ export function createCameraController({
 				syncShotCameraEntryFromDocument(entry);
 			}
 
+			beforeActiveShotCameraChange?.(
+				store.workspace.activeShotCameraId.value,
+				nextDocument.id,
+			);
 			store.workspace.activeShotCameraId.value = nextDocument.id;
 			clearFrameDrag();
 			clearOutputFramePan();
 			clearControlMomentum();
 			updateUi();
+			afterActiveShotCameraChange?.(
+				nextDocument.id,
+				store.workspace.activeShotCameraId.value,
+			);
 		});
 		setStatus(
 			t("status.createdShotCamera", {
@@ -639,10 +657,18 @@ export function createCameraController({
 				syncShotCameraEntryFromDocument(entry);
 			}
 
+			beforeActiveShotCameraChange?.(
+				store.workspace.activeShotCameraId.value,
+				nextDocument.id,
+			);
 			store.workspace.activeShotCameraId.value = nextDocument.id;
 			clearOutputFramePan();
 			clearControlMomentum();
 			updateUi();
+			afterActiveShotCameraChange?.(
+				nextDocument.id,
+				store.workspace.activeShotCameraId.value,
+			);
 		});
 		setStatus(
 			t("status.duplicatedShotCamera", {
@@ -674,11 +700,19 @@ export function createCameraController({
 
 		runHistoryAction?.("camera.delete", () => {
 			setShotCameraDocuments(nextDocuments);
+			beforeActiveShotCameraChange?.(
+				store.workspace.activeShotCameraId.value,
+				nextActiveDocument.id,
+			);
 			store.workspace.activeShotCameraId.value = nextActiveDocument.id;
 			clearFrameDrag();
 			clearOutputFramePan();
 			clearControlMomentum();
 			updateUi();
+			afterActiveShotCameraChange?.(
+				nextActiveDocument.id,
+				store.workspace.activeShotCameraId.value,
+			);
 		});
 		setStatus(
 			t("status.deletedShotCamera", {

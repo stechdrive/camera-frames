@@ -1,3 +1,29 @@
+export function isNativeHistoryTarget(target) {
+	if (
+		!target ||
+		(typeof target !== "object" && typeof target !== "function") ||
+		typeof target.closest !== "function"
+	) {
+		return false;
+	}
+	const draftEditingTarget = target.closest('input[data-draft-editing="true"]');
+	if (draftEditingTarget) {
+		return true;
+	}
+	return (
+		target.closest(
+			[
+				"textarea",
+				'[contenteditable="true"]',
+				'input[type="search"]',
+				'input[type="url"]',
+				'input[type="email"]',
+				'input[type="password"]',
+			].join(", "),
+		) !== null
+	);
+}
+
 export function bindInputRouter({
 	listen,
 	viewportShell,
@@ -19,8 +45,10 @@ export function bindInputRouter({
 	toggleViewportReferenceImageEditMode,
 	toggleViewportTransformMode,
 	toggleViewportPivotEditMode,
+	startNewProject,
 	saveProject,
 	exportProject,
+	openFiles,
 	undoHistory,
 	redoHistory,
 	clearSceneAssetSelection,
@@ -73,6 +101,7 @@ export function bindInputRouter({
 	handleViewportTransformDragEnd,
 	pickViewportAssetAtPointer,
 	startOutputFrameAnchorDrag,
+	isInteractionBlocked = null,
 }) {
 	let viewportSelectClickCandidate = null;
 	let viewportPieTouchHoldState = null;
@@ -83,24 +112,6 @@ export function bindInputRouter({
 		const hasHistoryModifier = event.ctrlKey || event.metaKey;
 		return (
 			hasHistoryModifier && (event.code === "KeyZ" || event.code === "KeyY")
-		);
-	}
-
-	function isNativeHistoryTarget(target) {
-		return (
-			target instanceof Element &&
-			target.closest(
-				[
-					"textarea",
-					'[contenteditable="true"]',
-					'input[type="text"]',
-					'input[type="search"]',
-					'input[type="url"]',
-					'input[type="email"]',
-					'input[type="password"]',
-					'input[data-draft-editing="true"]',
-				].join(", "),
-			) !== null
 		);
 	}
 
@@ -495,6 +506,13 @@ export function bindInputRouter({
 		requestNavigationHistoryCommit?.();
 	});
 	listen(window, "keydown", (event) => {
+		if (isInteractionBlocked?.()) {
+			if (!isInteractiveTextTarget(event.target)) {
+				event.preventDefault();
+			}
+			return;
+		}
+
 		if (event.repeat) {
 			return;
 		}
@@ -506,6 +524,28 @@ export function bindInputRouter({
 			} else {
 				undoHistory?.();
 			}
+			return;
+		}
+
+		if (
+			(event.ctrlKey || event.metaKey) &&
+			event.code === "KeyN" &&
+			!event.altKey &&
+			!event.shiftKey
+		) {
+			event.preventDefault();
+			startNewProject?.();
+			return;
+		}
+
+		if (
+			(event.ctrlKey || event.metaKey) &&
+			event.code === "KeyO" &&
+			!event.altKey &&
+			!event.shiftKey
+		) {
+			event.preventDefault();
+			openFiles?.();
 			return;
 		}
 
@@ -533,6 +573,22 @@ export function bindInputRouter({
 			event.preventDefault();
 			clearSceneAssetSelection?.();
 			return;
+		}
+
+		if (
+			(event.code === "Delete" || event.code === "Backspace") &&
+			!event.altKey &&
+			!event.ctrlKey &&
+			!event.metaKey &&
+			!event.shiftKey &&
+			!isInteractiveTextTarget(event.target)
+		) {
+			const deletedSceneAssets =
+				assetController?.deleteSelectedSceneAssets?.() ?? false;
+			if (deletedSceneAssets) {
+				event.preventDefault();
+				return;
+			}
 		}
 
 		if (event.code === "Escape" && isPieInteractionMode?.()) {
