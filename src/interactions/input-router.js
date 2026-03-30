@@ -73,6 +73,7 @@ export function bindInputRouter({
 	handleViewportTransformDragEnd,
 	pickViewportAssetAtPointer,
 	startOutputFrameAnchorDrag,
+	isInteractionBlocked = null,
 }) {
 	let viewportSelectClickCandidate = null;
 	let viewportPieTouchHoldState = null;
@@ -495,6 +496,13 @@ export function bindInputRouter({
 		requestNavigationHistoryCommit?.();
 	});
 	listen(window, "keydown", (event) => {
+		if (isInteractionBlocked?.()) {
+			if (!isInteractiveTextTarget(event.target)) {
+				event.preventDefault();
+			}
+			return;
+		}
+
 		if (event.repeat) {
 			return;
 		}

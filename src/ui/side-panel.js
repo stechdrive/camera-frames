@@ -109,13 +109,8 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 	const widthLabel = store.widthLabel.value;
 	const heightLabel = store.heightLabel.value;
 	const exportBusy = store.exportBusy.value;
-	const exportStatusLabel = store.exportStatusLabel.value;
 	const exportTarget = store.exportOptions.target.value;
 	const exportPresetIds = store.exportOptions.presetIds.value;
-	const exportFormatLabel =
-		exportTarget === "current"
-			? t(`exportFormat.${exportFormat}`)
-			: t("field.exportFormat");
 	const exportSelectionMissing =
 		exportTarget === "selected" && exportPresetIds.length === 0;
 	const anchorOptions = getAnchorOptions(locale);
@@ -643,10 +638,8 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 					<${ExportSection}
 						controller=${controller}
 						exportBusy=${exportBusy}
-						exportFormatLabel=${exportFormatLabel}
 						exportPresetIds=${exportPresetIds}
 						exportSelectionMissing=${exportSelectionMissing}
-						exportStatusLabel=${exportStatusLabel}
 						exportTarget=${exportTarget}
 						open=${open}
 						onToggle=${onToggle}

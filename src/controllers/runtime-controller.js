@@ -250,6 +250,7 @@ export function createRuntimeController({
 			handleViewportTransformDragEnd,
 			pickViewportAssetAtPointer,
 			startOutputFrameAnchorDrag,
+			isInteractionBlocked: () => exportController.isRenderLocked(),
 		});
 	}
 

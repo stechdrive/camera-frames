@@ -87,6 +87,7 @@ const MESSAGES = {
 			activeFrame: "FRAME",
 			frameMaskOpacity: "マスク不透明度",
 			exportTarget: "書き出し対象",
+			exportPresetSelection: "選択カメラ",
 			referenceImageOpacity: "不透明度",
 			referenceImageScale: "拡縮",
 			referencePresetName: "プリセット名",
@@ -283,6 +284,26 @@ const MESSAGES = {
 				"この項目だけをクイックパネルで開きます。もう一度押すと閉じます。",
 			pinQuickSection: "この項目を右レールのショートカットに追加します。",
 			unpinQuickSection: "この項目を右レールのショートカットから外します。",
+			shotCameraExportName:
+				"書き出しファイル名のテンプレートです。%cam は現在のカメラ名に置き換わります。",
+			exportFormatField:
+				"このカメラの書き出し形式を選びます。PNG は統合画像、PSD はレイヤー付きです。",
+			exportGridOverlayField:
+				"Infinite Grid と Eye Level を書き出しに含めます。",
+			exportGridLayerModeField:
+				"ガイドを出力画像の下に入れるか、上に重ねるかを選びます。",
+			exportModelLayersField:
+				"PSD 書き出し時に GLB モデルを個別レイヤー化します。",
+			exportSplatLayersField:
+				"PSD 書き出し時に 3DGS を個別レイヤー化します。GLB レイヤー化が前提です。",
+			exportTargetField:
+				"現在のカメラ、全カメラ、または選択したカメラだけを書き出します。",
+			exportPresetSelectionField:
+				"選択書き出しの対象に含めるカメラをここで選びます。",
+			exportReferenceImagesField:
+				"下絵を今回の書き出しに含めるかどうかを一時的に切り替えます。",
+			downloadOutput:
+				"現在の対象と各カメラの設定に従って PNG または PSD を書き出します。",
 		},
 		hint: {
 			viewMode:
@@ -357,6 +378,14 @@ const MESSAGES = {
 			packageSaveMessage: "共有・受け渡し用の .ssproj を保存します。",
 			packageSaveMessageWithOverwrite:
 				"共有・受け渡し用の .ssproj を保存します。現在のファイル {name} に上書き保存するか、別名で保存するかを選んでください。",
+			exportTitle: "書き出し中",
+			exportMessage:
+				"書き出しが終わるまで少し待ってください。完了するまで他の操作は無効です。",
+			exportDetailSingle: "{camera} を {format} で書き出し中…",
+			exportDetailBatch: "{index}/{count} {camera} を {format} で書き出し中…",
+			exportErrorTitle: "書き出しに失敗しました",
+			exportErrorMessage:
+				"書き出し中にエラーが発生しました。詳細を確認してください。",
 			packageSaveErrorTitle: "パッケージ保存に失敗しました",
 			packageSaveErrorMessage:
 				"パッケージ保存の途中でエラーが発生しました。詳細を確認してください。",
@@ -628,6 +657,7 @@ const MESSAGES = {
 			activeFrame: "FRAME",
 			frameMaskOpacity: "Mask Opacity",
 			exportTarget: "Export Target",
+			exportPresetSelection: "Selected Cameras",
 			referenceImageOpacity: "Opacity",
 			referenceImageScale: "Scale",
 			referencePresetName: "Preset Name",
@@ -828,6 +858,25 @@ const MESSAGES = {
 				"Open only this section as a quick panel. Press again to close it.",
 			pinQuickSection: "Add this section to the right rail shortcuts.",
 			unpinQuickSection: "Remove this section from the right rail shortcuts.",
+			shotCameraExportName:
+				"Template for the exported filename. %cam is replaced with the current camera name.",
+			exportFormatField:
+				"Choose the export format for this camera. PNG is flattened; PSD keeps layers.",
+			exportGridOverlayField:
+				"Include Infinite Grid and Eye Level in the export.",
+			exportGridLayerModeField:
+				"Choose whether guide overlays render below or above the beauty image.",
+			exportModelLayersField: "Write GLB models as separate PSD layers.",
+			exportSplatLayersField:
+				"Write 3DGS objects as separate PSD layers. GLB model layers must also be enabled.",
+			exportTargetField:
+				"Export only the current camera, every camera, or a selected subset.",
+			exportPresetSelectionField:
+				"Choose which cameras are included when Export Target is set to Selected.",
+			exportReferenceImagesField:
+				"Temporarily include or exclude reference images from this export run.",
+			downloadOutput:
+				"Export PNG or PSD files using the current target and per-camera export settings.",
 		},
 		hint: {
 			viewMode:
@@ -908,6 +957,14 @@ const MESSAGES = {
 				"Save a portable .ssproj package for sharing or handoff.",
 			packageSaveMessageWithOverwrite:
 				"Save a portable .ssproj package for sharing or handoff. Choose whether to overwrite {name} or save to a new file.",
+			exportTitle: "Exporting",
+			exportMessage:
+				"Please wait until export finishes. Other interactions are temporarily disabled.",
+			exportDetailSingle: "Exporting {camera} as {format}…",
+			exportDetailBatch: "Exporting {index}/{count} {camera} as {format}…",
+			exportErrorTitle: "Export failed",
+			exportErrorMessage:
+				"An error occurred during export. Review the details and try again.",
 			packageSaveErrorTitle: "Package save failed",
 			packageSaveErrorMessage:
 				"An error occurred while saving the package. Check the details below.",

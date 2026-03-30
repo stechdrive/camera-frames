@@ -91,6 +91,91 @@ export function createExportController({
 		return Date.now();
 	}
 
+	function buildExportProgressOverlay(
+		targetDocuments,
+		currentIndex,
+		exportFormat,
+		startedAt,
+	) {
+		const safeDocuments = Array.isArray(targetDocuments) ? targetDocuments : [];
+		const activeDocument = safeDocuments[currentIndex] ?? null;
+		const formatLabel = t(
+			`exportFormat.${exportFormat === "psd" ? "psd" : "png"}`,
+		);
+		const detail =
+			safeDocuments.length > 1
+				? t("overlay.exportDetailBatch", {
+						index: currentIndex + 1,
+						count: safeDocuments.length,
+						camera: activeDocument?.name ?? "Camera",
+						format: formatLabel,
+					})
+				: t("overlay.exportDetailSingle", {
+						camera: activeDocument?.name ?? "Camera",
+						format: formatLabel,
+					});
+
+		return {
+			source: "export",
+			kind: "progress",
+			title: t("overlay.exportTitle"),
+			message: t("overlay.exportMessage"),
+			detail,
+			startedAt,
+			steps: safeDocuments.map((documentState, index) => ({
+				label: documentState.name,
+				status:
+					index < currentIndex
+						? "done"
+						: index === currentIndex
+							? "active"
+							: "todo",
+			})),
+		};
+	}
+
+	function setExportProgressOverlay(
+		targetDocuments,
+		currentIndex,
+		exportFormat,
+		startedAt,
+	) {
+		store.overlay.value = buildExportProgressOverlay(
+			targetDocuments,
+			currentIndex,
+			exportFormat,
+			startedAt,
+		);
+	}
+
+	function clearExportOverlay() {
+		if (store.overlay.value?.source === "export") {
+			store.overlay.value = null;
+		}
+	}
+
+	function showExportErrorOverlay(error) {
+		const detail =
+			error instanceof Error
+				? error.stack || error.message
+				: String(error ?? "");
+		store.overlay.value = {
+			source: "export",
+			kind: "error",
+			title: t("overlay.exportErrorTitle"),
+			message: t("overlay.exportErrorMessage"),
+			detail,
+			detailLabel: t("overlay.errorDetails"),
+			actions: [
+				{
+					label: t("action.close"),
+					primary: true,
+					onClick: () => clearExportOverlay(),
+				},
+			],
+		};
+	}
+
 	function getExportTargetShotCameras() {
 		const target = store.exportOptions.target.value;
 		if (target === "all") {
@@ -2118,6 +2203,7 @@ export function createExportController({
 			if (targetDocuments.length === 0) {
 				throw new Error(t("error.exportRequiresPreset"));
 			}
+			const progressStartedAt = Date.now();
 
 			let pngCount = 0;
 			let psdCount = 0;
@@ -2125,10 +2211,16 @@ export function createExportController({
 			let lastFormat = "png";
 
 			for (const [index, documentState] of targetDocuments.entries()) {
+				const exportSettings = getShotCameraExportSettings(documentState);
+				setExportProgressOverlay(
+					targetDocuments,
+					index,
+					exportSettings.exportFormat,
+					progressStartedAt,
+				);
 				const snapshot = await renderOutputSnapshotForShotCamera(
 					documentState.id,
 				);
-				const exportSettings = getShotCameraExportSettings(documentState);
 				const sequenceIndex = targetDocuments.length > 1 ? index + 1 : null;
 				if (exportSettings.exportFormat === "png") {
 					downloadPngFromSnapshot(documentState, snapshot, sequenceIndex);
@@ -2183,6 +2275,7 @@ export function createExportController({
 					}),
 				);
 			}
+			clearExportOverlay();
 			setExportStatus("export.ready");
 			updateUi();
 		} catch (error) {
@@ -2190,6 +2283,7 @@ export function createExportController({
 			store.exportSummary.value = error.message;
 			setExportStatus("export.idle");
 			setStatus(error.message);
+			showExportErrorOverlay(error);
 		}
 	}
 

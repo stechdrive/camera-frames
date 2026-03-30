@@ -133,6 +133,39 @@ function ShotCameraManagerList({
 	`;
 }
 
+function FieldLabelWithTooltip({
+	label,
+	title = label,
+	description = "",
+	placement = "right",
+}) {
+	return html`
+		<span class="field-label-with-tooltip">
+			<span>${label}</span>
+			${
+				description
+					? html`
+							<button
+								type="button"
+								class="field-label-help"
+								aria-label=${title}
+								onPointerDown=${stopUiEvent}
+								onClick=${stopUiEvent}
+							>
+								?
+								<${TooltipBubble}
+									title=${title}
+									description=${description}
+									placement=${placement}
+								/>
+							</button>
+						`
+					: null
+			}
+		</span>
+	`;
+}
+
 export function getInspectorTabs(t) {
 	return [
 		{
@@ -244,7 +277,7 @@ export function getInspectorQuickSections(t) {
 			id: INSPECTOR_QUICK_SECTION_EXPORT_SETTINGS,
 			tabId: INSPECTOR_TAB_EXPORT,
 			label: t("section.exportSettings"),
-			icon: "package",
+			icon: "export-tab",
 		},
 	];
 }
@@ -3586,14 +3619,18 @@ export function ExportSettingsSection({
 }) {
 	return html`
 		<${DisclosureBlock}
-			icon="export"
+			icon="export-tab"
 			label=${t("section.exportSettings")}
 			open=${open}
 			summaryActions=${summaryActions}
 			onToggle=${onToggle}
 		>
 			<label class="field">
-				<span>${t("field.shotCameraExportName")}</span>
+				<${FieldLabelWithTooltip}
+					label=${t("field.shotCameraExportName")}
+					title=${t("field.shotCameraExportName")}
+					description=${t("tooltip.shotCameraExportName")}
+				/>
 				<${TextDraftInput}
 					id="shot-camera-export-name"
 					placeholder=${activeShotCamera?.name ?? "Camera"}
@@ -3603,7 +3640,11 @@ export function ExportSettingsSection({
 				/>
 			</label>
 			<label class="field">
-				<span>${t("field.exportFormat")}</span>
+				<${FieldLabelWithTooltip}
+					label=${t("field.exportFormat")}
+					title=${t("field.exportFormat")}
+					description=${t("tooltip.exportFormatField")}
+				/>
 				<select
 					id="shot-camera-export-format"
 					value=${exportFormat}
@@ -3625,13 +3666,21 @@ export function ExportSettingsSection({
 							event.currentTarget.checked,
 						)}
 				/>
-				<span>${t("field.exportGridOverlay")}</span>
+				<${FieldLabelWithTooltip}
+					label=${t("field.exportGridOverlay")}
+					title=${t("field.exportGridOverlay")}
+					description=${t("tooltip.exportGridOverlayField")}
+				/>
 			</label>
 			${
 				exportGridOverlay &&
 				html`
 					<label class="field">
-						<span>${t("field.exportGridLayerMode")}</span>
+						<${FieldLabelWithTooltip}
+							label=${t("field.exportGridLayerMode")}
+							title=${t("field.exportGridLayerMode")}
+							description=${t("tooltip.exportGridLayerModeField")}
+						/>
 						<select
 							id="shot-camera-export-grid-layer-mode"
 							value=${exportGridLayerMode}
@@ -3660,7 +3709,11 @@ export function ExportSettingsSection({
 									event.currentTarget.checked,
 								)}
 						/>
-						<span>${t("field.exportModelLayers")}</span>
+						<${FieldLabelWithTooltip}
+							label=${t("field.exportModelLayers")}
+							title=${t("field.exportModelLayers")}
+							description=${t("tooltip.exportModelLayersField")}
+						/>
 					</label>
 					<label class="checkbox-field">
 						<input
@@ -3673,7 +3726,11 @@ export function ExportSettingsSection({
 									event.currentTarget.checked,
 								)}
 						/>
-						<span>${t("field.exportSplatLayers")}</span>
+						<${FieldLabelWithTooltip}
+							label=${t("field.exportSplatLayers")}
+							title=${t("field.exportSplatLayers")}
+							description=${t("tooltip.exportSplatLayersField")}
+						/>
 					</label>
 				`
 			}
@@ -4326,10 +4383,8 @@ export function OutputFrameSection({
 export function ExportSection({
 	controller,
 	exportBusy,
-	exportFormatLabel,
 	exportPresetIds,
 	exportSelectionMissing,
-	exportStatusLabel,
 	exportTarget,
 	open = true,
 	summaryActions = null,
@@ -4337,27 +4392,24 @@ export function ExportSection({
 	store,
 	t,
 }) {
-	const exportStatusClass =
-		exportBusy || exportStatusLabel !== t("export.idle")
-			? "pill"
-			: "pill pill--dim";
 	const exportReferenceImagesEnabled =
 		store.referenceImages.exportSessionEnabled.value !== false;
 
 	return html`
 		<${DisclosureBlock}
-			icon="export"
+			icon="export-tab"
 			label=${t("section.export")}
 			open=${open}
-			summaryMeta=${html`<span id="export-status-pill" class=${exportStatusClass}>
-				${exportStatusLabel}
-			</span>`}
 			summaryActions=${summaryActions}
 			onToggle=${onToggle}
 			className="panel-disclosure--preview"
 		>
 			<label class="field">
-				<span>${t("field.exportTarget")}</span>
+				<${FieldLabelWithTooltip}
+					label=${t("field.exportTarget")}
+					title=${t("field.exportTarget")}
+					description=${t("tooltip.exportTargetField")}
+				/>
 				<select
 					id="export-target"
 					value=${exportTarget}
@@ -4373,7 +4425,13 @@ export function ExportSection({
 			${
 				exportTarget === "selected" &&
 				html`
-					<div class="export-selection-list">
+					<div class="field">
+						<${FieldLabelWithTooltip}
+							label=${t("field.exportPresetSelection")}
+							title=${t("field.exportPresetSelection")}
+							description=${t("tooltip.exportPresetSelectionField")}
+						/>
+						<div class="export-selection-list">
 						${store.workspace.shotCameras.value.map(
 							(shotCamera) => html`
 								<label class="export-selection-item">
@@ -4393,6 +4451,7 @@ export function ExportSection({
 								</label>
 							`,
 						)}
+						</div>
 					</div>
 				`
 			}
@@ -4405,7 +4464,11 @@ export function ExportSection({
 							event.currentTarget.checked,
 						)}
 				/>
-				<span>${t("field.exportReferenceImages")}</span>
+				<${FieldLabelWithTooltip}
+					label=${t("field.exportReferenceImages")}
+					title=${t("field.exportReferenceImages")}
+					description=${t("tooltip.exportReferenceImagesField")}
+				/>
 			</label>
 			<div class="button-row">
 				<button
@@ -4416,11 +4479,13 @@ export function ExportSection({
 					onClick=${() => controller()?.downloadOutput()}
 				>
 					${t("action.downloadOutput")}
+					<${TooltipBubble}
+						title=${t("action.downloadOutput")}
+						description=${t("tooltip.downloadOutput")}
+						placement="top"
+					/>
 				</button>
 			</div>
-			<p id="export-summary" class="summary">
-				${exportFormatLabel} · ${store.exportSummary.value}
-			</p>
 		<//>
 	`;
 }
