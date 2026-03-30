@@ -1677,12 +1677,6 @@ export function ReferenceManagerSection({
 			<div class="scene-workspace-browser">
 				<div class="button-row reference-manager__actions">
 					<${IconButton}
-						id="open-reference-images"
-						icon="folder-open"
-						label=${t("action.openReferenceImages")}
-						onClick=${() => controller()?.openReferenceImageFiles?.()}
-					/>
-					<${IconButton}
 						id="toggle-selected-reference-preview"
 						icon=${allSelectedPreviewVisible ? "eye-off" : "eye"}
 						label=${
@@ -1691,7 +1685,6 @@ export function ReferenceManagerSection({
 								: t("action.showSelectedReferenceImages")
 						}
 						disabled=${!selectedItems.length}
-						active=${selectedItems.length > 0 && allSelectedPreviewVisible}
 						onClick=${() =>
 							controller()?.setSelectedReferenceImagesPreviewVisible?.(
 								!allSelectedPreviewVisible,
@@ -1706,7 +1699,6 @@ export function ReferenceManagerSection({
 								: t("action.includeSelectedReferenceImagesInExport")
 						}
 						disabled=${!selectedItems.length}
-						active=${selectedItems.length > 0 && allSelectedExportEnabled}
 						onClick=${() =>
 							controller()?.setSelectedReferenceImagesExportEnabled?.(
 								!allSelectedExportEnabled,
@@ -3990,13 +3982,6 @@ export function ReferenceSection({
 			onToggle=${onToggle}
 		>
 			<div class="button-row">
-				<button
-					type="button"
-					class="button button--compact"
-					onClick=${() => controller()?.openReferenceImageFiles?.()}
-				>
-					${t("action.openReferenceImages")}
-				</button>
 				<button
 					type="button"
 					class=${

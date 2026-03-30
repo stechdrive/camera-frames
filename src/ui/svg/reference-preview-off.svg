@@ -2,12 +2,12 @@
 	<defs>
 		<mask id="reference-preview-off-cutout-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24">
 			<rect width="24" height="24" fill="white" />
-			<g transform="translate(7.9 6.9) scale(0.66)" fill="none" stroke="black" stroke-linecap="round" stroke-linejoin="round">
-				<path d="M3.2 11.4C6.5 14.1 17.5 14.1 20.8 11.4" stroke-width="4.8" />
-				<path d="M7.15 12.55 5.85 14.95" stroke-width="4.8" />
-				<path d="M12 13.1V16.2" stroke-width="4.8" />
-				<path d="M16.85 12.55 18.15 14.95" stroke-width="4.8" />
+			<g transform="translate(8.9 7.5) scale(0.58)" fill="none" stroke="black" stroke-linecap="round" stroke-linejoin="round">
+				<path d="M2 12s3.8-6 10-6 10 6 10 6-3.8 6-10 6S2 12 2 12z" fill="black" stroke="none" />
+				<path d="M2 12s3.8-6 10-6 10 6 10 6-3.8 6-10 6S2 12 2 12z" stroke-width="5.4" />
+				<circle cx="12" cy="12" r="3.1" fill="black" stroke="none" />
 			</g>
+			<path d="M4.35 4.55 20.45 19.65" stroke="black" stroke-width="5.4" stroke-linecap="round" stroke-linejoin="round" />
 		</mask>
 	</defs>
 	<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" mask="url(#reference-preview-off-cutout-mask)">
@@ -16,11 +16,10 @@
 		<path d="M19 14.2 14.25 9.95 4.6 17.45" />
 	</g>
 	<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-		<g transform="translate(7.9 6.9) scale(0.66)">
-			<path d="M3.2 11.4C6.5 14.1 17.5 14.1 20.8 11.4" />
-			<path d="M7.15 12.55 5.85 14.95" />
-			<path d="M12 13.1V16.2" />
-			<path d="M16.85 12.55 18.15 14.95" />
+		<g transform="translate(8.9 7.5) scale(0.58)">
+			<path d="M2 12s3.8-6 10-6 10 6 10 6-3.8 6-10 6S2 12 2 12z" />
+			<circle cx="12" cy="12" r="3" />
 		</g>
+		<path d="M4.35 4.55 20.45 19.65" />
 	</g>
 </svg>
