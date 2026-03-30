@@ -1,5 +1,52 @@
 import { html } from "htm/preact";
 
+function renderReferenceImageMotif({
+	frameX = 3,
+	frameY = 3,
+	frameWidth = 18,
+	frameHeight = 18,
+	frameRadius = 2,
+}) {
+	const sunCx = frameX + frameWidth * 0.3056;
+	const sunCy = frameY + frameHeight * 0.3056;
+	const mountainStartX = frameX + frameWidth;
+	const mountainStartY = frameY + frameHeight * 0.6667;
+	const mountainPeakX = frameX + frameWidth * 0.7222;
+	const mountainPeakY = frameY + frameHeight * 0.3889;
+	const mountainEndX = frameX + frameWidth * 0.1111;
+	const mountainEndY = frameY + frameHeight;
+	return html`
+		<rect
+			x=${String(frameX)}
+			y=${String(frameY)}
+			width=${String(frameWidth)}
+			height=${String(frameHeight)}
+			rx=${String(frameRadius)}
+		></rect>
+		<circle cx=${String(sunCx)} cy=${String(sunCy)} r="1.5"></circle>
+		<path
+			d=${`M ${mountainStartX} ${mountainStartY}L ${mountainPeakX} ${mountainPeakY}L ${mountainEndX} ${mountainEndY}`}
+		></path>
+	`;
+}
+
+function renderCameraPanelMotif() {
+	return html`
+		<path
+			d="M3.2 6.1A2.1 2.1 0 0 1 5.3 4h6.8a2.1 2.1 0 0 1 2.1 2.1v5.8a2.1 2.1 0 0 1-2.1 2.1H5.3a2.1 2.1 0 0 1-2.1-2.1V6.1Zm2.1-.7a0.7 0.7 0 0 0-.7.7v5.8a0.7 0.7 0 0 0 .7.7h6.8a0.7 0.7 0 0 0 .7-.7V6.1a0.7 0.7 0 0 0-.7-.7H5.3Z"
+			fill="currentColor"
+			stroke="none"
+			fill-rule="evenodd"
+			clip-rule="evenodd"
+		></path>
+		<path
+			d="M16.1 4.9a1.55 1.55 0 0 0-.72.2l-2 1.28v5.26l2 1.28a1.56 1.56 0 0 0 .72.2 1.55 1.55 0 0 0 1.55-1.55V6.45A1.55 1.55 0 0 0 16.1 4.9Z"
+			fill="currentColor"
+			stroke="none"
+		></path>
+	`;
+}
+
 function renderIconPath(name) {
 	switch (name) {
 		case "camera-frames":
@@ -28,17 +75,9 @@ function renderIconPath(name) {
 				<path d="M5 15.5l7 4 7-4"></path>
 			`;
 		case "camera":
-			return html`
-				<path d="M4 8.5h11l2.5-2.5h2v12h-2L15 15.5H4z"></path>
-				<circle cx="10" cy="12" r="2.5"></circle>
-			`;
+			return renderCameraPanelMotif();
 		case "camera-dslr":
-			return html`
-				<path d="M5 8h3l1.2-2h5.6L16 8h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z"></path>
-				<circle cx="12" cy="13" r="3.2"></circle>
-				<path d="M7.5 10.2h1.5"></path>
-				<path d="M16.5 10.2h1.5"></path>
-			`;
+			return renderCameraPanelMotif();
 		case "lens":
 			return html`
 				<circle cx="12" cy="12" r="7"></circle>
@@ -54,11 +93,7 @@ function renderIconPath(name) {
 				<path d="M8 5v14M16 5v14M4 9h16M4 15h16"></path>
 			`;
 		case "image":
-			return html`
-				<rect x="3.5" y="4.5" width="17" height="15" rx="2.2"></rect>
-				<circle cx="16.4" cy="9.1" r="1.9"></circle>
-				<path d="M6.2 17.6l4.7-5.5 3.1 3.4 3.8-4.4 1.8 2"></path>
-			`;
+			return renderReferenceImageMotif({});
 		case "reference":
 			return html`
 				<rect x="5" y="6" width="14" height="12" rx="2"></rect>
@@ -69,9 +104,13 @@ function renderIconPath(name) {
 			`;
 		case "reference-tool":
 			return html`
-				<rect x="5" y="6" width="14" height="12" rx="2"></rect>
-				<path d="M7.5 15.5l3.2-3.2 2.2 2.2 2.6-2.6 1.5 1.5"></path>
-				<circle cx="9" cy="10" r="1.25"></circle>
+				${renderReferenceImageMotif({
+					frameX: 5,
+					frameY: 6,
+					frameWidth: 14,
+					frameHeight: 12,
+					frameRadius: 2,
+				})}
 				<circle cx="5" cy="6" r="1.1"></circle>
 				<circle cx="19" cy="6" r="1.1"></circle>
 				<circle cx="19" cy="18" r="1.1"></circle>
