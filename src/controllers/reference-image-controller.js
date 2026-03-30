@@ -32,6 +32,8 @@ import {
 	createReferenceImagePreset,
 	createShotCameraReferenceImagesState,
 	findReferenceImagePreset,
+	getReferenceImageCompositeItems,
+	getReferenceImageDisplayItems,
 	getReferenceImageRenderBoxAnchor,
 	getShotReferenceImagePresetId,
 	normalizeReferenceImageDocument,
@@ -87,21 +89,17 @@ function ensurePresetBaseRenderBox(preset, outputSize) {
 }
 
 function normalizeReferenceImageItemOrderInPlace(items) {
-	for (const group of [
-		REFERENCE_IMAGE_GROUP_BACK,
-		REFERENCE_IMAGE_GROUP_FRONT,
-	]) {
-		items
-			.filter((item) => item.group === group)
-			.sort(
-				(left, right) =>
-					left.order - right.order ||
-					left.name.localeCompare(right.name) ||
-					left.id.localeCompare(right.id),
-			)
-			.forEach((item, index) => {
-				item.order = index;
-			});
+	const nextItems = getReferenceImageCompositeItems(items);
+	let backIndex = 0;
+	let frontIndex = 0;
+	for (const item of nextItems) {
+		if (item.group === REFERENCE_IMAGE_GROUP_BACK) {
+			item.order = backIndex;
+			backIndex += 1;
+			continue;
+		}
+		item.order = frontIndex;
+		frontIndex += 1;
 	}
 	return items;
 }
@@ -2530,7 +2528,7 @@ export function createReferenceImageController({
 							(entryId) => itemsById.get(String(entryId ?? "").trim()) ?? null,
 						)
 						.filter(Boolean)
-				: [...resolved.items].reverse()
+				: getReferenceImageDisplayItems(resolved.items)
 		).filter((item, index, source) => source.indexOf(item) === index);
 		const movedItems = displayItems
 			.filter((item) => movedItemIdSet.has(item.id))

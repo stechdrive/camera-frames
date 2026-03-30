@@ -14,6 +14,7 @@ import {
 	MIN_OUTPUT_FRAME_SCALE_PCT,
 } from "../constants.js";
 import { groupSceneAssetsByKind } from "../engine/scene-asset-order.js";
+import { getReferenceImageDisplayItems } from "../reference-image-model.js";
 import {
 	DirectionalScrubControl,
 	HistoryRangeInput,
@@ -1278,7 +1279,9 @@ export function SceneBrowserSection({
 }
 
 export function ReferenceBrowserSection({ controller, store, t }) {
-	const items = [...store.referenceImages.items.value].reverse();
+	const items = getReferenceImageDisplayItems(
+		store.referenceImages.items.value,
+	);
 	const selectedItemIds = new Set(
 		store.referenceImages.selectedItemIds.value ?? [],
 	);
@@ -1536,7 +1539,7 @@ export function ReferenceManagerSection({
 	t,
 }) {
 	const items = store.referenceImages.items.value;
-	const itemsForDisplay = [...items].reverse();
+	const itemsForDisplay = getReferenceImageDisplayItems(items);
 	const selectedItemIds = new Set(
 		store.referenceImages.selectedItemIds.value ?? [],
 	);
@@ -1548,12 +1551,12 @@ export function ReferenceManagerSection({
 		{
 			group: "front",
 			label: t("referenceImage.group.front"),
-			items: itemsForDisplay.filter((item) => item.group === "front"),
+			items: getReferenceImageDisplayItems(items, "front"),
 		},
 		{
 			group: "back",
 			label: t("referenceImage.group.back"),
-			items: itemsForDisplay.filter((item) => item.group === "back"),
+			items: getReferenceImageDisplayItems(items, "back"),
 		},
 	];
 	const [draggedItemId, setDraggedItemId] = useState(null);
@@ -3837,7 +3840,7 @@ export function ReferenceSection({
 }) {
 	const assets = store.referenceImages.assets.value;
 	const items = store.referenceImages.items.value;
-	const itemsForDisplay = [...items].reverse();
+	const itemsForDisplay = getReferenceImageDisplayItems(items);
 	const presets = store.referenceImages.presets.value;
 	const previewSessionVisible =
 		store.referenceImages.previewSessionVisible.value;
