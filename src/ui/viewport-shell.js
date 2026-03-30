@@ -208,6 +208,10 @@ export function ViewportShell({ store, controller, refs, t }) {
 		? buildViewportPieActions({
 				mode: store.mode.value,
 				t,
+				referencePreviewSessionVisible:
+					store.referenceImages.previewSessionVisible.value !== false,
+				hasReferenceImages:
+					(store.referenceImages.items.value?.length ?? 0) > 0,
 				frameMaskMode: store.frames.maskMode.value,
 				hasRememberedFrameMaskSelection:
 					(store.frames.maskSelectedIds.value?.length ?? 0) > 0,

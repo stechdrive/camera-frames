@@ -8,6 +8,7 @@ const VIEWPORT_PIE_COARSE_SCALE = 1.28;
 const VIEWPORT_PIE_ACTION_ORDER = Object.freeze([
 	"tool-select",
 	"tool-reference",
+	"toggle-reference-preview",
 	"tool-transform",
 	"tool-pivot",
 	"adjust-lens",
@@ -43,6 +44,8 @@ export function getViewportPieMetrics({ coarse = false } = {}) {
 export function buildViewportPieActions({
 	mode,
 	t,
+	referencePreviewSessionVisible = true,
+	hasReferenceImages = false,
 	frameMaskMode = "off",
 	hasRememberedFrameMaskSelection = false,
 }) {
@@ -59,6 +62,16 @@ export function buildViewportPieActions({
 					...entry,
 					icon: "reference-tool",
 					label: t("transformMode.reference"),
+				};
+			case "toggle-reference-preview":
+				return {
+					...entry,
+					icon: referencePreviewSessionVisible ? "eye" : "eye-off",
+					label: referencePreviewSessionVisible
+						? t("action.hideReferenceImages")
+						: t("action.showReferenceImages"),
+					active: hasReferenceImages && referencePreviewSessionVisible,
+					disabled: !hasReferenceImages,
 				};
 			case "tool-transform":
 				return {

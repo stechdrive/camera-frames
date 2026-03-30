@@ -1508,6 +1508,14 @@ export function createCameraFramesController(elements, store) {
 			case "tool-reference":
 				setViewportToolMode("reference");
 				return true;
+			case "toggle-reference-preview":
+				if ((store.referenceImages.items.value?.length ?? 0) === 0) {
+					return false;
+				}
+				referenceImageController?.setPreviewSessionVisible?.(
+					!(store.referenceImages.previewSessionVisible.value !== false),
+				);
+				return true;
 			case "tool-transform":
 				setViewportToolMode("transform");
 				return true;
