@@ -211,6 +211,7 @@ export function createAssetController({
 	clearHistory = () => {},
 }) {
 	const reportedSplatBoundsWarnings = new Set();
+	const detachedSceneAssets = new Map();
 	let sceneAssetSelectionAnchorId = null;
 
 	function setOverlay(nextOverlay) {
@@ -424,26 +425,37 @@ export function createAssetController({
 			return false;
 		}
 
-		if (snapshot.assets.length !== sceneState.assets.length) {
-			return false;
-		}
-
-		const currentAssetsById = new Map(
+		const availableAssetsById = new Map(
 			sceneState.assets.map((asset) => [asset.id, asset]),
 		);
+		for (const [assetId, asset] of detachedSceneAssets.entries()) {
+			if (!availableAssetsById.has(assetId)) {
+				availableAssetsById.set(assetId, asset);
+			}
+		}
 		const restoredAssets = [];
 
 		for (const item of snapshot.assets) {
-			const asset = currentAssetsById.get(item.id);
+			const asset = availableAssetsById.get(item.id);
 			if (!asset || asset.kind !== item.kind) {
 				return false;
 			}
 			restoredAssets.push(asset);
 		}
 
+		const restoredAssetIdSet = new Set(restoredAssets.map((asset) => asset.id));
+		for (const asset of restoredAssets) {
+			restoreSceneAsset(asset);
+		}
+		for (const asset of sceneState.assets) {
+			if (!restoredAssetIdSet.has(asset.id)) {
+				detachSceneAsset(asset);
+			}
+		}
+
 		sceneState.assets = restoredAssets;
 		for (const item of snapshot.assets) {
-			const asset = currentAssetsById.get(item.id);
+			const asset = availableAssetsById.get(item.id);
 			asset.worldScale = clampAssetWorldScale(item.worldScale);
 			asset.unitMode = item.unitMode ?? asset.unitMode;
 			asset.exportRole = item.exportRole === "omit" ? "omit" : "beauty";
@@ -1762,6 +1774,7 @@ export function createAssetController({
 			(replace || !hadAssetsBeforeLoad) &&
 			importStates.length > 0 &&
 			applyProjectPackageImport(importStates.at(-1));
+		disposeDetachedSceneAssets();
 		clearHistory();
 
 		if (!importedProjectState && (replace || !hadAssetsBeforeLoad)) {
@@ -1837,14 +1850,10 @@ export function createAssetController({
 	}
 
 	function clearScene() {
+		disposeDetachedSceneAssets();
 		clearHistory();
 		for (const asset of sceneState.assets) {
-			asset.object.removeFromParent();
-			if (asset.kind === "splat") {
-				asset.disposeTarget?.dispose?.();
-			} else {
-				disposeObject(asset.object);
-			}
+			disposeSceneAsset(asset);
 		}
 
 		sceneState.assets = [];
@@ -1856,6 +1865,57 @@ export function createAssetController({
 		store.exportSummary.value = t("exportSummary.empty");
 		setExportStatus("export.idle");
 		setStatus(t("status.sceneCleared"));
+	}
+
+	function getSceneAssetParentRoot(asset) {
+		return asset?.kind === "splat" ? splatRoot : modelRoot;
+	}
+
+	function attachSceneAsset(asset) {
+		if (!asset?.object) {
+			return;
+		}
+		const parentRoot = getSceneAssetParentRoot(asset);
+		if (asset.object.parent !== parentRoot) {
+			parentRoot?.add(asset.object);
+		}
+		asset.object.updateMatrixWorld(true);
+	}
+
+	function detachSceneAsset(asset) {
+		if (!asset?.object) {
+			return;
+		}
+		asset.object.removeFromParent();
+		detachedSceneAssets.set(asset.id, asset);
+	}
+
+	function restoreSceneAsset(asset) {
+		if (!asset) {
+			return;
+		}
+		detachedSceneAssets.delete(asset.id);
+		attachSceneAsset(asset);
+	}
+
+	function disposeSceneAsset(asset) {
+		if (!asset?.object) {
+			return;
+		}
+		detachedSceneAssets.delete(asset.id);
+		asset.object.removeFromParent();
+		if (asset.kind === "splat") {
+			asset.disposeTarget?.dispose?.();
+			return;
+		}
+		disposeObject(asset.object);
+	}
+
+	function disposeDetachedSceneAssets() {
+		for (const asset of detachedSceneAssets.values()) {
+			disposeSceneAsset(asset);
+		}
+		detachedSceneAssets.clear();
 	}
 
 	function setAssetWorldScale(assetId, nextValue) {
@@ -2125,6 +2185,69 @@ export function createAssetController({
 			asset.object.name = sanitizedLabel;
 		});
 		updateUi();
+	}
+
+	function deleteSelectedSceneAssets(assetIds = null) {
+		const nextDeletedIds = Array.isArray(assetIds)
+			? assetIds
+			: store.selectedSceneAssetIds.value;
+		const deletedIdSet = new Set(
+			nextDeletedIds
+				.map((assetId) => Number(assetId))
+				.filter(
+					(assetId) => Number.isFinite(assetId) && getSceneAsset(assetId),
+				),
+		);
+		if (deletedIdSet.size === 0) {
+			return false;
+		}
+
+		const deletedAssets = sceneState.assets.filter((asset) =>
+			deletedIdSet.has(asset.id),
+		);
+		if (deletedAssets.length === 0) {
+			return false;
+		}
+
+		const activeAssetId =
+			store.selectedSceneAssetId.value ?? deletedAssets[0]?.id ?? null;
+		const activeAssetIndex = sceneState.assets.findIndex(
+			(asset) => asset.id === activeAssetId,
+		);
+		const survivingAssets = sceneState.assets.filter(
+			(asset) => !deletedIdSet.has(asset.id),
+		);
+		const nextSelectedAsset =
+			survivingAssets[
+				Math.max(0, Math.min(activeAssetIndex, survivingAssets.length - 1))
+			] ?? null;
+		const nextSelectedAssetId = nextSelectedAsset?.id ?? null;
+
+		runHistoryAction?.("asset.delete", () => {
+			sceneState.assets = survivingAssets;
+			for (const asset of deletedAssets) {
+				detachSceneAsset(asset);
+			}
+			sceneAssetSelectionAnchorId = nextSelectedAssetId;
+			store.selectedSceneAssetIds.value = nextSelectedAssetId
+				? [nextSelectedAssetId]
+				: [];
+			store.selectedSceneAssetId.value = nextSelectedAssetId;
+		});
+
+		resetLocalizedCaches();
+		updateCameraSummary();
+		updateUi();
+		setStatus(
+			deletedAssets.length === 1
+				? t("status.deletedSceneAsset", {
+						name: deletedAssets[0].label,
+					})
+				: t("status.deletedSceneAssets", {
+						count: deletedAssets.length,
+					}),
+		);
+		return true;
 	}
 
 	function setSelectedSceneAssetsVisibility(nextVisible) {
@@ -2446,6 +2569,7 @@ export function createAssetController({
 		offsetSelectedSceneAssetsRotationDegrees,
 		setAssetVisibility,
 		setAssetLabel,
+		deleteSelectedSceneAssets,
 		setSelectedSceneAssetsVisibility,
 		applyAssetTransform,
 		scaleSelectedSceneAssetsByFactor,

@@ -1295,6 +1295,34 @@ export function SceneBrowserSection({
 	`;
 }
 
+function renderSceneManagerSummaryActions({
+	controller,
+	store,
+	summaryActions,
+	t,
+}) {
+	const canDeleteSelectedSceneAssets =
+		store.selectedSceneAssetIds.value.length > 0;
+	if (!canDeleteSelectedSceneAssets && !summaryActions) {
+		return null;
+	}
+	return html`
+		${
+			canDeleteSelectedSceneAssets &&
+			html`
+				<${IconButton}
+					icon="trash"
+					label=${t("action.deleteSelectedSceneAssets")}
+					disabled=${!canDeleteSelectedSceneAssets}
+					compact=${true}
+					onClick=${() => controller()?.deleteSelectedSceneAssets?.()}
+				/>
+			`
+		}
+		${summaryActions}
+	`;
+}
+
 export function ReferenceBrowserSection({ controller, store, t }) {
 	const items = getReferenceImageDisplayItems(
 		store.referenceImages.items.value,
@@ -2398,12 +2426,18 @@ export function SceneWorkspaceSection({
 	dragHoverState,
 	setDragHoverState,
 }) {
+	const resolvedSummaryActions = renderSceneManagerSummaryActions({
+		controller,
+		store,
+		summaryActions,
+		t,
+	});
 	return html`
 		<${DisclosureBlock}
 			icon="scene"
 			label=${t("section.sceneManager")}
 			open=${open}
-			summaryActions=${summaryActions}
+			summaryActions=${resolvedSummaryActions}
 			onToggle=${onToggle}
 			className="panel-disclosure--browser-stack"
 		>
@@ -2942,6 +2976,12 @@ export function SceneSection({
 	dragHoverState,
 	setDragHoverState,
 }) {
+	const resolvedSummaryActions = renderSceneManagerSummaryActions({
+		controller,
+		store,
+		summaryActions,
+		t,
+	});
 	const groupedSceneAssets = groupSceneAssetsByKind(sceneAssets);
 	const sceneAssetSections = [
 		{
@@ -3014,7 +3054,7 @@ export function SceneSection({
 			icon="scene"
 			label=${t("section.sceneManager")}
 			open=${open}
-			summaryActions=${summaryActions}
+			summaryActions=${resolvedSummaryActions}
 			onToggle=${onToggle}
 		>
 			<div class="scene-asset-section-list">

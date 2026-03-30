@@ -551,6 +551,22 @@ export function bindInputRouter({
 			return;
 		}
 
+		if (
+			(event.code === "Delete" || event.code === "Backspace") &&
+			!event.altKey &&
+			!event.ctrlKey &&
+			!event.metaKey &&
+			!event.shiftKey &&
+			!isInteractiveTextTarget(event.target)
+		) {
+			const deletedSceneAssets =
+				assetController?.deleteSelectedSceneAssets?.() ?? false;
+			if (deletedSceneAssets) {
+				event.preventDefault();
+				return;
+			}
+		}
+
 		if (event.code === "Escape" && isPieInteractionMode?.()) {
 			event.preventDefault();
 			closeViewportPieMenu?.();
