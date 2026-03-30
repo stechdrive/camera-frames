@@ -1607,12 +1607,40 @@ export function ReferenceManagerSection({
 	const [draggedItemId, setDraggedItemId] = useState(null);
 	const [dragHoverState, setDragHoverState] = useState(null);
 	const canDeleteItems = selectedItems.length > 0;
+	const previewSessionVisible =
+		store.referenceImages.previewSessionVisible.value !== false;
 	const allSelectedPreviewVisible =
 		selectedItems.length > 0 &&
 		selectedItems.every((item) => item.previewVisible !== false);
 	const allSelectedExportEnabled =
 		selectedItems.length > 0 &&
 		selectedItems.every((item) => item.exportEnabled !== false);
+	const resolvedSummaryActions = html`
+		${summaryActions && html`${summaryActions}`}
+		<${IconButton}
+			id="toggle-reference-preview-session"
+			icon=${previewSessionVisible ? "reference-preview-on" : "reference-preview-off"}
+			label=${
+				previewSessionVisible
+					? t("action.hideReferenceImages")
+					: t("action.showReferenceImages")
+			}
+			active=${previewSessionVisible && items.length > 0}
+			disabled=${items.length === 0}
+			tooltip=${{
+				title: previewSessionVisible
+					? t("action.hideReferenceImages")
+					: t("action.showReferenceImages"),
+				description: t("tooltip.referencePreviewSessionVisible"),
+				shortcut: "R",
+				placement: "left",
+			}}
+			onClick=${() =>
+				controller()?.setReferenceImagePreviewSessionVisible?.(
+					!previewSessionVisible,
+				)}
+		/>
+	`;
 
 	function getRowClass(itemId) {
 		const classes = ["scene-asset-row", "scene-asset-row--compact"];
@@ -1642,7 +1670,7 @@ export function ReferenceManagerSection({
 			icon="reference-tool"
 			label=${t("section.referenceManager")}
 			open=${open}
-			summaryActions=${summaryActions}
+			summaryActions=${resolvedSummaryActions}
 			onToggle=${onToggle}
 			className="panel-disclosure--browser-stack"
 		>

@@ -39,7 +39,7 @@ assert.equal(
 assert.equal(
 	cameraActions.find((action) => action.id === "toggle-reference-preview")
 		?.icon,
-	"eye",
+	"reference-preview-on",
 );
 assert.equal(
 	cameraActions.find((action) => action.id === "frame-create")?.icon,

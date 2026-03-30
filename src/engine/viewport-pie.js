@@ -69,7 +69,9 @@ export function buildViewportPieActions({
 			case "toggle-reference-preview":
 				return {
 					...entry,
-					icon: referencePreviewSessionVisible ? "eye" : "eye-off",
+					icon: referencePreviewSessionVisible
+						? "reference-preview-on"
+						: "reference-preview-off",
 					label: referencePreviewSessionVisible
 						? t("action.hideReferenceImages")
 						: t("action.showReferenceImages"),

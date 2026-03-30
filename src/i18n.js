@@ -283,6 +283,8 @@ const MESSAGES = {
 				"ツールのクイックメニューを開きます。モバイルではここから使うのが安全です。",
 			clearSelection:
 				"3Dオブジェクト、下絵、FRAME の選択を解除して、アクティブツールを外します。",
+			referencePreviewSessionVisible:
+				"下絵のプレビュー表示だけを一時的に切り替えます。保存済みの表示状態は変えません。R で切り替えます。",
 			tabScene: "シーン、アセット、ライティングを管理します。",
 			tabCamera: "ショットカメラと用紙設定を編集します。",
 			tabReference: "下絵プリセットと下絵レイヤーを編集します。",
@@ -920,6 +922,8 @@ const MESSAGES = {
 				"Open the quick tool menu. On mobile, this is the safer way to use it.",
 			clearSelection:
 				"Clear selected 3D objects, reference images, and FRAMEs, then return to no active tool.",
+			referencePreviewSessionVisible:
+				"Temporarily show or hide reference previews without changing their saved visibility state. Toggle with R.",
 			tabScene: "Manage scene assets and lighting.",
 			tabCamera: "Edit the active shot camera and paper setup.",
 			tabReference: "Edit reference presets and reference image layers.",
