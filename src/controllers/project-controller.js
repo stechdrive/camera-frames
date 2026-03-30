@@ -41,10 +41,6 @@ function ensureProjectFileName(
 	return baseName ? `${baseName}.ssproj` : fallback;
 }
 
-function supportsProjectFileOpen() {
-	return typeof globalThis.showOpenFilePicker === "function";
-}
-
 function supportsProjectFileSave() {
 	return typeof globalThis.showSaveFilePicker === "function";
 }
@@ -62,18 +58,6 @@ function getProjectPickerTypes() {
 			},
 		},
 	];
-}
-
-async function pickProjectFileHandle() {
-	if (!supportsProjectFileOpen()) {
-		throw new Error("Project file picker is not supported in this browser.");
-	}
-
-	const [fileHandle] = await globalThis.showOpenFilePicker({
-		multiple: false,
-		types: getProjectPickerTypes(),
-	});
-	return fileHandle ?? null;
 }
 
 async function pickProjectSaveHandle(suggestedName) {
@@ -364,7 +348,6 @@ function isQuotaExceededError(error) {
 
 export function createProjectController({
 	store,
-	projectInput,
 	assetController,
 	applySavedProjectState,
 	applyOpenedProject,
@@ -1144,29 +1127,6 @@ export function createProjectController({
 		});
 	}
 
-	async function openProject() {
-		if (supportsProjectFileOpen()) {
-			try {
-				const fileHandle = await pickProjectFileHandle();
-				if (!fileHandle) {
-					return;
-				}
-				const file = await fileHandle.getFile();
-				await openProjectSource(file, { fileHandle });
-				return;
-			} catch (error) {
-				if (error?.name === "AbortError") {
-					return;
-				}
-				console.error(error);
-				setStatus(error.message);
-				return;
-			}
-		}
-
-		projectInput?.click?.();
-	}
-
 	async function performNewProjectReset() {
 		clearProjectContext();
 		resetProjectWorkspace?.();
@@ -1236,34 +1196,15 @@ export function createProjectController({
 		});
 	}
 
-	async function handleProjectInputChange(event) {
-		const files = [...(event.currentTarget.files ?? [])];
-		const projectFile = files[0] ?? null;
-		if (!projectFile) {
-			return;
-		}
-
-		try {
-			await openProjectSource(projectFile);
-		} catch (error) {
-			console.error(error);
-			setStatus(error.message);
-		} finally {
-			event.currentTarget.value = "";
-		}
-	}
-
 	return {
 		openProjectSource,
 		saveProject: saveWorkingState,
 		exportProject,
-		openProject,
 		startNewProject,
 		isProjectDirty,
 		isPackageDirty,
 		shouldWarnBeforeUnload,
 		syncProjectPresentation,
-		handleProjectInputChange,
 		clearProjectContext,
 		establishProjectDirtyBaseline,
 	};

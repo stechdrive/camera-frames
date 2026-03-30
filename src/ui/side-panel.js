@@ -233,11 +233,11 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 			onClick: () => controller()?.startNewProject(),
 		},
 		{
-			id: "open-project",
-			icon: "package-open",
-			label: t("menu.openProjectAction"),
+			id: "open-files",
+			icon: "folder-open",
+			label: t("action.openFiles"),
 			shortcut: "Ctrl+O",
-			onClick: () => controller()?.openProject(),
+			onClick: () => controller()?.openFiles(),
 		},
 		{
 			id: "save-project",
@@ -290,17 +290,6 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 	const fileMenuChildren = html`
 		${renderProjectStatus("workbench-project-status--menu")}
 		<div class="workbench-menu__group">
-			<button
-				id="open-files"
-				type="button"
-				class="workbench-menu__item"
-				onClick=${() => controller()?.openFiles()}
-			>
-				<span class="workbench-menu__item-icon">
-					<${WorkbenchIcon} name="folder-open" size=${14} />
-				</span>
-				<span>${t("action.openFiles")}</span>
-			</button>
 			<div class="workbench-menu__field">
 				<label for="header-url-input">${t("field.remoteUrl")}</label>
 				<input

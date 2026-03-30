@@ -48,7 +48,7 @@ export function bindInputRouter({
 	startNewProject,
 	saveProject,
 	exportProject,
-	openProject,
+	openFiles,
 	undoHistory,
 	redoHistory,
 	clearSceneAssetSelection,
@@ -545,7 +545,7 @@ export function bindInputRouter({
 			!event.shiftKey
 		) {
 			event.preventDefault();
-			openProject?.();
+			openFiles?.();
 			return;
 		}
 

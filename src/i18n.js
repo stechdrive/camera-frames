@@ -133,9 +133,8 @@ const MESSAGES = {
 		},
 		menu: {
 			newProjectAction: "新規プロジェクト",
-			openProjectAction: "プロジェクトを開く",
-			saveWorkingStateAction: "作業状態を保存",
-			savePackageAction: "共有用 .ssproj を保存",
+			saveWorkingStateAction: "プロジェクトを保存",
+			savePackageAction: "プロジェクトを書き出し",
 		},
 		project: {
 			untitled: "無題",
@@ -183,12 +182,11 @@ const MESSAGES = {
 		},
 		action: {
 			newProject: "新規プロジェクト",
-			openProject: "プロジェクトを開く",
-			saveProject: "作業状態を保存",
-			exportProject: "パッケージ保存",
+			saveProject: "プロジェクトを保存",
+			exportProject: "プロジェクトを書き出し",
 			savePackageAs: "別名で保存",
 			overwritePackage: "上書き保存",
-			openFiles: "ファイルを開く",
+			openFiles: "開く...",
 			openReferenceImages: "下絵を開く",
 			duplicateReferencePreset: "プリセットを複製",
 			deleteReferencePreset: "プリセットを削除",
@@ -374,9 +372,9 @@ const MESSAGES = {
 				"保存していない変更があります。作業状態を保存してから別のプロジェクトを開きますか？",
 			openProjectMessageWithPackage:
 				"保存していない変更があります。別のプロジェクトを開く前に保存しますか？",
-			workingSaveNoticeTitle: "作業状態を保存",
+			workingSaveNoticeTitle: "プロジェクトを保存",
 			workingSaveNoticeMessage:
-				"Ctrl+S はこのブラウザ内の高速保存です。共有・受け渡しには「共有用 .ssproj を保存」を使ってください。",
+				"Ctrl+S はこのブラウザ内にプロジェクトの作業状態を保存します。他の環境へ持ち出したり共有したりする時は「プロジェクトを書き出し」を使ってください。",
 			startupImportTitle: "共有データを読み込みますか？",
 			startupImportMessage:
 				"このリンクは外部の共有データを読み込みます。読み込みを続けると、下の URL へアクセスします。",
@@ -406,10 +404,11 @@ const MESSAGES = {
 			importErrorMessageGeneric: "このデータは読み込めませんでした。",
 			importErrorMessageRemote: "このリンクはアプリから直接開けませんでした。",
 			errorDetails: "詳細",
-			packageSaveTitle: "パッケージ保存",
-			packageSaveMessage: "共有・受け渡し用の .ssproj を保存します。",
+			packageSaveTitle: "プロジェクトを書き出し",
+			packageSaveMessage:
+				"共有や他の環境への持ち出し用に、プロジェクトを .ssproj として書き出します。",
 			packageSaveMessageWithOverwrite:
-				"共有・受け渡し用の .ssproj を保存します。現在のファイル {name} に上書き保存するか、別名で保存するかを選んでください。",
+				"共有や他の環境への持ち出し用に、プロジェクトを .ssproj として書き出します。現在のファイル {name} に上書き保存するか、別名で保存するかを選んでください。",
 			exportTitle: "書き出し中",
 			exportMessage:
 				"書き出しが終わるまで少し待ってください。完了するまで他の操作は無効です。",
@@ -448,9 +447,9 @@ const MESSAGES = {
 			exportErrorTitle: "書き出しに失敗しました",
 			exportErrorMessage:
 				"書き出し中にエラーが発生しました。詳細を確認してください。",
-			packageSaveErrorTitle: "パッケージ保存に失敗しました",
+			packageSaveErrorTitle: "プロジェクトの書き出しに失敗しました",
 			packageSaveErrorMessage:
-				"パッケージ保存の途中でエラーが発生しました。詳細を確認してください。",
+				"プロジェクトの書き出し中にエラーが発生しました。詳細を確認してください。",
 			packagePhaseCollect: "状態を収集",
 			packagePhaseResolve: "asset を解決",
 			packagePhaseCompress: "3DGS を圧縮",
@@ -512,9 +511,9 @@ const MESSAGES = {
 			projectLoadedFromFolder: "{name} からプロジェクトを読み込みました。",
 			projectSaved: "プロジェクトを保存しました。",
 			projectSavedToFolder: "{name} にプロジェクトを保存しました。",
-			workingStateSaved: "{name} の作業状態を保存しました。",
+			workingStateSaved: "{name} を保存しました。",
 			workingStateRestored: "{name} の作業状態を復元しました。",
-			packageSaved: "{name} をパッケージ保存しました。",
+			packageSaved: "{name} を書き出しました。",
 			newProjectReady: "新規プロジェクトを開始しました。",
 			projectExporting: "プロジェクトを書き出し中...",
 			projectExported: "プロジェクトを書き出しました。",
@@ -766,9 +765,8 @@ const MESSAGES = {
 		},
 		menu: {
 			newProjectAction: "New Project",
-			openProjectAction: "Open Project",
-			saveWorkingStateAction: "Save Working State",
-			savePackageAction: "Save Shareable .ssproj",
+			saveWorkingStateAction: "Save Project",
+			savePackageAction: "Export Project",
 		},
 		project: {
 			untitled: "Untitled",
@@ -817,12 +815,11 @@ const MESSAGES = {
 		},
 		action: {
 			newProject: "New Project",
-			openProject: "Open Project",
-			saveProject: "Save Working State",
-			exportProject: "Save Package",
+			saveProject: "Save Project",
+			exportProject: "Export Project",
 			savePackageAs: "Save As",
 			overwritePackage: "Overwrite",
-			openFiles: "Open Files",
+			openFiles: "Open…",
 			openReferenceImages: "Open Reference Images",
 			duplicateReferencePreset: "Duplicate Preset",
 			deleteReferencePreset: "Delete Preset",
@@ -1012,9 +1009,9 @@ const MESSAGES = {
 				"You have unsaved changes. Save the working state before opening another project?",
 			openProjectMessageWithPackage:
 				"You have unsaved changes. Save before opening another project?",
-			workingSaveNoticeTitle: "Save Working State",
+			workingSaveNoticeTitle: "Save Project",
 			workingSaveNoticeMessage:
-				"Ctrl+S performs a fast local save in this browser. Use “Save Shareable .ssproj” when you need a portable project file.",
+				"Ctrl+S saves the project's working state in this browser. Use “Export Project” when you need a portable .ssproj file for sharing or moving to another environment.",
 			startupImportTitle: "Load shared data?",
 			startupImportMessage:
 				"This link will load external shared data. Continuing will access the URLs below.",
@@ -1048,11 +1045,11 @@ const MESSAGES = {
 			importErrorMessageRemote:
 				"This link could not be opened directly from the app.",
 			errorDetails: "Details",
-			packageSaveTitle: "Save Package",
+			packageSaveTitle: "Export Project",
 			packageSaveMessage:
-				"Save a portable .ssproj package for sharing or handoff.",
+				"Export a portable .ssproj project file for sharing or moving to another environment.",
 			packageSaveMessageWithOverwrite:
-				"Save a portable .ssproj package for sharing or handoff. Choose whether to overwrite {name} or save to a new file.",
+				"Export a portable .ssproj project file for sharing or moving to another environment. Choose whether to overwrite {name} or save to a new file.",
 			exportTitle: "Exporting",
 			exportMessage:
 				"Please wait until export finishes. Other interactions are temporarily disabled.",
@@ -1089,9 +1086,9 @@ const MESSAGES = {
 			exportErrorTitle: "Export failed",
 			exportErrorMessage:
 				"An error occurred during export. Review the details and try again.",
-			packageSaveErrorTitle: "Package save failed",
+			packageSaveErrorTitle: "Project export failed",
 			packageSaveErrorMessage:
-				"An error occurred while saving the package. Check the details below.",
+				"An error occurred while exporting the project. Check the details below.",
 			packagePhaseCollect: "Collecting state",
 			packagePhaseResolve: "Resolving assets",
 			packagePhaseCompress: "Compressing 3DGS",
@@ -1153,10 +1150,10 @@ const MESSAGES = {
 			projectLoadedFromFolder: "Loaded project from {name}.",
 			projectSaved: "Project saved.",
 			projectSavedToFolder: "Saved project to {name}.",
-			workingStateSaved: "Saved working state for {name}.",
+			workingStateSaved: "Saved {name}.",
 			workingStateRestored: "Restored working state for {name}.",
 			referenceImagesImported: "Loaded {count} reference image file(s).",
-			packageSaved: "Saved package {name}.",
+			packageSaved: "Exported {name}.",
 			newProjectReady: "Started a new project.",
 			projectExporting: "Exporting project...",
 			projectExported: "Project exported.",

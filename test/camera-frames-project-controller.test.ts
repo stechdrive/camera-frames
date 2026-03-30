@@ -60,7 +60,6 @@ function createHarness(overrides = {}) {
 	};
 	const projectController = createProjectController({
 		store,
-		projectInput: null,
 		assetController: {
 			loadSources: async () => {},
 			applyWorkingProjectSceneState: async () => {},
