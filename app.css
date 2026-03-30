@@ -2119,6 +2119,42 @@ input[type="range"] {
 	padding-right: 0.1rem;
 }
 
+.workbench-inspector-stack--split {
+	overflow: hidden;
+	padding-right: 0;
+}
+
+.workbench-inspector-split {
+	display: flex;
+	flex-direction: column;
+	gap: 0.55rem;
+	flex: 1 1 auto;
+	min-height: 0;
+}
+
+.workbench-inspector-split__top {
+	display: flex;
+	flex-direction: column;
+	gap: 0.55rem;
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow: auto;
+	padding-right: 0.1rem;
+}
+
+.workbench-inspector-split__bottom {
+	display: flex;
+	flex-direction: column;
+	gap: 0.55rem;
+	flex: 0 0 auto;
+	min-height: 0;
+	max-height: none;
+	overflow: visible;
+	padding-top: 0.55rem;
+	padding-right: 0.1rem;
+	border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
 .workbench-inspector-selection-dock {
 	flex: 0 0 auto;
 	padding-top: 0.55rem;

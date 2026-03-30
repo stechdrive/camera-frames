@@ -649,11 +649,50 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 	};
 
 	const renderInspectorContent = (tabId, options = null) =>
-		html`${getTabSectionIds(tabId)
-			.map((sectionId) =>
-				renderInspectorSection(sectionId, options ?? undefined),
-			)
-			.filter(Boolean)}`;
+		options?.desktopFull && tabId === INSPECTOR_TAB_SCENE
+			? html`
+					<div class="workbench-inspector-split">
+						<div class="workbench-inspector-split__top">
+							${renderInspectorSection(INSPECTOR_QUICK_SECTION_SCENE, options)}
+							${renderInspectorSection(
+								INSPECTOR_QUICK_SECTION_LIGHTING,
+								options,
+							)}
+						</div>
+						<div class="workbench-inspector-split__bottom">
+							${renderInspectorSection(
+								INSPECTOR_QUICK_SECTION_TRANSFORM,
+								options,
+							)}
+						</div>
+					</div>
+				`
+			: options?.desktopFull && tabId === INSPECTOR_TAB_CAMERA
+				? html`
+						<div class="workbench-inspector-split">
+							<div class="workbench-inspector-split__top">
+								${renderInspectorSection(
+									INSPECTOR_QUICK_SECTION_SHOT_CAMERA,
+									options,
+								)}
+								${renderInspectorSection(
+									INSPECTOR_QUICK_SECTION_OUTPUT_FRAME,
+									options,
+								)}
+							</div>
+							<div class="workbench-inspector-split__bottom">
+								${renderInspectorSection(
+									INSPECTOR_QUICK_SECTION_SHOT_CAMERA_PROPERTIES,
+									options,
+								)}
+							</div>
+						</div>
+					`
+				: html`${getTabSectionIds(tabId)
+						.map((sectionId) =>
+							renderInspectorSection(sectionId, options ?? undefined),
+						)
+						.filter(Boolean)}`;
 
 	const mobileInspectorDock = html`
 		<div class="workbench-tool-rail__divider"></div>
@@ -840,7 +879,14 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 										</span>
 										<strong>${activeInspectorTabDefinition?.label ?? ""}</strong>
 									</div>
-									<div class="workbench-inspector-stack">
+									<div
+										class=${
+											activeInspectorTab === INSPECTOR_TAB_SCENE ||
+											activeInspectorTab === INSPECTOR_TAB_CAMERA
+												? "workbench-inspector-stack workbench-inspector-stack--split"
+												: "workbench-inspector-stack"
+										}
+									>
 										${renderInspectorContent(activeInspectorTab, {
 											desktopFull: true,
 										})}
