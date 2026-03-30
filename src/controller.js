@@ -1527,10 +1527,12 @@ export function createCameraFramesController(elements, store) {
 				clearViewportEditingSelection();
 				return true;
 			case "tool-select":
-				setViewportToolMode("select");
+				setViewportSelectMode(!store.viewportSelectMode.value);
 				return true;
 			case "tool-reference":
-				setViewportToolMode("reference");
+				setViewportReferenceImageEditMode(
+					!store.viewportReferenceImageEditMode.value,
+				);
 				return true;
 			case "toggle-reference-preview":
 				if ((store.referenceImages.items.value?.length ?? 0) === 0) {
@@ -1541,10 +1543,10 @@ export function createCameraFramesController(elements, store) {
 				);
 				return true;
 			case "tool-transform":
-				setViewportToolMode("transform");
+				setViewportTransformMode(!store.viewportTransformMode.value);
 				return true;
 			case "tool-pivot":
-				setViewportToolMode("pivot");
+				setViewportPivotEditMode(!store.viewportPivotEditMode.value);
 				return true;
 			case "toggle-view-mode":
 				cameraController.setMode(

@@ -7,6 +7,7 @@ const t = (key, params) => translate("en", key, params);
 const cameraActions = buildViewportPieActions({
 	mode: "camera",
 	t,
+	viewportToolMode: "reference",
 	referencePreviewSessionVisible: true,
 	hasReferenceImages: true,
 	frameMaskMode: "off",
@@ -30,6 +31,10 @@ assert.deepEqual(cameraActionIds, [
 assert.equal(
 	cameraActions.find((action) => action.id === "tool-reference")?.icon,
 	"reference-tool",
+);
+assert.equal(
+	cameraActions.find((action) => action.id === "tool-reference")?.active,
+	true,
 );
 assert.equal(
 	cameraActions.find((action) => action.id === "toggle-reference-preview")
@@ -64,6 +69,7 @@ assert.equal(
 const viewportActions = buildViewportPieActions({
 	mode: "viewport",
 	t,
+	viewportToolMode: "none",
 	referencePreviewSessionVisible: false,
 	hasReferenceImages: false,
 	frameMaskMode: "all",

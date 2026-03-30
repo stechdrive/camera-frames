@@ -210,6 +210,7 @@ export function ViewportShell({ store, controller, refs, t }) {
 		? buildViewportPieActions({
 				mode: store.mode.value,
 				t,
+				viewportToolMode: store.viewportToolMode.value,
 				referencePreviewSessionVisible:
 					store.referenceImages.previewSessionVisible.value !== false,
 				hasReferenceImages:
