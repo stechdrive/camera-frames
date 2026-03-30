@@ -78,7 +78,7 @@ const MESSAGES = {
 			outputFrameWidth: "用紙サイズ 幅",
 			outputFrameHeight: "用紙サイズ 高",
 			cameraViewZoom: "表示ズーム",
-			anchor: "アンカー",
+			anchor: "用紙サイズ変更基準点",
 			assetScale: "スケール",
 			assetPosition: "位置",
 			assetRotation: "回転",
