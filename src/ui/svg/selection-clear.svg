@@ -1,5 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-	<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+	<defs>
+		<mask id="selection-clear-cutout-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24">
+			<rect width="24" height="24" fill="white" />
+			<path d="M13.2 13.2l8.05 8.05M21.25 13.2l-8.05 8.05" stroke="black" stroke-width="5.4" />
+		</mask>
+	</defs>
+	<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" mask="url(#selection-clear-cutout-mask)">
 		<path d="M5.2 2.85H14.6" stroke-dasharray="1.7 2.6" />
 		<path d="M2.85 5.2V14.6" stroke-dasharray="1.7 2.6" />
 		<path d="M5.2 16.95H11.25" stroke-dasharray="1.7 2.6" />
@@ -7,6 +13,8 @@
 		<path d="M2.85 5.2A2.35 2.35 0 0 1 5.2 2.85" />
 		<path d="M14.6 2.85A2.35 2.35 0 0 1 16.95 5.2" />
 		<path d="M2.85 14.6A2.35 2.35 0 0 0 5.2 16.95" />
+	</g>
+	<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
 		<path d="M13.2 13.2l8.05 8.05M21.25 13.2l-8.05 8.05" />
 	</g>
 </svg>
