@@ -287,6 +287,7 @@ function buildWorkingSaveRecord({
 	packageFingerprint,
 	projectSnapshot,
 	workingSceneSnapshot,
+	workingEditorSnapshot = null,
 }) {
 	const normalizedProject = normalizeProjectDocument(projectSnapshot);
 	return {
@@ -297,6 +298,7 @@ function buildWorkingSaveRecord({
 		snapshot: {
 			workspace: normalizedProject.workspace,
 			shotCameras: normalizedProject.shotCameras,
+			editorState: workingEditorSnapshot ?? null,
 			scene: {
 				assets: workingSceneSnapshot.assets,
 				selectedAssetKeys: workingSceneSnapshot.selectedAssetKeys,
@@ -352,6 +354,8 @@ export function createProjectController({
 	assetController,
 	applySavedProjectState,
 	applyOpenedProject,
+	captureWorkingEditorState = () => null,
+	applyWorkingEditorState = () => {},
 	clearProjectSidecars = () => {},
 	resetProjectWorkspace = () => {},
 	buildProjectFilename = () => getDefaultProjectFilename(),
@@ -635,6 +639,7 @@ export function createProjectController({
 			},
 		});
 		await assetController.applyWorkingProjectSceneState(record.snapshot.scene);
+		applyWorkingEditorState(record.snapshot.editorState ?? null);
 		updateUi?.();
 		clearHistory?.();
 		syncProjectPresentation(captureProjectState());
@@ -857,6 +862,7 @@ export function createProjectController({
 			packageFingerprint: currentPackageFingerprint,
 			projectSnapshot,
 			workingSceneSnapshot: assetController.captureWorkingProjectSceneState(),
+			workingEditorSnapshot: captureWorkingEditorState(),
 		});
 		const commitWorkingSave = async () => {
 			await saveCameraFramesWorkingState(record);

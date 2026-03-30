@@ -1615,10 +1615,10 @@ export function createReferenceImageController({
 		return cloneReferenceImageDocument(getDocument());
 	}
 
-	function captureReferenceImageEditorState() {
-		return {
-			previewSessionVisible:
-				store.referenceImages.previewSessionVisible.value !== false,
+	function captureReferenceImageEditorState(options = {}) {
+		const includePreviewSessionVisible =
+			options?.includePreviewSessionVisible !== false;
+		const editorState = {
 			selectedItemIds: [...getSelectedItemIds()],
 			selectedItemId: String(store.referenceImages.selectedItemId.value ?? ""),
 			selectedAssetId: String(
@@ -1636,25 +1636,73 @@ export function createReferenceImageController({
 			selectionBoxLogical: store.referenceImages.selectionBoxLogical.value
 				? { ...store.referenceImages.selectionBoxLogical.value }
 				: null,
+			rememberedSelectedItemIds: Array.isArray(
+				lastNonEmptyReferenceSelectionState.selectedItemIds,
+			)
+				? [...lastNonEmptyReferenceSelectionState.selectedItemIds]
+				: [],
+			rememberedActiveItemId: String(
+				lastNonEmptyReferenceSelectionState.activeItemId ?? "",
+			),
 		};
+		if (includePreviewSessionVisible) {
+			editorState.previewSessionVisible =
+				store.referenceImages.previewSessionVisible.value !== false;
+		}
+		return editorState;
 	}
 
-	function restoreReferenceImageEditorState(editorState = null) {
+	function restoreReferenceImageEditorState(editorState = null, options = {}) {
+		const preservePreviewSessionVisible =
+			options?.preservePreviewSessionVisible === true;
 		if (!editorState) {
-			store.referenceImages.previewSessionVisible.value = true;
+			if (!preservePreviewSessionVisible) {
+				store.referenceImages.previewSessionVisible.value = true;
+			}
 			clearSelection();
+			lastNonEmptyReferenceSelectionState = {
+				selectedItemIds: [],
+				activeItemId: "",
+			};
 			return;
 		}
-		store.referenceImages.previewSessionVisible.value =
-			editorState.previewSessionVisible !== false;
+		if (!preservePreviewSessionVisible) {
+			store.referenceImages.previewSessionVisible.value =
+				editorState.previewSessionVisible !== false;
+		}
 		const selectedItemIds = Array.isArray(editorState.selectedItemIds)
 			? editorState.selectedItemIds.map((itemId) => String(itemId ?? "").trim())
 			: [];
+		const rememberedSelectedItemIds = Array.isArray(
+			editorState.rememberedSelectedItemIds,
+		)
+			? editorState.rememberedSelectedItemIds.map((itemId) =>
+					String(itemId ?? "").trim(),
+				)
+			: [];
+		const rememberedActiveItemId = String(
+			editorState.rememberedActiveItemId ?? "",
+		);
 		setSelectionState({
 			selectedItemIds,
 			activeItemId: editorState.selectedItemId ?? "",
 			activeAssetId: editorState.selectedAssetId ?? "",
 		});
+		lastNonEmptyReferenceSelectionState =
+			rememberedSelectedItemIds.length > 0
+				? {
+						selectedItemIds: rememberedSelectedItemIds,
+						activeItemId: rememberedActiveItemId,
+					}
+				: selectedItemIds.length > 0
+					? {
+							selectedItemIds: [...selectedItemIds],
+							activeItemId: String(editorState.selectedItemId ?? ""),
+						}
+					: {
+							selectedItemIds: [],
+							activeItemId: "",
+						};
 		if (selectedItemIds.length > 1 && editorState.selectionBoxLogical) {
 			const nextSelectionAnchor =
 				editorState.selectionAnchor &&
@@ -3024,6 +3072,7 @@ export function createReferenceImageController({
 		clearReferenceImages,
 		syncUiState,
 		isReferenceImageSelectionActive: () => getSelectedItemIds().length > 0,
+		restoreReferenceImageEditorState,
 		setPreviewSessionVisible,
 		setActiveReferenceImagePreset,
 		setActiveReferenceImagePresetName,

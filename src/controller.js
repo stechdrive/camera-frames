@@ -394,6 +394,7 @@ export function createCameraFramesController(elements, store) {
 	}
 
 	function captureWorkspaceState() {
+		const shotCameraEditorStates = captureShotCameraEditorStates();
 		return {
 			activeShotCameraId: store.workspace.activeShotCameraId.value,
 			viewportBaseFovX: store.viewportBaseFovX.value,
@@ -413,10 +414,18 @@ export function createCameraFramesController(elements, store) {
 			sceneReferenceImages:
 				referenceImageController?.captureProjectReferenceImagesState?.() ??
 				null,
+			shotCameraEditorStates,
 			referenceImageEditor:
-				referenceImageController?.captureReferenceImageEditorState?.() ?? null,
+				shotCameraEditorStates?.[store.workspace.activeShotCameraId.value]
+					?.referenceImageEditor ?? null,
 			frameSelectionActive: store.frames.selectionActive.value,
 			frameSelectedIds: [...(store.frames.selectedIds.value ?? [])],
+			frameSelectionAnchor: store.frames.selectionAnchor.value
+				? { ...store.frames.selectionAnchor.value }
+				: null,
+			frameSelectionBoxLogical: store.frames.selectionBoxLogical.value
+				? { ...store.frames.selectionBoxLogical.value }
+				: null,
 			outputFrameSelected: state.outputFrameSelected,
 		};
 	}
@@ -447,9 +456,10 @@ export function createCameraFramesController(elements, store) {
 			: store.viewportBaseFovX.value;
 		store.viewportBaseFovXDirty.value = Boolean(snapshot.viewportBaseFovXDirty);
 		restoreCameraPose(viewportCamera, snapshot.viewportPose);
+		restoreShotCameraEditorStates(snapshot.shotCameraEditorStates ?? null);
 		referenceImageController?.applyProjectReferenceImagesState?.(
 			snapshot.sceneReferenceImages ?? null,
-			{ editorState: snapshot.referenceImageEditor ?? null },
+			{ editorState: null },
 		);
 
 		for (const poseEntry of snapshot.shotCameraPoses ?? []) {
@@ -465,14 +475,9 @@ export function createCameraFramesController(elements, store) {
 		outputFrameController?.clearOutputFramePan();
 		outputFrameController?.clearOutputFrameAnchorDrag();
 		outputFrameController?.clearOutputFrameResize();
-		store.frames.selectionActive.value = Boolean(snapshot.frameSelectionActive);
-		store.frames.selectedIds.value = store.frames.selectionActive.value
-			? [...(snapshot.frameSelectedIds ?? [])]
-			: [];
-		frameController?.syncFrameSelectionTransformState?.();
-		state.outputFrameSelected =
-			!store.frames.selectionActive.value &&
-			Boolean(snapshot.outputFrameSelected);
+		restoreShotCameraEditorState(snapshot.activeShotCameraId, {
+			fallbackSnapshot: snapshot,
+		});
 		interactionController?.clearControlMomentum();
 		syncControlsToMode();
 		syncViewportProjection();
@@ -524,6 +529,8 @@ export function createCameraFramesController(elements, store) {
 			sceneFramingController.copyPose(activeEntry.camera, viewportCamera);
 		}
 
+		restoreShotCameraEditorStates(null);
+		clearActiveShotCameraEditorState();
 		interactionController?.clearControlMomentum();
 		interactionController?.syncControlsToMode();
 		syncViewportProjection();
@@ -612,11 +619,8 @@ export function createCameraFramesController(elements, store) {
 		);
 		lightingController?.applyLightingState(project?.scene?.lighting ?? null);
 
-		store.frames.selectionActive.value = false;
-		store.frames.selectedIds.value = [];
-		store.frames.selectionAnchor.value = null;
-		store.frames.selectionBoxLogical.value = null;
-		state.outputFrameSelected = false;
+		restoreShotCameraEditorStates(null);
+		clearActiveShotCameraEditorState();
 		frameController?.clearFrameInteraction();
 		outputFrameController?.clearOutputFramePan();
 		outputFrameController?.clearOutputFrameAnchorDrag();
@@ -748,6 +752,10 @@ export function createCameraFramesController(elements, store) {
 		clearOutputFramePan,
 		clearOutputFrameSelection,
 		clearControlMomentum: () => interactionController?.clearControlMomentum(),
+		beforeActiveShotCameraChange: (currentShotCameraId) =>
+			prepareForShotCameraSwitch(currentShotCameraId),
+		afterActiveShotCameraChange: (nextShotCameraId) =>
+			restoreAfterShotCameraSwitch(nextShotCameraId),
 		applyNavigateInteractionMode: () =>
 			interactionController?.applyNavigateInteractionMode({ silent: true }),
 		copyPose: (...args) => sceneFramingController.copyPose(...args),
@@ -828,6 +836,216 @@ export function createCameraFramesController(elements, store) {
 		commitHistoryTransaction: historyController.commitHistoryTransaction,
 		cancelHistoryTransaction: historyController.cancelHistoryTransaction,
 	});
+	const shotCameraEditorStateById = new Map();
+
+	function cloneOptionalPoint(value) {
+		return value && Number.isFinite(value.x) && Number.isFinite(value.y)
+			? { x: value.x, y: value.y }
+			: null;
+	}
+
+	function cloneOptionalSelectionBox(value) {
+		return value ? { ...value } : null;
+	}
+
+	function cloneShotCameraEditorState(editorState = null) {
+		if (!editorState) {
+			return {
+				frameSelectionActive: false,
+				frameSelectedIds: [],
+				frameSelectionAnchor: null,
+				frameSelectionBoxLogical: null,
+				outputFrameSelected: false,
+				referenceImageEditor: null,
+			};
+		}
+		return {
+			frameSelectionActive: Boolean(editorState.frameSelectionActive),
+			frameSelectedIds: Array.isArray(editorState.frameSelectedIds)
+				? [...editorState.frameSelectedIds]
+				: [],
+			frameSelectionAnchor: cloneOptionalPoint(
+				editorState.frameSelectionAnchor,
+			),
+			frameSelectionBoxLogical: cloneOptionalSelectionBox(
+				editorState.frameSelectionBoxLogical,
+			),
+			outputFrameSelected: Boolean(editorState.outputFrameSelected),
+			referenceImageEditor: editorState.referenceImageEditor
+				? {
+						selectedItemIds: Array.isArray(
+							editorState.referenceImageEditor.selectedItemIds,
+						)
+							? [...editorState.referenceImageEditor.selectedItemIds]
+							: [],
+						selectedItemId: String(
+							editorState.referenceImageEditor.selectedItemId ?? "",
+						),
+						selectedAssetId: String(
+							editorState.referenceImageEditor.selectedAssetId ?? "",
+						),
+						selectionAnchor: cloneOptionalPoint(
+							editorState.referenceImageEditor.selectionAnchor,
+						),
+						selectionBoxLogical: cloneOptionalSelectionBox(
+							editorState.referenceImageEditor.selectionBoxLogical,
+						),
+						rememberedSelectedItemIds: Array.isArray(
+							editorState.referenceImageEditor.rememberedSelectedItemIds,
+						)
+							? [...editorState.referenceImageEditor.rememberedSelectedItemIds]
+							: [],
+						rememberedActiveItemId: String(
+							editorState.referenceImageEditor.rememberedActiveItemId ?? "",
+						),
+					}
+				: null,
+		};
+	}
+
+	function captureActiveShotCameraEditorState() {
+		return cloneShotCameraEditorState({
+			frameSelectionActive: store.frames.selectionActive.value,
+			frameSelectedIds: [...(store.frames.selectedIds.value ?? [])],
+			frameSelectionAnchor: store.frames.selectionAnchor.value,
+			frameSelectionBoxLogical: store.frames.selectionBoxLogical.value,
+			outputFrameSelected: state.outputFrameSelected,
+			referenceImageEditor:
+				referenceImageController?.captureReferenceImageEditorState?.({
+					includePreviewSessionVisible: false,
+				}) ?? null,
+		});
+	}
+
+	function storeShotCameraEditorState(shotCameraId = null) {
+		const resolvedShotCameraId =
+			typeof shotCameraId === "string" && shotCameraId
+				? shotCameraId
+				: store.workspace.activeShotCameraId.value;
+		if (!resolvedShotCameraId) {
+			return;
+		}
+		shotCameraEditorStateById.set(
+			resolvedShotCameraId,
+			captureActiveShotCameraEditorState(),
+		);
+	}
+
+	function clearActiveShotCameraEditorState() {
+		store.frames.selectionActive.value = false;
+		store.frames.selectedIds.value = [];
+		store.frames.selectionAnchor.value = null;
+		store.frames.selectionBoxLogical.value = null;
+		state.outputFrameSelected = false;
+		referenceImageController?.restoreReferenceImageEditorState?.(null, {
+			preservePreviewSessionVisible: true,
+		});
+	}
+
+	function restoreShotCameraEditorState(
+		shotCameraId,
+		{ fallbackSnapshot = null } = {},
+	) {
+		const savedState =
+			shotCameraEditorStateById.get(shotCameraId) ??
+			(fallbackSnapshot?.activeShotCameraId === shotCameraId
+				? cloneShotCameraEditorState({
+						frameSelectionActive: fallbackSnapshot.frameSelectionActive,
+						frameSelectedIds: fallbackSnapshot.frameSelectedIds,
+						frameSelectionAnchor: fallbackSnapshot.frameSelectionAnchor,
+						frameSelectionBoxLogical: fallbackSnapshot.frameSelectionBoxLogical,
+						outputFrameSelected: fallbackSnapshot.outputFrameSelected,
+						referenceImageEditor: fallbackSnapshot.referenceImageEditor ?? null,
+					})
+				: null);
+		const validFrameIds = new Set(
+			(frameController?.getActiveFrames?.() ?? []).map((frame) => frame.id),
+		);
+		const nextFrameSelectedIds = Array.isArray(savedState?.frameSelectedIds)
+			? savedState.frameSelectedIds.filter((frameId) =>
+					validFrameIds.has(frameId),
+				)
+			: [];
+		const frameSelectionActive =
+			Boolean(savedState?.frameSelectionActive) &&
+			nextFrameSelectedIds.length > 0;
+		store.frames.selectionActive.value = frameSelectionActive;
+		store.frames.selectedIds.value = frameSelectionActive
+			? [...nextFrameSelectedIds]
+			: [];
+		store.frames.selectionAnchor.value =
+			frameSelectionActive && nextFrameSelectedIds.length > 1
+				? cloneOptionalPoint(savedState?.frameSelectionAnchor)
+				: null;
+		store.frames.selectionBoxLogical.value =
+			frameSelectionActive && nextFrameSelectedIds.length > 1
+				? cloneOptionalSelectionBox(savedState?.frameSelectionBoxLogical)
+				: null;
+		frameController?.syncFrameSelectionTransformState?.();
+		state.outputFrameSelected =
+			!frameSelectionActive && Boolean(savedState?.outputFrameSelected);
+		referenceImageController?.restoreReferenceImageEditorState?.(
+			savedState?.referenceImageEditor ?? null,
+			{ preservePreviewSessionVisible: true },
+		);
+	}
+
+	function captureShotCameraEditorStates() {
+		pruneShotCameraEditorStates();
+		storeShotCameraEditorState();
+		return Object.fromEntries(
+			Array.from(shotCameraEditorStateById.entries()).map(
+				([shotCameraId, value]) => [
+					shotCameraId,
+					cloneShotCameraEditorState(value),
+				],
+			),
+		);
+	}
+
+	function restoreShotCameraEditorStates(editorStates = null) {
+		shotCameraEditorStateById.clear();
+		if (!editorStates || typeof editorStates !== "object") {
+			return;
+		}
+		for (const [shotCameraId, value] of Object.entries(editorStates)) {
+			if (!shotCameraId) {
+				continue;
+			}
+			shotCameraEditorStateById.set(
+				shotCameraId,
+				cloneShotCameraEditorState(value),
+			);
+		}
+		pruneShotCameraEditorStates();
+	}
+
+	function pruneShotCameraEditorStates() {
+		const validShotCameraIds = new Set(
+			store.workspace.shotCameras.value.map(
+				(documentState) => documentState.id,
+			),
+		);
+		for (const shotCameraId of Array.from(shotCameraEditorStateById.keys())) {
+			if (!validShotCameraIds.has(shotCameraId)) {
+				shotCameraEditorStateById.delete(shotCameraId);
+			}
+		}
+	}
+
+	function prepareForShotCameraSwitch(currentShotCameraId) {
+		pruneShotCameraEditorStates();
+		if (currentShotCameraId) {
+			storeShotCameraEditorState(currentShotCameraId);
+		}
+		clearActiveShotCameraEditorState();
+	}
+
+	function restoreAfterShotCameraSwitch(nextShotCameraId) {
+		pruneShotCameraEditorStates();
+		restoreShotCameraEditorState(nextShotCameraId);
+		updateUi();
+	}
 	referenceImageRenderController = createReferenceImageRenderController({
 		store,
 		renderBox,
@@ -943,12 +1161,19 @@ export function createCameraFramesController(elements, store) {
 		assetController,
 		applySavedProjectState,
 		applyOpenedProject,
+		captureWorkingEditorState: () => captureShotCameraEditorStates(),
+		applyWorkingEditorState: (editorState) => {
+			restoreShotCameraEditorStates(editorState);
+			restoreShotCameraEditorState(store.workspace.activeShotCameraId.value);
+		},
 		clearProjectSidecars: () => {
 			referenceImageController?.clearReferenceImages?.();
 			lightingController?.resetLighting?.();
 		},
 		resetProjectWorkspace: () => {
 			viewportToolController.setViewportTransformMode(false);
+			restoreShotCameraEditorStates(null);
+			clearActiveShotCameraEditorState();
 			referenceImageController?.clearReferenceImages?.();
 			lightingController?.resetLighting?.();
 			assetController.clearScene();
