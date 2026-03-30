@@ -10,7 +10,9 @@ import {
 	INSPECTOR_QUICK_SECTION_EXPORT_SETTINGS,
 	INSPECTOR_QUICK_SECTION_LIGHTING,
 	INSPECTOR_QUICK_SECTION_OUTPUT_FRAME,
-	INSPECTOR_QUICK_SECTION_REFERENCE,
+	INSPECTOR_QUICK_SECTION_REFERENCE_MANAGER,
+	INSPECTOR_QUICK_SECTION_REFERENCE_PRESETS,
+	INSPECTOR_QUICK_SECTION_REFERENCE_PROPERTIES,
 	INSPECTOR_QUICK_SECTION_SCENE,
 	INSPECTOR_QUICK_SECTION_SHOT_CAMERA,
 	INSPECTOR_QUICK_SECTION_SHOT_CAMERA_PROPERTIES,
@@ -23,7 +25,9 @@ import {
 	InspectorTabs,
 	LightingSection,
 	OutputFrameSection,
-	ReferenceSection,
+	ReferenceManagerSection,
+	ReferencePresetSection,
+	ReferencePropertiesSection,
 	SceneSection,
 	SceneWorkspaceSection,
 	SelectedSceneAssetInspector,
@@ -480,7 +484,11 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 			];
 		}
 		if (tabId === INSPECTOR_TAB_REFERENCE) {
-			return [INSPECTOR_QUICK_SECTION_REFERENCE];
+			return [
+				INSPECTOR_QUICK_SECTION_REFERENCE_PRESETS,
+				INSPECTOR_QUICK_SECTION_REFERENCE_MANAGER,
+				INSPECTOR_QUICK_SECTION_REFERENCE_PROPERTIES,
+			];
 		}
 		return [
 			INSPECTOR_QUICK_SECTION_EXPORT,
@@ -597,13 +605,34 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 						widthLabel=${widthLabel}
 					/>
 				`;
-			case INSPECTOR_QUICK_SECTION_REFERENCE:
+			case INSPECTOR_QUICK_SECTION_REFERENCE_PRESETS:
 				return html`
-					<${ReferenceSection}
+					<${ReferencePresetSection}
 						controller=${controller}
 						open=${open}
 						onToggle=${onToggle}
-						showList=${true}
+						store=${store}
+						summaryActions=${pinAction}
+						t=${t}
+					/>
+				`;
+			case INSPECTOR_QUICK_SECTION_REFERENCE_MANAGER:
+				return html`
+					<${ReferenceManagerSection}
+						controller=${controller}
+						open=${open}
+						onToggle=${onToggle}
+						store=${store}
+						summaryActions=${pinAction}
+						t=${t}
+					/>
+				`;
+			case INSPECTOR_QUICK_SECTION_REFERENCE_PROPERTIES:
+				return html`
+					<${ReferencePropertiesSection}
+						controller=${controller}
+						open=${open}
+						onToggle=${onToggle}
 						store=${store}
 						summaryActions=${pinAction}
 						t=${t}
@@ -688,11 +717,32 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 							</div>
 						</div>
 					`
-				: html`${getTabSectionIds(tabId)
-						.map((sectionId) =>
-							renderInspectorSection(sectionId, options ?? undefined),
-						)
-						.filter(Boolean)}`;
+				: options?.desktopFull && tabId === INSPECTOR_TAB_REFERENCE
+					? html`
+							<div class="workbench-inspector-split">
+								<div class="workbench-inspector-split__top">
+									${renderInspectorSection(
+										INSPECTOR_QUICK_SECTION_REFERENCE_PRESETS,
+										options,
+									)}
+									${renderInspectorSection(
+										INSPECTOR_QUICK_SECTION_REFERENCE_MANAGER,
+										options,
+									)}
+								</div>
+								<div class="workbench-inspector-split__bottom">
+									${renderInspectorSection(
+										INSPECTOR_QUICK_SECTION_REFERENCE_PROPERTIES,
+										options,
+									)}
+								</div>
+							</div>
+						`
+					: html`${getTabSectionIds(tabId)
+							.map((sectionId) =>
+								renderInspectorSection(sectionId, options ?? undefined),
+							)
+							.filter(Boolean)}`;
 
 	const mobileInspectorDock = html`
 		<div class="workbench-tool-rail__divider"></div>

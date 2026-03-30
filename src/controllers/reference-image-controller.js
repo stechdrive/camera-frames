@@ -39,6 +39,7 @@ import {
 	removeRenderBoxOffsetCorrection,
 	resolveReferenceImageItemsForShot,
 } from "../reference-image-model.js";
+import { cloneShotCameraDocument } from "../workspace-model.js";
 import { getReferenceImagePreviewRenderBoxMetrics } from "./reference-image-render-controller.js";
 
 const REFERENCE_IMAGE_EXTENSIONS = new Set([
@@ -191,6 +192,25 @@ function buildDuplicatePresetName(presetName = "Reference") {
 	return normalized === REFERENCE_IMAGE_DEFAULT_PRESET_NAME
 		? "Reference Copy"
 		: `${normalized} Copy`;
+}
+
+function sanitizeReferenceImagePresetName(value, fallback = "Reference") {
+	const normalized = String(value ?? "")
+		.replace(/[\r\n\t]+/g, " ")
+		.replace(/\s+/g, " ")
+		.trim();
+	return normalized || fallback;
+}
+
+function pruneUnusedReferenceImageAssetsInDocument(documentState) {
+	const usedAssetIds = new Set(
+		(documentState?.presets ?? []).flatMap((preset) =>
+			(preset?.items ?? []).map((item) => item.assetId),
+		),
+	);
+	documentState.assets = (documentState?.assets ?? []).filter((asset) =>
+		usedAssetIds.has(asset.id),
+	);
 }
 
 export function ensureWritableReferenceImageImportPreset(
@@ -1066,6 +1086,88 @@ export function createReferenceImageController({
 		});
 	}
 
+	function updateAllShotCameraReferenceImages(updateState) {
+		const currentShotCameras = Array.isArray(store.workspace.shotCameras.value)
+			? store.workspace.shotCameras.value
+			: [];
+		store.workspace.shotCameras.value = currentShotCameras.map(
+			(documentState) => {
+				const nextDocument = cloneShotCameraDocument(documentState);
+				const nextReferenceImages = updateState(
+					createShotCameraReferenceImagesState(nextDocument.referenceImages),
+					nextDocument,
+				);
+				nextDocument.referenceImages =
+					createShotCameraReferenceImagesState(nextReferenceImages);
+				return nextDocument;
+			},
+		);
+	}
+
+	function dropReferencePresetFromAllShotCameras(
+		deletedPresetId,
+		fallbackPresetId,
+	) {
+		updateAllShotCameraReferenceImages((referenceImagesState) => {
+			const nextState =
+				createShotCameraReferenceImagesState(referenceImagesState);
+			if (nextState.presetId === deletedPresetId) {
+				nextState.presetId = fallbackPresetId ?? null;
+			}
+			const nextOverrides = {
+				...(nextState.overridesByPresetId ?? {}),
+			};
+			delete nextOverrides[deletedPresetId];
+			nextState.overridesByPresetId = nextOverrides;
+			return nextState;
+		});
+	}
+
+	function removeReferenceItemsFromAllShotCameras(presetId, deletedItemIds) {
+		if (
+			!presetId ||
+			!Array.isArray(deletedItemIds) ||
+			deletedItemIds.length === 0
+		) {
+			return;
+		}
+		const deletedItemIdSet = new Set(
+			deletedItemIds
+				.map((itemId) => String(itemId ?? "").trim())
+				.filter(Boolean),
+		);
+		if (deletedItemIdSet.size === 0) {
+			return;
+		}
+		updateAllShotCameraReferenceImages((referenceImagesState) => {
+			const nextState =
+				createShotCameraReferenceImagesState(referenceImagesState);
+			const existingOverride =
+				nextState.overridesByPresetId?.[presetId] ?? null;
+			if (!existingOverride) {
+				return nextState;
+			}
+			const nextOverride =
+				createReferenceImageCameraPresetOverride(existingOverride);
+			for (const deletedItemId of deletedItemIdSet) {
+				delete nextOverride.items[deletedItemId];
+				if (nextOverride.activeItemId === deletedItemId) {
+					nextOverride.activeItemId = null;
+				}
+			}
+			const nextOverrides = {
+				...(nextState.overridesByPresetId ?? {}),
+			};
+			if (isReferenceImageOverrideEmpty(nextOverride)) {
+				delete nextOverrides[presetId];
+			} else {
+				nextOverrides[presetId] = nextOverride;
+			}
+			nextState.overridesByPresetId = nextOverrides;
+			return nextState;
+		});
+	}
+
 	function syncSelectionState(documentState, resolved) {
 		const assetIds = new Set(
 			(documentState?.assets ?? []).map((asset) => asset.id),
@@ -1469,6 +1571,73 @@ export function createReferenceImageController({
 		return true;
 	}
 
+	function setActiveReferenceImagePresetName(nextValue) {
+		const documentState = cloneReferenceImageDocument(getDocument());
+		const activePreset =
+			findMutablePresetInDocument(
+				documentState,
+				documentState.activePresetId,
+			) ?? null;
+		if (
+			!activePreset ||
+			activePreset.id === REFERENCE_IMAGE_DEFAULT_PRESET_ID
+		) {
+			return false;
+		}
+		const nextName = sanitizeReferenceImagePresetName(
+			nextValue,
+			activePreset.name || "Reference",
+		);
+		if (!nextName || nextName === activePreset.name) {
+			return false;
+		}
+		runReferenceImageHistoryAction("reference-image.preset.rename", () => {
+			activePreset.name = nextName;
+			setDocument(documentState);
+			syncUiState();
+			updateUi?.();
+		});
+		return true;
+	}
+
+	function deleteActiveReferenceImagePreset() {
+		const documentState = cloneReferenceImageDocument(getDocument());
+		const activePreset =
+			findMutablePresetInDocument(
+				documentState,
+				documentState.activePresetId,
+			) ?? null;
+		if (
+			!activePreset ||
+			activePreset.id === REFERENCE_IMAGE_DEFAULT_PRESET_ID
+		) {
+			return false;
+		}
+		const nextPreset =
+			findMutablePresetInDocument(
+				documentState,
+				REFERENCE_IMAGE_DEFAULT_PRESET_ID,
+			) ??
+			documentState.presets.find((preset) => preset.id !== activePreset.id) ??
+			null;
+		if (!nextPreset) {
+			return false;
+		}
+		runReferenceImageHistoryAction("reference-image.preset.delete", () => {
+			documentState.presets = documentState.presets.filter(
+				(preset) => preset.id !== activePreset.id,
+			);
+			documentState.activePresetId = nextPreset.id;
+			pruneUnusedReferenceImageAssetsInDocument(documentState);
+			setDocument(documentState);
+			dropReferencePresetFromAllShotCameras(activePreset.id, nextPreset.id);
+			clearSelection();
+			syncUiState();
+			updateUi?.();
+		});
+		return true;
+	}
+
 	function duplicateActiveReferenceImagePreset() {
 		const documentState = getDocument();
 		const resolved = getResolvedShotItems(documentState);
@@ -1505,6 +1674,51 @@ export function createReferenceImageController({
 				shotCameraDocument.referenceImages = nextReferenceImages;
 				return shotCameraDocument;
 			});
+			clearSelection();
+			syncUiState();
+			updateUi?.();
+		});
+		return true;
+	}
+
+	function deleteSelectedReferenceImageItems(itemIds = null) {
+		const documentState = cloneReferenceImageDocument(getDocument());
+		const resolved = getResolvedShotItems(documentState);
+		const presetId = resolved?.preset?.id ?? null;
+		if (!presetId) {
+			return false;
+		}
+		const nextSelectedItemIds =
+			Array.isArray(itemIds) && itemIds.length > 0
+				? itemIds
+				: getSelectedItemIds();
+		const deletedItemIdSet = new Set(
+			nextSelectedItemIds
+				.map((itemId) => String(itemId ?? "").trim())
+				.filter(Boolean),
+		);
+		if (deletedItemIdSet.size === 0) {
+			return false;
+		}
+		const preset = findMutablePresetInDocument(documentState, presetId);
+		if (!preset) {
+			return false;
+		}
+		const nextItems = preset.items.filter(
+			(item) => !deletedItemIdSet.has(item.id),
+		);
+		if (nextItems.length === preset.items.length) {
+			return false;
+		}
+		runReferenceImageHistoryAction("reference-image.delete", () => {
+			preset.items = nextItems;
+			normalizeReferenceImageItemOrderInPlace(preset.items);
+			pruneUnusedReferenceImageAssetsInDocument(documentState);
+			setDocument(documentState);
+			removeReferenceItemsFromAllShotCameras(
+				presetId,
+				Array.from(deletedItemIdSet),
+			);
 			clearSelection();
 			syncUiState();
 			updateUi?.();
@@ -1726,12 +1940,54 @@ export function createReferenceImageController({
 		});
 	}
 
+	function setSelectedReferenceImagesPreviewVisible(nextVisible) {
+		const selectedItemIdSet = new Set(getSelectedItemIds());
+		if (selectedItemIdSet.size === 0) {
+			return false;
+		}
+		const documentState = getDocument();
+		const resolved = getResolvedShotItems(documentState);
+		runReferenceImageHistoryAction("reference-image.preview-visible", () => {
+			const nextItems = resolved.items.map((item) =>
+				selectedItemIdSet.has(item.id)
+					? createReferenceImageItem({
+							...item,
+							previewVisible: nextVisible !== false,
+						})
+					: item,
+			);
+			commitResolvedItems(documentState, resolved, nextItems);
+		});
+		return true;
+	}
+
 	function setReferenceImageExportEnabled(itemId, nextEnabled) {
 		runReferenceImageHistoryAction("reference-image.export-enabled", () => {
 			updateResolvedReferenceImageItem(itemId, {
 				exportEnabled: nextEnabled !== false,
 			});
 		});
+	}
+
+	function setSelectedReferenceImagesExportEnabled(nextEnabled) {
+		const selectedItemIdSet = new Set(getSelectedItemIds());
+		if (selectedItemIdSet.size === 0) {
+			return false;
+		}
+		const documentState = getDocument();
+		const resolved = getResolvedShotItems(documentState);
+		runReferenceImageHistoryAction("reference-image.export-enabled", () => {
+			const nextItems = resolved.items.map((item) =>
+				selectedItemIdSet.has(item.id)
+					? createReferenceImageItem({
+							...item,
+							exportEnabled: nextEnabled !== false,
+						})
+					: item,
+			);
+			commitResolvedItems(documentState, resolved, nextItems);
+		});
+		return true;
 	}
 
 	function setReferenceImageOpacity(itemId, nextOpacityPercent) {
@@ -1847,6 +2103,77 @@ export function createReferenceImageController({
 		runReferenceImageHistoryAction("reference-image.order", () => {
 			commitResolvedItems(documentState, resolved, nextItems);
 		});
+	}
+
+	function moveReferenceImageToDisplayTarget(
+		itemId,
+		targetItemId,
+		position = "before",
+		orderedIds = null,
+	) {
+		const draggedItemId = String(itemId ?? "").trim();
+		const nextTargetItemId = String(targetItemId ?? "").trim();
+		if (
+			!draggedItemId ||
+			!nextTargetItemId ||
+			draggedItemId === nextTargetItemId
+		) {
+			return false;
+		}
+		const documentState = getDocument();
+		const resolved = getResolvedShotItems(documentState);
+		const itemsById = new Map(resolved.items.map((item) => [item.id, item]));
+		const draggedItem = itemsById.get(draggedItemId) ?? null;
+		const targetItem = itemsById.get(nextTargetItemId) ?? null;
+		if (!draggedItem || !targetItem) {
+			return false;
+		}
+		const displayItems = (
+			Array.isArray(orderedIds) && orderedIds.length > 0
+				? orderedIds
+						.map(
+							(entryId) => itemsById.get(String(entryId ?? "").trim()) ?? null,
+						)
+						.filter(Boolean)
+				: [...resolved.items].reverse()
+		).filter((item, index, source) => source.indexOf(item) === index);
+		const withoutDragged = displayItems.filter(
+			(item) => item.id !== draggedItemId,
+		);
+		const targetIndex = withoutDragged.findIndex(
+			(item) => item.id === nextTargetItemId,
+		);
+		if (targetIndex < 0) {
+			return false;
+		}
+		const insertedItem = createReferenceImageItem({
+			...draggedItem,
+			group: targetItem.group,
+		});
+		const insertionIndex = position === "after" ? targetIndex + 1 : targetIndex;
+		const nextDisplayItems = [
+			...withoutDragged.slice(0, insertionIndex),
+			insertedItem,
+			...withoutDragged.slice(insertionIndex),
+		];
+		const rebuildGroupItems = (group) =>
+			nextDisplayItems
+				.filter((item) => item.group === group)
+				.reverse()
+				.map((item, index) =>
+					createReferenceImageItem({
+						...item,
+						order: index,
+					}),
+				);
+		const nextItems = [
+			...rebuildGroupItems(REFERENCE_IMAGE_GROUP_BACK),
+			...rebuildGroupItems(REFERENCE_IMAGE_GROUP_FRONT),
+		];
+		runReferenceImageHistoryAction("reference-image.order", () => {
+			commitResolvedItems(documentState, resolved, nextItems);
+		});
+		return true;
 	}
 
 	function startReferenceImageMove(itemId, event) {
@@ -2413,19 +2740,25 @@ export function createReferenceImageController({
 		isReferenceImageSelectionActive: () => getSelectedItemIds().length > 0,
 		setPreviewSessionVisible,
 		setActiveReferenceImagePreset,
+		setActiveReferenceImagePresetName,
 		duplicateActiveReferenceImagePreset,
+		deleteActiveReferenceImagePreset,
+		deleteSelectedReferenceImageItems,
 		clearReferenceImageSelection: clearSelection,
 		ensureReferenceImageEditingSelection: ensureEditingSelection,
 		selectReferenceImageAsset,
 		selectReferenceImageItem,
 		setReferenceImagePreviewVisible,
+		setSelectedReferenceImagesPreviewVisible,
 		setReferenceImageExportEnabled,
+		setSelectedReferenceImagesExportEnabled,
 		setReferenceImageOpacity,
 		setReferenceImageScalePct,
 		setReferenceImageRotationDeg,
 		setReferenceImageOffsetPx,
 		setReferenceImageGroup,
 		setReferenceImageOrder,
+		moveReferenceImageToDisplayTarget,
 		startReferenceImageMove,
 		startReferenceImageResize,
 		startReferenceImageRotate,

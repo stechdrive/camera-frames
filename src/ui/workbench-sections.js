@@ -49,7 +49,10 @@ export const INSPECTOR_QUICK_SECTION_DISPLAY_ZOOM = "display-zoom";
 export const INSPECTOR_QUICK_SECTION_VIEW = "view-settings";
 export const INSPECTOR_QUICK_SECTION_LIGHTING = "lighting";
 export const INSPECTOR_QUICK_SECTION_OUTPUT_FRAME = "output-frame";
-export const INSPECTOR_QUICK_SECTION_REFERENCE = "reference";
+export const INSPECTOR_QUICK_SECTION_REFERENCE_PRESETS = "reference-presets";
+export const INSPECTOR_QUICK_SECTION_REFERENCE_MANAGER = "reference-manager";
+export const INSPECTOR_QUICK_SECTION_REFERENCE_PROPERTIES =
+	"reference-properties";
 export const INSPECTOR_QUICK_SECTION_EXPORT = "export-output";
 export const INSPECTOR_QUICK_SECTION_EXPORT_SETTINGS = "export-settings";
 export const INSPECTOR_BROWSER_SCENE = "scene";
@@ -213,9 +216,21 @@ export function getInspectorQuickSections(t) {
 			icon: "render-box",
 		},
 		{
-			id: INSPECTOR_QUICK_SECTION_REFERENCE,
+			id: INSPECTOR_QUICK_SECTION_REFERENCE_PRESETS,
 			tabId: INSPECTOR_TAB_REFERENCE,
-			label: t("section.referenceImages"),
+			label: t("section.referencePresets"),
+			icon: "image",
+		},
+		{
+			id: INSPECTOR_QUICK_SECTION_REFERENCE_MANAGER,
+			tabId: INSPECTOR_TAB_REFERENCE,
+			label: t("section.referenceManager"),
+			icon: "reference-tool",
+		},
+		{
+			id: INSPECTOR_QUICK_SECTION_REFERENCE_PROPERTIES,
+			tabId: INSPECTOR_TAB_REFERENCE,
+			label: t("section.referenceProperties"),
 			icon: "image",
 		},
 		{
@@ -1353,6 +1368,660 @@ export function ReferenceBrowserSection({ controller, store, t }) {
 			</div>
 		</div>
 	`;
+}
+
+function ReferencePresetPicker({ activePreset, controller, presets, t }) {
+	const [open, setOpen] = useState(false);
+	const rootRef = useRef(null);
+	const canRename = Boolean(activePreset) && !activePreset.isBlank;
+
+	useEffect(() => {
+		if (!open) {
+			return undefined;
+		}
+		const handlePointerDown = (event) => {
+			if (!rootRef.current?.contains?.(event.target)) {
+				setOpen(false);
+			}
+		};
+		window.addEventListener("pointerdown", handlePointerDown);
+		return () => {
+			window.removeEventListener("pointerdown", handlePointerDown);
+		};
+	}, [open]);
+
+	return html`
+		<div class="reference-preset-picker" ref=${rootRef}>
+			<div class="reference-preset-picker__control">
+				<div class="field reference-preset-picker__field">
+					<${TextDraftInput}
+						id="reference-preset-name"
+						class="reference-preset-picker__input"
+						placeholder=${t("field.referencePresetName")}
+						selectOnFocus=${canRename}
+						disabled=${!canRename}
+						value=${activePreset?.name ?? ""}
+						onCommit=${(nextValue) =>
+							controller()?.setActiveReferenceImagePresetName?.(nextValue)}
+					/>
+				</div>
+				<button
+					type="button"
+					class=${
+						open
+							? "reference-preset-picker__toggle is-open"
+							: "reference-preset-picker__toggle"
+					}
+					onPointerDown=${(event) => {
+						stopUiEvent(event);
+						event.preventDefault();
+					}}
+					onClick=${(event) => {
+						stopUiEvent(event);
+						event.preventDefault();
+						setOpen((current) => !current);
+					}}
+					aria-label=${t("referenceImage.activePreset")}
+					aria-expanded=${open}
+				>
+					<${WorkbenchIcon} name="chevron-right" size=${12} />
+				</button>
+			</div>
+			${
+				open &&
+				html`
+					<div class="reference-preset-picker__menu">
+						${presets.map(
+							(preset) => html`
+								<button
+									key=${preset.id}
+									type="button"
+									class=${
+										preset.id === activePreset?.id
+											? "reference-preset-picker__option is-active"
+											: "reference-preset-picker__option"
+									}
+									onPointerDown=${(event) => {
+										stopUiEvent(event);
+										event.preventDefault();
+									}}
+									onClick=${(event) => {
+										stopUiEvent(event);
+										event.preventDefault();
+										controller()?.setActiveReferenceImagePreset?.(preset.id);
+										setOpen(false);
+									}}
+								>
+									<span>${preset.name}</span>
+									${
+										preset.isBlank
+											? html`<span class="pill pill--dim">${t(
+													"referenceImage.blankPreset",
+												)}</span>`
+											: null
+									}
+								</button>
+							`,
+						)}
+					</div>
+				`
+			}
+		</div>
+	`;
+}
+
+export function ReferencePresetSection({
+	controller,
+	open = true,
+	summaryActions = null,
+	onToggle = null,
+	store,
+	t,
+}) {
+	const presets = store.referenceImages.presets.value;
+	const activePresetId = store.referenceImages.panelPresetId.value;
+	const activePreset =
+		presets.find((preset) => preset.id === activePresetId) ??
+		presets[0] ??
+		null;
+	const canDeletePreset =
+		Boolean(activePreset) &&
+		activePreset.isBlank !== true &&
+		presets.length > 1;
+
+	return html`
+		<${DisclosureBlock}
+			icon="image"
+			label=${t("section.referencePresets")}
+			open=${open}
+			summaryActions=${summaryActions}
+			onToggle=${onToggle}
+		>
+			<div class="reference-preset-section">
+				<div class="reference-preset-section__row">
+					<${ReferencePresetPicker}
+						activePreset=${activePreset}
+						controller=${controller}
+						presets=${presets}
+						t=${t}
+					/>
+				</div>
+				<div class="button-row reference-preset-section__actions">
+					<${IconButton}
+						id="duplicate-reference-preset"
+						icon="duplicate"
+						label=${t("action.duplicateReferencePreset")}
+						onClick=${() =>
+							controller()?.duplicateActiveReferenceImagePreset?.()}
+					/>
+					<${IconButton}
+						id="delete-reference-preset"
+						icon="trash"
+						label=${t("action.deleteReferencePreset")}
+						disabled=${!canDeletePreset}
+						onClick=${() => controller()?.deleteActiveReferenceImagePreset?.()}
+					/>
+				</div>
+			</div>
+		<//>
+	`;
+}
+
+export function ReferenceManagerSection({
+	controller,
+	open = true,
+	summaryActions = null,
+	onToggle = null,
+	store,
+	t,
+}) {
+	const items = store.referenceImages.items.value;
+	const itemsForDisplay = [...items].reverse();
+	const selectedItemIds = new Set(
+		store.referenceImages.selectedItemIds.value ?? [],
+	);
+	const selectedItems = itemsForDisplay.filter((item) =>
+		selectedItemIds.has(item.id),
+	);
+	const selectedItemId = store.referenceImages.selectedItemId.value;
+	const [draggedItemId, setDraggedItemId] = useState(null);
+	const [dragHoverState, setDragHoverState] = useState(null);
+	const canDeleteItems = selectedItems.length > 0;
+	const allSelectedPreviewVisible =
+		selectedItems.length > 0 &&
+		selectedItems.every((item) => item.previewVisible !== false);
+	const allSelectedExportEnabled =
+		selectedItems.length > 0 &&
+		selectedItems.every((item) => item.exportEnabled !== false);
+
+	function getRowClass(itemId) {
+		const classes = ["scene-asset-row", "scene-asset-row--compact"];
+		if (selectedItemIds.has(itemId)) {
+			classes.push("scene-asset-row--selected");
+		}
+		if (itemId === selectedItemId) {
+			classes.push("scene-asset-row--active");
+		}
+		if (dragHoverState?.itemId === itemId) {
+			classes.push(
+				dragHoverState.position === "before"
+					? "scene-asset-row--drop-before"
+					: "scene-asset-row--drop-after",
+			);
+		}
+		return classes.join(" ");
+	}
+
+	function getDropPosition(event) {
+		const rect = event.currentTarget.getBoundingClientRect();
+		return event.clientY < rect.top + rect.height / 2 ? "before" : "after";
+	}
+
+	return html`
+		<${DisclosureBlock}
+			icon="reference-tool"
+			label=${t("section.referenceManager")}
+			open=${open}
+			summaryActions=${summaryActions}
+			onToggle=${onToggle}
+			className="panel-disclosure--browser-stack"
+		>
+			<div class="scene-workspace-browser">
+				<div class="button-row reference-manager__actions">
+					<${IconButton}
+						id="open-reference-images"
+						icon="folder-open"
+						label=${t("action.openReferenceImages")}
+						onClick=${() => controller()?.openReferenceImageFiles?.()}
+					/>
+					<${IconButton}
+						id="toggle-selected-reference-preview"
+						icon=${allSelectedPreviewVisible ? "eye-off" : "eye"}
+						label=${
+							allSelectedPreviewVisible
+								? t("action.hideSelectedReferenceImages")
+								: t("action.showSelectedReferenceImages")
+						}
+						disabled=${!selectedItems.length}
+						onClick=${() =>
+							controller()?.setSelectedReferenceImagesPreviewVisible?.(
+								!allSelectedPreviewVisible,
+							)}
+					/>
+					<${IconButton}
+						id="toggle-selected-reference-export"
+						icon=${allSelectedExportEnabled ? "slash-circle" : "export"}
+						label=${
+							allSelectedExportEnabled
+								? t("action.excludeSelectedReferenceImagesFromExport")
+								: t("action.includeSelectedReferenceImagesInExport")
+						}
+						disabled=${!selectedItems.length}
+						onClick=${() =>
+							controller()?.setSelectedReferenceImagesExportEnabled?.(
+								!allSelectedExportEnabled,
+							)}
+					/>
+					<${IconButton}
+						id="delete-selected-reference-images"
+						icon="trash"
+						label=${t("action.deleteSelectedReferenceImages")}
+						disabled=${!canDeleteItems}
+						onClick=${() => controller()?.deleteSelectedReferenceImageItems?.()}
+					/>
+				</div>
+				<div class="scene-workspace-pane">
+					<div class="scene-workspace-pane__body">
+						${
+							itemsForDisplay.length > 0
+								? html`
+										<div class="scene-asset-list scene-asset-list--compact">
+											${itemsForDisplay.map(
+												(item) => html`
+													<article
+														key=${item.id}
+														class=${getRowClass(item.id)}
+														draggable="true"
+														onClick=${(event) =>
+															controller()?.selectReferenceImageItem?.(
+																item.id,
+																{
+																	additive: event.ctrlKey || event.metaKey,
+																	toggle: event.ctrlKey || event.metaKey,
+																	range: event.shiftKey,
+																	orderedIds: itemsForDisplay.map(
+																		(entry) => entry.id,
+																	),
+																},
+															)}
+														onDragStart=${(event) => {
+															setDraggedItemId(item.id);
+															setDragHoverState(null);
+															event.dataTransfer.effectAllowed = "move";
+															event.dataTransfer.setData(
+																"text/plain",
+																String(item.id),
+															);
+														}}
+														onDragOver=${(event) => {
+															event.preventDefault();
+															event.dataTransfer.dropEffect = "move";
+															setDragHoverState({
+																itemId: item.id,
+																position: getDropPosition(event),
+															});
+														}}
+														onDragLeave=${() => {
+															if (dragHoverState?.itemId === item.id) {
+																setDragHoverState(null);
+															}
+														}}
+														onDrop=${(event) => {
+															event.preventDefault();
+															const draggedId =
+																draggedItemId ??
+																String(
+																	event.dataTransfer.getData("text/plain"),
+																).trim();
+															const dropPosition = getDropPosition(event);
+															if (!draggedId || draggedId === item.id) {
+																setDraggedItemId(null);
+																setDragHoverState(null);
+																return;
+															}
+															controller()?.moveReferenceImageToDisplayTarget?.(
+																draggedId,
+																item.id,
+																dropPosition,
+																itemsForDisplay.map((entry) => entry.id),
+															);
+															setDraggedItemId(null);
+															setDragHoverState(null);
+														}}
+														onDragEnd=${() => {
+															setDraggedItemId(null);
+															setDragHoverState(null);
+														}}
+													>
+														<div class="scene-asset-row__main">
+															<span class="scene-asset-row__handle" aria-hidden="true">
+																<${WorkbenchIcon}
+																	name="grip"
+																	size=${12}
+																	strokeWidth=${0}
+																/>
+															</span>
+															<div class="scene-asset-row__title-group">
+																<strong>${item.name}</strong>
+																<span class="scene-asset-row__meta">
+																	${item.fileName || t("referenceImage.untitled")}
+																</span>
+															</div>
+														</div>
+														<div class="scene-asset-row__toolbar">
+															<button
+																type="button"
+																class=${
+																	item.group === "front"
+																		? "reference-group-chip reference-group-chip--front"
+																		: "reference-group-chip reference-group-chip--back"
+																}
+																title=${t(`referenceImage.group.${item.group}`)}
+																onClick=${(event) => {
+																	event.stopPropagation();
+																	controller()?.setReferenceImageGroup?.(
+																		item.id,
+																		item.group === "front" ? "back" : "front",
+																	);
+																}}
+															>
+																${t(`referenceImage.groupShort.${item.group}`)}
+															</button>
+															<${IconButton}
+																icon=${item.previewVisible ? "eye" : "eye-off"}
+																label=${t(
+																	item.previewVisible
+																		? "action.hideReferenceImage"
+																		: "action.showReferenceImage",
+																)}
+																active=${item.previewVisible}
+																compact=${true}
+																className="scene-asset-row__icon-button"
+																onClick=${(event) => {
+																	event.stopPropagation();
+																	controller()?.setReferenceImagePreviewVisible?.(
+																		item.id,
+																		!item.previewVisible,
+																	);
+																}}
+															/>
+															<${IconButton}
+																icon=${item.exportEnabled ? "export" : "slash-circle"}
+																label=${
+																	item.exportEnabled
+																		? t(
+																				"action.excludeReferenceImageFromExport",
+																			)
+																		: t("action.includeReferenceImageInExport")
+																}
+																compact=${true}
+																className="scene-asset-row__icon-button"
+																onClick=${(event) => {
+																	event.stopPropagation();
+																	controller()?.setReferenceImageExportEnabled?.(
+																		item.id,
+																		!item.exportEnabled,
+																	);
+																}}
+															/>
+														</div>
+													</article>
+												`,
+											)}
+										</div>
+									`
+								: html`
+										<div class="scene-workspace-pane__placeholder">
+											<div class="scene-asset-list__placeholder"></div>
+										</div>
+									`
+						}
+					</div>
+				</div>
+			</div>
+		<//>
+	`;
+}
+
+function ReferencePropertyInlineField({
+	prefix,
+	id,
+	value,
+	controller,
+	historyLabel,
+	onCommit,
+	inputMode = "decimal",
+	min = undefined,
+	max = undefined,
+	step = "0.01",
+	disabled = false,
+}) {
+	return html`
+		<div class="camera-property-axis-field">
+			<span class="camera-property-axis-field__prefix">${prefix}</span>
+			<div class="field camera-property-axis-field__input">
+				<${NumericDraftInput}
+					id=${id}
+					inputMode=${inputMode}
+					min=${min}
+					max=${max}
+					step=${step}
+					value=${value}
+					controller=${controller}
+					historyLabel=${historyLabel}
+					disabled=${disabled}
+					onCommit=${onCommit}
+				/>
+			</div>
+		</div>
+	`;
+}
+
+export function ReferencePropertiesSection({
+	controller,
+	open = true,
+	summaryActions = null,
+	onToggle = null,
+	store,
+	t,
+}) {
+	const assets = store.referenceImages.assets.value;
+	const items = store.referenceImages.items.value;
+	const selectedItemId = store.referenceImages.selectedItemId.value;
+	const selectedItem = items.find((item) => item.id === selectedItemId) ?? null;
+	const selectedAsset =
+		assets.find((asset) => asset.id === (selectedItem?.assetId ?? "")) ?? null;
+
+	const renderContent = (content) => html`
+		<${DisclosureBlock}
+			icon="image"
+			label=${t("section.referenceProperties")}
+			open=${open}
+			summaryActions=${summaryActions}
+			onToggle=${onToggle}
+			className="panel-disclosure--selection-dock"
+		>
+			${content}
+		<//>
+	`;
+
+	if (!selectedItem || !selectedAsset) {
+		return renderContent(html`
+			<div class="reference-properties-panel">
+				<div class="camera-property-inline-row">
+					<span class="camera-property-inline-row__label">${t(
+						"field.referenceImageOpacity",
+					)}</span>
+					<div class="camera-property-inline-row__content camera-property-inline-row__content--pair">
+						<${ReferencePropertyInlineField}
+							prefix=${t("field.referenceImageOpacity")}
+							id="reference-opacity-empty"
+							value=""
+							controller=${controller}
+							historyLabel="reference-image.opacity"
+							disabled=${true}
+						/>
+						<${ReferencePropertyInlineField}
+							prefix=${t("field.referenceImageScale")}
+							id="reference-scale-empty"
+							value=""
+							controller=${controller}
+							historyLabel="reference-image.scale"
+							disabled=${true}
+						/>
+					</div>
+				</div>
+				<div class="camera-property-inline-row">
+					<span class="camera-property-inline-row__label">${t(
+						"field.assetPosition",
+					)}</span>
+					<div class="camera-property-inline-row__content camera-property-inline-row__content--pair">
+						<${ReferencePropertyInlineField}
+							prefix="X"
+							id="reference-offset-x-empty"
+							value=""
+							controller=${controller}
+							historyLabel="reference-image.offset.x"
+							disabled=${true}
+						/>
+						<${ReferencePropertyInlineField}
+							prefix="Y"
+							id="reference-offset-y-empty"
+							value=""
+							controller=${controller}
+							historyLabel="reference-image.offset.y"
+							disabled=${true}
+						/>
+					</div>
+				</div>
+				<div class="camera-property-inline-row">
+					<span class="camera-property-inline-row__label">${t(
+						"field.assetRotation",
+					)}</span>
+					<div class="camera-property-inline-row__content camera-property-inline-row__content--single">
+						<${ReferencePropertyInlineField}
+							prefix="R"
+							id="reference-rotation-empty"
+							value=""
+							controller=${controller}
+							historyLabel="reference-image.rotation"
+							disabled=${true}
+						/>
+					</div>
+				</div>
+			</div>
+		`);
+	}
+
+	return renderContent(html`
+		<div class="reference-properties-panel">
+			<p class="summary">
+				${selectedItem.name} ·
+				${selectedAsset.fileName || t("referenceImage.untitled")}
+			</p>
+			<div class="camera-property-inline-row">
+				<span class="camera-property-inline-row__label">${t(
+					"field.referenceImageOpacity",
+				)}</span>
+				<div class="camera-property-inline-row__content camera-property-inline-row__content--pair">
+					<${ReferencePropertyInlineField}
+						prefix=${t("field.referenceImageOpacity")}
+						id="reference-opacity"
+						value=${Math.round(selectedItem.opacity * 100)}
+						controller=${controller}
+						historyLabel="reference-image.opacity"
+						min="0"
+						max="100"
+						step="1"
+						onCommit=${(nextValue) =>
+							controller()?.setReferenceImageOpacity?.(
+								selectedItem.id,
+								nextValue,
+							)}
+					/>
+					<${ReferencePropertyInlineField}
+						prefix=${t("field.referenceImageScale")}
+						id="reference-scale"
+						value=${Number(selectedItem.scalePct).toFixed(2)}
+						controller=${controller}
+						historyLabel="reference-image.scale"
+						min="0.1"
+						step="0.01"
+						onCommit=${(nextValue) =>
+							controller()?.setReferenceImageScalePct?.(
+								selectedItem.id,
+								nextValue,
+							)}
+					/>
+				</div>
+			</div>
+			<div class="camera-property-inline-row">
+				<span class="camera-property-inline-row__label">${t(
+					"field.assetPosition",
+				)}</span>
+				<div class="camera-property-inline-row__content camera-property-inline-row__content--pair">
+					<${ReferencePropertyInlineField}
+						prefix="X"
+						id="reference-offset-x"
+						value=${Number(selectedItem.offsetPx?.x ?? 0).toFixed(0)}
+						controller=${controller}
+						historyLabel="reference-image.offset.x"
+						step="1"
+						onCommit=${(nextValue) =>
+							controller()?.setReferenceImageOffsetPx?.(
+								selectedItem.id,
+								"x",
+								nextValue,
+							)}
+					/>
+					<${ReferencePropertyInlineField}
+						prefix="Y"
+						id="reference-offset-y"
+						value=${Number(selectedItem.offsetPx?.y ?? 0).toFixed(0)}
+						controller=${controller}
+						historyLabel="reference-image.offset.y"
+						step="1"
+						onCommit=${(nextValue) =>
+							controller()?.setReferenceImageOffsetPx?.(
+								selectedItem.id,
+								"y",
+								nextValue,
+							)}
+					/>
+				</div>
+			</div>
+			<div class="camera-property-inline-row">
+				<span class="camera-property-inline-row__label">${t(
+					"field.assetRotation",
+				)}</span>
+				<div class="camera-property-inline-row__content camera-property-inline-row__content--single">
+					<${ReferencePropertyInlineField}
+						prefix="R"
+						id="reference-rotation"
+						value=${Number(selectedItem.rotationDeg).toFixed(2)}
+						controller=${controller}
+						historyLabel="reference-image.rotation"
+						step="0.01"
+						onCommit=${(nextValue) =>
+							controller()?.setReferenceImageRotationDeg?.(
+								selectedItem.id,
+								nextValue,
+							)}
+					/>
+				</div>
+			</div>
+		</div>
+	`);
 }
 
 export function SceneWorkspaceSection({

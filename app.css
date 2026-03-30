@@ -3455,6 +3455,116 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	font-size: 0.76rem !important;
 }
 
+.reference-preset-section {
+	display: flex;
+	flex-direction: column;
+	gap: 0.45rem;
+}
+
+.reference-preset-section__row {
+	min-width: 0;
+}
+
+.reference-preset-section__actions {
+	justify-content: flex-start;
+	flex-wrap: nowrap;
+}
+
+.reference-preset-picker {
+	position: relative;
+	min-width: 0;
+}
+
+.reference-preset-picker__control {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	align-items: stretch;
+	gap: 0.3rem;
+}
+
+.reference-preset-picker__field {
+	gap: 0;
+}
+
+.reference-preset-picker__input {
+	min-height: 1.74rem !important;
+	padding: 0.3rem 0.46rem !important;
+	font-size: 0.76rem !important;
+}
+
+.reference-preset-picker__toggle {
+	appearance: none;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 1.86rem;
+	border: 1px solid var(--line);
+	border-radius: 10px;
+	background: rgba(255, 255, 255, 0.03);
+	color: var(--text-dim);
+	cursor: pointer;
+	transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s
+		ease, transform 0.15s ease;
+}
+
+.reference-preset-picker__toggle .workbench-icon {
+	transform: rotate(90deg);
+}
+
+.reference-preset-picker__toggle.is-open .workbench-icon {
+	transform: rotate(270deg);
+}
+
+.reference-preset-picker__toggle:hover {
+	border-color: rgba(255, 255, 255, 0.24);
+	color: var(--text);
+}
+
+.reference-preset-picker__menu {
+	position: absolute;
+	top: calc(100% + 0.32rem);
+	left: 0;
+	right: 0;
+	z-index: 8;
+	display: flex;
+	flex-direction: column;
+	gap: 0.2rem;
+	max-height: 12rem;
+	overflow: auto;
+	padding: 0.34rem;
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	border-radius: 12px;
+	background: rgba(7, 15, 27, 0.98);
+	box-shadow: 0 14px 26px rgba(0, 0, 0, 0.34);
+}
+
+.reference-preset-picker__option {
+	appearance: none;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.45rem;
+	width: 100%;
+	padding: 0.42rem 0.5rem;
+	border: 1px solid transparent;
+	border-radius: 10px;
+	background: rgba(255, 255, 255, 0.02);
+	color: var(--text);
+	font: 600 0.75rem / 1.2 "Avenir Next", "Segoe UI", sans-serif;
+	text-align: left;
+	cursor: pointer;
+}
+
+.reference-preset-picker__option:hover {
+	border-color: rgba(255, 255, 255, 0.16);
+	background: rgba(255, 255, 255, 0.05);
+}
+
+.reference-preset-picker__option.is-active {
+	border-color: rgba(255, 103, 77, 0.48);
+	background: rgba(255, 103, 77, 0.1);
+}
+
 .triple-field-row {
 	display: grid;
 	grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -3504,6 +3614,18 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 .camera-property-inline-row__content--triplet {
 	display: grid;
 	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 0.22rem;
+}
+
+.camera-property-inline-row__content--pair {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 0.22rem;
+}
+
+.camera-property-inline-row__content--single {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
 	gap: 0.22rem;
 }
 
@@ -3917,6 +4039,45 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	display: flex;
 	flex-direction: column;
 	gap: 0.45rem;
+}
+
+.reference-manager__actions {
+	flex-wrap: nowrap;
+	justify-content: flex-start;
+}
+
+.reference-group-chip {
+	appearance: none;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 1.45rem;
+	height: 1.45rem;
+	padding: 0;
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.04);
+	color: var(--text);
+	font: 700 0.66rem / 1 "Avenir Next", "Segoe UI", sans-serif;
+	cursor: pointer;
+}
+
+.reference-group-chip--front {
+	border-color: rgba(98, 208, 255, 0.38);
+	background: rgba(98, 208, 255, 0.14);
+	color: #d8f5ff;
+}
+
+.reference-group-chip--back {
+	border-color: rgba(255, 200, 87, 0.4);
+	background: rgba(255, 200, 87, 0.12);
+	color: #fff0c0;
+}
+
+.reference-properties-panel {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
 }
 
 .reference-selected-panel {

@@ -1742,8 +1742,14 @@ export function createCameraFramesController(elements, store) {
 			referenceImageController.setPreviewSessionVisible,
 		setActiveReferenceImagePreset:
 			referenceImageController.setActiveReferenceImagePreset,
+		setActiveReferenceImagePresetName:
+			referenceImageController.setActiveReferenceImagePresetName,
 		duplicateActiveReferenceImagePreset:
 			referenceImageController.duplicateActiveReferenceImagePreset,
+		deleteActiveReferenceImagePreset:
+			referenceImageController.deleteActiveReferenceImagePreset,
+		deleteSelectedReferenceImageItems:
+			referenceImageController.deleteSelectedReferenceImageItems,
 		clearReferenceImageSelection:
 			referenceImageController.clearReferenceImageSelection,
 		ensureReferenceImageEditingSelection:
@@ -1753,8 +1759,12 @@ export function createCameraFramesController(elements, store) {
 		selectReferenceImageItem: referenceImageController.selectReferenceImageItem,
 		setReferenceImagePreviewVisible:
 			referenceImageController.setReferenceImagePreviewVisible,
+		setSelectedReferenceImagesPreviewVisible:
+			referenceImageController.setSelectedReferenceImagesPreviewVisible,
 		setReferenceImageExportEnabled:
 			referenceImageController.setReferenceImageExportEnabled,
+		setSelectedReferenceImagesExportEnabled:
+			referenceImageController.setSelectedReferenceImagesExportEnabled,
 		setReferenceImageOpacity: referenceImageController.setReferenceImageOpacity,
 		setReferenceImageScalePct:
 			referenceImageController.setReferenceImageScalePct,
@@ -1764,6 +1774,8 @@ export function createCameraFramesController(elements, store) {
 			referenceImageController.setReferenceImageOffsetPx,
 		setReferenceImageGroup: referenceImageController.setReferenceImageGroup,
 		setReferenceImageOrder: referenceImageController.setReferenceImageOrder,
+		moveReferenceImageToDisplayTarget:
+			referenceImageController.moveReferenceImageToDisplayTarget,
 		startReferenceImageMove: referenceImageController.startReferenceImageMove,
 		startReferenceImageResize:
 			referenceImageController.startReferenceImageResize,
