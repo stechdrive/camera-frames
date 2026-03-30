@@ -275,6 +275,28 @@ export function ViewportShell({ store, controller, refs, t }) {
 					store.exportHeight.value,
 				)
 			: null;
+	const renderBoxElement =
+		refs.renderBoxRef?.current ?? refs.renderBoxRef ?? null;
+	const frameMaskViewportBounds =
+		frameMaskBounds &&
+		renderBoxElement instanceof HTMLElement &&
+		renderBoxElement.offsetWidth > 0 &&
+		renderBoxElement.offsetHeight > 0
+			? {
+					left:
+						renderBoxElement.offsetLeft +
+						(renderBoxElement.offsetWidth * frameMaskBounds.left) / 100,
+					top:
+						renderBoxElement.offsetTop +
+						(renderBoxElement.offsetHeight * frameMaskBounds.top) / 100,
+					right:
+						renderBoxElement.offsetLeft +
+						(renderBoxElement.offsetWidth * frameMaskBounds.right) / 100,
+					bottom:
+						renderBoxElement.offsetTop +
+						(renderBoxElement.offsetHeight * frameMaskBounds.bottom) / 100,
+				}
+			: null;
 	const frameMaskOpacity = Math.min(
 		1,
 		Math.max(0, (Number(frameMaskOpacityPct) || 0) / 100),
@@ -454,6 +476,60 @@ export function ViewportShell({ store, controller, refs, t }) {
 					</div>
 				`
 			}
+			${
+				frameMaskViewportBounds &&
+				frameMaskOpacity > 0 &&
+				html`
+					<div class="frame-mask-layer">
+						<div
+							class="frame-mask-layer__segment"
+							style=${{
+								left: "0px",
+								top: "0px",
+								width: "100%",
+								height: `${frameMaskViewportBounds.top}px`,
+								opacity: frameMaskOpacity,
+							}}
+						></div>
+						<div
+							class="frame-mask-layer__segment"
+							style=${{
+								left: "0px",
+								top: `${frameMaskViewportBounds.bottom}px`,
+								width: "100%",
+								height: `calc(100% - ${frameMaskViewportBounds.bottom}px)`,
+								opacity: frameMaskOpacity,
+							}}
+						></div>
+						<div
+							class="frame-mask-layer__segment"
+							style=${{
+								left: "0px",
+								top: `${frameMaskViewportBounds.top}px`,
+								width: `${frameMaskViewportBounds.left}px`,
+								height: `${Math.max(
+									0,
+									frameMaskViewportBounds.bottom - frameMaskViewportBounds.top,
+								)}px`,
+								opacity: frameMaskOpacity,
+							}}
+						></div>
+						<div
+							class="frame-mask-layer__segment"
+							style=${{
+								left: `${frameMaskViewportBounds.right}px`,
+								top: `${frameMaskViewportBounds.top}px`,
+								width: `calc(100% - ${frameMaskViewportBounds.right}px)`,
+								height: `${Math.max(
+									0,
+									frameMaskViewportBounds.bottom - frameMaskViewportBounds.top,
+								)}px`,
+								opacity: frameMaskOpacity,
+							}}
+						></div>
+					</div>
+				`
+			}
 			<div id="render-box" ref=${refs.renderBoxRef} class="render-box">
 				<${FrameLayer}
 					store=${store}
@@ -461,60 +537,6 @@ export function ViewportShell({ store, controller, refs, t }) {
 					frameOverlayCanvasRef=${refs.frameOverlayCanvasRef}
 					canvasOnly=${true}
 				/>
-				${
-					frameMaskBounds &&
-					frameMaskOpacity > 0 &&
-					html`
-						<div class="frame-mask-layer">
-							<div
-								class="frame-mask-layer__segment"
-								style=${{
-									left: "0%",
-									top: "0%",
-									width: "100%",
-									height: `${frameMaskBounds.top}%`,
-									opacity: frameMaskOpacity,
-								}}
-							></div>
-							<div
-								class="frame-mask-layer__segment"
-								style=${{
-									left: "0%",
-									top: `${frameMaskBounds.bottom}%`,
-									width: "100%",
-									height: `${Math.max(0, 100 - frameMaskBounds.bottom)}%`,
-									opacity: frameMaskOpacity,
-								}}
-							></div>
-							<div
-								class="frame-mask-layer__segment"
-								style=${{
-									left: "0%",
-									top: `${frameMaskBounds.top}%`,
-									width: `${frameMaskBounds.left}%`,
-									height: `${Math.max(
-										0,
-										frameMaskBounds.bottom - frameMaskBounds.top,
-									)}%`,
-									opacity: frameMaskOpacity,
-								}}
-							></div>
-							<div
-								class="frame-mask-layer__segment"
-								style=${{
-									left: `${frameMaskBounds.right}%`,
-									top: `${frameMaskBounds.top}%`,
-									width: `${Math.max(0, 100 - frameMaskBounds.right)}%`,
-									height: `${Math.max(
-										0,
-										frameMaskBounds.bottom - frameMaskBounds.top,
-									)}%`,
-									opacity: frameMaskOpacity,
-								}}
-							></div>
-						</div>
-					`
-				}
 				<${FrameLayer}
 					store=${store}
 					controller=${controller}

@@ -28,7 +28,9 @@ import {
 	getFrameDocumentId,
 	getNextFrameNumber,
 	getActiveFrameDocument as resolveActiveFrameDocument,
+	resolveFrameMaskPreferredMode,
 	resolveFrameMaskSelectedIds,
+	resolveFrameMaskToggleMode,
 	sanitizeFrameName,
 } from "../workspace-model.js";
 
@@ -515,6 +517,13 @@ export function createFrameController({
 		return getActiveShotCameraDocument()?.frameMask?.mode ?? "off";
 	}
 
+	function getFrameMaskPreferredMode() {
+		return resolveFrameMaskPreferredMode(
+			getActiveShotCameraDocument()?.frameMask?.mode,
+			getActiveShotCameraDocument()?.frameMask?.preferredMode,
+		);
+	}
+
 	function setFrameMaskMode(nextValue) {
 		const mode =
 			nextValue === "selected" || nextValue === "all" ? nextValue : "off";
@@ -538,6 +547,16 @@ export function createFrameController({
 		const mode =
 			targetMode === "selected" || targetMode === "all" ? targetMode : "off";
 		setFrameMaskMode(getFrameMaskMode() === mode ? "off" : mode);
+	}
+
+	function togglePreferredFrameMaskMode() {
+		setFrameMaskMode(
+			resolveFrameMaskToggleMode({
+				mode: getFrameMaskMode(),
+				preferredMode: getFrameMaskPreferredMode(),
+				hasRememberedSelection: getRememberedFrameMaskSelectedIds().length > 0,
+			}),
+		);
 	}
 
 	function getRememberedFrameMaskSelectedIds() {
@@ -1898,7 +1917,9 @@ export function createFrameController({
 		isFrameSelectionActive,
 		getFrameMaskMode,
 		setFrameMaskMode,
+		getFrameMaskPreferredMode,
 		toggleFrameMaskMode,
+		togglePreferredFrameMaskMode,
 		setFrameMaskOpacity,
 		syncFrameSelectionTransformState,
 		clearFrameDrag,

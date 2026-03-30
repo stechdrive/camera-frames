@@ -56,7 +56,6 @@ import {
 	WORKSPACE_PANE_CAMERA,
 	WORKSPACE_PANE_VIEWPORT,
 	cloneShotCameraDocument,
-	resolveFrameMaskToggleMode,
 } from "./workspace-model.js";
 
 export function createCameraFramesController(elements, store) {
@@ -1546,10 +1545,7 @@ export function createCameraFramesController(elements, store) {
 				frameController.toggleFrameMaskMode("all");
 				return true;
 			case "frame-mask-selected":
-				if (
-					state.mode !== WORKSPACE_PANE_CAMERA ||
-					frameController.getRememberedFrameMaskSelectedIds().length === 0
-				) {
+				if (state.mode !== WORKSPACE_PANE_CAMERA) {
 					return false;
 				}
 				frameController.toggleFrameMaskMode("selected");
@@ -1558,14 +1554,7 @@ export function createCameraFramesController(elements, store) {
 				if (state.mode !== WORKSPACE_PANE_CAMERA) {
 					return false;
 				}
-				frameController.setFrameMaskMode(
-					resolveFrameMaskToggleMode({
-						mode: store.frames.maskMode.value,
-						preferredMode: store.frames.maskPreferredMode.value,
-						hasRememberedSelection:
-							frameController.getRememberedFrameMaskSelectedIds().length > 0,
-					}),
-				);
+				frameController.togglePreferredFrameMaskMode();
 				return true;
 			}
 			case "adjust-lens":
