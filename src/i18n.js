@@ -213,6 +213,8 @@ const MESSAGES = {
 			showSelectedReferenceImages: "選択中の下絵を表示",
 			hideSelectedReferenceImages: "選択中の下絵を非表示",
 			clearSelection: "選択を解除",
+			undo: "元に戻す",
+			redo: "やり直す",
 			deleteSelectedSceneAssets: "選択中のオブジェクトを削除",
 			includeReferenceImageInExport: "書き出しに含める",
 			excludeReferenceImageFromExport: "書き出しから外す",
@@ -283,6 +285,8 @@ const MESSAGES = {
 				"ツールのクイックメニューを開きます。モバイルではここから使うのが安全です。",
 			clearSelection:
 				"3Dオブジェクト、下絵、FRAME の選択を解除して、アクティブツールを外します。",
+			undo: "直前の操作を元に戻します。",
+			redo: "元に戻した操作をやり直します。",
 			referencePreviewSessionVisible:
 				"下絵のプレビュー表示だけを一時的に切り替えます。保存済みの表示状態は変えません。R で切り替えます。",
 			tabScene: "シーン、アセット、ライティングを管理します。",
@@ -852,6 +856,8 @@ const MESSAGES = {
 			showSelectedReferenceImages: "Show Selected References",
 			hideSelectedReferenceImages: "Hide Selected References",
 			clearSelection: "Clear Selection",
+			undo: "Undo",
+			redo: "Redo",
 			includeReferenceImageInExport: "Include in Export",
 			excludeReferenceImageFromExport: "Exclude from Export",
 			includeSelectedReferenceImagesInExport:
@@ -926,6 +932,8 @@ const MESSAGES = {
 				"Open the quick tool menu. On mobile, this is the safer way to use it.",
 			clearSelection:
 				"Clear selected 3D objects, reference images, and FRAMEs, then return to no active tool.",
+			undo: "Undo the most recent change.",
+			redo: "Redo the most recently undone change.",
 			referencePreviewSessionVisible:
 				"Temporarily show or hide reference previews without changing their saved visibility state. Toggle with R.",
 			tabScene: "Manage scene assets and lighting.",

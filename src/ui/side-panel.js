@@ -178,10 +178,6 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 		});
 	};
 	const toggleMobileInspector = (tabId) => {
-		if (!workbenchCollapsed && activeInspectorTab === tabId) {
-			collapseWorkbench();
-			return;
-		}
 		openInspectorFull(tabId);
 	};
 	const isQuickSectionPinned = (sectionId) =>

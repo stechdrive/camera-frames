@@ -180,6 +180,7 @@ code {
 .workbench-shell--mobile {
 	inset: 0;
 	display: block;
+	pointer-events: none;
 }
 
 .workbench-mobile-backdrop {
@@ -216,7 +217,7 @@ code {
 	width: auto;
 	max-width: min(calc(100vw - 1rem), 48rem);
 	overflow-x: auto;
-	overflow-y: hidden;
+	overflow-y: visible;
 	scrollbar-width: none;
 	-webkit-overflow-scrolling: touch;
 }
@@ -258,6 +259,21 @@ code {
 	border-radius: 14px;
 }
 
+.workbench-shell--mobile .workbench-tool-rail__button .workbench-icon,
+.workbench-shell--mobile
+	.workbench-tool-rail
+	.workbench-menu__trigger
+	.workbench-icon,
+.workbench-shell--mobile .workbench-tool-rail__control .workbench-icon {
+	width: 1.34rem;
+	height: 1.34rem;
+}
+
+.workbench-shell--mobile .workbench-tool-rail__segment svg {
+	width: 1.18rem;
+	height: 1.18rem;
+}
+
 .workbench-shell--mobile .workbench-tool-rail__popover {
 	top: auto;
 	bottom: calc(100% + 0.6rem);
@@ -284,11 +300,15 @@ code {
 	padding: 0.55rem;
 	border-radius: 22px;
 	pointer-events: auto;
+	overflow: hidden;
 }
 
 .workbench-inspector-stack--mobile {
+	flex: 1 1 auto;
 	overflow: auto;
 	min-height: 0;
+	-webkit-overflow-scrolling: touch;
+	overscroll-behavior: contain;
 }
 
 .panel-header {
@@ -442,10 +462,16 @@ code {
 	display: none;
 }
 
-.workbench-menu[open] .workbench-menu__trigger,
-.workbench-menu__trigger:hover {
+.workbench-menu.is-open .workbench-menu__trigger {
 	border-color: rgba(255, 255, 255, 0.34);
 	color: var(--text);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.workbench-menu__trigger:hover {
+		border-color: rgba(255, 255, 255, 0.34);
+		color: var(--text);
+	}
 }
 
 .workbench-tool-rail .workbench-menu__trigger {
@@ -455,9 +481,7 @@ code {
 }
 
 .workbench-menu__panel {
-	position: absolute;
-	top: calc(100% + 0.6rem);
-	left: 0;
+	position: fixed;
 	z-index: 20;
 	display: flex;
 	flex-direction: column;
@@ -477,8 +501,7 @@ code {
 }
 
 .workbench-menu__panel--up {
-	top: auto;
-	bottom: calc(100% + 0.6rem);
+	transform-origin: bottom center;
 }
 
 .workbench-menu__group {
@@ -733,9 +756,11 @@ code {
 	transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
 
-.workbench-tool-rail__control:hover {
-	border-color: rgba(255, 255, 255, 0.34);
-	color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+	.workbench-tool-rail__control:hover {
+		border-color: rgba(255, 255, 255, 0.34);
+		color: var(--text);
+	}
 }
 
 .workbench-tool-rail__button {
@@ -790,8 +815,10 @@ code {
 	flex: 0 0 auto;
 }
 
-.workbench-tool-rail__segment:hover {
-	color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+	.workbench-tool-rail__segment:hover {
+		color: var(--text);
+	}
 }
 
 .workbench-tool-rail__segment.is-active {
@@ -3655,6 +3682,10 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	.workbench-card--scene,
 	.workbench-card--inspector {
 		max-height: min(38vh, 420px);
+	}
+
+	.workbench-card--mobile-drawer.workbench-card--inspector {
+		max-height: min(70vh, calc(100% - 5.6rem));
 	}
 
 	.header-meta-row {
