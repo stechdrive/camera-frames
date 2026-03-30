@@ -1651,6 +1651,32 @@ input[type="range"] {
 	line-height: 1.5;
 }
 
+.overlay-phase {
+	margin-top: 12px;
+	padding: 12px;
+	border: 1px solid rgb(255 255 255 / 8%);
+	border-radius: 12px;
+	background: rgb(255 255 255 / 3%);
+}
+
+.overlay-phase__header {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.overlay-phase__title {
+	font-size: 13px;
+	font-weight: 700;
+	color: rgb(244 247 255 / 96%);
+}
+
+.overlay-phase__detail {
+	color: rgb(214 222 239 / 72%);
+	font-size: 12px;
+	line-height: 1.45;
+}
+
 .overlay-card__heartbeat {
 	display: flex;
 	align-items: center;
@@ -1785,6 +1811,27 @@ input[type="range"] {
 	list-style: none;
 }
 
+.overlay-phase-list {
+	position: relative;
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(64px, 1fr));
+	gap: 0.65rem;
+	margin: 12px 0 0;
+	padding: 0;
+	list-style: none;
+}
+
+.overlay-phase-list::before {
+	content: "";
+	position: absolute;
+	left: 0.5rem;
+	right: 0.5rem;
+	top: 0.45rem;
+	height: 2px;
+	border-radius: 999px;
+	background: rgb(255 255 255 / 10%);
+}
+
 .overlay-url-list li + li,
 .overlay-step-list li + li {
 	margin-top: 8px;
@@ -1826,6 +1873,61 @@ input[type="range"] {
 	background: rgb(255 255 255 / 4%);
 	color: rgb(186 198 219 / 82%);
 	font-size: 12px;
+}
+
+.overlay-phase-step {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.4rem;
+	min-height: 0;
+	padding: 0;
+	border: 0;
+	border-radius: 0;
+	background: transparent;
+	color: rgb(214 222 239 / 62%);
+	font-size: 12px;
+	line-height: 1.3;
+	text-align: center;
+}
+
+.overlay-phase-step--done {
+	color: rgb(216 243 229 / 92%);
+}
+
+.overlay-phase-step--active {
+	color: rgb(255 235 206 / 96%);
+}
+
+.overlay-phase-step__marker {
+	position: relative;
+	z-index: 1;
+	display: block;
+	width: 0.9rem;
+	height: 0.9rem;
+	border: 2px solid rgb(255 255 255 / 22%);
+	border-radius: 999px;
+	background: rgb(10 18 31 / 98%);
+	box-shadow: 0 0 0 0.2rem rgb(8 16 29 / 92%);
+}
+
+.overlay-phase-step--done .overlay-phase-step__marker {
+	border-color: rgb(118 200 166 / 46%);
+	background: rgb(118 200 166 / 88%);
+	box-shadow: 0 0 0 0.2rem rgb(8 16 29 / 92%);
+}
+
+.overlay-phase-step--active .overlay-phase-step__marker {
+	border-color: rgb(255 184 77 / 92%);
+	background: rgb(255 184 77 / 98%);
+	box-shadow: 0 0 0 0.2rem rgb(8 16 29 / 92%), 0 0 0 0.42rem
+		rgb(255 184 77 / 18%);
+}
+
+.overlay-phase-step__label {
+	display: block;
+	max-width: 100%;
 }
 
 .overlay-step::before {

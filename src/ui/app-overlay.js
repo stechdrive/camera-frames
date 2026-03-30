@@ -159,6 +159,37 @@ function renderProgressBody(overlay, progressTick = Date.now()) {
 			html`<p class="overlay-card__detail">${overlay.detail}</p>`
 		}
 		${
+			overlay.phaseLabel &&
+			html`
+				<div class="overlay-phase">
+					<div class="overlay-phase__header">
+						<strong class="overlay-phase__title">${overlay.phaseLabel}</strong>
+						${
+							overlay.phaseDetail &&
+							html`
+								<span class="overlay-phase__detail">${overlay.phaseDetail}</span>
+							`
+						}
+					</div>
+					${
+						overlay.phases?.length > 0 &&
+						html`
+							<ol class="overlay-phase-list">
+								${overlay.phases.map(
+									(phase) => html`
+										<li class=${`overlay-phase-step overlay-phase-step--${phase.status}`}>
+											<span class="overlay-phase-step__marker" aria-hidden="true"></span>
+											<span class="overlay-phase-step__label">${phase.label}</span>
+										</li>
+									`,
+								)}
+							</ol>
+						`
+					}
+				</div>
+			`
+		}
+		${
 			elapsedSeconds != null &&
 			html`
 				<div

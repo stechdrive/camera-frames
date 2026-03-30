@@ -91,11 +91,80 @@ export function createExportController({
 		return Date.now();
 	}
 
+	function getExportPhaseDefinitions({
+		exportFormat,
+		exportGridOverlay = false,
+		hasMasks = false,
+		exportModelLayers = false,
+		exportSplatLayers = false,
+		includeReferenceImages = false,
+	}) {
+		const phases = [
+			{ id: "prepare", label: t("overlay.exportPhasePrepare") },
+			{ id: "beauty", label: t("overlay.exportPhaseBeauty") },
+		];
+		if (exportGridOverlay) {
+			phases.push({ id: "guides", label: t("overlay.exportPhaseGuides") });
+		}
+		if (hasMasks) {
+			phases.push({ id: "masks", label: t("overlay.exportPhaseMasks") });
+		}
+		if (exportFormat === "psd" && exportModelLayers) {
+			phases.push({ id: "psd-base", label: t("overlay.exportPhasePsdBase") });
+			phases.push({
+				id: "model-layers",
+				label: t("overlay.exportPhaseModelLayers"),
+			});
+		}
+		if (exportFormat === "psd" && exportSplatLayers) {
+			phases.push({
+				id: "splat-layers",
+				label: t("overlay.exportPhaseSplatLayers"),
+			});
+		}
+		if (includeReferenceImages) {
+			phases.push({
+				id: "reference-images",
+				label: t("overlay.exportPhaseReferenceImages"),
+			});
+		}
+		phases.push({ id: "write", label: t("overlay.exportPhaseWrite") });
+		return phases;
+	}
+
+	function getExportPhaseDefaultDetail(phaseId, exportFormat) {
+		switch (phaseId) {
+			case "prepare":
+				return t("overlay.exportPhaseDetailPrepare");
+			case "beauty":
+				return t("overlay.exportPhaseDetailBeauty");
+			case "guides":
+				return t("overlay.exportPhaseDetailGuides");
+			case "masks":
+				return t("overlay.exportPhaseDetailMasks");
+			case "psd-base":
+				return t("overlay.exportPhaseDetailPsdBase");
+			case "model-layers":
+				return t("overlay.exportPhaseDetailModelLayers");
+			case "splat-layers":
+				return t("overlay.exportPhaseDetailSplatLayers");
+			case "reference-images":
+				return t("overlay.exportPhaseDetailReferenceImages");
+			case "write":
+				return exportFormat === "psd"
+					? t("overlay.exportPhaseDetailWritePsd")
+					: t("overlay.exportPhaseDetailWritePng");
+			default:
+				return "";
+		}
+	}
+
 	function buildExportProgressOverlay(
 		targetDocuments,
 		currentIndex,
 		exportFormat,
 		startedAt,
+		phaseState = null,
 	) {
 		const safeDocuments = Array.isArray(targetDocuments) ? targetDocuments : [];
 		const activeDocument = safeDocuments[currentIndex] ?? null;
@@ -121,7 +190,24 @@ export function createExportController({
 			title: t("overlay.exportTitle"),
 			message: t("overlay.exportMessage"),
 			detail,
+			phaseLabel: phaseState?.label ?? "",
+			phaseDetail:
+				phaseState?.detail ??
+				(phaseState?.id
+					? getExportPhaseDefaultDetail(phaseState.id, exportFormat)
+					: ""),
 			startedAt,
+			phases: (phaseState?.definitions ?? []).map((phase) => ({
+				label: phase.label,
+				status:
+					phaseState?.activeId == null
+						? "todo"
+						: phase.id === phaseState.activeId
+							? "active"
+							: phaseState.completedIds?.has?.(phase.id)
+								? "done"
+								: "todo",
+			})),
 			steps: safeDocuments.map((documentState, index) => ({
 				label: documentState.name,
 				status:
@@ -139,12 +225,14 @@ export function createExportController({
 		currentIndex,
 		exportFormat,
 		startedAt,
+		phaseState = null,
 	) {
 		store.overlay.value = buildExportProgressOverlay(
 			targetDocuments,
 			currentIndex,
 			exportFormat,
 			startedAt,
+			phaseState,
 		);
 	}
 
@@ -364,7 +452,7 @@ export function createExportController({
 		documentState,
 		width,
 		height,
-		{ applyOpacity = true } = {},
+		{ applyOpacity = true, onProgress = null } = {},
 	) {
 		if (store.referenceImages.exportSessionEnabled.value === false) {
 			return [];
@@ -393,7 +481,12 @@ export function createExportController({
 			});
 
 		try {
-			for (const item of candidates) {
+			for (const [index, item] of candidates.entries()) {
+				onProgress?.({
+					index: index + 1,
+					count: candidates.length,
+					name: item.name,
+				});
 				const asset = resolved.assetsById.get(item.assetId) ?? null;
 				const sourceFile = asset?.source?.file ?? null;
 				if (!(sourceFile instanceof Blob) || !asset?.sourceMeta) {
@@ -976,6 +1069,7 @@ export function createExportController({
 		height,
 		sceneAssets,
 		exportSettings,
+		onProgress = null,
 	}) {
 		if (!exportSettings.exportModelLayers) {
 			return [];
@@ -991,7 +1085,12 @@ export function createExportController({
 
 		const modelLayers = [];
 		const modelDebugGroups = [];
-		for (const modelAsset of modelAssets) {
+		for (const [index, modelAsset] of modelAssets.entries()) {
+			onProgress?.({
+				index: index + 1,
+				count: modelAssets.length,
+				name: modelAsset.label,
+			});
 			const sourcePixels = await renderConfiguredScenePixels({
 				camera,
 				width,
@@ -1105,6 +1204,7 @@ export function createExportController({
 		height,
 		sceneAssets,
 		exportSettings,
+		onProgress = null,
 	}) {
 		if (!exportSettings.exportSplatLayers) {
 			return {
@@ -1126,6 +1226,11 @@ export function createExportController({
 
 		for (let index = 0; index < splatAssets.length; index += 1) {
 			const splatAsset = splatAssets[index];
+			onProgress?.({
+				index: index + 1,
+				count: splatAssets.length,
+				name: splatAsset.label,
+			});
 			const lowerSplatAssets = splatAssets.slice(index + 1);
 			const lowerSplatIds = new Set(lowerSplatAssets.map((asset) => asset.id));
 			const isBottomSplatLayer = index === splatAssets.length - 1;
@@ -1382,14 +1487,20 @@ export function createExportController({
 		height,
 		sceneAssets,
 		maskPasses,
+		onProgress = null,
 	}) {
 		const renderedMaskPasses = [];
 		const allowedAssetIds = new Set(sceneAssets.map((asset) => asset.id));
 
-		for (const maskPass of maskPasses) {
+		for (const [index, maskPass] of maskPasses.entries()) {
 			if (!maskPass.assetIds?.length) {
 				continue;
 			}
+			onProgress?.({
+				index: index + 1,
+				count: maskPasses.length,
+				name: maskPass.name,
+			});
 
 			const maskCapture = await withMaskSceneState(
 				maskPass,
@@ -1413,7 +1524,10 @@ export function createExportController({
 		return renderedMaskPasses;
 	}
 
-	async function renderOutputSnapshotForShotCamera(shotCameraId) {
+	async function renderOutputSnapshotForShotCamera(
+		shotCameraId,
+		{ onProgress = null } = {},
+	) {
 		const targetDocument = getShotCameraDocument(shotCameraId);
 		const previousShotCameraId = store.workspace.activeShotCameraId.value;
 		const shouldRestore = shotCameraId && shotCameraId !== previousShotCameraId;
@@ -1453,12 +1567,42 @@ export function createExportController({
 				backgroundColor,
 			);
 			const passPlan = buildExportPassPlan(sceneAssets);
+			const phaseDefinitions = getExportPhaseDefinitions({
+				exportFormat: targetExportSettings.exportFormat,
+				exportGridOverlay: targetExportSettings.exportGridOverlay,
+				hasMasks: passPlan.masks.some((maskPass) => maskPass.assetIds?.length),
+				exportModelLayers: targetExportSettings.exportModelLayers,
+				exportSplatLayers: targetExportSettings.exportSplatLayers,
+				includeReferenceImages:
+					store.referenceImages.exportSessionEnabled.value !== false,
+			});
+			const completedPhaseIds = new Set();
+			const emitPhase = (id, detail = "", progress = null) => {
+				const phase = phaseDefinitions.find((entry) => entry.id === id) ?? null;
+				onProgress?.({
+					id,
+					label: phase?.label ?? "",
+					detail:
+						detail ||
+						getExportPhaseDefaultDetail(id, targetExportSettings.exportFormat),
+					definitions: phaseDefinitions,
+					completedIds: new Set(completedPhaseIds),
+					activeId: id,
+					progress,
+				});
+			};
+			const completePhase = (id) => {
+				completedPhaseIds.add(id);
+			};
 			spark.autoUpdate = false;
 			guideOverlay.applyState({
 				gridVisible: false,
 				eyeLevelVisible: false,
 				gridLayerMode: targetExportSettings.exportGridLayerMode,
 			});
+			emitPhase("prepare");
+			completePhase("prepare");
+			emitPhase("beauty");
 			const sceneCapture = await renderConfiguredSceneCapture({
 				camera: outputCamera,
 				width,
@@ -1475,26 +1619,39 @@ export function createExportController({
 				},
 			});
 			const beautyPixels = clonePixelBuffer(sceneCapture.pixels);
+			completePhase("beauty");
 			const gridGuidePixels = targetExportSettings.exportGridOverlay
-				? await renderGuideLayerPixels({
-						camera: outputCamera,
-						width,
-						height,
-						gridVisible: true,
-						eyeLevelVisible: false,
-						gridLayerMode: targetExportSettings.exportGridLayerMode,
-					})
+				? (() => {
+						emitPhase("guides", t("overlay.exportPhaseDetailGuidesGrid"));
+						return renderGuideLayerPixels({
+							camera: outputCamera,
+							width,
+							height,
+							gridVisible: true,
+							eyeLevelVisible: false,
+							gridLayerMode: targetExportSettings.exportGridLayerMode,
+						});
+					})()
 				: null;
 			const eyeLevelPixels = targetExportSettings.exportGridOverlay
-				? await renderGuideLayerPixels({
-						camera: outputCamera,
-						width,
-						height,
-						gridVisible: false,
-						eyeLevelVisible: true,
-						gridLayerMode: targetExportSettings.exportGridLayerMode,
-					})
+				? (() => {
+						emitPhase("guides", t("overlay.exportPhaseDetailGuidesEyeLevel"));
+						return renderGuideLayerPixels({
+							camera: outputCamera,
+							width,
+							height,
+							gridVisible: false,
+							eyeLevelVisible: true,
+							gridLayerMode: targetExportSettings.exportGridLayerMode,
+						});
+					})()
 				: null;
+			if (targetExportSettings.exportGridOverlay) {
+				completePhase("guides");
+			}
+			if (passPlan.masks.some((maskPass) => maskPass.assetIds?.length)) {
+				emitPhase("masks");
+			}
 			const maskPasses = await renderMaskPassSnapshots({
 				scene,
 				camera: outputCamera,
@@ -1502,7 +1659,21 @@ export function createExportController({
 				height,
 				sceneAssets,
 				maskPasses: passPlan.masks,
+				onProgress: ({ index, count, name }) =>
+					emitPhase(
+						"masks",
+						t("overlay.exportPhaseDetailMaskBatch", { index, count, name }),
+					),
 			});
+			if (passPlan.masks.some((maskPass) => maskPass.assetIds?.length)) {
+				completePhase("masks");
+			}
+			if (
+				targetExportSettings.exportFormat === "psd" &&
+				targetExportSettings.exportModelLayers
+			) {
+				emitPhase("psd-base");
+			}
 			const psdBasePixels =
 				targetExportSettings.exportFormat === "psd"
 					? await renderPsdBasePixels({
@@ -1513,6 +1684,13 @@ export function createExportController({
 							exportSettings: targetExportSettings,
 						})
 					: null;
+			if (
+				targetExportSettings.exportFormat === "psd" &&
+				targetExportSettings.exportModelLayers
+			) {
+				completePhase("psd-base");
+				emitPhase("model-layers");
+			}
 			const modelLayers =
 				targetExportSettings.exportFormat === "psd"
 					? await renderModelLayerDocuments({
@@ -1521,8 +1699,29 @@ export function createExportController({
 							height,
 							sceneAssets: renderableSceneAssets,
 							exportSettings: targetExportSettings,
+							onProgress: ({ index, count, name }) =>
+								emitPhase(
+									"model-layers",
+									t("overlay.exportPhaseDetailModelLayersBatch", {
+										index,
+										count,
+										name,
+									}),
+								),
 						})
 					: { layers: [], debugGroups: [] };
+			if (
+				targetExportSettings.exportFormat === "psd" &&
+				targetExportSettings.exportModelLayers
+			) {
+				completePhase("model-layers");
+			}
+			if (
+				targetExportSettings.exportFormat === "psd" &&
+				targetExportSettings.exportSplatLayers
+			) {
+				emitPhase("splat-layers");
+			}
 			const splatLayers =
 				targetExportSettings.exportFormat === "psd"
 					? await renderSplatLayerDocuments({
@@ -1531,8 +1730,26 @@ export function createExportController({
 							height,
 							sceneAssets: renderableSceneAssets,
 							exportSettings: targetExportSettings,
+							onProgress: ({ index, count, name }) =>
+								emitPhase(
+									"splat-layers",
+									t("overlay.exportPhaseDetailSplatLayersBatch", {
+										index,
+										count,
+										name,
+									}),
+								),
 						})
 					: { layers: [], debugGroups: [] };
+			if (
+				targetExportSettings.exportFormat === "psd" &&
+				targetExportSettings.exportSplatLayers
+			) {
+				completePhase("splat-layers");
+			}
+			if (store.referenceImages.exportSessionEnabled.value !== false) {
+				emitPhase("reference-images");
+			}
 			const referenceImageLayers =
 				await renderReferenceImageLayersForShotCamera(
 					targetDocument,
@@ -1540,8 +1757,20 @@ export function createExportController({
 					height,
 					{
 						applyOpacity: targetExportSettings.exportFormat !== "psd",
+						onProgress: ({ index, count, name }) =>
+							emitPhase(
+								"reference-images",
+								t("overlay.exportPhaseDetailReferenceImagesBatch", {
+									index,
+									count,
+									name,
+								}),
+							),
 					},
 				);
+			if (store.referenceImages.exportSessionEnabled.value !== false) {
+				completePhase("reference-images");
+			}
 			return {
 				width,
 				height,
@@ -2212,16 +2441,47 @@ export function createExportController({
 
 			for (const [index, documentState] of targetDocuments.entries()) {
 				const exportSettings = getShotCameraExportSettings(documentState);
-				setExportProgressOverlay(
-					targetDocuments,
-					index,
-					exportSettings.exportFormat,
-					progressStartedAt,
-				);
+				let currentPhaseState = null;
+				const pushOverlay = (phaseState = currentPhaseState) =>
+					setExportProgressOverlay(
+						targetDocuments,
+						index,
+						exportSettings.exportFormat,
+						progressStartedAt,
+						phaseState,
+					);
+				pushOverlay();
 				const snapshot = await renderOutputSnapshotForShotCamera(
 					documentState.id,
+					{
+						onProgress: (phaseState) => {
+							currentPhaseState = phaseState;
+							pushOverlay();
+						},
+					},
 				);
 				const sequenceIndex = targetDocuments.length > 1 ? index + 1 : null;
+				if (currentPhaseState?.definitions?.length) {
+					const completedIds = new Set(currentPhaseState.completedIds ?? []);
+					const activeId =
+						currentPhaseState.definitions.find((phase) => phase.id === "write")
+							?.id ?? null;
+					currentPhaseState = {
+						...currentPhaseState,
+						id: activeId,
+						activeId,
+						label:
+							currentPhaseState.definitions.find(
+								(phase) => phase.id === "write",
+							)?.label ?? "",
+						detail: getExportPhaseDefaultDetail(
+							"write",
+							exportSettings.exportFormat,
+						),
+						completedIds,
+					};
+					pushOverlay();
+				}
 				if (exportSettings.exportFormat === "png") {
 					downloadPngFromSnapshot(documentState, snapshot, sequenceIndex);
 					pngCount += 1;
