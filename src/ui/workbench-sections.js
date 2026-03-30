@@ -1092,6 +1092,7 @@ export function SceneBrowserSection({
 	store,
 	t,
 }) {
+	const [editingAssetId, setEditingAssetId] = useState(null);
 	const sceneAssetSections = [
 		{
 			kind: "model",
@@ -1147,8 +1148,36 @@ export function SceneBrowserSection({
 		}
 		return classes.join(" ");
 	};
+	useEffect(() => {
+		if (
+			editingAssetId !== null &&
+			!sceneAssets.some((asset) => asset.id === editingAssetId)
+		) {
+			setEditingAssetId(null);
+		}
+	}, [editingAssetId, sceneAssets]);
+	useEffect(() => {
+		if (
+			editingAssetId !== null &&
+			selectedSceneAsset &&
+			editingAssetId !== selectedSceneAsset.id
+		) {
+			setEditingAssetId(null);
+		}
+	}, [editingAssetId, selectedSceneAsset]);
+	useEffect(() => {
+		if (editingAssetId === null) {
+			return;
+		}
+		const inputId = `scene-asset-name-${editingAssetId}`;
+		requestAnimationFrame(() => {
+			const element = document.getElementById(inputId);
+			element?.focus?.();
+			element?.select?.();
+		});
+	}, [editingAssetId]);
 	const renderSceneAssetTitle = (asset) =>
-		asset.id === selectedSceneAsset?.id
+		asset.id === selectedSceneAsset?.id && editingAssetId === asset.id
 			? html`
 					<div class="field scene-asset-row__inline-name-field">
 						<${TextDraftInput}
@@ -1158,12 +1187,28 @@ export function SceneBrowserSection({
 							selectOnFocus=${true}
 							value=${asset.label}
 							maxLength="128"
-							onCommit=${(nextValue) =>
-								controller()?.setAssetLabel?.(asset.id, nextValue)}
+							onCommit=${(nextValue) => {
+								controller()?.setAssetLabel?.(asset.id, nextValue);
+								setEditingAssetId(null);
+							}}
 						/>
 					</div>
 				`
-			: html`<strong>${asset.label}</strong>`;
+			: asset.id === selectedSceneAsset?.id
+				? html`
+						<button
+							type="button"
+							class="scene-asset-row__name-button"
+							onPointerDown=${stopUiEvent}
+							onClick=${(event) => {
+								stopUiEvent(event);
+								setEditingAssetId(asset.id);
+							}}
+						>
+							<strong>${asset.label}</strong>
+						</button>
+					`
+				: html`<strong>${asset.label}</strong>`;
 
 	return html`
 		<div class="browser-list">

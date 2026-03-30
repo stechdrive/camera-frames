@@ -3918,6 +3918,17 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	font-size: 0.76rem !important;
 }
 
+.scene-asset-row__name-button {
+	display: block;
+	width: 100%;
+	padding: 0;
+	border: 0;
+	background: none;
+	color: inherit;
+	text-align: left;
+	cursor: text;
+}
+
 .scene-asset-row__title-group strong {
 	font-size: 0.84rem;
 	word-break: break-word;
