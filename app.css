@@ -3819,6 +3819,7 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 
 .scene-asset-row__toolbar {
 	display: flex;
+	align-items: center;
 	gap: 0.3rem;
 }
 
@@ -4066,6 +4067,8 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	background: rgba(255, 255, 255, 0.04);
 	color: var(--text);
 	font: 700 0.66rem / 1 "Avenir Next", "Segoe UI", sans-serif;
+	line-height: 1;
+	vertical-align: middle;
 	cursor: pointer;
 }
 
