@@ -804,17 +804,6 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 									activeQuickSectionDefinition &&
 									html`
 										<section class="workbench-card workbench-card--inspector-peek">
-											<div class="workbench-inspector-peek__header">
-												<div class="workbench-inspector-peek__title">
-													<span class="workbench-inspector-peek__title-icon">
-														<${WorkbenchIcon}
-															name=${activeQuickSectionDefinition.icon}
-															size=${14}
-														/>
-													</span>
-													<strong>${activeQuickSectionDefinition.label}</strong>
-												</div>
-											</div>
 											<div class="workbench-inspector-stack workbench-inspector-stack--peek">
 												${renderInspectorSection(
 													activeQuickSectionDefinition.id,

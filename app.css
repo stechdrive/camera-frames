@@ -242,8 +242,9 @@ code {
 	background: linear-gradient(
 		180deg,
 		transparent 0%,
-		rgba(255, 255, 255, 0.12) 22%,
-		rgba(255, 255, 255, 0.12) 78%,
+		rgba(255, 255, 255, 0.22) 18%,
+		rgba(255, 255, 255, 0.34) 50%,
+		rgba(255, 255, 255, 0.22) 82%,
 		transparent 100%
 	);
 }
@@ -638,8 +639,9 @@ code {
 	background: linear-gradient(
 		90deg,
 		transparent 0%,
-		rgba(255, 255, 255, 0.12) 22%,
-		rgba(255, 255, 255, 0.12) 78%,
+		rgba(255, 255, 255, 0.22) 18%,
+		rgba(255, 255, 255, 0.34) 50%,
+		rgba(255, 255, 255, 0.22) 82%,
 		transparent 100%
 	);
 }
@@ -2147,8 +2149,9 @@ input[type="range"] {
 	background: linear-gradient(
 		90deg,
 		transparent 0%,
-		rgba(255, 255, 255, 0.16) 24%,
-		rgba(255, 255, 255, 0.16) 76%,
+		rgba(255, 255, 255, 0.22) 18%,
+		rgba(255, 255, 255, 0.34) 50%,
+		rgba(255, 255, 255, 0.22) 82%,
 		transparent 100%
 	);
 }
@@ -2160,34 +2163,6 @@ input[type="range"] {
 .workbench-inspector-rail__button .workbench-icon {
 	width: 1.08rem;
 	height: 1.08rem;
-}
-
-.workbench-inspector-peek__header {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 0.45rem;
-	margin-bottom: 0.4rem;
-}
-
-.workbench-inspector-peek__title {
-	display: inline-flex;
-	align-items: center;
-	gap: 0.45rem;
-	min-width: 0;
-}
-
-.workbench-inspector-peek__title-icon {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	color: var(--accent-cool);
-}
-
-.workbench-inspector-peek__actions {
-	display: inline-flex;
-	align-items: center;
-	gap: 0.35rem;
 }
 
 .build-meta {
@@ -3361,8 +3336,9 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 		background: linear-gradient(
 			180deg,
 			transparent 0%,
-			rgba(255, 255, 255, 0.12) 22%,
-			rgba(255, 255, 255, 0.12) 78%,
+			rgba(255, 255, 255, 0.22) 18%,
+			rgba(255, 255, 255, 0.34) 50%,
+			rgba(255, 255, 255, 0.22) 82%,
 			transparent 100%
 		);
 	}
