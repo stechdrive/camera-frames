@@ -125,6 +125,17 @@ export function getViewportOrthoViewForAxis(axisKey, sign = 1) {
 	return DEFAULT_VIEWPORT_ORTHO_VIEW;
 }
 
+export function getViewportOrthoPreviewGridPlane(viewId) {
+	const axisKey = getViewportOrthoAxisKey(viewId);
+	if (axisKey === "x") {
+		return "zy";
+	}
+	if (axisKey === "z") {
+		return "xy";
+	}
+	return null;
+}
+
 export function getViewportOrthoSideVector(
 	viewId,
 	target = new THREE.Vector3(),

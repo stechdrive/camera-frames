@@ -3,6 +3,7 @@ import * as THREE from "three";
 import {
 	configureViewportOrthographicCamera,
 	getViewportOrthoOppositeView,
+	getViewportOrthoPreviewGridPlane,
 	getViewportOrthoViewForAxis,
 } from "../src/engine/viewport-orthographic.js";
 
@@ -15,6 +16,9 @@ assert.equal(getViewportOrthoOppositeView("posX"), "negX");
 assert.equal(getViewportOrthoOppositeView("negZ"), "posZ");
 assert.equal(getViewportOrthoViewForAxis("y", -1), "negY");
 assert.equal(getViewportOrthoViewForAxis("z", 1), "posZ");
+assert.equal(getViewportOrthoPreviewGridPlane("posX"), "zy");
+assert.equal(getViewportOrthoPreviewGridPlane("negZ"), "xy");
+assert.equal(getViewportOrthoPreviewGridPlane("posY"), null);
 
 {
 	const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 1000);

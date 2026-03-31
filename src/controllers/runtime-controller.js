@@ -377,6 +377,7 @@ export function createRuntimeController({
 			renderer.render(scene, renderCamera);
 		}
 		guideOverlay.renderOverlay(renderer, renderCamera);
+		guideOverlay.renderViewportOverlay?.(renderer, renderCamera);
 		scene.background = previousBackground;
 		renderer.setClearColor(previousClearColor, previousClearAlpha);
 		renderer.autoClear = previousAutoClear;

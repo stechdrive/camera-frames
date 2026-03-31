@@ -133,7 +133,8 @@
 - orthographic viewport branch snapshot:
   - Viewport-only orthographic state/document wiring: pass at lint/build/test level
   - HUD XYZ gizmo render/sync wiring: pass at lint/build/test level
-  - browser smoke for gizmo click / ortho controls / perspective auto-exit: pending
+  - X/Z orthographic preview helper grid wiring: pass at lint/build/test level
+  - browser smoke for gizmo click / ortho controls / preview helper grid / perspective auto-exit: pending
 
 ## Versioning / Release Rule
 
@@ -177,7 +178,7 @@
 
 ## Next Work
 
-1. Run browser smoke on the orthographic branch: HUD gizmo visibility, 6-direction clicks, centered-axis flip, ortho pan/zoom/depth, and auto-return to perspective only on rotation gestures
+1. Run browser smoke on the orthographic branch: HUD gizmo visibility, 6-direction clicks, centered-axis flip, ortho pan/zoom/depth, X/Z helper grid visibility, and auto-return to perspective only on rotation gestures
 2. After smoke results, fix any ortho interaction issues and update drop hint / status wording only if needed
 3. Continue viewport authoring tools after ortho settles: focus selected / fit scene / measurement groundwork
 4. Continue workbench UI polish with DCC density priorities: scene/reference/camera/export discoverability, list compactness, file-menu wording, and right-panel hierarchy cleanup

@@ -1769,6 +1769,15 @@ export function createCameraFramesController(elements, store) {
 					? "overlay"
 					: GUIDE_GRID_LAYER_MODE_BOTTOM,
 		});
+		const viewportOrthoPreviewGridPlane =
+			state.mode === WORKSPACE_PANE_VIEWPORT
+				? (viewportProjectionController?.getViewportOrthographicPreviewGridPlane?.() ??
+					null)
+				: null;
+		guideOverlay.setViewportOrthographicGridState?.({
+			visible: gridVisible !== false && viewportOrthoPreviewGridPlane !== null,
+			plane: viewportOrthoPreviewGridPlane,
+		});
 	}
 
 	function updateCameraSummary() {

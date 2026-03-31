@@ -9,6 +9,7 @@ import {
 	cloneViewportOrthoState,
 	configureViewportOrthographicCamera,
 	getViewportOrthoOppositeView,
+	getViewportOrthoPreviewGridPlane,
 	getViewportOrthoViewDefinition,
 	getViewportOrthoViewForAxis,
 } from "../engine/viewport-orthographic.js";
@@ -323,6 +324,13 @@ export function createViewportProjectionController({
 		};
 	}
 
+	function getViewportOrthographicPreviewGridPlane() {
+		if (!isViewportOrthographic()) {
+			return null;
+		}
+		return getViewportOrthoPreviewGridPlane(getViewportOrthoState().viewId);
+	}
+
 	function restoreViewportProjectionState(snapshot = null) {
 		const projectionMode =
 			snapshot?.projectionMode === VIEWPORT_PROJECTION_ORTHOGRAPHIC
@@ -347,6 +355,7 @@ export function createViewportProjectionController({
 		getViewportOrthographicCamera,
 		getActiveViewportCamera,
 		getViewportOrthoState,
+		getViewportOrthographicPreviewGridPlane,
 		captureViewportProjectionState,
 		restoreViewportProjectionState,
 		syncActiveViewportProjection,
