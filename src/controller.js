@@ -770,6 +770,7 @@ export function createCameraFramesController(elements, store) {
 		getAutoClipRange: (camera) =>
 			sceneFramingController.getAutoClipRange(camera),
 		getSceneFraming: () => sceneFramingController.getSceneFraming(),
+		getSceneRaycastTargets: () => assetController.getSceneRaycastTargets(),
 	});
 
 	cameraController = createCameraController({
@@ -1159,6 +1160,11 @@ export function createCameraFramesController(elements, store) {
 		ensurePerspectiveForViewportRotation: () =>
 			viewportProjectionController?.ensurePerspectiveForViewportRotation?.() ??
 			false,
+		setViewportTransientReferencePoint: (point, options) =>
+			viewportProjectionController?.setViewportTransientReferencePoint?.(
+				point,
+				options,
+			) ?? false,
 		getShotCameraRollAxisWorld: () =>
 			projectionController?.getShotCameraRollAxisWorld?.() ?? null,
 		getShotCameraRollAngleDegrees: () =>

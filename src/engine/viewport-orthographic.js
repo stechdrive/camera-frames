@@ -175,7 +175,8 @@ export function deriveViewportOrthoEntryStateFromCamera({
 	cameraPosition = null,
 } = {}) {
 	const normalizedState = normalizeViewportOrthoState(currentState);
-	const resolvedViewId = getViewportOrthoViewDefinition(viewId).id;
+	const viewDefinition = getViewportOrthoViewDefinition(viewId);
+	const resolvedViewId = viewDefinition.id;
 	if (!cameraPosition) {
 		return {
 			...normalizedState,
@@ -183,28 +184,33 @@ export function deriveViewportOrthoEntryStateFromCamera({
 		};
 	}
 
-	const axisVector = getViewportOrthoSideVector(
-		resolvedViewId,
-		new THREE.Vector3(),
-	).normalize();
 	const focusVector = new THREE.Vector3(
-		normalizedState.focus.x,
-		normalizedState.focus.y,
-		normalizedState.focus.z,
+		Number(cameraPosition.x ?? normalizedState.focus.x),
+		Number(cameraPosition.y ?? normalizedState.focus.y),
+		Number(cameraPosition.z ?? normalizedState.focus.z),
 	);
 	const cameraVector = new THREE.Vector3(
 		Number(cameraPosition.x ?? 0),
 		Number(cameraPosition.y ?? 0),
 		Number(cameraPosition.z ?? 0),
 	);
-	const desiredAxisProjection = cameraVector.dot(axisVector);
-	const currentFocusAxisProjection = focusVector.dot(axisVector);
-	focusVector.addScaledVector(
-		axisVector,
-		desiredAxisProjection -
-			normalizedState.distance -
-			currentFocusAxisProjection,
-	);
+	const currentAxisCoordinate =
+		viewDefinition.axis === "x"
+			? cameraVector.x
+			: viewDefinition.axis === "y"
+				? cameraVector.y
+				: cameraVector.z;
+	const desiredAxisCoordinate =
+		viewDefinition.sign * Math.abs(currentAxisCoordinate);
+	const nextFocusAxisCoordinate =
+		desiredAxisCoordinate - viewDefinition.sign * normalizedState.distance;
+	if (viewDefinition.axis === "x") {
+		focusVector.x = nextFocusAxisCoordinate;
+	} else if (viewDefinition.axis === "y") {
+		focusVector.y = nextFocusAxisCoordinate;
+	} else {
+		focusVector.z = nextFocusAxisCoordinate;
+	}
 
 	return {
 		...normalizedState,
@@ -215,6 +221,22 @@ export function deriveViewportOrthoEntryStateFromCamera({
 			z: focusVector.z,
 		},
 	};
+}
+
+export function deriveViewportOrthoSizeFromPerspective({
+	depth = DEFAULT_VIEWPORT_ORTHO_DISTANCE,
+	verticalFovDegrees = 50,
+	minSize = 0.05,
+} = {}) {
+	const safeDepth = Math.max(Number(depth) || 0, 1e-4);
+	const safeFovDegrees = THREE.MathUtils.clamp(
+		Number(verticalFovDegrees) || 0,
+		1e-3,
+		179.999,
+	);
+	const halfHeight =
+		safeDepth * Math.tan(THREE.MathUtils.degToRad(safeFovDegrees * 0.5));
+	return Math.max(Number(minSize) || 0.05, halfHeight);
 }
 
 export function configureViewportOrthographicCamera(

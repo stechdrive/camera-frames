@@ -9,6 +9,7 @@ import {
 	cloneViewportOrthoState,
 	configureViewportOrthographicCamera,
 	deriveViewportOrthoEntryStateFromCamera,
+	deriveViewportOrthoSizeFromPerspective,
 	getViewportOrthoOppositeView,
 	getViewportOrthoPreviewGridPlane,
 	getViewportOrthoViewDefinition,
@@ -18,6 +19,7 @@ import {
 const MIN_VIEWPORT_ORTHO_SIZE = 0.02;
 const MAX_VIEWPORT_ORTHO_SIZE = 1000000;
 const MIN_VIEWPORT_ORTHO_DISTANCE = 0.05;
+const TRANSIENT_VIEWPORT_REFERENCE_TTL_MS = 1500;
 
 function cloneOptionalVector3(value = null) {
 	return {
@@ -25,6 +27,18 @@ function cloneOptionalVector3(value = null) {
 		y: Number(value?.y ?? 0),
 		z: Number(value?.z ?? 0),
 	};
+}
+
+function cloneFiniteVector3(value = null) {
+	if (
+		!value ||
+		!Number.isFinite(value.x) ||
+		!Number.isFinite(value.y) ||
+		!Number.isFinite(value.z)
+	) {
+		return null;
+	}
+	return new THREE.Vector3(Number(value.x), Number(value.y), Number(value.z));
 }
 
 export function createViewportProjectionController({
@@ -35,7 +49,17 @@ export function createViewportProjectionController({
 	getViewportSize,
 	getAutoClipRange,
 	getSceneFraming,
+	getSceneRaycastTargets = null,
 }) {
+	const centerRaycaster = new THREE.Raycaster();
+	const centerRayNdc = new THREE.Vector2(0, 0);
+	const referenceCameraPosition = new THREE.Vector3();
+	const referenceCameraForward = new THREE.Vector3();
+	const referenceOffset = new THREE.Vector3();
+	let lastViewportReferencePoint = null;
+	let transientViewportReferencePoint = null;
+	let transientViewportReferenceExpiresAt = 0;
+
 	function getViewportAspect() {
 		const { width, height } = getViewportSize();
 		return Math.max(width, 1) / Math.max(height, 1);
@@ -151,6 +175,115 @@ export function createViewportProjectionController({
 		});
 	}
 
+	function rememberViewportReferencePoint(point) {
+		lastViewportReferencePoint = cloneFiniteVector3(point);
+		return Boolean(lastViewportReferencePoint);
+	}
+
+	function clearViewportTransientReferencePoint() {
+		transientViewportReferencePoint = null;
+		transientViewportReferenceExpiresAt = 0;
+	}
+
+	function setViewportTransientReferencePoint(
+		point,
+		{ ttlMs = TRANSIENT_VIEWPORT_REFERENCE_TTL_MS } = {},
+	) {
+		const nextPoint = cloneFiniteVector3(point);
+		if (!nextPoint) {
+			clearViewportTransientReferencePoint();
+			return false;
+		}
+		transientViewportReferencePoint = nextPoint;
+		transientViewportReferenceExpiresAt =
+			Date.now() + Math.max(Number(ttlMs) || 0, 0);
+		return true;
+	}
+
+	function getViewportTransientReferencePoint() {
+		if (!transientViewportReferencePoint) {
+			return null;
+		}
+		if (
+			Number.isFinite(transientViewportReferenceExpiresAt) &&
+			transientViewportReferenceExpiresAt > 0 &&
+			Date.now() > transientViewportReferenceExpiresAt
+		) {
+			clearViewportTransientReferencePoint();
+			return null;
+		}
+		return transientViewportReferencePoint.clone();
+	}
+
+	function pickViewportCenterReferencePoint() {
+		const targets = getSceneRaycastTargets?.() ?? [];
+		if (!viewportPerspectiveCamera || targets.length === 0) {
+			return null;
+		}
+		centerRaycaster.setFromCamera(centerRayNdc, viewportPerspectiveCamera);
+		const intersections = centerRaycaster.intersectObjects(targets, true);
+		return intersections[0]?.point?.clone?.() ?? null;
+	}
+
+	function resolveViewportEntryReferencePoint() {
+		const centerReferencePoint = pickViewportCenterReferencePoint();
+		if (centerReferencePoint) {
+			rememberViewportReferencePoint(centerReferencePoint);
+			clearViewportTransientReferencePoint();
+			return centerReferencePoint;
+		}
+
+		const transientReferencePoint = getViewportTransientReferencePoint();
+		if (transientReferencePoint) {
+			clearViewportTransientReferencePoint();
+			return transientReferencePoint;
+		}
+
+		return lastViewportReferencePoint?.clone?.() ?? null;
+	}
+
+	function deriveViewportOrthoEntrySize(currentState, referencePoint = null) {
+		const camera = viewportPerspectiveCamera;
+		if (!camera?.isPerspectiveCamera) {
+			return Math.max(
+				Number(currentState?.size) || 0,
+				DEFAULT_VIEWPORT_ORTHO_SIZE,
+			);
+		}
+
+		const { center, radius } = getSceneFramingState();
+		camera.getWorldPosition(referenceCameraPosition);
+		camera.getWorldDirection(referenceCameraForward).normalize();
+
+		let depth = 0;
+		if (referencePoint) {
+			depth = referenceOffset
+				.copy(referencePoint)
+				.sub(referenceCameraPosition)
+				.dot(referenceCameraForward);
+		}
+		if (!(depth > 1e-4)) {
+			depth = referenceOffset
+				.copy(center)
+				.sub(referenceCameraPosition)
+				.dot(referenceCameraForward);
+		}
+		if (!(depth > 1e-4)) {
+			depth = Math.max(
+				referenceCameraPosition.distanceTo(center),
+				radius * 2,
+				Number(currentState?.distance) || 0,
+				DEFAULT_VIEWPORT_ORTHO_DISTANCE,
+			);
+		}
+
+		return deriveViewportOrthoSizeFromPerspective({
+			depth,
+			verticalFovDegrees: camera.fov,
+			minSize: MIN_VIEWPORT_ORTHO_SIZE,
+		});
+	}
+
 	function setViewportProjectionMode(mode, { copyActivePose = true } = {}) {
 		const nextMode =
 			mode === VIEWPORT_PROJECTION_ORTHOGRAPHIC
@@ -197,13 +330,22 @@ export function createViewportProjectionController({
 		const nextViewId = shouldToggle
 			? getViewportOrthoOppositeView(resolvedViewId)
 			: resolvedViewId;
+		const referencePoint = isViewportOrthographic()
+			? null
+			: resolveViewportEntryReferencePoint();
+		const entryState = isViewportOrthographic()
+			? currentState
+			: {
+					...currentState,
+					size: deriveViewportOrthoEntrySize(currentState, referencePoint),
+				};
 		const nextState = isViewportOrthographic()
 			? {
-					...currentState,
+					...entryState,
 					viewId: nextViewId,
 				}
 			: deriveViewportOrthoEntryStateFromCamera({
-					currentState,
+					currentState: entryState,
 					viewId: nextViewId,
 					cameraPosition: viewportPerspectiveCamera?.position ?? null,
 				});
@@ -377,5 +519,7 @@ export function createViewportProjectionController({
 		panViewportOrthographic,
 		zoomViewportOrthographic,
 		offsetViewportOrthographicDepth,
+		rememberViewportReferencePoint,
+		setViewportTransientReferencePoint,
 	};
 }

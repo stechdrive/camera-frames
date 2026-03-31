@@ -34,6 +34,7 @@ export function createInteractionController({
 	zoomViewportOrthographic = () => false,
 	offsetViewportOrthographicDepth = () => false,
 	ensurePerspectiveForViewportRotation = () => false,
+	setViewportTransientReferencePoint = () => false,
 	getShotCameraRollAxisWorld,
 	getShotCameraRollAngleDegrees,
 	applyActiveShotCameraRoll,
@@ -734,6 +735,9 @@ export function createInteractionController({
 			lastClientY: event.clientY,
 			historyLabel: getOrbitAroundHitHistoryLabel(),
 		};
+		if (state.mode !== workspacePaneCamera) {
+			setViewportTransientReferencePoint?.(pivotWorld);
+		}
 		viewportShell.classList.add("is-orbit-dragging");
 		pointerControls.enable = false;
 		try {

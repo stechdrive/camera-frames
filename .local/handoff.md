@@ -7,12 +7,12 @@
 - repo: `D:\GitHub\camera-frames`
 - integration branch: `main`
 - current working branch: `codex/orthographic-structure-plan`
-- current local worktree: clean
+- current local worktree: dirty (uncommitted ortho entry sizing follow-up)
 - working version source of truth: `package.json`
 - current release baseline: `0.6.8`
 - dependency: `@sparkjsdev/spark = sparkjsdev/spark#v2.0.0-preview`
 - Pages URL: `https://stechdrive.github.io/camera-frames/`
-- latest build info: `local orthographic viewport HUD WIP / lint+build+test pass`
+- latest build info: `local orthographic viewport HUD WIP / ortho entry position+size follow-up / lint+build+test pass`
 - latest deploy baseline: `gh-pages d836f40 (publish ee89d33)`
 
 ## Current App Structure
@@ -135,7 +135,9 @@
   - HUD XYZ gizmo render/sync wiring: pass at lint/build/test level
   - X/Z orthographic preview helper grid wiring: pass at lint/build/test level
   - perspective return after ortho now restores camera controls again: pass on current branch logic
-  - ortho entry axis-position preservation is still not matching intended behavior: unresolved
+  - ortho entry axis-position preservation logic updated to keep full world position on entry: pass at lint/build/test level, browser QA still needed
+  - ortho entry size now derives from current viewport perspective view scale instead of previous/saved ortho size: pass at lint/build/test level, browser QA still needed
+  - ortho entry reference priority is now `viewport center hit -> short-lived orbit-hit hint -> last valid center-hit -> scene center`: pass at lint/build/test level, browser QA still needed
   - browser smoke for gizmo click / ortho controls / preview helper grid / perspective auto-exit: pending
 
 ## Versioning / Release Rule
@@ -158,8 +160,8 @@
 - shot-camera local editor state intentionally lives only in working save; `.ssproj` reopen restores content, not transient selection/editor focus
 - mobile now has a first-pass bottom dock + inspector drawer, but broader touch QA and polish remain
 - mobile/touch 実装は未着手。方針は `phone = portrait + bottom sheet`, `tablet = desktop-like + touch/pen`
-- orthographic viewport mode is now in active branch work, but browser/manual QA is still pending
-- viewport gizmo is now in place, and orthographic HUD gizmo was added on the branch, but polish remains: no selected-object visual cue, no off-screen pivot/gizmo rescue, and ortho entry axis-position logic still needs correction
+- orthographic viewport mode is now in active branch work, and browser/manual QA is still pending around entry scale feel and axis-direction expectations
+- viewport gizmo is now in place, and orthographic HUD gizmo was added on the branch, but polish remains: no selected-object visual cue and no off-screen pivot/gizmo rescue
 - legacy import now works, but `project-package.js` should later be split more cleanly
 - Vite build still reports a large chunk warning
 - very large 3DGS scenes can still produce huge full bounds / huge auto Far; no-camera startup now uses a fixed home view, but full bounds remain intentionally large for diagnostics/export
@@ -180,7 +182,7 @@
 
 ## Next Work
 
-1. Run browser smoke on the orthographic branch: HUD gizmo visibility, 6-direction clicks, centered-axis flip, ortho pan/zoom/depth, X/Z helper grid visibility, and auto-return to perspective only on rotation gestures
+1. Run browser smoke on the orthographic branch: HUD gizmo visibility, 6-direction clicks, centered-axis flip, entry position, entry size feel, center-hit vs empty-space fallback, ortho pan/zoom/depth, X/Z helper grid visibility, and auto-return to perspective only on rotation gestures
 2. After smoke results, fix any ortho interaction issues and update drop hint / status wording only if needed
 3. Continue viewport authoring tools after ortho settles: focus selected / fit scene / measurement groundwork
 4. Continue workbench UI polish with DCC density priorities: scene/reference/camera/export discoverability, list compactness, file-menu wording, and right-panel hierarchy cleanup

@@ -3,6 +3,7 @@ import * as THREE from "three";
 import {
 	configureViewportOrthographicCamera,
 	deriveViewportOrthoEntryStateFromCamera,
+	deriveViewportOrthoSizeFromPerspective,
 	getViewportOrthoOppositeView,
 	getViewportOrthoPreviewGridPlane,
 	getViewportOrthoViewForAxis,
@@ -20,6 +21,24 @@ assert.equal(getViewportOrthoViewForAxis("z", 1), "posZ");
 assert.equal(getViewportOrthoPreviewGridPlane("posX"), "zy");
 assert.equal(getViewportOrthoPreviewGridPlane("negZ"), "xy");
 assert.equal(getViewportOrthoPreviewGridPlane("posY"), null);
+assert.equal(
+	roundComponent(
+		deriveViewportOrthoSizeFromPerspective({
+			depth: 10,
+			verticalFovDegrees: 60,
+		}),
+	),
+	5.7735,
+);
+assert.equal(
+	roundComponent(
+		deriveViewportOrthoSizeFromPerspective({
+			depth: 2.5,
+			verticalFovDegrees: 90,
+		}),
+	),
+	2.5,
+);
 
 assert.deepEqual(
 	deriveViewportOrthoEntryStateFromCamera({
@@ -36,7 +55,7 @@ assert.deepEqual(
 		viewId: "posX",
 		size: 4,
 		distance: 6,
-		focus: { x: -11, y: 1, z: 0 },
+		focus: { x: -1, y: 3, z: 4 },
 	},
 );
 
@@ -55,7 +74,26 @@ assert.deepEqual(
 		viewId: "negZ",
 		size: 4,
 		distance: 6,
-		focus: { x: 2, y: 3, z: 20 },
+		focus: { x: 20, y: -3, z: -8 },
+	},
+);
+
+assert.deepEqual(
+	deriveViewportOrthoEntryStateFromCamera({
+		currentState: {
+			viewId: "negX",
+			size: 5,
+			distance: 7,
+			focus: { x: 1, y: 2, z: 3 },
+		},
+		viewId: "posY",
+		cameraPosition: { x: 9, y: 12, z: -4 },
+	}),
+	{
+		viewId: "posY",
+		size: 5,
+		distance: 7,
+		focus: { x: 9, y: 5, z: -4 },
 	},
 );
 
