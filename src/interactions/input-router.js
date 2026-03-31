@@ -112,6 +112,7 @@ export function bindInputRouter({
 	pickViewportAssetAtPointer,
 	handleMeasurementPointerDown,
 	handleMeasurementHoverMove,
+	clearSelectedMeasurementPoint,
 	deleteSelectedMeasurement,
 	startOutputFrameAnchorDrag,
 	isInteractionBlocked = null,
@@ -447,6 +448,7 @@ export function bindInputRouter({
 		) {
 			return;
 		}
+		clearSelectedMeasurementPoint?.();
 		if (viewportPieTouchHoldState?.pointerId === event.pointerId) {
 			return;
 		}

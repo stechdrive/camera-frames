@@ -1445,6 +1445,8 @@ export function createCameraFramesController(elements, store) {
 			measurementController?.handleMeasurementPointerDown?.(...args) ?? false,
 		handleMeasurementHoverMove: (...args) =>
 			measurementController?.handleMeasurementHoverMove?.(...args),
+		clearSelectedMeasurementPoint: () =>
+			measurementController?.clearSelectedMeasurementPoint?.() ?? false,
 		deleteSelectedMeasurement: () =>
 			measurementController?.deleteSelectedMeasurement?.() ?? false,
 		syncMeasurementSceneHelpers: () =>

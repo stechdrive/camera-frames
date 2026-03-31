@@ -513,6 +513,17 @@ export function createMeasurementController({
 		return true;
 	}
 
+	function clearSelectedMeasurementPoint() {
+		if (!isMeasurementModeActive() || !getEndPointWorld()) {
+			return false;
+		}
+		if (!getSelectedPointKey()) {
+			return false;
+		}
+		setSelectedPointKey(null);
+		return true;
+	}
+
 	function startMeasurementAxisDrag(axisKey, event) {
 		const context = resolveInteractionContext();
 		return context
@@ -745,8 +756,11 @@ export function createMeasurementController({
 			return null;
 		}
 		const selectedPointKey = getEndPointWorld()
-			? getSelectedPointKey() || "end"
+			? getSelectedPointKey()
 			: "start";
+		if (!selectedPointKey) {
+			return null;
+		}
 		const pivotWorld = getPointWorldByKey(selectedPointKey) ?? startPoint;
 		return pivotWorld
 			? {
@@ -838,11 +852,12 @@ export function createMeasurementController({
 		const lineTarget = endPoint ?? draftEnd;
 		const lineTargetScreen = endPoint ? endScreen : draftEndScreen;
 		const lineVisible = startScreen.visible && lineTargetScreen.visible;
-		const selectedPointKey = endPoint
-			? getSelectedPointKey() || "end"
-			: "start";
-		const gizmoWorld =
-			selectedPointKey === "end" && endPoint ? endPoint : startPoint;
+		const selectedPointKey = endPoint ? getSelectedPointKey() : "start";
+		const gizmoWorld = selectedPointKey
+			? selectedPointKey === "end" && endPoint
+				? endPoint
+				: startPoint
+			: null;
 		const gizmoScreen = buildOverlayPointState(
 			gizmoWorld,
 			context,
@@ -901,7 +916,7 @@ export function createMeasurementController({
 						: "",
 			},
 			gizmo: {
-				visible: gizmoScreen.visible,
+				visible: Boolean(selectedPointKey) && gizmoScreen.visible,
 				pointKey: selectedPointKey,
 				x: gizmoScreen.x,
 				y: gizmoScreen.y,
@@ -967,6 +982,7 @@ export function createMeasurementController({
 		handleMeasurementAxisDragMove,
 		handleMeasurementAxisDragEnd,
 		selectMeasurementPoint,
+		clearSelectedMeasurementPoint,
 		deleteSelectedMeasurement,
 		setMeasurementLengthInputText,
 		applyMeasurementScale,
