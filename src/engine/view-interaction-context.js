@@ -29,9 +29,9 @@ export function resolveActiveViewInteractionContext({
 	state,
 	viewportShell,
 	viewportCanvas,
-	renderBox,
 	workspacePaneCamera,
 	getActiveViewportCamera,
+	getActiveCameraViewCamera,
 	getActiveOutputCamera,
 }) {
 	const shellRect = toFiniteRect(viewportShell?.getBoundingClientRect?.());
@@ -40,13 +40,9 @@ export function resolveActiveViewInteractionContext({
 	}
 
 	const isCameraView = state.mode === workspacePaneCamera;
-	const sourceRect = toFiniteRect(
-		isCameraView
-			? renderBox?.getBoundingClientRect?.()
-			: viewportCanvas?.getBoundingClientRect?.(),
-	);
+	const sourceRect = toFiniteRect(viewportCanvas?.getBoundingClientRect?.());
 	const camera = isCameraView
-		? (getActiveOutputCamera?.() ?? null)
+		? (getActiveCameraViewCamera?.() ?? getActiveOutputCamera?.() ?? null)
 		: (getActiveViewportCamera?.() ?? null);
 	if (!sourceRect || !camera) {
 		return null;

@@ -232,9 +232,9 @@ export function createMeasurementController({
 	state,
 	viewportShell,
 	viewportCanvas,
-	renderBox,
 	workspacePaneCamera,
 	getActiveViewportCamera,
+	getActiveCameraViewCamera,
 	getActiveOutputCamera,
 	assetController,
 	setStatus,
@@ -347,9 +347,9 @@ export function createMeasurementController({
 			state,
 			viewportShell,
 			viewportCanvas,
-			renderBox,
 			workspacePaneCamera,
 			getActiveViewportCamera,
+			getActiveCameraViewCamera,
 			getActiveOutputCamera,
 		});
 	}
