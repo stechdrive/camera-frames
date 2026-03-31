@@ -6,13 +6,13 @@
 
 - repo: `D:\GitHub\camera-frames`
 - integration branch: `main`
-- current working branch: `codex/orthographic-structure-plan`
-- current local worktree: dirty (uncommitted ortho preview grid swap follow-up)
+- current working branch: `main`
+- current local worktree: clean after orthographic integration + handoff update
 - working version source of truth: `package.json`
 - current release baseline: `0.6.8`
 - dependency: `@sparkjsdev/spark = sparkjsdev/spark#v2.0.0-preview`
 - Pages URL: `https://stechdrive.github.io/camera-frames/`
-- latest build info: `local orthographic viewport HUD WIP / ortho preview grid swap follow-up / lint+build+test pass`
+- latest build info: `main includes viewport-only orthographic authoring / lint+build+test pass`
 - latest deploy baseline: `gh-pages d836f40 (publish ee89d33)`
 
 ## Current App Structure
@@ -130,19 +130,14 @@
   - controller smoke test for broken `.ssproj` overlay cleanup: pass
   - legacy `.ssproj` reopen after package save: pass
   - SOG compression package save: pass on representative browser test after Spark-parser column pipeline rewrite
-- orthographic viewport branch snapshot:
-  - Viewport-only orthographic state/document wiring: pass at lint/build/test level
-  - HUD XYZ gizmo render/sync wiring: pass at lint/build/test level
-  - X/Z orthographic preview helper grid wiring: pass at lint/build/test level
-  - perspective return after ortho now restores camera controls again: pass on current branch logic
-  - ortho entry axis-position preservation logic updated to keep full world position on entry: pass at lint/build/test level, browser QA still needed
-  - ortho entry size now derives from current viewport perspective view scale instead of previous/saved ortho size: pass at lint/build/test level, browser QA still needed
-  - ortho entry reference priority is now `viewport center hit -> short-lived orbit-hit hint -> last valid center-hit -> scene center`: pass at lint/build/test level, browser QA still needed
-  - HUD XYZ gizmo active button fill / negative-facing label suppression / line-to-node alignment polish: pass at lint/build/test level, browser QA still needed
-  - HUD XYZ gizmo line coordinates now use the gizmo's real pixel size instead of the fixed 100x100 SVG space: pass at lint/build/test level, browser QA still needed
-  - viewport-only ortho helper grid now uses a thinner colored axis width than the default grid to avoid overpowering ground alignment: pass at lint/build/test level, browser QA still needed
-  - `+Y/-Y` top-bottom ortho now also swaps the normal ground grid out for the thinner viewport preview grid (`xz`) so thick default axis lines do not leak into viewport ortho: pass at lint/build/test level, browser QA still needed
-  - browser smoke for gizmo click / ortho controls / preview helper grid / perspective auto-exit: pending
+- orthographic viewport integration:
+  - Viewport-only orthographic state/document wiring: pass
+  - HUD XYZ gizmo render/sync wiring: pass
+  - 6-direction orthographic switch with same-axis flip: pass on manual browser QA
+  - perspective return after ortho now restores camera controls again: pass on manual browser QA
+  - ortho entry size now derives from current viewport perspective view scale using `center hit -> short-lived orbit-hit hint -> last valid center-hit -> scene center`: pass on manual browser QA
+  - HUD XYZ gizmo active button fill / negative-facing label suppression / line-to-node alignment polish: pass on manual browser QA
+  - viewport-only ortho helper grids now cover `xy / xz / zy`, keep thinner colored axis lines, and stay preview-only without affecting export: pass on manual browser QA
 
 ## Versioning / Release Rule
 
@@ -164,8 +159,8 @@
 - shot-camera local editor state intentionally lives only in working save; `.ssproj` reopen restores content, not transient selection/editor focus
 - mobile now has a first-pass bottom dock + inspector drawer, but broader touch QA and polish remain
 - mobile/touch 実装は未着手。方針は `phone = portrait + bottom sheet`, `tablet = desktop-like + touch/pen`
-- orthographic viewport mode is now in active branch work, and browser/manual QA is still pending around entry scale feel and axis-direction expectations
-- viewport gizmo is now in place, and orthographic HUD gizmo was added on the branch, but polish remains: no selected-object visual cue and no off-screen pivot/gizmo rescue
+- viewport orthographic is now integrated on `main`, but follow-up utilities remain: focus selected / fit scene / measurement
+- viewport gizmo is now in place, but polish remains: no selected-object visual cue and no off-screen pivot/gizmo rescue
 - legacy import now works, but `project-package.js` should later be split more cleanly
 - Vite build still reports a large chunk warning
 - very large 3DGS scenes can still produce huge full bounds / huge auto Far; no-camera startup now uses a fixed home view, but full bounds remain intentionally large for diagnostics/export
@@ -186,15 +181,13 @@
 
 ## Next Work
 
-1. Run browser smoke on the orthographic branch: HUD gizmo visibility, 6-direction clicks, centered-axis flip, entry position, entry size feel, center-hit vs empty-space fallback, ortho pan/zoom/depth, X/Z helper grid visibility, and auto-return to perspective only on rotation gestures
-2. After smoke results, fix any ortho interaction issues and update drop hint / status wording only if needed
-3. Continue viewport authoring tools after ortho settles: focus selected / fit scene / measurement groundwork
-4. Continue workbench UI polish with DCC density priorities: scene/reference/camera/export discoverability, list compactness, file-menu wording, and right-panel hierarchy cleanup
-5. Finish reference-image polish: preset UX, manager/export consistency, true preview back-layer composition, and representative browser QA
-6. Stabilize export correctness: guide color parity, LoD settle policy, and layered PSD contract polish
-7. Re-check package save on larger assets: per-asset peak memory, SOG output size, and failure reporting
-8. Plan per-splat edit mode after tool-system seams and save model stabilize
+1. Continue viewport authoring tools after orthographic integration: focus selected / fit scene / measurement groundwork
+2. Continue workbench UI polish with DCC density priorities: scene/reference/camera/export discoverability, list compactness, file-menu wording, and right-panel hierarchy cleanup
+3. Finish reference-image polish: preset UX, manager/export consistency, true preview back-layer composition, and representative browser QA
+4. Stabilize export correctness: guide color parity, LoD settle policy, and layered PSD contract polish
+5. Re-check package save on larger assets: per-asset peak memory, SOG output size, and failure reporting
+6. Plan per-splat edit mode after tool-system seams and save model stabilize
 
 ## Resume Prompt
 
-`このリポでは .local/AGENTS.local.md と .local/development-playbook.md と .local/code-structure-plan.md と .local/feature-map.md と .local/state-ownership-map.md と .local/architecture-roadmap.md と .local/open-questions.md と .local/handoff.md を先に見て。release baseline は main / v0.6.8。保存方針は old CAMERA_FRAMES と同じく \`working save\` と \`package save\` を分けること。project status の正本は viewport 右上 HUD の \`name / * / PKG\`。現ブランチでは Viewport-only orthographic の仕込みが進んでいて、\`viewport-projection-controller\`、\`viewport-axis-gizmo-controller\`、\`viewport-orthographic.js\`、\`viewport-axis-gizmo.js\` が追加されている。HUD XYZ gizmo で 6 方向オルソへ入る設計で、store/project-document/runtime/input-router まで state と配線は入っているが、browser smoke はまだ必要。Camera tab は shot state のまま触らず、right panel に viewport 専用 UI は増やさない前提。現状仕様は .local/feature-map.md、保存範囲は .local/state-ownership-map.md、残課題は .local/architecture-roadmap.md を正本にする。正本仕様は D:\GitHub\supersplat-cameraframes\docs を見る。`
+`このリポでは .local/AGENTS.local.md と .local/development-playbook.md と .local/code-structure-plan.md と .local/feature-map.md と .local/state-ownership-map.md と .local/architecture-roadmap.md と .local/open-questions.md と .local/handoff.md を先に見て。release baseline は main / v0.6.8。保存方針は old CAMERA_FRAMES と同じく \`working save\` と \`package save\` を分けること。project status の正本は viewport 右上 HUD の \`name / * / PKG\`。Viewport-only orthographic は main に統合済みで、\`viewport-projection-controller\`、\`viewport-axis-gizmo-controller\`、\`viewport-orthographic.js\`、\`viewport-axis-gizmo.js\` が owner。HUD XYZ gizmo で 6 方向オルソへ入り、同軸再クリックで反対側へ切替、rotation gesture で perspective に戻る。Camera tab は shot state のまま触らず、right panel に viewport 専用 UI は増やさない。現状仕様は .local/feature-map.md、保存範囲は .local/state-ownership-map.md、残課題は .local/architecture-roadmap.md を正本にする。正本仕様は D:\GitHub\supersplat-cameraframes\docs を見る。`
