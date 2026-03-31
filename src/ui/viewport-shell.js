@@ -280,6 +280,17 @@ export function ViewportShell({ store, controller, refs, t }) {
 			: null;
 	const renderBoxElement =
 		refs.renderBoxRef?.current ?? refs.renderBoxRef ?? null;
+	const dropHintStyle =
+		renderBoxElement instanceof HTMLElement &&
+		renderBoxElement.offsetWidth > 0 &&
+		renderBoxElement.offsetHeight > 0
+			? {
+					left: `${renderBoxElement.offsetLeft + renderBoxElement.offsetWidth * 0.5}px`,
+					top: `${renderBoxElement.offsetTop + renderBoxElement.offsetHeight * 0.5}px`,
+					bottom: "auto",
+					transform: "translate(-50%, -50%)",
+				}
+			: undefined;
 	const frameMaskViewportBounds =
 		frameMaskBounds &&
 		renderBoxElement instanceof HTMLElement &&
@@ -370,12 +381,28 @@ export function ViewportShell({ store, controller, refs, t }) {
 				`
 				}
 			</div>
-			<div id="drop-hint" ref=${refs.dropHintRef} class="drop-hint">
+			<div
+				id="drop-hint"
+				ref=${refs.dropHintRef}
+				class="drop-hint"
+				style=${dropHintStyle}
+			>
 				<span class="drop-hint__meta">
 					${`CAMERA_FRAMES ${getBuildVersionLabel()}`}
 				</span>
 				<strong>${t("drop.title")}</strong>
 				<span>${t("drop.body")}</span>
+				<div class="drop-hint__controls">
+					<strong class="drop-hint__controls-title">
+						${t("drop.controlsTitle")}
+					</strong>
+					<div class="drop-hint__controls-grid">
+						<span>${t("drop.controlOrbit")}</span>
+						<span>${t("drop.controlPan")}</span>
+						<span>${t("drop.controlDolly")}</span>
+						<span>${t("drop.controlAnchorOrbit")}</span>
+					</div>
+				</div>
 			</div>
 			<div class="reference-image-layer reference-image-layer--back">
 				${backReferenceImageLayers.map(

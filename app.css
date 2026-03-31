@@ -3139,11 +3139,11 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	text-align: center;
 	backdrop-filter: blur(16px);
 	transition: opacity 0.2s ease;
+	pointer-events: none;
 }
 
 .drop-hint.is-hidden {
 	opacity: 0;
-	pointer-events: none;
 }
 
 .drop-hint strong {
@@ -3159,6 +3159,42 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	color: var(--accent-cool);
 	font: 600 0.72rem / 1.2 "Consolas", "Andale Mono", monospace;
 	letter-spacing: 0.08em;
+}
+
+.drop-hint__controls {
+	display: flex;
+	flex-direction: column;
+	gap: 0.45rem;
+	margin-top: 0.4rem;
+	padding-top: 0.6rem;
+	border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.drop-hint__controls-title {
+	font-size: 0.78rem;
+	color: var(--text);
+}
+
+.drop-hint__controls-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 0.36rem 0.8rem;
+}
+
+.drop-hint__controls-grid span {
+	color: var(--text-dim);
+	font-size: 0.8rem;
+	text-align: left;
+}
+
+@media (max-width: 720px) {
+	.drop-hint__controls-grid {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.drop-hint__controls-grid span {
+		text-align: center;
+	}
 }
 
 .render-box {

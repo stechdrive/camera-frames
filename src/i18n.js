@@ -360,6 +360,11 @@ const MESSAGES = {
 		drop: {
 			title: "画面にファイルをドロップして開く",
 			body: "3Dデータ（PLY / SPZ / SOG / SPLAT / GLB など）、プロジェクトパッケージ（.ssproj）、下絵（PNG / JPG / WEBP / PSD）を読み込めます。",
+			controlsTitle: "カメラ操作",
+			controlOrbit: "左ドラッグ: 見回す",
+			controlPan: "右ドラッグ: 左右 / 上下に移動",
+			controlDolly: "ホイール: 前進 / 後退",
+			controlAnchorOrbit: "Ctrl + 左ドラッグ: 指した位置を中心に回転",
 		},
 		badge: {
 			horizontalFov: "水平FOV",
@@ -1007,6 +1012,11 @@ const MESSAGES = {
 		drop: {
 			title: "Drop files here",
 			body: "Load 3D data (PLY / SPZ / SOG / SPLAT / GLB and more), project packages (.ssproj), or reference images (PNG / JPG / WEBP / PSD).",
+			controlsTitle: "Camera Controls",
+			controlOrbit: "Left drag: look around",
+			controlPan: "Right drag: slide left / right / up / down",
+			controlDolly: "Wheel: move forward / back",
+			controlAnchorOrbit: "Ctrl + left drag: orbit around the pointed spot",
 		},
 		badge: {
 			horizontalFov: "H-FOV",
