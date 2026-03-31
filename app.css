@@ -2528,8 +2528,11 @@ body[data-interaction-mode="roll"] .viewport-axis-gizmo {
 
 .viewport-axis-gizmo {
 	--viewport-axis-x: #ff5f74;
+	--viewport-axis-x-rgb: 255 95 116;
 	--viewport-axis-y: #bddb35;
+	--viewport-axis-y-rgb: 189 219 53;
 	--viewport-axis-z: #5ba7ff;
+	--viewport-axis-z-rgb: 91 167 255;
 	position: absolute;
 	top: 3.9rem;
 	right: 1rem;
@@ -2598,6 +2601,8 @@ body[data-interaction-mode="roll"] .viewport-axis-gizmo {
 	border: 1px solid currentColor;
 	background: rgba(6, 17, 30, 0.92);
 	box-shadow: 0 10px 18px rgba(0, 0, 0, 0.34);
+	overflow: hidden;
+	isolation: isolate;
 	color: var(--accent-cool);
 	cursor: pointer;
 	pointer-events: auto;
@@ -2610,16 +2615,35 @@ body[data-interaction-mode="roll"] .viewport-axis-gizmo {
 		border-color 120ms ease;
 }
 
+.viewport-axis-gizmo__button::before {
+	content: "";
+	position: absolute;
+	inset: 2px;
+	border-radius: inherit;
+	background: rgb(var(--viewport-axis-rgb, 137 208 255) / 0);
+	opacity: 0;
+	transition: opacity 120ms ease, background-color 120ms ease;
+	z-index: 0;
+}
+
+.viewport-axis-gizmo__button > span {
+	position: relative;
+	z-index: 1;
+}
+
 .viewport-axis-gizmo__button--x {
 	color: var(--viewport-axis-x);
+	--viewport-axis-rgb: var(--viewport-axis-x-rgb);
 }
 
 .viewport-axis-gizmo__button--y {
 	color: var(--viewport-axis-y);
+	--viewport-axis-rgb: var(--viewport-axis-y-rgb);
 }
 
 .viewport-axis-gizmo__button--z {
 	color: var(--viewport-axis-z);
+	--viewport-axis-rgb: var(--viewport-axis-z-rgb);
 }
 
 .viewport-axis-gizmo__button--positive {
@@ -2650,13 +2674,26 @@ body[data-interaction-mode="roll"] .viewport-axis-gizmo {
 	text-transform: uppercase;
 }
 
+.viewport-axis-gizmo__button--axis-center[data-facing="negative"] span {
+	display: none;
+}
+
 .viewport-axis-gizmo__button.is-hidden {
 	display: none;
 }
 
 .viewport-axis-gizmo__button.is-active {
-	background: rgba(255, 255, 255, 0.1);
+	background: rgba(8, 18, 30, 0.94);
 	box-shadow: 0 14px 24px rgba(0, 0, 0, 0.42), 0 0 0 2px currentColor;
+}
+
+.viewport-axis-gizmo__button.is-active::before {
+	opacity: 0.9;
+}
+
+.viewport-axis-gizmo__button.is-active > span {
+	color: rgba(248, 252, 255, 0.96);
+	text-shadow: 0 1px 2px rgba(0, 0, 0, 0.72);
 }
 
 @media (hover: hover) and (pointer: fine) {

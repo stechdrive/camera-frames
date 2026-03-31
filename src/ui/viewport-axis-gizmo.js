@@ -39,6 +39,7 @@ export function ViewportAxisGizmo({ controller, rootRef, svgRef }) {
 						type="button"
 						class=${`viewport-axis-gizmo__button viewport-axis-gizmo__button--positive viewport-axis-gizmo__button--${axisKey}`}
 						data-axis-gizmo-node=${`pos-${axisKey}`}
+						data-facing="positive"
 						aria-label=${axisKey.toUpperCase()}
 						title=${axisKey.toUpperCase()}
 						onClick=${() =>
@@ -56,6 +57,7 @@ export function ViewportAxisGizmo({ controller, rootRef, svgRef }) {
 						type="button"
 						class=${`viewport-axis-gizmo__button viewport-axis-gizmo__button--negative viewport-axis-gizmo__button--${axisKey}`}
 						data-axis-gizmo-node=${`neg-${axisKey}`}
+						data-facing="negative"
 						aria-label=${`-${axisKey.toUpperCase()}`}
 						title=${`-${axisKey.toUpperCase()}`}
 						onClick=${() =>
@@ -73,6 +75,7 @@ export function ViewportAxisGizmo({ controller, rootRef, svgRef }) {
 						type="button"
 						class=${`viewport-axis-gizmo__button viewport-axis-gizmo__button--axis-center viewport-axis-gizmo__button--${axisKey}`}
 						data-axis-gizmo-node=${`axis-${axisKey}`}
+						data-facing="positive"
 						aria-label=${axisKey.toUpperCase()}
 						title=${axisKey.toUpperCase()}
 						onClick=${() =>

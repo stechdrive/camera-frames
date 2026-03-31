@@ -14,6 +14,7 @@ const AXIS_VECTORS = Object.freeze({
 });
 const GIZMO_RADIUS_PX = 26;
 const ALIGNMENT_CENTER_THRESHOLD = 0.92;
+const GIZMO_NODE_RADIUS_PX_FALLBACK = 8.64;
 
 export function createViewportAxisGizmoController({
 	state,
@@ -101,6 +102,26 @@ export function createViewportAxisGizmoController({
 			return;
 		}
 		element.classList.toggle("is-active", active);
+	}
+
+	function setNodeFacing(nodeId, facing) {
+		const element = getNodeElement(nodeId);
+		if (!element) {
+			return;
+		}
+		if (facing === "negative") {
+			element.dataset.facing = "negative";
+			return;
+		}
+		element.dataset.facing = "positive";
+	}
+
+	function getNodeRadiusPx(nodeId) {
+		const element = getNodeElement(nodeId);
+		const width = Number(element?.offsetWidth ?? 0);
+		const height = Number(element?.offsetHeight ?? 0);
+		const radius = Math.max(width, height) * 0.5;
+		return radius > 0 ? radius : GIZMO_NODE_RADIUS_PX_FALLBACK;
 	}
 
 	function setLinePoints(axisKey, x1, y1, x2, y2) {
@@ -194,8 +215,19 @@ export function createViewportAxisGizmoController({
 				Math.hypot(positive.x, positive.y) <= 0.12 &&
 				Math.hypot(negative.x, negative.y) <= 0.12;
 			const facingPositive = positive.depth >= negative.depth;
+			const lineDeltaX = positiveX - negativeX;
+			const lineDeltaY = positiveY - negativeY;
+			const lineLength = Math.hypot(lineDeltaX, lineDeltaY);
+			const negativeInset =
+				lineLength > 1e-4 ? getNodeRadiusPx(negativeNodeId) / lineLength : 0;
+			const positiveInset =
+				lineLength > 1e-4 ? getNodeRadiusPx(positiveNodeId) / lineLength : 0;
+			const lineStartX = negativeX + lineDeltaX * negativeInset;
+			const lineStartY = negativeY + lineDeltaY * negativeInset;
+			const lineEndX = positiveX - lineDeltaX * positiveInset;
+			const lineEndY = positiveY - lineDeltaY * positiveInset;
 
-			setLinePoints(axisKey, negativeX, negativeY, positiveX, positiveY);
+			setLinePoints(axisKey, lineStartX, lineStartY, lineEndX, lineEndY);
 			setLineActive(
 				axisKey,
 				activeOrthoViewId &&
@@ -208,6 +240,7 @@ export function createViewportAxisGizmoController({
 				setNodeVisible(centerNodeId, true);
 				setNodePosition(centerNodeId, 50, 50);
 				setNodeDepth(centerNodeId, Math.max(positive.depth, negative.depth));
+				setNodeFacing(centerNodeId, facingPositive ? "positive" : "negative");
 				setNodeActive(
 					centerNodeId,
 					activeOrthoViewId &&
@@ -223,6 +256,7 @@ export function createViewportAxisGizmoController({
 			setNodeVisible(centerNodeId, false);
 			setNodeVisible(positiveNodeId, true);
 			setNodeVisible(negativeNodeId, true);
+			setNodeFacing(centerNodeId, "positive");
 			setNodePosition(positiveNodeId, positiveX, positiveY);
 			setNodePosition(negativeNodeId, negativeX, negativeY);
 			setNodeDepth(positiveNodeId, positive.depth);
