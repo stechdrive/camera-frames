@@ -68,7 +68,9 @@ export function MeasurementOverlay({ store, controller, t }) {
 				overlay.chip.visible &&
 				html`
 					<div
-						class=${`measurement-overlay__chip measurement-overlay__chip--${overlay.chip.placement ?? "above"}`}
+						class=${`measurement-overlay__chip measurement-overlay__chip--${
+							overlay.chip.placement ?? "dock-bottom"
+						}`}
 						style=${getAbsoluteStyle(overlay.chip)}
 						onPointerDown=${(event) => {
 							event.stopPropagation();

@@ -11,8 +11,6 @@ import {
 } from "../engine/view-interaction-context.js";
 
 const AXIS_PIXEL_DISTANCE = 82;
-const CHIP_ESTIMATED_WIDTH = 176;
-const CHIP_ESTIMATED_HEIGHT = 66;
 const CHIP_EDGE_PADDING = 18;
 const POINT_RADIUS_PIXELS = 6;
 const LINE_RADIUS_PIXELS = 1.5;
@@ -32,7 +30,7 @@ const EMPTY_OVERLAY = {
 	draftEnd: { visible: false, x: 0, y: 0 },
 	lineVisible: false,
 	lineUsesDraft: false,
-	chip: { visible: false, x: 0, y: 0, label: "", placement: "above" },
+	chip: { visible: false, x: 0, y: 0, label: "", placement: "dock-bottom" },
 	gizmo: {
 		visible: false,
 		pointKey: null,
@@ -157,79 +155,18 @@ function overlayStateEquals(a, b) {
 	);
 }
 
-function clamp(value, min, max) {
-	if (max < min) {
-		return (min + max) * 0.5;
-	}
-	return Math.min(Math.max(value, min), max);
-}
-
-function collectVisibleOverlayEntries(entries) {
-	return entries.filter((entry) => entry?.visible);
-}
-
-function resolveChipPlacement({
-	context,
-	startScreen,
-	endScreen,
-	gizmoScreen,
-	gizmoHandles,
-}) {
-	const visibleEntries = collectVisibleOverlayEntries([
-		startScreen,
-		endScreen,
-		gizmoScreen,
-		gizmoHandles?.x,
-		gizmoHandles?.y,
-		gizmoHandles?.z,
-	]);
-	if (visibleEntries.length === 0) {
-		return { visible: false, x: 0, y: 0, placement: "above" };
-	}
-
-	let minX = Number.POSITIVE_INFINITY;
-	let maxX = Number.NEGATIVE_INFINITY;
-	let minY = Number.POSITIVE_INFINITY;
-	let maxY = Number.NEGATIVE_INFINITY;
-	for (const entry of visibleEntries) {
-		minX = Math.min(minX, entry.x);
-		maxX = Math.max(maxX, entry.x);
-		minY = Math.min(minY, entry.y);
-		maxY = Math.max(maxY, entry.y);
-	}
-
+function resolveChipPlacement({ context }) {
 	const shellWidth = Math.max(context?.shellRect?.width ?? 0, 0);
 	const shellHeight = Math.max(context?.shellRect?.height ?? 0, 0);
 	if (shellWidth <= 0 || shellHeight <= 0) {
-		return { visible: false, x: 0, y: 0, placement: "above" };
+		return { visible: false, x: 0, y: 0, placement: "dock-bottom" };
 	}
-
-	const chipX = clamp(
-		(minX + maxX) * 0.5,
-		CHIP_EDGE_PADDING + CHIP_ESTIMATED_WIDTH * 0.5,
-		shellWidth - CHIP_EDGE_PADDING - CHIP_ESTIMATED_WIDTH * 0.5,
-	);
-	const availableAbove = minY - CHIP_EDGE_PADDING;
-	const availableBelow = shellHeight - maxY - CHIP_EDGE_PADDING;
-	const placement = availableBelow > availableAbove ? "below" : "above";
-	const chipY =
-		placement === "below"
-			? clamp(
-					maxY,
-					CHIP_EDGE_PADDING,
-					shellHeight - CHIP_EDGE_PADDING - CHIP_ESTIMATED_HEIGHT,
-				)
-			: clamp(
-					minY,
-					CHIP_EDGE_PADDING + CHIP_ESTIMATED_HEIGHT,
-					shellHeight - CHIP_EDGE_PADDING,
-				);
 
 	return {
 		visible: true,
-		x: chipX,
-		y: chipY,
-		placement,
+		x: shellWidth * 0.5,
+		y: shellHeight - CHIP_EDGE_PADDING,
+		placement: "dock-bottom",
 	};
 }
 
@@ -886,16 +823,12 @@ export function createMeasurementController({
 			startPoint && endPoint
 				? resolveChipPlacement({
 						context,
-						startScreen,
-						endScreen,
-						gizmoScreen,
-						gizmoHandles,
 					})
 				: {
 						visible: false,
 						x: 0,
 						y: 0,
-						placement: "above",
+						placement: "dock-bottom",
 					};
 
 		const nextOverlay = {
