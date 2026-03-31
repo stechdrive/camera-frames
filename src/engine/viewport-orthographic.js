@@ -130,6 +130,9 @@ export function getViewportOrthoPreviewGridPlane(viewId) {
 	if (axisKey === "x") {
 		return "zy";
 	}
+	if (axisKey === "y") {
+		return "xz";
+	}
 	if (axisKey === "z") {
 		return "xy";
 	}

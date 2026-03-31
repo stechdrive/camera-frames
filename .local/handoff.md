@@ -7,12 +7,12 @@
 - repo: `D:\GitHub\camera-frames`
 - integration branch: `main`
 - current working branch: `codex/orthographic-structure-plan`
-- current local worktree: dirty (uncommitted HUD gizmo polish follow-up)
+- current local worktree: dirty (uncommitted ortho preview grid swap follow-up)
 - working version source of truth: `package.json`
 - current release baseline: `0.6.8`
 - dependency: `@sparkjsdev/spark = sparkjsdev/spark#v2.0.0-preview`
 - Pages URL: `https://stechdrive.github.io/camera-frames/`
-- latest build info: `local orthographic viewport HUD WIP / ortho entry reference + gizmo polish follow-up / lint+build+test pass`
+- latest build info: `local orthographic viewport HUD WIP / ortho preview grid swap follow-up / lint+build+test pass`
 - latest deploy baseline: `gh-pages d836f40 (publish ee89d33)`
 
 ## Current App Structure
@@ -140,6 +140,8 @@
   - ortho entry reference priority is now `viewport center hit -> short-lived orbit-hit hint -> last valid center-hit -> scene center`: pass at lint/build/test level, browser QA still needed
   - HUD XYZ gizmo active button fill / negative-facing label suppression / line-to-node alignment polish: pass at lint/build/test level, browser QA still needed
   - HUD XYZ gizmo line coordinates now use the gizmo's real pixel size instead of the fixed 100x100 SVG space: pass at lint/build/test level, browser QA still needed
+  - viewport-only ortho helper grid now uses a thinner colored axis width than the default grid to avoid overpowering ground alignment: pass at lint/build/test level, browser QA still needed
+  - `+Y/-Y` top-bottom ortho now also swaps the normal ground grid out for the thinner viewport preview grid (`xz`) so thick default axis lines do not leak into viewport ortho: pass at lint/build/test level, browser QA still needed
   - browser smoke for gizmo click / ortho controls / preview helper grid / perspective auto-exit: pending
 
 ## Versioning / Release Rule

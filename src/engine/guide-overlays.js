@@ -31,6 +31,7 @@ const GRID_FRAGMENT_SHADER = /* glsl */ `
 	uniform vec3 uPlaneAxisV;
 	uniform vec3 uAxisColorU;
 	uniform vec3 uAxisColorV;
+	uniform float uAxisWidth;
 	uniform float uAllowBehindCamera;
 
 	bool intersectGridPlane(in vec3 origin, in vec3 direction, out float t) {
@@ -105,7 +106,7 @@ const GRID_FRAGMENT_SHADER = /* glsl */ `
 		}
 
 		float axisFalloff = 1.0 - smoothstep(200.0, 400.0, length(planePosition));
-		float axisWidth = 0.10;
+		float axisWidth = uAxisWidth;
 		float halfWidth = axisWidth * 0.5;
 		vec2 derivative = vec2(
 			length(vec2(planeDdx.x, planeDdy.x)),
@@ -270,6 +271,7 @@ function createInfiniteGridMesh({
 	plane = "xz",
 	renderOrder = 0,
 	allowBehindCamera = false,
+	axisWidth = 0.1,
 } = {}) {
 	const uniforms = {
 		uViewProjectionInverse: { value: new THREE.Matrix4() },
@@ -280,6 +282,7 @@ function createInfiniteGridMesh({
 		uPlaneAxisV: { value: new THREE.Vector3(0, 0, 1) },
 		uAxisColorU: { value: new THREE.Color(0.95, 0.28, 0.28) },
 		uAxisColorV: { value: new THREE.Color(0.22, 0.52, 0.98) },
+		uAxisWidth: { value: Math.max(Number(axisWidth) || 0, 0.001) },
 		uAllowBehindCamera: { value: allowBehindCamera ? 1 : 0 },
 	};
 	const material = new THREE.ShaderMaterial({
@@ -358,6 +361,7 @@ export function createGuideOverlay() {
 		plane: "xy",
 		renderOrder: 1,
 		allowBehindCamera: true,
+		axisWidth: 0.02,
 	});
 	viewportOrthoGrid.name = "ViewportOrthographicGridOverlay";
 	viewportOrthoGrid.visible = false;

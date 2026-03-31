@@ -20,7 +20,8 @@ assert.equal(getViewportOrthoViewForAxis("y", -1), "negY");
 assert.equal(getViewportOrthoViewForAxis("z", 1), "posZ");
 assert.equal(getViewportOrthoPreviewGridPlane("posX"), "zy");
 assert.equal(getViewportOrthoPreviewGridPlane("negZ"), "xy");
-assert.equal(getViewportOrthoPreviewGridPlane("posY"), null);
+assert.equal(getViewportOrthoPreviewGridPlane("posY"), "xz");
+assert.equal(getViewportOrthoPreviewGridPlane("negY"), "xz");
 assert.equal(
 	roundComponent(
 		deriveViewportOrthoSizeFromPerspective({

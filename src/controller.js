@@ -1801,21 +1801,23 @@ export function createCameraFramesController(elements, store) {
 		documentState = getActiveShotCameraDocument(),
 		{ gridVisible = true, eyeLevelVisible = true } = {},
 	) {
+		const viewportOrthoPreviewGridPlane =
+			state.mode === WORKSPACE_PANE_VIEWPORT
+				? (viewportProjectionController?.getViewportOrthographicPreviewGridPlane?.() ??
+					null)
+				: null;
+		const showViewportOrthoPreviewGrid =
+			gridVisible !== false && viewportOrthoPreviewGridPlane !== null;
 		guideOverlay.applyState({
-			gridVisible,
+			gridVisible: showViewportOrthoPreviewGrid ? false : gridVisible,
 			eyeLevelVisible,
 			gridLayerMode:
 				documentState?.exportSettings?.exportGridLayerMode === "overlay"
 					? "overlay"
 					: GUIDE_GRID_LAYER_MODE_BOTTOM,
 		});
-		const viewportOrthoPreviewGridPlane =
-			state.mode === WORKSPACE_PANE_VIEWPORT
-				? (viewportProjectionController?.getViewportOrthographicPreviewGridPlane?.() ??
-					null)
-				: null;
 		guideOverlay.setViewportOrthographicGridState?.({
-			visible: gridVisible !== false && viewportOrthoPreviewGridPlane !== null,
+			visible: showViewportOrthoPreviewGrid,
 			plane: viewportOrthoPreviewGridPlane,
 		});
 	}
