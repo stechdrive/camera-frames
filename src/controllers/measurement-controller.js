@@ -9,6 +9,9 @@ import {
 } from "../engine/view-interaction-context.js";
 
 const AXIS_PIXEL_DISTANCE = 82;
+const CHIP_ESTIMATED_WIDTH = 208;
+const CHIP_ESTIMATED_HEIGHT = 84;
+const CHIP_EDGE_PADDING = 18;
 const DRAG_DISTANCE_EPSILON = 1e-5;
 const WORLD_AXES = {
 	x: new THREE.Vector3(1, 0, 0),
@@ -23,7 +26,7 @@ const EMPTY_OVERLAY = {
 	draftEnd: { visible: false, x: 0, y: 0 },
 	lineVisible: false,
 	lineUsesDraft: false,
-	chip: { visible: false, x: 0, y: 0, label: "" },
+	chip: { visible: false, x: 0, y: 0, label: "", placement: "above" },
 	gizmo: {
 		visible: false,
 		pointKey: null,
@@ -138,6 +141,7 @@ function overlayStateEquals(a, b) {
 		a.lineUsesDraft === b.lineUsesDraft &&
 		overlayEntryEquals(a.chip, b.chip) &&
 		a.chip.label === b.chip.label &&
+		a.chip.placement === b.chip.placement &&
 		a.gizmo.visible === b.gizmo.visible &&
 		a.gizmo.pointKey === b.gizmo.pointKey &&
 		overlayEntryEquals(a.gizmo, b.gizmo) &&
@@ -145,6 +149,82 @@ function overlayStateEquals(a, b) {
 		overlayEntryEquals(a.gizmo.handles?.y, b.gizmo.handles?.y) &&
 		overlayEntryEquals(a.gizmo.handles?.z, b.gizmo.handles?.z)
 	);
+}
+
+function clamp(value, min, max) {
+	if (max < min) {
+		return (min + max) * 0.5;
+	}
+	return Math.min(Math.max(value, min), max);
+}
+
+function collectVisibleOverlayEntries(entries) {
+	return entries.filter((entry) => entry?.visible);
+}
+
+function resolveChipPlacement({
+	context,
+	startScreen,
+	endScreen,
+	gizmoScreen,
+	gizmoHandles,
+}) {
+	const visibleEntries = collectVisibleOverlayEntries([
+		startScreen,
+		endScreen,
+		gizmoScreen,
+		gizmoHandles?.x,
+		gizmoHandles?.y,
+		gizmoHandles?.z,
+	]);
+	if (visibleEntries.length === 0) {
+		return { visible: false, x: 0, y: 0, placement: "above" };
+	}
+
+	let minX = Number.POSITIVE_INFINITY;
+	let maxX = Number.NEGATIVE_INFINITY;
+	let minY = Number.POSITIVE_INFINITY;
+	let maxY = Number.NEGATIVE_INFINITY;
+	for (const entry of visibleEntries) {
+		minX = Math.min(minX, entry.x);
+		maxX = Math.max(maxX, entry.x);
+		minY = Math.min(minY, entry.y);
+		maxY = Math.max(maxY, entry.y);
+	}
+
+	const shellWidth = Math.max(context?.shellRect?.width ?? 0, 0);
+	const shellHeight = Math.max(context?.shellRect?.height ?? 0, 0);
+	if (shellWidth <= 0 || shellHeight <= 0) {
+		return { visible: false, x: 0, y: 0, placement: "above" };
+	}
+
+	const chipX = clamp(
+		(minX + maxX) * 0.5,
+		CHIP_EDGE_PADDING + CHIP_ESTIMATED_WIDTH * 0.5,
+		shellWidth - CHIP_EDGE_PADDING - CHIP_ESTIMATED_WIDTH * 0.5,
+	);
+	const availableAbove = minY - CHIP_EDGE_PADDING;
+	const availableBelow = shellHeight - maxY - CHIP_EDGE_PADDING;
+	const placement = availableBelow > availableAbove ? "below" : "above";
+	const chipY =
+		placement === "below"
+			? clamp(
+					maxY,
+					CHIP_EDGE_PADDING,
+					shellHeight - CHIP_EDGE_PADDING - CHIP_ESTIMATED_HEIGHT,
+				)
+			: clamp(
+					minY,
+					CHIP_EDGE_PADDING + CHIP_ESTIMATED_HEIGHT,
+					shellHeight - CHIP_EDGE_PADDING,
+				);
+
+	return {
+		visible: true,
+		x: chipX,
+		y: chipY,
+		placement,
+	};
 }
 
 export function createMeasurementController({
@@ -647,11 +727,21 @@ export function createMeasurementController({
 				: { visible: false, x: gizmoScreen.x, y: gizmoScreen.y };
 		}
 
-		const midpointWorld =
-			startPoint && endPoint ? startPoint.clone().lerp(endPoint, 0.5) : null;
-		const chipScreen = midpointWorld
-			? buildOverlayPointState(midpointWorld, context, projectedPoint.clone())
-			: { visible: false, x: 0, y: 0 };
+		const chipScreen =
+			startPoint && endPoint
+				? resolveChipPlacement({
+						context,
+						startScreen,
+						endScreen,
+						gizmoScreen,
+						gizmoHandles,
+					})
+				: {
+						visible: false,
+						x: 0,
+						y: 0,
+						placement: "above",
+					};
 
 		const nextOverlay = {
 			contextKind: context.kind,
@@ -664,6 +754,7 @@ export function createMeasurementController({
 				visible: Boolean(endPoint) && chipScreen.visible,
 				x: chipScreen.x,
 				y: chipScreen.y,
+				placement: chipScreen.placement,
 				label:
 					startPoint && endPoint
 						? `${formatMeasurementLength(startPoint.distanceTo(endPoint))} m`

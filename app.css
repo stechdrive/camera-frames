@@ -3036,6 +3036,10 @@ body[data-interaction-mode="roll"] .viewport-axis-gizmo {
 	pointer-events: auto;
 }
 
+.measurement-overlay__chip--below {
+	transform: translate(-50%, 18px);
+}
+
 .measurement-overlay__chip-field {
 	display: flex;
 	flex-direction: column;
