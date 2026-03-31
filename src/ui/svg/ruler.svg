@@ -1,5 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-  <g transform="rotate(-45 12 12)" fill="currentColor" fill-rule="evenodd">
-    <path d="M7.25 6h9.5A2.25 2.25 0 0 1 19 8.25v7.5A2.25 2.25 0 0 1 16.75 18h-9.5A2.25 2.25 0 0 1 5 15.75v-7.5A2.25 2.25 0 0 1 7.25 6Zm.85 2.25h1v5.15h-1V8.25Zm2.55 0h1v3.25h-1V8.25Zm2.55 0h1v5.15h-1V8.25Zm2.55 0h1v3.25h-1V8.25Z"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  <g transform="rotate(-45 12 12)">
+    <rect x="3.2" y="8.15" width="17.6" height="7.7" rx="0.72" />
+    <path d="M5.75 8.15v4.65M8.75 8.15v2.85M11.75 8.15v4.65M14.75 8.15v2.85M17.75 8.15v4.65" />
   </g>
 </svg>
