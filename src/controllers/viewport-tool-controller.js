@@ -16,6 +16,7 @@ const HANDLE_OFFSETS = {
 	move: 82,
 	scale: { x: 0, y: -150 },
 };
+const CAMERA_SPACE_POINT = new THREE.Vector3();
 
 function projectWorldToScreen(worldPoint, camera, viewportRect, target) {
 	target.copy(worldPoint).project(camera);
@@ -89,12 +90,17 @@ function getWorldUnitsPerPixel(camera, pivotWorld, viewportRect) {
 		return worldHeight / viewportRect.height;
 	}
 
-	const distance = camera
-		.getWorldPosition(new THREE.Vector3())
-		.distanceTo(pivotWorld);
+	const viewDepth = -CAMERA_SPACE_POINT.copy(pivotWorld).applyMatrix4(
+		camera.matrixWorldInverse,
+	).z;
+	if (
+		!Number.isFinite(viewDepth) ||
+		viewDepth <= Math.max(camera.near, 0.001)
+	) {
+		return null;
+	}
 	const verticalFovRadians = THREE.MathUtils.degToRad(camera.fov);
-	const worldHeight =
-		2 * Math.tan(verticalFovRadians * 0.5) * Math.max(distance, 0.001);
+	const worldHeight = 2 * Math.tan(verticalFovRadians * 0.5) * viewDepth;
 	return worldHeight / viewportRect.height;
 }
 

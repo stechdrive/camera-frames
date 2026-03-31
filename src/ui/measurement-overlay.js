@@ -7,6 +7,21 @@ function getAbsoluteStyle(entry) {
 	};
 }
 
+function getLineStyle(start, end) {
+	const dx = (end?.x ?? 0) - (start?.x ?? 0);
+	const dy = (end?.y ?? 0) - (start?.y ?? 0);
+	const length = Math.hypot(dx, dy);
+	if (!Number.isFinite(length) || length <= 0.001) {
+		return null;
+	}
+	return {
+		left: `${start.x}px`,
+		top: `${start.y}px`,
+		width: `${length}px`,
+		transform: `rotate(${Math.atan2(dy, dx)}rad)`,
+	};
+}
+
 export function MeasurementOverlay({ store, controller, t }) {
 	const active = store.measurement.active.value;
 	if (!active) {
@@ -25,9 +40,30 @@ export function MeasurementOverlay({ store, controller, t }) {
 		(store.selectedSceneAssetIds.value?.length ?? 0) > 0 &&
 		Number.isFinite(desiredLength) &&
 		desiredLength > 0;
+	const lineTarget = overlay.lineUsesDraft ? overlay.draftEnd : overlay.end;
+	const lineStyle =
+		overlay.lineVisible && overlay.start.visible && lineTarget?.visible
+			? getLineStyle(overlay.start, lineTarget)
+			: null;
 
 	return html`
 		<div class="measurement-overlay" aria-hidden="false">
+			${
+				lineStyle &&
+				html`
+					<div
+						class=${
+							overlay.lineUsesDraft
+								? "measurement-overlay__line-track measurement-overlay__line-track--draft"
+								: "measurement-overlay__line-track"
+						}
+						style=${lineStyle}
+					>
+						<div class="measurement-overlay__line-outline"></div>
+						<div class="measurement-overlay__line-main"></div>
+					</div>
+				`
+			}
 			${
 				hasStart &&
 				overlay.start.visible &&

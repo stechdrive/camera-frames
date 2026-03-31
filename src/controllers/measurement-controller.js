@@ -13,7 +13,6 @@ import {
 const AXIS_PIXEL_DISTANCE = 82;
 const CHIP_EDGE_PADDING = 18;
 const POINT_RADIUS_PIXELS = 6;
-const LINE_RADIUS_PIXELS = 1.5;
 const DRAG_DISTANCE_EPSILON = 1e-5;
 const WORLD_AXES = {
 	x: new THREE.Vector3(1, 0, 0),
@@ -877,18 +876,19 @@ export function createMeasurementController({
 
 		const endPoint = getEndPointWorld();
 		const draftEndPoint = endPoint ? null : getDraftEndPointWorld();
-		const midpoint = endPoint
-			? startPoint.clone().lerp(endPoint, 0.5)
-			: draftEndPoint
-				? startPoint.clone().lerp(draftEndPoint, 0.5)
-				: startPoint;
-		const pointUnitsPerPixel = getWorldUnitsPerPixel(context, startPoint);
-		const lineUnitsPerPixel = getWorldUnitsPerPixel(context, midpoint);
+		const startPointUnitsPerPixel = getWorldUnitsPerPixel(context, startPoint);
+		const endPointUnitsPerPixel = endPoint
+			? getWorldUnitsPerPixel(context, endPoint)
+			: null;
+		const draftPointUnitsPerPixel = draftEndPoint
+			? getWorldUnitsPerPixel(context, draftEndPoint)
+			: null;
 		if (
-			!Number.isFinite(pointUnitsPerPixel) ||
-			pointUnitsPerPixel <= 0 ||
-			!Number.isFinite(lineUnitsPerPixel) ||
-			lineUnitsPerPixel <= 0
+			(!Number.isFinite(startPointUnitsPerPixel) ||
+				startPointUnitsPerPixel <= 0) &&
+			(!Number.isFinite(endPointUnitsPerPixel) || endPointUnitsPerPixel <= 0) &&
+			(!Number.isFinite(draftPointUnitsPerPixel) ||
+				draftPointUnitsPerPixel <= 0)
 		) {
 			measurementSceneHelper.clear();
 			return;
@@ -899,8 +899,19 @@ export function createMeasurementController({
 			endPointWorld: endPoint,
 			draftEndPointWorld: draftEndPoint,
 			selectedPointKey: endPoint ? getSelectedPointKey() || "end" : "start",
-			pointRadiusWorld: pointUnitsPerPixel * POINT_RADIUS_PIXELS,
-			lineRadiusWorld: lineUnitsPerPixel * LINE_RADIUS_PIXELS,
+			startPointRadiusWorld:
+				Number.isFinite(startPointUnitsPerPixel) && startPointUnitsPerPixel > 0
+					? startPointUnitsPerPixel * POINT_RADIUS_PIXELS
+					: 0,
+			endPointRadiusWorld:
+				Number.isFinite(endPointUnitsPerPixel) && endPointUnitsPerPixel > 0
+					? endPointUnitsPerPixel * POINT_RADIUS_PIXELS
+					: 0,
+			draftPointRadiusWorld:
+				Number.isFinite(draftPointUnitsPerPixel) && draftPointUnitsPerPixel > 0
+					? draftPointUnitsPerPixel * POINT_RADIUS_PIXELS
+					: 0,
+			lineRadiusWorld: 0,
 		});
 	}
 

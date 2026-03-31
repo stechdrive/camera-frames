@@ -1,5 +1,7 @@
 import * as THREE from "three";
 
+const CAMERA_SPACE_POINT = new THREE.Vector3();
+
 function toFiniteRect(rect) {
 	if (!rect || rect.width <= 0 || rect.height <= 0) {
 		return null;
@@ -119,12 +121,17 @@ export function getWorldUnitsPerPixel(context, pivotWorld) {
 		return worldHeight / context.localRect.height;
 	}
 
-	const distance = camera
-		.getWorldPosition(new THREE.Vector3())
-		.distanceTo(pivotWorld);
+	const viewDepth = -CAMERA_SPACE_POINT.copy(pivotWorld).applyMatrix4(
+		camera.matrixWorldInverse,
+	).z;
+	if (
+		!Number.isFinite(viewDepth) ||
+		viewDepth <= Math.max(camera.near, 0.001)
+	) {
+		return null;
+	}
 	const verticalFovRadians = THREE.MathUtils.degToRad(camera.fov);
-	const worldHeight =
-		2 * Math.tan(verticalFovRadians * 0.5) * Math.max(distance, 0.001);
+	const worldHeight = 2 * Math.tan(verticalFovRadians * 0.5) * viewDepth;
 	return worldHeight / context.localRect.height;
 }
 

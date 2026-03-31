@@ -255,55 +255,66 @@ export function createMeasurementSceneHelper() {
 		endPointWorld = null,
 		draftEndPointWorld = null,
 		selectedPointKey = null,
-		pointRadiusWorld = 0,
+		startPointRadiusWorld = 0,
+		endPointRadiusWorld = 0,
+		draftPointRadiusWorld = 0,
 		lineRadiusWorld = 0,
 	} = {}) {
 		const startSelected = selectedPointKey === "start";
 		const endSelected = selectedPointKey === "end";
-		const pointSizeWorld = pointRadiusWorld * 4;
-		const outlinePointSizeWorld = pointSizeWorld * 1.18;
-		const selectedPointSizeWorld = pointSizeWorld * 1.08;
-		const selectedOutlinePointSizeWorld = outlinePointSizeWorld * 1.04;
+		const startPointSizeWorld = startPointRadiusWorld * 4;
+		const startOutlinePointSizeWorld = startPointSizeWorld * 1.18;
+		const startSelectedPointSizeWorld = startPointSizeWorld * 1.08;
+		const startSelectedOutlinePointSizeWorld =
+			startOutlinePointSizeWorld * 1.04;
+		const endPointSizeWorld = endPointRadiusWorld * 4;
+		const endOutlinePointSizeWorld = endPointSizeWorld * 1.18;
+		const endSelectedPointSizeWorld = endPointSizeWorld * 1.08;
+		const endSelectedOutlinePointSizeWorld = endOutlinePointSizeWorld * 1.04;
+		const draftPointSizeWorld = draftPointRadiusWorld * 4;
+		const draftOutlinePointSizeWorld = draftPointSizeWorld * 1.18;
 
 		updatePointSprite(
 			startPointOutline,
 			startPointWorld,
-			startSelected ? selectedOutlinePointSizeWorld : outlinePointSizeWorld,
+			startSelected
+				? startSelectedOutlinePointSizeWorld
+				: startOutlinePointSizeWorld,
 			OUTLINE_COLOR,
 			startSelected ? 1 : 0.96,
 		);
 		updatePointSprite(
 			startPoint,
 			startPointWorld,
-			startSelected ? selectedPointSizeWorld : pointSizeWorld,
+			startSelected ? startSelectedPointSizeWorld : startPointSizeWorld,
 			startSelected ? SELECTED_POINT_COLOR : START_POINT_COLOR,
 			startSelected ? 1 : 0.96,
 		);
 		updatePointSprite(
 			endPointOutline,
 			endPointWorld,
-			endSelected ? selectedOutlinePointSizeWorld : outlinePointSizeWorld,
+			endSelected ? endSelectedOutlinePointSizeWorld : endOutlinePointSizeWorld,
 			OUTLINE_COLOR,
 			endSelected ? 1 : 0.96,
 		);
 		updatePointSprite(
 			endPoint,
 			endPointWorld,
-			endSelected ? selectedPointSizeWorld : pointSizeWorld,
+			endSelected ? endSelectedPointSizeWorld : endPointSizeWorld,
 			endSelected ? SELECTED_POINT_COLOR : END_POINT_COLOR,
 			endSelected ? 1 : 0.96,
 		);
 		updatePointSprite(
 			draftPointOutline,
 			endPointWorld ? null : draftEndPointWorld,
-			outlinePointSizeWorld,
+			draftOutlinePointSizeWorld,
 			OUTLINE_COLOR,
 			0.68,
 		);
 		updatePointSprite(
 			draftPoint,
 			endPointWorld ? null : draftEndPointWorld,
-			pointSizeWorld,
+			draftPointSizeWorld,
 			DRAFT_POINT_COLOR,
 			0.62,
 		);
