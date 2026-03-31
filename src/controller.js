@@ -1226,6 +1226,7 @@ export function createCameraFramesController(elements, store) {
 		setStatus,
 		t,
 	});
+	viewportToolController.setCustomGizmoDelegate?.(measurementController);
 	viewportAxisGizmoController = createViewportAxisGizmoController({
 		state,
 		axisGizmo: viewportAxisGizmo,
@@ -1444,10 +1445,6 @@ export function createCameraFramesController(elements, store) {
 			measurementController?.handleMeasurementPointerDown?.(...args) ?? false,
 		handleMeasurementHoverMove: (...args) =>
 			measurementController?.handleMeasurementHoverMove?.(...args),
-		handleMeasurementAxisDragMove: (...args) =>
-			measurementController?.handleMeasurementAxisDragMove?.(...args),
-		handleMeasurementAxisDragEnd: (...args) =>
-			measurementController?.handleMeasurementAxisDragEnd?.(...args) ?? false,
 		deleteSelectedMeasurement: () =>
 			measurementController?.deleteSelectedMeasurement?.() ?? false,
 		syncMeasurementSceneHelpers: () =>

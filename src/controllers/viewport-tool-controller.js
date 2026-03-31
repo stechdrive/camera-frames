@@ -290,6 +290,7 @@ export function createViewportToolController({
 	const ringElements = new Map();
 	const planeElements = new Map();
 	let activeDrag = null;
+	let customGizmoDelegate = null;
 
 	function isPivotEditMode() {
 		return store.viewportToolMode.value === "pivot";
@@ -455,6 +456,19 @@ export function createViewportToolController({
 		}
 
 		viewportGizmo.classList.remove("is-hidden");
+	}
+
+	function setCustomGizmoDelegate(nextDelegate) {
+		customGizmoDelegate = nextDelegate ?? null;
+	}
+
+	function getCustomGizmoConfig(camera, viewportRect) {
+		return (
+			customGizmoDelegate?.getViewportGizmoConfig?.({
+				camera,
+				viewportRect,
+			}) ?? null
+		);
 	}
 
 	function getSelectedTransformAsset() {
@@ -713,6 +727,27 @@ export function createViewportToolController({
 		if (!isViewportToolMode()) {
 			return false;
 		}
+		const camera = getActiveToolCamera();
+		if (!camera) {
+			return false;
+		}
+		const viewportRect = viewportShell.getBoundingClientRect();
+		const customConfig = getCustomGizmoConfig(camera, viewportRect);
+		if (customConfig) {
+			const started =
+				customGizmoDelegate?.startViewportGizmoDrag?.(handleName, {
+					camera,
+					viewportRect,
+					event,
+					config: customConfig,
+				}) ?? false;
+			if (!started) {
+				return false;
+			}
+			setHoveredHandle(handleName);
+			viewportGizmo?.classList.add("is-dragging");
+			return true;
+		}
 		if (isSelectMode()) {
 			return false;
 		}
@@ -730,11 +765,6 @@ export function createViewportToolController({
 
 		const asset = getSelectedTransformAsset();
 		if (!asset || !asset.object.visible) {
-			return false;
-		}
-
-		const camera = getActiveToolCamera();
-		if (!camera) {
 			return false;
 		}
 
@@ -999,17 +1029,28 @@ export function createViewportToolController({
 	}
 
 	function handleViewportTransformDragMove(event) {
+		const camera = getActiveToolCamera();
+		const viewportRect = viewportShell.getBoundingClientRect();
+		if (
+			customGizmoDelegate?.handleViewportGizmoDragMove?.(event, {
+				camera,
+				viewportRect,
+			})
+		) {
+			event.preventDefault();
+			event.stopPropagation();
+			return;
+		}
+
 		if (!activeDrag || event.pointerId !== activeDrag.pointerId) {
 			return;
 		}
 
 		event.preventDefault();
 		event.stopPropagation();
-		const camera = getActiveToolCamera();
 		if (!camera) {
 			return;
 		}
-		const viewportRect = viewportShell.getBoundingClientRect();
 		const pointerRay = getPointerRay(event, camera, viewportRect);
 
 		switch (activeDrag.mode) {
@@ -1031,6 +1072,14 @@ export function createViewportToolController({
 	}
 
 	function handleViewportTransformDragEnd(event) {
+		if (customGizmoDelegate?.handleViewportGizmoDragEnd?.(event)) {
+			event.preventDefault();
+			event.stopPropagation();
+			setHoveredHandle(null);
+			viewportGizmo?.classList.remove("is-dragging");
+			return;
+		}
+
 		if (!activeDrag || event.pointerId !== activeDrag.pointerId) {
 			return;
 		}
@@ -1116,37 +1165,21 @@ export function createViewportToolController({
 		setHoveredHandle(null);
 	}
 
-	function syncViewportTransformGizmo() {
-		if (!viewportGizmo) {
-			return;
-		}
-
-		const asset = getSelectedTransformAsset();
-		if (!isViewportToolMode() || !asset || asset.object.visible === false) {
-			hideGizmo();
-			return;
-		}
-
-		const camera = getActiveToolCamera();
-		if (!camera) {
-			hideGizmo();
-			return;
-		}
-
-		const viewportRect = viewportShell.getBoundingClientRect();
-		const pivotWorld = getSelectedTransformPivotWorld(asset);
+	function syncViewportGizmoFromConfig({
+		camera,
+		viewportRect,
+		pivotWorld,
+		basisWorld,
+		pivotMode = false,
+		showMoveAxes = true,
+		showMovePlanes = true,
+		showRotate = false,
+		showScale = false,
+	}) {
 		const projected = pivotWorld.clone().project(camera);
 		if (!isProjectedPointVisible(projected)) {
 			hideGizmo();
-			return;
-		}
-		if (
-			(!isTransformMode() && !isPivotEditMode()) ||
-			isSelectMode() ||
-			!asset
-		) {
-			hideGizmo();
-			return;
+			return false;
 		}
 
 		showGizmo();
@@ -1158,8 +1191,8 @@ export function createViewportToolController({
 		}
 
 		projectWorldToScreen(pivotWorld, camera, viewportRect, projectedPivot);
-		viewportGizmo.dataset.pivotMode = isPivotEditMode() ? "true" : "false";
-		if (isPivotEditMode()) {
+		viewportGizmo.dataset.pivotMode = pivotMode ? "true" : "false";
+		if (!showScale) {
 			setHandleVisible("scale-uniform", false);
 		} else {
 			setHandlePosition(
@@ -1170,13 +1203,6 @@ export function createViewportToolController({
 			setHandleVisible("scale-uniform", true);
 		}
 
-		const worldQuaternion = asset.object.getWorldQuaternion(
-			new THREE.Quaternion(),
-		);
-		const basisWorld = getTransformBasisWorld(
-			worldQuaternion,
-			store.viewportTransformSpace.value,
-		);
 		const screenDirections = {
 			x: getProjectedAxisDirection({
 				axisWorld: basisWorld.x,
@@ -1215,7 +1241,7 @@ export function createViewportToolController({
 			const moveHandleName = `move-${axisKey}`;
 			const rotateHandleName = `rotate-${axisKey}`;
 			const screenDirection = screenDirections[axisKey];
-			if (!screenDirection) {
+			if (!screenDirection || !showMoveAxes) {
 				setHandleVisible(moveHandleName, false);
 				setRingVisible(rotateHandleName, "front", false);
 				setRingVisible(rotateHandleName, "back", false);
@@ -1260,12 +1286,7 @@ export function createViewportToolController({
 				startAngle: frontAngle + Math.PI * 0.5,
 				endAngle: frontAngle + Math.PI * 1.5,
 			});
-			if (!frontPath || !backPath) {
-				setRingVisible(rotateHandleName, "front", false);
-				setRingVisible(rotateHandleName, "back", false);
-				continue;
-			}
-			if (isPivotEditMode()) {
+			if (!frontPath || !backPath || !showRotate) {
 				setRingVisible(rotateHandleName, "front", false);
 				setRingVisible(rotateHandleName, "back", false);
 				continue;
@@ -1277,6 +1298,10 @@ export function createViewportToolController({
 		}
 
 		for (const handleName of MOVE_PLANE_HANDLE_NAMES) {
+			if (!showMovePlanes) {
+				setPlaneVisible(handleName, false);
+				continue;
+			}
 			const [axisA, axisB] = planeBasisMap[handleName];
 			const pathData = buildPlaneHandlePath({
 				pivotWorld,
@@ -1292,6 +1317,63 @@ export function createViewportToolController({
 			setPlanePath(handleName, pathData);
 			setPlaneVisible(handleName, true);
 		}
+
+		return true;
+	}
+
+	function syncViewportTransformGizmo() {
+		if (!viewportGizmo) {
+			return;
+		}
+
+		if (!isViewportToolMode()) {
+			hideGizmo();
+			return;
+		}
+		const camera = getActiveToolCamera();
+		if (!camera) {
+			hideGizmo();
+			return;
+		}
+		const viewportRect = viewportShell.getBoundingClientRect();
+		const customConfig = getCustomGizmoConfig(camera, viewportRect);
+		if (customConfig) {
+			syncViewportGizmoFromConfig({
+				camera,
+				viewportRect,
+				...customConfig,
+			});
+			return;
+		}
+
+		const asset = getSelectedTransformAsset();
+		if (
+			!asset ||
+			asset.object.visible === false ||
+			(!isTransformMode() && !isPivotEditMode()) ||
+			isSelectMode()
+		) {
+			hideGizmo();
+			return;
+		}
+
+		const worldQuaternion = asset.object.getWorldQuaternion(
+			new THREE.Quaternion(),
+		);
+		syncViewportGizmoFromConfig({
+			camera,
+			viewportRect,
+			pivotWorld: getSelectedTransformPivotWorld(asset),
+			basisWorld: getTransformBasisWorld(
+				worldQuaternion,
+				store.viewportTransformSpace.value,
+			),
+			pivotMode: isPivotEditMode(),
+			showMoveAxes: true,
+			showMovePlanes: true,
+			showRotate: !isPivotEditMode(),
+			showScale: !isPivotEditMode(),
+		});
 	}
 
 	return {
@@ -1306,5 +1388,6 @@ export function createViewportToolController({
 		handleViewportTransformDragMove,
 		handleViewportTransformDragEnd,
 		syncViewportTransformGizmo,
+		setCustomGizmoDelegate,
 	};
 }

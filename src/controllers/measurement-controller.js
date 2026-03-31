@@ -11,17 +11,19 @@ import {
 } from "../engine/view-interaction-context.js";
 
 const AXIS_PIXEL_DISTANCE = 82;
-const CHIP_ESTIMATED_WIDTH = 208;
-const CHIP_ESTIMATED_HEIGHT = 84;
+const CHIP_ESTIMATED_WIDTH = 176;
+const CHIP_ESTIMATED_HEIGHT = 66;
 const CHIP_EDGE_PADDING = 18;
-const POINT_RADIUS_PIXELS = 10;
-const LINE_RADIUS_PIXELS = 2;
+const POINT_RADIUS_PIXELS = 6;
+const LINE_RADIUS_PIXELS = 1.5;
 const DRAG_DISTANCE_EPSILON = 1e-5;
 const WORLD_AXES = {
 	x: new THREE.Vector3(1, 0, 0),
 	y: new THREE.Vector3(0, 1, 0),
 	z: new THREE.Vector3(0, 0, 1),
 };
+const MOVE_AXIS_HANDLE_NAMES = ["move-x", "move-y", "move-z"];
+const MOVE_PLANE_HANDLE_NAMES = ["move-xy", "move-yz", "move-zx"];
 
 const EMPTY_OVERLAY = {
 	contextKind: "viewport",
@@ -280,6 +282,21 @@ export function createMeasurementController({
 		store.measurement.draftEndPointWorld.value = toPlainPoint(nextPoint);
 	}
 
+	function getPointWorldByKey(pointKey) {
+		if (pointKey === "end") {
+			return getEndPointWorld();
+		}
+		return getStartPointWorld();
+	}
+
+	function setPointWorldByKey(pointKey, nextPoint) {
+		if (pointKey === "end") {
+			setEndPointWorld(nextPoint);
+			return;
+		}
+		setStartPointWorld(nextPoint);
+	}
+
 	function getSelectedPointKey() {
 		return store.measurement.selectedPointKey.value ?? null;
 	}
@@ -363,6 +380,19 @@ export function createMeasurementController({
 		});
 	}
 
+	function buildPointerRayForViewport(event, camera, viewportRect) {
+		return buildPointerRay(
+			event.clientX,
+			event.clientY,
+			{
+				camera,
+				pageRect: viewportRect,
+			},
+			raycaster,
+			pointerNdc,
+		);
+	}
+
 	function pickScenePoint(event, context) {
 		const targets = assetController.getSceneRaycastTargets?.() ?? [];
 		if (targets.length === 0) {
@@ -403,9 +433,7 @@ export function createMeasurementController({
 
 		const target = event.target instanceof Element ? event.target : null;
 		if (
-			target?.closest(
-				".measurement-overlay__point, .measurement-overlay__chip, .measurement-overlay__gizmo-handle",
-			)
+			target?.closest(".measurement-overlay__point, .measurement-overlay__chip")
 		) {
 			return false;
 		}
@@ -486,17 +514,39 @@ export function createMeasurementController({
 	}
 
 	function startMeasurementAxisDrag(axisKey, event) {
-		if (!isMeasurementModeActive() || event.button !== 0) {
-			return false;
-		}
-
-		const axisWorld = WORLD_AXES[axisKey]?.clone();
-		if (!axisWorld) {
-			return false;
-		}
-
 		const context = resolveInteractionContext();
-		if (!context) {
+		return context
+			? startMeasurementGizmoDrag(`move-${axisKey}`, {
+					camera: context.camera,
+					viewportRect: context.pageRect,
+					event,
+				})
+			: false;
+	}
+
+	function applyMeasurementDragPoint(nextPoint) {
+		if (activeAxisDrag.mode === "create-end-axis") {
+			setDraftEndPointWorld(nextPoint);
+			return;
+		}
+		if (activeAxisDrag.mode === "create-end-plane") {
+			setDraftEndPointWorld(nextPoint);
+			return;
+		}
+		setPointWorldByKey(activeAxisDrag.pointKey, nextPoint);
+		updateLengthInputFromCurrentLine();
+	}
+
+	function startMeasurementGizmoDrag(
+		handleName,
+		{ camera, viewportRect, event },
+	) {
+		if (
+			!isMeasurementModeActive() ||
+			event.button !== 0 ||
+			!camera ||
+			!viewportRect
+		) {
 			return false;
 		}
 
@@ -507,65 +557,107 @@ export function createMeasurementController({
 		}
 
 		const pointKey = endPoint ? getSelectedPointKey() || "end" : "start";
-		const anchorWorld = pointKey === "end" && endPoint ? endPoint : startPoint;
-		const planeNormal = getMoveAxisPlaneNormal(axisWorld, context.camera);
-		if (!planeNormal) {
+		const anchorWorld =
+			getPointWorldByKey(pointKey) ??
+			(pointKey === "end" ? endPoint : startPoint);
+		if (!anchorWorld) {
 			return false;
 		}
 
-		buildPointerRay(
-			event.clientX,
-			event.clientY,
-			context,
-			raycaster,
-			pointerNdc,
-		);
-		createPlaneFromNormalAndPoint(planeNormal, anchorWorld, dragPlane);
-		const planePoint = raycaster.ray.intersectPlane(
-			dragPlane,
-			new THREE.Vector3(),
-		);
-		if (!planePoint) {
-			return false;
+		const pointerRay = buildPointerRayForViewport(event, camera, viewportRect);
+		if (MOVE_AXIS_HANDLE_NAMES.includes(handleName)) {
+			const axisKey = handleName.slice(-1);
+			const axisWorld = WORLD_AXES[axisKey]?.clone();
+			if (!axisWorld) {
+				return false;
+			}
+			const planeNormal = getMoveAxisPlaneNormal(axisWorld, camera);
+			if (!planeNormal) {
+				return false;
+			}
+			createPlaneFromNormalAndPoint(planeNormal, anchorWorld, dragPlane);
+			const planePoint = pointerRay.intersectPlane(
+				dragPlane,
+				new THREE.Vector3(),
+			);
+			if (!planePoint) {
+				return false;
+			}
+			event.preventDefault();
+			event.stopPropagation();
+			event.stopImmediatePropagation?.();
+			activeAxisDrag = {
+				pointerId: event.pointerId,
+				handleName,
+				axisWorld,
+				planeNormal: planeNormal.clone(),
+				anchorWorld: anchorWorld.clone(),
+				planePoint: planePoint.clone(),
+				mode: endPoint ? "move-point-axis" : "create-end-axis",
+				pointKey,
+			};
+			return true;
 		}
 
-		event.preventDefault();
-		event.stopPropagation();
-		event.stopImmediatePropagation?.();
-		activeAxisDrag = {
-			pointerId: event.pointerId,
-			axisKey,
-			axisWorld,
-			planeNormal: planeNormal.clone(),
-			anchorWorld: anchorWorld.clone(),
-			planePoint: planePoint.clone(),
-			mode: endPoint ? "move-point-axis" : "create-end-axis",
-			pointKey,
-		};
-		return true;
+		if (MOVE_PLANE_HANDLE_NAMES.includes(handleName)) {
+			const planeAxes =
+				handleName === "move-xy"
+					? [WORLD_AXES.x, WORLD_AXES.y]
+					: handleName === "move-yz"
+						? [WORLD_AXES.y, WORLD_AXES.z]
+						: [WORLD_AXES.z, WORLD_AXES.x];
+			const planeNormal = new THREE.Vector3()
+				.crossVectors(planeAxes[0], planeAxes[1])
+				.normalize();
+			createPlaneFromNormalAndPoint(planeNormal, anchorWorld, dragPlane);
+			const planePoint = pointerRay.intersectPlane(
+				dragPlane,
+				new THREE.Vector3(),
+			);
+			if (!planePoint) {
+				return false;
+			}
+			event.preventDefault();
+			event.stopPropagation();
+			event.stopImmediatePropagation?.();
+			activeAxisDrag = {
+				pointerId: event.pointerId,
+				handleName,
+				planeNormal: planeNormal.clone(),
+				anchorWorld: anchorWorld.clone(),
+				planePoint: planePoint.clone(),
+				mode: endPoint ? "move-point-plane" : "create-end-plane",
+				pointKey,
+			};
+			return true;
+		}
+
+		return false;
 	}
 
 	function handleMeasurementAxisDragMove(event) {
+		const context = resolveInteractionContext();
+		if (!context) {
+			return false;
+		}
+		return handleMeasurementGizmoDragMove(event, {
+			camera: context.camera,
+			viewportRect: context.pageRect,
+		});
+	}
+
+	function handleMeasurementGizmoDragMove(event, { camera, viewportRect }) {
 		if (
 			!activeAxisDrag ||
 			event.pointerId !== activeAxisDrag.pointerId ||
-			!isMeasurementModeActive()
+			!isMeasurementModeActive() ||
+			!camera ||
+			!viewportRect
 		) {
-			return;
+			return false;
 		}
 
-		const context = resolveInteractionContext();
-		if (!context) {
-			return;
-		}
-
-		buildPointerRay(
-			event.clientX,
-			event.clientY,
-			context,
-			raycaster,
-			pointerNdc,
-		);
+		buildPointerRayForViewport(event, camera, viewportRect);
 		createPlaneFromNormalAndPoint(
 			activeAxisDrag.planeNormal,
 			activeAxisDrag.anchorWorld,
@@ -573,31 +665,36 @@ export function createMeasurementController({
 		);
 		const hitPoint = raycaster.ray.intersectPlane(dragPlane, dragHitPoint);
 		if (!hitPoint) {
-			return;
+			return true;
 		}
 
-		const projectedDistance = dragDelta
-			.copy(hitPoint)
-			.sub(activeAxisDrag.planePoint)
-			.dot(activeAxisDrag.axisWorld);
+		if (
+			activeAxisDrag.mode === "move-point-axis" ||
+			activeAxisDrag.mode === "create-end-axis"
+		) {
+			const projectedDistance = dragDelta
+				.copy(hitPoint)
+				.sub(activeAxisDrag.planePoint)
+				.dot(activeAxisDrag.axisWorld);
+			const nextPoint = activeAxisDrag.anchorWorld
+				.clone()
+				.addScaledVector(activeAxisDrag.axisWorld, projectedDistance);
+			applyMeasurementDragPoint(nextPoint);
+			return true;
+		}
+
 		const nextPoint = activeAxisDrag.anchorWorld
 			.clone()
-			.addScaledVector(activeAxisDrag.axisWorld, projectedDistance);
-
-		if (activeAxisDrag.mode === "create-end-axis") {
-			setDraftEndPointWorld(nextPoint);
-			return;
-		}
-
-		if (activeAxisDrag.pointKey === "start") {
-			setStartPointWorld(nextPoint);
-		} else {
-			setEndPointWorld(nextPoint);
-		}
-		updateLengthInputFromCurrentLine();
+			.add(dragDelta.copy(hitPoint).sub(activeAxisDrag.planePoint));
+		applyMeasurementDragPoint(nextPoint);
+		return true;
 	}
 
 	function handleMeasurementAxisDragEnd(event) {
+		return handleMeasurementGizmoDragEnd(event);
+	}
+
+	function handleMeasurementGizmoDragEnd(event) {
 		if (
 			!activeAxisDrag ||
 			event.pointerId !== activeAxisDrag.pointerId ||
@@ -606,7 +703,10 @@ export function createMeasurementController({
 			return false;
 		}
 
-		if (activeAxisDrag.mode === "create-end-axis") {
+		if (
+			activeAxisDrag.mode === "create-end-axis" ||
+			activeAxisDrag.mode === "create-end-plane"
+		) {
 			const startPoint = getStartPointWorld();
 			const draftEnd = getDraftEndPointWorld();
 			if (
@@ -634,6 +734,35 @@ export function createMeasurementController({
 
 	function setMeasurementLengthInputText(nextValue) {
 		store.measurement.lengthInputText.value = String(nextValue ?? "");
+	}
+
+	function getViewportGizmoConfig() {
+		if (!isMeasurementModeActive()) {
+			return null;
+		}
+		const startPoint = getStartPointWorld();
+		if (!startPoint) {
+			return null;
+		}
+		const selectedPointKey = getEndPointWorld()
+			? getSelectedPointKey() || "end"
+			: "start";
+		const pivotWorld = getPointWorldByKey(selectedPointKey) ?? startPoint;
+		return pivotWorld
+			? {
+					pivotWorld: pivotWorld.clone(),
+					basisWorld: {
+						x: WORLD_AXES.x.clone(),
+						y: WORLD_AXES.y.clone(),
+						z: WORLD_AXES.z.clone(),
+					},
+					pivotMode: true,
+					showMoveAxes: true,
+					showMovePlanes: true,
+					showRotate: false,
+					showScale: false,
+				}
+			: null;
 	}
 
 	function applyMeasurementScale() {
@@ -841,6 +970,12 @@ export function createMeasurementController({
 		deleteSelectedMeasurement,
 		setMeasurementLengthInputText,
 		applyMeasurementScale,
+		getViewportGizmoConfig,
+		startViewportGizmoDrag: (handleName, options) =>
+			startMeasurementGizmoDrag(handleName, options),
+		handleViewportGizmoDragMove: (event, options) =>
+			handleMeasurementGizmoDragMove(event, options),
+		handleViewportGizmoDragEnd: (event) => handleMeasurementGizmoDragEnd(event),
 		syncMeasurementSceneHelpers,
 		syncMeasurementOverlay,
 		dispose() {

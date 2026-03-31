@@ -65,34 +65,6 @@ export function MeasurementOverlay({ store, controller, t }) {
 				`
 			}
 			${
-				overlay.gizmo.visible &&
-				html`
-					<div
-						class="measurement-overlay__gizmo-origin"
-						style=${getAbsoluteStyle(overlay.gizmo)}
-					></div>
-					${["x", "y", "z"].map((axisKey) => {
-						const handle = overlay.gizmo.handles?.[axisKey];
-						if (!handle?.visible) {
-							return null;
-						}
-						return html`
-							<button
-								key=${axisKey}
-								type="button"
-								class=${`measurement-overlay__gizmo-handle measurement-overlay__gizmo-handle--${axisKey}`}
-								style=${getAbsoluteStyle(handle)}
-								aria-label=${t(`action.measurementAxis.${axisKey}`)}
-								onPointerDown=${(event) =>
-									controller()?.startMeasurementAxisDrag?.(axisKey, event)}
-							>
-								<span>${axisKey.toUpperCase()}</span>
-							</button>
-						`;
-					})}
-				`
-			}
-			${
 				overlay.chip.visible &&
 				html`
 					<div

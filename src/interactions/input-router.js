@@ -112,8 +112,6 @@ export function bindInputRouter({
 	pickViewportAssetAtPointer,
 	handleMeasurementPointerDown,
 	handleMeasurementHoverMove,
-	handleMeasurementAxisDragMove,
-	handleMeasurementAxisDragEnd,
 	deleteSelectedMeasurement,
 	startOutputFrameAnchorDrag,
 	isInteractionBlocked = null,
@@ -445,9 +443,7 @@ export function bindInputRouter({
 			return;
 		}
 		if (
-			target?.closest(
-				".measurement-overlay__point, .measurement-overlay__chip, .measurement-overlay__gizmo-handle",
-			)
+			target?.closest(".measurement-overlay__point, .measurement-overlay__chip")
 		) {
 			return;
 		}
@@ -535,13 +531,6 @@ export function bindInputRouter({
 	listen(window, "pointercancel", handleZoomToolDragEnd);
 	listen(window, "pointermove", (event) => {
 		handleMeasurementHoverMove?.(event);
-		handleMeasurementAxisDragMove?.(event);
-	});
-	listen(window, "pointerup", (event) => {
-		handleMeasurementAxisDragEnd?.(event);
-	});
-	listen(window, "pointercancel", (event) => {
-		handleMeasurementAxisDragEnd?.(event);
 	});
 	listen(window, "pointermove", handleOrbitAroundHitDragMove);
 	listen(window, "pointerup", handleOrbitAroundHitDragEnd);
