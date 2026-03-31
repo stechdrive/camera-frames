@@ -180,6 +180,26 @@ export function createViewportAxisGizmoController({
 		}
 
 		showAxisGizmo();
+		const gizmoRect = axisGizmo.getBoundingClientRect();
+		const gizmoWidth = Math.max(
+			gizmoRect.width || axisGizmo.clientWidth || 0,
+			0,
+		);
+		const gizmoHeight = Math.max(
+			gizmoRect.height || axisGizmo.clientHeight || 0,
+			0,
+		);
+		if (gizmoWidth <= 0 || gizmoHeight <= 0) {
+			hideAxisGizmo();
+			return;
+		}
+		axisGizmoSvg?.setAttribute("viewBox", `0 0 ${gizmoWidth} ${gizmoHeight}`);
+		const gizmoCenterX = gizmoWidth * 0.5;
+		const gizmoCenterY = gizmoHeight * 0.5;
+		const gizmoRadius = Math.min(
+			GIZMO_RADIUS_PX,
+			Math.max(Math.min(gizmoWidth, gizmoHeight) * 0.5 - 10, 0),
+		);
 		cameraRight.set(1, 0, 0).applyQuaternion(camera.quaternion).normalize();
 		cameraUp.set(0, 1, 0).applyQuaternion(camera.quaternion).normalize();
 		camera.getWorldDirection(cameraForward).normalize();
@@ -200,10 +220,10 @@ export function createViewportAxisGizmoController({
 				axisVector.clone().multiplyScalar(-1),
 				projected[axisKey].negative,
 			);
-			const positiveX = 50 + positive.x * GIZMO_RADIUS_PX;
-			const positiveY = 50 - positive.y * GIZMO_RADIUS_PX;
-			const negativeX = 50 + negative.x * GIZMO_RADIUS_PX;
-			const negativeY = 50 - negative.y * GIZMO_RADIUS_PX;
+			const positiveX = gizmoCenterX + positive.x * gizmoRadius;
+			const positiveY = gizmoCenterY - positive.y * gizmoRadius;
+			const negativeX = gizmoCenterX + negative.x * gizmoRadius;
+			const negativeY = gizmoCenterY - negative.y * gizmoRadius;
 			const positiveNodeId = `pos-${axisKey}`;
 			const negativeNodeId = `neg-${axisKey}`;
 			const centerNodeId = `axis-${axisKey}`;
@@ -238,7 +258,7 @@ export function createViewportAxisGizmoController({
 				setNodeVisible(positiveNodeId, false);
 				setNodeVisible(negativeNodeId, false);
 				setNodeVisible(centerNodeId, true);
-				setNodePosition(centerNodeId, 50, 50);
+				setNodePosition(centerNodeId, gizmoCenterX, gizmoCenterY);
 				setNodeDepth(centerNodeId, Math.max(positive.depth, negative.depth));
 				setNodeFacing(centerNodeId, facingPositive ? "positive" : "negative");
 				setNodeActive(

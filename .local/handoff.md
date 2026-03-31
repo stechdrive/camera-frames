@@ -139,6 +139,7 @@
   - ortho entry size now derives from current viewport perspective view scale instead of previous/saved ortho size: pass at lint/build/test level, browser QA still needed
   - ortho entry reference priority is now `viewport center hit -> short-lived orbit-hit hint -> last valid center-hit -> scene center`: pass at lint/build/test level, browser QA still needed
   - HUD XYZ gizmo active button fill / negative-facing label suppression / line-to-node alignment polish: pass at lint/build/test level, browser QA still needed
+  - HUD XYZ gizmo line coordinates now use the gizmo's real pixel size instead of the fixed 100x100 SVG space: pass at lint/build/test level, browser QA still needed
   - browser smoke for gizmo click / ortho controls / preview helper grid / perspective auto-exit: pending
 
 ## Versioning / Release Rule
