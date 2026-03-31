@@ -31,6 +31,8 @@ import { createReferenceImageRenderController } from "./controllers/reference-im
 import { createRuntimeController } from "./controllers/runtime-controller.js";
 import { createSceneFramingController } from "./controllers/scene-framing-controller.js";
 import { createUiSyncController } from "./controllers/ui-sync-controller.js";
+import { createViewportAxisGizmoController } from "./controllers/viewport-axis-gizmo-controller.js";
+import { createViewportProjectionController } from "./controllers/viewport-projection-controller.js";
 import { createViewportToolController } from "./controllers/viewport-tool-controller.js";
 import { drawFramesToContext } from "./engine/frame-overlay.js";
 import {
@@ -67,6 +69,8 @@ export function createCameraFramesController(elements, store) {
 		frameOverlayCanvas,
 		viewportGizmo,
 		viewportGizmoSvg,
+		viewportAxisGizmo,
+		viewportAxisGizmoSvg,
 		renderBoxMeta,
 		anchorDot,
 		dropHint,
@@ -196,6 +200,14 @@ export function createCameraFramesController(elements, store) {
 	const viewportCamera = new THREE.PerspectiveCamera(
 		50,
 		1,
+		DEFAULT_CAMERA_NEAR,
+		DEFAULT_CAMERA_FAR,
+	);
+	const viewportOrthoCamera = new THREE.OrthographicCamera(
+		-1,
+		1,
+		1,
+		-1,
 		DEFAULT_CAMERA_NEAR,
 		DEFAULT_CAMERA_FAR,
 	);
@@ -336,6 +348,8 @@ export function createCameraFramesController(elements, store) {
 	let runtimeController = null;
 	let sceneFramingController = null;
 	let uiSyncController = null;
+	let viewportAxisGizmoController = null;
+	let viewportProjectionController = null;
 	let viewportToolController = null;
 	let projectPresentationSyncSuspended = true;
 
@@ -399,6 +413,9 @@ export function createCameraFramesController(elements, store) {
 			activeShotCameraId: store.workspace.activeShotCameraId.value,
 			viewportBaseFovX: store.viewportBaseFovX.value,
 			viewportBaseFovXDirty: store.viewportBaseFovXDirty.value,
+			viewportProjection:
+				viewportProjectionController?.captureViewportProjectionState?.() ??
+				null,
 			shotCameras: store.workspace.shotCameras.value.map((documentState) =>
 				cloneShotCameraDocument(documentState),
 			),
@@ -456,6 +473,9 @@ export function createCameraFramesController(elements, store) {
 			: store.viewportBaseFovX.value;
 		store.viewportBaseFovXDirty.value = Boolean(snapshot.viewportBaseFovXDirty);
 		restoreCameraPose(viewportCamera, snapshot.viewportPose);
+		viewportProjectionController?.restoreViewportProjectionState?.(
+			snapshot.viewportProjection ?? null,
+		);
 		restoreShotCameraEditorStates(snapshot.shotCameraEditorStates ?? null);
 		referenceImageController?.applyProjectReferenceImagesState?.(
 			snapshot.sceneReferenceImages ?? null,
@@ -561,6 +581,8 @@ export function createCameraFramesController(elements, store) {
 					baseFovX: store.viewportBaseFovX.value,
 					baseFovXDirty: store.viewportBaseFovXDirty.value,
 					pose: captureCameraPose(viewportCamera),
+					...(viewportProjectionController?.captureViewportProjectionState?.() ??
+						{}),
 				},
 			},
 			shotCameras: captureProjectShotCameras(),
@@ -605,6 +627,9 @@ export function createCameraFramesController(elements, store) {
 			project?.workspace?.viewport?.baseFovXDirty,
 		);
 		restoreCameraPose(viewportCamera, project?.workspace?.viewport?.pose);
+		viewportProjectionController?.restoreViewportProjectionState?.(
+			project?.workspace?.viewport ?? null,
+		);
 
 		for (const shotCamera of project?.shotCameras ?? []) {
 			const entry = shotCameraRegistry.get(shotCamera.id);
@@ -736,6 +761,17 @@ export function createCameraFramesController(elements, store) {
 		fpsMovement,
 	});
 
+	viewportProjectionController = createViewportProjectionController({
+		store,
+		viewportShell,
+		viewportPerspectiveCamera: viewportCamera,
+		viewportOrthographicCamera: viewportOrthoCamera,
+		getViewportSize: () => outputFrameController.getViewportSize(),
+		getAutoClipRange: (camera) =>
+			sceneFramingController.getAutoClipRange(camera),
+		getSceneFraming: () => sceneFramingController.getSceneFraming(),
+	});
+
 	cameraController = createCameraController({
 		store,
 		state,
@@ -762,6 +798,23 @@ export function createCameraFramesController(elements, store) {
 		placeCameraAtHome: (...args) =>
 			sceneFramingController.placeCameraAtHome(...args),
 		frameCamera: (...args) => sceneFramingController.frameCamera(...args),
+		getViewportCameraForShotCopy: () =>
+			viewportProjectionController?.getActiveViewportCamera?.() ??
+			viewportCamera,
+		getViewportPerspectiveCamera: () =>
+			viewportProjectionController?.getViewportPerspectiveCamera?.() ??
+			viewportCamera,
+		prepareViewportPerspectiveMode: () =>
+			viewportProjectionController?.setViewportProjectionMode?.("perspective", {
+				copyActivePose: false,
+			}) ?? false,
+		resetViewportView: () => {
+			if (viewportProjectionController?.isViewportOrthographic?.()) {
+				viewportProjectionController.resetViewportOrthographicView();
+				return true;
+			}
+			return false;
+		},
 		syncControlsToMode: () => interactionController?.syncControlsToMode(),
 		runHistoryAction: historyController.runHistoryAction,
 	});
@@ -1079,6 +1132,26 @@ export function createCameraFramesController(elements, store) {
 			state.viewportBaseFovXDirty = true;
 			updateUi();
 		},
+		isViewportOrthographic: () =>
+			viewportProjectionController?.isViewportOrthographic?.() ?? false,
+		panViewportOrthographic: (deltaPxX, deltaPxY) =>
+			viewportProjectionController?.panViewportOrthographic?.(
+				deltaPxX,
+				deltaPxY,
+			) ?? false,
+		zoomViewportOrthographic: (deltaY, options) =>
+			viewportProjectionController?.zoomViewportOrthographic?.(
+				deltaY,
+				options,
+			) ?? false,
+		offsetViewportOrthographicDepth: (deltaY, options) =>
+			viewportProjectionController?.offsetViewportOrthographicDepth?.(
+				deltaY,
+				options,
+			) ?? false,
+		ensurePerspectiveForViewportRotation: () =>
+			viewportProjectionController?.ensurePerspectiveForViewportRotation?.() ??
+			false,
 		getShotCameraRollAxisWorld: () =>
 			projectionController?.getShotCameraRollAxisWorld?.() ?? null,
 		getShotCameraRollAngleDegrees: () =>
@@ -1101,15 +1174,13 @@ export function createCameraFramesController(elements, store) {
 		getActiveToolCamera: () =>
 			state.mode === WORKSPACE_PANE_CAMERA
 				? getActiveCameraViewCamera()
-				: viewportCamera,
+				: getActiveViewportCamera(),
 		assetController,
 		beginHistoryTransaction: historyController.beginHistoryTransaction,
 		commitHistoryTransaction: historyController.commitHistoryTransaction,
 	});
 	projectionController = createProjectionController({
 		state,
-		viewportShell,
-		viewportCamera,
 		renderer,
 		getOutputSizeState: (documentState) =>
 			outputFrameController.getOutputSizeState(documentState),
@@ -1122,6 +1193,17 @@ export function createCameraFramesController(elements, store) {
 		getActiveShotCameraDocument,
 		getActiveCameraViewCamera,
 		getActiveOutputCamera,
+	});
+	viewportAxisGizmoController = createViewportAxisGizmoController({
+		state,
+		axisGizmo: viewportAxisGizmo,
+		axisGizmoSvg: viewportAxisGizmoSvg,
+		getActiveViewportCamera: () => getActiveViewportCamera(),
+		getViewportProjectionMode: () =>
+			viewportProjectionController?.getViewportProjectionMode?.() ??
+			"perspective",
+		getViewportOrthoState: () =>
+			viewportProjectionController?.getViewportOrthoState?.() ?? null,
 	});
 	uiSyncController = createUiSyncController({
 		store,
@@ -1209,6 +1291,9 @@ export function createCameraFramesController(elements, store) {
 			interactionController?.startLensAdjustDrag(...args) ?? false,
 		startShotCameraRollDrag: (...args) =>
 			interactionController?.startShotCameraRollDrag(...args) ?? false,
+		startViewportOrthographicPanDrag: (...args) =>
+			interactionController?.startViewportOrthographicPanDrag?.(...args) ??
+			false,
 		toggleZoomTool,
 		toggleViewportSelectMode,
 		toggleViewportReferenceImageEditMode,
@@ -1245,8 +1330,18 @@ export function createCameraFramesController(elements, store) {
 			interactionController?.isLensInteractionMode() ?? false,
 		isRollInteractionMode: () =>
 			interactionController?.isRollInteractionMode() ?? false,
+		isViewportOrthographicActive: () =>
+			interactionController?.isViewportOrthographicActive?.() ?? false,
 		applyNavigateInteractionMode: () =>
 			interactionController?.applyNavigateInteractionMode(),
+		ensurePerspectiveForViewportRotation: () =>
+			interactionController?.ensurePerspectiveForViewportRotation?.() ?? false,
+		captureViewportProjectionState: () =>
+			viewportProjectionController?.captureViewportProjectionState?.() ?? null,
+		restoreViewportProjectionState: (snapshot) =>
+			viewportProjectionController?.restoreViewportProjectionState?.(
+				snapshot,
+			) ?? false,
 		openViewportPieMenu: (...args) =>
 			interactionController?.openViewportPieMenu(...args) ?? false,
 		openViewportPieMenuAtCenter: (...args) =>
@@ -1279,6 +1374,13 @@ export function createCameraFramesController(elements, store) {
 			interactionController?.handleShotCameraRollDragMove(...args),
 		handleShotCameraRollDragEnd: (...args) =>
 			interactionController?.handleShotCameraRollDragEnd(...args),
+		handleViewportOrthographicPanMove: (...args) =>
+			interactionController?.handleViewportOrthographicPanMove?.(...args),
+		handleViewportOrthographicPanEnd: (...args) =>
+			interactionController?.handleViewportOrthographicPanEnd?.(...args),
+		handleViewportOrthographicWheel: (...args) =>
+			interactionController?.handleViewportOrthographicWheel?.(...args) ??
+			false,
 		handleOutputFramePanMove: outputFrameController.handleOutputFramePanMove,
 		handleOutputFramePanEnd: outputFrameController.handleOutputFramePanEnd,
 		handleOutputFrameResizeMove:
@@ -1307,6 +1409,8 @@ export function createCameraFramesController(elements, store) {
 			outputFrameController.startOutputFrameAnchorDrag,
 		syncViewportTransformGizmo:
 			viewportToolController.syncViewportTransformGizmo,
+		syncViewportAxisGizmo: () =>
+			viewportAxisGizmoController?.syncViewportAxisGizmo?.(),
 		exportController,
 		handleResize,
 		fpsMovement,
@@ -1319,7 +1423,7 @@ export function createCameraFramesController(elements, store) {
 		applyCameraViewProjection,
 		updateShotCameraHelpers,
 		getActiveCameraViewCamera,
-		viewportCamera,
+		getActiveViewportCamera,
 		updateCameraSummary,
 		t,
 		formatNumber,
@@ -1372,10 +1476,17 @@ export function createCameraFramesController(elements, store) {
 		return interactionController?.handleZoomToolDragEnd(event);
 	}
 
+	function getActiveViewportCamera() {
+		return (
+			viewportProjectionController?.getActiveViewportCamera?.() ??
+			viewportCamera
+		);
+	}
+
 	function getActiveCamera() {
 		return state.mode === WORKSPACE_PANE_CAMERA
 			? getActiveShotCamera()
-			: viewportCamera;
+			: getActiveViewportCamera();
 	}
 
 	function getActiveCameraHeadingDeg() {
@@ -1517,7 +1628,7 @@ export function createCameraFramesController(elements, store) {
 	}
 
 	function syncViewportProjection() {
-		return projectionController.syncViewportProjection();
+		return viewportProjectionController?.syncActiveViewportProjection?.();
 	}
 
 	function clearControlMomentum() {
@@ -1806,8 +1917,9 @@ export function createCameraFramesController(elements, store) {
 				return true;
 			}
 			case "adjust-lens":
-				interactionController?.activateLensAdjustMode(pointerEvent);
-				return true;
+				return (
+					interactionController?.activateLensAdjustMode(pointerEvent) ?? false
+				);
 			case "clear-selection":
 				clearViewportEditingSelection();
 				return true;
@@ -1940,6 +2052,12 @@ export function createCameraFramesController(elements, store) {
 		toggleViewportReferenceImageEditMode,
 		setViewportPivotEditMode,
 		toggleViewportPivotEditMode,
+		setViewportProjectionMode: (...args) =>
+			viewportProjectionController?.setViewportProjectionMode?.(...args),
+		alignViewportToOrthographicView: (...args) =>
+			viewportProjectionController?.alignViewportToOrthographicView?.(...args),
+		toggleViewportOrthographicAxis: (...args) =>
+			viewportProjectionController?.toggleOrthographicAxis?.(...args),
 		setViewportTransformHover: viewportToolController.setViewportTransformHover,
 		setBoxWidthPercent: outputFrameController.setBoxWidthPercent,
 		setBoxHeightPercent: outputFrameController.setBoxHeightPercent,

@@ -143,6 +143,7 @@ export function createSceneFramingController({
 	}
 
 	return {
+		getSceneFraming,
 		getAutoClipRange,
 		copyPose,
 		placeCameraAtHome,

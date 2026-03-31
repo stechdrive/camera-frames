@@ -10,6 +10,7 @@ import {
 } from "../engine/viewport-pie.js";
 import { FrameLayer } from "./frame-layer.js";
 import { getProjectStatusDisplay } from "./project-status.js";
+import { ViewportAxisGizmo } from "./viewport-axis-gizmo.js";
 import { WorkbenchIcon } from "./workbench-icons.js";
 
 const OUTPUT_FRAME_RESIZE_HANDLES = [
@@ -211,6 +212,9 @@ export function ViewportShell({ store, controller, refs, t }) {
 				mode: store.mode.value,
 				t,
 				viewportToolMode: store.viewportToolMode.value,
+				viewportOrthographic:
+					store.mode.value === "viewport" &&
+					store.viewportProjectionMode.value === "orthographic",
 				referencePreviewSessionVisible:
 					store.referenceImages.previewSessionVisible.value !== false,
 				hasReferenceImages:
@@ -535,6 +539,11 @@ export function ViewportShell({ store, controller, refs, t }) {
 					</div>
 				`
 			}
+			<${ViewportAxisGizmo}
+				controller=${controller}
+				rootRef=${refs.viewportAxisGizmoRef}
+				svgRef=${refs.viewportAxisGizmoSvgRef}
+			/>
 			${
 				frameMaskViewportBounds &&
 				frameMaskOpacity > 0 &&

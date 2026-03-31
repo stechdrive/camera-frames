@@ -29,6 +29,11 @@ export function createInteractionController({
 	setShotCameraBaseFovXLive,
 	getViewportBaseFovX,
 	setViewportBaseFovXLive,
+	isViewportOrthographic = () => false,
+	panViewportOrthographic = () => false,
+	zoomViewportOrthographic = () => false,
+	offsetViewportOrthographicDepth = () => false,
+	ensurePerspectiveForViewportRotation = () => false,
 	getShotCameraRollAxisWorld,
 	getShotCameraRollAngleDegrees,
 	applyActiveShotCameraRoll,
@@ -51,6 +56,7 @@ export function createInteractionController({
 	let lensAdjustDragState = null;
 	let rollAdjustDragState = null;
 	let orbitAroundHitDragState = null;
+	let viewportOrthoPanDragState = null;
 	store.interactionMode.value = state.interactionMode;
 
 	function formatNumber(value, digits = 2) {
@@ -75,6 +81,10 @@ export function createInteractionController({
 
 	function isRollInteractionMode() {
 		return state.interactionMode === INTERACTION_MODE_ROLL;
+	}
+
+	function isViewportOrthographicActive() {
+		return state.mode !== workspacePaneCamera && isViewportOrthographic?.();
 	}
 
 	function isInteractiveTextTarget(target) {
@@ -168,6 +178,23 @@ export function createInteractionController({
 			state.interactionMode === INTERACTION_MODE_NAVIGATE;
 	}
 
+	function clearViewportOrthographicPanDrag({ cancel = false } = {}) {
+		if (cancel && viewportOrthoPanDragState?.historyLabel) {
+			cancelHistoryTransaction?.();
+		}
+		if (viewportOrthoPanDragState?.pointerId !== undefined) {
+			try {
+				viewportShell.releasePointerCapture?.(
+					viewportOrthoPanDragState.pointerId,
+				);
+			} catch {
+				// Ignore failed capture release.
+			}
+		}
+		viewportOrthoPanDragState = null;
+		viewportShell.classList.remove("is-ortho-panning");
+	}
+
 	function clearControlMomentum() {
 		pointerControls.moveVelocity.set(0, 0, 0);
 		pointerControls.rotateVelocity.set(0, 0, 0);
@@ -211,6 +238,7 @@ export function createInteractionController({
 		clearLensAdjustDrag();
 		clearRollAdjustDrag();
 		clearOrbitAroundHitDrag();
+		clearViewportOrthographicPanDrag({ cancel: true });
 		clearControlMomentum();
 		if (nextMode !== INTERACTION_MODE_PIE) {
 			setViewportPieMenu({
@@ -227,8 +255,10 @@ export function createInteractionController({
 			hideRollHud();
 		}
 		const navigationEnabled = nextMode === INTERACTION_MODE_NAVIGATE;
+		const pointerNavigationEnabled =
+			navigationEnabled && !isViewportOrthographicActive();
 		fpsMovement.enable = false;
-		pointerControls.enable = navigationEnabled;
+		pointerControls.enable = pointerNavigationEnabled;
 		if (!silent) {
 			setStatus(
 				navigationEnabled
@@ -252,6 +282,9 @@ export function createInteractionController({
 	}
 
 	function toggleZoomTool() {
+		if (isViewportOrthographicActive()) {
+			return false;
+		}
 		if (state.mode === workspacePaneCamera || state.mode === "viewport") {
 			applyInteractionMode(
 				state.interactionMode === INTERACTION_MODE_ZOOM
@@ -264,6 +297,9 @@ export function createInteractionController({
 	}
 
 	function startZoomToolDrag(event) {
+		if (isViewportOrthographicActive()) {
+			return false;
+		}
 		if (!isZoomToolActive() || event.button !== 0) {
 			return false;
 		}
@@ -380,6 +416,7 @@ export function createInteractionController({
 		const actions = buildViewportPieActions({
 			mode: state.mode,
 			t,
+			viewportOrthographic: isViewportOrthographicActive(),
 			frameMaskMode: store.frames.maskMode.value,
 			hasRememberedFrameMaskSelection:
 				(store.frames.maskSelectedIds.value?.length ?? 0) > 0,
@@ -409,6 +446,9 @@ export function createInteractionController({
 	}
 
 	function activateLensAdjustMode(pointerEvent = null) {
+		if (isViewportOrthographicActive()) {
+			return false;
+		}
 		applyInteractionMode(INTERACTION_MODE_LENS, { silent: false });
 		const viewportRect = viewportShell.getBoundingClientRect();
 		const localX = pointerEvent
@@ -418,6 +458,7 @@ export function createInteractionController({
 			? pointerEvent.clientY - viewportRect.top
 			: viewportRect.height * 0.5;
 		updateLensHud(localX, localY);
+		return true;
 	}
 
 	function activateShotCameraRollMode(pointerEvent = null) {
@@ -755,9 +796,98 @@ export function createInteractionController({
 		clearControlMomentum();
 		const navigationEnabled =
 			state.interactionMode === INTERACTION_MODE_NAVIGATE;
+		const pointerNavigationEnabled =
+			navigationEnabled && !isViewportOrthographicActive();
 		fpsMovement.enable = false;
-		pointerControls.enable = navigationEnabled;
+		pointerControls.enable = pointerNavigationEnabled;
 		updateUi({ syncProjectPresentation: false });
+	}
+
+	function startViewportOrthographicPanDrag(event) {
+		if (
+			!isViewportOrthographicActive() ||
+			state.interactionMode !== INTERACTION_MODE_NAVIGATE ||
+			event.button !== 2
+		) {
+			return false;
+		}
+
+		event.preventDefault();
+		event.stopPropagation();
+		beginHistoryTransaction?.("viewport.pose");
+		viewportOrthoPanDragState = {
+			pointerId: event.pointerId,
+			lastClientX: event.clientX,
+			lastClientY: event.clientY,
+			historyLabel: "viewport.pose",
+		};
+		viewportShell.classList.add("is-ortho-panning");
+		pointerControls.enable = false;
+		try {
+			viewportShell.setPointerCapture?.(event.pointerId);
+		} catch {
+			// Ignore failed pointer capture.
+		}
+		return true;
+	}
+
+	function handleViewportOrthographicPanMove(event) {
+		if (
+			!viewportOrthoPanDragState ||
+			event.pointerId !== viewportOrthoPanDragState.pointerId
+		) {
+			return;
+		}
+
+		const deltaX = event.clientX - viewportOrthoPanDragState.lastClientX;
+		const deltaY = event.clientY - viewportOrthoPanDragState.lastClientY;
+		viewportOrthoPanDragState.lastClientX = event.clientX;
+		viewportOrthoPanDragState.lastClientY = event.clientY;
+		if (Math.abs(deltaX) < 1e-6 && Math.abs(deltaY) < 1e-6) {
+			return;
+		}
+
+		event.preventDefault();
+		event.stopPropagation();
+		panViewportOrthographic?.(deltaX, deltaY);
+	}
+
+	function handleViewportOrthographicPanEnd(event) {
+		if (
+			!viewportOrthoPanDragState ||
+			event.pointerId !== viewportOrthoPanDragState.pointerId
+		) {
+			return;
+		}
+
+		event.preventDefault();
+		event.stopPropagation();
+		const historyLabel = viewportOrthoPanDragState.historyLabel;
+		clearViewportOrthographicPanDrag();
+		commitHistoryTransaction?.(historyLabel);
+		updateUi?.();
+	}
+
+	function handleViewportOrthographicWheel(event) {
+		if (!isViewportOrthographicActive()) {
+			return false;
+		}
+
+		event.preventDefault();
+		event.stopPropagation();
+		const fine = Boolean(event.altKey);
+		const historyLabel = event.shiftKey ? "viewport.pose" : "viewport.zoom";
+		beginHistoryTransaction?.(historyLabel);
+		const handled = event.shiftKey
+			? offsetViewportOrthographicDepth?.(event.deltaY, { fine })
+			: zoomViewportOrthographic?.(event.deltaY, { fine });
+		if (handled) {
+			commitHistoryTransaction?.(historyLabel);
+			updateUi?.();
+			return true;
+		}
+		cancelHistoryTransaction?.();
+		return false;
 	}
 
 	return {
@@ -788,6 +918,13 @@ export function createInteractionController({
 		startShotCameraRollDrag,
 		handleShotCameraRollDragMove,
 		handleShotCameraRollDragEnd,
+		startViewportOrthographicPanDrag,
+		handleViewportOrthographicPanMove,
+		handleViewportOrthographicPanEnd,
+		handleViewportOrthographicWheel,
+		clearViewportOrthographicPanDrag,
+		isViewportOrthographicActive,
+		ensurePerspectiveForViewportRotation,
 		startOrbitAroundHitDrag,
 		handleOrbitAroundHitDragMove,
 		handleOrbitAroundHitDragEnd,

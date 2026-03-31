@@ -1,4 +1,8 @@
 import { DEFAULT_SHOT_CAMERA_BASE_FOVX } from "./engine/camera-lens.js";
+import {
+	cloneViewportOrthoState,
+	normalizeViewportProjectionMode,
+} from "./engine/viewport-orthographic.js";
 import { normalizeLightingState } from "./lighting-model.js";
 import {
 	REFERENCE_IMAGE_ASSET_KIND,
@@ -12,7 +16,7 @@ import {
 } from "./workspace-model.js";
 
 export const PROJECT_FORMAT = "camera-frames-project";
-export const PROJECT_VERSION = 2;
+export const PROJECT_VERSION = 3;
 export const PROJECT_MANIFEST_PATH = "manifest.json";
 export const PROJECT_DOCUMENT_PATH = "project.json";
 export const PROJECT_JOURNAL_PATH = "journal.json";
@@ -148,6 +152,14 @@ export function toSerializableCameraPose(pose = null) {
 			y: Number(pose?.up?.y ?? 1),
 			z: Number(pose?.up?.z ?? 0),
 		},
+	};
+}
+
+function toSerializableVector3(value = null, fallback = { x: 0, y: 0, z: 0 }) {
+	return {
+		x: Number(value?.x ?? fallback.x ?? 0),
+		y: Number(value?.y ?? fallback.y ?? 0),
+		z: Number(value?.z ?? fallback.z ?? 0),
 	};
 }
 
@@ -357,6 +369,18 @@ export function normalizeProjectDocument(project = {}) {
 						: Number.isFinite(project.workspace?.viewport?.baseFovX) &&
 							project.workspace.viewport.baseFovX !== 60,
 				pose: toSerializableCameraPose(project.workspace?.viewport?.pose),
+				projectionMode: normalizeViewportProjectionMode(
+					project.workspace?.viewport?.projectionMode,
+				),
+				orthographic: (() => {
+					const normalizedOrtho = cloneViewportOrthoState(
+						project.workspace?.viewport?.orthographic,
+					);
+					return {
+						...normalizedOrtho,
+						focus: toSerializableVector3(normalizedOrtho.focus),
+					};
+				})(),
 			},
 		},
 		resources:

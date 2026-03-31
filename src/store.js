@@ -12,6 +12,13 @@ import {
 	getStandardFrameHorizontalEquivalentMm,
 	getStandardFrameHorizontalFovDegrees,
 } from "./engine/camera-lens.js";
+import {
+	DEFAULT_VIEWPORT_ORTHO_DISTANCE,
+	DEFAULT_VIEWPORT_ORTHO_FOCUS,
+	DEFAULT_VIEWPORT_ORTHO_SIZE,
+	DEFAULT_VIEWPORT_ORTHO_VIEW,
+	VIEWPORT_PROJECTION_PERSPECTIVE,
+} from "./engine/viewport-orthographic.js";
 import { resolveInitialLocale, translate } from "./i18n.js";
 import { createDefaultLightingState } from "./lighting-model.js";
 import { createDefaultReferenceImageDocument } from "./reference-image-model.js";
@@ -46,6 +53,11 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	const activeShotCameraId = signal(shotCameras.value[0].id);
 	const viewportBaseFovX = signal(DEFAULT_VIEWPORT_BASE_FOVX);
 	const viewportBaseFovXDirty = signal(false);
+	const viewportProjectionMode = signal(VIEWPORT_PROJECTION_PERSPECTIVE);
+	const viewportOrthoView = signal(DEFAULT_VIEWPORT_ORTHO_VIEW);
+	const viewportOrthoSize = signal(DEFAULT_VIEWPORT_ORTHO_SIZE);
+	const viewportOrthoDistance = signal(DEFAULT_VIEWPORT_ORTHO_DISTANCE);
+	const viewportOrthoFocus = signal({ ...DEFAULT_VIEWPORT_ORTHO_FOCUS });
 	const interactionMode = signal("navigate");
 	const viewportTransformSpace = signal("world");
 	const viewportToolMode = signal("none");
@@ -319,6 +331,11 @@ export function createCameraFramesStore(runtimeInfo = null) {
 		interactionMode,
 		viewportBaseFovX,
 		viewportBaseFovXDirty,
+		viewportProjectionMode,
+		viewportOrthoView,
+		viewportOrthoSize,
+		viewportOrthoDistance,
+		viewportOrthoFocus,
 		viewportToolMode,
 		viewportTransformSpace,
 		viewportSelectMode,
