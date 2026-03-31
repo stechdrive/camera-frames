@@ -44,6 +44,7 @@ export function buildViewportPieActions({
 	mode,
 	t,
 	viewportToolMode = "none",
+	viewportOrthographic = false,
 	referencePreviewSessionVisible = true,
 	hasReferenceImages = false,
 	frameMaskMode = "off",
@@ -97,6 +98,7 @@ export function buildViewportPieActions({
 					...entry,
 					icon: "camera-dslr",
 					label: t("action.adjustLens"),
+					disabled: mode === "viewport" && viewportOrthographic,
 				};
 			case "frame-create":
 				return {

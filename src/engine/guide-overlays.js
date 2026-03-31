@@ -25,15 +25,23 @@ const GRID_FRAGMENT_SHADER = /* glsl */ `
 	varying vec3 vWorldFar;
 
 	uniform vec3 uViewPosition;
+	uniform vec3 uPlaneOrigin;
+	uniform vec3 uPlaneNormal;
+	uniform vec3 uPlaneAxisU;
+	uniform vec3 uPlaneAxisV;
+	uniform vec3 uAxisColorU;
+	uniform vec3 uAxisColorV;
+	uniform float uAxisWidth;
+	uniform float uAllowBehindCamera;
 
-	bool intersectGroundPlane(in vec3 origin, in vec3 direction, out float t) {
-		float denominator = direction.y;
+	bool intersectGridPlane(in vec3 origin, in vec3 direction, out float t) {
+		float denominator = dot(direction, uPlaneNormal);
 		if (abs(denominator) < 1e-6) {
 			return false;
 		}
 
-		float hitT = -origin.y / denominator;
-		if (hitT < 0.0) {
+		float hitT = dot(uPlaneOrigin - origin, uPlaneNormal) / denominator;
+		if (hitT < 0.0 && uAllowBehindCamera < 0.5) {
 			return false;
 		}
 
@@ -70,14 +78,26 @@ const GRID_FRAGMENT_SHADER = /* glsl */ `
 		vec3 rayOrigin = vWorldNear;
 		vec3 rayDirection = normalize(vWorldFar - vWorldNear);
 		float hitT = 0.0;
-		if (!intersectGroundPlane(rayOrigin, rayDirection, hitT)) {
+		if (!intersectGridPlane(rayOrigin, rayDirection, hitT)) {
 			discard;
 		}
 
 		vec3 worldPosition = rayOrigin + rayDirection * hitT;
-		vec2 planePosition = worldPosition.xz;
-		vec2 planeDdx = dFdx(planePosition);
-		vec2 planeDdy = dFdy(planePosition);
+		vec3 planeWorldPosition = worldPosition - uPlaneOrigin;
+		vec2 planePosition = vec2(
+			dot(planeWorldPosition, uPlaneAxisU),
+			dot(planeWorldPosition, uPlaneAxisV)
+		);
+		vec3 worldDdx = dFdx(worldPosition);
+		vec3 worldDdy = dFdy(worldPosition);
+		vec2 planeDdx = vec2(
+			dot(worldDdx, uPlaneAxisU),
+			dot(worldDdx, uPlaneAxisV)
+		);
+		vec2 planeDdy = vec2(
+			dot(worldDdy, uPlaneAxisU),
+			dot(worldDdy, uPlaneAxisV)
+		);
 		float epsilon = 1.0 / 255.0;
 
 		float fade = 1.0 - smoothstep(400.0, 1000.0, length(worldPosition - uViewPosition));
@@ -86,7 +106,7 @@ const GRID_FRAGMENT_SHADER = /* glsl */ `
 		}
 
 		float axisFalloff = 1.0 - smoothstep(200.0, 400.0, length(planePosition));
-		float axisWidth = 0.10;
+		float axisWidth = uAxisWidth;
 		float halfWidth = axisWidth * 0.5;
 		vec2 derivative = vec2(
 			length(vec2(planeDdx.x, planeDdy.x)),
@@ -100,9 +120,9 @@ const GRID_FRAGMENT_SHADER = /* glsl */ `
 		if (axisAlpha > epsilon) {
 			vec3 axisColor = vec3(1.0);
 			if (xAxisAlpha > 0.0 && zAxisAlpha <= 0.0) {
-				axisColor = vec3(0.95, 0.28, 0.28);
+				axisColor = uAxisColorU;
 			} else if (zAxisAlpha > 0.0 && xAxisAlpha <= 0.0) {
-				axisColor = vec3(0.22, 0.52, 0.98);
+				axisColor = uAxisColorV;
 			}
 			gl_FragColor = vec4(axisColor, axisAlpha * 0.76);
 			return;
@@ -206,10 +226,64 @@ function createFullscreenOverlayMesh(material, renderOrder = 0) {
 	return mesh;
 }
 
-function createInfiniteGridMesh() {
+const GRID_PLANE_PRESETS = Object.freeze({
+	xz: Object.freeze({
+		origin: [0, 0, 0],
+		normal: [0, 1, 0],
+		axisU: [1, 0, 0],
+		axisV: [0, 0, 1],
+		axisColorU: [0.95, 0.28, 0.28],
+		axisColorV: [0.22, 0.52, 0.98],
+	}),
+	xy: Object.freeze({
+		origin: [0, 0, 0],
+		normal: [0, 0, 1],
+		axisU: [1, 0, 0],
+		axisV: [0, 1, 0],
+		axisColorU: [0.95, 0.28, 0.28],
+		axisColorV: [0.43, 0.86, 0.32],
+	}),
+	zy: Object.freeze({
+		origin: [0, 0, 0],
+		normal: [-1, 0, 0],
+		axisU: [0, 0, 1],
+		axisV: [0, 1, 0],
+		axisColorU: [0.22, 0.52, 0.98],
+		axisColorV: [0.43, 0.86, 0.32],
+	}),
+});
+
+function applyInfiniteGridPlanePreset(mesh, planeKey = "xz") {
+	const preset = GRID_PLANE_PRESETS[planeKey] ?? GRID_PLANE_PRESETS.xz;
+	const uniforms = mesh?.material?.uniforms;
+	if (!uniforms) {
+		return;
+	}
+	uniforms.uPlaneOrigin.value.fromArray(preset.origin);
+	uniforms.uPlaneNormal.value.fromArray(preset.normal).normalize();
+	uniforms.uPlaneAxisU.value.fromArray(preset.axisU).normalize();
+	uniforms.uPlaneAxisV.value.fromArray(preset.axisV).normalize();
+	uniforms.uAxisColorU.value.fromArray(preset.axisColorU);
+	uniforms.uAxisColorV.value.fromArray(preset.axisColorV);
+}
+
+function createInfiniteGridMesh({
+	plane = "xz",
+	renderOrder = 0,
+	allowBehindCamera = false,
+	axisWidth = 0.1,
+} = {}) {
 	const uniforms = {
 		uViewProjectionInverse: { value: new THREE.Matrix4() },
 		uViewPosition: { value: new THREE.Vector3() },
+		uPlaneOrigin: { value: new THREE.Vector3() },
+		uPlaneNormal: { value: new THREE.Vector3(0, 1, 0) },
+		uPlaneAxisU: { value: new THREE.Vector3(1, 0, 0) },
+		uPlaneAxisV: { value: new THREE.Vector3(0, 0, 1) },
+		uAxisColorU: { value: new THREE.Color(0.95, 0.28, 0.28) },
+		uAxisColorV: { value: new THREE.Color(0.22, 0.52, 0.98) },
+		uAxisWidth: { value: Math.max(Number(axisWidth) || 0, 0.001) },
+		uAllowBehindCamera: { value: allowBehindCamera ? 1 : 0 },
 	};
 	const material = new THREE.ShaderMaterial({
 		name: "InfiniteGridOverlayMaterial",
@@ -226,10 +300,11 @@ function createInfiniteGridMesh() {
 			derivatives: true,
 		},
 	});
-	const mesh = createFullscreenOverlayMesh(material);
+	const mesh = createFullscreenOverlayMesh(material, renderOrder);
 	mesh.onBeforeRender = (_renderer, _scene, camera) => {
 		updateCommonOverlayUniforms(camera, uniforms);
 	};
+	applyInfiniteGridPlanePreset(mesh, plane);
 	return mesh;
 }
 
@@ -276,16 +351,26 @@ export function createGuideOverlay() {
 
 	const backgroundScene = new THREE.Scene();
 	const overlayScene = new THREE.Scene();
+	const viewportPreviewScene = new THREE.Scene();
 
-	const backgroundGrid = createInfiniteGridMesh();
+	const backgroundGrid = createInfiniteGridMesh({ plane: "xz" });
 	backgroundGrid.name = "InfiniteGridBackground";
-	const overlayGrid = createInfiniteGridMesh();
+	const overlayGrid = createInfiniteGridMesh({ plane: "xz" });
 	overlayGrid.name = "InfiniteGridOverlay";
+	const viewportOrthoGrid = createInfiniteGridMesh({
+		plane: "xy",
+		renderOrder: 1,
+		allowBehindCamera: true,
+		axisWidth: 0.02,
+	});
+	viewportOrthoGrid.name = "ViewportOrthographicGridOverlay";
+	viewportOrthoGrid.visible = false;
 	const eyeLevel = createEyeLevelMesh();
 	eyeLevel.name = "EyeLevelOverlay";
 
 	backgroundScene.add(backgroundGrid);
 	overlayScene.add(overlayGrid, eyeLevel);
+	viewportPreviewScene.add(viewportOrthoGrid);
 
 	function captureState() {
 		return {
@@ -307,7 +392,23 @@ export function createGuideOverlay() {
 			gridVisible && gridLayerMode === GUIDE_GRID_LAYER_MODE_OVERLAY;
 		eyeLevel.visible = eyeLevelVisible;
 		group.visible =
-			backgroundGrid.visible || overlayGrid.visible || eyeLevel.visible;
+			backgroundGrid.visible ||
+			overlayGrid.visible ||
+			eyeLevel.visible ||
+			viewportOrthoGrid.visible;
+	}
+
+	function setViewportOrthographicGridState(nextState = {}) {
+		const visible = nextState.visible === true;
+		viewportOrthoGrid.visible = visible;
+		if (visible) {
+			applyInfiniteGridPlanePreset(viewportOrthoGrid, nextState.plane);
+		}
+		group.visible =
+			backgroundGrid.visible ||
+			overlayGrid.visible ||
+			eyeLevel.visible ||
+			viewportOrthoGrid.visible;
 	}
 
 	function renderBackground(renderer, camera) {
@@ -324,6 +425,13 @@ export function createGuideOverlay() {
 		renderer.render(overlayScene, camera);
 	}
 
+	function renderViewportOverlay(renderer, camera) {
+		if (!viewportOrthoGrid.visible) {
+			return;
+		}
+		renderer.render(viewportPreviewScene, camera);
+	}
+
 	applyState({
 		gridVisible: true,
 		eyeLevelVisible: true,
@@ -334,10 +442,16 @@ export function createGuideOverlay() {
 		group,
 		captureState,
 		applyState,
+		setViewportOrthographicGridState,
 		renderBackground,
 		renderOverlay,
+		renderViewportOverlay,
 		dispose() {
-			for (const overlaySceneEntry of [backgroundScene, overlayScene]) {
+			for (const overlaySceneEntry of [
+				backgroundScene,
+				overlayScene,
+				viewportPreviewScene,
+			]) {
 				overlaySceneEntry.traverse((node) => {
 					node.geometry?.dispose?.();
 					if (Array.isArray(node.material)) {

@@ -70,6 +70,7 @@ const viewportActions = buildViewportPieActions({
 	mode: "viewport",
 	t,
 	viewportToolMode: "none",
+	viewportOrthographic: true,
 	referencePreviewSessionVisible: false,
 	hasReferenceImages: false,
 	frameMaskMode: "all",
@@ -86,6 +87,10 @@ assert.equal(
 assert.equal(
 	viewportActions.find((action) => action.id === "toggle-reference-preview")
 		?.disabled,
+	true,
+);
+assert.equal(
+	viewportActions.find((action) => action.id === "adjust-lens")?.disabled,
 	true,
 );
 assert.equal(

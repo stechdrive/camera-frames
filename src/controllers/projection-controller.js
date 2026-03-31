@@ -12,8 +12,6 @@ import {
 
 export function createProjectionController({
 	state,
-	viewportShell,
-	viewportCamera,
 	renderer,
 	getOutputSizeState,
 	getOutputFrameMetrics,
@@ -79,15 +77,6 @@ export function createProjectionController({
 		camera.aspect = aspect;
 		camera.fov = horizontalToVerticalFovDegrees(horizontalFovDegrees, aspect);
 		camera.updateProjectionMatrix();
-	}
-
-	function syncViewportProjection() {
-		applySymmetricProjection(
-			viewportCamera,
-			Math.max(viewportShell.clientWidth, 1) /
-				Math.max(viewportShell.clientHeight, 1),
-			state.viewportBaseFovX,
-		);
 	}
 
 	function syncShotProjection() {
@@ -224,7 +213,6 @@ export function createProjectionController({
 
 	return {
 		getProjectionState,
-		syncViewportProjection,
 		syncShotProjection,
 		applyCameraViewProjection,
 		syncOutputCamera,

@@ -40,6 +40,7 @@ export function bindInputRouter({
 	startZoomToolDrag,
 	startLensAdjustDrag,
 	startShotCameraRollDrag,
+	startViewportOrthographicPanDrag,
 	toggleZoomTool,
 	toggleViewportSelectMode,
 	toggleViewportReferenceImageEditMode,
@@ -61,7 +62,12 @@ export function bindInputRouter({
 	isPieInteractionMode,
 	isLensInteractionMode,
 	isRollInteractionMode,
+	isViewportOrthographicActive,
 	applyNavigateInteractionMode,
+	syncControlsToMode,
+	ensurePerspectiveForViewportRotation,
+	captureViewportProjectionState,
+	restoreViewportProjectionState,
 	openViewportPieMenu,
 	updateViewportPiePointer,
 	finishViewportPieMenu,
@@ -83,6 +89,9 @@ export function bindInputRouter({
 	handleLensAdjustDragEnd,
 	handleShotCameraRollDragMove,
 	handleShotCameraRollDragEnd,
+	handleViewportOrthographicPanMove,
+	handleViewportOrthographicPanEnd,
+	handleViewportOrthographicWheel,
 	handleOutputFramePanMove,
 	handleOutputFramePanEnd,
 	handleOutputFrameResizeMove,
@@ -104,9 +113,11 @@ export function bindInputRouter({
 	isInteractionBlocked = null,
 }) {
 	let viewportSelectClickCandidate = null;
+	let viewportOrthoRotationGesture = null;
 	let viewportPieTouchHoldState = null;
 	const VIEWPORT_PIE_TOUCH_HOLD_MS = 320;
 	const VIEWPORT_PIE_TOUCH_HOLD_DISTANCE_PX = 12;
+	const VIEWPORT_POINTER_CLICK_DISTANCE_PX = 8;
 
 	function isHistoryShortcut(event) {
 		const hasHistoryModifier = event.ctrlKey || event.metaKey;
@@ -124,7 +135,8 @@ export function bindInputRouter({
 
 		const navigationEnabled = state.interactionMode === "navigate";
 		fpsMovement.enable = navigationEnabled;
-		pointerControls.enable = navigationEnabled;
+		pointerControls.enable =
+			navigationEnabled && !isViewportOrthographicActive?.();
 	}
 
 	function getCameraPoseSignature() {
@@ -141,6 +153,16 @@ export function bindInputRouter({
 			camera.quaternion.y.toFixed(5),
 			camera.quaternion.z.toFixed(5),
 			camera.quaternion.w.toFixed(5),
+			camera.isOrthographicCamera
+				? [
+						"ortho",
+						Number(camera.left).toFixed(5),
+						Number(camera.right).toFixed(5),
+						Number(camera.top).toFixed(5),
+						Number(camera.bottom).toFixed(5),
+						Number(camera.zoom).toFixed(5),
+					].join("|")
+				: "perspective",
 		].join("|");
 	}
 
@@ -177,12 +199,53 @@ export function bindInputRouter({
 		return false;
 	}
 
+	function maybeRestoreViewportOrthographicProjection(event) {
+		if (
+			!viewportOrthoRotationGesture ||
+			event.pointerId !== viewportOrthoRotationGesture.pointerId
+		) {
+			return;
+		}
+
+		const deltaX = event.clientX - viewportOrthoRotationGesture.startClientX;
+		const deltaY = event.clientY - viewportOrthoRotationGesture.startClientY;
+		const isClickLike =
+			Math.hypot(deltaX, deltaY) <= VIEWPORT_POINTER_CLICK_DISTANCE_PX;
+		const cameraPoseChanged =
+			viewportOrthoRotationGesture.startPose !== getCameraPoseSignature();
+		const projectionSnapshot = viewportOrthoRotationGesture.projectionSnapshot;
+		viewportOrthoRotationGesture = null;
+		if (isClickLike && !cameraPoseChanged) {
+			restoreViewportProjectionState?.(projectionSnapshot);
+			syncControlsToMode?.();
+		}
+	}
+
 	listen(
 		viewportShell,
 		"pointerdown",
 		(event) => {
 			if (isPieInteractionMode?.()) {
 				return;
+			}
+			const target = event.target instanceof Element ? event.target : null;
+			if (
+				isViewportOrthographicActive?.() &&
+				event.button === 0 &&
+				target?.closest("#viewport") !== null
+			) {
+				viewportOrthoRotationGesture = null;
+				const projectionSnapshot = captureViewportProjectionState?.() ?? null;
+				if (ensurePerspectiveForViewportRotation?.()) {
+					syncControlsToMode?.();
+					viewportOrthoRotationGesture = {
+						pointerId: event.pointerId,
+						startClientX: event.clientX,
+						startClientY: event.clientY,
+						startPose: getCameraPoseSignature(),
+						projectionSnapshot,
+					};
+				}
 			}
 			if (startOrbitAroundHitDrag?.(event)) {
 				return;
@@ -219,6 +282,24 @@ export function bindInputRouter({
 			}
 		},
 		{ capture: true },
+	);
+
+	listen(
+		viewportShell,
+		"wheel",
+		(event) => {
+			if (!isViewportOrthographicActive?.()) {
+				return;
+			}
+			const target = event.target instanceof Element ? event.target : null;
+			if (
+				target?.closest(".viewport-pie, .viewport-axis-gizmo, #viewport-gizmo")
+			) {
+				return;
+			}
+			handleViewportOrthographicWheel?.(event);
+		},
+		{ capture: true, passive: false },
 	);
 
 	listen(
@@ -350,6 +431,13 @@ export function bindInputRouter({
 			return;
 		}
 
+		if (
+			target?.closest("#viewport") !== null &&
+			startViewportOrthographicPanDrag?.(event)
+		) {
+			return;
+		}
+
 		if (startLensAdjustDrag?.(event)) {
 			return;
 		}
@@ -430,6 +518,9 @@ export function bindInputRouter({
 	listen(window, "pointermove", handleShotCameraRollDragMove);
 	listen(window, "pointerup", handleShotCameraRollDragEnd);
 	listen(window, "pointercancel", handleShotCameraRollDragEnd);
+	listen(window, "pointermove", handleViewportOrthographicPanMove);
+	listen(window, "pointerup", handleViewportOrthographicPanEnd);
+	listen(window, "pointercancel", handleViewportOrthographicPanEnd);
 	listen(window, "pointermove", (event) => {
 		if (
 			!viewportPieTouchHoldState ||
@@ -484,7 +575,8 @@ export function bindInputRouter({
 		}
 		const deltaX = event.clientX - viewportSelectClickCandidate.startClientX;
 		const deltaY = event.clientY - viewportSelectClickCandidate.startClientY;
-		const isClickLike = Math.hypot(deltaX, deltaY) <= 8;
+		const isClickLike =
+			Math.hypot(deltaX, deltaY) <= VIEWPORT_POINTER_CLICK_DISTANCE_PX;
 		const cameraPoseChanged =
 			viewportSelectClickCandidate.startPose !== getCameraPoseSignature();
 		const shouldSelect = isClickLike && !cameraPoseChanged;
@@ -498,6 +590,12 @@ export function bindInputRouter({
 		if (viewportSelectClickCandidate?.pointerId === event.pointerId) {
 			viewportSelectClickCandidate = null;
 		}
+	});
+	listen(window, "pointerup", (event) => {
+		maybeRestoreViewportOrthographicProjection(event);
+	});
+	listen(window, "pointercancel", (event) => {
+		maybeRestoreViewportOrthographicProjection(event);
 	});
 	listen(window, "pointerup", () => {
 		requestNavigationHistoryCommit?.();

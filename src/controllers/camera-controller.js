@@ -45,6 +45,10 @@ export function createCameraController({
 	copyPose,
 	placeCameraAtHome,
 	frameCamera,
+	getViewportCameraForShotCopy = () => viewportCamera,
+	getViewportPerspectiveCamera = () => viewportCamera,
+	prepareViewportPerspectiveMode = () => false,
+	resetViewportView = () => false,
 	syncControlsToMode,
 	runHistoryAction = (_label, applyChange) => {
 		applyChange?.();
@@ -724,7 +728,7 @@ export function createCameraController({
 	function copyViewportToShotCamera() {
 		const shotCamera = getActiveShotCamera();
 		runHistoryAction?.("camera.copy-viewport", () => {
-			copyPose(viewportCamera, shotCamera);
+			copyPose(getViewportCameraForShotCopy?.() ?? viewportCamera, shotCamera);
 			state.baseFovX = state.viewportBaseFovX;
 			syncActiveShotCameraDocumentFromLiveCamera({
 				includeLens: true,
@@ -743,14 +747,17 @@ export function createCameraController({
 	function copyShotCameraToViewport() {
 		const shotCamera = getActiveShotCamera();
 		runHistoryAction?.("viewport.copy-shot", () => {
+			prepareViewportPerspectiveMode?.();
+			const targetViewportCamera =
+				getViewportPerspectiveCamera?.() ?? viewportCamera;
 			const forward = shotCamera
 				.getWorldDirection(new THREE.Vector3())
 				.normalize();
 			const target = shotCamera.position.clone().add(forward);
-			viewportCamera.position.copy(shotCamera.position);
-			viewportCamera.up.set(0, 1, 0);
-			viewportCamera.lookAt(target);
-			viewportCamera.updateMatrixWorld();
+			targetViewportCamera.position.copy(shotCamera.position);
+			targetViewportCamera.up.set(0, 1, 0);
+			targetViewportCamera.lookAt(target);
+			targetViewportCamera.updateMatrixWorld();
 			if (state.mode === WORKSPACE_PANE_VIEWPORT) {
 				syncControlsToMode();
 			} else {
@@ -770,7 +777,9 @@ export function createCameraController({
 				syncActiveShotCameraFromDocument();
 				setStatus(t("status.resetCamera"));
 			} else {
-				placeCameraAtHome(viewportCamera, "viewport");
+				if (!resetViewportView?.()) {
+					placeCameraAtHome(viewportCamera, "viewport");
+				}
 				setStatus(t("status.resetViewport"));
 			}
 			syncControlsToMode();

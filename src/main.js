@@ -28,6 +28,8 @@ function CameraFramesApp({ runtimeInfo }) {
 	const frameOverlayCanvasRef = useRef(null);
 	const viewportGizmoRef = useRef(null);
 	const viewportGizmoSvgRef = useRef(null);
+	const viewportAxisGizmoRef = useRef(null);
+	const viewportAxisGizmoSvgRef = useRef(null);
 	const renderBoxMetaRef = useRef(null);
 	const anchorDotRef = useRef(null);
 	const dropHintRef = useRef(null);
@@ -46,6 +48,8 @@ function CameraFramesApp({ runtimeInfo }) {
 				frameOverlayCanvas: frameOverlayCanvasRef.current,
 				viewportGizmo: viewportGizmoRef.current,
 				viewportGizmoSvg: viewportGizmoSvgRef.current,
+				viewportAxisGizmo: viewportAxisGizmoRef.current,
+				viewportAxisGizmoSvg: viewportAxisGizmoSvgRef.current,
 				renderBoxMeta: renderBoxMetaRef.current,
 				anchorDot: anchorDotRef.current,
 				dropHint: dropHintRef.current,
@@ -72,6 +76,8 @@ function CameraFramesApp({ runtimeInfo }) {
 		frameOverlayCanvasRef,
 		viewportGizmoRef,
 		viewportGizmoSvgRef,
+		viewportAxisGizmoRef,
+		viewportAxisGizmoSvgRef,
 		renderBoxMetaRef,
 		anchorDotRef,
 		dropHintRef,

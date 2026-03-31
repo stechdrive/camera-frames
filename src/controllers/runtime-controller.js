@@ -23,6 +23,7 @@ export function createRuntimeController({
 	startZoomToolDrag,
 	startLensAdjustDrag,
 	startShotCameraRollDrag,
+	startViewportOrthographicPanDrag,
 	toggleZoomTool,
 	toggleViewportSelectMode,
 	toggleViewportReferenceImageEditMode,
@@ -48,7 +49,12 @@ export function createRuntimeController({
 	isPieInteractionMode,
 	isLensInteractionMode,
 	isRollInteractionMode,
+	isViewportOrthographicActive,
 	applyNavigateInteractionMode,
+	syncControlsToMode,
+	ensurePerspectiveForViewportRotation,
+	captureViewportProjectionState,
+	restoreViewportProjectionState,
 	openViewportPieMenu,
 	updateViewportPiePointer,
 	finishViewportPieMenu,
@@ -67,6 +73,9 @@ export function createRuntimeController({
 	handleLensAdjustDragEnd,
 	handleShotCameraRollDragMove,
 	handleShotCameraRollDragEnd,
+	handleViewportOrthographicPanMove,
+	handleViewportOrthographicPanEnd,
+	handleViewportOrthographicWheel,
 	handleOutputFramePanMove,
 	handleOutputFramePanEnd,
 	handleOutputFrameResizeMove,
@@ -95,18 +104,18 @@ export function createRuntimeController({
 	guideOverlay,
 	syncGuideOverlayState,
 	syncViewportTransformGizmo,
+	syncViewportAxisGizmo,
 	syncViewportProjection,
 	syncShotProjection,
 	applyCameraViewProjection,
 	updateShotCameraHelpers,
 	getActiveCameraViewCamera,
-	viewportCamera,
+	getActiveViewportCamera,
 	updateCameraSummary,
 	t,
 	formatNumber,
 	frameAllCameras,
 	placeAllCamerasAtHome,
-	syncControlsToMode,
 	applyInitialNavigateInteractionMode,
 	loadStartupUrls,
 	setExportStatus,
@@ -143,6 +152,16 @@ export function createRuntimeController({
 			camera.quaternion.y.toFixed(6),
 			camera.quaternion.z.toFixed(6),
 			camera.quaternion.w.toFixed(6),
+			camera.isOrthographicCamera
+				? [
+						"ortho",
+						Number(camera.left).toFixed(6),
+						Number(camera.right).toFixed(6),
+						Number(camera.top).toFixed(6),
+						Number(camera.bottom).toFixed(6),
+						Number(camera.zoom).toFixed(6),
+					].join("|")
+				: "perspective",
 		].join("|");
 	}
 
@@ -199,6 +218,7 @@ export function createRuntimeController({
 			startZoomToolDrag,
 			startLensAdjustDrag,
 			startShotCameraRollDrag,
+			startViewportOrthographicPanDrag,
 			toggleZoomTool,
 			toggleViewportSelectMode,
 			toggleViewportReferenceImageEditMode,
@@ -220,7 +240,12 @@ export function createRuntimeController({
 			isPieInteractionMode,
 			isLensInteractionMode,
 			isRollInteractionMode,
+			isViewportOrthographicActive,
 			applyNavigateInteractionMode,
+			syncControlsToMode,
+			ensurePerspectiveForViewportRotation,
+			captureViewportProjectionState,
+			restoreViewportProjectionState,
 			openViewportPieMenu,
 			updateViewportPiePointer,
 			finishViewportPieMenu,
@@ -242,6 +267,9 @@ export function createRuntimeController({
 			handleLensAdjustDragEnd,
 			handleShotCameraRollDragMove,
 			handleShotCameraRollDragEnd,
+			handleViewportOrthographicPanMove,
+			handleViewportOrthographicPanEnd,
+			handleViewportOrthographicWheel,
 			handleOutputFramePanMove,
 			handleOutputFramePanEnd,
 			handleOutputFrameResizeMove,
@@ -324,7 +352,7 @@ export function createRuntimeController({
 		const renderCamera =
 			state.mode === WORKSPACE_PANE_CAMERA
 				? getActiveCameraViewCamera()
-				: viewportCamera;
+				: getActiveViewportCamera();
 		const guideState = guideOverlay.captureState();
 		const previousAutoClear = renderer.autoClear;
 		const previousBackground = scene.background;
@@ -350,10 +378,12 @@ export function createRuntimeController({
 			renderer.render(scene, renderCamera);
 		}
 		guideOverlay.renderOverlay(renderer, renderCamera);
+		guideOverlay.renderViewportOverlay?.(renderer, renderCamera);
 		scene.background = previousBackground;
 		renderer.setClearColor(previousClearColor, previousClearAlpha);
 		renderer.autoClear = previousAutoClear;
 		syncViewportTransformGizmo?.();
+		syncViewportAxisGizmo?.();
 		updateOutputFrameOverlay();
 	}
 

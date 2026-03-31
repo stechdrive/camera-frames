@@ -2520,6 +2520,206 @@ input[type="range"] {
 	}
 }
 
+body[data-interaction-mode="pie"] .viewport-axis-gizmo,
+body[data-interaction-mode="lens"] .viewport-axis-gizmo,
+body[data-interaction-mode="roll"] .viewport-axis-gizmo {
+	opacity: 0.24;
+}
+
+.viewport-axis-gizmo {
+	--viewport-axis-x: #ff5f74;
+	--viewport-axis-x-rgb: 255 95 116;
+	--viewport-axis-y: #bddb35;
+	--viewport-axis-y-rgb: 189 219 53;
+	--viewport-axis-z: #5ba7ff;
+	--viewport-axis-z-rgb: 91 167 255;
+	position: absolute;
+	top: 3.9rem;
+	right: 1rem;
+	z-index: 8;
+	width: 6rem;
+	height: 6rem;
+	pointer-events: none;
+	transform: translateZ(0);
+	transition: opacity 120ms ease;
+}
+
+.viewport-shell--inspector-open .viewport-axis-gizmo {
+	right: calc(var(--panel-width) + 1rem);
+}
+
+.viewport-shell--inspector-collapsed .viewport-axis-gizmo {
+	right: 4.6rem;
+}
+
+.viewport-axis-gizmo.is-hidden {
+	display: none;
+}
+
+.viewport-axis-gizmo__axes {
+	position: absolute;
+	inset: 0;
+	overflow: visible;
+	pointer-events: none;
+}
+
+.viewport-axis-gizmo__line {
+	stroke-width: 2.35;
+	stroke-linecap: round;
+	opacity: 0.92;
+	filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.42));
+	transition: stroke-width 120ms ease, opacity 120ms ease;
+}
+
+.viewport-axis-gizmo__line--x {
+	stroke: var(--viewport-axis-x);
+}
+
+.viewport-axis-gizmo__line--y {
+	stroke: var(--viewport-axis-y);
+}
+
+.viewport-axis-gizmo__line--z {
+	stroke: var(--viewport-axis-z);
+}
+
+.viewport-axis-gizmo__line.is-active {
+	stroke-width: 3;
+	opacity: 1;
+}
+
+.viewport-axis-gizmo__button {
+	appearance: none;
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	border-radius: 999px;
+	border: 1px solid currentColor;
+	background: rgba(6, 17, 30, 0.92);
+	box-shadow: 0 10px 18px rgba(0, 0, 0, 0.34);
+	overflow: hidden;
+	isolation: isolate;
+	color: var(--accent-cool);
+	cursor: pointer;
+	pointer-events: auto;
+	transform: translate(-50%, -50%);
+	transition:
+		transform 120ms ease,
+		box-shadow 120ms ease,
+		background-color 120ms ease,
+		opacity 120ms ease,
+		border-color 120ms ease;
+}
+
+.viewport-axis-gizmo__button::before {
+	content: "";
+	position: absolute;
+	inset: 2px;
+	border-radius: inherit;
+	background: rgb(var(--viewport-axis-rgb, 137 208 255) / 0);
+	opacity: 0;
+	transition: opacity 120ms ease, background-color 120ms ease;
+	z-index: 0;
+}
+
+.viewport-axis-gizmo__button > span {
+	position: relative;
+	z-index: 1;
+}
+
+.viewport-axis-gizmo__button--x {
+	color: var(--viewport-axis-x);
+	--viewport-axis-rgb: var(--viewport-axis-x-rgb);
+}
+
+.viewport-axis-gizmo__button--y {
+	color: var(--viewport-axis-y);
+	--viewport-axis-rgb: var(--viewport-axis-y-rgb);
+}
+
+.viewport-axis-gizmo__button--z {
+	color: var(--viewport-axis-z);
+	--viewport-axis-rgb: var(--viewport-axis-z-rgb);
+}
+
+.viewport-axis-gizmo__button--positive {
+	width: 1.08rem;
+	height: 1.08rem;
+	font: 700 0.46rem / 1 "Consolas", "Andale Mono", monospace;
+	letter-spacing: 0.01em;
+	text-transform: uppercase;
+	text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.viewport-axis-gizmo__button--negative {
+	width: 1.08rem;
+	height: 1.08rem;
+	background: rgba(6, 17, 30, 0.54);
+}
+
+.viewport-axis-gizmo__button--negative span {
+	display: none;
+}
+
+.viewport-axis-gizmo__button--axis-center {
+	width: 1.08rem;
+	height: 1.08rem;
+	background: rgba(6, 17, 30, 0.96);
+	font: 700 0.46rem / 1 "Consolas", "Andale Mono", monospace;
+	letter-spacing: 0.01em;
+	text-transform: uppercase;
+}
+
+.viewport-axis-gizmo__button--axis-center[data-facing="negative"] span {
+	display: none;
+}
+
+.viewport-axis-gizmo__button.is-hidden {
+	display: none;
+}
+
+.viewport-axis-gizmo__button.is-active {
+	background: rgba(8, 18, 30, 0.94);
+	box-shadow: 0 14px 24px rgba(0, 0, 0, 0.42), 0 0 0 2px currentColor;
+}
+
+.viewport-axis-gizmo__button.is-active::before {
+	opacity: 0.9;
+}
+
+.viewport-axis-gizmo__button.is-active > span {
+	color: rgba(248, 252, 255, 0.96);
+	text-shadow: 0 1px 2px rgba(0, 0, 0, 0.72);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.viewport-axis-gizmo__button:hover {
+		transform: translate(-50%, -50%) scale(1.06);
+		background: rgba(14, 28, 48, 0.98);
+		box-shadow: 0 14px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px currentColor;
+	}
+}
+
+.viewport-axis-gizmo__button:focus-visible {
+	outline: 2px solid rgba(255, 255, 255, 0.78);
+	outline-offset: 2px;
+}
+
+@media (max-width: 900px) {
+	.viewport-axis-gizmo,
+	.viewport-shell--inspector-open .viewport-axis-gizmo,
+	.viewport-shell--inspector-collapsed .viewport-axis-gizmo {
+		top: 3.3rem;
+		right: 0.8rem;
+		width: 5.35rem;
+		height: 5.35rem;
+	}
+}
+
 .viewport-debug-meta {
 	position: absolute;
 	top: 0.9rem;
