@@ -1621,7 +1621,7 @@ export function createExportController({
 			const beautyPixels = clonePixelBuffer(sceneCapture.pixels);
 			completePhase("beauty");
 			const gridGuidePixels = targetExportSettings.exportGridOverlay
-				? (() => {
+				? await (() => {
 						emitPhase("guides", t("overlay.exportPhaseDetailGuidesGrid"));
 						return renderGuideLayerPixels({
 							camera: outputCamera,
@@ -1634,7 +1634,7 @@ export function createExportController({
 					})()
 				: null;
 			const eyeLevelPixels = targetExportSettings.exportGridOverlay
-				? (() => {
+				? await (() => {
 						emitPhase("guides", t("overlay.exportPhaseDetailGuidesEyeLevel"));
 						return renderGuideLayerPixels({
 							camera: outputCamera,

@@ -4,6 +4,12 @@ const DEFAULT_BLEND_MODE = "source-over";
 const DEFAULT_RENDER_LAYER_NAME = "Render";
 const DEFAULT_RENDER_PASS_NAME = "Beauty";
 
+function assertPixelBuffer(pixels) {
+	if (!ArrayBuffer.isView(pixels)) {
+		throw new TypeError("Export pixel layers must use a typed pixel buffer.");
+	}
+}
+
 export function createPixelLayer({
 	name = DEFAULT_RENDER_LAYER_NAME,
 	pixels,
@@ -16,6 +22,7 @@ export function createPixelLayer({
 	category = "render",
 	metadata = null,
 }) {
+	assertPixelBuffer(pixels);
 	return {
 		type: "pixels",
 		name,
