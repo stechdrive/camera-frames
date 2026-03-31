@@ -779,7 +779,7 @@ export function bindInputRouter({
 		}
 
 		if (
-			event.code === "KeyM" &&
+			event.code === "KeyF" &&
 			state.mode === "camera" &&
 			!event.altKey &&
 			!event.ctrlKey &&

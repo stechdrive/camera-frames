@@ -250,6 +250,7 @@ const MESSAGES = {
 			quickMenu: "クイックメニュー",
 			pinQuickSection: "レールに追加",
 			unpinQuickSection: "レールから外す",
+			frameTool: "フレームツール",
 			newFrame: "FRAME を追加",
 			duplicateFrame: "複製",
 			deleteFrame: "削除",
@@ -281,6 +282,8 @@ const MESSAGES = {
 				"3Dオブジェクトの変形原点を編集します。もう一度押すと解除します。",
 			toolZoom:
 				"カメラビューでは表示ズーム、ビューポートでは画角を調整します。もう一度押すと解除します。",
+			frameTool:
+				"FRAME の追加・複製・削除と、全体 / 選択中マスクの切替やマスク不透明度の調整を行います。",
 			quickMenu:
 				"ツールのクイックメニューを開きます。モバイルではここから使うのが安全です。",
 			clearSelection:
@@ -899,6 +902,7 @@ const MESSAGES = {
 			quickMenu: "Quick Menu",
 			pinQuickSection: "Add To Rail",
 			unpinQuickSection: "Remove From Rail",
+			frameTool: "Frame Tool",
 			newFrame: "Add FRAME",
 			duplicateFrame: "Duplicate",
 			deleteFrame: "Delete",
@@ -933,6 +937,8 @@ const MESSAGES = {
 				"Edit the transform origin of 3D objects. Press again to return to no active tool.",
 			toolZoom:
 				"In Camera View it adjusts display zoom; in Viewport it adjusts viewport lens. Press again to return to navigation.",
+			frameTool:
+				"Add, duplicate, or delete FRAMEs, and control all-frame or selected-frame masking plus mask opacity.",
 			quickMenu:
 				"Open the quick tool menu. On mobile, this is the safer way to use it.",
 			clearSelection:

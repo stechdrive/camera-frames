@@ -437,8 +437,55 @@ function MaskToolPopover({ controller, hasFrames, store, t }) {
 		<div
 			class="workbench-tool-rail__popover workbench-tool-rail__popover--mask"
 			role="group"
-			aria-label=${t("section.mask")}
+			aria-label=${t("action.frameTool")}
 		>
+			<label class="field workbench-tool-rail__popover-field">
+				<span>${t("section.frames")}</span>
+				<div class="frame-mask-toolbar__buttons workbench-tool-rail__popover-mask-buttons">
+					<${IconButton}
+						icon="plus"
+						label=${t("action.newFrame")}
+						compact=${true}
+						className="frame-mask-toolbar__button"
+						disabled=${!canCreateFrame}
+						onClick=${() => controller()?.createFrame?.()}
+						tooltip=${{
+							title: t("action.newFrame"),
+							placement: "right",
+						}}
+					/>
+					<${IconButton}
+						icon="duplicate"
+						label=${t("action.duplicateFrame")}
+						compact=${true}
+						className="frame-mask-toolbar__button"
+						disabled=${!canDuplicateFrames}
+						onClick=${() =>
+							controller()?.duplicateSelectedFrames?.(
+								selectedFrameIds.length > 0 ? selectedFrameIds : null,
+							)}
+						tooltip=${{
+							title: t("action.duplicateFrame"),
+							placement: "right",
+						}}
+					/>
+					<${IconButton}
+						icon="trash"
+						label=${t("action.deleteFrame")}
+						compact=${true}
+						className="frame-mask-toolbar__button"
+						disabled=${!canDeleteFrames}
+						onClick=${() =>
+							selectedFrameIds.length > 0
+								? controller()?.deleteSelectedFrames?.(selectedFrameIds)
+								: controller()?.deleteActiveFrame?.()}
+						tooltip=${{
+							title: t("action.deleteFrame"),
+							placement: "right",
+						}}
+					/>
+				</div>
+			</label>
 			<label class="field workbench-tool-rail__popover-field">
 				<span>${t("section.mask")}</span>
 				<div class="frame-mask-toolbar__buttons workbench-tool-rail__popover-mask-buttons">
@@ -465,7 +512,7 @@ function MaskToolPopover({ controller, hasFrames, store, t }) {
 						tooltip=${{
 							title: t("action.toggleAllFrameMask"),
 							description: t("tooltip.frameMaskAll"),
-							shortcut: "M",
+							shortcut: "F",
 							placement: "right",
 						}}
 					/>
@@ -480,7 +527,7 @@ function MaskToolPopover({ controller, hasFrames, store, t }) {
 						tooltip=${{
 							title: t("action.toggleSelectedFrameMask"),
 							description: t("tooltip.frameMaskSelected"),
-							shortcut: "Shift+M",
+							shortcut: "Shift+F",
 							placement: "right",
 						}}
 					/>
@@ -511,50 +558,6 @@ function MaskToolPopover({ controller, hasFrames, store, t }) {
 					>
 				</div>
 			</label>
-			<div class="frame-mask-toolbar__buttons workbench-tool-rail__popover-mask-buttons">
-				<${IconButton}
-					icon="plus"
-					label=${t("action.newFrame")}
-					compact=${true}
-					className="frame-mask-toolbar__button"
-					disabled=${!canCreateFrame}
-					onClick=${() => controller()?.createFrame?.()}
-					tooltip=${{
-						title: t("action.newFrame"),
-						placement: "right",
-					}}
-				/>
-				<${IconButton}
-					icon="duplicate"
-					label=${t("action.duplicateFrame")}
-					compact=${true}
-					className="frame-mask-toolbar__button"
-					disabled=${!canDuplicateFrames}
-					onClick=${() =>
-						controller()?.duplicateSelectedFrames?.(
-							selectedFrameIds.length > 0 ? selectedFrameIds : null,
-						)}
-					tooltip=${{
-						title: t("action.duplicateFrame"),
-						placement: "right",
-					}}
-				/>
-				<${IconButton}
-					icon="trash"
-					label=${t("action.deleteFrame")}
-					compact=${true}
-					className="frame-mask-toolbar__button"
-					disabled=${!canDeleteFrames}
-					onClick=${() =>
-						selectedFrameIds.length > 0
-							? controller()?.deleteSelectedFrames?.(selectedFrameIds)
-							: controller()?.deleteActiveFrame?.()}
-					tooltip=${{
-						title: t("action.deleteFrame"),
-						placement: "right",
-					}}
-				/>
-			</div>
 		</div>
 	`;
 }
@@ -847,12 +850,13 @@ export function ToolRailSection({
 									>
 										<${IconButton}
 											icon="mask"
-											label=${t("section.mask")}
+											label=${t("action.frameTool")}
 											active=${showMaskToolPopover || frameMaskMode !== "off"}
 											className="workbench-tool-rail__button"
 											tooltip=${{
-												title: t("section.mask"),
-												shortcut: "M",
+												title: t("action.frameTool"),
+												description: t("tooltip.frameTool"),
+												shortcut: "F",
 												placement: tooltipPlacement,
 											}}
 											onClick=${() =>
