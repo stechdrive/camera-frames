@@ -1217,6 +1217,7 @@ export function createCameraFramesController(elements, store) {
 		state,
 		viewportShell,
 		viewportCanvas,
+		guides,
 		workspacePaneCamera: WORKSPACE_PANE_CAMERA,
 		getActiveViewportCamera: () => getActiveViewportCamera(),
 		getActiveCameraViewCamera,
@@ -1449,6 +1450,8 @@ export function createCameraFramesController(elements, store) {
 			measurementController?.handleMeasurementAxisDragEnd?.(...args) ?? false,
 		deleteSelectedMeasurement: () =>
 			measurementController?.deleteSelectedMeasurement?.() ?? false,
+		syncMeasurementSceneHelpers: () =>
+			measurementController?.syncMeasurementSceneHelpers?.(),
 		startOutputFrameAnchorDrag:
 			outputFrameController.startOutputFrameAnchorDrag,
 		syncMeasurementOverlay: () =>
@@ -2380,6 +2383,7 @@ export function createCameraFramesController(elements, store) {
 		undoHistory: () => historyController?.undoHistory(),
 		redoHistory: () => historyController?.redoHistory(),
 		dispose() {
+			measurementController?.dispose?.();
 			guideOverlay.dispose();
 			lightingController?.dispose?.();
 			runtimeController.dispose();

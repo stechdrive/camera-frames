@@ -99,6 +99,7 @@ export function createRuntimeController({
 	handleMeasurementAxisDragMove,
 	handleMeasurementAxisDragEnd,
 	deleteSelectedMeasurement,
+	syncMeasurementSceneHelpers,
 	startOutputFrameAnchorDrag,
 	exportController,
 	handleResize,
@@ -360,6 +361,7 @@ export function createRuntimeController({
 		syncShotProjection();
 		applyCameraViewProjection();
 		syncGuideOverlayState();
+		syncMeasurementSceneHelpers?.();
 
 		updateShotCameraHelpers();
 		const renderCamera =

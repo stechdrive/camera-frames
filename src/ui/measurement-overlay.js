@@ -7,18 +7,6 @@ function getAbsoluteStyle(entry) {
 	};
 }
 
-function getLineStyle(start, end) {
-	const deltaX = end.x - start.x;
-	const deltaY = end.y - start.y;
-	return {
-		left: `${start.x}px`,
-		top: `${start.y}px`,
-		width: `${Math.hypot(deltaX, deltaY)}px`,
-		transform: `translateY(-50%) rotate(${Math.atan2(deltaY, deltaX)}rad)`,
-		transformOrigin: "0 50%",
-	};
-}
-
 export function MeasurementOverlay({ store, controller, t }) {
 	const active = store.measurement.active.value;
 	if (!active) {
@@ -30,12 +18,6 @@ export function MeasurementOverlay({ store, controller, t }) {
 	const hasEnd = Boolean(store.measurement.endPointWorld.value);
 	const selectedPointKey =
 		store.measurement.selectedPointKey.value ?? (hasEnd ? "end" : "start");
-	const lineTarget =
-		hasEnd && overlay.end.visible
-			? overlay.end
-			: overlay.lineUsesDraft
-				? overlay.draftEnd
-				: null;
 	const desiredLength = Number(store.measurement.lengthInputText.value);
 	const canApply =
 		hasEnd &&
@@ -46,20 +28,6 @@ export function MeasurementOverlay({ store, controller, t }) {
 
 	return html`
 		<div class="measurement-overlay" aria-hidden="false">
-			${
-				overlay.lineVisible &&
-				lineTarget &&
-				html`
-					<div
-						class=${
-							overlay.lineUsesDraft
-								? "measurement-overlay__line-track measurement-overlay__line-track--draft"
-								: "measurement-overlay__line-track"
-						}
-						style=${getLineStyle(overlay.start, lineTarget)}
-					></div>
-				`
-			}
 			${
 				hasStart &&
 				overlay.start.visible &&
@@ -94,16 +62,6 @@ export function MeasurementOverlay({ store, controller, t }) {
 						onPointerDown=${(event) =>
 							controller()?.selectMeasurementPoint?.("end", event)}
 					></button>
-				`
-			}
-			${
-				!hasEnd &&
-				overlay.draftEnd.visible &&
-				html`
-					<div
-						class="measurement-overlay__point measurement-overlay__point--draft"
-						style=${getAbsoluteStyle(overlay.draftEnd)}
-					></div>
 				`
 			}
 			${

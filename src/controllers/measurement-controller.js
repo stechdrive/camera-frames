@@ -1,7 +1,9 @@
 import * as THREE from "three";
+import { createMeasurementSceneHelper } from "../engine/measurement-scene-helper.js";
 import {
 	buildPointerRay,
 	getProjectedAxisDirection,
+	getWorldUnitsPerPixel,
 	isClientPointInsideContext,
 	isProjectedPointVisible,
 	projectWorldToLocalScreen,
@@ -12,6 +14,8 @@ const AXIS_PIXEL_DISTANCE = 82;
 const CHIP_ESTIMATED_WIDTH = 208;
 const CHIP_ESTIMATED_HEIGHT = 84;
 const CHIP_EDGE_PADDING = 18;
+const POINT_RADIUS_PIXELS = 10;
+const LINE_RADIUS_PIXELS = 2;
 const DRAG_DISTANCE_EPSILON = 1e-5;
 const WORLD_AXES = {
 	x: new THREE.Vector3(1, 0, 0),
@@ -232,6 +236,7 @@ export function createMeasurementController({
 	state,
 	viewportShell,
 	viewportCanvas,
+	guides,
 	workspacePaneCamera,
 	getActiveViewportCamera,
 	getActiveCameraViewCamera,
@@ -246,7 +251,10 @@ export function createMeasurementController({
 	const dragHitPoint = new THREE.Vector3();
 	const dragDelta = new THREE.Vector3();
 	const projectedPoint = new THREE.Vector3();
+	const measurementSceneHelper = createMeasurementSceneHelper();
 	let activeAxisDrag = null;
+
+	guides?.add?.(measurementSceneHelper.group);
 
 	function getStartPointWorld() {
 		return toVector3(store.measurement.startPointWorld.value);
@@ -306,6 +314,7 @@ export function createMeasurementController({
 		store.measurement.selectedPointKey.value = null;
 		store.measurement.lengthInputText.value = "";
 		clearOverlay();
+		measurementSceneHelper.clear();
 	}
 
 	function isMeasurementModeActive() {
@@ -776,6 +785,48 @@ export function createMeasurementController({
 		}
 	}
 
+	function syncMeasurementSceneHelpers() {
+		if (!isMeasurementModeActive()) {
+			measurementSceneHelper.clear();
+			return;
+		}
+
+		const context = resolveInteractionContext();
+		const startPoint = getStartPointWorld();
+		if (!context || !startPoint) {
+			measurementSceneHelper.clear();
+			return;
+		}
+
+		const endPoint = getEndPointWorld();
+		const draftEndPoint = endPoint ? null : getDraftEndPointWorld();
+		const midpoint = endPoint
+			? startPoint.clone().lerp(endPoint, 0.5)
+			: draftEndPoint
+				? startPoint.clone().lerp(draftEndPoint, 0.5)
+				: startPoint;
+		const pointUnitsPerPixel = getWorldUnitsPerPixel(context, startPoint);
+		const lineUnitsPerPixel = getWorldUnitsPerPixel(context, midpoint);
+		if (
+			!Number.isFinite(pointUnitsPerPixel) ||
+			pointUnitsPerPixel <= 0 ||
+			!Number.isFinite(lineUnitsPerPixel) ||
+			lineUnitsPerPixel <= 0
+		) {
+			measurementSceneHelper.clear();
+			return;
+		}
+
+		measurementSceneHelper.sync({
+			startPointWorld: startPoint,
+			endPointWorld: endPoint,
+			draftEndPointWorld: draftEndPoint,
+			selectedPointKey: endPoint ? getSelectedPointKey() || "end" : "start",
+			pointRadiusWorld: pointUnitsPerPixel * POINT_RADIUS_PIXELS,
+			lineRadiusWorld: lineUnitsPerPixel * LINE_RADIUS_PIXELS,
+		});
+	}
+
 	return {
 		isMeasurementModeActive,
 		setMeasurementMode,
@@ -790,6 +841,10 @@ export function createMeasurementController({
 		deleteSelectedMeasurement,
 		setMeasurementLengthInputText,
 		applyMeasurementScale,
+		syncMeasurementSceneHelpers,
 		syncMeasurementOverlay,
+		dispose() {
+			measurementSceneHelper.dispose();
+		},
 	};
 }
