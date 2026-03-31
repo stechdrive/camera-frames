@@ -578,6 +578,7 @@ export function ToolRailSection({
 	const selectedSceneAsset = store.selectedSceneAsset.value;
 	const interactionMode = store.interactionMode.value;
 	const frameMaskMode = store.frames.maskMode.value;
+	const measurementActive = store.measurement.active.value;
 	const hasFrames = store.frames.count.value > 0;
 	const canUndo = store.history.canUndo.value;
 	const canRedo = store.history.canRedo.value;
@@ -630,6 +631,7 @@ export function ToolRailSection({
 		controller()?.clearReferenceImageSelection?.();
 		controller()?.clearFrameSelection?.();
 		controller()?.clearOutputFrameSelection?.();
+		controller()?.setMeasurementMode?.(false, { silent: true });
 		controller()?.setViewportTransformMode(false);
 	};
 	const toggleTool = (isActive, enableTool) => {
@@ -841,6 +843,19 @@ export function ToolRailSection({
 									`
 								}
 							</div>
+							<${IconButton}
+								icon="ruler"
+								label=${t("action.measureTool")}
+								active=${measurementActive}
+								className="workbench-tool-rail__button"
+								tooltip=${{
+									title: t("action.measureTool"),
+									description: t("tooltip.measureTool"),
+									shortcut: "M",
+									placement: tooltipPlacement,
+								}}
+								onClick=${() => controller()?.toggleMeasurementMode?.()}
+							/>
 							${
 								mode === "camera" &&
 								html`

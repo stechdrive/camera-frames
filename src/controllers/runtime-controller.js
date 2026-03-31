@@ -24,6 +24,7 @@ export function createRuntimeController({
 	startLensAdjustDrag,
 	startShotCameraRollDrag,
 	startViewportOrthographicPanDrag,
+	toggleMeasurementMode,
 	toggleZoomTool,
 	toggleViewportSelectMode,
 	toggleViewportReferenceImageEditMode,
@@ -93,6 +94,11 @@ export function createRuntimeController({
 	handleViewportTransformDragMove,
 	handleViewportTransformDragEnd,
 	pickViewportAssetAtPointer,
+	handleMeasurementPointerDown,
+	handleMeasurementHoverMove,
+	handleMeasurementAxisDragMove,
+	handleMeasurementAxisDragEnd,
+	deleteSelectedMeasurement,
 	startOutputFrameAnchorDrag,
 	exportController,
 	handleResize,
@@ -103,6 +109,7 @@ export function createRuntimeController({
 	setShotCameraRollAngleDegrees,
 	guideOverlay,
 	syncGuideOverlayState,
+	syncMeasurementOverlay,
 	syncViewportTransformGizmo,
 	syncViewportAxisGizmo,
 	syncViewportProjection,
@@ -219,6 +226,7 @@ export function createRuntimeController({
 			startLensAdjustDrag,
 			startShotCameraRollDrag,
 			startViewportOrthographicPanDrag,
+			toggleMeasurementMode,
 			toggleZoomTool,
 			toggleViewportSelectMode,
 			toggleViewportReferenceImageEditMode,
@@ -287,6 +295,11 @@ export function createRuntimeController({
 			handleViewportTransformDragMove,
 			handleViewportTransformDragEnd,
 			pickViewportAssetAtPointer,
+			handleMeasurementPointerDown,
+			handleMeasurementHoverMove,
+			handleMeasurementAxisDragMove,
+			handleMeasurementAxisDragEnd,
+			deleteSelectedMeasurement,
 			startOutputFrameAnchorDrag,
 			isInteractionBlocked: () => exportController.isRenderLocked(),
 		});
@@ -382,6 +395,7 @@ export function createRuntimeController({
 		scene.background = previousBackground;
 		renderer.setClearColor(previousClearColor, previousClearAlpha);
 		renderer.autoClear = previousAutoClear;
+		syncMeasurementOverlay?.();
 		syncViewportTransformGizmo?.();
 		syncViewportAxisGizmo?.();
 		updateOutputFrameOverlay();

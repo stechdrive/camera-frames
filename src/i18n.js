@@ -96,6 +96,7 @@ const MESSAGES = {
 			referenceImageRotation: "回転",
 			referenceImageOrder: "順番",
 			referenceImageGroup: "前後",
+			measurementLength: "測定距離",
 			lightIntensity: "ライト強度",
 			lightAmbient: "アンビエント",
 			lightDirection: "ライト方向",
@@ -250,7 +251,16 @@ const MESSAGES = {
 			quickMenu: "クイックメニュー",
 			pinQuickSection: "レールに追加",
 			unpinQuickSection: "レールから外す",
+			measureTool: "測定ツール",
+			apply: "適用",
 			frameTool: "フレームツール",
+			measurementStartPoint: "測定始点",
+			measurementEndPoint: "測定終点",
+			measurementAxis: {
+				x: "X 軸で伸ばす",
+				y: "Y 軸で伸ばす",
+				z: "Z 軸で伸ばす",
+			},
 			newFrame: "FRAME を追加",
 			duplicateFrame: "複製",
 			deleteFrame: "削除",
@@ -282,6 +292,8 @@ const MESSAGES = {
 				"3Dオブジェクトの変形原点を編集します。もう一度押すと解除します。",
 			toolZoom:
 				"カメラビューでは表示ズーム、ビューポートでは画角を調整します。もう一度押すと解除します。",
+			measureTool:
+				"画面上の 2 点間の距離を測り、その長さ比で選択中オブジェクトへ一様スケールを適用します。",
 			frameTool:
 				"FRAME の追加・複製・削除と、全体 / 選択中マスクの切替やマスク不透明度の調整を行います。",
 			quickMenu:
@@ -559,6 +571,11 @@ const MESSAGES = {
 				"ズームツール有効。カメラビュー上でドラッグして拡縮、Z か Esc で解除。",
 			viewportZoomToolEnabled:
 				"ビューポート画角調整。ドラッグでフルサイズ焦点距離を変更、Z か Esc で解除。",
+			measurementEnabled:
+				"測定ツール active。クリックで始点と終点を置き、M でもう一度押すと解除します。",
+			measurementDisabled: "測定ツールを終了しました。",
+			measurementScaleApplied:
+				"測定値に合わせて選択中オブジェクトへ {scale}x のスケールを適用しました。",
 			zoomToolUnavailable: "ズームツールはここでは使えません。",
 			lensToolEnabled:
 				"焦点距離調整。ドラッグで 35mm横幅換算を変更、Esc で解除。",
@@ -746,6 +763,7 @@ const MESSAGES = {
 			referenceImageRotation: "Rotation",
 			referenceImageOrder: "Order",
 			referenceImageGroup: "Layer Side",
+			measurementLength: "Measured Length",
 			lightIntensity: "Light Intensity",
 			lightAmbient: "Ambient",
 			lightDirection: "Light Direction",
@@ -902,7 +920,16 @@ const MESSAGES = {
 			quickMenu: "Quick Menu",
 			pinQuickSection: "Add To Rail",
 			unpinQuickSection: "Remove From Rail",
+			measureTool: "Measure Tool",
+			apply: "Apply",
 			frameTool: "Frame Tool",
+			measurementStartPoint: "Measurement start point",
+			measurementEndPoint: "Measurement end point",
+			measurementAxis: {
+				x: "Extend along X",
+				y: "Extend along Y",
+				z: "Extend along Z",
+			},
 			newFrame: "Add FRAME",
 			duplicateFrame: "Duplicate",
 			deleteFrame: "Delete",
@@ -937,6 +964,8 @@ const MESSAGES = {
 				"Edit the transform origin of 3D objects. Press again to return to no active tool.",
 			toolZoom:
 				"In Camera View it adjusts display zoom; in Viewport it adjusts viewport lens. Press again to return to navigation.",
+			measureTool:
+				"Measure the distance between two points on screen and apply a matching uniform scale ratio to the selected objects.",
 			frameTool:
 				"Add, duplicate, or delete FRAMEs, and control all-frame or selected-frame masking plus mask opacity.",
 			quickMenu:
@@ -1216,6 +1245,11 @@ const MESSAGES = {
 				"Zoom tool active. Drag in Camera View to zoom, press Z or Esc to exit.",
 			viewportZoomToolEnabled:
 				"Viewport lens adjust active. Drag to change the full-frame focal length, press Z or Esc to exit.",
+			measurementEnabled:
+				"Measurement tool active. Click to place start and end points, then press M again to exit.",
+			measurementDisabled: "Measurement tool disabled.",
+			measurementScaleApplied:
+				"Applied a {scale}x scale ratio to the selected objects from the measurement.",
 			zoomToolUnavailable: "The zoom tool is not available here.",
 			lensToolEnabled:
 				"Lens adjust active. Drag to change the 35mm horizontal equivalent, press Esc to exit.",

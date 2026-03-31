@@ -41,6 +41,7 @@ export function bindInputRouter({
 	startLensAdjustDrag,
 	startShotCameraRollDrag,
 	startViewportOrthographicPanDrag,
+	toggleMeasurementMode,
 	toggleZoomTool,
 	toggleViewportSelectMode,
 	toggleViewportReferenceImageEditMode,
@@ -109,6 +110,11 @@ export function bindInputRouter({
 	handleViewportTransformDragMove,
 	handleViewportTransformDragEnd,
 	pickViewportAssetAtPointer,
+	handleMeasurementPointerDown,
+	handleMeasurementHoverMove,
+	handleMeasurementAxisDragMove,
+	handleMeasurementAxisDragEnd,
+	deleteSelectedMeasurement,
 	startOutputFrameAnchorDrag,
 	isInteractionBlocked = null,
 }) {
@@ -220,6 +226,17 @@ export function bindInputRouter({
 			syncControlsToMode?.();
 		}
 	}
+
+	listen(
+		viewportShell,
+		"pointerdown",
+		(event) => {
+			if (handleMeasurementPointerDown?.(event)) {
+				viewportSelectClickCandidate = null;
+			}
+		},
+		{ capture: true },
+	);
 
 	listen(
 		viewportShell,
@@ -427,6 +444,13 @@ export function bindInputRouter({
 		if (target?.closest(".viewport-pie")) {
 			return;
 		}
+		if (
+			target?.closest(
+				".measurement-overlay__point, .measurement-overlay__chip, .measurement-overlay__gizmo-handle",
+			)
+		) {
+			return;
+		}
 		if (viewportPieTouchHoldState?.pointerId === event.pointerId) {
 			return;
 		}
@@ -509,6 +533,16 @@ export function bindInputRouter({
 	listen(window, "pointermove", handleZoomToolDragMove);
 	listen(window, "pointerup", handleZoomToolDragEnd);
 	listen(window, "pointercancel", handleZoomToolDragEnd);
+	listen(window, "pointermove", (event) => {
+		handleMeasurementHoverMove?.(event);
+		handleMeasurementAxisDragMove?.(event);
+	});
+	listen(window, "pointerup", (event) => {
+		handleMeasurementAxisDragEnd?.(event);
+	});
+	listen(window, "pointercancel", (event) => {
+		handleMeasurementAxisDragEnd?.(event);
+	});
 	listen(window, "pointermove", handleOrbitAroundHitDragMove);
 	listen(window, "pointerup", handleOrbitAroundHitDragEnd);
 	listen(window, "pointercancel", handleOrbitAroundHitDragEnd);
@@ -681,6 +715,11 @@ export function bindInputRouter({
 			!event.shiftKey &&
 			!isInteractiveTextTarget(event.target)
 		) {
+			const deletedMeasurement = deleteSelectedMeasurement?.() ?? false;
+			if (deletedMeasurement) {
+				event.preventDefault();
+				return;
+			}
 			const deletedSceneAssets =
 				assetController?.deleteSelectedSceneAssets?.() ?? false;
 			if (deletedSceneAssets) {
@@ -720,6 +759,20 @@ export function bindInputRouter({
 		) {
 			event.preventDefault();
 			toggleZoomTool();
+			return;
+		}
+
+		if (
+			event.code === "KeyM" &&
+			(state.mode === "viewport" || state.mode === "camera") &&
+			!event.altKey &&
+			!event.ctrlKey &&
+			!event.metaKey &&
+			!event.shiftKey &&
+			!isInteractiveTextTarget(event.target)
+		) {
+			event.preventDefault();
+			toggleMeasurementMode?.();
 			return;
 		}
 

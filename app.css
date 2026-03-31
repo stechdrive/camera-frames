@@ -2904,6 +2904,191 @@ body[data-interaction-mode="roll"] .viewport-axis-gizmo {
 	height: 20px;
 }
 
+.measurement-overlay {
+	position: absolute;
+	inset: 0;
+	z-index: 8;
+	pointer-events: none;
+}
+
+.measurement-overlay__line-track {
+	position: absolute;
+	left: 0;
+	top: 0;
+	height: 3px;
+	border-radius: 999px;
+	background: rgba(255, 241, 199, 0.96);
+	box-shadow: 0 0 0 1px rgba(255, 235, 187, 0.22), 0 0 4px rgba(6, 12, 20, 0.9);
+	pointer-events: none;
+}
+
+.measurement-overlay__line-track--draft {
+	height: 2px;
+	background: repeating-linear-gradient(
+			90deg,
+			rgba(255, 214, 124, 0.96) 0 10px,
+			rgba(255, 214, 124, 0) 10px 16px
+		),
+		linear-gradient(90deg, rgba(255, 214, 124, 0.78), rgba(255, 214, 124, 0.78));
+	box-shadow: 0 0 4px rgba(6, 12, 20, 0.82);
+}
+
+.measurement-overlay__point,
+.measurement-overlay__point--draft,
+.measurement-overlay__gizmo-origin {
+	position: absolute;
+	left: 0;
+	top: 0;
+	transform: translate(-50%, -50%);
+	border-radius: 999px;
+}
+
+.measurement-overlay__point,
+.measurement-overlay__gizmo-handle,
+.measurement-overlay__chip-apply {
+	pointer-events: auto;
+}
+
+.measurement-overlay__point {
+	width: 14px;
+	height: 14px;
+	border: 2px solid rgba(255, 250, 242, 0.96);
+	background: rgba(255, 170, 84, 0.96);
+	box-shadow: 0 0 0 3px rgba(8, 17, 29, 0.5);
+	cursor: pointer;
+}
+
+.measurement-overlay__point--selected {
+	width: 18px;
+	height: 18px;
+	background: rgba(255, 222, 146, 0.98);
+	box-shadow: 0 0 0 4px rgba(8, 17, 29, 0.58);
+}
+
+.measurement-overlay__point--draft {
+	width: 12px;
+	height: 12px;
+	border: 2px dashed rgba(255, 225, 170, 0.84);
+	background: rgba(255, 190, 110, 0.18);
+	box-shadow: 0 0 0 3px rgba(8, 17, 29, 0.42);
+}
+
+.measurement-overlay__gizmo-origin {
+	width: 10px;
+	height: 10px;
+	background: rgba(255, 248, 232, 0.94);
+	box-shadow: 0 0 0 3px rgba(8, 17, 29, 0.5);
+}
+
+.measurement-overlay__gizmo-handle {
+	position: absolute;
+	left: 0;
+	top: 0;
+	transform: translate(-50%, -50%);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 28px;
+	height: 28px;
+	padding: 0;
+	border: 1px solid rgba(255, 255, 255, 0.14);
+	border-radius: 999px;
+	background: rgba(7, 17, 30, 0.9);
+	box-shadow: 0 14px 24px rgba(0, 0, 0, 0.28);
+	backdrop-filter: blur(10px);
+	cursor: grab;
+	user-select: none;
+	font: 700 0.72rem / 1 "Consolas", "Andale Mono", monospace;
+	letter-spacing: 0.04em;
+}
+
+.measurement-overlay__gizmo-handle:active {
+	cursor: grabbing;
+}
+
+.measurement-overlay__gizmo-handle--x {
+	color: #ff6157;
+}
+
+.measurement-overlay__gizmo-handle--y {
+	color: #53d36b;
+}
+
+.measurement-overlay__gizmo-handle--z {
+	color: #6ba8ff;
+}
+
+.measurement-overlay__chip {
+	position: absolute;
+	left: 0;
+	top: 0;
+	transform: translate(-50%, calc(-100% - 18px));
+	display: inline-flex;
+	flex-direction: column;
+	gap: 0.35rem;
+	min-width: 10.8rem;
+	padding: 0.65rem 0.75rem;
+	border-radius: 14px;
+	background: rgba(5, 15, 27, 0.9);
+	border: 1px solid rgba(255, 255, 255, 0.14);
+	box-shadow: 0 18px 28px rgba(0, 0, 0, 0.3);
+	backdrop-filter: blur(14px);
+	pointer-events: auto;
+}
+
+.measurement-overlay__chip-field {
+	display: flex;
+	flex-direction: column;
+	gap: 0.38rem;
+}
+
+.measurement-overlay__chip-field > span {
+	color: rgba(255, 244, 239, 0.98);
+	font: 700 0.78rem / 1.15 "Consolas", "Andale Mono", monospace;
+	letter-spacing: 0.04em;
+}
+
+.measurement-overlay__chip-row {
+	display: flex;
+	align-items: center;
+	gap: 0.45rem;
+}
+
+.measurement-overlay__chip-input {
+	width: 100%;
+	min-width: 0;
+	height: 2rem;
+	padding: 0.3rem 0.55rem;
+	border-radius: 10px;
+	border: 1px solid rgba(255, 255, 255, 0.14);
+	background: rgba(255, 255, 255, 0.06);
+	color: rgba(255, 248, 242, 0.96);
+	font: 600 0.8rem / 1 "Consolas", "Andale Mono", monospace;
+}
+
+.measurement-overlay__chip-unit {
+	color: rgba(203, 216, 232, 0.82);
+	font: 700 0.74rem / 1 "Consolas", "Andale Mono", monospace;
+	letter-spacing: 0.06em;
+}
+
+.measurement-overlay__chip-apply {
+	height: 2rem;
+	padding: 0 0.7rem;
+	border: 1px solid rgba(255, 255, 255, 0.14);
+	border-radius: 10px;
+	background: rgba(255, 170, 84, 0.2);
+	color: rgba(255, 245, 233, 0.96);
+	font: 700 0.74rem / 1 "IBM Plex Sans", "Segoe UI", sans-serif;
+	letter-spacing: 0.04em;
+	cursor: pointer;
+}
+
+.measurement-overlay__chip-apply:disabled {
+	opacity: 0.42;
+	cursor: default;
+}
+
 .viewport-lens-hud {
 	position: absolute;
 	left: 0;

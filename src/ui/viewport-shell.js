@@ -9,6 +9,7 @@ import {
 	buildViewportPieActions,
 } from "../engine/viewport-pie.js";
 import { FrameLayer } from "./frame-layer.js";
+import { MeasurementOverlay } from "./measurement-overlay.js";
 import { getProjectStatusDisplay } from "./project-status.js";
 import { ViewportAxisGizmo } from "./viewport-axis-gizmo.js";
 import { WorkbenchIcon } from "./workbench-icons.js";
@@ -539,6 +540,7 @@ export function ViewportShell({ store, controller, refs, t }) {
 					</div>
 				`
 			}
+			<${MeasurementOverlay} store=${store} controller=${controller} t=${t} />
 			<${ViewportAxisGizmo}
 				controller=${controller}
 				rootRef=${refs.viewportAxisGizmoRef}

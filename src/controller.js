@@ -23,6 +23,7 @@ import { createFrameController } from "./controllers/frame-controller.js";
 import { createHistoryController } from "./controllers/history-controller.js";
 import { createInteractionController } from "./controllers/interaction-controller.js";
 import { createLightingController } from "./controllers/lighting-controller.js";
+import { createMeasurementController } from "./controllers/measurement-controller.js";
 import { createOutputFrameController } from "./controllers/output-frame-controller.js";
 import { createProjectController } from "./controllers/project-controller.js";
 import { createProjectionController } from "./controllers/projection-controller.js";
@@ -345,6 +346,7 @@ export function createCameraFramesController(elements, store) {
 	let projectionController = null;
 	let referenceImageController = null;
 	let referenceImageRenderController = null;
+	let measurementController = null;
 	let runtimeController = null;
 	let sceneFramingController = null;
 	let uiSyncController = null;
@@ -481,6 +483,7 @@ export function createCameraFramesController(elements, store) {
 			snapshot.sceneReferenceImages ?? null,
 			{ editorState: null },
 		);
+		measurementController?.clearMeasurementSession?.({ keepActive: false });
 
 		for (const poseEntry of snapshot.shotCameraPoses ?? []) {
 			const entry = shotCameraRegistry.get(poseEntry.id);
@@ -551,6 +554,7 @@ export function createCameraFramesController(elements, store) {
 
 		restoreShotCameraEditorStates(null);
 		clearActiveShotCameraEditorState();
+		measurementController?.clearMeasurementSession?.({ keepActive: false });
 		interactionController?.clearControlMomentum();
 		interactionController?.syncControlsToMode();
 		syncViewportProjection();
@@ -646,6 +650,7 @@ export function createCameraFramesController(elements, store) {
 
 		restoreShotCameraEditorStates(null);
 		clearActiveShotCameraEditorState();
+		measurementController?.clearMeasurementSession?.({ keepActive: false });
 		frameController?.clearFrameInteraction();
 		outputFrameController?.clearOutputFramePan();
 		outputFrameController?.clearOutputFrameAnchorDrag();
@@ -1207,6 +1212,19 @@ export function createCameraFramesController(elements, store) {
 		getActiveCameraViewCamera,
 		getActiveOutputCamera,
 	});
+	measurementController = createMeasurementController({
+		store,
+		state,
+		viewportShell,
+		viewportCanvas,
+		renderBox,
+		workspacePaneCamera: WORKSPACE_PANE_CAMERA,
+		getActiveViewportCamera: () => getActiveViewportCamera(),
+		getActiveOutputCamera,
+		assetController,
+		setStatus,
+		t,
+	});
 	viewportAxisGizmoController = createViewportAxisGizmoController({
 		state,
 		axisGizmo: viewportAxisGizmo,
@@ -1262,10 +1280,12 @@ export function createCameraFramesController(elements, store) {
 			restoreShotCameraEditorState(store.workspace.activeShotCameraId.value);
 		},
 		clearProjectSidecars: () => {
+			measurementController?.clearMeasurementSession?.({ keepActive: false });
 			referenceImageController?.clearReferenceImages?.();
 			lightingController?.resetLighting?.();
 		},
 		resetProjectWorkspace: () => {
+			measurementController?.clearMeasurementSession?.({ keepActive: false });
 			viewportToolController.setViewportTransformMode(false);
 			restoreShotCameraEditorStates(null);
 			clearActiveShotCameraEditorState();
@@ -1307,6 +1327,7 @@ export function createCameraFramesController(elements, store) {
 		startViewportOrthographicPanDrag: (...args) =>
 			interactionController?.startViewportOrthographicPanDrag?.(...args) ??
 			false,
+		toggleMeasurementMode,
 		toggleZoomTool,
 		toggleViewportSelectMode,
 		toggleViewportReferenceImageEditMode,
@@ -1418,8 +1439,20 @@ export function createCameraFramesController(elements, store) {
 			viewportToolController.handleViewportTransformDragEnd,
 		pickViewportAssetAtPointer:
 			viewportToolController.pickViewportAssetAtPointer,
+		handleMeasurementPointerDown: (...args) =>
+			measurementController?.handleMeasurementPointerDown?.(...args) ?? false,
+		handleMeasurementHoverMove: (...args) =>
+			measurementController?.handleMeasurementHoverMove?.(...args),
+		handleMeasurementAxisDragMove: (...args) =>
+			measurementController?.handleMeasurementAxisDragMove?.(...args),
+		handleMeasurementAxisDragEnd: (...args) =>
+			measurementController?.handleMeasurementAxisDragEnd?.(...args) ?? false,
+		deleteSelectedMeasurement: () =>
+			measurementController?.deleteSelectedMeasurement?.() ?? false,
 		startOutputFrameAnchorDrag:
 			outputFrameController.startOutputFrameAnchorDrag,
+		syncMeasurementOverlay: () =>
+			measurementController?.syncMeasurementOverlay?.(),
 		syncViewportTransformGizmo:
 			viewportToolController.syncViewportTransformGizmo,
 		syncViewportAxisGizmo: () =>
@@ -1474,6 +1507,12 @@ export function createCameraFramesController(elements, store) {
 	}
 
 	function toggleZoomTool() {
+		if (
+			!(interactionController?.isZoomToolActive?.() ?? false) &&
+			measurementController?.isMeasurementModeActive?.()
+		) {
+			measurementController?.setMeasurementMode?.(false, { silent: true });
+		}
 		return interactionController?.toggleZoomTool();
 	}
 
@@ -1843,6 +1882,9 @@ export function createCameraFramesController(elements, store) {
 	}
 
 	function setViewportToolMode(nextMode) {
+		if (nextMode !== "none") {
+			measurementController?.setMeasurementMode?.(false, { silent: true });
+		}
 		switch (nextMode) {
 			case "select":
 				viewportToolController.setViewportSelectMode(true);
@@ -1900,11 +1942,25 @@ export function createCameraFramesController(elements, store) {
 		setViewportPivotEditMode(!store.viewportPivotEditMode.value);
 	}
 
+	function setMeasurementMode(nextEnabled, options) {
+		if (nextEnabled) {
+			interactionController?.applyNavigateInteractionMode?.({ silent: true });
+		}
+		return measurementController?.setMeasurementMode?.(nextEnabled, options);
+	}
+
+	function toggleMeasurementMode() {
+		return setMeasurementMode(
+			!(measurementController?.isMeasurementModeActive?.() ?? false),
+		);
+	}
+
 	function clearViewportEditingSelection() {
 		assetController.clearSceneAssetSelection();
 		referenceImageController?.clearReferenceImageSelection?.();
 		clearFrameSelection();
 		clearOutputFrameSelection();
+		setMeasurementMode(false, { silent: true });
 		setViewportToolMode("none");
 	}
 
@@ -1968,6 +2024,7 @@ export function createCameraFramesController(elements, store) {
 				return true;
 			}
 			case "adjust-lens":
+				measurementController?.setMeasurementMode?.(false, { silent: true });
 				return (
 					interactionController?.activateLensAdjustMode(pointerEvent) ?? false
 				);
@@ -1997,6 +2054,7 @@ export function createCameraFramesController(elements, store) {
 	}
 
 	function clearScene() {
+		measurementController?.clearMeasurementSession?.({ keepActive: false });
 		viewportToolController.setViewportTransformMode(false);
 		referenceImageController?.clearReferenceImages?.();
 		lightingController?.resetLighting?.();
@@ -2103,6 +2161,8 @@ export function createCameraFramesController(elements, store) {
 		toggleViewportReferenceImageEditMode,
 		setViewportPivotEditMode,
 		toggleViewportPivotEditMode,
+		setMeasurementMode,
+		toggleMeasurementMode,
 		setViewportProjectionMode,
 		alignViewportToOrthographicView,
 		toggleViewportOrthographicAxis,
@@ -2169,6 +2229,14 @@ export function createCameraFramesController(elements, store) {
 			viewportToolController.pickViewportAssetAtPointer,
 		startViewportTransformDrag:
 			viewportToolController.startViewportTransformDrag,
+		selectMeasurementPoint: (...args) =>
+			measurementController?.selectMeasurementPoint?.(...args),
+		startMeasurementAxisDrag: (...args) =>
+			measurementController?.startMeasurementAxisDrag?.(...args),
+		setMeasurementLengthInputText: (...args) =>
+			measurementController?.setMeasurementLengthInputText?.(...args),
+		applyMeasurementScale: (...args) =>
+			measurementController?.applyMeasurementScale?.(...args),
 		setAssetWorldScale: assetController.setAssetWorldScale,
 		setAssetTransform: assetController.setAssetTransform,
 		resetAssetWorldScale: assetController.resetAssetWorldScale,
@@ -2285,6 +2353,7 @@ export function createCameraFramesController(elements, store) {
 			if (state.mode !== WORKSPACE_PANE_CAMERA) {
 				cameraController.setMode(WORKSPACE_PANE_CAMERA);
 			}
+			measurementController?.setMeasurementMode?.(false, { silent: true });
 			return (
 				interactionController?.activateShotCameraRollMode?.(...args) ?? false
 			);

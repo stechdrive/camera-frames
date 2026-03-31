@@ -61,6 +61,32 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	const interactionMode = signal("navigate");
 	const viewportTransformSpace = signal("world");
 	const viewportToolMode = signal("none");
+	const measurementActive = signal(false);
+	const measurementStartPointWorld = signal(null);
+	const measurementEndPointWorld = signal(null);
+	const measurementDraftEndPointWorld = signal(null);
+	const measurementSelectedPointKey = signal(null);
+	const measurementLengthInputText = signal("");
+	const measurementOverlay = signal({
+		contextKind: "viewport",
+		start: { visible: false, x: 0, y: 0 },
+		end: { visible: false, x: 0, y: 0 },
+		draftEnd: { visible: false, x: 0, y: 0 },
+		lineVisible: false,
+		lineUsesDraft: false,
+		chip: { visible: false, x: 0, y: 0, label: "" },
+		gizmo: {
+			visible: false,
+			pointKey: null,
+			x: 0,
+			y: 0,
+			handles: {
+				x: { visible: false, x: 0, y: 0 },
+				y: { visible: false, x: 0, y: 0 },
+				z: { visible: false, x: 0, y: 0 },
+			},
+		},
+	});
 	const viewportSelectMode = computed(
 		() => viewportToolMode.value === "select",
 	);
@@ -342,6 +368,15 @@ export function createCameraFramesStore(runtimeInfo = null) {
 		viewportReferenceImageEditMode,
 		viewportPivotEditMode,
 		viewportTransformMode,
+		measurement: {
+			active: measurementActive,
+			startPointWorld: measurementStartPointWorld,
+			endPointWorld: measurementEndPointWorld,
+			draftEndPointWorld: measurementDraftEndPointWorld,
+			selectedPointKey: measurementSelectedPointKey,
+			lengthInputText: measurementLengthInputText,
+			overlay: measurementOverlay,
+		},
 		mode,
 		baseFovX,
 		renderBox: {
