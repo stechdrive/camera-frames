@@ -409,13 +409,12 @@ export function createMeasurementController({
 			return false;
 		}
 
-		event.preventDefault();
-		event.stopPropagation();
-		event.stopImmediatePropagation?.();
-
 		const startPoint = getStartPointWorld();
 		const endPoint = getEndPointWorld();
 		if (!startPoint) {
+			event.preventDefault();
+			event.stopPropagation();
+			event.stopImmediatePropagation?.();
 			const hitPoint = pickScenePoint(event, context);
 			if (!hitPoint) {
 				return true;
@@ -429,6 +428,9 @@ export function createMeasurementController({
 		}
 
 		if (!endPoint) {
+			event.preventDefault();
+			event.stopPropagation();
+			event.stopImmediatePropagation?.();
 			const hitPoint = pickScenePoint(event, context);
 			if (!hitPoint) {
 				return true;
@@ -437,7 +439,7 @@ export function createMeasurementController({
 			return true;
 		}
 
-		return true;
+		return false;
 	}
 
 	function handleMeasurementHoverMove(event) {
