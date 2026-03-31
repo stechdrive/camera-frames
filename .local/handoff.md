@@ -13,7 +13,7 @@
 - dependency: `@sparkjsdev/spark = sparkjsdev/spark#v2.0.0-preview`
 - Pages URL: `https://stechdrive.github.io/camera-frames/`
 - latest build info: `main includes viewport-only orthographic authoring / lint+build+test pass`
-- latest deploy baseline: `gh-pages d836f40 (publish ee89d33)`
+- latest deploy baseline: `gh-pages 7e1e7d6 (publish da8d7ff)`
 
 ## Current App Structure
 
