@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import * as THREE from "three";
 import {
 	configureViewportOrthographicCamera,
+	deriveViewportOrthoEntryStateFromCamera,
 	getViewportOrthoOppositeView,
 	getViewportOrthoPreviewGridPlane,
 	getViewportOrthoViewForAxis,
@@ -19,6 +20,44 @@ assert.equal(getViewportOrthoViewForAxis("z", 1), "posZ");
 assert.equal(getViewportOrthoPreviewGridPlane("posX"), "zy");
 assert.equal(getViewportOrthoPreviewGridPlane("negZ"), "xy");
 assert.equal(getViewportOrthoPreviewGridPlane("posY"), null);
+
+assert.deepEqual(
+	deriveViewportOrthoEntryStateFromCamera({
+		currentState: {
+			viewId: "posZ",
+			size: 4,
+			distance: 6,
+			focus: { x: 0, y: 1, z: 0 },
+		},
+		viewId: "posX",
+		cameraPosition: { x: -5, y: 3, z: 4 },
+	}),
+	{
+		viewId: "posX",
+		size: 4,
+		distance: 6,
+		focus: { x: -11, y: 1, z: 0 },
+	},
+);
+
+assert.deepEqual(
+	deriveViewportOrthoEntryStateFromCamera({
+		currentState: {
+			viewId: "posX",
+			size: 4,
+			distance: 6,
+			focus: { x: 2, y: 3, z: 4 },
+		},
+		viewId: "negZ",
+		cameraPosition: { x: 20, y: -3, z: 14 },
+	}),
+	{
+		viewId: "negZ",
+		size: 4,
+		distance: 6,
+		focus: { x: 2, y: 3, z: 20 },
+	},
+);
 
 {
 	const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 1000);

@@ -134,6 +134,8 @@
   - Viewport-only orthographic state/document wiring: pass at lint/build/test level
   - HUD XYZ gizmo render/sync wiring: pass at lint/build/test level
   - X/Z orthographic preview helper grid wiring: pass at lint/build/test level
+  - perspective return after ortho now restores camera controls again: pass on current branch logic
+  - ortho entry axis-position preservation is still not matching intended behavior: unresolved
   - browser smoke for gizmo click / ortho controls / preview helper grid / perspective auto-exit: pending
 
 ## Versioning / Release Rule
@@ -157,7 +159,7 @@
 - mobile now has a first-pass bottom dock + inspector drawer, but broader touch QA and polish remain
 - mobile/touch 実装は未着手。方針は `phone = portrait + bottom sheet`, `tablet = desktop-like + touch/pen`
 - orthographic viewport mode is now in active branch work, but browser/manual QA is still pending
-- viewport gizmo is now in place, and orthographic HUD gizmo was added on the branch, but polish remains: no selected-object visual cue, no off-screen pivot/gizmo rescue, and ortho exit behavior still needs browser verification
+- viewport gizmo is now in place, and orthographic HUD gizmo was added on the branch, but polish remains: no selected-object visual cue, no off-screen pivot/gizmo rescue, and ortho entry axis-position logic still needs correction
 - legacy import now works, but `project-package.js` should later be split more cleanly
 - Vite build still reports a large chunk warning
 - very large 3DGS scenes can still produce huge full bounds / huge auto Far; no-camera startup now uses a fixed home view, but full bounds remain intentionally large for diagnostics/export

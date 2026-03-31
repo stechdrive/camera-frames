@@ -8,6 +8,7 @@ import {
 	VIEWPORT_PROJECTION_PERSPECTIVE,
 	cloneViewportOrthoState,
 	configureViewportOrthographicCamera,
+	deriveViewportOrthoEntryStateFromCamera,
 	getViewportOrthoOppositeView,
 	getViewportOrthoPreviewGridPlane,
 	getViewportOrthoViewDefinition,
@@ -193,15 +194,23 @@ export function createViewportProjectionController({
 			toggleOppositeOnRepeat &&
 			isViewportOrthographic() &&
 			currentState.viewId === resolvedViewId;
+		const nextViewId = shouldToggle
+			? getViewportOrthoOppositeView(resolvedViewId)
+			: resolvedViewId;
+		const nextState = isViewportOrthographic()
+			? {
+					...currentState,
+					viewId: nextViewId,
+				}
+			: deriveViewportOrthoEntryStateFromCamera({
+					currentState,
+					viewId: nextViewId,
+					cameraPosition: viewportPerspectiveCamera?.position ?? null,
+				});
 		setViewportProjectionMode(VIEWPORT_PROJECTION_ORTHOGRAPHIC, {
 			copyActivePose: false,
 		});
-		setViewportOrthoState({
-			...currentState,
-			viewId: shouldToggle
-				? getViewportOrthoOppositeView(resolvedViewId)
-				: resolvedViewId,
-		});
+		setViewportOrthoState(nextState);
 		syncActiveViewportProjection();
 		return true;
 	}

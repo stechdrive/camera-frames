@@ -804,10 +804,17 @@ export function createCameraFramesController(elements, store) {
 		getViewportPerspectiveCamera: () =>
 			viewportProjectionController?.getViewportPerspectiveCamera?.() ??
 			viewportCamera,
-		prepareViewportPerspectiveMode: () =>
-			viewportProjectionController?.setViewportProjectionMode?.("perspective", {
-				copyActivePose: false,
-			}) ?? false,
+		prepareViewportPerspectiveMode: () => {
+			const changed =
+				viewportProjectionController?.setViewportProjectionMode?.(
+					"perspective",
+					{
+						copyActivePose: false,
+					},
+				) ?? false;
+			interactionController?.syncControlsToMode?.();
+			return changed;
+		},
 		resetViewportView: () => {
 			if (viewportProjectionController?.isViewportOrthographic?.()) {
 				viewportProjectionController.resetViewportOrthographicView();
@@ -1639,6 +1646,33 @@ export function createCameraFramesController(elements, store) {
 		return interactionController?.syncControlsToMode();
 	}
 
+	function setViewportProjectionMode(nextMode, options) {
+		const changed =
+			viewportProjectionController?.setViewportProjectionMode?.(
+				nextMode,
+				options,
+			) ?? false;
+		interactionController?.syncControlsToMode?.();
+		return changed;
+	}
+
+	function alignViewportToOrthographicView(viewId, options) {
+		const changed =
+			viewportProjectionController?.alignViewportToOrthographicView?.(
+				viewId,
+				options,
+			) ?? false;
+		interactionController?.syncControlsToMode?.();
+		return changed;
+	}
+
+	function toggleViewportOrthographicAxis(axisKey) {
+		const changed =
+			viewportProjectionController?.toggleOrthographicAxis?.(axisKey) ?? false;
+		interactionController?.syncControlsToMode?.();
+		return changed;
+	}
+
 	function copyPose(sourceCamera, destinationCamera) {
 		return sceneFramingController.copyPose(sourceCamera, destinationCamera);
 	}
@@ -2061,12 +2095,9 @@ export function createCameraFramesController(elements, store) {
 		toggleViewportReferenceImageEditMode,
 		setViewportPivotEditMode,
 		toggleViewportPivotEditMode,
-		setViewportProjectionMode: (...args) =>
-			viewportProjectionController?.setViewportProjectionMode?.(...args),
-		alignViewportToOrthographicView: (...args) =>
-			viewportProjectionController?.alignViewportToOrthographicView?.(...args),
-		toggleViewportOrthographicAxis: (...args) =>
-			viewportProjectionController?.toggleOrthographicAxis?.(...args),
+		setViewportProjectionMode,
+		alignViewportToOrthographicView,
+		toggleViewportOrthographicAxis,
 		setViewportTransformHover: viewportToolController.setViewportTransformHover,
 		setBoxWidthPercent: outputFrameController.setBoxWidthPercent,
 		setBoxHeightPercent: outputFrameController.setBoxHeightPercent,

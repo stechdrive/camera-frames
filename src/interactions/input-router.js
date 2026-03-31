@@ -64,6 +64,7 @@ export function bindInputRouter({
 	isRollInteractionMode,
 	isViewportOrthographicActive,
 	applyNavigateInteractionMode,
+	syncControlsToMode,
 	ensurePerspectiveForViewportRotation,
 	captureViewportProjectionState,
 	restoreViewportProjectionState,
@@ -216,6 +217,7 @@ export function bindInputRouter({
 		viewportOrthoRotationGesture = null;
 		if (isClickLike && !cameraPoseChanged) {
 			restoreViewportProjectionState?.(projectionSnapshot);
+			syncControlsToMode?.();
 		}
 	}
 
@@ -235,6 +237,7 @@ export function bindInputRouter({
 				viewportOrthoRotationGesture = null;
 				const projectionSnapshot = captureViewportProjectionState?.() ?? null;
 				if (ensurePerspectiveForViewportRotation?.()) {
+					syncControlsToMode?.();
 					viewportOrthoRotationGesture = {
 						pointerId: event.pointerId,
 						startClientX: event.clientX,

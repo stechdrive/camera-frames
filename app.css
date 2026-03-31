@@ -2623,10 +2623,10 @@ body[data-interaction-mode="roll"] .viewport-axis-gizmo {
 }
 
 .viewport-axis-gizmo__button--positive {
-	width: 1.72rem;
-	height: 1.72rem;
-	font: 700 0.68rem / 1 "Consolas", "Andale Mono", monospace;
-	letter-spacing: 0.02em;
+	width: 1.08rem;
+	height: 1.08rem;
+	font: 700 0.46rem / 1 "Consolas", "Andale Mono", monospace;
+	letter-spacing: 0.01em;
 	text-transform: uppercase;
 	text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
 }
@@ -2642,11 +2642,11 @@ body[data-interaction-mode="roll"] .viewport-axis-gizmo {
 }
 
 .viewport-axis-gizmo__button--axis-center {
-	width: 1.46rem;
-	height: 1.46rem;
+	width: 1.08rem;
+	height: 1.08rem;
 	background: rgba(6, 17, 30, 0.96);
-	font: 700 0.64rem / 1 "Consolas", "Andale Mono", monospace;
-	letter-spacing: 0.02em;
+	font: 700 0.46rem / 1 "Consolas", "Andale Mono", monospace;
+	letter-spacing: 0.01em;
 	text-transform: uppercase;
 }
 
@@ -2655,7 +2655,6 @@ body[data-interaction-mode="roll"] .viewport-axis-gizmo {
 }
 
 .viewport-axis-gizmo__button.is-active {
-	transform: translate(-50%, -50%) scale(1.08);
 	background: rgba(255, 255, 255, 0.1);
 	box-shadow: 0 14px 24px rgba(0, 0, 0, 0.42), 0 0 0 2px currentColor;
 }

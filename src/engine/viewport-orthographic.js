@@ -169,6 +169,54 @@ export function normalizeViewportOrthoState(value = null) {
 	};
 }
 
+export function deriveViewportOrthoEntryStateFromCamera({
+	currentState = null,
+	viewId = DEFAULT_VIEWPORT_ORTHO_VIEW,
+	cameraPosition = null,
+} = {}) {
+	const normalizedState = normalizeViewportOrthoState(currentState);
+	const resolvedViewId = getViewportOrthoViewDefinition(viewId).id;
+	if (!cameraPosition) {
+		return {
+			...normalizedState,
+			viewId: resolvedViewId,
+		};
+	}
+
+	const axisVector = getViewportOrthoSideVector(
+		resolvedViewId,
+		new THREE.Vector3(),
+	).normalize();
+	const focusVector = new THREE.Vector3(
+		normalizedState.focus.x,
+		normalizedState.focus.y,
+		normalizedState.focus.z,
+	);
+	const cameraVector = new THREE.Vector3(
+		Number(cameraPosition.x ?? 0),
+		Number(cameraPosition.y ?? 0),
+		Number(cameraPosition.z ?? 0),
+	);
+	const desiredAxisProjection = cameraVector.dot(axisVector);
+	const currentFocusAxisProjection = focusVector.dot(axisVector);
+	focusVector.addScaledVector(
+		axisVector,
+		desiredAxisProjection -
+			normalizedState.distance -
+			currentFocusAxisProjection,
+	);
+
+	return {
+		...normalizedState,
+		viewId: resolvedViewId,
+		focus: {
+			x: focusVector.x,
+			y: focusVector.y,
+			z: focusVector.z,
+		},
+	};
+}
+
 export function configureViewportOrthographicCamera(
 	camera,
 	{
