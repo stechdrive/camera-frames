@@ -72,7 +72,7 @@ function createPointMaterial(
 	texture,
 	color,
 	opacity = 1,
-	{ depthTest = false, polygonOffset = false } = {},
+	{ depthTest = false } = {},
 ) {
 	const material = new THREE.SpriteMaterial({
 		map: texture,
@@ -83,9 +83,6 @@ function createPointMaterial(
 		depthWrite: false,
 	});
 	material.toneMapped = false;
-	material.polygonOffset = polygonOffset;
-	material.polygonOffsetFactor = polygonOffset ? -2 : 0;
-	material.polygonOffsetUnits = polygonOffset ? -2 : 0;
 	return material;
 }
 
@@ -98,9 +95,6 @@ function createLineMaterial({ color, opacity, depthTest, renderOrder }) {
 		depthWrite: false,
 	});
 	material.toneMapped = false;
-	material.polygonOffset = depthTest;
-	material.polygonOffsetFactor = depthTest ? -1 : 0;
-	material.polygonOffsetUnits = depthTest ? -1 : 0;
 	material.userData.renderOrder = renderOrder;
 	return material;
 }
@@ -173,7 +167,6 @@ export function createMeasurementSceneHelper() {
 	const startPointFront = new THREE.Sprite(
 		createPointMaterial(pointTexture, START_POINT_COLOR, 0.98, {
 			depthTest: true,
-			polygonOffset: true,
 		}),
 	);
 	startPointFront.name = "MeasurementStartPointFront";
@@ -188,7 +181,6 @@ export function createMeasurementSceneHelper() {
 	const endPointFront = new THREE.Sprite(
 		createPointMaterial(pointTexture, END_POINT_COLOR, 0.98, {
 			depthTest: true,
-			polygonOffset: true,
 		}),
 	);
 	endPointFront.name = "MeasurementEndPointFront";
@@ -203,7 +195,6 @@ export function createMeasurementSceneHelper() {
 	const draftPointFront = new THREE.Sprite(
 		createPointMaterial(pointTexture, DRAFT_POINT_COLOR, 0.72, {
 			depthTest: true,
-			polygonOffset: true,
 		}),
 	);
 	draftPointFront.name = "MeasurementDraftPointFront";
