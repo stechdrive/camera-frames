@@ -1,0 +1,571 @@
+.panel-header {
+	display: flex;
+	flex-direction: column;
+	gap: 0.3rem;
+}
+
+.panel-header__title-row {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	align-items: center;
+	gap: 0.55rem;
+}
+
+.panel-header__title-main {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.55rem;
+	min-width: 0;
+	flex: 1 1 auto;
+}
+
+.panel-header__brand {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.45rem;
+	min-width: 0;
+	overflow: hidden;
+}
+
+.panel-header__brand--compact {
+	gap: 0.4rem;
+}
+
+.header-meta-row {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 1rem;
+}
+
+.eyebrow {
+	margin: 0;
+	color: var(--accent-cool);
+	font: 600 0.7rem / 1.2 "Consolas", "Andale Mono", monospace;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+}
+
+.locale-field {
+	display: flex;
+	flex-direction: column;
+	gap: 0.35rem;
+	min-width: 124px;
+	color: var(--text-dim);
+	font-size: 0.72rem;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+}
+
+.locale-field select {
+	min-height: 2.2rem;
+	padding: 0.55rem 0.7rem;
+	border: 1px solid var(--line);
+	border-radius: 10px;
+	background: rgba(2, 8, 16, 0.62);
+	color: var(--text);
+	font: 500 0.88rem / 1.2 "Consolas", "Andale Mono", monospace;
+}
+
+.panel-header h1 {
+	margin: 0;
+	font-size: clamp(1.8rem, 3.6vw, 2.3rem);
+	line-height: 0.92;
+	letter-spacing: -0.04em;
+	min-width: 0;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.panel-header--compact h1 {
+	font-size: clamp(1rem, 1.7vw, 1.35rem);
+}
+
+.workbench-collapse-toggle {
+	appearance: none;
+	border: 1px solid var(--line-strong);
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.05);
+	color: var(--text-dim);
+	cursor: pointer;
+	width: 1.85rem;
+	height: 1.85rem;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 auto;
+	transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.workbench-collapse-toggle:hover {
+	border-color: rgba(255, 255, 255, 0.34);
+	color: var(--text);
+}
+
+.workbench-inspector-toggle {
+	appearance: none;
+	border: 1px solid var(--line-strong);
+	border-radius: 12px;
+	background: rgba(255, 255, 255, 0.05);
+	color: var(--text-dim);
+	cursor: pointer;
+	width: 2.1rem;
+	height: 2.1rem;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 auto;
+	transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.workbench-inspector-toggle:hover {
+	border-color: rgba(255, 255, 255, 0.34);
+	color: var(--text);
+}
+
+.workbench-menu {
+	position: relative;
+	flex: 0 0 auto;
+}
+
+.workbench-menu__trigger {
+	list-style: none;
+	appearance: none;
+	border: 1px solid var(--line-strong);
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.05);
+	color: var(--text-dim);
+	cursor: pointer;
+	width: 1.85rem;
+	height: 1.85rem;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.workbench-menu__trigger::-webkit-details-marker {
+	display: none;
+}
+
+.workbench-menu.is-open .workbench-menu__trigger {
+	border-color: rgba(255, 255, 255, 0.34);
+	color: var(--text);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.workbench-menu__trigger:hover {
+		border-color: rgba(255, 255, 255, 0.34);
+		color: var(--text);
+	}
+}
+
+.workbench-tool-rail .workbench-menu__trigger {
+	width: 2.35rem;
+	height: 2.35rem;
+	border-radius: 12px;
+}
+
+.workbench-menu__panel {
+	position: fixed;
+	z-index: 20;
+	display: flex;
+	flex-direction: column;
+	gap: 0.24rem;
+	min-width: min(18.5rem, calc(100vw - 2.5rem));
+	max-width: min(21rem, calc(100vw - 2.5rem));
+	padding: 0.48rem;
+	border: 1px solid var(--line);
+	border-radius: 14px;
+	background: linear-gradient(
+		180deg,
+		var(--bg-elev-strong) 0%,
+		var(--bg-elev) 100%
+	);
+	box-shadow: var(--shadow);
+	backdrop-filter: blur(20px);
+}
+
+.workbench-menu__panel--up {
+	transform-origin: bottom center;
+}
+
+.workbench-menu__group {
+	display: flex;
+	flex-direction: column;
+	gap: 0.26rem;
+	padding-bottom: 0.42rem;
+	margin-bottom: 0.42rem;
+	border-bottom: 1px solid var(--line);
+}
+
+.workbench-project-status {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.34rem;
+	min-width: 0;
+	padding: 0.05rem 0.12rem 0.36rem;
+	color: var(--text-dim);
+	font: 600 0.72rem / 1 "Avenir Next", "Segoe UI", sans-serif;
+	letter-spacing: 0.04em;
+}
+
+.workbench-project-status--menu {
+	padding: 0.08rem 0.2rem 0.42rem;
+	margin-bottom: 0.1rem;
+	border-bottom: 1px solid var(--line);
+}
+
+.workbench-project-status__name {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: var(--text);
+}
+
+.workbench-project-status__badge {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 1rem;
+	height: 1rem;
+	padding: 0 0.3rem;
+	border-radius: 999px;
+	border: 1px solid rgba(255, 184, 140, 0.28);
+	background: rgba(255, 148, 104, 0.12);
+	color: #ffc6a8;
+	font: 700 0.64rem / 1 "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+	letter-spacing: 0.02em;
+}
+
+.workbench-project-status__badge--package {
+	border-color: rgba(137, 208, 255, 0.24);
+	background: rgba(84, 162, 214, 0.14);
+	color: #bfe6ff;
+}
+
+.workbench-menu__item {
+	appearance: none;
+	border: 1px solid transparent;
+	border-radius: 10px;
+	background: transparent;
+	color: var(--text);
+	cursor: pointer;
+	display: inline-flex;
+	align-items: center;
+	gap: 0.48rem;
+	min-height: 2.12rem;
+	padding: 0.46rem 0.64rem;
+	font: 600 0.84rem / 1 "Avenir Next", "Segoe UI", sans-serif;
+	text-align: left;
+	transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+	width: 100%;
+}
+
+.workbench-menu__item:hover {
+	border-color: var(--line);
+	background: rgba(255, 255, 255, 0.05);
+}
+
+.workbench-menu__item--destructive {
+	color: #ff9d90;
+}
+
+.workbench-menu__item-icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--accent-cool);
+	flex: 0 0 auto;
+}
+
+.workbench-menu__item-label {
+	min-width: 0;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.workbench-menu__item-shortcut {
+	margin-left: auto;
+	display: inline-flex;
+	align-items: center;
+	flex: 0 0 auto;
+}
+
+.workbench-menu__item-shortcut kbd {
+	border: 1px solid var(--line);
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.04);
+	color: var(--text-dim);
+	font: 600 0.7rem / 1 "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+	padding: 0.22rem 0.48rem;
+	letter-spacing: 0.01em;
+}
+
+.workbench-menu__field {
+	display: flex;
+	flex-direction: column;
+	gap: 0.35rem;
+	padding: 0.2rem 0.1rem;
+}
+
+.workbench-menu__field label {
+	color: var(--text-dim);
+	font-size: 0.72rem;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+
+.workbench-menu__field input {
+	width: 100%;
+	min-height: 2.45rem;
+	padding: 0.65rem 0.75rem;
+	border: 1px solid var(--line);
+	border-radius: 10px;
+	background: rgba(2, 8, 16, 0.62);
+	color: var(--text);
+	font: 500 0.86rem / 1.2 "Consolas", "Andale Mono", monospace;
+}
+
+.workbench-collapse-chip-wrap {
+	position: absolute;
+	top: 0.75rem;
+	left: 0.75rem;
+	z-index: 6;
+	display: inline-flex;
+	align-items: center;
+	gap: 0.65rem;
+	pointer-events: none;
+}
+
+.workbench-collapse-chip-wrap .workbench-menu {
+	pointer-events: auto;
+}
+
+.workbench-collapse-chip {
+	appearance: none;
+	display: inline-flex;
+	align-items: center;
+	gap: 0.65rem;
+	padding: 0.6rem 0.8rem;
+	border: 1px solid var(--line-strong);
+	border-radius: 999px;
+	background: linear-gradient(
+		180deg,
+		var(--bg-elev-strong) 0%,
+		var(--bg-elev) 100%
+	);
+	box-shadow: var(--shadow);
+	backdrop-filter: blur(24px);
+	color: var(--text);
+	cursor: pointer;
+	pointer-events: auto;
+}
+
+.workbench-collapse-chip .panel-header__brand h1 {
+	font-size: 0.92rem;
+	letter-spacing: 0.02em;
+}
+
+.workbench-collapse-chip__icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--text-dim);
+}
+
+.panel-header--compact .panel-copy {
+	font-size: 0.86rem;
+}
+
+.panel-copy {
+	margin: 0;
+	color: var(--text-dim);
+	line-height: 1.35;
+}
+
+.workbench-tool-rail {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.45rem;
+	width: 100%;
+}
+
+.workbench-tool-rail__group {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.35rem;
+	width: 100%;
+}
+
+.workbench-tool-rail__tool-slot {
+	position: relative;
+	display: flex;
+	justify-content: center;
+	width: 100%;
+}
+
+.workbench-tool-rail__group--compact {
+	gap: 0.2rem;
+}
+
+.workbench-tool-rail__divider {
+	width: 100%;
+	height: 1px;
+	background: linear-gradient(
+		90deg,
+		rgba(255, 255, 255, 0) 0%,
+		rgba(255, 255, 255, 0.16) 25%,
+		rgba(255, 255, 255, 0.16) 75%,
+		rgba(255, 255, 255, 0) 100%
+	);
+}
+
+.workbench-tool-rail__control {
+	position: relative;
+}
+
+.workbench-tool-rail__control,
+.workbench-tool-rail__button {
+	appearance: none;
+	border: 1px solid var(--line-strong);
+	border-radius: 12px;
+	background: rgba(255, 255, 255, 0.05);
+	color: var(--text-dim);
+	cursor: pointer;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 2.35rem;
+	height: 2.35rem;
+	transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.workbench-tool-rail__button {
+	padding: 0;
+}
+
+.workbench-tool-rail__button .workbench-icon,
+.workbench-tool-rail__control .workbench-icon,
+.workbench-tool-rail .workbench-menu__trigger .workbench-icon {
+	flex: 0 0 auto;
+}
+
+.workbench-tool-rail__segmented {
+	display: inline-flex;
+	align-items: stretch;
+	flex-direction: row;
+	border: 1px solid var(--line-strong);
+	border-radius: 14px;
+	background: rgba(255, 255, 255, 0.04);
+	padding: 0.18rem;
+	gap: 0.18rem;
+}
+
+.workbench-tool-rail__segmented--vertical {
+	flex-direction: column;
+	width: 100%;
+}
+
+.workbench-tool-rail__segment {
+	appearance: none;
+	border: 1px solid transparent;
+	border-radius: 10px;
+	background: transparent;
+	color: var(--text-dim);
+	cursor: pointer;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 2rem;
+	height: 2rem;
+	padding: 0;
+	transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.workbench-tool-rail__segment svg {
+	width: 1rem;
+	height: 1rem;
+}
+
+.workbench-tool-rail__segment.is-active {
+	border-color: rgba(255, 255, 255, 0.22);
+	background: rgba(255, 255, 255, 0.08);
+	color: var(--text);
+}
+
+.workbench-tool-rail__popover {
+	position: absolute;
+	top: 50%;
+	left: calc(100% + 0.55rem);
+	transform: translateY(-50%);
+	z-index: 20;
+	display: flex;
+	flex-direction: column;
+	gap: 0.55rem;
+	min-width: 10.25rem;
+	padding: 0.65rem;
+	border: 1px solid var(--line);
+	border-radius: 14px;
+	background: linear-gradient(
+		180deg,
+		var(--bg-elev-strong) 0%,
+		var(--bg-elev) 100%
+	);
+	box-shadow: var(--shadow);
+	backdrop-filter: blur(20px);
+}
+
+.workbench-tool-rail__popover--mask {
+	min-width: 13rem;
+}
+
+.workbench-tool-rail__popover-field {
+	display: flex;
+	flex-direction: column;
+	gap: 0.35rem;
+}
+
+.workbench-tool-rail__popover-field > span {
+	font-size: 0.78rem;
+}
+
+.workbench-tool-rail__popover-value {
+	margin: 0;
+	font: 600 0.86rem / 1.3 "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+	color: var(--text);
+}
+
+.workbench-tool-rail__popover-input {
+	min-width: 0;
+}
+
+.workbench-tool-rail__popover-input .numeric-scrub {
+	width: 100%;
+}
+
+.workbench-tool-rail__popover-input .numeric-scrub input {
+	text-align: right;
+}
+
+.workbench-tool-rail__popover-summary {
+	margin: 0;
+	color: var(--text-dim);
+	font-size: 0.78rem;
+	line-height: 1.4;
+}
+
+.workbench-tool-rail__popover-actions {
+	margin-top: 0.08rem;
+	justify-content: flex-end;
+}
+
+.workbench-tool-rail__popover-mask-buttons {
+	justify-content: flex-start;
+	flex-wrap: nowrap;
+}

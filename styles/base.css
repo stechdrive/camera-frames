@@ -1,0 +1,38 @@
+* {
+	box-sizing: border-box;
+}
+
+html,
+body,
+#app-root {
+	height: 100%;
+	margin: 0;
+}
+
+body {
+	overflow: hidden;
+	background: radial-gradient(
+			circle at top left,
+			rgba(255, 103, 77, 0.18),
+			transparent 32%
+		),
+		radial-gradient(
+			circle at bottom right,
+			rgba(137, 208, 255, 0.12),
+			transparent 32%
+		), linear-gradient(180deg, #09121e 0%, #04080e 100%);
+	color: var(--text);
+	font-family: "Avenir Next", "Segoe UI", sans-serif;
+}
+
+body[data-mode="camera"] .render-box {
+	display: block;
+}
+
+body[data-mode="viewport"] .render-box {
+	display: none;
+}
+
+code {
+	font-family: "Consolas", "Andale Mono", monospace;
+}

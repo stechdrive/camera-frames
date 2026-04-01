@@ -81,6 +81,37 @@ export function createSparkExportRendererManager({ sourceSpark }) {
 		exportTargetPixels = sourceSpark.targetPixels ?? null;
 	}
 
+	function clearExportTarget({
+		width = targetWidth,
+		height = targetHeight,
+		superXY = targetSuperXY,
+	} = {}) {
+		if (!sourceSpark?.renderer) {
+			return;
+		}
+
+		ensureExportTarget({ width, height, superXY });
+
+		const renderer = sourceSpark.renderer;
+		const previousTarget = renderer.getRenderTarget();
+		const previousAutoClear = renderer.autoClear;
+		const previousClearAlpha = renderer.getClearAlpha();
+		const previousClearColor = renderer
+			.getClearColor(new THREE.Color())
+			.clone();
+
+		try {
+			renderer.setRenderTarget(exportTarget);
+			renderer.autoClear = true;
+			renderer.setClearColor(0x000000, 0);
+			renderer.clear(true, true, true);
+		} finally {
+			renderer.setRenderTarget(previousTarget);
+			renderer.autoClear = previousAutoClear;
+			renderer.setClearColor(previousClearColor, previousClearAlpha);
+		}
+	}
+
 	function restoreBufferState(previousState) {
 		syncExportBuffersFromSpark();
 		sourceSpark.target = previousState.target;
@@ -132,12 +163,13 @@ export function createSparkExportRendererManager({ sourceSpark }) {
 		superXY = DEFAULT_EXPORT_SUPER_XY,
 	}) {
 		ensureExportTarget({ width, height, superXY });
-		return withExportTarget({ width, height, superXY }, () =>
-			sourceSpark.renderTarget({
+		return withExportTarget({ width, height, superXY }, () => {
+			clearExportTarget({ width, height, superXY });
+			return sourceSpark.renderTarget({
 				scene,
 				camera,
-			}),
-		);
+			});
+		});
 	}
 
 	async function readPixels({

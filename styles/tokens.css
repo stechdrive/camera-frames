@@ -1,0 +1,18 @@
+:root {
+	--bg: #06111e;
+	--bg-elev: rgba(9, 21, 38, 0.88);
+	--bg-elev-strong: rgba(11, 27, 47, 0.94);
+	--line: rgba(255, 255, 255, 0.1);
+	--line-strong: rgba(255, 255, 255, 0.18);
+	--text: #f5f7fb;
+	--text-dim: rgba(245, 247, 251, 0.68);
+	--accent: #ff674d;
+	--accent-soft: rgba(255, 103, 77, 0.18);
+	--accent-cool: #89d0ff;
+	--shadow: 0 24px 90px rgba(0, 0, 0, 0.45);
+	--radius: 18px;
+	--frame-stroke-width: 2px;
+	--frame-hit-area: 12px;
+	--panel-width: min(380px, 100vw);
+	color-scheme: dark;
+}

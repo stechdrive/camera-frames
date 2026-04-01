@@ -1,0 +1,254 @@
+.app-shell {
+	position: relative;
+	height: 100%;
+	min-height: 0;
+}
+
+.workbench-shell {
+	position: absolute;
+	inset: 0.625rem;
+	z-index: 5;
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+	gap: 0.625rem;
+	pointer-events: none;
+}
+
+.workbench-shell--inspector-rail {
+	grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.workbench-column {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+	min-height: 0;
+}
+
+.workbench-column--left {
+	position: absolute;
+	left: 0;
+	top: 0;
+	z-index: 12;
+	align-items: flex-start;
+	pointer-events: none;
+}
+
+.workbench-column--right {
+	grid-column: 2;
+}
+
+.workbench-column--right.workbench-column--right-collapsed {
+	position: absolute;
+	right: 0;
+	top: 0;
+	z-index: 11;
+	width: auto;
+	flex-direction: row-reverse;
+	align-items: flex-start;
+	gap: 0.55rem;
+	pointer-events: none;
+}
+
+.workbench-column--right.workbench-column--right-collapsed > * {
+	pointer-events: auto;
+}
+
+.workbench-card {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+	min-height: 0;
+	padding: 0.68rem;
+	background: linear-gradient(
+		180deg,
+		var(--bg-elev-strong) 0%,
+		var(--bg-elev) 100%
+	);
+	box-shadow: var(--shadow);
+	backdrop-filter: blur(24px);
+	pointer-events: auto;
+	position: relative;
+}
+
+.workbench-card--topbar {
+	flex: 0 0 auto;
+	overflow: visible;
+	z-index: 12;
+}
+
+.workbench-card--tool-rail {
+	flex: 0 0 auto;
+	align-items: center;
+	padding: 0.45rem;
+	overflow: visible;
+	align-self: flex-start;
+	border-radius: 22px;
+	cursor: grab;
+	pointer-events: auto;
+}
+
+.workbench-card--tool-rail.is-dragging {
+	cursor: grabbing;
+}
+
+.workbench-card--scene,
+.workbench-card--inspector {
+	flex: 1 1 auto;
+	overflow: auto;
+}
+
+.workbench-card--inspector {
+	padding: 0.55rem;
+	overflow: visible;
+}
+
+.workbench-card--inspector-rail {
+	flex: 0 0 auto;
+	align-items: center;
+	padding: 0.45rem;
+	overflow: visible;
+	border-radius: 22px;
+}
+
+.workbench-card--inspector-peek {
+	flex: 0 0 auto;
+	width: min(360px, calc(100vw - 6rem));
+	max-height: min(84vh, 780px);
+	padding: 0.55rem;
+	overflow: visible;
+}
+
+.workbench-shell--mobile {
+	inset: 0;
+	display: block;
+	pointer-events: none;
+}
+
+.workbench-mobile-backdrop {
+	position: absolute;
+	inset: 0;
+	background: rgba(4, 8, 14, 0.12);
+	pointer-events: auto;
+}
+
+.workbench-mobile-dock {
+	position: absolute;
+	left: 50%;
+	bottom: calc(env(safe-area-inset-bottom, 0px) + 0.75rem);
+	transform: translateX(-50%);
+	z-index: 12;
+	display: flex;
+	justify-content: center;
+	width: calc(100% - 1rem);
+	pointer-events: none;
+}
+
+.workbench-card--mobile-dock {
+	width: auto;
+	max-width: 100%;
+	padding: 0.45rem;
+	border-radius: 22px;
+}
+
+.workbench-shell--mobile .workbench-tool-rail {
+	flex-direction: row;
+	flex-wrap: nowrap;
+	align-items: center;
+	gap: 0.4rem;
+	width: auto;
+	max-width: min(calc(100vw - 1rem), 48rem);
+	overflow-x: auto;
+	overflow-y: visible;
+	scrollbar-width: none;
+	-webkit-overflow-scrolling: touch;
+}
+
+.workbench-shell--mobile .workbench-tool-rail::-webkit-scrollbar {
+	display: none;
+}
+
+.workbench-shell--mobile .workbench-tool-rail__group {
+	flex-direction: row;
+	width: auto;
+}
+
+.workbench-shell--mobile .workbench-tool-rail__segmented {
+	width: auto;
+	min-width: 4.35rem;
+}
+
+.workbench-shell--mobile .workbench-tool-rail__divider {
+	width: 1px;
+	height: 2rem;
+	flex: 0 0 auto;
+	background: linear-gradient(
+		180deg,
+		transparent 0%,
+		rgba(255, 255, 255, 0.22) 18%,
+		rgba(255, 255, 255, 0.34) 50%,
+		rgba(255, 255, 255, 0.22) 82%,
+		transparent 100%
+	);
+}
+
+.workbench-shell--mobile .workbench-tool-rail__button,
+.workbench-shell--mobile .workbench-tool-rail .workbench-menu__trigger {
+	width: 2.7rem;
+	min-width: 2.7rem;
+	height: 2.7rem;
+	min-height: 2.7rem;
+	border-radius: 14px;
+}
+
+.workbench-shell--mobile .workbench-tool-rail__button .workbench-icon,
+.workbench-shell--mobile
+	.workbench-tool-rail
+	.workbench-menu__trigger
+	.workbench-icon,
+.workbench-shell--mobile .workbench-tool-rail__control .workbench-icon {
+	width: 1.34rem;
+	height: 1.34rem;
+}
+
+.workbench-shell--mobile .workbench-tool-rail__segment svg {
+	width: 1.18rem;
+	height: 1.18rem;
+}
+
+.workbench-shell--mobile .workbench-tool-rail__popover {
+	top: auto;
+	bottom: calc(100% + 0.6rem);
+	left: 50%;
+	min-width: 11.5rem;
+	transform: translateX(-50%);
+}
+
+.workbench-mobile-drawer-wrap {
+	position: absolute;
+	inset: 0;
+	z-index: 11;
+	display: flex;
+	align-items: flex-end;
+	justify-content: flex-end;
+	padding: 0.75rem;
+	padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 4.8rem);
+	pointer-events: none;
+}
+
+.workbench-card--mobile-drawer {
+	width: min(420px, calc(100vw - 1.5rem));
+	max-height: min(70vh, calc(100% - 5.6rem));
+	padding: 0.55rem;
+	border-radius: 22px;
+	pointer-events: auto;
+	overflow: hidden;
+}
+
+.workbench-inspector-stack--mobile {
+	flex: 1 1 auto;
+	overflow: auto;
+	min-height: 0;
+	-webkit-overflow-scrolling: touch;
+	overscroll-behavior: contain;
+}

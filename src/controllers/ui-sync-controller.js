@@ -92,7 +92,13 @@ export function createUiSyncController({
 	}
 
 	function updateDropHint() {
-		dropHint.classList.toggle("is-hidden", getTotalLoadedItems() > 0);
+		const hasSceneAssets = getTotalLoadedItems() > 0;
+		const hasReferenceImages =
+			(store.referenceImages?.items?.value?.length ?? 0) > 0;
+		dropHint.classList.toggle(
+			"is-hidden",
+			hasSceneAssets || hasReferenceImages,
+		);
 	}
 
 	function updateSceneSummary() {

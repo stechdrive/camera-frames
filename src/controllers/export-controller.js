@@ -26,6 +26,22 @@ import {
 	resolveReferenceImageItemsForShot,
 } from "../reference-image-model.js";
 import { sanitizeFrameName } from "../workspace-model.js";
+import {
+	buildLayerMaskPixels,
+	buildSplatLayerMaskPixels,
+	createAlphaPreviewPixels,
+} from "./export/mask-pixels.js";
+import {
+	buildExportProgressOverlay,
+	getExportPhaseDefaultDetail,
+	getExportPhaseDefinitions,
+} from "./export/progress.js";
+import { applyExportAssetRenderOrder } from "./export/render-state.js";
+import {
+	buildSceneAssetExportMetadata,
+	getShotCameraExportSettings,
+	resolveExportTargetShotCameras,
+} from "./export/targets.js";
 
 export function createExportController({
 	scene,
@@ -91,135 +107,6 @@ export function createExportController({
 		return Date.now();
 	}
 
-	function getExportPhaseDefinitions({
-		exportFormat,
-		exportGridOverlay = false,
-		hasMasks = false,
-		exportModelLayers = false,
-		exportSplatLayers = false,
-		includeReferenceImages = false,
-	}) {
-		const phases = [
-			{ id: "prepare", label: t("overlay.exportPhasePrepare") },
-			{ id: "beauty", label: t("overlay.exportPhaseBeauty") },
-		];
-		if (exportGridOverlay) {
-			phases.push({ id: "guides", label: t("overlay.exportPhaseGuides") });
-		}
-		if (hasMasks) {
-			phases.push({ id: "masks", label: t("overlay.exportPhaseMasks") });
-		}
-		if (exportFormat === "psd" && exportModelLayers) {
-			phases.push({ id: "psd-base", label: t("overlay.exportPhasePsdBase") });
-			phases.push({
-				id: "model-layers",
-				label: t("overlay.exportPhaseModelLayers"),
-			});
-		}
-		if (exportFormat === "psd" && exportSplatLayers) {
-			phases.push({
-				id: "splat-layers",
-				label: t("overlay.exportPhaseSplatLayers"),
-			});
-		}
-		if (includeReferenceImages) {
-			phases.push({
-				id: "reference-images",
-				label: t("overlay.exportPhaseReferenceImages"),
-			});
-		}
-		phases.push({ id: "write", label: t("overlay.exportPhaseWrite") });
-		return phases;
-	}
-
-	function getExportPhaseDefaultDetail(phaseId, exportFormat) {
-		switch (phaseId) {
-			case "prepare":
-				return t("overlay.exportPhaseDetailPrepare");
-			case "beauty":
-				return t("overlay.exportPhaseDetailBeauty");
-			case "guides":
-				return t("overlay.exportPhaseDetailGuides");
-			case "masks":
-				return t("overlay.exportPhaseDetailMasks");
-			case "psd-base":
-				return t("overlay.exportPhaseDetailPsdBase");
-			case "model-layers":
-				return t("overlay.exportPhaseDetailModelLayers");
-			case "splat-layers":
-				return t("overlay.exportPhaseDetailSplatLayers");
-			case "reference-images":
-				return t("overlay.exportPhaseDetailReferenceImages");
-			case "write":
-				return exportFormat === "psd"
-					? t("overlay.exportPhaseDetailWritePsd")
-					: t("overlay.exportPhaseDetailWritePng");
-			default:
-				return "";
-		}
-	}
-
-	function buildExportProgressOverlay(
-		targetDocuments,
-		currentIndex,
-		exportFormat,
-		startedAt,
-		phaseState = null,
-	) {
-		const safeDocuments = Array.isArray(targetDocuments) ? targetDocuments : [];
-		const activeDocument = safeDocuments[currentIndex] ?? null;
-		const formatLabel = t(
-			`exportFormat.${exportFormat === "psd" ? "psd" : "png"}`,
-		);
-		const detail =
-			safeDocuments.length > 1
-				? t("overlay.exportDetailBatch", {
-						index: currentIndex + 1,
-						count: safeDocuments.length,
-						camera: activeDocument?.name ?? "Camera",
-						format: formatLabel,
-					})
-				: t("overlay.exportDetailSingle", {
-						camera: activeDocument?.name ?? "Camera",
-						format: formatLabel,
-					});
-
-		return {
-			source: "export",
-			kind: "progress",
-			title: t("overlay.exportTitle"),
-			message: t("overlay.exportMessage"),
-			detail,
-			phaseLabel: phaseState?.label ?? "",
-			phaseDetail:
-				phaseState?.detail ??
-				(phaseState?.id
-					? getExportPhaseDefaultDetail(phaseState.id, exportFormat)
-					: ""),
-			startedAt,
-			phases: (phaseState?.definitions ?? []).map((phase) => ({
-				label: phase.label,
-				status:
-					phaseState?.activeId == null
-						? "todo"
-						: phase.id === phaseState.activeId
-							? "active"
-							: phaseState.completedIds?.has?.(phase.id)
-								? "done"
-								: "todo",
-			})),
-			steps: safeDocuments.map((documentState, index) => ({
-				label: documentState.name,
-				status:
-					index < currentIndex
-						? "done"
-						: index === currentIndex
-							? "active"
-							: "todo",
-			})),
-		};
-	}
-
 	function setExportProgressOverlay(
 		targetDocuments,
 		currentIndex,
@@ -227,13 +114,14 @@ export function createExportController({
 		startedAt,
 		phaseState = null,
 	) {
-		store.overlay.value = buildExportProgressOverlay(
+		store.overlay.value = buildExportProgressOverlay({
 			targetDocuments,
 			currentIndex,
 			exportFormat,
 			startedAt,
 			phaseState,
-		);
+			t,
+		});
 	}
 
 	function clearExportOverlay() {
@@ -265,47 +153,10 @@ export function createExportController({
 	}
 
 	function getExportTargetShotCameras() {
-		const target = store.exportOptions.target.value;
-		if (target === "all") {
-			return [...store.workspace.shotCameras.value];
-		}
-
-		if (target === "selected") {
-			const selectedIds = new Set(store.exportOptions.presetIds.value);
-			return store.workspace.shotCameras.value.filter((documentState) =>
-				selectedIds.has(documentState.id),
-			);
-		}
-
-		const activeDocument = getActiveShotCameraDocument();
-		return activeDocument ? [activeDocument] : [];
-	}
-
-	function getSceneAssetExportOrder() {
-		return getSceneAssets().map((asset) => ({
-			id: asset.id,
-			kind: asset.kind,
-			label: asset.label,
-			exportRole: asset.exportRole ?? "beauty",
-			maskGroup: asset.maskGroup ?? "",
-		}));
-	}
-
-	function getShotCameraExportSettings(documentState) {
-		const exportSettings = documentState?.exportSettings ?? {};
-		const exportFormat = exportSettings.exportFormat === "png" ? "png" : "psd";
-		const exportModelLayers =
-			exportFormat === "psd" && exportSettings.exportModelLayers !== false;
-		return {
-			exportName: String(exportSettings.exportName ?? ""),
-			exportFormat,
-			exportGridOverlay: Boolean(exportSettings.exportGridOverlay),
-			exportGridLayerMode:
-				exportSettings.exportGridLayerMode === "overlay" ? "overlay" : "bottom",
-			exportModelLayers,
-			exportSplatLayers:
-				exportModelLayers && Boolean(exportSettings.exportSplatLayers),
-		};
+		return resolveExportTargetShotCameras({
+			store,
+			getActiveShotCameraDocument,
+		});
 	}
 
 	function clonePixelBuffer(pixels) {
@@ -551,212 +402,10 @@ export function createExportController({
 		return layers;
 	}
 
-	function createAlphaPreviewPixels(pixels) {
-		const previewPixels = new Uint8Array(pixels.length);
-		for (let index = 0; index < pixels.length; index += 4) {
-			const value = pixels[index + 3];
-			previewPixels[index + 0] = value;
-			previewPixels[index + 1] = value;
-			previewPixels[index + 2] = value;
-			previewPixels[index + 3] = value;
-		}
-		return previewPixels;
-	}
-
-	function extractAlphaChannel(pixels) {
-		const alpha = new Uint8ClampedArray(Math.floor(pixels.length / 4));
-		for (let index = 0; index < alpha.length; index += 1) {
-			alpha[index] = pixels[index * 4 + 3];
-		}
-		return alpha;
-	}
-
-	function buildLayerMaskPixels(
-		sourcePixels,
-		modelOccluderPixels = null,
-		splatOccluderPixels = null,
-	) {
-		const maskPixels = new Uint8Array(sourcePixels.length);
-		for (let index = 0; index < sourcePixels.length; index += 4) {
-			const sourceAlpha = sourcePixels[index + 3] / 255;
-			const modelOccluderAlpha = modelOccluderPixels
-				? modelOccluderPixels[index + 3] / 255
-				: 0;
-			const splatOccluderAlpha = splatOccluderPixels
-				? splatOccluderPixels[index + 3] / 255
-				: 0;
-			const visibleAlpha = Math.max(
-				0,
-				Math.min(
-					1,
-					sourceAlpha * (1 - modelOccluderAlpha) * (1 - splatOccluderAlpha),
-				),
-			);
-			const value = Math.round(visibleAlpha * 255);
-			maskPixels[index + 0] = value;
-			maskPixels[index + 1] = value;
-			maskPixels[index + 2] = value;
-			maskPixels[index + 3] = value;
-		}
-		return maskPixels;
-	}
-
-	function fillSplatMaskDarkSpeckles(pixels, width, height, sourceAlpha) {
-		const currentThreshold = 24;
-		const neighborThreshold = 6;
-		const neighborMaskThreshold = 224;
-		const result = new Uint8ClampedArray(pixels);
-
-		for (let y = 1; y < height - 1; y += 1) {
-			for (let x = 1; x < width - 1; x += 1) {
-				const index = y * width + x;
-				const pixelOffset = index * 4;
-				const currentAlpha = pixels[pixelOffset + 3];
-				if (currentAlpha > currentThreshold) {
-					continue;
-				}
-
-				if (sourceAlpha[index] <= 0) {
-					continue;
-				}
-
-				let visibleNeighbors = 0;
-				for (let offsetY = -1; offsetY <= 1; offsetY += 1) {
-					for (let offsetX = -1; offsetX <= 1; offsetX += 1) {
-						if (offsetX === 0 && offsetY === 0) {
-							continue;
-						}
-						const neighborOffset =
-							((y + offsetY) * width + (x + offsetX)) * 4 + 3;
-						if (pixels[neighborOffset] >= neighborMaskThreshold) {
-							visibleNeighbors += 1;
-						}
-					}
-				}
-
-				if (visibleNeighbors >= neighborThreshold) {
-					result[pixelOffset + 0] = 255;
-					result[pixelOffset + 1] = 255;
-					result[pixelOffset + 2] = 255;
-					result[pixelOffset + 3] = 255;
-				}
-			}
-		}
-
-		return result;
-	}
-
-	function buildSplatLayerMaskPixels(
-		sourcePixels,
-		compositePixels,
-		lowerPixels,
-		width,
-		height,
-	) {
-		const contributionEpsilon = 1 / 255;
-		const solveDenominatorEpsilon = 1e-3;
-		const result = new Uint8ClampedArray(sourcePixels.length);
-		const sourceAlpha = extractAlphaChannel(sourcePixels);
-
-		for (let index = 0; index < result.length; index += 4) {
-			const sourceAlphaValue = sourcePixels[index + 3];
-			const pixelIndex = index / 4;
-			if (sourceAlphaValue === 0) {
-				continue;
-			}
-
-			const sourceAlphaNormalized = sourceAlphaValue / 255;
-			const compositeAlphaNormalized = compositePixels[index + 3] / 255;
-			const lowerAlphaNormalized = lowerPixels[index + 3] / 255;
-			const estimates = [];
-
-			const alphaDenominator =
-				sourceAlphaNormalized * (1 - lowerAlphaNormalized);
-			if (alphaDenominator > contributionEpsilon) {
-				estimates.push({
-					value:
-						(compositeAlphaNormalized - lowerAlphaNormalized) /
-						alphaDenominator,
-					weight: alphaDenominator * 2,
-				});
-			}
-
-			for (let channel = 0; channel < 3; channel += 1) {
-				const sourcePremultiplied =
-					(sourcePixels[index + channel] / 255) * sourceAlphaNormalized;
-				const compositePremultiplied =
-					(compositePixels[index + channel] / 255) * compositeAlphaNormalized;
-				const lowerPremultiplied =
-					(lowerPixels[index + channel] / 255) * lowerAlphaNormalized;
-				const denominator =
-					sourcePremultiplied - sourceAlphaNormalized * lowerPremultiplied;
-				if (Math.abs(denominator) <= solveDenominatorEpsilon) {
-					continue;
-				}
-
-				estimates.push({
-					value: (compositePremultiplied - lowerPremultiplied) / denominator,
-					weight: Math.abs(denominator),
-				});
-			}
-
-			let maskNormalized = 1;
-			if (estimates.length > 0) {
-				const weighted = estimates.reduce(
-					(sum, { value, weight }) =>
-						sum + Math.max(0, Math.min(1, value)) * weight,
-					0,
-				);
-				const totalWeight = estimates.reduce(
-					(sum, { weight }) => sum + weight,
-					0,
-				);
-				maskNormalized = totalWeight > 0 ? weighted / totalWeight : 1;
-			} else {
-				const contribution =
-					Math.abs(compositeAlphaNormalized - lowerAlphaNormalized) +
-					Math.abs(
-						compositePixels[index + 0] * compositeAlphaNormalized -
-							lowerPixels[index + 0] * lowerAlphaNormalized,
-					) /
-						(255 * 255) +
-					Math.abs(
-						compositePixels[index + 1] * compositeAlphaNormalized -
-							lowerPixels[index + 1] * lowerAlphaNormalized,
-					) /
-						(255 * 255) +
-					Math.abs(
-						compositePixels[index + 2] * compositeAlphaNormalized -
-							lowerPixels[index + 2] * lowerAlphaNormalized,
-					) /
-						(255 * 255);
-				maskNormalized = contribution > contributionEpsilon ? 1 : 0;
-			}
-
-			const maskValue = Math.round(maskNormalized * 255);
-			result[index + 0] = maskValue;
-			result[index + 1] = maskValue;
-			result[index + 2] = maskValue;
-			result[index + 3] = maskValue;
-		}
-
-		return fillSplatMaskDarkSpeckles(result, width, height, sourceAlpha);
-	}
-
 	function getRenderableSceneAssets() {
 		return getSceneAssets().filter(
 			(asset) => asset.exportRole !== "omit" && asset.object.visible !== false,
 		);
-	}
-
-	function buildSceneAssetExportMetadata(sceneAssets = []) {
-		return sceneAssets.map((asset) => ({
-			id: asset.id,
-			kind: asset.kind,
-			label: asset.label,
-			exportRole: asset.exportRole ?? "beauty",
-			maskGroup: asset.maskGroup ?? "",
-		}));
 	}
 
 	function createMaskMaterial(sourceMaterial, color) {
@@ -768,25 +417,58 @@ export function createExportController({
 			fog: false,
 			toneMapped: false,
 		});
+		applySourceCutoutState(maskMaterial, sourceMaterial);
 		maskMaterial.name = `${sourceMaterial?.name || "material"}__mask`;
 		return maskMaterial;
+	}
+
+	function applySourceCutoutState(material, sourceMaterial) {
+		if (!material || !sourceMaterial) {
+			return material;
+		}
+
+		material.map = sourceMaterial.map ?? null;
+		material.alphaMap = sourceMaterial.alphaMap ?? null;
+		material.alphaTest = Number(sourceMaterial.alphaTest) || 0;
+		material.opacity = Number.isFinite(sourceMaterial.opacity)
+			? sourceMaterial.opacity
+			: 1;
+		material.transparent = sourceMaterial.transparent === true;
+		material.alphaHash = sourceMaterial.alphaHash === true;
+		material.vertexColors = Boolean(sourceMaterial.vertexColors);
+
+		if (material.map || material.alphaMap) {
+			material.onBeforeCompile = (shader) => {
+				shader.fragmentShader = shader.fragmentShader.replace(
+					"#include <alphamap_fragment>",
+					"#include <alphamap_fragment>\n\tdiffuseColor.rgb = diffuse;",
+				);
+			};
+			material.customProgramCacheKey = () =>
+				`camera-frames-export-cutout:${material.map ? 1 : 0}:${
+					material.alphaMap ? 1 : 0
+				}:${material.alphaTest}:${material.alphaHash ? 1 : 0}`;
+		}
+
+		return material;
 	}
 
 	function createFlatRenderMaterial(
 		sourceMaterial,
 		color,
-		{ colorWrite = true } = {},
+		{ colorWrite = true, depthTest = true, depthWrite = true } = {},
 	) {
 		const material = new THREE.MeshBasicMaterial({
 			color,
 			side: sourceMaterial?.side ?? THREE.FrontSide,
-			depthTest: sourceMaterial?.depthTest !== false,
-			depthWrite: sourceMaterial?.depthWrite !== false,
+			depthTest,
+			depthWrite,
 			fog: false,
 			toneMapped: false,
 			transparent: false,
 			opacity: 1,
 		});
+		applySourceCutoutState(material, sourceMaterial);
 		material.colorWrite = colorWrite;
 		material.name = `${sourceMaterial?.name || "material"}__export`;
 		return material;
@@ -830,6 +512,7 @@ export function createExportController({
 			}
 
 			asset.object.visible = true;
+			applyExportAssetRenderOrder(asset.object, role, restoreCallbacks);
 
 			if (asset.kind === "splat" && asset.disposeTarget) {
 				const previousRecolor = asset.disposeTarget.recolor.clone();
@@ -861,32 +544,52 @@ export function createExportController({
 				if (role === "mask-target") {
 					nextMaterial = Array.isArray(previousMaterial)
 						? previousMaterial.map((material) =>
-								createFlatRenderMaterial(material, MASK_FOREGROUND_COLOR),
+								createFlatRenderMaterial(material, MASK_FOREGROUND_COLOR, {
+									depthTest: true,
+									depthWrite: true,
+								}),
 							)
-						: createFlatRenderMaterial(previousMaterial, MASK_FOREGROUND_COLOR);
-				} else if (role === "matte-white") {
-					nextMaterial = Array.isArray(previousMaterial)
-						? previousMaterial.map((material) =>
-								createFlatRenderMaterial(material, MASK_FOREGROUND_COLOR),
-							)
-						: createFlatRenderMaterial(previousMaterial, MASK_FOREGROUND_COLOR);
+						: createFlatRenderMaterial(
+								previousMaterial,
+								MASK_FOREGROUND_COLOR,
+								{
+									depthTest: true,
+									depthWrite: true,
+								},
+							);
 				} else if (role === "mask-occluder") {
 					nextMaterial = Array.isArray(previousMaterial)
 						? previousMaterial.map((material) =>
-								createFlatRenderMaterial(material, MASK_BACKGROUND_COLOR),
-							)
-						: createFlatRenderMaterial(previousMaterial, MASK_BACKGROUND_COLOR);
-				} else if (role === "depth-occluder") {
-					nextMaterial = Array.isArray(previousMaterial)
-						? previousMaterial.map((material) =>
 								createFlatRenderMaterial(material, MASK_BACKGROUND_COLOR, {
-									colorWrite: false,
+									depthTest: true,
+									depthWrite: true,
 								}),
 							)
 						: createFlatRenderMaterial(
 								previousMaterial,
 								MASK_BACKGROUND_COLOR,
-								{ colorWrite: false },
+								{
+									depthTest: true,
+									depthWrite: true,
+								},
+							);
+				} else if (role === "depth-occluder") {
+					nextMaterial = Array.isArray(previousMaterial)
+						? previousMaterial.map((material) =>
+								createFlatRenderMaterial(material, MASK_BACKGROUND_COLOR, {
+									colorWrite: false,
+									depthTest: true,
+									depthWrite: true,
+								}),
+							)
+						: createFlatRenderMaterial(
+								previousMaterial,
+								MASK_BACKGROUND_COLOR,
+								{
+									colorWrite: false,
+									depthTest: true,
+									depthWrite: true,
+								},
 							);
 				}
 
@@ -1099,20 +802,20 @@ export function createExportController({
 				resolveAssetRole: (asset) =>
 					asset.id === modelAsset.id ? "normal" : "hide",
 			});
-			const modelOccluderPixels = await renderConfiguredScenePixels({
+			const modelVisibilityPixels = await renderConfiguredScenePixels({
 				camera,
 				width,
 				height,
 				sceneAssets,
 				resolveAssetRole: (asset) => {
 					if (asset.id === modelAsset.id) {
-						return "depth-occluder";
+						return "mask-target";
 					}
 					if (asset.exportRole === "omit") {
 						return "hide";
 					}
 					if (asset.kind === "model") {
-						return "matte-white";
+						return "mask-occluder";
 					}
 					return "hide";
 				},
@@ -1137,7 +840,7 @@ export function createExportController({
 			});
 			const layerMaskPixels = buildLayerMaskPixels(
 				sourcePixels,
-				modelOccluderPixels,
+				modelVisibilityPixels,
 				splatOccluderPixels,
 			);
 			modelLayers.push({
@@ -1168,9 +871,9 @@ export function createExportController({
 							),
 						},
 						{
-							name: "Model Occluder Alpha",
+							name: "Model Visibility Alpha",
 							canvas: createCanvasFromPixels(
-								createAlphaPreviewPixels(modelOccluderPixels),
+								createAlphaPreviewPixels(modelVisibilityPixels),
 								width,
 								height,
 							),
@@ -1511,7 +1214,7 @@ export function createExportController({
 						camera,
 						width,
 						height,
-						sceneAssets: getSceneAssetExportOrder(),
+						sceneAssets: buildSceneAssetExportMetadata(getSceneAssets()),
 					}),
 			);
 			const maskPixels = clonePixelBuffer(maskCapture.pixels);
@@ -1575,6 +1278,7 @@ export function createExportController({
 				exportSplatLayers: targetExportSettings.exportSplatLayers,
 				includeReferenceImages:
 					store.referenceImages.exportSessionEnabled.value !== false,
+				t,
 			});
 			const completedPhaseIds = new Set();
 			const emitPhase = (id, detail = "", progress = null) => {
@@ -1584,7 +1288,11 @@ export function createExportController({
 					label: phase?.label ?? "",
 					detail:
 						detail ||
-						getExportPhaseDefaultDetail(id, targetExportSettings.exportFormat),
+						getExportPhaseDefaultDetail(
+							id,
+							targetExportSettings.exportFormat,
+							t,
+						),
 					definitions: phaseDefinitions,
 					completedIds: new Set(completedPhaseIds),
 					activeId: id,
@@ -2477,6 +2185,7 @@ export function createExportController({
 						detail: getExportPhaseDefaultDetail(
 							"write",
 							exportSettings.exportFormat,
+							t,
 						),
 						completedIds,
 					};

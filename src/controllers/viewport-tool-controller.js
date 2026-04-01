@@ -3,274 +3,27 @@ import {
 	WORKSPACE_PANE_CAMERA,
 	WORKSPACE_PANE_VIEWPORT,
 } from "../workspace-model.js";
+import {
+	MOVE_AXIS_HANDLE_NAMES,
+	MOVE_PLANE_HANDLE_NAMES,
+	createViewportToolDragOperations,
+} from "./viewport-tool/drag-operations.js";
+import {
+	AXIS_KEYS,
+	buildPlaneHandlePath,
+	buildRotateArcPath,
+	getHandleAxisKey,
+	getProjectedAxisDirection,
+	getRingFrontAngle,
+	isProjectedPointVisible,
+	projectWorldToScreen,
+} from "./viewport-tool/gizmo-geometry.js";
+import { createViewportToolTransformHelpers } from "./viewport-tool/transform-helpers.js";
 
-const MOVE_AXIS_HANDLE_NAMES = ["move-x", "move-y", "move-z"];
-const MOVE_PLANE_HANDLE_NAMES = ["move-xy", "move-yz", "move-zx"];
-const ROTATE_AXIS_HANDLE_NAMES = ["rotate-x", "rotate-y", "rotate-z"];
-const AXIS_KEYS = ["x", "y", "z"];
-const RING_SCREEN_RADIUS = 94;
-const RING_SEGMENT_COUNT = 48;
-const PLANE_HANDLE_INNER_OFFSET = 8;
-const PLANE_HANDLE_OUTER_OFFSET = 22;
 const HANDLE_OFFSETS = {
 	move: 82,
 	scale: { x: 0, y: -150 },
 };
-const CAMERA_SPACE_POINT = new THREE.Vector3();
-
-function projectWorldToScreen(worldPoint, camera, viewportRect, target) {
-	target.copy(worldPoint).project(camera);
-	target.x = (target.x * 0.5 + 0.5) * viewportRect.width;
-	target.y = (-target.y * 0.5 + 0.5) * viewportRect.height;
-	return target;
-}
-
-function isProjectedPointVisible(projectedPoint) {
-	return (
-		Number.isFinite(projectedPoint.x) &&
-		Number.isFinite(projectedPoint.y) &&
-		Number.isFinite(projectedPoint.z) &&
-		projectedPoint.z >= -1 &&
-		projectedPoint.z <= 1
-	);
-}
-
-function getCameraWorldDirection(camera, target) {
-	return camera.getWorldDirection(target).normalize();
-}
-
-function getCameraWorldUp(camera, target) {
-	return target
-		.set(0, 1, 0)
-		.applyQuaternion(camera.getWorldQuaternion(new THREE.Quaternion()))
-		.normalize();
-}
-
-function getNdcFromPointer(event, viewportRect, target) {
-	target.set(
-		((event.clientX - viewportRect.left) / viewportRect.width) * 2 - 1,
-		-(((event.clientY - viewportRect.top) / viewportRect.height) * 2 - 1),
-	);
-	return target;
-}
-
-function createPlaneFromNormalAndPoint(normal, point, targetPlane) {
-	return targetPlane.setFromNormalAndCoplanarPoint(
-		normal.clone().normalize(),
-		point,
-	);
-}
-
-function getSignedAngleAroundAxis(fromVector, toVector, axis) {
-	const cross = new THREE.Vector3().crossVectors(fromVector, toVector);
-	return Math.atan2(cross.dot(axis), fromVector.dot(toVector));
-}
-
-function getHandleAxisKey(handleName) {
-	if (
-		handleName === "move-x" ||
-		handleName === "move-y" ||
-		handleName === "move-z" ||
-		handleName === "rotate-x" ||
-		handleName === "rotate-y" ||
-		handleName === "rotate-z"
-	) {
-		return AXIS_KEYS.find((axisKey) => handleName.endsWith(axisKey)) ?? null;
-	}
-	return null;
-}
-
-function getWorldUnitsPerPixel(camera, pivotWorld, viewportRect) {
-	if (!camera || viewportRect.height <= 0) {
-		return null;
-	}
-
-	if (camera.isOrthographicCamera) {
-		const worldHeight = (camera.top - camera.bottom) / camera.zoom;
-		return worldHeight / viewportRect.height;
-	}
-
-	const viewDepth = -CAMERA_SPACE_POINT.copy(pivotWorld).applyMatrix4(
-		camera.matrixWorldInverse,
-	).z;
-	if (
-		!Number.isFinite(viewDepth) ||
-		viewDepth <= Math.max(camera.near, 0.001)
-	) {
-		return null;
-	}
-	const verticalFovRadians = THREE.MathUtils.degToRad(camera.fov);
-	const worldHeight = 2 * Math.tan(verticalFovRadians * 0.5) * viewDepth;
-	return worldHeight / viewportRect.height;
-}
-
-function buildRotateArcPath({
-	pivotWorld,
-	camera,
-	viewportRect,
-	tangentU,
-	tangentV,
-	startAngle,
-	endAngle,
-}) {
-	const worldUnitsPerPixel = getWorldUnitsPerPixel(
-		camera,
-		pivotWorld,
-		viewportRect,
-	);
-	if (!Number.isFinite(worldUnitsPerPixel) || worldUnitsPerPixel <= 0) {
-		return null;
-	}
-
-	if (tangentU.lengthSq() < 1e-6 || tangentV.lengthSq() < 1e-6) {
-		return null;
-	}
-
-	const radiusWorld = worldUnitsPerPixel * RING_SCREEN_RADIUS;
-	const projectedPoint = new THREE.Vector3();
-	let pathData = "";
-
-	for (let index = 0; index <= RING_SEGMENT_COUNT / 2; index += 1) {
-		const alpha = index / (RING_SEGMENT_COUNT / 2);
-		const angle = THREE.MathUtils.lerp(startAngle, endAngle, alpha);
-		const worldPoint = new THREE.Vector3()
-			.copy(pivotWorld)
-			.addScaledVector(tangentU, Math.cos(angle) * radiusWorld)
-			.addScaledVector(tangentV, Math.sin(angle) * radiusWorld);
-		projectWorldToScreen(worldPoint, camera, viewportRect, projectedPoint);
-		if (
-			!Number.isFinite(projectedPoint.x) ||
-			!Number.isFinite(projectedPoint.y)
-		) {
-			return null;
-		}
-		pathData += `${index === 0 ? "M" : "L"} ${projectedPoint.x.toFixed(2)} ${projectedPoint.y.toFixed(2)} `;
-	}
-
-	return pathData.trim();
-}
-
-function buildPlaneHandlePath({
-	pivotWorld,
-	camera,
-	viewportRect,
-	axisA,
-	axisB,
-}) {
-	const worldUnitsPerPixel = getWorldUnitsPerPixel(
-		camera,
-		pivotWorld,
-		viewportRect,
-	);
-	if (!Number.isFinite(worldUnitsPerPixel) || worldUnitsPerPixel <= 0) {
-		return null;
-	}
-
-	const inner = worldUnitsPerPixel * PLANE_HANDLE_INNER_OFFSET;
-	const outer = worldUnitsPerPixel * PLANE_HANDLE_OUTER_OFFSET;
-	const corners = [
-		new THREE.Vector3()
-			.copy(pivotWorld)
-			.addScaledVector(axisA, inner)
-			.addScaledVector(axisB, inner),
-		new THREE.Vector3()
-			.copy(pivotWorld)
-			.addScaledVector(axisA, outer)
-			.addScaledVector(axisB, inner),
-		new THREE.Vector3()
-			.copy(pivotWorld)
-			.addScaledVector(axisA, outer)
-			.addScaledVector(axisB, outer),
-		new THREE.Vector3()
-			.copy(pivotWorld)
-			.addScaledVector(axisA, inner)
-			.addScaledVector(axisB, outer),
-	];
-	const projectedPoint = new THREE.Vector3();
-	let pathData = "";
-
-	for (let index = 0; index < corners.length; index += 1) {
-		projectWorldToScreen(corners[index], camera, viewportRect, projectedPoint);
-		if (
-			!Number.isFinite(projectedPoint.x) ||
-			!Number.isFinite(projectedPoint.y)
-		) {
-			return null;
-		}
-		pathData += `${index === 0 ? "M" : "L"} ${projectedPoint.x.toFixed(2)} ${projectedPoint.y.toFixed(2)} `;
-	}
-
-	return `${pathData}Z`.trim();
-}
-
-function getRingFrontAngle({
-	pivotWorld,
-	camera,
-	axisWorld,
-	tangentU,
-	tangentV,
-}) {
-	const cameraOffset = camera
-		.getWorldPosition(new THREE.Vector3())
-		.sub(pivotWorld);
-	const projectedView = cameraOffset.addScaledVector(
-		axisWorld,
-		-cameraOffset.dot(axisWorld),
-	);
-	if (projectedView.lengthSq() < 1e-6) {
-		return 0;
-	}
-	projectedView.normalize();
-	return Math.atan2(projectedView.dot(tangentV), projectedView.dot(tangentU));
-}
-
-function getProjectedAxisDirection({
-	axisWorld,
-	pivotWorld,
-	camera,
-	viewportRect,
-	pixelDistance,
-}) {
-	const worldUnitsPerPixel = getWorldUnitsPerPixel(
-		camera,
-		pivotWorld,
-		viewportRect,
-	);
-	if (!Number.isFinite(worldUnitsPerPixel) || worldUnitsPerPixel <= 0) {
-		return null;
-	}
-
-	const pivotScreen = new THREE.Vector3();
-	const endpointScreen = new THREE.Vector3();
-	projectWorldToScreen(pivotWorld, camera, viewportRect, pivotScreen);
-	projectWorldToScreen(
-		new THREE.Vector3()
-			.copy(pivotWorld)
-			.addScaledVector(axisWorld, worldUnitsPerPixel * pixelDistance),
-		camera,
-		viewportRect,
-		endpointScreen,
-	);
-
-	const screenDirection = new THREE.Vector2(
-		endpointScreen.x - pivotScreen.x,
-		endpointScreen.y - pivotScreen.y,
-	);
-	const length = screenDirection.length();
-	if (length < 1e-4) {
-		return null;
-	}
-
-	return screenDirection.divideScalar(length);
-}
-
-function scaleLocalPoint(localPoint, scaleVector) {
-	return new THREE.Vector3(
-		localPoint.x * scaleVector.x,
-		localPoint.y * scaleVector.y,
-		localPoint.z * scaleVector.z,
-	);
-}
 
 export function createViewportToolController({
 	store,
@@ -286,12 +39,8 @@ export function createViewportToolController({
 	const raycaster = new THREE.Raycaster();
 	const pointerNdc = new THREE.Vector2();
 	const projectedPivot = new THREE.Vector3();
-	const worldPosition = new THREE.Vector3();
-	const planeIntersection = new THREE.Vector3();
 	const tempVector = new THREE.Vector3();
 	const tempVector2 = new THREE.Vector3();
-	const tempQuaternion = new THREE.Quaternion();
-	const plane = new THREE.Plane();
 	const handleElements = new Map();
 	const ringElements = new Map();
 	const planeElements = new Map();
@@ -477,257 +226,34 @@ export function createViewportToolController({
 		);
 	}
 
-	function getSelectedTransformAsset() {
-		const selectedAssetId = store.selectedSceneAssetId.value;
-		return selectedAssetId
-			? assetController.getSceneAsset(selectedAssetId)
-			: null;
-	}
+	const {
+		getSelectedTransformAsset,
+		getSelectedTransformAssets,
+		getSelectedTransformPivotWorld,
+		createTransformAssetSnapshot,
+		applySelectedAssetTransforms,
+		getTransformBasisWorld,
+		getMoveAxisPlaneNormal,
+		getPointerRay,
+	} = createViewportToolTransformHelpers({
+		store,
+		assetController,
+		raycaster,
+		pointerNdc,
+		tempVector,
+		tempVector2,
+	});
 
-	function getSelectedTransformAssets() {
-		const selectedAssetIds = store.selectedSceneAssetIds.value;
-		const assets = selectedAssetIds
-			.map((assetId) => assetController.getSceneAsset(assetId))
-			.filter((asset) => asset && asset.object.visible !== false);
-		if (assets.length > 0) {
-			return assets;
-		}
-
-		const activeAsset = getSelectedTransformAsset();
-		return activeAsset && activeAsset.object.visible !== false
-			? [activeAsset]
-			: [];
-	}
-
-	function createTransformAssetSnapshot(asset) {
-		if (!asset) {
-			return null;
-		}
-
-		return {
-			assetId: asset.id,
-			startWorldPosition: asset.object.getWorldPosition(new THREE.Vector3()),
-			startWorldQuaternion: asset.object.getWorldQuaternion(
-				new THREE.Quaternion(),
-			),
-			startWorldScale: asset.worldScale,
-			startObjectScale: asset.object.scale.clone(),
-			startPivotLocal:
-				assetController.getAssetWorkingPivotLocal(asset) ??
-				new THREE.Vector3(0, 0, 0),
-			startPivotWorld: getSelectedTransformPivotWorld(asset),
-		};
-	}
-
-	function applySelectedAssetTransforms(
-		selectedAssets,
-		buildTransform,
-		historyLabel = "asset.transform",
-	) {
-		for (const selectedAsset of selectedAssets) {
-			const nextTransform = buildTransform(selectedAsset);
-			if (!nextTransform) {
-				continue;
-			}
-			assetController.setAssetTransform(selectedAsset.assetId, nextTransform, {
-				historyLabel,
-			});
-		}
-	}
-
-	function getSelectedTransformPivotWorld(asset) {
-		return (
-			assetController.getAssetWorkingPivotWorld(asset) ??
-			asset.object.getWorldPosition(new THREE.Vector3())
-		);
-	}
-
-	function getTransformBasisWorld(worldQuaternion, transformSpace) {
-		if (transformSpace !== "local") {
-			return {
-				x: new THREE.Vector3(1, 0, 0),
-				y: new THREE.Vector3(0, 1, 0),
-				z: new THREE.Vector3(0, 0, 1),
-			};
-		}
-
-		return {
-			x: new THREE.Vector3(1, 0, 0)
-				.applyQuaternion(worldQuaternion)
-				.normalize(),
-			y: new THREE.Vector3(0, 1, 0)
-				.applyQuaternion(worldQuaternion)
-				.normalize(),
-			z: new THREE.Vector3(0, 0, 1)
-				.applyQuaternion(worldQuaternion)
-				.normalize(),
-		};
-	}
-
-	function getMoveAxisPlaneNormal(axisWorld, camera) {
-		const cameraDirection = getCameraWorldDirection(camera, tempVector);
-		const cameraUp = getCameraWorldUp(camera, tempVector2);
-		const helper = new THREE.Vector3().crossVectors(axisWorld, cameraDirection);
-		if (helper.lengthSq() < 1e-6) {
-			helper.crossVectors(axisWorld, cameraUp);
-		}
-		if (helper.lengthSq() < 1e-6) {
-			return null;
-		}
-		return new THREE.Vector3()
-			.crossVectors(helper.normalize(), axisWorld)
-			.normalize();
-	}
-
-	function getPointerRay(event, camera, viewportRect) {
-		getNdcFromPointer(event, viewportRect, pointerNdc);
-		raycaster.setFromCamera(pointerNdc, camera);
-		return raycaster.ray;
-	}
-
-	function beginDragState(handleName, asset, camera, event) {
-		const viewportRect = viewportShell.getBoundingClientRect();
-		const pointerRay = getPointerRay(event, camera, viewportRect);
-		const startWorldPosition = asset.object.getWorldPosition(
-			new THREE.Vector3(),
-		);
-		const startWorldQuaternion = asset.object.getWorldQuaternion(
-			new THREE.Quaternion(),
-		);
-		const startPivotLocal =
-			assetController.getAssetWorkingPivotLocal(asset) ??
-			new THREE.Vector3(0, 0, 0);
-		const startPivotWorld = getSelectedTransformPivotWorld(asset);
-		const transformSpace = store.viewportTransformSpace.value;
-		const basisWorld = getTransformBasisWorld(
-			startWorldQuaternion,
-			transformSpace,
-		);
-		const axisKey = getHandleAxisKey(handleName);
-		const selectedAssets = isPivotEditMode()
-			? []
-			: (() => {
-					const selectedSnapshots = getSelectedTransformAssets()
-						.map((selectedAsset) => createTransformAssetSnapshot(selectedAsset))
-						.filter(Boolean);
-					if (selectedSnapshots.length > 0) {
-						return selectedSnapshots;
-					}
-					const fallbackSnapshot = createTransformAssetSnapshot(asset);
-					return fallbackSnapshot ? [fallbackSnapshot] : [];
-				})();
-
-		if (MOVE_AXIS_HANDLE_NAMES.includes(handleName) && axisKey) {
-			const axisWorld = basisWorld[axisKey].clone();
-			const planeNormal = getMoveAxisPlaneNormal(axisWorld, camera);
-			if (!planeNormal) {
-				return null;
-			}
-			createPlaneFromNormalAndPoint(planeNormal, startPivotWorld, plane);
-			const startPoint = pointerRay.intersectPlane(plane, new THREE.Vector3());
-			if (!startPoint) {
-				return null;
-			}
-			return {
-				mode: "move-axis",
-				pointerId: event.pointerId,
-				assetId: asset.id,
-				startWorldPosition,
-				startWorldQuaternion,
-				startWorldScale: asset.worldScale,
-				startObjectScale: asset.object.scale.clone(),
-				startPivotLocal: startPivotLocal.clone(),
-				startPivotWorld: startPivotWorld.clone(),
-				selectedAssets,
-				pivotEditMode: isPivotEditMode(),
-				axisWorld,
-				planeNormal: planeNormal.clone(),
-				startPoint: startPoint.clone(),
-			};
-		}
-
-		if (MOVE_PLANE_HANDLE_NAMES.includes(handleName)) {
-			const planeAxes =
-				handleName === "move-xy"
-					? [basisWorld.x, basisWorld.y]
-					: handleName === "move-yz"
-						? [basisWorld.y, basisWorld.z]
-						: [basisWorld.z, basisWorld.x];
-			const planeNormal = new THREE.Vector3()
-				.crossVectors(planeAxes[0], planeAxes[1])
-				.normalize();
-			createPlaneFromNormalAndPoint(planeNormal, startPivotWorld, plane);
-			const startPoint = pointerRay.intersectPlane(plane, new THREE.Vector3());
-			if (!startPoint) {
-				return null;
-			}
-			return {
-				mode: "move-plane",
-				pointerId: event.pointerId,
-				assetId: asset.id,
-				startWorldPosition,
-				startWorldQuaternion,
-				startWorldScale: asset.worldScale,
-				startObjectScale: asset.object.scale.clone(),
-				startPivotLocal: startPivotLocal.clone(),
-				startPivotWorld: startPivotWorld.clone(),
-				selectedAssets,
-				pivotEditMode: isPivotEditMode(),
-				planeNormal: planeNormal.clone(),
-				startPoint: startPoint.clone(),
-			};
-		}
-
-		if (handleName === "scale-uniform" && !isPivotEditMode()) {
-			return {
-				mode: "scale-uniform",
-				pointerId: event.pointerId,
-				assetId: asset.id,
-				startWorldPosition,
-				startWorldQuaternion,
-				startWorldScale: asset.worldScale,
-				startObjectScale: asset.object.scale.clone(),
-				startPivotLocal: startPivotLocal.clone(),
-				startPivotWorld: startPivotWorld.clone(),
-				selectedAssets,
-				startClientX: event.clientX,
-				startClientY: event.clientY,
-			};
-		}
-
-		if (
-			ROTATE_AXIS_HANDLE_NAMES.includes(handleName) &&
-			axisKey &&
-			!isPivotEditMode()
-		) {
-			const axisWorld = basisWorld[axisKey].clone();
-			createPlaneFromNormalAndPoint(axisWorld, startPivotWorld, plane);
-			const startPoint = pointerRay.intersectPlane(plane, new THREE.Vector3());
-			if (!startPoint) {
-				return null;
-			}
-			const startVector = startPoint.sub(startPivotWorld).normalize();
-			if (startVector.lengthSq() < 1e-6) {
-				return null;
-			}
-			return {
-				mode: "rotate",
-				pointerId: event.pointerId,
-				assetId: asset.id,
-				startWorldPosition,
-				startWorldQuaternion,
-				startWorldScale: asset.worldScale,
-				startObjectScale: asset.object.scale.clone(),
-				startPivotLocal: startPivotLocal.clone(),
-				startPivotWorld: startPivotWorld.clone(),
-				selectedAssets,
-				axisWorld: axisWorld.clone(),
-				startVector: startVector.clone(),
-			};
-		}
-
-		return null;
-	}
+	const { beginDragState, applyDrag } = createViewportToolDragOperations({
+		assetController,
+		getSelectedTransformPivotWorld,
+		createTransformAssetSnapshot,
+		getSelectedTransformAssets,
+		getTransformBasisWorld,
+		getMoveAxisPlaneNormal,
+		getPointerRay,
+		applySelectedAssetTransforms,
+	});
 
 	function startViewportTransformDrag(handleName, event) {
 		if (!isViewportToolMode()) {
@@ -774,7 +300,15 @@ export function createViewportToolController({
 			return false;
 		}
 
-		const nextDragState = beginDragState(handleName, asset, camera, event);
+		const nextDragState = beginDragState({
+			handleName,
+			asset,
+			camera,
+			event,
+			viewportRect,
+			transformSpace: store.viewportTransformSpace.value,
+			pivotEditMode: isPivotEditMode(),
+		});
 		if (!nextDragState) {
 			return false;
 		}
@@ -788,250 +322,6 @@ export function createViewportToolController({
 		setHoveredHandle(handleName);
 		viewportGizmo?.classList.add("is-dragging");
 		return true;
-	}
-
-	function applyMoveAxisDrag(dragState, pointerRay) {
-		createPlaneFromNormalAndPoint(
-			dragState.planeNormal,
-			dragState.startPivotWorld,
-			plane,
-		);
-		const hitPoint = pointerRay.intersectPlane(plane, planeIntersection);
-		if (!hitPoint) {
-			return;
-		}
-
-		const projectedDistance = tempVector
-			.copy(hitPoint)
-			.sub(dragState.startPoint)
-			.dot(dragState.axisWorld);
-		const nextPivotWorld = tempVector2
-			.copy(dragState.startPivotWorld)
-			.addScaledVector(dragState.axisWorld, projectedDistance);
-		if (dragState.pivotEditMode) {
-			assetController.setAssetWorkingPivotWorld(
-				dragState.assetId,
-				nextPivotWorld,
-				{
-					historyLabel: "asset.pivot",
-				},
-			);
-			return;
-		}
-
-		if ((dragState.selectedAssets?.length ?? 0) <= 1) {
-			const nextWorldPosition = tempVector
-				.copy(dragState.startWorldPosition)
-				.add(nextPivotWorld.clone().sub(dragState.startPivotWorld));
-			assetController.setAssetTransform(
-				dragState.assetId,
-				{
-					worldPosition: nextWorldPosition,
-				},
-				{
-					historyLabel: "asset.transform",
-				},
-			);
-			return;
-		}
-
-		const worldDelta = nextPivotWorld.clone().sub(dragState.startPivotWorld);
-		applySelectedAssetTransforms(
-			dragState.selectedAssets,
-			(selectedAsset) => ({
-				worldPosition: selectedAsset.startWorldPosition.clone().add(worldDelta),
-			}),
-			"asset.transform",
-		);
-	}
-
-	function applyMovePlaneDrag(dragState, pointerRay) {
-		createPlaneFromNormalAndPoint(
-			dragState.planeNormal,
-			dragState.startPivotWorld,
-			plane,
-		);
-		const hitPoint = pointerRay.intersectPlane(plane, planeIntersection);
-		if (!hitPoint) {
-			return;
-		}
-
-		const nextPivotWorld = tempVector2
-			.copy(dragState.startPivotWorld)
-			.add(tempVector.copy(hitPoint).sub(dragState.startPoint));
-		if (dragState.pivotEditMode) {
-			assetController.setAssetWorkingPivotWorld(
-				dragState.assetId,
-				nextPivotWorld,
-				{
-					historyLabel: "asset.pivot",
-				},
-			);
-			return;
-		}
-
-		if ((dragState.selectedAssets?.length ?? 0) <= 1) {
-			const nextWorldPosition = tempVector
-				.copy(dragState.startWorldPosition)
-				.add(nextPivotWorld.clone().sub(dragState.startPivotWorld));
-			assetController.setAssetTransform(
-				dragState.assetId,
-				{
-					worldPosition: nextWorldPosition,
-				},
-				{
-					historyLabel: "asset.transform",
-				},
-			);
-			return;
-		}
-
-		const worldDelta = nextPivotWorld.clone().sub(dragState.startPivotWorld);
-		applySelectedAssetTransforms(
-			dragState.selectedAssets,
-			(selectedAsset) => ({
-				worldPosition: selectedAsset.startWorldPosition.clone().add(worldDelta),
-			}),
-			"asset.transform",
-		);
-	}
-
-	function applyRotateDrag(dragState, pointerRay) {
-		createPlaneFromNormalAndPoint(
-			dragState.axisWorld,
-			dragState.startPivotWorld,
-			plane,
-		);
-		const hitPoint = pointerRay.intersectPlane(plane, planeIntersection);
-		if (!hitPoint) {
-			return;
-		}
-
-		const nextVector = tempVector
-			.copy(hitPoint)
-			.sub(dragState.startPivotWorld)
-			.normalize();
-		if (nextVector.lengthSq() < 1e-6) {
-			return;
-		}
-
-		const angle = getSignedAngleAroundAxis(
-			dragState.startVector,
-			nextVector,
-			dragState.axisWorld,
-		);
-		const deltaQuaternion = new THREE.Quaternion().setFromAxisAngle(
-			dragState.axisWorld,
-			angle,
-		);
-		if ((dragState.selectedAssets?.length ?? 0) <= 1) {
-			const nextWorldQuaternion = deltaQuaternion.multiply(
-				dragState.startWorldQuaternion.clone(),
-			);
-			const nextWorldPosition = dragState.startPivotWorld
-				.clone()
-				.sub(
-					scaleLocalPoint(
-						dragState.startPivotLocal,
-						dragState.startObjectScale,
-					).applyQuaternion(nextWorldQuaternion),
-				);
-			assetController.setAssetTransform(
-				dragState.assetId,
-				{
-					worldPosition: nextWorldPosition,
-					worldQuaternion: nextWorldQuaternion,
-				},
-				{
-					historyLabel: "asset.transform",
-				},
-			);
-			return;
-		}
-		applySelectedAssetTransforms(
-			dragState.selectedAssets,
-			(selectedAsset) => {
-				const nextWorldQuaternion = deltaQuaternion
-					.clone()
-					.multiply(selectedAsset.startWorldQuaternion.clone());
-				const rotatedPivotWorld = selectedAsset.startPivotWorld
-					.clone()
-					.sub(dragState.startPivotWorld)
-					.applyQuaternion(deltaQuaternion)
-					.add(dragState.startPivotWorld);
-				const nextWorldPosition = rotatedPivotWorld.sub(
-					scaleLocalPoint(
-						selectedAsset.startPivotLocal,
-						selectedAsset.startObjectScale,
-					).applyQuaternion(nextWorldQuaternion),
-				);
-				return {
-					worldPosition: nextWorldPosition,
-					worldQuaternion: nextWorldQuaternion,
-				};
-			},
-			"asset.transform",
-		);
-	}
-
-	function applyUniformScaleDrag(dragState, event) {
-		const deltaPixels =
-			event.clientX -
-			dragState.startClientX -
-			(event.clientY - dragState.startClientY);
-		const nextWorldScale =
-			dragState.startWorldScale * Math.exp(deltaPixels * 0.01);
-		const scaleFactor =
-			nextWorldScale / Math.max(dragState.startWorldScale, 0.000001);
-		if ((dragState.selectedAssets?.length ?? 0) <= 1) {
-			const nextObjectScale = dragState.startObjectScale
-				.clone()
-				.multiplyScalar(scaleFactor);
-			const nextWorldPosition = dragState.startPivotWorld
-				.clone()
-				.sub(
-					scaleLocalPoint(
-						dragState.startPivotLocal,
-						nextObjectScale,
-					).applyQuaternion(dragState.startWorldQuaternion),
-				);
-			assetController.setAssetTransform(
-				dragState.assetId,
-				{
-					worldPosition: nextWorldPosition,
-					worldScale: nextWorldScale,
-				},
-				{
-					historyLabel: "asset.transform",
-				},
-			);
-			return;
-		}
-		applySelectedAssetTransforms(
-			dragState.selectedAssets,
-			(selectedAsset) => {
-				const scaledPivotWorld = selectedAsset.startPivotWorld
-					.clone()
-					.sub(dragState.startPivotWorld)
-					.multiplyScalar(scaleFactor)
-					.add(dragState.startPivotWorld);
-				const nextWorldScale = selectedAsset.startWorldScale * scaleFactor;
-				const nextObjectScale = selectedAsset.startObjectScale
-					.clone()
-					.multiplyScalar(scaleFactor);
-				const nextWorldPosition = scaledPivotWorld.sub(
-					scaleLocalPoint(
-						selectedAsset.startPivotLocal,
-						nextObjectScale,
-					).applyQuaternion(selectedAsset.startWorldQuaternion),
-				);
-				return {
-					worldPosition: nextWorldPosition,
-					worldScale: nextWorldScale,
-				};
-			},
-			"asset.transform",
-		);
 	}
 
 	function handleViewportTransformDragMove(event) {
@@ -1058,23 +348,7 @@ export function createViewportToolController({
 			return;
 		}
 		const pointerRay = getPointerRay(event, camera, viewportRect);
-
-		switch (activeDrag.mode) {
-			case "move-axis":
-				applyMoveAxisDrag(activeDrag, pointerRay);
-				break;
-			case "move-plane":
-				applyMovePlaneDrag(activeDrag, pointerRay);
-				break;
-			case "rotate":
-				applyRotateDrag(activeDrag, pointerRay);
-				break;
-			case "scale-uniform":
-				applyUniformScaleDrag(activeDrag, event);
-				break;
-			default:
-				break;
-		}
+		applyDrag(activeDrag, pointerRay, event);
 	}
 
 	function handleViewportTransformDragEnd(event) {
@@ -1119,8 +393,7 @@ export function createViewportToolController({
 			return true;
 		}
 
-		getNdcFromPointer(event, viewportRect, pointerNdc);
-		raycaster.setFromCamera(pointerNdc, camera);
+		getPointerRay(event, camera, viewportRect);
 		const intersections = raycaster.intersectObjects(targets, true);
 		const hitAsset = intersections
 			.map((intersection) =>

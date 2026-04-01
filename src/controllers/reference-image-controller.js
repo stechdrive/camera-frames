@@ -5,260 +5,57 @@ import {
 	inverseRotateVector,
 } from "../engine/frame-transform.js";
 import {
-	decodeReferenceImageBlob,
-	extractReferenceImagePsdLayers,
-} from "../engine/reference-image-loader.js";
-import {
 	getPointFromRectLocal,
 	getPointsBounds,
 	getRectCornersFromAnchor,
 	normalizeAngleDeltaDeg,
 } from "../engine/reference-image-selection.js";
 import {
-	createProjectFileEmbeddedFileSource,
-	getProjectMediaTypeFromFileName,
-} from "../project-document.js";
-import {
-	REFERENCE_IMAGE_ASSET_KIND,
 	REFERENCE_IMAGE_DEFAULT_PRESET_ID,
 	REFERENCE_IMAGE_GROUP_BACK,
 	REFERENCE_IMAGE_GROUP_FRONT,
 	applyRenderBoxOffsetCorrection,
 	cloneReferenceImageDocument,
 	createDefaultReferenceImageDocument,
-	createReferenceImageAsset,
 	createReferenceImageCameraPresetOverride,
 	createReferenceImageItem,
 	createReferenceImagePreset,
 	createShotCameraReferenceImagesState,
 	findReferenceImagePreset,
-	getReferenceImageCompositeItems,
 	getReferenceImageDisplayItems,
-	getReferenceImageOrderForImportIndex,
 	getReferenceImageRenderBoxAnchor,
 	getShotReferenceImagePresetId,
 	normalizeReferenceImageDocument,
-	normalizeReferenceImageFileName,
 	removeRenderBoxOffsetCorrection,
 	resolveReferenceImageItemsForShot,
 } from "../reference-image-model.js";
 import { cloneShotCameraDocument } from "../workspace-model.js";
 import { getReferenceImagePreviewRenderBoxMetrics } from "./reference-image-render-controller.js";
+import {
+	buildDuplicatePresetName,
+	buildReferenceImageOverridePatch,
+	buildReferenceImageSizeLabel,
+	ensureWritableReferenceImageImportPreset,
+	findMutablePresetInDocument,
+	isReferenceImageOverrideEmpty,
+	normalizeReferenceImageItemOrderInPlace,
+	pruneUnusedReferenceImageAssetsInDocument,
+	sanitizeReferenceImagePresetName,
+	supportsReferenceImageFile,
+} from "./reference-image/document-helpers.js";
+import { createReferenceImageImportRuntime } from "./reference-image/import-runtime.js";
+import {
+	buildReferenceImageSelectionBoxLogicalFromGeometries,
+	captureReferenceImageEditorStateSnapshot,
+	doesReferenceImageSelectionBoxMatchGeometries,
+	getSelectedReferenceImageItemIds,
+	getValidReferenceImageSelectionState,
+	normalizeReferenceImageEditorStateForRestore,
+	projectReferenceImageSelectionBoxLogicalToScreen,
+} from "./reference-image/selection-state.js";
 
-const REFERENCE_IMAGE_EXTENSIONS = new Set([
-	"png",
-	"jpg",
-	"jpeg",
-	"webp",
-	"psd",
-]);
+export { ensureWritableReferenceImageImportPreset, supportsReferenceImageFile };
 const REFERENCE_IMAGE_DRAG_START_THRESHOLD_PX = 4;
-
-function getFileExtension(fileName) {
-	const normalized = String(fileName ?? "")
-		.trim()
-		.toLowerCase();
-	const lastDot = normalized.lastIndexOf(".");
-	return lastDot >= 0 ? normalized.slice(lastDot + 1) : "";
-}
-
-export function supportsReferenceImageFile(file) {
-	return REFERENCE_IMAGE_EXTENSIONS.has(
-		getFileExtension(file?.name ?? file?.fileName ?? ""),
-	);
-}
-
-function buildReferenceImageSizeLabel(sourceMeta) {
-	const size = sourceMeta?.appliedSize ?? sourceMeta?.originalSize ?? null;
-	if (!size) {
-		return "";
-	}
-	return `${size.w} × ${size.h}`;
-}
-
-function ensurePresetBaseRenderBox(preset, outputSize) {
-	if ((preset.items?.length ?? 0) > 0) {
-		return;
-	}
-	if (!outputSize?.width || !outputSize?.height) {
-		return;
-	}
-	preset.baseRenderBox = {
-		w: Math.max(1, Math.round(outputSize.width)),
-		h: Math.max(1, Math.round(outputSize.height)),
-	};
-}
-
-function normalizeReferenceImageItemOrderInPlace(items) {
-	const nextItems = getReferenceImageCompositeItems(items);
-	let backIndex = 0;
-	let frontIndex = 0;
-	for (const item of nextItems) {
-		if (item.group === REFERENCE_IMAGE_GROUP_BACK) {
-			item.order = backIndex;
-			backIndex += 1;
-			continue;
-		}
-		item.order = frontIndex;
-		frontIndex += 1;
-	}
-	return items;
-}
-
-function buildReferenceImageOverridePatch(baseItem, nextItem) {
-	const patch = {};
-
-	if (nextItem.name !== baseItem.name) {
-		patch.name = nextItem.name;
-	}
-	if (nextItem.group !== baseItem.group) {
-		patch.group = nextItem.group;
-	}
-	if (nextItem.order !== baseItem.order) {
-		patch.order = nextItem.order;
-	}
-	if (nextItem.previewVisible !== baseItem.previewVisible) {
-		patch.previewVisible = nextItem.previewVisible;
-	}
-	if (nextItem.exportEnabled !== baseItem.exportEnabled) {
-		patch.exportEnabled = nextItem.exportEnabled;
-	}
-	if (nextItem.opacity !== baseItem.opacity) {
-		patch.opacity = nextItem.opacity;
-	}
-	if (nextItem.scalePct !== baseItem.scalePct) {
-		patch.scalePct = nextItem.scalePct;
-	}
-	if (nextItem.rotationDeg !== baseItem.rotationDeg) {
-		patch.rotationDeg = nextItem.rotationDeg;
-	}
-	if (
-		nextItem.offsetPx.x !== baseItem.offsetPx.x ||
-		nextItem.offsetPx.y !== baseItem.offsetPx.y
-	) {
-		patch.offsetPx = {
-			x: nextItem.offsetPx.x,
-			y: nextItem.offsetPx.y,
-		};
-	}
-	if (
-		nextItem.anchor.ax !== baseItem.anchor.ax ||
-		nextItem.anchor.ay !== baseItem.anchor.ay
-	) {
-		patch.anchor = {
-			ax: nextItem.anchor.ax,
-			ay: nextItem.anchor.ay,
-		};
-	}
-
-	return patch;
-}
-
-function isReferenceImageOverrideEmpty(override) {
-	return (
-		!override?.activeItemId &&
-		!Object.keys(override?.items ?? {}).length &&
-		(override?.renderBoxCorrection?.x ?? 0) === 0 &&
-		(override?.renderBoxCorrection?.y ?? 0) === 0
-	);
-}
-
-function findMutablePresetInDocument(documentState, presetId = null) {
-	const presets = Array.isArray(documentState?.presets)
-		? documentState.presets
-		: [];
-	if (presets.length === 0) {
-		return null;
-	}
-	if (typeof presetId === "string" && presetId) {
-		return presets.find((preset) => preset.id === presetId) ?? null;
-	}
-	return null;
-}
-
-function buildReferenceImagePresetNameHint(fileNameHint = "", cameraName = "") {
-	const normalizedFileName = normalizeReferenceImageFileName(
-		fileNameHint,
-		"Reference",
-	);
-	const baseFileName = normalizedFileName.replace(/\.[^./\\]+$/, "").trim();
-	const normalizedCameraName = String(cameraName ?? "").trim();
-	return baseFileName || normalizedCameraName || "Reference";
-}
-
-function buildDuplicatePresetName(presetName = "Reference") {
-	const normalized = String(presetName ?? "").trim() || "Reference";
-	return normalized === REFERENCE_IMAGE_DEFAULT_PRESET_NAME
-		? "Reference Copy"
-		: `${normalized} Copy`;
-}
-
-function sanitizeReferenceImagePresetName(value, fallback = "Reference") {
-	const normalized = String(value ?? "")
-		.replace(/[\r\n\t]+/g, " ")
-		.replace(/\s+/g, " ")
-		.trim();
-	return normalized || fallback;
-}
-
-function pruneUnusedReferenceImageAssetsInDocument(documentState) {
-	const usedAssetIds = new Set(
-		(documentState?.presets ?? []).flatMap((preset) =>
-			(preset?.items ?? []).map((item) => item.assetId),
-		),
-	);
-	documentState.assets = (documentState?.assets ?? []).filter((asset) =>
-		usedAssetIds.has(asset.id),
-	);
-}
-
-export function ensureWritableReferenceImageImportPreset(
-	documentState,
-	shotCameraDocument = null,
-	presetNameHint = "",
-) {
-	const explicitShotPresetId =
-		typeof shotCameraDocument?.referenceImages?.presetId === "string" &&
-		shotCameraDocument.referenceImages.presetId
-			? shotCameraDocument.referenceImages.presetId
-			: null;
-	const explicitShotPreset = explicitShotPresetId
-		? findMutablePresetInDocument(documentState, explicitShotPresetId)
-		: null;
-	if (explicitShotPreset) {
-		documentState.activePresetId = explicitShotPreset.id;
-		return explicitShotPreset;
-	}
-
-	if (!shotCameraDocument) {
-		const fallbackPreset =
-			findMutablePresetInDocument(
-				documentState,
-				documentState.activePresetId,
-			) ??
-			findMutablePresetInDocument(
-				documentState,
-				REFERENCE_IMAGE_DEFAULT_PRESET_ID,
-			) ??
-			documentState?.presets?.[0] ??
-			null;
-		if (fallbackPreset) {
-			documentState.activePresetId = fallbackPreset.id;
-			return fallbackPreset;
-		}
-	}
-
-	const nextPreset = createReferenceImagePreset({
-		name: buildReferenceImagePresetNameHint(
-			presetNameHint,
-			shotCameraDocument?.name ?? "",
-		),
-	});
-	documentState.presets.push(nextPreset);
-	documentState.activePresetId = nextPreset.id;
-	return nextPreset;
-}
-
 export function createReferenceImageController({
 	store,
 	referenceImageInput,
@@ -280,45 +77,6 @@ export function createReferenceImageController({
 }) {
 	let referenceListSelectionAnchorId = "";
 
-	function refreshUiAfterLayout({ expectedVisibleItems = 0 } = {}) {
-		const maxAttempts = 4;
-		const runAttempt = (attempt) => {
-			updateUi?.();
-			if (
-				store.referenceImages.previewLayers.value.length > 0 ||
-				expectedVisibleItems <= 0
-			) {
-				return;
-			}
-			if (attempt >= maxAttempts) {
-				console.warn(
-					"[CAMERA_FRAMES] reference-image preview remained empty after import",
-					{
-						expectedVisibleItems,
-						assetCount: store.referenceImages.assetCount.value,
-						itemCount: store.referenceImages.items.value.length,
-						previewLayerCount: store.referenceImages.previewLayers.value.length,
-						mode: store.mode.value,
-					},
-				);
-				return;
-			}
-			requestAnimationFrame(() => {
-				runAttempt(attempt + 1);
-			});
-		};
-
-		if (typeof requestAnimationFrame === "function") {
-			requestAnimationFrame(() => {
-				runAttempt(1);
-			});
-			return;
-		}
-		queueMicrotask(() => {
-			runAttempt(maxAttempts);
-		});
-	}
-
 	let referenceImageDragState = null;
 	let lastNonEmptyReferenceSelectionState = {
 		selectedItemIds: [],
@@ -326,9 +84,9 @@ export function createReferenceImageController({
 	};
 
 	function getSelectedItemIds() {
-		return Array.isArray(store.referenceImages.selectedItemIds.value)
-			? store.referenceImages.selectedItemIds.value
-			: [];
+		return getSelectedReferenceImageItemIds(
+			store.referenceImages.selectedItemIds.value,
+		);
 	}
 
 	function getValidSelectionState({
@@ -336,116 +94,11 @@ export function createReferenceImageController({
 		selectedItemIds = getSelectedItemIds(),
 		activeItemId = store.referenceImages.selectedItemId.value,
 	} = {}) {
-		const validIds = new Set(items.map((item) => item.id));
-		const normalizedSelectedItemIds = [];
-		for (const itemId of selectedItemIds ?? []) {
-			if (!validIds.has(itemId) || normalizedSelectedItemIds.includes(itemId)) {
-				continue;
-			}
-			normalizedSelectedItemIds.push(itemId);
-		}
-		let nextActiveItemId =
-			typeof activeItemId === "string" && validIds.has(activeItemId)
-				? activeItemId
-				: "";
-		if (
-			nextActiveItemId &&
-			!normalizedSelectedItemIds.includes(nextActiveItemId)
-		) {
-			normalizedSelectedItemIds.push(nextActiveItemId);
-		}
-		if (!nextActiveItemId && normalizedSelectedItemIds.length > 0) {
-			nextActiveItemId =
-				normalizedSelectedItemIds[normalizedSelectedItemIds.length - 1];
-		}
-		const activeItem =
-			items.find((item) => item.id === nextActiveItemId) ?? null;
-		return {
-			selectedItemIds: normalizedSelectedItemIds,
-			activeItemId: nextActiveItemId,
-			activeAssetId: activeItem?.assetId ?? "",
-		};
-	}
-
-	function buildSelectionBoxLogicalFromGeometries(geometries) {
-		const bounds = getPointsBounds(
-			(geometries ?? []).flatMap((geometry) => geometry.corners ?? []),
-		);
-		if (!bounds) {
-			return null;
-		}
-		return {
-			left: bounds.left,
-			top: bounds.top,
-			width: bounds.width,
-			height: bounds.height,
-			rotationDeg: 0,
-			anchorX: 0.5,
-			anchorY: 0.5,
-		};
-	}
-
-	function doesSelectionBoxMatchGeometries(logicalBox, geometries) {
-		if (!logicalBox || !Array.isArray(geometries) || geometries.length === 0) {
-			return false;
-		}
-		const anchorPoint = {
-			x: logicalBox.left + logicalBox.width * 0.5,
-			y: logicalBox.top + logicalBox.height * 0.5,
-		};
-		const rotationRadians = ((logicalBox.rotationDeg ?? 0) * Math.PI) / 180;
-		const unrotatedCorners = geometries.flatMap((geometry) =>
-			(geometry.corners ?? []).map((corner) => {
-				const local = inverseRotateVector(
-					corner.x - anchorPoint.x,
-					corner.y - anchorPoint.y,
-					rotationRadians,
-				);
-				return {
-					x: anchorPoint.x + local.x,
-					y: anchorPoint.y + local.y,
-				};
-			}),
-		);
-		const bounds = getPointsBounds(unrotatedCorners);
-		if (!bounds) {
-			return false;
-		}
-		const epsilon = 1e-3;
-		return (
-			Math.abs(bounds.left - logicalBox.left) <= epsilon &&
-			Math.abs(bounds.top - logicalBox.top) <= epsilon &&
-			Math.abs(bounds.width - logicalBox.width) <= epsilon &&
-			Math.abs(bounds.height - logicalBox.height) <= epsilon
-		);
-	}
-
-	function projectSelectionBoxLogicalToScreen(
-		logicalBox,
-		context,
-		anchorLocal = null,
-	) {
-		if (!logicalBox || !context) {
-			return null;
-		}
-		const nextAnchorLocal = {
-			x: Number.isFinite(anchorLocal?.x)
-				? anchorLocal.x
-				: (logicalBox.anchorX ?? 0.5),
-			y: Number.isFinite(anchorLocal?.y)
-				? anchorLocal.y
-				: (logicalBox.anchorY ?? 0.5),
-		};
-		return {
-			left:
-				context.renderBoxScreenLeft + logicalBox.left * context.renderScaleX,
-			top: context.renderBoxScreenTop + logicalBox.top * context.renderScaleY,
-			width: logicalBox.width * context.renderScaleX,
-			height: logicalBox.height * context.renderScaleY,
-			rotationDeg: logicalBox.rotationDeg ?? 0,
-			anchorX: nextAnchorLocal.x,
-			anchorY: nextAnchorLocal.y,
-		};
+		return getValidReferenceImageSelectionState({
+			items,
+			selectedItemIds,
+			activeItemId,
+		});
 	}
 
 	function setStoredSelectionBox(
@@ -456,7 +109,11 @@ export function createReferenceImageController({
 		store.referenceImages.selectionBoxLogical.value = logicalBox ?? null;
 		store.referenceImages.selectionBoxScreen.value =
 			logicalBox && context
-				? projectSelectionBoxLogicalToScreen(logicalBox, context, anchorLocal)
+				? projectReferenceImageSelectionBoxLogicalToScreen(
+						logicalBox,
+						context,
+						anchorLocal,
+					)
 				: null;
 	}
 
@@ -483,7 +140,8 @@ export function createReferenceImageController({
 				return buildLogicalItemGeometry(item, asset, context);
 			})
 			.filter(Boolean);
-		const logicalBox = buildSelectionBoxLogicalFromGeometries(geometries);
+		const logicalBox =
+			buildReferenceImageSelectionBoxLogicalFromGeometries(geometries);
 		if (!logicalBox) {
 			setStoredSelectionBox(null);
 			return false;
@@ -904,7 +562,7 @@ export function createReferenceImageController({
 		} else {
 			const storedSelectionBox =
 				store.referenceImages.selectionBoxLogical.value ??
-				buildSelectionBoxLogicalFromGeometries(geometries);
+				buildReferenceImageSelectionBoxLogicalFromGeometries(geometries);
 			if (!storedSelectionBox) {
 				return null;
 			}
@@ -930,7 +588,7 @@ export function createReferenceImageController({
 				anchorX: anchorLocal.x,
 				anchorY: anchorLocal.y,
 			};
-			selectionBoxScreen = projectSelectionBoxLogicalToScreen(
+			selectionBoxScreen = projectReferenceImageSelectionBoxLogicalToScreen(
 				selectionBoxLogical,
 				context,
 				anchorLocal,
@@ -1433,7 +1091,10 @@ export function createReferenceImageController({
 					store.referenceImages.selectionBoxLogical.value ?? null;
 				if (
 					!storedSelectionBox ||
-					!doesSelectionBoxMatchGeometries(storedSelectionBox, geometries)
+					!doesReferenceImageSelectionBoxMatchGeometries(
+						storedSelectionBox,
+						geometries,
+					)
 				) {
 					store.referenceImages.selectionAnchor.value = null;
 					initializeMultiSelectionTransformBox(
@@ -1448,274 +1109,56 @@ export function createReferenceImageController({
 		referenceImageInput?.click?.();
 	}
 
-	async function appendDecodedReferenceImage({
-		documentState,
-		preset,
-		name,
-		group = REFERENCE_IMAGE_GROUP_FRONT,
-		order = null,
-		previewVisible = true,
-		exportEnabled = true,
-		opacity = 1,
-		scalePct = 100,
-		rotationDeg = 0,
-		offsetPx = { x: 0, y: 0 },
-		anchor = { ax: 0.5, ay: 0.5 },
-		sourceFile,
-		sourceMeta,
-	}) {
-		const asset = createReferenceImageAsset({
-			label: name,
-			source: createProjectFileEmbeddedFileSource({
-				kind: REFERENCE_IMAGE_ASSET_KIND,
-				file: sourceFile,
-				fileName: sourceMeta.filename,
-			}),
-			sourceMeta,
-		});
-		documentState.assets.push(asset);
-		const item = createReferenceImageItem({
-			assetId: asset.id,
-			name,
-			group,
-			order:
-				typeof order === "number" && Number.isFinite(order)
-					? order
-					: preset.items.filter((entry) => entry.group === group).length,
-			previewVisible,
-			exportEnabled,
-			opacity,
-			scalePct,
-			rotationDeg,
-			offsetPx,
-			anchor,
-		});
-		preset.items.push(item);
-		return { asset, item };
-	}
-
-	async function importStandardReferenceImage(file, documentState, preset) {
-		const normalizedFileName = normalizeReferenceImageFileName(file.name);
-		const decoded = await decodeReferenceImageBlob(file, normalizedFileName);
-		const sourceFile = new File([file], normalizedFileName, {
-			type: file.type || getProjectMediaTypeFromFileName(normalizedFileName),
-		});
-		return appendDecodedReferenceImage({
-			documentState,
-			preset,
-			name: normalizedFileName.replace(/\.[^./\\]+$/, ""),
-			sourceFile,
-			sourceMeta: decoded.sourceMeta,
-		});
-	}
-
-	async function importPsdReferenceImage(file, documentState, preset) {
-		const layers = await extractReferenceImagePsdLayers(file, file.name);
-		const existingGroupCount = preset.items.filter(
-			(entry) => entry.group === REFERENCE_IMAGE_GROUP_FRONT,
-		).length;
-		let lastImported = null;
-		for (const [index, layer] of layers.entries()) {
-			const layerFileName = normalizeReferenceImageFileName(
-				layer.decoded.sourceMeta.filename,
-			);
-			const sourceFile = new File([layer.decoded.blob], layerFileName, {
-				type: layer.decoded.blob.type || "image/png",
-			});
-			lastImported = await appendDecodedReferenceImage({
-				documentState,
-				preset,
-				name: layer.name,
-				group: REFERENCE_IMAGE_GROUP_FRONT,
-				order: getReferenceImageOrderForImportIndex(index, existingGroupCount),
-				previewVisible: layer.visible,
-				exportEnabled: layer.visible,
-				opacity: layer.opacity,
-				scalePct: 100,
-				rotationDeg: 0,
-				offsetPx: layer.offsetPx,
-				anchor: { ax: 0.5, ay: 0.5 },
-				sourceFile,
-				sourceMeta: layer.decoded.sourceMeta,
-			});
-		}
-		return lastImported;
-	}
-
-	async function importReferenceImageFiles(fileList) {
-		const files = Array.from(fileList ?? []).filter(supportsReferenceImageFile);
-		if (files.length === 0) {
-			return false;
-		}
-		const nextDocument = cloneReferenceImageDocument(getDocument());
-		const preset = ensureWritableReferenceImageImportPreset(
-			nextDocument,
-			getActiveShotCameraDocument?.() ?? null,
-			files[0]?.name ?? "",
-		);
-		if (!preset) {
-			return false;
-		}
-		ensurePresetBaseRenderBox(preset, getOutputSizeState?.());
-		ensureActiveShotPresetBinding(preset.id);
-		let lastImportedSelection = null;
-		for (const file of files) {
-			if (getFileExtension(file.name) === "psd") {
-				lastImportedSelection = await importPsdReferenceImage(
-					file,
-					nextDocument,
-					preset,
-				);
-				continue;
-			}
-			lastImportedSelection = await importStandardReferenceImage(
-				file,
-				nextDocument,
-				preset,
-			);
-		}
-		normalizeReferenceImageItemOrderInPlace(preset.items);
-		setDocument(nextDocument);
-		setSelectionState({
-			selectedItemIds: lastImportedSelection?.item?.id
-				? [lastImportedSelection.item.id]
-				: [],
-			activeItemId: lastImportedSelection?.item?.id ?? "",
-			activeAssetId: lastImportedSelection?.asset?.id ?? "",
-			items: preset.items,
-		});
-		ensureCameraMode?.();
-		syncUiState();
-		setStatus?.(
-			t("status.referenceImagesImported", {
-				count: files.length,
-			}),
-		);
-		updateUi?.();
-		refreshUiAfterLayout({
-			expectedVisibleItems: preset.items.filter(
-				(item) => item.previewVisible !== false,
-			).length,
-		});
-		return true;
-	}
-
-	function handleReferenceImageInputChange(event) {
-		const input = event?.currentTarget ?? event?.target ?? null;
-		const files = input?.files;
-		if (!files || files.length === 0) {
-			return;
-		}
-		void importReferenceImageFiles(files).finally(() => {
-			input.value = "";
-		});
-	}
-
 	function captureProjectReferenceImagesState() {
 		return cloneReferenceImageDocument(getDocument());
 	}
 
 	function captureReferenceImageEditorState(options = {}) {
-		const includePreviewSessionVisible =
-			options?.includePreviewSessionVisible !== false;
-		const editorState = {
-			selectedItemIds: [...getSelectedItemIds()],
-			selectedItemId: String(store.referenceImages.selectedItemId.value ?? ""),
-			selectedAssetId: String(
-				store.referenceImages.selectedAssetId.value ?? "",
-			),
-			selectionAnchor:
-				store.referenceImages.selectionAnchor.value &&
-				Number.isFinite(store.referenceImages.selectionAnchor.value.x) &&
-				Number.isFinite(store.referenceImages.selectionAnchor.value.y)
-					? {
-							x: store.referenceImages.selectionAnchor.value.x,
-							y: store.referenceImages.selectionAnchor.value.y,
-						}
-					: null,
-			selectionBoxLogical: store.referenceImages.selectionBoxLogical.value
-				? { ...store.referenceImages.selectionBoxLogical.value }
-				: null,
-			rememberedSelectedItemIds: Array.isArray(
+		return captureReferenceImageEditorStateSnapshot({
+			selectedItemIds: getSelectedItemIds(),
+			selectedItemId: store.referenceImages.selectedItemId.value,
+			selectedAssetId: store.referenceImages.selectedAssetId.value,
+			selectionAnchor: store.referenceImages.selectionAnchor.value,
+			selectionBoxLogical: store.referenceImages.selectionBoxLogical.value,
+			rememberedSelectedItemIds:
 				lastNonEmptyReferenceSelectionState.selectedItemIds,
-			)
-				? [...lastNonEmptyReferenceSelectionState.selectedItemIds]
-				: [],
-			rememberedActiveItemId: String(
-				lastNonEmptyReferenceSelectionState.activeItemId ?? "",
-			),
-		};
-		if (includePreviewSessionVisible) {
-			editorState.previewSessionVisible =
-				store.referenceImages.previewSessionVisible.value !== false;
-		}
-		return editorState;
+			rememberedActiveItemId: lastNonEmptyReferenceSelectionState.activeItemId,
+			previewSessionVisible: store.referenceImages.previewSessionVisible.value,
+			includePreviewSessionVisible:
+				options?.includePreviewSessionVisible !== false,
+		});
 	}
 
 	function restoreReferenceImageEditorState(editorState = null, options = {}) {
-		const preservePreviewSessionVisible =
-			options?.preservePreviewSessionVisible === true;
-		if (!editorState) {
-			if (!preservePreviewSessionVisible) {
-				store.referenceImages.previewSessionVisible.value = true;
-			}
+		const restoredEditorState = normalizeReferenceImageEditorStateForRestore(
+			editorState,
+			options,
+		);
+		if (restoredEditorState.shouldUpdatePreviewSessionVisible) {
+			store.referenceImages.previewSessionVisible.value =
+				restoredEditorState.previewSessionVisible;
+		}
+		if (!restoredEditorState.hasEditorState) {
 			clearSelection();
-			lastNonEmptyReferenceSelectionState = {
-				selectedItemIds: [],
-				activeItemId: "",
-			};
+			lastNonEmptyReferenceSelectionState =
+				restoredEditorState.rememberedSelectionState;
 			return;
 		}
-		if (!preservePreviewSessionVisible) {
-			store.referenceImages.previewSessionVisible.value =
-				editorState.previewSessionVisible !== false;
-		}
-		const selectedItemIds = Array.isArray(editorState.selectedItemIds)
-			? editorState.selectedItemIds.map((itemId) => String(itemId ?? "").trim())
-			: [];
-		const rememberedSelectedItemIds = Array.isArray(
-			editorState.rememberedSelectedItemIds,
-		)
-			? editorState.rememberedSelectedItemIds.map((itemId) =>
-					String(itemId ?? "").trim(),
-				)
-			: [];
-		const rememberedActiveItemId = String(
-			editorState.rememberedActiveItemId ?? "",
-		);
 		setSelectionState({
-			selectedItemIds,
-			activeItemId: editorState.selectedItemId ?? "",
-			activeAssetId: editorState.selectedAssetId ?? "",
+			selectedItemIds: restoredEditorState.selectedItemIds,
+			activeItemId: restoredEditorState.selectedItemId,
+			activeAssetId: restoredEditorState.selectedAssetId,
 		});
 		lastNonEmptyReferenceSelectionState =
-			rememberedSelectedItemIds.length > 0
-				? {
-						selectedItemIds: rememberedSelectedItemIds,
-						activeItemId: rememberedActiveItemId,
-					}
-				: selectedItemIds.length > 0
-					? {
-							selectedItemIds: [...selectedItemIds],
-							activeItemId: String(editorState.selectedItemId ?? ""),
-						}
-					: {
-							selectedItemIds: [],
-							activeItemId: "",
-						};
-		if (selectedItemIds.length > 1 && editorState.selectionBoxLogical) {
-			const nextSelectionAnchor =
-				editorState.selectionAnchor &&
-				Number.isFinite(editorState.selectionAnchor.x) &&
-				Number.isFinite(editorState.selectionAnchor.y)
-					? {
-							x: editorState.selectionAnchor.x,
-							y: editorState.selectionAnchor.y,
-						}
-					: null;
+			restoredEditorState.rememberedSelectionState;
+		if (
+			restoredEditorState.selectedItemIds.length > 1 &&
+			restoredEditorState.selectionBoxLogical
+		) {
+			const nextSelectionAnchor = restoredEditorState.selectionAnchor;
 			store.referenceImages.selectionAnchor.value = nextSelectionAnchor;
 			setStoredSelectionBox(
-				{ ...editorState.selectionBoxLogical },
+				restoredEditorState.selectionBoxLogical,
 				getTransformContext(),
 				nextSelectionAnchor,
 			);
@@ -3058,6 +2501,28 @@ export function createReferenceImageController({
 				referenceImageDragState.dragActivated,
 		});
 	}
+
+	const {
+		refreshUiAfterLayout,
+		handleReferenceImageInputChange,
+		importReferenceImageFiles,
+	} = createReferenceImageImportRuntime({
+		store,
+		t,
+		setStatus,
+		updateUi,
+		ensureCameraMode,
+		getActiveShotCameraDocument,
+		getOutputSizeState,
+		getDocument,
+		setDocument,
+		syncUiState,
+		setSelectionState,
+		ensureActiveShotPresetBinding,
+		beginHistoryTransaction,
+		commitHistoryTransaction,
+		cancelHistoryTransaction,
+	});
 
 	syncUiState();
 

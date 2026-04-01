@@ -32,6 +32,56 @@ export function groupSceneAssetsByKind(sceneAssets = []) {
 		.filter((section) => section.assets.length > 0);
 }
 
+export function moveSceneAssetBlockWithinKind(
+	sceneAssets,
+	assetIds,
+	nextInsertionIndex,
+) {
+	const currentAsset = sceneAssets.find((asset) => assetIds.includes(asset.id));
+	if (!currentAsset) {
+		return sceneAssets;
+	}
+
+	const sameKindAssets = sceneAssets.filter(
+		(asset) => asset.kind === currentAsset.kind,
+	);
+	const movedAssetIdSet = new Set(assetIds);
+	const orderedMovedAssets = sameKindAssets.filter((asset) =>
+		movedAssetIdSet.has(asset.id),
+	);
+	if (
+		orderedMovedAssets.length === 0 ||
+		sameKindAssets.length <= orderedMovedAssets.length
+	) {
+		return sceneAssets;
+	}
+
+	const remainingKindAssets = sameKindAssets.filter(
+		(asset) => !movedAssetIdSet.has(asset.id),
+	);
+	const clampedInsertionIndex = Math.max(
+		0,
+		Math.min(remainingKindAssets.length, Number(nextInsertionIndex) || 0),
+	);
+	const reorderedKindAssets = [...remainingKindAssets];
+	reorderedKindAssets.splice(clampedInsertionIndex, 0, ...orderedMovedAssets);
+
+	if (
+		reorderedKindAssets.every(
+			(asset, index) => sameKindAssets[index]?.id === asset.id,
+		)
+	) {
+		return sceneAssets;
+	}
+
+	let nextReorderedIndex = 0;
+	return sceneAssets.map((asset) =>
+		asset.kind === currentAsset.kind
+			? reorderedKindAssets[nextReorderedIndex++]
+			: asset,
+	);
+}
+
 export function moveSceneAssetWithinKind(sceneAssets, assetId, nextKindIndex) {
 	const currentAsset = sceneAssets.find((asset) => asset.id === assetId);
 	if (!currentAsset) {
@@ -41,10 +91,6 @@ export function moveSceneAssetWithinKind(sceneAssets, assetId, nextKindIndex) {
 	const sameKindAssets = sceneAssets.filter(
 		(asset) => asset.kind === currentAsset.kind,
 	);
-	if (sameKindAssets.length <= 1) {
-		return sceneAssets;
-	}
-
 	const currentKindIndex = sameKindAssets.findIndex(
 		(asset) => asset.id === assetId,
 	);
@@ -60,14 +106,9 @@ export function moveSceneAssetWithinKind(sceneAssets, assetId, nextKindIndex) {
 		return sceneAssets;
 	}
 
-	const reorderedKindAssets = [...sameKindAssets];
-	const [movedAsset] = reorderedKindAssets.splice(currentKindIndex, 1);
-	reorderedKindAssets.splice(clampedKindIndex, 0, movedAsset);
-
-	let nextReorderedIndex = 0;
-	return sceneAssets.map((asset) =>
-		asset.kind === currentAsset.kind
-			? reorderedKindAssets[nextReorderedIndex++]
-			: asset,
+	return moveSceneAssetBlockWithinKind(
+		sceneAssets,
+		[assetId],
+		clampedKindIndex,
 	);
 }
