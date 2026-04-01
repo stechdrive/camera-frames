@@ -1,6 +1,8 @@
 import { html } from "htm/preact";
+import { useLayoutEffect, useRef } from "preact/hooks";
 import { getBuildVersionLabel } from "../build-info.js";
-import { BASE_FRAME } from "../constants.js";
+import { BASE_FRAME, VIEWPORT_PIXEL_RATIO } from "../constants.js";
+import { drawFrameMaskToContext } from "../engine/frame-mask-export.js";
 import { getFrameAnchorHandleKey } from "../engine/frame-transform.js";
 import { getFrameResizeCursorCss } from "../engine/resize-cursor.js";
 import { getFrameRotateCursorCss } from "../engine/rotate-cursor.js";
@@ -63,69 +65,8 @@ function getReferenceImageAnchorHandleKey(anchorAx, anchorAy) {
 	return getFrameAnchorHandleKey({ x: anchorAx, y: anchorAy });
 }
 
-function getFrameBoundingBoxPercent(frame, exportWidth, exportHeight) {
-	const scale = Number(frame?.scale);
-	const frameScale = Number.isFinite(scale) && scale > 0 ? scale : 1;
-	const widthPct =
-		(BASE_FRAME.width * frameScale * 100) / Math.max(exportWidth, 1e-6);
-	const heightPct =
-		(BASE_FRAME.height * frameScale * 100) / Math.max(exportHeight, 1e-6);
-	const centerX = (Number(frame?.x) || 0.5) * 100;
-	const centerY = (Number(frame?.y) || 0.5) * 100;
-	const rotationRadians = ((Number(frame?.rotation) || 0) * Math.PI) / 180 || 0;
-	const halfWidth = widthPct * 0.5;
-	const halfHeight = heightPct * 0.5;
-	const corners = [
-		{ x: -halfWidth, y: -halfHeight },
-		{ x: halfWidth, y: -halfHeight },
-		{ x: halfWidth, y: halfHeight },
-		{ x: -halfWidth, y: halfHeight },
-	].map((corner) => ({
-		x:
-			centerX +
-			corner.x * Math.cos(rotationRadians) -
-			corner.y * Math.sin(rotationRadians),
-		y:
-			centerY +
-			corner.x * Math.sin(rotationRadians) +
-			corner.y * Math.cos(rotationRadians),
-	}));
-	const xs = corners.map((corner) => corner.x);
-	const ys = corners.map((corner) => corner.y);
-	const left = Math.max(0, Math.min(...xs));
-	const top = Math.max(0, Math.min(...ys));
-	const right = Math.min(100, Math.max(...xs));
-	const bottom = Math.min(100, Math.max(...ys));
-	return {
-		left,
-		top,
-		right,
-		bottom,
-		width: Math.max(0, right - left),
-		height: Math.max(0, bottom - top),
-	};
-}
-
-function getAggregateFrameBoundingBoxPercent(
-	frames,
-	exportWidth,
-	exportHeight,
-) {
-	if (!Array.isArray(frames) || frames.length === 0) {
-		return null;
-	}
-	const bounds = frames.map((frame) =>
-		getFrameBoundingBoxPercent(frame, exportWidth, exportHeight),
-	);
-	return {
-		left: Math.max(0, Math.min(...bounds.map((bound) => bound.left))),
-		top: Math.max(0, Math.min(...bounds.map((bound) => bound.top))),
-		right: Math.min(100, Math.max(...bounds.map((bound) => bound.right))),
-		bottom: Math.min(100, Math.max(...bounds.map((bound) => bound.bottom))),
-	};
-}
-
 export function ViewportShell({ store, controller, refs, t }) {
+	const frameMaskCanvasRef = useRef(null);
 	const mode = store.mode.value;
 	const workbenchCollapsed = store.workbenchCollapsed.value;
 	const frames = store.frames.documents.value;
@@ -275,14 +216,6 @@ export function ViewportShell({ store, controller, refs, t }) {
 			: frameMaskMode === "selected"
 				? frames.filter((frame) => rememberedMaskFrameIds.has(frame.id))
 				: [];
-	const frameMaskBounds =
-		mode === "camera" && maskedFrames.length > 0
-			? getAggregateFrameBoundingBoxPercent(
-					maskedFrames,
-					store.exportWidth.value,
-					store.exportHeight.value,
-				)
-			: null;
 	const renderBoxElement =
 		refs.renderBoxRef?.current ?? refs.renderBoxRef ?? null;
 	const dropHintStyle =
@@ -296,26 +229,6 @@ export function ViewportShell({ store, controller, refs, t }) {
 					transform: "translate(-50%, -50%)",
 				}
 			: undefined;
-	const frameMaskViewportBounds =
-		frameMaskBounds &&
-		renderBoxElement instanceof HTMLElement &&
-		renderBoxElement.offsetWidth > 0 &&
-		renderBoxElement.offsetHeight > 0
-			? {
-					left:
-						renderBoxElement.offsetLeft +
-						(renderBoxElement.offsetWidth * frameMaskBounds.left) / 100,
-					top:
-						renderBoxElement.offsetTop +
-						(renderBoxElement.offsetHeight * frameMaskBounds.top) / 100,
-					right:
-						renderBoxElement.offsetLeft +
-						(renderBoxElement.offsetWidth * frameMaskBounds.right) / 100,
-					bottom:
-						renderBoxElement.offsetTop +
-						(renderBoxElement.offsetHeight * frameMaskBounds.bottom) / 100,
-				}
-			: null;
 	const frameMaskOpacity = Math.min(
 		1,
 		Math.max(0, (Number(frameMaskOpacityPct) || 0) / 100),
@@ -330,6 +243,79 @@ export function ViewportShell({ store, controller, refs, t }) {
 		controller()?.startReferenceImageRotate?.(zoneKey, event);
 	const startReferenceImageAnchorDrag = (event) =>
 		controller()?.startReferenceImageAnchorDrag?.(event);
+
+	useLayoutEffect(() => {
+		const canvas = frameMaskCanvasRef.current;
+		const shellElement =
+			refs.viewportShellRef?.current ?? refs.viewportShellRef ?? null;
+		const renderBoxNode =
+			refs.renderBoxRef?.current ?? refs.renderBoxRef ?? null;
+		if (
+			!(canvas instanceof HTMLCanvasElement) ||
+			!(shellElement instanceof HTMLElement)
+		) {
+			return;
+		}
+		const context = canvas.getContext("2d");
+		if (!context) {
+			return;
+		}
+
+		const shellWidth = Math.max(1, shellElement.clientWidth);
+		const shellHeight = Math.max(1, shellElement.clientHeight);
+		const canvasWidth = Math.max(
+			1,
+			Math.round(shellWidth * VIEWPORT_PIXEL_RATIO),
+		);
+		const canvasHeight = Math.max(
+			1,
+			Math.round(shellHeight * VIEWPORT_PIXEL_RATIO),
+		);
+		if (canvas.width !== canvasWidth) {
+			canvas.width = canvasWidth;
+		}
+		if (canvas.height !== canvasHeight) {
+			canvas.height = canvasHeight;
+		}
+		canvas.style.width = `${shellWidth}px`;
+		canvas.style.height = `${shellHeight}px`;
+
+		context.setTransform(1, 0, 0, 1, 0, 0);
+		context.clearRect(0, 0, canvas.width, canvas.height);
+		if (
+			mode !== "camera" ||
+			frameMaskOpacity <= 0 ||
+			maskedFrames.length === 0 ||
+			!(renderBoxNode instanceof HTMLElement) ||
+			renderBoxNode.offsetWidth <= 0 ||
+			renderBoxNode.offsetHeight <= 0
+		) {
+			return;
+		}
+
+		context.scale(VIEWPORT_PIXEL_RATIO, VIEWPORT_PIXEL_RATIO);
+		drawFrameMaskToContext(context, maskedFrames, {
+			canvasWidth: shellWidth,
+			canvasHeight: shellHeight,
+			frameSpaceWidth: renderBoxNode.offsetWidth,
+			frameSpaceHeight: renderBoxNode.offsetHeight,
+			logicalSpaceWidth: store.exportWidth.value,
+			logicalSpaceHeight: store.exportHeight.value,
+			offsetX: renderBoxNode.offsetLeft,
+			offsetY: renderBoxNode.offsetTop,
+			fillStyle: `rgba(3, 6, 11, ${frameMaskOpacity})`,
+		});
+		context.setTransform(1, 0, 0, 1, 0, 0);
+	}, [
+		frameMaskOpacity,
+		maskedFrames,
+		mode,
+		refs.renderBoxRef,
+		refs.viewportShellRef,
+		store.exportHeight.value,
+		store.exportWidth.value,
+	]);
+
 	const transformHandleConfigs = [
 		{
 			id: "move-x",
@@ -547,56 +533,15 @@ export function ViewportShell({ store, controller, refs, t }) {
 				svgRef=${refs.viewportAxisGizmoSvgRef}
 			/>
 			${
-				frameMaskViewportBounds &&
+				mode === "camera" &&
 				frameMaskOpacity > 0 &&
+				maskedFrames.length > 0 &&
 				html`
 					<div class="frame-mask-layer">
-						<div
-							class="frame-mask-layer__segment"
-							style=${{
-								left: "0px",
-								top: "0px",
-								width: "100%",
-								height: `${frameMaskViewportBounds.top}px`,
-								opacity: frameMaskOpacity,
-							}}
-						></div>
-						<div
-							class="frame-mask-layer__segment"
-							style=${{
-								left: "0px",
-								top: `${frameMaskViewportBounds.bottom}px`,
-								width: "100%",
-								height: `calc(100% - ${frameMaskViewportBounds.bottom}px)`,
-								opacity: frameMaskOpacity,
-							}}
-						></div>
-						<div
-							class="frame-mask-layer__segment"
-							style=${{
-								left: "0px",
-								top: `${frameMaskViewportBounds.top}px`,
-								width: `${frameMaskViewportBounds.left}px`,
-								height: `${Math.max(
-									0,
-									frameMaskViewportBounds.bottom - frameMaskViewportBounds.top,
-								)}px`,
-								opacity: frameMaskOpacity,
-							}}
-						></div>
-						<div
-							class="frame-mask-layer__segment"
-							style=${{
-								left: `${frameMaskViewportBounds.right}px`,
-								top: `${frameMaskViewportBounds.top}px`,
-								width: `calc(100% - ${frameMaskViewportBounds.right}px)`,
-								height: `${Math.max(
-									0,
-									frameMaskViewportBounds.bottom - frameMaskViewportBounds.top,
-								)}px`,
-								opacity: frameMaskOpacity,
-							}}
-						></div>
+						<canvas
+							ref=${frameMaskCanvasRef}
+							class="frame-mask-layer__canvas"
+						></canvas>
 					</div>
 				`
 			}

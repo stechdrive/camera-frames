@@ -721,11 +721,7 @@ export function createFrameController({
 			return;
 		}
 
-		const nextFrame = offsetFrameDocument(
-			createWorkspaceFrameDocument(activeFrame),
-			0.04,
-			0.04,
-		);
+		const nextFrame = createWorkspaceFrameDocument(activeFrame);
 		clearOutputFrameSelection();
 		clearFrameInteraction();
 		runHistoryAction?.("frame.duplicate", () => {
@@ -777,15 +773,11 @@ export function createFrameController({
 
 		const nextFrameNumberStart = getNextFrameNumber(getActiveFrames());
 		const duplicatedFrames = sourceFrames.map((sourceFrame, index) =>
-			offsetFrameDocument(
-				createFrameDocument({
-					id: getFrameDocumentId(nextFrameNumberStart + index),
-					name: buildFrameDocumentName(nextFrameNumberStart + index),
-					source: sourceFrame,
-				}),
-				0.04,
-				0.04,
-			),
+			createFrameDocument({
+				id: getFrameDocumentId(nextFrameNumberStart + index),
+				name: buildFrameDocumentName(nextFrameNumberStart + index),
+				source: sourceFrame,
+			}),
 		);
 		clearOutputFrameSelection();
 		clearFrameInteraction();

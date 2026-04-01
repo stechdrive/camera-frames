@@ -60,6 +60,9 @@ import {
 		translate() {},
 		rotate() {},
 		rect() {},
+		moveTo() {},
+		lineTo() {},
+		closePath() {},
 		clearRect() {},
 		fillRect() {
 			fillRectCount += 1;
