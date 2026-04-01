@@ -2,7 +2,6 @@ import * as THREE from "three";
 import { IS_DEV_RUNTIME, hasEnabledQueryFlag } from "../build-info.js";
 import {
 	getAllExportBundlePasses,
-	renderExportBundleToCanvas,
 	renderExportPassToCanvas,
 } from "../engine/export-bundle.js";
 import { buildExportPassPlan } from "../engine/export-pass-plan.js";
@@ -10,14 +9,22 @@ import {
 	buildExportReadinessPlan,
 	finalizeExportReadiness,
 } from "../engine/export-readiness.js";
-import { downloadPsdDocument } from "../engine/psd-export.js";
 import { createSparkExportRendererManager } from "../engine/spark-export-renderer.js";
 import { buildSnapshotExportBundle } from "./export/bundle-build.js";
+import {
+	createCanvasFromPixels,
+	createSolidColorCanvas,
+} from "./export/canvas-utils.js";
 import {
 	buildLayerMaskPixels,
 	buildSplatLayerMaskPixels,
 	createAlphaPreviewPixels,
 } from "./export/mask-pixels.js";
+import {
+	downloadPngFromSnapshot,
+	downloadPsdFromSnapshot,
+	renderCompositeOutputCanvas,
+} from "./export/output-download.js";
 import {
 	buildExportProgressOverlay,
 	getExportPhaseDefaultDetail,
@@ -150,37 +157,6 @@ export function createExportController({
 
 	function clonePixelBuffer(pixels) {
 		return pixels ? new Uint8Array(pixels) : pixels;
-	}
-
-	function createCanvasFromPixels(pixels, width, height) {
-		const canvas = document.createElement("canvas");
-		canvas.width = width;
-		canvas.height = height;
-		const context = canvas.getContext("2d");
-		if (!context) {
-			throw new Error(t("error.previewContext"));
-		}
-
-		const imageData = new ImageData(
-			new Uint8ClampedArray(pixels),
-			width,
-			height,
-		);
-		context.putImageData(imageData, 0, 0);
-		return canvas;
-	}
-
-	function createSolidColorCanvas(width, height, color) {
-		const canvas = document.createElement("canvas");
-		canvas.width = width;
-		canvas.height = height;
-		const context = canvas.getContext("2d");
-		if (!context) {
-			throw new Error(t("error.previewContext"));
-		}
-		context.fillStyle = color;
-		context.fillRect(0, 0, width, height);
-		return canvas;
 	}
 
 	function getRenderableSceneAssets() {
@@ -1318,15 +1294,6 @@ export function createExportController({
 		return `${baseName}${sequenceSuffix}.${format}`;
 	}
 
-	function renderCompositeOutputCanvas(snapshot, frames = getActiveFrames()) {
-		return renderExportBundleToCanvas(
-			buildSnapshotExportBundle(snapshot, frames, {
-				drawFramesToContext,
-				previewContextError: t("error.previewContext"),
-			}),
-		);
-	}
-
 	function buildPsdExportDocument(bundle, frames = getActiveFrames()) {
 		return buildPsdDocument(bundle, frames, {
 			groupLabel: t("section.referenceImages"),
@@ -1334,54 +1301,6 @@ export function createExportController({
 			exportDebugLayersEnabled,
 			createCanvasFromPixels,
 			renderExportPassToCanvas,
-		});
-	}
-
-	function downloadPngFromSnapshot(
-		documentState,
-		snapshot,
-		sequenceIndex = null,
-	) {
-		const compositeCanvas = renderCompositeOutputCanvas(
-			snapshot,
-			documentState.frames ?? [],
-		);
-		const link = document.createElement("a");
-		link.href = compositeCanvas.toDataURL("image/png");
-		link.download = buildShotCameraExportFilename(
-			documentState,
-			snapshot,
-			"png",
-			sequenceIndex,
-		);
-		link.click();
-	}
-
-	function downloadPsdFromSnapshot(
-		documentState,
-		snapshot,
-		sequenceIndex = null,
-	) {
-		const bundle = buildSnapshotExportBundle(
-			snapshot,
-			documentState.frames ?? [],
-			{
-				drawFramesToContext,
-				previewContextError: t("error.previewContext"),
-			},
-		);
-		const psdDocument = buildPsdExportDocument(
-			bundle,
-			documentState.frames ?? [],
-		);
-		downloadPsdDocument({
-			...psdDocument,
-			filename: buildShotCameraExportFilename(
-				documentState,
-				snapshot,
-				"psd",
-				sequenceIndex,
-			),
 		});
 	}
 
@@ -1404,6 +1323,12 @@ export function createExportController({
 					documentState,
 					snapshot,
 					targetDocuments.length > 1 ? index + 1 : null,
+					{
+						frames: documentState.frames ?? [],
+						drawFramesToContext,
+						previewContextError: t("error.previewContext"),
+						buildFilename: buildShotCameraExportFilename,
+					},
 				);
 
 				lastSnapshot = snapshot;
@@ -1454,6 +1379,13 @@ export function createExportController({
 					documentState,
 					snapshot,
 					targetDocuments.length > 1 ? index + 1 : null,
+					{
+						frames: documentState.frames ?? [],
+						drawFramesToContext,
+						previewContextError: t("error.previewContext"),
+						buildFilename: buildShotCameraExportFilename,
+						buildPsdExportDocument,
+					},
 				);
 				exportCount += 1;
 			}
@@ -1536,10 +1468,21 @@ export function createExportController({
 					pushOverlay();
 				}
 				if (exportSettings.exportFormat === "png") {
-					downloadPngFromSnapshot(documentState, snapshot, sequenceIndex);
+					downloadPngFromSnapshot(documentState, snapshot, sequenceIndex, {
+						frames: documentState.frames ?? [],
+						drawFramesToContext,
+						previewContextError: t("error.previewContext"),
+						buildFilename: buildShotCameraExportFilename,
+					});
 					pngCount += 1;
 				} else {
-					downloadPsdFromSnapshot(documentState, snapshot, sequenceIndex);
+					downloadPsdFromSnapshot(documentState, snapshot, sequenceIndex, {
+						frames: documentState.frames ?? [],
+						drawFramesToContext,
+						previewContextError: t("error.previewContext"),
+						buildFilename: buildShotCameraExportFilename,
+						buildPsdExportDocument,
+					});
 					psdCount += 1;
 				}
 				lastSnapshot = snapshot;
@@ -1658,7 +1601,11 @@ export function createExportController({
 				drawFramesToContext,
 				previewContextError: t("error.previewContext"),
 			}),
-		renderCompositeOutputCanvas,
+		renderCompositeOutputCanvas: (snapshot, frames = getActiveFrames()) =>
+			renderCompositeOutputCanvas(snapshot, frames, {
+				drawFramesToContext,
+				previewContextError: t("error.previewContext"),
+			}),
 		downloadPng,
 		downloadPsd,
 		downloadOutput,
