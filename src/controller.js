@@ -11,6 +11,7 @@ import {
 	createControllerAccessors,
 	createShotCameraEditorStateAccessors,
 } from "./app/controller-accessors.js";
+import { createProjectStateBridge } from "./app/project-state-bridge.js";
 import { createShotCameraEditorStateController } from "./app/shot-camera-editor-state.js";
 import {
 	BASE_RENDER_BOX,
@@ -52,18 +53,12 @@ import {
 } from "./engine/scene-units.js";
 import { getAnchorLabel, translate } from "./i18n.js";
 import {
-	applyLegacyCameraTransform,
-	buildLegacyProjectImport,
-} from "./importers/legacy-ssproj.js";
-import { getDefaultProjectFilename } from "./project-file.js";
-import {
 	extractProjectPackageAssets,
 	isProjectPackageSource,
 } from "./project-package.js";
 import {
 	WORKSPACE_PANE_CAMERA,
 	WORKSPACE_PANE_VIEWPORT,
-	cloneShotCameraDocument,
 } from "./workspace-model.js";
 
 export function createCameraFramesController(elements, store) {
@@ -296,309 +291,46 @@ export function createCameraFramesController(elements, store) {
 		return translate(currentLocale(), key, params);
 	}
 
-	function captureCameraPose(camera) {
-		return {
-			position: {
-				x: camera.position.x,
-				y: camera.position.y,
-				z: camera.position.z,
-			},
-			quaternion: {
-				x: camera.quaternion.x,
-				y: camera.quaternion.y,
-				z: camera.quaternion.z,
-				w: camera.quaternion.w,
-			},
-			up: {
-				x: camera.up.x,
-				y: camera.up.y,
-				z: camera.up.z,
-			},
-		};
-	}
-
-	function restoreCameraPose(camera, snapshot) {
-		if (!camera || !snapshot) {
-			return false;
-		}
-
-		camera.position.set(
-			Number(snapshot.position?.x ?? camera.position.x),
-			Number(snapshot.position?.y ?? camera.position.y),
-			Number(snapshot.position?.z ?? camera.position.z),
-		);
-		camera.quaternion.set(
-			Number(snapshot.quaternion?.x ?? camera.quaternion.x),
-			Number(snapshot.quaternion?.y ?? camera.quaternion.y),
-			Number(snapshot.quaternion?.z ?? camera.quaternion.z),
-			Number(snapshot.quaternion?.w ?? camera.quaternion.w),
-		);
-		camera.up.set(
-			Number(snapshot.up?.x ?? camera.up.x),
-			Number(snapshot.up?.y ?? camera.up.y),
-			Number(snapshot.up?.z ?? camera.up.z),
-		);
-		camera.updateMatrixWorld(true);
-		return true;
-	}
-
-	function captureWorkspaceState() {
-		const shotCameraEditorStates = captureShotCameraEditorStates();
-		return {
-			activeShotCameraId: store.workspace.activeShotCameraId.value,
-			viewportBaseFovX: store.viewportBaseFovX.value,
-			viewportBaseFovXDirty: store.viewportBaseFovXDirty.value,
-			viewportProjection:
-				viewportProjectionController?.captureViewportProjectionState?.() ??
-				null,
-			shotCameras: store.workspace.shotCameras.value.map((documentState) =>
-				cloneShotCameraDocument(documentState),
-			),
-			viewportPose: captureCameraPose(viewportCamera),
-			shotCameraPoses: Array.from(shotCameraRegistry.entries()).map(
-				([shotCameraId, entry]) => ({
-					id: shotCameraId,
-					pose: captureCameraPose(entry.camera),
-				}),
-			),
-			sceneAssets: assetController?.captureSceneAssetEditState?.() ?? null,
-			sceneLighting: lightingController?.captureLightingState?.() ?? null,
-			sceneReferenceImages:
-				referenceImageController?.captureProjectReferenceImagesState?.() ??
-				null,
-			shotCameraEditorStates,
-			referenceImageEditor:
-				shotCameraEditorStates?.[store.workspace.activeShotCameraId.value]
-					?.referenceImageEditor ?? null,
-			frameSelectionActive: store.frames.selectionActive.value,
-			frameSelectedIds: [...(store.frames.selectedIds.value ?? [])],
-			frameSelectionAnchor: store.frames.selectionAnchor.value
-				? { ...store.frames.selectionAnchor.value }
-				: null,
-			frameSelectionBoxLogical: store.frames.selectionBoxLogical.value
-				? { ...store.frames.selectionBoxLogical.value }
-				: null,
-			outputFrameSelected: state.outputFrameSelected,
-		};
-	}
-
-	function restoreWorkspaceState(snapshot) {
-		if (!snapshot || !Array.isArray(snapshot.shotCameras)) {
-			return false;
-		}
-
-		if (!assetController?.restoreSceneAssetEditState?.(snapshot.sceneAssets)) {
-			return false;
-		}
-		lightingController?.applyLightingState(snapshot.sceneLighting ?? null);
-
-		setShotCameraDocuments(
-			snapshot.shotCameras.map((documentState) =>
-				cloneShotCameraDocument(documentState),
-			),
-		);
-		registerShotCameraDocuments();
-		if (!getShotCameraDocument(snapshot.activeShotCameraId)) {
-			return false;
-		}
-
-		store.workspace.activeShotCameraId.value = snapshot.activeShotCameraId;
-		store.viewportBaseFovX.value = Number.isFinite(snapshot.viewportBaseFovX)
-			? snapshot.viewportBaseFovX
-			: store.viewportBaseFovX.value;
-		store.viewportBaseFovXDirty.value = Boolean(snapshot.viewportBaseFovXDirty);
-		restoreCameraPose(viewportCamera, snapshot.viewportPose);
-		viewportProjectionController?.restoreViewportProjectionState?.(
-			snapshot.viewportProjection ?? null,
-		);
-		restoreShotCameraEditorStates(snapshot.shotCameraEditorStates ?? null);
-		referenceImageController?.applyProjectReferenceImagesState?.(
-			snapshot.sceneReferenceImages ?? null,
-			{ editorState: null },
-		);
-		measurementController?.clearMeasurementSession?.({ keepActive: false });
-
-		for (const poseEntry of snapshot.shotCameraPoses ?? []) {
-			const entry = shotCameraRegistry.get(poseEntry.id);
-			if (!entry) {
-				return false;
-			}
-			restoreCameraPose(entry.camera, poseEntry.pose);
-			syncShotCameraEntryFromDocument(entry);
-		}
-
-		frameController?.clearFrameInteraction();
-		outputFrameController?.clearOutputFramePan();
-		outputFrameController?.clearOutputFrameAnchorDrag();
-		outputFrameController?.clearOutputFrameResize();
-		restoreShotCameraEditorState(snapshot.activeShotCameraId, {
-			fallbackSnapshot: snapshot,
-		});
-		interactionController?.clearControlMomentum();
-		syncControlsToMode();
-		syncViewportProjection();
-		syncShotProjection();
-		applyCameraViewProjection();
-		syncOutputCamera();
-		updateShotCameraHelpers();
-		updateCameraSummary();
-		return true;
-	}
-
-	function getLegacyImportSceneRadius() {
-		const box = new THREE.Box3().setFromObject(contentRoot);
-		if (box.isEmpty()) {
-			return 1;
-		}
-
-		const size = box.getSize(new THREE.Vector3());
-		return Math.max(size.length() * 0.35, 0.6);
-	}
-
-	function applyProjectPackageImport(importState) {
-		const legacyImport = buildLegacyProjectImport({
-			cameraFramesState: importState?.cameraFrames ?? null,
-			sceneRadius: getLegacyImportSceneRadius(),
-		});
-		if (!legacyImport?.shots?.length) {
-			return false;
-		}
-
-		setShotCameraDocuments(legacyImport.shots.map((shot) => shot.document));
-		store.workspace.activeShotCameraId.value =
-			legacyImport.activeShotCameraId ??
-			legacyImport.shots[0]?.document.id ??
-			store.workspace.activeShotCameraId.value;
-
-		for (const shot of legacyImport.shots) {
-			const entry = shotCameraRegistry.get(shot.document.id);
-			if (!entry) {
-				continue;
-			}
-
-			applyLegacyCameraTransform(entry.camera, shot.transform);
-			syncShotCameraEntryFromDocument(entry);
-		}
-
-		const activeEntry = getActiveShotCameraEntry();
-		if (activeEntry) {
-			sceneFramingController.copyPose(activeEntry.camera, viewportCamera);
-		}
-
-		restoreShotCameraEditorStates(null);
-		clearActiveShotCameraEditorState();
-		measurementController?.clearMeasurementSession?.({ keepActive: false });
-		interactionController?.clearControlMomentum();
-		interactionController?.syncControlsToMode();
-		syncViewportProjection();
-		syncShotProjection();
-		applyCameraViewProjection();
-		syncOutputCamera();
-		updateOutputFrameOverlay();
-		updateShotCameraHelpers();
-		updateCameraSummary();
-		updateUi();
-		return true;
-	}
-
-	function captureProjectShotCameras() {
-		return store.workspace.shotCameras.value.map((documentState) => ({
-			...cloneShotCameraDocument(documentState),
-			pose: captureCameraPose(
-				shotCameraRegistry.get(documentState.id)?.camera ?? viewportCamera,
-			),
-		}));
-	}
-
-	function captureProjectState() {
-		return {
-			workspace: {
-				activeShotCameraId: store.workspace.activeShotCameraId.value,
-				viewport: {
-					baseFovX: store.viewportBaseFovX.value,
-					baseFovXDirty: store.viewportBaseFovXDirty.value,
-					pose: captureCameraPose(viewportCamera),
-					...(viewportProjectionController?.captureViewportProjectionState?.() ??
-						{}),
-				},
-			},
-			shotCameras: captureProjectShotCameras(),
-			scene: {
-				assets: assetController?.captureProjectSceneState?.() ?? [],
-				lighting: lightingController?.captureLightingState?.() ?? null,
-				referenceImages:
-					referenceImageController?.captureProjectReferenceImagesState?.() ??
-					null,
-			},
-		};
-	}
-
-	function buildProjectFilename() {
-		const activeDocument = getActiveShotCameraDocument();
-		if (!activeDocument) {
-			return getDefaultProjectFilename();
-		}
-
-		return `${getShotCameraExportBaseName(activeDocument, 1)}.ssproj`;
-	}
-
-	function applySavedProjectState(project) {
-		const shotCameras = (project?.shotCameras ?? []).map((shotCamera) => {
-			const { pose: _pose, ...documentState } = shotCamera;
-			return cloneShotCameraDocument(documentState);
-		});
-		setShotCameraDocuments(shotCameras);
-		registerShotCameraDocuments();
-
-		store.workspace.activeShotCameraId.value = getShotCameraDocument(
-			project?.workspace?.activeShotCameraId,
-		)
-			? project.workspace.activeShotCameraId
-			: (shotCameras[0]?.id ?? store.workspace.activeShotCameraId.value);
-		store.viewportBaseFovX.value = Number.isFinite(
-			project?.workspace?.viewport?.baseFovX,
-		)
-			? project.workspace.viewport.baseFovX
-			: store.viewportBaseFovX.value;
-		store.viewportBaseFovXDirty.value = Boolean(
-			project?.workspace?.viewport?.baseFovXDirty,
-		);
-		restoreCameraPose(viewportCamera, project?.workspace?.viewport?.pose);
-		viewportProjectionController?.restoreViewportProjectionState?.(
-			project?.workspace?.viewport ?? null,
-		);
-
-		for (const shotCamera of project?.shotCameras ?? []) {
-			const entry = shotCameraRegistry.get(shotCamera.id);
-			if (!entry) {
-				continue;
-			}
-			restoreCameraPose(entry.camera, shotCamera.pose);
-			syncShotCameraEntryFromDocument(entry);
-		}
-		referenceImageController?.applyProjectReferenceImagesState?.(
-			project?.scene?.referenceImages,
-		);
-		lightingController?.applyLightingState(project?.scene?.lighting ?? null);
-
-		restoreShotCameraEditorStates(null);
-		clearActiveShotCameraEditorState();
-		measurementController?.clearMeasurementSession?.({ keepActive: false });
-		frameController?.clearFrameInteraction();
-		outputFrameController?.clearOutputFramePan();
-		outputFrameController?.clearOutputFrameAnchorDrag();
-		outputFrameController?.clearOutputFrameResize();
-		interactionController?.clearControlMomentum();
-		syncControlsToMode();
-		syncViewportProjection();
-		syncShotProjection();
-		applyCameraViewProjection();
-		syncOutputCamera();
-		updateOutputFrameOverlay();
-		updateShotCameraHelpers();
-		updateCameraSummary();
-		updateUi();
-	}
+	const {
+		captureWorkspaceState,
+		restoreWorkspaceState,
+		applyProjectPackageImport,
+		captureProjectState,
+		buildProjectFilename,
+		applySavedProjectState,
+	} = createProjectStateBridge({
+		store,
+		state,
+		viewportCamera,
+		shotCameraRegistry,
+		contentRoot,
+		getAssetController: () => assetController,
+		getLightingController: () => lightingController,
+		getReferenceImageController: () => referenceImageController,
+		getMeasurementController: () => measurementController,
+		getInteractionController: () => interactionController,
+		getViewportProjectionController: () => viewportProjectionController,
+		getFrameController: () => frameController,
+		getOutputFrameController: () => outputFrameController,
+		getSceneFramingController: () => sceneFramingController,
+		getShotCameraEditorStateController: () => shotCameraEditorStateController,
+		registerShotCameraDocuments,
+		getShotCameraDocument,
+		getActiveShotCameraDocument,
+		getActiveShotCameraEntry,
+		setShotCameraDocuments,
+		syncShotCameraEntryFromDocument,
+		getShotCameraExportBaseName,
+		syncControlsToMode,
+		syncViewportProjection,
+		syncShotProjection,
+		applyCameraViewProjection,
+		syncOutputCamera,
+		updateShotCameraHelpers,
+		updateCameraSummary,
+		updateOutputFrameOverlay,
+		updateUi,
+	});
 
 	async function applyOpenedProject(
 		parsedProject,
