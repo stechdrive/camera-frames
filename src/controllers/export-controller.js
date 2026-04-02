@@ -42,6 +42,10 @@ import {
 	renderMaskPassSnapshots as renderMaskPassSnapshotsHelper,
 	renderPsdBasePixels as renderPsdBasePixelsHelper,
 } from "./export/render-capture.js";
+import {
+	renderGuideLayerPixels as renderGuideLayerPixelsHelper,
+	renderScenePixelsWithReadiness as renderScenePixelsWithReadinessHelper,
+} from "./export/render-session.js";
 import { applyExportAssetRenderOrder } from "./export/render-state.js";
 import {
 	withAssetRenderState as withAssetRenderStateHelper,
@@ -229,6 +233,24 @@ export function createExportController({
 		});
 	}
 
+	function renderGuideLayerPixels(config) {
+		return renderGuideLayerPixelsHelper(config, {
+			ensureRenderTarget: ensureGuideRenderTarget,
+			renderer,
+			guideOverlay,
+			flipPixels,
+		});
+	}
+
+	function renderScenePixelsWithReadiness(config) {
+		return renderScenePixelsWithReadinessHelper(config, {
+			buildReadinessPlan: buildExportReadinessPlan,
+			finalizeReadiness: finalizeExportReadiness,
+			getNowMs,
+			renderBackend: exportRenderBackend,
+		});
+	}
+
 	function renderModelLayerDocuments(config) {
 		return renderModelLayerDocumentsHelper(config, {
 			renderScenePixels: renderConfiguredScenePixels,
@@ -247,110 +269,6 @@ export function createExportController({
 			createAlphaPreviewPixels,
 			exportDebugLayersEnabled,
 		});
-	}
-
-	async function renderGuideLayerPixels({
-		camera,
-		width,
-		height,
-		gridVisible = false,
-		eyeLevelVisible = false,
-		gridLayerMode = "bottom",
-	}) {
-		if (!gridVisible && !eyeLevelVisible) {
-			return null;
-		}
-
-		const target = ensureGuideRenderTarget(width, height);
-		const previousTarget = renderer.getRenderTarget();
-		const previousAutoClear = renderer.autoClear;
-		const previousClearAlpha = renderer.getClearAlpha();
-		const previousClearColor = renderer
-			.getClearColor(new THREE.Color())
-			.clone();
-		const previousGuideOverlayState = guideOverlay.captureState();
-		const pixels = new Uint8Array(width * height * 4);
-
-		try {
-			guideOverlay.applyState({
-				gridVisible,
-				eyeLevelVisible,
-				gridLayerMode,
-			});
-			renderer.setRenderTarget(target);
-			renderer.autoClear = true;
-			renderer.setClearColor(0x000000, 0);
-			renderer.clear(true, true, true);
-			guideOverlay.renderBackground(renderer, camera);
-			renderer.autoClear = false;
-			guideOverlay.renderOverlay(renderer, camera);
-			renderer.readRenderTargetPixels(target, 0, 0, width, height, pixels);
-			return flipPixels(pixels, width, height);
-		} finally {
-			guideOverlay.applyState(previousGuideOverlayState);
-			renderer.setRenderTarget(previousTarget);
-			renderer.autoClear = previousAutoClear;
-			renderer.setClearColor(previousClearColor, previousClearAlpha);
-		}
-	}
-
-	async function renderScenePixelsWithReadiness({
-		scene,
-		camera,
-		width,
-		height,
-		sceneAssets,
-	}) {
-		const readinessPlan = buildExportReadinessPlan({
-			sceneAssets,
-		});
-		const deadline = getNowMs() + readinessPlan.maxWaitMs;
-		let completedWarmupPasses = 0;
-
-		while (
-			completedWarmupPasses < readinessPlan.warmupPasses &&
-			getNowMs() <= deadline
-		) {
-			await exportRenderBackend.prepareFrame({
-				scene,
-				camera,
-				width,
-				height,
-				update: true,
-			});
-			await exportRenderBackend.renderFrame({
-				scene,
-				camera,
-				width,
-				height,
-			});
-			completedWarmupPasses += 1;
-		}
-
-		await exportRenderBackend.prepareFrame({
-			scene,
-			camera,
-			width,
-			height,
-			update: true,
-		});
-		await exportRenderBackend.renderFrame({
-			scene,
-			camera,
-			width,
-			height,
-		});
-
-		return {
-			pixels: await exportRenderBackend.readPixels({
-				width,
-				height,
-			}),
-			readiness: finalizeExportReadiness(readinessPlan, {
-				completedWarmupPasses,
-				timedOut: completedWarmupPasses < readinessPlan.warmupPasses,
-			}),
-		};
 	}
 
 	async function renderOutputSnapshotForShotCamera(
