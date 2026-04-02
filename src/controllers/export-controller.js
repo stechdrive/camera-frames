@@ -16,6 +16,11 @@ import {
 	createSolidColorCanvas,
 } from "./export/canvas-utils.js";
 import {
+	runOutputExport,
+	runPngExport,
+	runPsdExport,
+} from "./export/download-actions.js";
+import {
 	renderModelLayerDocuments as renderModelLayerDocumentsHelper,
 	renderSplatLayerDocuments as renderSplatLayerDocumentsHelper,
 } from "./export/layer-documents.js";
@@ -560,20 +565,11 @@ export function createExportController({
 	}
 
 	async function downloadPng() {
-		setExportStatus("export.exporting", true);
-
-		try {
-			const targetDocuments = getExportTargetShotCameras();
-			if (targetDocuments.length === 0) {
-				throw new Error(t("error.exportRequiresPreset"));
-			}
-
-			let lastSnapshot = null;
-
-			for (const [index, documentState] of targetDocuments.entries()) {
-				const snapshot = await renderOutputSnapshotForShotCamera(
-					documentState.id,
-				);
+		return runPngExport({
+			targetDocuments: getExportTargetShotCameras(),
+			renderSnapshot: (documentState) =>
+				renderOutputSnapshotForShotCamera(documentState.id),
+			downloadSnapshot: (documentState, snapshot, index, targetDocuments) =>
 				downloadPngFromSnapshot(
 					documentState,
 					snapshot,
@@ -584,52 +580,24 @@ export function createExportController({
 						previewContextError: t("error.previewContext"),
 						buildFilename: buildShotCameraExportFilename,
 					},
-				);
-
-				lastSnapshot = snapshot;
-			}
-
-			if (targetDocuments.length === 1 && lastSnapshot) {
-				store.exportSummary.value = t("exportSummary.exported", {
-					width: lastSnapshot.width,
-					height: lastSnapshot.height,
-				});
-				setStatus(t("status.pngExported"));
-			} else {
-				store.exportSummary.value = t("exportSummary.exportedBatch", {
-					count: targetDocuments.length,
-				});
-				setStatus(
-					t("status.pngExportedBatch", {
-						count: targetDocuments.length,
-					}),
-				);
-			}
-			setExportStatus("export.ready");
-			updateUi();
-		} catch (error) {
-			console.error(error);
-			store.exportSummary.value = error.message;
-			setExportStatus("export.idle");
-			setStatus(error.message);
-		}
+				),
+			setExportStatus,
+			setSummary: (value) => {
+				store.exportSummary.value = value;
+			},
+			setStatus,
+			updateUi,
+			requireTargetsMessage: t("error.exportRequiresPreset"),
+			t,
+		});
 	}
 
 	async function downloadPsd() {
-		setExportStatus("export.exporting", true);
-
-		try {
-			const targetDocuments = getExportTargetShotCameras();
-			if (targetDocuments.length === 0) {
-				throw new Error(t("error.exportRequiresPreset"));
-			}
-
-			let exportCount = 0;
-
-			for (const [index, documentState] of targetDocuments.entries()) {
-				const snapshot = await renderOutputSnapshotForShotCamera(
-					documentState.id,
-				);
+		return runPsdExport({
+			targetDocuments: getExportTargetShotCameras(),
+			renderSnapshot: (documentState) =>
+				renderOutputSnapshotForShotCamera(documentState.id),
+			downloadSnapshot: (documentState, snapshot, index, targetDocuments) =>
 				downloadPsdFromSnapshot(
 					documentState,
 					snapshot,
@@ -641,161 +609,52 @@ export function createExportController({
 						buildFilename: buildShotCameraExportFilename,
 						buildPsdExportDocument,
 					},
-				);
-				exportCount += 1;
-			}
-
-			store.exportSummary.value = t("exportSummary.psdExported", {
-				count: exportCount,
-			});
-			setExportStatus("export.ready");
-			setStatus(
-				t("status.psdExported", {
-					count: exportCount,
-				}),
-			);
-			updateUi();
-		} catch (error) {
-			console.error(error);
-			store.exportSummary.value = error.message;
-			setExportStatus("export.idle");
-			setStatus(error.message);
-		}
+				),
+			setExportStatus,
+			setSummary: (value) => {
+				store.exportSummary.value = value;
+			},
+			setStatus,
+			updateUi,
+			requireTargetsMessage: t("error.exportRequiresPreset"),
+			t,
+		});
 	}
 
 	async function downloadOutput() {
-		setExportStatus("export.exporting", true);
-
-		try {
-			const targetDocuments = getExportTargetShotCameras();
-			if (targetDocuments.length === 0) {
-				throw new Error(t("error.exportRequiresPreset"));
-			}
-			const progressStartedAt = Date.now();
-
-			let pngCount = 0;
-			let psdCount = 0;
-			let lastSnapshot = null;
-			let lastFormat = "png";
-
-			for (const [index, documentState] of targetDocuments.entries()) {
-				const exportSettings = getShotCameraExportSettings(documentState);
-				let currentPhaseState = null;
-				const pushOverlay = (phaseState = currentPhaseState) =>
-					setExportProgressOverlay(
-						targetDocuments,
-						index,
-						exportSettings.exportFormat,
-						progressStartedAt,
-						phaseState,
-					);
-				pushOverlay();
-				const snapshot = await renderOutputSnapshotForShotCamera(
-					documentState.id,
-					{
-						onProgress: (phaseState) => {
-							currentPhaseState = phaseState;
-							pushOverlay();
-						},
-					},
-				);
-				const sequenceIndex = targetDocuments.length > 1 ? index + 1 : null;
-				if (currentPhaseState?.definitions?.length) {
-					const completedIds = new Set(currentPhaseState.completedIds ?? []);
-					const activeId =
-						currentPhaseState.definitions.find((phase) => phase.id === "write")
-							?.id ?? null;
-					currentPhaseState = {
-						...currentPhaseState,
-						id: activeId,
-						activeId,
-						label:
-							currentPhaseState.definitions.find(
-								(phase) => phase.id === "write",
-							)?.label ?? "",
-						detail: getExportPhaseDefaultDetail(
-							"write",
-							exportSettings.exportFormat,
-							t,
-						),
-						completedIds,
-					};
-					pushOverlay();
-				}
-				if (exportSettings.exportFormat === "png") {
-					downloadPngFromSnapshot(documentState, snapshot, sequenceIndex, {
-						frames: documentState.frames ?? [],
-						drawFramesToContext,
-						previewContextError: t("error.previewContext"),
-						buildFilename: buildShotCameraExportFilename,
-					});
-					pngCount += 1;
-				} else {
-					downloadPsdFromSnapshot(documentState, snapshot, sequenceIndex, {
-						frames: documentState.frames ?? [],
-						drawFramesToContext,
-						previewContextError: t("error.previewContext"),
-						buildFilename: buildShotCameraExportFilename,
-						buildPsdExportDocument,
-					});
-					psdCount += 1;
-				}
-				lastSnapshot = snapshot;
-				lastFormat = exportSettings.exportFormat;
-			}
-
-			const exportCount = pngCount + psdCount;
-			if (exportCount === 1 && lastSnapshot) {
-				store.exportSummary.value =
-					lastFormat === "png"
-						? t("exportSummary.exported", {
-								width: lastSnapshot.width,
-								height: lastSnapshot.height,
-							})
-						: t("exportSummary.psdExported", { count: 1 });
-				setStatus(
-					lastFormat === "png"
-						? t("status.pngExported")
-						: t("status.psdExported", { count: 1 }),
-				);
-			} else if (pngCount > 0 && psdCount > 0) {
-				store.exportSummary.value = t("exportSummary.exportedMixed", {
-					count: exportCount,
-				});
-				setStatus(
-					t("status.exportedMixed", {
-						count: exportCount,
-					}),
-				);
-			} else if (pngCount > 0) {
-				store.exportSummary.value = t("exportSummary.exportedBatch", {
-					count: pngCount,
-				});
-				setStatus(
-					t("status.pngExportedBatch", {
-						count: pngCount,
-					}),
-				);
-			} else {
-				store.exportSummary.value = t("exportSummary.psdExported", {
-					count: psdCount,
-				});
-				setStatus(
-					t("status.psdExported", {
-						count: psdCount,
-					}),
-				);
-			}
-			clearExportOverlay();
-			setExportStatus("export.ready");
-			updateUi();
-		} catch (error) {
-			console.error(error);
-			store.exportSummary.value = error.message;
-			setExportStatus("export.idle");
-			setStatus(error.message);
-			showExportErrorOverlay(error);
-		}
+		return runOutputExport({
+			targetDocuments: getExportTargetShotCameras(),
+			getExportSettings: getShotCameraExportSettings,
+			renderSnapshot: (documentState, _index, _targets, onProgress) =>
+				renderOutputSnapshotForShotCamera(documentState.id, { onProgress }),
+			downloadPngSnapshot: (documentState, snapshot, sequenceIndex) =>
+				downloadPngFromSnapshot(documentState, snapshot, sequenceIndex, {
+					frames: documentState.frames ?? [],
+					drawFramesToContext,
+					previewContextError: t("error.previewContext"),
+					buildFilename: buildShotCameraExportFilename,
+				}),
+			downloadPsdSnapshot: (documentState, snapshot, sequenceIndex) =>
+				downloadPsdFromSnapshot(documentState, snapshot, sequenceIndex, {
+					frames: documentState.frames ?? [],
+					drawFramesToContext,
+					previewContextError: t("error.previewContext"),
+					buildFilename: buildShotCameraExportFilename,
+					buildPsdExportDocument,
+				}),
+			setExportStatus,
+			setSummary: (value) => {
+				store.exportSummary.value = value;
+			},
+			setStatus,
+			updateUi,
+			clearExportOverlay,
+			showExportErrorOverlay,
+			setExportProgressOverlay,
+			getPhaseDefaultDetail: getExportPhaseDefaultDetail,
+			requireTargetsMessage: t("error.exportRequiresPreset"),
+			t,
+		});
 	}
 
 	function setExportTarget(nextValue) {
