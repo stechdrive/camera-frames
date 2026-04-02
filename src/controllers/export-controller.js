@@ -21,6 +21,12 @@ import {
 	runPsdExport,
 } from "./export/download-actions.js";
 import {
+	buildShotCameraExportFilename as buildShotCameraExportFilenameHelper,
+	createExportBundleFacade,
+	createExportDownloadFacade,
+	createPsdExportDocumentBuilder,
+} from "./export/download-facade.js";
+import {
 	renderModelLayerDocuments as renderModelLayerDocumentsHelper,
 	renderSplatLayerDocuments as renderSplatLayerDocumentsHelper,
 } from "./export/layer-documents.js";
@@ -374,112 +380,32 @@ export function createExportController({
 		);
 	}
 
-	function buildShotCameraExportFilename(
-		documentState,
-		_snapshot,
-		format = "png",
-		sequenceIndex = null,
-	) {
-		const fallbackIndex =
-			store.workspace.shotCameras.value.findIndex(
-				(shotCamera) => shotCamera.id === documentState?.id,
-			) + 1;
-		const baseName = getShotCameraExportBaseName(documentState, fallbackIndex);
-		const sequenceSuffix =
-			Number.isFinite(sequenceIndex) && sequenceIndex > 0
-				? `-${String(sequenceIndex).padStart(2, "0")}`
-				: "";
-		return `${baseName}${sequenceSuffix}.${format}`;
-	}
-
-	function buildPsdExportDocument(bundle, frames = getActiveFrames()) {
-		return buildPsdDocument(bundle, frames, {
-			groupLabel: t("section.referenceImages"),
-			frameGroupLabel: t("section.frames"),
-			exportDebugLayersEnabled,
-			createCanvasFromPixels,
-			renderExportPassToCanvas,
+	const buildShotCameraExportFilename = (...args) =>
+		buildShotCameraExportFilenameHelper(...args, {
+			shotCameras: store.workspace.shotCameras.value,
+			getShotCameraExportBaseName,
 		});
-	}
 
-	async function downloadPng() {
-		return runPngExport({
-			targetDocuments: getExportTargetShotCameras(),
-			renderSnapshot: (documentState) =>
-				renderOutputSnapshotForShotCamera(documentState.id),
-			downloadSnapshot: (documentState, snapshot, index, targetDocuments) =>
-				downloadPngFromSnapshot(
-					documentState,
-					snapshot,
-					targetDocuments.length > 1 ? index + 1 : null,
-					{
-						frames: documentState.frames ?? [],
-						drawFramesToContext,
-						previewContextError: t("error.previewContext"),
-						buildFilename: buildShotCameraExportFilename,
-					},
-				),
-			setExportStatus,
-			setSummary: (value) => {
-				store.exportSummary.value = value;
-			},
-			setStatus,
-			updateUi,
-			requireTargetsMessage: t("error.exportRequiresPreset"),
-			t,
-		});
-	}
+	const buildPsdExportDocument = createPsdExportDocumentBuilder({
+		getFrames: getActiveFrames,
+		t,
+		exportDebugLayersEnabled,
+		createCanvasFromPixels,
+		renderExportPassToCanvas,
+		buildPsdDocument,
+	});
 
-	async function downloadPsd() {
-		return runPsdExport({
-			targetDocuments: getExportTargetShotCameras(),
-			renderSnapshot: (documentState) =>
-				renderOutputSnapshotForShotCamera(documentState.id),
-			downloadSnapshot: (documentState, snapshot, index, targetDocuments) =>
-				downloadPsdFromSnapshot(
-					documentState,
-					snapshot,
-					targetDocuments.length > 1 ? index + 1 : null,
-					{
-						frames: documentState.frames ?? [],
-						drawFramesToContext,
-						previewContextError: t("error.previewContext"),
-						buildFilename: buildShotCameraExportFilename,
-						buildPsdExportDocument,
-					},
-				),
-			setExportStatus,
-			setSummary: (value) => {
-				store.exportSummary.value = value;
-			},
-			setStatus,
-			updateUi,
-			requireTargetsMessage: t("error.exportRequiresPreset"),
-			t,
-		});
-	}
-
-	async function downloadOutput() {
-		return runOutputExport({
-			targetDocuments: getExportTargetShotCameras(),
+	const { downloadPng, downloadPsd, downloadOutput } =
+		createExportDownloadFacade({
+			getTargetDocuments: getExportTargetShotCameras,
 			getExportSettings: getShotCameraExportSettings,
-			renderSnapshot: (documentState, _index, _targets, onProgress) =>
-				renderOutputSnapshotForShotCamera(documentState.id, { onProgress }),
-			downloadPngSnapshot: (documentState, snapshot, sequenceIndex) =>
-				downloadPngFromSnapshot(documentState, snapshot, sequenceIndex, {
-					frames: documentState.frames ?? [],
-					drawFramesToContext,
-					previewContextError: t("error.previewContext"),
-					buildFilename: buildShotCameraExportFilename,
-				}),
-			downloadPsdSnapshot: (documentState, snapshot, sequenceIndex) =>
-				downloadPsdFromSnapshot(documentState, snapshot, sequenceIndex, {
-					frames: documentState.frames ?? [],
-					drawFramesToContext,
-					previewContextError: t("error.previewContext"),
-					buildFilename: buildShotCameraExportFilename,
-					buildPsdExportDocument,
-				}),
+			renderSnapshot: renderOutputSnapshotForShotCamera,
+			downloadPngFromSnapshot,
+			downloadPsdFromSnapshot,
+			drawFramesToContext,
+			previewContextError: t("error.previewContext"),
+			buildFilename: buildShotCameraExportFilename,
+			buildPsdExportDocument,
 			setExportStatus,
 			setSummary: (value) => {
 				store.exportSummary.value = value;
@@ -492,8 +418,18 @@ export function createExportController({
 			getPhaseDefaultDetail: getExportPhaseDefaultDetail,
 			requireTargetsMessage: t("error.exportRequiresPreset"),
 			t,
+			runPngExportFn: runPngExport,
+			runPsdExportFn: runPsdExport,
+			runOutputExportFn: runOutputExport,
 		});
-	}
+
+	const exportBundleFacade = createExportBundleFacade({
+		getFrames: getActiveFrames,
+		drawFramesToContext,
+		previewContextError: t("error.previewContext"),
+		buildSnapshotExportBundle,
+		renderCompositeOutputCanvas,
+	});
 
 	function setExportTarget(nextValue) {
 		const target =
@@ -548,16 +484,8 @@ export function createExportController({
 	return {
 		getExportTargetShotCameras,
 		renderOutputSnapshotForShotCamera,
-		buildExportBundle: (snapshot, frames = getActiveFrames()) =>
-			buildSnapshotExportBundle(snapshot, frames, {
-				drawFramesToContext,
-				previewContextError: t("error.previewContext"),
-			}),
-		renderCompositeOutputCanvas: (snapshot, frames = getActiveFrames()) =>
-			renderCompositeOutputCanvas(snapshot, frames, {
-				drawFramesToContext,
-				previewContextError: t("error.previewContext"),
-			}),
+		buildExportBundle: exportBundleFacade.buildExportBundle,
+		renderCompositeOutputCanvas: exportBundleFacade.renderCompositeOutputCanvas,
 		downloadPng,
 		downloadPsd,
 		downloadOutput,
