@@ -34,6 +34,7 @@ import {
 	downloadPsdFromSnapshot,
 	renderCompositeOutputCanvas,
 } from "./export/output-download.js";
+import { renderOutputSnapshotSession } from "./export/output-snapshot.js";
 import {
 	buildExportProgressOverlay,
 	getExportPhaseDefaultDetail,
@@ -327,211 +328,48 @@ export function createExportController({
 				backgroundCanvas,
 				passPlan,
 			}) => {
-				const { emitPhase, completePhase } = createSnapshotPhaseTracker(
+				return renderOutputSnapshotSession(
 					{
+						scene,
+						targetDocument,
 						targetExportSettings,
+						outputCamera,
+						width,
+						height,
+						renderableSceneAssets,
+						sceneAssets,
+						backgroundCanvas,
 						passPlan,
-						includeReferenceImages:
-							store.referenceImages.exportSessionEnabled.value !== false,
-						onProgress,
+						referenceImageDocument: store.referenceImages.document.value,
+						referenceImagesExportSessionEnabled:
+							store.referenceImages.exportSessionEnabled.value,
 						t,
 					},
 					{
-						getPhaseDefinitions: getExportPhaseDefinitions,
-						getPhaseDefaultDetail: getExportPhaseDefaultDetail,
+						phaseTracker: createSnapshotPhaseTracker(
+							{
+								targetExportSettings,
+								passPlan,
+								includeReferenceImages:
+									store.referenceImages.exportSessionEnabled.value !== false,
+								onProgress,
+								t,
+							},
+							{
+								getPhaseDefinitions: getExportPhaseDefinitions,
+								getPhaseDefaultDetail: getExportPhaseDefaultDetail,
+							},
+						),
+						renderConfiguredSceneCapture,
+						clonePixels: clonePixelBuffer,
+						renderGuideLayerPixels,
+						renderMaskPassSnapshots,
+						renderPsdBasePixels,
+						renderModelLayerDocuments,
+						renderSplatLayerDocuments,
+						renderReferenceImageLayersForShotCamera,
 					},
 				);
-				emitPhase("prepare");
-				completePhase("prepare");
-				emitPhase("beauty");
-				const sceneCapture = await renderConfiguredSceneCapture({
-					camera: outputCamera,
-					width,
-					height,
-					sceneAssets: renderableSceneAssets,
-					sceneBackground: null,
-					clearAlpha: 0,
-					guidesVisible: false,
-					resolveAssetRole: (asset) => {
-						if (asset.exportRole === "omit") {
-							return "hide";
-						}
-						return "normal";
-					},
-				});
-				const beautyPixels = clonePixelBuffer(sceneCapture.pixels);
-				completePhase("beauty");
-				const gridGuidePixels = targetExportSettings.exportGridOverlay
-					? await (() => {
-							emitPhase("guides", t("overlay.exportPhaseDetailGuidesGrid"));
-							return renderGuideLayerPixels({
-								camera: outputCamera,
-								width,
-								height,
-								gridVisible: true,
-								eyeLevelVisible: false,
-								gridLayerMode: targetExportSettings.exportGridLayerMode,
-							});
-						})()
-					: null;
-				const eyeLevelPixels = targetExportSettings.exportGridOverlay
-					? await (() => {
-							emitPhase("guides", t("overlay.exportPhaseDetailGuidesEyeLevel"));
-							return renderGuideLayerPixels({
-								camera: outputCamera,
-								width,
-								height,
-								gridVisible: false,
-								eyeLevelVisible: true,
-								gridLayerMode: targetExportSettings.exportGridLayerMode,
-							});
-						})()
-					: null;
-				if (targetExportSettings.exportGridOverlay) {
-					completePhase("guides");
-				}
-				if (passPlan.masks.some((maskPass) => maskPass.assetIds?.length)) {
-					emitPhase("masks");
-				}
-				const maskPasses = await renderMaskPassSnapshots({
-					scene,
-					camera: outputCamera,
-					width,
-					height,
-					sceneAssets,
-					maskPasses: passPlan.masks,
-					onProgress: ({ index, count, name }) =>
-						emitPhase(
-							"masks",
-							t("overlay.exportPhaseDetailMaskBatch", { index, count, name }),
-						),
-				});
-				if (passPlan.masks.some((maskPass) => maskPass.assetIds?.length)) {
-					completePhase("masks");
-				}
-				if (
-					targetExportSettings.exportFormat === "psd" &&
-					targetExportSettings.exportModelLayers
-				) {
-					emitPhase("psd-base");
-				}
-				const psdBasePixels =
-					targetExportSettings.exportFormat === "psd"
-						? await renderPsdBasePixels({
-								camera: outputCamera,
-								width,
-								height,
-								sceneAssets: renderableSceneAssets,
-								exportSettings: targetExportSettings,
-							})
-						: null;
-				if (
-					targetExportSettings.exportFormat === "psd" &&
-					targetExportSettings.exportModelLayers
-				) {
-					completePhase("psd-base");
-					emitPhase("model-layers");
-				}
-				const modelLayers =
-					targetExportSettings.exportFormat === "psd"
-						? await renderModelLayerDocuments({
-								camera: outputCamera,
-								width,
-								height,
-								sceneAssets: renderableSceneAssets,
-								exportSettings: targetExportSettings,
-								onProgress: ({ index, count, name }) =>
-									emitPhase(
-										"model-layers",
-										t("overlay.exportPhaseDetailModelLayersBatch", {
-											index,
-											count,
-											name,
-										}),
-									),
-							})
-						: { layers: [], debugGroups: [] };
-				if (
-					targetExportSettings.exportFormat === "psd" &&
-					targetExportSettings.exportModelLayers
-				) {
-					completePhase("model-layers");
-				}
-				if (
-					targetExportSettings.exportFormat === "psd" &&
-					targetExportSettings.exportSplatLayers
-				) {
-					emitPhase("splat-layers");
-				}
-				const splatLayers =
-					targetExportSettings.exportFormat === "psd"
-						? await renderSplatLayerDocuments({
-								camera: outputCamera,
-								width,
-								height,
-								sceneAssets: renderableSceneAssets,
-								exportSettings: targetExportSettings,
-								onProgress: ({ index, count, name }) =>
-									emitPhase(
-										"splat-layers",
-										t("overlay.exportPhaseDetailSplatLayersBatch", {
-											index,
-											count,
-											name,
-										}),
-									),
-							})
-						: { layers: [], debugGroups: [] };
-				if (
-					targetExportSettings.exportFormat === "psd" &&
-					targetExportSettings.exportSplatLayers
-				) {
-					completePhase("splat-layers");
-				}
-				if (store.referenceImages.exportSessionEnabled.value !== false) {
-					emitPhase("reference-images");
-				}
-				const referenceImageLayers =
-					await renderReferenceImageLayersForShotCamera({
-						referenceImageDocument: store.referenceImages.document.value,
-						exportSessionEnabled:
-							store.referenceImages.exportSessionEnabled.value,
-						documentState: targetDocument,
-						width,
-						height,
-						previewContextError: t("error.previewContext"),
-						applyOpacity: targetExportSettings.exportFormat !== "psd",
-						onProgress: ({ index, count, name }) =>
-							emitPhase(
-								"reference-images",
-								t("overlay.exportPhaseDetailReferenceImagesBatch", {
-									index,
-									count,
-									name,
-								}),
-							),
-					});
-				if (store.referenceImages.exportSessionEnabled.value !== false) {
-					completePhase("reference-images");
-				}
-				return {
-					width,
-					height,
-					pixels: beautyPixels,
-					exportSettings: targetExportSettings,
-					sceneAssets,
-					readiness: sceneCapture.readiness,
-					maskPasses,
-					backgroundCanvas,
-					gridGuidePixels,
-					eyeLevelPixels,
-					referenceImageLayers,
-					psdBasePixels,
-					modelLayers: modelLayers.layers,
-					modelDebugGroups: modelLayers.debugGroups,
-					splatLayers: splatLayers.layers,
-					splatDebugGroups: splatLayers.debugGroups,
-				};
 			},
 		);
 	}
