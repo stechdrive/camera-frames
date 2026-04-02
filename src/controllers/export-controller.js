@@ -32,6 +32,12 @@ import {
 } from "./export/progress.js";
 import { buildPsdExportDocument as buildPsdDocument } from "./export/psd-document.js";
 import { renderReferenceImageLayersForShotCamera } from "./export/reference-images.js";
+import {
+	renderConfiguredSceneCapture as renderConfiguredSceneCaptureHelper,
+	renderConfiguredScenePixels as renderConfiguredScenePixelsHelper,
+	renderMaskPassSnapshots as renderMaskPassSnapshotsHelper,
+	renderPsdBasePixels as renderPsdBasePixelsHelper,
+} from "./export/render-capture.js";
 import { applyExportAssetRenderOrder } from "./export/render-state.js";
 import {
 	buildSceneAssetExportMetadata,
@@ -163,6 +169,40 @@ export function createExportController({
 		return getSceneAssets().filter(
 			(asset) => asset.exportRole !== "omit" && asset.object.visible !== false,
 		);
+	}
+
+	function renderConfiguredSceneCapture(config) {
+		return renderConfiguredSceneCaptureHelper(config, {
+			scene,
+			withAssetRenderState,
+			renderScenePixelsWithReadiness,
+			buildSceneAssetExportMetadata,
+			flipPixels,
+			clonePixels: clonePixelBuffer,
+		});
+	}
+
+	function renderConfiguredScenePixels(config) {
+		return renderConfiguredScenePixelsHelper(config, {
+			renderCapture: renderConfiguredSceneCapture,
+		});
+	}
+
+	function renderMaskPassSnapshots(config) {
+		return renderMaskPassSnapshotsHelper(config, {
+			withMaskSceneState,
+			renderScenePixelsWithReadiness,
+			buildSceneAssetExportMetadata,
+			getSceneAssets,
+			flipPixels,
+			clonePixels: clonePixelBuffer,
+		});
+	}
+
+	function renderPsdBasePixels(config) {
+		return renderPsdBasePixelsHelper(config, {
+			renderScenePixels: renderConfiguredScenePixels,
+		});
 	}
 
 	function createMaskMaterial(sourceMaterial, color) {
@@ -381,67 +421,6 @@ export function createExportController({
 		}
 	}
 
-	async function renderConfiguredScenePixels({
-		camera,
-		width,
-		height,
-		sceneAssets,
-		resolveAssetRole,
-		guidesVisible = false,
-		sceneBackground = null,
-		clearAlpha = 0,
-	}) {
-		const capture = await renderConfiguredSceneCapture({
-			camera,
-			width,
-			height,
-			sceneAssets,
-			resolveAssetRole,
-			guidesVisible,
-			sceneBackground,
-			clearAlpha,
-		});
-		return capture.pixels;
-	}
-
-	async function renderConfiguredSceneCapture({
-		camera,
-		width,
-		height,
-		sceneAssets,
-		resolveAssetRole,
-		guidesVisible = false,
-		sceneBackground = null,
-		clearAlpha = 0,
-	}) {
-		const allowedAssetIds = new Set(sceneAssets.map((asset) => asset.id));
-		const capture = await withAssetRenderState(
-			{
-				sceneBackground,
-				clearAlpha,
-				guidesVisible,
-				resolveAssetRole: (asset) => {
-					if (!allowedAssetIds.has(asset.id)) {
-						return "hide";
-					}
-					return resolveAssetRole(asset);
-				},
-			},
-			() =>
-				renderScenePixelsWithReadiness({
-					scene,
-					camera,
-					width,
-					height,
-					sceneAssets: buildSceneAssetExportMetadata(sceneAssets),
-				}),
-		);
-		return {
-			...capture,
-			pixels: flipPixels(clonePixelBuffer(capture.pixels), width, height),
-		};
-	}
-
 	async function renderGuideLayerPixels({
 		camera,
 		width,
@@ -485,42 +464,6 @@ export function createExportController({
 			renderer.autoClear = previousAutoClear;
 			renderer.setClearColor(previousClearColor, previousClearAlpha);
 		}
-	}
-
-	async function renderPsdBasePixels({
-		camera,
-		width,
-		height,
-		sceneAssets,
-		exportSettings,
-	}) {
-		if (!exportSettings.exportModelLayers) {
-			return null;
-		}
-
-		const basePixels = await renderConfiguredScenePixels({
-			camera,
-			width,
-			height,
-			sceneAssets,
-			guidesVisible: false,
-			sceneBackground: null,
-			clearAlpha: 0,
-			resolveAssetRole: (asset) => {
-				if (asset.exportRole === "omit") {
-					return "hide";
-				}
-				if (asset.kind === "model") {
-					return "hide";
-				}
-				if (exportSettings.exportSplatLayers && asset.kind === "splat") {
-					return "hide";
-				}
-				return "normal";
-			},
-		});
-
-		return basePixels;
 	}
 
 	async function renderModelLayerDocuments({
@@ -938,50 +881,6 @@ export function createExportController({
 				timedOut: completedWarmupPasses < readinessPlan.warmupPasses,
 			}),
 		};
-	}
-
-	async function renderMaskPassSnapshots({
-		scene,
-		camera,
-		width,
-		height,
-		sceneAssets,
-		maskPasses,
-		onProgress = null,
-	}) {
-		const renderedMaskPasses = [];
-		const allowedAssetIds = new Set(sceneAssets.map((asset) => asset.id));
-
-		for (const [index, maskPass] of maskPasses.entries()) {
-			if (!maskPass.assetIds?.length) {
-				continue;
-			}
-			onProgress?.({
-				index: index + 1,
-				count: maskPasses.length,
-				name: maskPass.name,
-			});
-
-			const maskCapture = await withMaskSceneState(
-				maskPass,
-				allowedAssetIds,
-				() =>
-					renderScenePixelsWithReadiness({
-						scene,
-						camera,
-						width,
-						height,
-						sceneAssets: buildSceneAssetExportMetadata(getSceneAssets()),
-					}),
-			);
-			const maskPixels = clonePixelBuffer(maskCapture.pixels);
-			renderedMaskPasses.push({
-				...maskPass,
-				pixels: flipPixels(maskPixels, width, height),
-			});
-		}
-
-		return renderedMaskPasses;
 	}
 
 	async function renderOutputSnapshotForShotCamera(
