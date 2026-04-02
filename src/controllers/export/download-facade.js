@@ -16,6 +16,42 @@ export function buildShotCameraExportFilename(
 	return `${baseName}${sequenceSuffix}.${format}`;
 }
 
+export function createBatchSequenceIndexResolver(
+	targetDocuments = [],
+	resolveFormat = () => "png",
+	buildFilename = buildShotCameraExportFilename,
+) {
+	const baseNameCounts = new Map();
+	const documentKeys = new Map();
+
+	for (const documentState of targetDocuments) {
+		const format = resolveFormat(documentState);
+		const filename = buildFilename(documentState, null, format, null);
+		const collisionKey = `${format}:${filename}`;
+		documentKeys.set(documentState.id, collisionKey);
+		baseNameCounts.set(
+			collisionKey,
+			(baseNameCounts.get(collisionKey) ?? 0) + 1,
+		);
+	}
+
+	const collisionIndices = new Map();
+	const sequenceIndices = new Map();
+	for (const documentState of targetDocuments) {
+		const collisionKey = documentKeys.get(documentState.id);
+		const collisionCount = baseNameCounts.get(collisionKey) ?? 0;
+		if (collisionCount <= 1) {
+			sequenceIndices.set(documentState.id, null);
+			continue;
+		}
+		const nextIndex = (collisionIndices.get(collisionKey) ?? 0) + 1;
+		collisionIndices.set(collisionKey, nextIndex);
+		sequenceIndices.set(documentState.id, nextIndex);
+	}
+
+	return (documentState) => sequenceIndices.get(documentState.id) ?? null;
+}
+
 export function createPsdExportDocumentBuilder({
 	getFrames,
 	t,
@@ -83,14 +119,20 @@ export function createExportDownloadFacade({
 	runOutputExportFn,
 } = {}) {
 	async function downloadPng() {
+		const targetDocuments = getTargetDocuments();
+		const resolveSequenceIndex = createBatchSequenceIndexResolver(
+			targetDocuments,
+			() => "png",
+			buildFilename,
+		);
 		return runPngExportFn({
-			targetDocuments: getTargetDocuments(),
+			targetDocuments,
 			renderSnapshot: (documentState) => renderSnapshot(documentState.id),
 			downloadSnapshot: (documentState, snapshot, index, targetDocuments) =>
 				downloadPngFromSnapshot(
 					documentState,
 					snapshot,
-					targetDocuments.length > 1 ? index + 1 : null,
+					resolveSequenceIndex(documentState),
 					{
 						frames: documentState.frames ?? [],
 						drawFramesToContext,
@@ -108,14 +150,20 @@ export function createExportDownloadFacade({
 	}
 
 	async function downloadPsd() {
+		const targetDocuments = getTargetDocuments();
+		const resolveSequenceIndex = createBatchSequenceIndexResolver(
+			targetDocuments,
+			() => "psd",
+			buildFilename,
+		);
 		return runPsdExportFn({
-			targetDocuments: getTargetDocuments(),
+			targetDocuments,
 			renderSnapshot: (documentState) => renderSnapshot(documentState.id),
 			downloadSnapshot: (documentState, snapshot, index, targetDocuments) =>
 				downloadPsdFromSnapshot(
 					documentState,
 					snapshot,
-					targetDocuments.length > 1 ? index + 1 : null,
+					resolveSequenceIndex(documentState),
 					{
 						frames: documentState.frames ?? [],
 						drawFramesToContext,
@@ -134,26 +182,42 @@ export function createExportDownloadFacade({
 	}
 
 	async function downloadOutput() {
+		const targetDocuments = getTargetDocuments();
+		const resolveSequenceIndex = createBatchSequenceIndexResolver(
+			targetDocuments,
+			(documentState) => getExportSettings(documentState).exportFormat,
+			buildFilename,
+		);
 		return runOutputExportFn({
-			targetDocuments: getTargetDocuments(),
+			targetDocuments,
 			getExportSettings,
 			renderSnapshot: (documentState, _index, _targets, onProgress) =>
 				renderSnapshot(documentState.id, { onProgress }),
-			downloadPngSnapshot: (documentState, snapshot, sequenceIndex) =>
-				downloadPngFromSnapshot(documentState, snapshot, sequenceIndex, {
-					frames: documentState.frames ?? [],
-					drawFramesToContext,
-					previewContextError,
-					buildFilename,
-				}),
-			downloadPsdSnapshot: (documentState, snapshot, sequenceIndex) =>
-				downloadPsdFromSnapshot(documentState, snapshot, sequenceIndex, {
-					frames: documentState.frames ?? [],
-					drawFramesToContext,
-					previewContextError,
-					buildFilename,
-					buildPsdExportDocument,
-				}),
+			downloadPngSnapshot: (documentState, snapshot) =>
+				downloadPngFromSnapshot(
+					documentState,
+					snapshot,
+					resolveSequenceIndex(documentState),
+					{
+						frames: documentState.frames ?? [],
+						drawFramesToContext,
+						previewContextError,
+						buildFilename,
+					},
+				),
+			downloadPsdSnapshot: (documentState, snapshot) =>
+				downloadPsdFromSnapshot(
+					documentState,
+					snapshot,
+					resolveSequenceIndex(documentState),
+					{
+						frames: documentState.frames ?? [],
+						drawFramesToContext,
+						previewContextError,
+						buildFilename,
+						buildPsdExportDocument,
+					},
+				),
 			setExportStatus,
 			setSummary,
 			setStatus,

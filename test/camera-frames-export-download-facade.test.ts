@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
 	buildShotCameraExportFilename,
+	createBatchSequenceIndexResolver,
 	createExportBundleFacade,
 	createExportDownloadFacade,
 	createPsdExportDocumentBuilder,
@@ -20,6 +21,60 @@ import {
 	);
 
 	assert.equal(filename, "Camera B-2-03.psd");
+}
+
+{
+	const resolveSequenceIndex = createBatchSequenceIndexResolver(
+		[
+			{ id: "camera-a", name: "A" },
+			{ id: "camera-b", name: "B" },
+		],
+		() => "png",
+		(documentState, _snapshot, format, sequenceIndex) =>
+			buildShotCameraExportFilename(
+				documentState,
+				null,
+				format,
+				sequenceIndex,
+				{
+					shotCameras: [
+						{ id: "camera-a", name: "A" },
+						{ id: "camera-b", name: "B" },
+					],
+					getShotCameraExportBaseName: (state) => state.name,
+				},
+			),
+	);
+
+	assert.equal(resolveSequenceIndex({ id: "camera-a" }), null);
+	assert.equal(resolveSequenceIndex({ id: "camera-b" }), null);
+}
+
+{
+	const resolveSequenceIndex = createBatchSequenceIndexResolver(
+		[
+			{ id: "camera-a", name: "A" },
+			{ id: "camera-b", name: "A" },
+		],
+		() => "png",
+		(documentState, _snapshot, format, sequenceIndex) =>
+			buildShotCameraExportFilename(
+				documentState,
+				null,
+				format,
+				sequenceIndex,
+				{
+					shotCameras: [
+						{ id: "camera-a", name: "A" },
+						{ id: "camera-b", name: "A" },
+					],
+					getShotCameraExportBaseName: (state) => state.name,
+				},
+			),
+	);
+
+	assert.equal(resolveSequenceIndex({ id: "camera-a" }), 1);
+	assert.equal(resolveSequenceIndex({ id: "camera-b" }), 2);
 }
 
 {
@@ -183,6 +238,138 @@ import {
 	assert.equal(calls[7][1], "camera-a");
 	assert.equal(typeof calls[7][2]?.onProgress, "function");
 	assert.deepEqual(calls[8], ["png", "camera-a", 640, null, "name.png"]);
+}
+
+{
+	const calls = [];
+	const facade = createExportDownloadFacade({
+		getTargetDocuments: () => [
+			{ id: "camera-a", name: "Same", frames: [] },
+			{ id: "camera-b", name: "Same", frames: [] },
+		],
+		getExportSettings: () => ({ exportFormat: "png" }),
+		renderSnapshot: async () => ({ width: 640, height: 480 }),
+		downloadPngFromSnapshot: (
+			documentState,
+			_snapshot,
+			sequenceIndex,
+			options,
+		) => {
+			calls.push(
+				options.buildFilename(documentState, null, "png", sequenceIndex),
+			);
+		},
+		downloadPsdFromSnapshot: () => {},
+		drawFramesToContext: "draw",
+		previewContextError: "preview-error",
+		buildFilename: (documentState, _snapshot, format, sequenceIndex) =>
+			buildShotCameraExportFilename(
+				documentState,
+				null,
+				format,
+				sequenceIndex,
+				{
+					shotCameras: [
+						{ id: "camera-a", name: "Same" },
+						{ id: "camera-b", name: "Same" },
+					],
+					getShotCameraExportBaseName: (state) => state.name,
+				},
+			),
+		buildPsdExportDocument: () => "psd",
+		setExportStatus: () => {},
+		setSummary: () => {},
+		setStatus: () => {},
+		updateUi: () => {},
+		clearExportOverlay: () => {},
+		showExportErrorOverlay: () => {},
+		setExportProgressOverlay: () => {},
+		getPhaseDefaultDetail: () => "detail",
+		requireTargetsMessage: "missing",
+		t: (key) => key,
+		runPngExportFn: async (config) => {
+			for (const [index, documentState] of config.targetDocuments.entries()) {
+				const snapshot = await config.renderSnapshot(documentState);
+				config.downloadSnapshot(
+					documentState,
+					snapshot,
+					index,
+					config.targetDocuments,
+				);
+			}
+		},
+		runPsdExportFn: async () => {},
+		runOutputExportFn: async () => {},
+	});
+
+	await facade.downloadPng();
+	assert.deepEqual(calls, ["Same-01.png", "Same-02.png"]);
+}
+
+{
+	const calls = [];
+	const facade = createExportDownloadFacade({
+		getTargetDocuments: () => [
+			{ id: "camera-a", name: "A", frames: [] },
+			{ id: "camera-b", name: "B", frames: [] },
+		],
+		getExportSettings: () => ({ exportFormat: "png" }),
+		renderSnapshot: async () => ({ width: 640, height: 480 }),
+		downloadPngFromSnapshot: (
+			documentState,
+			_snapshot,
+			sequenceIndex,
+			options,
+		) => {
+			calls.push(
+				options.buildFilename(documentState, null, "png", sequenceIndex),
+			);
+		},
+		downloadPsdFromSnapshot: () => {},
+		drawFramesToContext: "draw",
+		previewContextError: "preview-error",
+		buildFilename: (documentState, _snapshot, format, sequenceIndex) =>
+			buildShotCameraExportFilename(
+				documentState,
+				null,
+				format,
+				sequenceIndex,
+				{
+					shotCameras: [
+						{ id: "camera-a", name: "A" },
+						{ id: "camera-b", name: "B" },
+					],
+					getShotCameraExportBaseName: (state) => state.name,
+				},
+			),
+		buildPsdExportDocument: () => "psd",
+		setExportStatus: () => {},
+		setSummary: () => {},
+		setStatus: () => {},
+		updateUi: () => {},
+		clearExportOverlay: () => {},
+		showExportErrorOverlay: () => {},
+		setExportProgressOverlay: () => {},
+		getPhaseDefaultDetail: () => "detail",
+		requireTargetsMessage: "missing",
+		t: (key) => key,
+		runPngExportFn: async (config) => {
+			for (const [index, documentState] of config.targetDocuments.entries()) {
+				const snapshot = await config.renderSnapshot(documentState);
+				config.downloadSnapshot(
+					documentState,
+					snapshot,
+					index,
+					config.targetDocuments,
+				);
+			}
+		},
+		runPsdExportFn: async () => {},
+		runOutputExportFn: async () => {},
+	});
+
+	await facade.downloadPng();
+	assert.deepEqual(calls, ["A.png", "B.png"]);
 }
 
 console.log("✅ CAMERA_FRAMES export download facade tests passed!");
