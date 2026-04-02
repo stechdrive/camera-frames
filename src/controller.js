@@ -7,6 +7,10 @@ import {
 } from "@sparkjsdev/spark";
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import {
+	createControllerAccessors,
+	createShotCameraEditorStateAccessors,
+} from "./app/controller-accessors.js";
 import { createShotCameraEditorStateController } from "./app/shot-camera-editor-state.js";
 import {
 	BASE_RENDER_BOX,
@@ -215,113 +219,6 @@ export function createCameraFramesController(elements, store) {
 	);
 	const shotCameraRegistry = new Map();
 
-	function registerShotCameraDocuments() {
-		return cameraController.registerShotCameraDocuments();
-	}
-
-	function getActiveShotCameraEntry() {
-		return cameraController.getActiveShotCameraEntry();
-	}
-
-	function getShotCameraDocument(shotCameraId) {
-		return cameraController.getShotCameraDocument(shotCameraId);
-	}
-
-	function getActiveShotCameraDocument() {
-		return cameraController.getActiveShotCameraDocument();
-	}
-
-	function updateActiveShotCameraDocument(updateDocument) {
-		return cameraController.updateActiveShotCameraDocument(updateDocument);
-	}
-
-	function setShotCameraDocuments(nextDocuments) {
-		return cameraController.setShotCameraDocuments(nextDocuments);
-	}
-
-	function getShotCameraExportBaseName(documentState, fallbackIndex = 1) {
-		return cameraController.getShotCameraExportBaseName(
-			documentState,
-			fallbackIndex,
-		);
-	}
-
-	function getActiveFrames() {
-		return frameController.getActiveFrames();
-	}
-
-	function resolveFrameAxis(value) {
-		return frameController.resolveFrameAxis(value);
-	}
-
-	function resolveFrameAnchor(value, fallback = null) {
-		return frameController.resolveFrameAnchor(value, fallback);
-	}
-
-	function getFrameAnchorDocument(frame) {
-		return frameController.getFrameAnchorDocument(frame);
-	}
-
-	function isFrameSelectionActive() {
-		return frameController.isFrameSelectionActive();
-	}
-
-	function clearFrameDrag() {
-		return frameController.clearFrameDrag();
-	}
-
-	function clearFrameSelection() {
-		return frameController.clearFrameSelection();
-	}
-
-	function clearOutputFramePan() {
-		return outputFrameController.clearOutputFramePan();
-	}
-
-	function clearOutputFrameAnchorDrag() {
-		return outputFrameController.clearOutputFrameAnchorDrag();
-	}
-
-	function clearOutputFrameResize() {
-		return outputFrameController.clearOutputFrameResize();
-	}
-
-	function selectOutputFrame() {
-		return outputFrameController.selectOutputFrame();
-	}
-
-	function clearOutputFrameSelection() {
-		return outputFrameController.clearOutputFrameSelection();
-	}
-
-	function getActiveShotCamera() {
-		return cameraController.getActiveShotCamera();
-	}
-
-	function getActiveCameraViewCamera() {
-		return cameraController.getActiveCameraViewCamera();
-	}
-
-	function getActiveOutputCamera() {
-		return cameraController.getActiveOutputCamera();
-	}
-
-	function getAutoClipRange(camera) {
-		return sceneFramingController.getAutoClipRange(camera);
-	}
-
-	function updateShotCameraHelpers() {
-		return cameraController.updateShotCameraHelpers();
-	}
-
-	function syncShotCameraEntryFromDocument(entry) {
-		return cameraController.syncShotCameraEntryFromDocument(entry);
-	}
-
-	function syncActiveShotCameraFromDocument() {
-		return cameraController.syncActiveShotCameraFromDocument();
-	}
-
 	const fpsMovement = new FpsMovement({
 		moveSpeed: DEFAULT_FPS_MOVE_SPEED,
 	});
@@ -356,6 +253,40 @@ export function createCameraFramesController(elements, store) {
 	let viewportToolController = null;
 	let shotCameraEditorStateController = null;
 	let projectPresentationSyncSuspended = true;
+
+	const {
+		registerShotCameraDocuments,
+		getActiveShotCameraEntry,
+		getShotCameraDocument,
+		getActiveShotCameraDocument,
+		updateActiveShotCameraDocument,
+		setShotCameraDocuments,
+		getShotCameraExportBaseName,
+		getActiveFrames,
+		resolveFrameAxis,
+		resolveFrameAnchor,
+		getFrameAnchorDocument,
+		isFrameSelectionActive,
+		clearFrameDrag,
+		clearFrameSelection,
+		clearOutputFramePan,
+		clearOutputFrameAnchorDrag,
+		clearOutputFrameResize,
+		selectOutputFrame,
+		clearOutputFrameSelection,
+		getActiveShotCamera,
+		getActiveCameraViewCamera,
+		getActiveOutputCamera,
+		getAutoClipRange,
+		updateShotCameraHelpers,
+		syncShotCameraEntryFromDocument,
+		syncActiveShotCameraFromDocument,
+	} = createControllerAccessors({
+		getCameraController: () => cameraController,
+		getFrameController: () => frameController,
+		getOutputFrameController: () => outputFrameController,
+		getSceneFramingController: () => sceneFramingController,
+	});
 
 	function currentLocale() {
 		return store.locale.value;
@@ -915,57 +846,19 @@ export function createCameraFramesController(elements, store) {
 		updateUi,
 	});
 
-	function captureActiveShotCameraEditorState() {
-		return shotCameraEditorStateController.captureActiveShotCameraEditorState();
-	}
-
-	function storeShotCameraEditorState(shotCameraId = null) {
-		return shotCameraEditorStateController.storeShotCameraEditorState(
-			shotCameraId,
-		);
-	}
-
-	function clearActiveShotCameraEditorState() {
-		return shotCameraEditorStateController.clearActiveShotCameraEditorState();
-	}
-
-	function restoreShotCameraEditorState(
-		shotCameraId,
-		{ fallbackSnapshot = null } = {},
-	) {
-		return shotCameraEditorStateController.restoreShotCameraEditorState(
-			shotCameraId,
-			{
-				fallbackSnapshot,
-			},
-		);
-	}
-
-	function captureShotCameraEditorStates() {
-		return shotCameraEditorStateController.captureShotCameraEditorStates();
-	}
-
-	function restoreShotCameraEditorStates(editorStates = null) {
-		return shotCameraEditorStateController.restoreShotCameraEditorStates(
-			editorStates,
-		);
-	}
-
-	function pruneShotCameraEditorStates() {
-		return shotCameraEditorStateController.pruneShotCameraEditorStates();
-	}
-
-	function prepareForShotCameraSwitch(currentShotCameraId) {
-		return shotCameraEditorStateController.prepareForShotCameraSwitch(
-			currentShotCameraId,
-		);
-	}
-
-	function restoreAfterShotCameraSwitch(nextShotCameraId) {
-		return shotCameraEditorStateController.restoreAfterShotCameraSwitch(
-			nextShotCameraId,
-		);
-	}
+	const {
+		captureActiveShotCameraEditorState,
+		storeShotCameraEditorState,
+		clearActiveShotCameraEditorState,
+		restoreShotCameraEditorState,
+		captureShotCameraEditorStates,
+		restoreShotCameraEditorStates,
+		pruneShotCameraEditorStates,
+		prepareForShotCameraSwitch,
+		restoreAfterShotCameraSwitch,
+	} = createShotCameraEditorStateAccessors({
+		getShotCameraEditorStateController: () => shotCameraEditorStateController,
+	});
 	referenceImageRenderController = createReferenceImageRenderController({
 		store,
 		renderBox,
