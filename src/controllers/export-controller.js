@@ -1,20 +1,10 @@
-import * as THREE from "three";
 import { IS_DEV_RUNTIME, hasEnabledQueryFlag } from "../build-info.js";
 import {
 	getAllExportBundlePasses,
 	renderExportPassToCanvas,
 } from "../engine/export-bundle.js";
-import { buildExportPassPlan } from "../engine/export-pass-plan.js";
-import {
-	buildExportReadinessPlan,
-	finalizeExportReadiness,
-} from "../engine/export-readiness.js";
-import { createSparkExportRendererManager } from "../engine/spark-export-renderer.js";
 import { buildSnapshotExportBundle } from "./export/bundle-build.js";
-import {
-	createCanvasFromPixels,
-	createSolidColorCanvas,
-} from "./export/canvas-utils.js";
+import { createCanvasFromPixels } from "./export/canvas-utils.js";
 import {
 	runOutputExport,
 	runPngExport,
@@ -27,20 +17,11 @@ import {
 	createPsdExportDocumentBuilder,
 } from "./export/download-facade.js";
 import {
-	renderModelLayerDocuments as renderModelLayerDocumentsHelper,
-	renderSplatLayerDocuments as renderSplatLayerDocumentsHelper,
-} from "./export/layer-documents.js";
-import { createAlphaPreviewPixels } from "./export/mask-pixels.js";
-import {
-	buildLayerMaskPixels,
-	buildSplatLayerMaskPixels,
-} from "./export/mask-pixels.js";
-import {
 	downloadPngFromSnapshot,
 	downloadPsdFromSnapshot,
 	renderCompositeOutputCanvas,
 } from "./export/output-download.js";
-import { renderOutputSnapshotSession } from "./export/output-snapshot.js";
+import { createExportOutputRuntime } from "./export/output-runtime.js";
 import {
 	clearExportOverlay as clearExportOverlayHelper,
 	createExportOptionsFacade,
@@ -50,31 +31,9 @@ import {
 import {
 	buildExportProgressOverlay,
 	getExportPhaseDefaultDetail,
-	getExportPhaseDefinitions,
 } from "./export/progress.js";
 import { buildPsdExportDocument as buildPsdDocument } from "./export/psd-document.js";
-import { renderReferenceImageLayersForShotCamera } from "./export/reference-images.js";
 import {
-	renderConfiguredSceneCapture as renderConfiguredSceneCaptureHelper,
-	renderConfiguredScenePixels as renderConfiguredScenePixelsHelper,
-	renderMaskPassSnapshots as renderMaskPassSnapshotsHelper,
-	renderPsdBasePixels as renderPsdBasePixelsHelper,
-} from "./export/render-capture.js";
-import {
-	renderGuideLayerPixels as renderGuideLayerPixelsHelper,
-	renderScenePixelsWithReadiness as renderScenePixelsWithReadinessHelper,
-} from "./export/render-session.js";
-import { applyExportAssetRenderOrder } from "./export/render-state.js";
-import {
-	withAssetRenderState as withAssetRenderStateHelper,
-	withMaskSceneState as withMaskSceneStateHelper,
-} from "./export/scene-state.js";
-import {
-	createSnapshotPhaseTracker,
-	withOutputSnapshotSession,
-} from "./export/snapshot-session.js";
-import {
-	buildSceneAssetExportMetadata,
 	getShotCameraExportSettings,
 	resolveExportTargetShotCameras,
 } from "./export/targets.js";
@@ -108,38 +67,6 @@ export function createExportController({
 }) {
 	const exportDebugLayersEnabled =
 		IS_DEV_RUNTIME && hasEnabledQueryFlag("psdDebug");
-	let exportRenderLock = false;
-	const exportRenderBackend = createSparkExportRendererManager({
-		sourceSpark: spark,
-	});
-	let guideRenderTarget = null;
-
-	function ensureGuideRenderTarget(width, height) {
-		const needsNewTarget =
-			!guideRenderTarget ||
-			guideRenderTarget.width !== width ||
-			guideRenderTarget.height !== height;
-		if (!needsNewTarget) {
-			return guideRenderTarget;
-		}
-		guideRenderTarget?.dispose?.();
-		guideRenderTarget = new THREE.WebGLRenderTarget(width, height, {
-			format: THREE.RGBAFormat,
-			type: THREE.UnsignedByteType,
-			colorSpace: THREE.SRGBColorSpace,
-			depthBuffer: false,
-			stencilBuffer: false,
-		});
-		return guideRenderTarget;
-	}
-
-	function getNowMs() {
-		if (typeof performance !== "undefined" && performance.now) {
-			return performance.now();
-		}
-
-		return Date.now();
-	}
 
 	function setExportProgressOverlay(
 		targetDocuments,
@@ -181,198 +108,26 @@ export function createExportController({
 		});
 	}
 
-	function clonePixelBuffer(pixels) {
-		return pixels ? new Uint8Array(pixels) : pixels;
-	}
-
-	function getRenderableSceneAssets() {
-		return getSceneAssets().filter(
-			(asset) => asset.exportRole !== "omit" && asset.object.visible !== false,
-		);
-	}
-
-	function renderConfiguredSceneCapture(config) {
-		return renderConfiguredSceneCaptureHelper(config, {
-			scene,
-			withAssetRenderState,
-			renderScenePixelsWithReadiness,
-			buildSceneAssetExportMetadata,
-			flipPixels,
-			clonePixels: clonePixelBuffer,
-		});
-	}
-
-	function renderConfiguredScenePixels(config) {
-		return renderConfiguredScenePixelsHelper(config, {
-			renderCapture: renderConfiguredSceneCapture,
-		});
-	}
-
-	function renderMaskPassSnapshots(config) {
-		return renderMaskPassSnapshotsHelper(config, {
-			withMaskSceneState,
-			renderScenePixelsWithReadiness,
-			buildSceneAssetExportMetadata,
-			getSceneAssets,
-			flipPixels,
-			clonePixels: clonePixelBuffer,
-		});
-	}
-
-	function renderPsdBasePixels(config) {
-		return renderPsdBasePixelsHelper(config, {
-			renderScenePixels: renderConfiguredScenePixels,
-		});
-	}
-
-	function withAssetRenderState(config, callback) {
-		return withAssetRenderStateHelper(config, callback, {
-			scene,
-			guides,
-			guideOverlay,
-			renderer,
-			getSceneAssets,
-			applyRenderOrder: applyExportAssetRenderOrder,
-		});
-	}
-
-	function withMaskSceneState(maskPass, allowedAssetIds, callback) {
-		return withMaskSceneStateHelper(maskPass, allowedAssetIds, callback, {
-			scene,
-			getSceneAssets,
-		});
-	}
-
-	function renderGuideLayerPixels(config) {
-		return renderGuideLayerPixelsHelper(config, {
-			ensureRenderTarget: ensureGuideRenderTarget,
-			renderer,
-			guideOverlay,
-			flipPixels,
-		});
-	}
-
-	function renderScenePixelsWithReadiness(config) {
-		return renderScenePixelsWithReadinessHelper(config, {
-			buildReadinessPlan: buildExportReadinessPlan,
-			finalizeReadiness: finalizeExportReadiness,
-			getNowMs,
-			renderBackend: exportRenderBackend,
-		});
-	}
-
-	function withSnapshotSession(shotCameraId, callback) {
-		return withOutputSnapshotSession(
-			{ shotCameraId },
-			{
-				scene,
-				spark,
-				guides,
-				guideOverlay,
-				shotCameraRegistry,
-				store,
-				getShotCameraDocument,
-				getShotCameraExportSettings,
-				getActiveOutputCamera,
-				getOutputSizeState,
-				getRenderableSceneAssets,
-				buildSceneAssetExportMetadata,
-				buildExportPassPlan,
-				createSolidColorCanvas,
-				syncActiveShotCameraFromDocument,
-				syncShotProjection,
-				syncOutputCamera,
-				updateShotCameraHelpers,
-				setRenderLock: (locked) => {
-					exportRenderLock = locked;
-				},
-			},
-			callback,
-		);
-	}
-
-	function renderModelLayerDocuments(config) {
-		return renderModelLayerDocumentsHelper(config, {
-			renderScenePixels: renderConfiguredScenePixels,
-			createCanvasFromPixels,
-			buildLayerMaskPixels,
-			createAlphaPreviewPixels,
-			exportDebugLayersEnabled,
-		});
-	}
-
-	function renderSplatLayerDocuments(config) {
-		return renderSplatLayerDocumentsHelper(config, {
-			renderScenePixels: renderConfiguredScenePixels,
-			createCanvasFromPixels,
-			buildSplatLayerMaskPixels,
-			createAlphaPreviewPixels,
-			exportDebugLayersEnabled,
-		});
-	}
-
-	async function renderOutputSnapshotForShotCamera(
-		shotCameraId,
-		{ onProgress = null } = {},
-	) {
-		return withSnapshotSession(
-			shotCameraId,
-			async ({
-				targetDocument,
-				targetExportSettings,
-				outputCamera,
-				width,
-				height,
-				renderableSceneAssets,
-				sceneAssets,
-				backgroundCanvas,
-				passPlan,
-			}) => {
-				return renderOutputSnapshotSession(
-					{
-						scene,
-						targetDocument,
-						targetExportSettings,
-						outputCamera,
-						width,
-						height,
-						renderableSceneAssets,
-						sceneAssets,
-						backgroundCanvas,
-						passPlan,
-						referenceImageDocument: store.referenceImages.document.value,
-						referenceImagesExportSessionEnabled:
-							store.referenceImages.exportSessionEnabled.value,
-						t,
-					},
-					{
-						phaseTracker: createSnapshotPhaseTracker(
-							{
-								targetExportSettings,
-								passPlan,
-								includeReferenceImages:
-									store.referenceImages.exportSessionEnabled.value !== false,
-								onProgress,
-								t,
-							},
-							{
-								getPhaseDefinitions: getExportPhaseDefinitions,
-								getPhaseDefaultDetail: getExportPhaseDefaultDetail,
-							},
-						),
-						renderConfiguredSceneCapture,
-						clonePixels: clonePixelBuffer,
-						renderGuideLayerPixels,
-						renderMaskPassSnapshots,
-						renderPsdBasePixels,
-						renderModelLayerDocuments,
-						renderSplatLayerDocuments,
-						renderReferenceImageLayersForShotCamera,
-					},
-				);
-			},
-		);
-	}
+	const outputRuntime = createExportOutputRuntime({
+		scene,
+		renderer,
+		spark,
+		guides,
+		guideOverlay,
+		shotCameraRegistry,
+		store,
+		flipPixels,
+		t,
+		getSceneAssets,
+		getShotCameraDocument,
+		getActiveOutputCamera,
+		getOutputSizeState,
+		syncActiveShotCameraFromDocument,
+		syncShotProjection,
+		syncOutputCamera,
+		updateShotCameraHelpers,
+		exportDebugLayersEnabled,
+	});
 
 	const buildShotCameraExportFilename = (...args) =>
 		buildShotCameraExportFilenameHelper(...args, {
@@ -393,7 +148,7 @@ export function createExportController({
 		createExportDownloadFacade({
 			getTargetDocuments: getExportTargetShotCameras,
 			getExportSettings: getShotCameraExportSettings,
-			renderSnapshot: renderOutputSnapshotForShotCamera,
+			renderSnapshot: outputRuntime.renderOutputSnapshotForShotCamera,
 			downloadPngFromSnapshot,
 			downloadPsdFromSnapshot,
 			drawFramesToContext,
@@ -445,7 +200,8 @@ export function createExportController({
 
 	return {
 		getExportTargetShotCameras,
-		renderOutputSnapshotForShotCamera,
+		renderOutputSnapshotForShotCamera:
+			outputRuntime.renderOutputSnapshotForShotCamera,
 		buildExportBundle: exportBundleFacade.buildExportBundle,
 		renderCompositeOutputCanvas: exportBundleFacade.renderCompositeOutputCanvas,
 		downloadPng,
@@ -455,7 +211,7 @@ export function createExportController({
 		setExportTarget,
 		toggleExportPreset,
 		setReferenceImageExportSessionEnabled,
-		isRenderLocked,
-		dispose,
+		isRenderLocked: outputRuntime.isRenderLocked,
+		dispose: outputRuntime.dispose,
 	};
 }
