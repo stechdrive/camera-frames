@@ -42,6 +42,12 @@ import {
 } from "./export/output-download.js";
 import { renderOutputSnapshotSession } from "./export/output-snapshot.js";
 import {
+	clearExportOverlay as clearExportOverlayHelper,
+	createExportOptionsFacade,
+	setExportProgressOverlay as setExportProgressOverlayHelper,
+	showExportErrorOverlay as showExportErrorOverlayHelper,
+} from "./export/presentation.js";
+import {
 	buildExportProgressOverlay,
 	getExportPhaseDefaultDetail,
 	getExportPhaseDefinitions,
@@ -142,42 +148,30 @@ export function createExportController({
 		startedAt,
 		phaseState = null,
 	) {
-		store.overlay.value = buildExportProgressOverlay({
+		return setExportProgressOverlayHelper(
 			targetDocuments,
 			currentIndex,
 			exportFormat,
 			startedAt,
 			phaseState,
-			t,
-		});
+			{
+				store,
+				t,
+				buildExportProgressOverlay,
+			},
+		);
 	}
 
 	function clearExportOverlay() {
-		if (store.overlay.value?.source === "export") {
-			store.overlay.value = null;
-		}
+		return clearExportOverlayHelper(store);
 	}
 
 	function showExportErrorOverlay(error) {
-		const detail =
-			error instanceof Error
-				? error.stack || error.message
-				: String(error ?? "");
-		store.overlay.value = {
-			source: "export",
-			kind: "error",
-			title: t("overlay.exportErrorTitle"),
-			message: t("overlay.exportErrorMessage"),
-			detail,
-			detailLabel: t("overlay.errorDetails"),
-			actions: [
-				{
-					label: t("action.close"),
-					primary: true,
-					onClick: () => clearExportOverlay(),
-				},
-			],
-		};
+		return showExportErrorOverlayHelper(error, {
+			store,
+			t,
+			clearExportOverlay: clearExportOverlayHelper,
+		});
 	}
 
 	function getExportTargetShotCameras() {
@@ -431,47 +425,15 @@ export function createExportController({
 		renderCompositeOutputCanvas,
 	});
 
-	function setExportTarget(nextValue) {
-		const target =
-			nextValue === "all" || nextValue === "selected" ? nextValue : "current";
-		store.exportOptions.target.value = target;
-		if (
-			target === "selected" &&
-			store.exportOptions.presetIds.value.length === 0 &&
-			store.workspace.activeShotCameraId.value
-		) {
-			store.exportOptions.presetIds.value = [
-				store.workspace.activeShotCameraId.value,
-			];
-		}
-		setStatus(
-			t("status.exportTargetChanged", {
-				target: t(`exportTarget.${target}`),
-			}),
-		);
-	}
-
-	function toggleExportPreset(shotCameraId) {
-		const nextIds = new Set(store.exportOptions.presetIds.value);
-		if (nextIds.has(shotCameraId)) {
-			nextIds.delete(shotCameraId);
-		} else {
-			nextIds.add(shotCameraId);
-		}
-
-		store.exportOptions.presetIds.value = store.workspace.shotCameras.value
-			.filter((documentState) => nextIds.has(documentState.id))
-			.map((documentState) => documentState.id);
-		setStatus(
-			t("status.exportPresetSelection", {
-				count: store.exportOptions.presetIds.value.length,
-			}),
-		);
-	}
-
-	function setReferenceImageExportSessionEnabled(nextEnabled) {
-		store.referenceImages.exportSessionEnabled.value = nextEnabled !== false;
-	}
+	const {
+		setExportTarget,
+		toggleExportPreset,
+		setReferenceImageExportSessionEnabled,
+	} = createExportOptionsFacade({
+		store,
+		t,
+		setStatus,
+	});
 
 	function isRenderLocked() {
 		return exportRenderLock;
