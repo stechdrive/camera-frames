@@ -16,9 +16,13 @@ import {
 	createSolidColorCanvas,
 } from "./export/canvas-utils.js";
 import {
+	renderModelLayerDocuments as renderModelLayerDocumentsHelper,
+	renderSplatLayerDocuments as renderSplatLayerDocumentsHelper,
+} from "./export/layer-documents.js";
+import { createAlphaPreviewPixels } from "./export/mask-pixels.js";
+import {
 	buildLayerMaskPixels,
 	buildSplatLayerMaskPixels,
-	createAlphaPreviewPixels,
 } from "./export/mask-pixels.js";
 import {
 	downloadPngFromSnapshot,
@@ -39,6 +43,10 @@ import {
 	renderPsdBasePixels as renderPsdBasePixelsHelper,
 } from "./export/render-capture.js";
 import { applyExportAssetRenderOrder } from "./export/render-state.js";
+import {
+	withAssetRenderState as withAssetRenderStateHelper,
+	withMaskSceneState as withMaskSceneStateHelper,
+} from "./export/scene-state.js";
 import {
 	buildSceneAssetExportMetadata,
 	getShotCameraExportSettings,
@@ -72,8 +80,6 @@ export function createExportController({
 	syncOutputCamera,
 	updateShotCameraHelpers,
 }) {
-	const MASK_FOREGROUND_COLOR = new THREE.Color(0xffffff);
-	const MASK_BACKGROUND_COLOR = new THREE.Color(0x000000);
 	const exportDebugLayersEnabled =
 		IS_DEV_RUNTIME && hasEnabledQueryFlag("psdDebug");
 	let exportRenderLock = false;
@@ -205,220 +211,42 @@ export function createExportController({
 		});
 	}
 
-	function createMaskMaterial(sourceMaterial, color) {
-		const maskMaterial = new THREE.MeshBasicMaterial({
-			color,
-			side: sourceMaterial?.side ?? THREE.FrontSide,
-			depthTest: sourceMaterial?.depthTest !== false,
-			depthWrite: sourceMaterial?.depthWrite !== false,
-			fog: false,
-			toneMapped: false,
+	function withAssetRenderState(config, callback) {
+		return withAssetRenderStateHelper(config, callback, {
+			scene,
+			guides,
+			guideOverlay,
+			renderer,
+			getSceneAssets,
+			applyRenderOrder: applyExportAssetRenderOrder,
 		});
-		applySourceCutoutState(maskMaterial, sourceMaterial);
-		maskMaterial.name = `${sourceMaterial?.name || "material"}__mask`;
-		return maskMaterial;
 	}
 
-	function applySourceCutoutState(material, sourceMaterial) {
-		if (!material || !sourceMaterial) {
-			return material;
-		}
-
-		material.map = sourceMaterial.map ?? null;
-		material.alphaMap = sourceMaterial.alphaMap ?? null;
-		material.alphaTest = Number(sourceMaterial.alphaTest) || 0;
-		material.opacity = Number.isFinite(sourceMaterial.opacity)
-			? sourceMaterial.opacity
-			: 1;
-		material.transparent = sourceMaterial.transparent === true;
-		material.alphaHash = sourceMaterial.alphaHash === true;
-		material.vertexColors = Boolean(sourceMaterial.vertexColors);
-
-		if (material.map || material.alphaMap) {
-			material.onBeforeCompile = (shader) => {
-				shader.fragmentShader = shader.fragmentShader.replace(
-					"#include <alphamap_fragment>",
-					"#include <alphamap_fragment>\n\tdiffuseColor.rgb = diffuse;",
-				);
-			};
-			material.customProgramCacheKey = () =>
-				`camera-frames-export-cutout:${material.map ? 1 : 0}:${
-					material.alphaMap ? 1 : 0
-				}:${material.alphaTest}:${material.alphaHash ? 1 : 0}`;
-		}
-
-		return material;
-	}
-
-	function createFlatRenderMaterial(
-		sourceMaterial,
-		color,
-		{ colorWrite = true, depthTest = true, depthWrite = true } = {},
-	) {
-		const material = new THREE.MeshBasicMaterial({
-			color,
-			side: sourceMaterial?.side ?? THREE.FrontSide,
-			depthTest,
-			depthWrite,
-			fog: false,
-			toneMapped: false,
-			transparent: false,
-			opacity: 1,
+	function withMaskSceneState(maskPass, allowedAssetIds, callback) {
+		return withMaskSceneStateHelper(maskPass, allowedAssetIds, callback, {
+			scene,
+			getSceneAssets,
 		});
-		applySourceCutoutState(material, sourceMaterial);
-		material.colorWrite = colorWrite;
-		material.name = `${sourceMaterial?.name || "material"}__export`;
-		return material;
 	}
 
-	async function withAssetRenderState(
-		{
-			sceneBackground = null,
-			clearAlpha = 0,
-			guidesVisible = false,
-			guideOverlayState = null,
-			resolveAssetRole,
-		},
-		callback,
-	) {
-		const previousBackground = scene.background;
-		const previousGuidesVisible = guides.visible;
-		const previousGuideOverlayState = guideOverlay.captureState();
-		const previousClearAlpha = renderer.getClearAlpha();
-		const previousClearColor = renderer
-			.getClearColor(new THREE.Color())
-			.clone();
-		const restoreCallbacks = [];
+	function renderModelLayerDocuments(config) {
+		return renderModelLayerDocumentsHelper(config, {
+			renderScenePixels: renderConfiguredScenePixels,
+			createCanvasFromPixels,
+			buildLayerMaskPixels,
+			createAlphaPreviewPixels,
+			exportDebugLayersEnabled,
+		});
+	}
 
-		scene.background = sceneBackground;
-		guides.visible = guidesVisible;
-		if (guideOverlayState) {
-			guideOverlay.applyState(guideOverlayState);
-		}
-		renderer.setClearColor(0x000000, clearAlpha);
-
-		for (const asset of getSceneAssets()) {
-			const previousVisible = asset.object.visible;
-			restoreCallbacks.push(() => {
-				asset.object.visible = previousVisible;
-			});
-			const role = resolveAssetRole(asset);
-			if (!role || role === "hide") {
-				asset.object.visible = false;
-				continue;
-			}
-
-			asset.object.visible = true;
-			applyExportAssetRenderOrder(asset.object, role, restoreCallbacks);
-
-			if (asset.kind === "splat" && asset.disposeTarget) {
-				const previousRecolor = asset.disposeTarget.recolor.clone();
-				const previousOpacity = asset.disposeTarget.opacity;
-				restoreCallbacks.push(() => {
-					asset.disposeTarget.recolor.copy(previousRecolor);
-					asset.disposeTarget.opacity = previousOpacity;
-				});
-				if (role === "mask-target") {
-					asset.disposeTarget.recolor.copy(MASK_FOREGROUND_COLOR);
-					asset.disposeTarget.opacity = 1;
-				} else if (role === "mask-occluder") {
-					asset.disposeTarget.recolor.copy(MASK_BACKGROUND_COLOR);
-					asset.disposeTarget.opacity = 1;
-				} else if (role === "mask-alpha-occluder") {
-					asset.disposeTarget.recolor.copy(MASK_FOREGROUND_COLOR);
-					asset.disposeTarget.opacity = previousOpacity;
-				}
-				continue;
-			}
-
-			asset.object.traverse((node) => {
-				if (!node.material) {
-					return;
-				}
-
-				const previousMaterial = node.material;
-				let nextMaterial = previousMaterial;
-				if (role === "mask-target") {
-					nextMaterial = Array.isArray(previousMaterial)
-						? previousMaterial.map((material) =>
-								createFlatRenderMaterial(material, MASK_FOREGROUND_COLOR, {
-									depthTest: true,
-									depthWrite: true,
-								}),
-							)
-						: createFlatRenderMaterial(
-								previousMaterial,
-								MASK_FOREGROUND_COLOR,
-								{
-									depthTest: true,
-									depthWrite: true,
-								},
-							);
-				} else if (role === "mask-occluder") {
-					nextMaterial = Array.isArray(previousMaterial)
-						? previousMaterial.map((material) =>
-								createFlatRenderMaterial(material, MASK_BACKGROUND_COLOR, {
-									depthTest: true,
-									depthWrite: true,
-								}),
-							)
-						: createFlatRenderMaterial(
-								previousMaterial,
-								MASK_BACKGROUND_COLOR,
-								{
-									depthTest: true,
-									depthWrite: true,
-								},
-							);
-				} else if (role === "depth-occluder") {
-					nextMaterial = Array.isArray(previousMaterial)
-						? previousMaterial.map((material) =>
-								createFlatRenderMaterial(material, MASK_BACKGROUND_COLOR, {
-									colorWrite: false,
-									depthTest: true,
-									depthWrite: true,
-								}),
-							)
-						: createFlatRenderMaterial(
-								previousMaterial,
-								MASK_BACKGROUND_COLOR,
-								{
-									colorWrite: false,
-									depthTest: true,
-									depthWrite: true,
-								},
-							);
-				}
-
-				if (nextMaterial === previousMaterial) {
-					return;
-				}
-
-				node.material = nextMaterial;
-				restoreCallbacks.push(() => {
-					if (Array.isArray(node.material)) {
-						for (const material of node.material) {
-							material.dispose?.();
-						}
-					} else {
-						node.material?.dispose?.();
-					}
-					node.material = previousMaterial;
-				});
-			});
-		}
-
-		try {
-			return await callback();
-		} finally {
-			for (let index = restoreCallbacks.length - 1; index >= 0; index -= 1) {
-				restoreCallbacks[index]();
-			}
-			scene.background = previousBackground;
-			guides.visible = previousGuidesVisible;
-			guideOverlay.applyState(previousGuideOverlayState);
-			renderer.setClearColor(previousClearColor, previousClearAlpha);
-		}
+	function renderSplatLayerDocuments(config) {
+		return renderSplatLayerDocumentsHelper(config, {
+			renderScenePixels: renderConfiguredScenePixels,
+			createCanvasFromPixels,
+			buildSplatLayerMaskPixels,
+			createAlphaPreviewPixels,
+			exportDebugLayersEnabled,
+		});
 	}
 
 	async function renderGuideLayerPixels({
@@ -464,364 +292,6 @@ export function createExportController({
 			renderer.autoClear = previousAutoClear;
 			renderer.setClearColor(previousClearColor, previousClearAlpha);
 		}
-	}
-
-	async function renderModelLayerDocuments({
-		camera,
-		width,
-		height,
-		sceneAssets,
-		exportSettings,
-		onProgress = null,
-	}) {
-		if (!exportSettings.exportModelLayers) {
-			return [];
-		}
-
-		const modelAssets = sceneAssets.filter((asset) => asset.kind === "model");
-		if (modelAssets.length === 0) {
-			return {
-				layers: [],
-				debugGroups: [],
-			};
-		}
-
-		const modelLayers = [];
-		const modelDebugGroups = [];
-		for (const [index, modelAsset] of modelAssets.entries()) {
-			onProgress?.({
-				index: index + 1,
-				count: modelAssets.length,
-				name: modelAsset.label,
-			});
-			const sourcePixels = await renderConfiguredScenePixels({
-				camera,
-				width,
-				height,
-				sceneAssets,
-				resolveAssetRole: (asset) =>
-					asset.id === modelAsset.id ? "normal" : "hide",
-			});
-			const modelVisibilityPixels = await renderConfiguredScenePixels({
-				camera,
-				width,
-				height,
-				sceneAssets,
-				resolveAssetRole: (asset) => {
-					if (asset.id === modelAsset.id) {
-						return "mask-target";
-					}
-					if (asset.exportRole === "omit") {
-						return "hide";
-					}
-					if (asset.kind === "model") {
-						return "mask-occluder";
-					}
-					return "hide";
-				},
-			});
-			const splatOccluderPixels = await renderConfiguredScenePixels({
-				camera,
-				width,
-				height,
-				sceneAssets,
-				resolveAssetRole: (asset) => {
-					if (asset.id === modelAsset.id) {
-						return "depth-occluder";
-					}
-					if (asset.exportRole === "omit") {
-						return "hide";
-					}
-					if (asset.kind === "splat") {
-						return "mask-alpha-occluder";
-					}
-					return "hide";
-				},
-			});
-			const layerMaskPixels = buildLayerMaskPixels(
-				sourcePixels,
-				modelVisibilityPixels,
-				splatOccluderPixels,
-			);
-			modelLayers.push({
-				name: modelAsset.label,
-				canvas: createCanvasFromPixels(sourcePixels, width, height),
-				mask: {
-					canvas: createCanvasFromPixels(layerMaskPixels, width, height),
-					left: 0,
-					top: 0,
-					right: width,
-					bottom: height,
-					defaultColor: 0,
-				},
-			});
-
-			if (exportDebugLayersEnabled) {
-				modelDebugGroups.push({
-					name: `__DEBUG ${modelAsset.label}`,
-					hidden: true,
-					opened: false,
-					children: [
-						{
-							name: "Source Alpha",
-							canvas: createCanvasFromPixels(
-								createAlphaPreviewPixels(sourcePixels),
-								width,
-								height,
-							),
-						},
-						{
-							name: "Model Visibility Alpha",
-							canvas: createCanvasFromPixels(
-								createAlphaPreviewPixels(modelVisibilityPixels),
-								width,
-								height,
-							),
-						},
-						{
-							name: "Splat Occluder Alpha",
-							canvas: createCanvasFromPixels(
-								createAlphaPreviewPixels(splatOccluderPixels),
-								width,
-								height,
-							),
-						},
-						{
-							name: "Final Mask",
-							canvas: createCanvasFromPixels(layerMaskPixels, width, height),
-						},
-					],
-				});
-			}
-		}
-
-		return {
-			layers: modelLayers,
-			debugGroups: modelDebugGroups,
-		};
-	}
-
-	async function renderSplatLayerDocuments({
-		camera,
-		width,
-		height,
-		sceneAssets,
-		exportSettings,
-		onProgress = null,
-	}) {
-		if (!exportSettings.exportSplatLayers) {
-			return {
-				layers: [],
-				debugGroups: [],
-			};
-		}
-
-		const splatAssets = sceneAssets.filter((asset) => asset.kind === "splat");
-		if (splatAssets.length === 0) {
-			return {
-				layers: [],
-				debugGroups: [],
-			};
-		}
-
-		const splatLayers = [];
-		const splatDebugGroups = [];
-
-		for (let index = 0; index < splatAssets.length; index += 1) {
-			const splatAsset = splatAssets[index];
-			onProgress?.({
-				index: index + 1,
-				count: splatAssets.length,
-				name: splatAsset.label,
-			});
-			const lowerSplatAssets = splatAssets.slice(index + 1);
-			const lowerSplatIds = new Set(lowerSplatAssets.map((asset) => asset.id));
-			const isBottomSplatLayer = index === splatAssets.length - 1;
-
-			const sourcePixels = await renderConfiguredScenePixels({
-				camera,
-				width,
-				height,
-				sceneAssets,
-				resolveAssetRole: (asset) => {
-					if (asset.kind === "model") {
-						return "hide";
-					}
-					return asset.id === splatAsset.id ? "normal" : "hide";
-				},
-			});
-
-			const overlay = {
-				name: splatAsset.label,
-				canvas: createCanvasFromPixels(sourcePixels, width, height),
-			};
-
-			if (!isBottomSplatLayer) {
-				const lowerPixels = await renderConfiguredScenePixels({
-					camera,
-					width,
-					height,
-					sceneAssets,
-					resolveAssetRole: (asset) => {
-						if (asset.kind === "model") {
-							return "hide";
-						}
-						return lowerSplatIds.has(asset.id) ? "normal" : "hide";
-					},
-				});
-
-				const compositePixels = await renderConfiguredScenePixels({
-					camera,
-					width,
-					height,
-					sceneAssets,
-					resolveAssetRole: (asset) => {
-						if (asset.kind === "model") {
-							return "hide";
-						}
-						return asset.id === splatAsset.id || lowerSplatIds.has(asset.id)
-							? "normal"
-							: "hide";
-					},
-				});
-
-				const layerMaskPixels = buildSplatLayerMaskPixels(
-					sourcePixels,
-					compositePixels,
-					lowerPixels,
-					width,
-					height,
-				);
-				overlay.mask = {
-					canvas: createCanvasFromPixels(layerMaskPixels, width, height),
-					left: 0,
-					top: 0,
-					right: width,
-					bottom: height,
-					defaultColor: 0,
-				};
-
-				if (exportDebugLayersEnabled) {
-					splatDebugGroups.push({
-						name: `__DEBUG ${splatAsset.label}`,
-						hidden: true,
-						opened: false,
-						children: [
-							{
-								name: "Source Alpha",
-								canvas: createCanvasFromPixels(
-									createAlphaPreviewPixels(sourcePixels),
-									width,
-									height,
-								),
-							},
-							{
-								name: "Composite Alpha",
-								canvas: createCanvasFromPixels(
-									createAlphaPreviewPixels(compositePixels),
-									width,
-									height,
-								),
-							},
-							{
-								name: "Lower Alpha",
-								canvas: createCanvasFromPixels(
-									createAlphaPreviewPixels(lowerPixels),
-									width,
-									height,
-								),
-							},
-							{
-								name: "Final Mask",
-								canvas: createCanvasFromPixels(layerMaskPixels, width, height),
-							},
-						],
-					});
-				}
-			}
-
-			splatLayers.push(overlay);
-		}
-
-		return {
-			layers: splatLayers,
-			debugGroups: splatDebugGroups,
-		};
-	}
-
-	function withMaskSceneState(maskPass, allowedAssetIds, callback) {
-		const targetAssetIds = new Set(maskPass.assetIds ?? []);
-		const previousBackground = scene.background;
-		const restoreCallbacks = [];
-
-		scene.background = MASK_BACKGROUND_COLOR;
-
-		for (const asset of getSceneAssets()) {
-			const previousVisible = asset.object.visible;
-			restoreCallbacks.push(() => {
-				asset.object.visible = previousVisible;
-			});
-			if (!allowedAssetIds.has(asset.id)) {
-				asset.object.visible = false;
-				continue;
-			}
-			const isTargetAsset = targetAssetIds.has(asset.id);
-
-			if (asset.exportRole === "omit" && !isTargetAsset) {
-				asset.object.visible = false;
-				continue;
-			}
-
-			asset.object.visible = true;
-			const tintColor = isTargetAsset
-				? MASK_FOREGROUND_COLOR
-				: MASK_BACKGROUND_COLOR;
-
-			if (asset.kind === "splat" && asset.disposeTarget) {
-				const previousRecolor = asset.disposeTarget.recolor.clone();
-				const previousOpacity = asset.disposeTarget.opacity;
-				asset.disposeTarget.recolor.copy(tintColor);
-				asset.disposeTarget.opacity = 1;
-				restoreCallbacks.push(() => {
-					asset.disposeTarget.recolor.copy(previousRecolor);
-					asset.disposeTarget.opacity = previousOpacity;
-				});
-				continue;
-			}
-
-			asset.object.traverse((node) => {
-				if (!node.material) {
-					return;
-				}
-
-				const previousMaterial = node.material;
-				const nextMaterial = Array.isArray(previousMaterial)
-					? previousMaterial.map((material) =>
-							createMaskMaterial(material, tintColor),
-						)
-					: createMaskMaterial(previousMaterial, tintColor);
-				node.material = nextMaterial;
-				restoreCallbacks.push(() => {
-					if (Array.isArray(node.material)) {
-						for (const material of node.material) {
-							material.dispose?.();
-						}
-					} else {
-						node.material?.dispose?.();
-					}
-					node.material = previousMaterial;
-				});
-			});
-		}
-
-		const restoreMaskSceneState = () => {
-			for (let index = restoreCallbacks.length - 1; index >= 0; index -= 1) {
-				restoreCallbacks[index]();
-			}
-			scene.background = previousBackground;
-		};
-
-		return Promise.resolve().then(callback).finally(restoreMaskSceneState);
 	}
 
 	async function renderScenePixelsWithReadiness({
