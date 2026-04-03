@@ -11,6 +11,7 @@ import {
 	createControllerAccessors,
 	createShotCameraEditorStateAccessors,
 } from "./app/controller-accessors.js";
+import { createFileOpenRouting } from "./app/file-open-routing.js";
 import { createProjectStateBridge } from "./app/project-state-bridge.js";
 import { createShotCameraEditorStateController } from "./app/shot-camera-editor-state.js";
 import {
@@ -781,6 +782,18 @@ export function createCameraFramesController(elements, store) {
 		setStatus,
 		t,
 	});
+	const { openFiles, handleAssetInputChange } = createFileOpenRouting({
+		openProjectSource: (...args) =>
+			projectController?.openProjectSource?.(...args),
+		supportsReferenceImageFile: (...args) =>
+			referenceImageController?.supportsReferenceImageFile?.(...args) ?? false,
+		importDroppedFiles: (...args) =>
+			assetController?.importDroppedFiles?.(...args),
+		importReferenceImageFiles: (...args) =>
+			referenceImageController?.importReferenceImageFiles?.(...args),
+		fallbackOpenFiles: (...args) => assetController?.openFiles?.(...args),
+		setStatus,
+	});
 	runtimeController = createRuntimeController({
 		renderer,
 		scene,
@@ -1542,37 +1555,6 @@ export function createCameraFramesController(elements, store) {
 		assetController.clearScene();
 	}
 
-	function isProjectPackageFile(file) {
-		return /\.ssproj$/i.test(String(file?.name ?? "").trim());
-	}
-
-	async function importOpenedFiles(files, { projectFileHandle = null } = {}) {
-		if (!Array.isArray(files) || files.length === 0) {
-			return;
-		}
-
-		if (files.length === 1 && isProjectPackageFile(files[0])) {
-			await projectController?.openProjectSource(files[0], {
-				fileHandle: projectFileHandle,
-			});
-			return;
-		}
-
-		const referenceFiles = files.filter((file) =>
-			referenceImageController.supportsReferenceImageFile(file),
-		);
-		const assetFiles = files.filter(
-			(file) => !referenceImageController.supportsReferenceImageFile(file),
-		);
-
-		if (assetFiles.length > 0) {
-			await assetController.importDroppedFiles(assetFiles);
-		}
-		if (referenceFiles.length > 0) {
-			await referenceImageController.importReferenceImageFiles(referenceFiles);
-		}
-	}
-
 	function startNewProject() {
 		return projectController?.startNewProject();
 	}
@@ -1583,47 +1565,6 @@ export function createCameraFramesController(elements, store) {
 
 	function exportProject() {
 		return projectController?.exportProject();
-	}
-
-	async function openFiles() {
-		if (typeof globalThis.showOpenFilePicker === "function") {
-			try {
-				const fileHandles = await globalThis.showOpenFilePicker({
-					multiple: true,
-				});
-				const files = await Promise.all(
-					fileHandles.map((fileHandle) => fileHandle.getFile()),
-				);
-				const projectFileHandle =
-					files.length === 1 && isProjectPackageFile(files[0])
-						? fileHandles[0]
-						: null;
-				await importOpenedFiles(files, { projectFileHandle });
-				return;
-			} catch (error) {
-				if (error?.name === "AbortError") {
-					return;
-				}
-				console.error(error);
-				setStatus(error.message);
-				return;
-			}
-		}
-
-		assetController.openFiles();
-	}
-
-	async function handleAssetInputChange(event) {
-		const files = [...(event.currentTarget?.files ?? [])];
-		if (files.length === 0) {
-			return;
-		}
-
-		try {
-			await importOpenedFiles(files);
-		} finally {
-			event.currentTarget.value = "";
-		}
 	}
 
 	runtimeController.init();
