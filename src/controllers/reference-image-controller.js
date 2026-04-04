@@ -71,6 +71,7 @@ export function createReferenceImageController({
 	setStatus,
 	updateUi,
 	ensureCameraMode,
+	onReferenceImageSelectionCleared = () => {},
 	getActiveShotCameraDocument,
 	updateActiveShotCameraDocument,
 	getOutputSizeState,
@@ -197,6 +198,12 @@ export function createReferenceImageController({
 		store.referenceImages.selectedItemIds.value = normalized.selectedItemIds;
 		store.referenceImages.selectedItemId.value = normalized.activeItemId;
 		store.referenceImages.selectedAssetId.value = nextActiveAssetId;
+		if (
+			previousSelectionKey !== nextSelectionKey &&
+			normalized.selectedItemIds.length === 0
+		) {
+			onReferenceImageSelectionCleared?.();
+		}
 		if (normalized.selectedItemIds.length > 0) {
 			lastNonEmptyReferenceSelectionState = {
 				selectedItemIds: [...normalized.selectedItemIds],
@@ -1742,6 +1749,15 @@ export function createReferenceImageController({
 			return;
 		}
 		if (!additive && !toggle) {
+			const currentSelectedIds = getSelectedItemIds();
+			if (
+				currentSelectedIds.length === 1 &&
+				currentSelectedIds[0] === item.id &&
+				store.referenceImages.selectedItemId.value === item.id
+			) {
+				clearSelection();
+				return;
+			}
 			referenceListSelectionAnchorId = item.id;
 			setSelectionState({
 				selectedItemIds: [item.id],

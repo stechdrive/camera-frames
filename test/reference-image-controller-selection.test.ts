@@ -29,7 +29,9 @@ function createSourceMeta(filename) {
 	};
 }
 
-function createTestController() {
+function createTestController({
+	onReferenceImageSelectionCleared = () => {},
+} = {}) {
 	const store = createCameraFramesStore();
 	let shotCameraDocument = createShotCameraDocument({
 		name: "Camera A",
@@ -42,6 +44,7 @@ function createTestController() {
 		setStatus: () => {},
 		updateUi: () => {},
 		ensureCameraMode: () => {},
+		onReferenceImageSelectionCleared,
 		getActiveShotCameraDocument: () => shotCameraDocument,
 		updateActiveShotCameraDocument: (updater) => {
 			shotCameraDocument = updater(shotCameraDocument);
@@ -130,6 +133,49 @@ function createTestController() {
 		"item-a-2",
 	]);
 	assert.equal(store.referenceImages.selectedItemId.value, "item-a-2");
+}
+
+{
+	let clearedCount = 0;
+	const { store, controller, setShotPresetId } = createTestController({
+		onReferenceImageSelectionCleared: () => {
+			clearedCount += 1;
+		},
+	});
+	const asset = createReferenceImageAsset({
+		id: "asset-single-reclick",
+		label: "Single Reclick",
+		sourceMeta: createSourceMeta("single-reclick.png"),
+	});
+	const preset = createReferenceImagePreset({
+		id: "preset-single-reclick",
+		name: "Single Reclick",
+		items: [
+			createReferenceImageItem({
+				id: "item-single-reclick",
+				assetId: asset.id,
+				name: "Layer",
+				order: 0,
+			}),
+		],
+	});
+	const documentState = createDefaultReferenceImageDocument();
+	documentState.presets.push(preset);
+	documentState.assets.push(asset);
+	documentState.activePresetId = preset.id;
+	setShotPresetId(preset.id);
+	store.referenceImages.document.value = documentState;
+	controller.syncUiState();
+
+	controller.selectReferenceImageItem("item-single-reclick");
+	assert.deepEqual(store.referenceImages.selectedItemIds.value, [
+		"item-single-reclick",
+	]);
+
+	controller.selectReferenceImageItem("item-single-reclick");
+	assert.deepEqual(store.referenceImages.selectedItemIds.value, []);
+	assert.equal(store.referenceImages.selectedItemId.value, "");
+	assert.equal(clearedCount, 1);
 }
 
 {
