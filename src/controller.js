@@ -13,6 +13,7 @@ import {
 } from "./app/controller-accessors.js";
 import { createFileOpenRouting } from "./app/file-open-routing.js";
 import { createPresentationSync } from "./app/presentation-sync.js";
+import { createProjectSceneCommands } from "./app/project-scene-commands.js";
 import { createProjectStateBridge } from "./app/project-state-bridge.js";
 import { createShotCameraEditorStateController } from "./app/shot-camera-editor-state.js";
 import { createViewportEditingCommands } from "./app/viewport-editing-commands.js";
@@ -354,6 +355,22 @@ export function createCameraFramesController(elements, store) {
 		getUiSyncController: () => uiSyncController,
 		isProjectPresentationSyncSuspended: () => projectPresentationSyncSuspended,
 		updateCameraSummary: () => updateCameraSummary(),
+	});
+	const {
+		resetSelectedAssetWorkingPivot,
+		clearSceneAssetSelection,
+		clearScene,
+		startNewProject,
+		saveProject,
+		exportProject,
+	} = createProjectSceneCommands({
+		store,
+		getAssetController: () => assetController,
+		getLightingController: () => lightingController,
+		getMeasurementController: () => measurementController,
+		getProjectController: () => projectController,
+		getReferenceImageController: () => referenceImageController,
+		getViewportToolController: () => viewportToolController,
 	});
 	const {
 		setViewportToolMode,
@@ -1344,38 +1361,6 @@ export function createCameraFramesController(elements, store) {
 
 	function updateCameraSummary() {
 		return uiSyncController?.updateCameraSummary();
-	}
-
-	function resetSelectedAssetWorkingPivot() {
-		const selectedAssetId = store.selectedSceneAssetId.value;
-		if (!selectedAssetId) {
-			return;
-		}
-		assetController.resetAssetWorkingPivot(selectedAssetId);
-	}
-
-	function clearSceneAssetSelection() {
-		assetController.clearSceneAssetSelection();
-	}
-
-	function clearScene() {
-		measurementController?.clearMeasurementSession?.({ keepActive: false });
-		viewportToolController.setViewportTransformMode(false);
-		referenceImageController?.clearReferenceImages?.();
-		lightingController?.resetLighting?.();
-		assetController.clearScene();
-	}
-
-	function startNewProject() {
-		return projectController?.startNewProject();
-	}
-
-	function saveProject() {
-		return projectController?.saveProject();
-	}
-
-	function exportProject() {
-		return projectController?.exportProject();
 	}
 
 	runtimeController.init();
