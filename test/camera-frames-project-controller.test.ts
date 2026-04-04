@@ -238,6 +238,28 @@ function createHarness(overrides = {}) {
 }
 
 {
+	const originalShowSaveFilePicker = globalThis.showSaveFilePicker;
+	globalThis.showSaveFilePicker = async () => {
+		const error = new Error("The user aborted a request.");
+		error.name = "AbortError";
+		throw error;
+	};
+	try {
+		const harness = createHarness();
+		await harness.projectController.exportProject();
+		assert.equal(harness.store.overlay.value?.kind, "confirm");
+		await harness.store.overlay.value.onSubmit({
+			compressSplatsToSog: false,
+			sogMaxShBands: "2",
+			sogIterations: "10",
+		});
+		assert.equal(harness.store.overlay.value, null);
+	} finally {
+		globalThis.showSaveFilePicker = originalShowSaveFilePicker;
+	}
+}
+
+{
 	const harness = createHarness();
 	harness.projectController.syncProjectPresentation();
 	harness.setProjectState({

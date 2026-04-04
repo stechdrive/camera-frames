@@ -954,23 +954,23 @@ export function createProjectController({
 		currentProjectName =
 			currentProjectName || getProjectBaseName(buildProjectFilename());
 		const suggestedName = getSuggestedPackageFilename();
-		const resolvedSaveTarget =
-			saveTarget ??
-			(await resolvePackageSaveTarget(suggestedName, {
-				saveMode,
-			}));
-
-		setOverlay(
-			buildPackageProgressOverlay(
-				t,
-				"collect-state",
-				t("overlay.packageDetailCollect"),
-				{ startedAt: progressStartedAt },
-			),
-		);
-		await new Promise((resolve) => requestAnimationFrame(resolve));
-
 		try {
+			const resolvedSaveTarget =
+				saveTarget ??
+				(await resolvePackageSaveTarget(suggestedName, {
+					saveMode,
+				}));
+
+			setOverlay(
+				buildPackageProgressOverlay(
+					t,
+					"collect-state",
+					t("overlay.packageDetailCollect"),
+					{ startedAt: progressStartedAt },
+				),
+			);
+			await new Promise((resolve) => requestAnimationFrame(resolve));
+
 			const writable = await resolvedSaveTarget.fileHandle.createWritable();
 			let packageResult = null;
 			try {
