@@ -7,6 +7,7 @@ import {
 } from "@sparkjsdev/spark";
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { createAssetControllerBindings } from "./app/asset-controller-bindings.js";
 import { createCameraControllerBindings } from "./app/camera-controller-bindings.js";
 import { createCameraPoseCommands } from "./app/camera-pose-commands.js";
 import {
@@ -411,37 +412,34 @@ export function createCameraFramesController(elements, store) {
 		updateUi: () => updateUi(),
 	});
 
-	assetController = createAssetController({
-		sceneState,
-		assetInput,
-		store,
-		loader,
-		splatRoot,
-		modelRoot,
-		contentRoot,
-		SplatMesh,
-		setStatus,
-		updateUi,
-		updateCameraSummary,
-		frameAllCameras,
-		placeAllCamerasAtHome,
-		resetLocalizedCaches,
-		setExportStatus,
-		t,
-		formatAssetWorldScale,
-		getDefaultAssetUnitMode,
-		isProjectPackageSource,
-		extractProjectPackageAssets,
-		applyProjectPackageImport,
-		openProjectSource: (...args) =>
-			projectController?.openProjectSource?.(...args),
-		disposeObject,
-		runHistoryAction: historyController.runHistoryAction,
-		beginHistoryTransaction: historyController.beginHistoryTransaction,
-		commitHistoryTransaction: historyController.commitHistoryTransaction,
-		cancelHistoryTransaction: historyController.cancelHistoryTransaction,
-		clearHistory: historyController.clearHistory,
-	});
+	assetController = createAssetController(
+		createAssetControllerBindings({
+			sceneState,
+			assetInput,
+			store,
+			loader,
+			splatRoot,
+			modelRoot,
+			contentRoot,
+			SplatMesh,
+			setStatus,
+			updateUi,
+			updateCameraSummary,
+			frameAllCameras,
+			placeAllCamerasAtHome,
+			resetLocalizedCaches,
+			setExportStatus,
+			t,
+			formatAssetWorldScale,
+			getDefaultAssetUnitMode,
+			isProjectPackageSource,
+			extractProjectPackageAssets,
+			applyProjectPackageImport,
+			projectController,
+			disposeObject,
+			historyController,
+		}),
+	);
 
 	const exportController = createExportController({
 		scene,
@@ -756,18 +754,20 @@ export function createCameraFramesController(elements, store) {
 			t,
 		}),
 	);
-	const { openFiles, handleAssetInputChange } = createFileOpenRouting({
-		openProjectSource: (...args) =>
-			projectController?.openProjectSource?.(...args),
-		supportsReferenceImageFile: (...args) =>
-			referenceImageController?.supportsReferenceImageFile?.(...args) ?? false,
-		importDroppedFiles: (...args) =>
-			assetController?.importDroppedFiles?.(...args),
-		importReferenceImageFiles: (...args) =>
-			referenceImageController?.importReferenceImageFiles?.(...args),
-		fallbackOpenFiles: (...args) => assetController?.openFiles?.(...args),
-		setStatus,
-	});
+	const { importOpenedFiles, openFiles, handleAssetInputChange } =
+		createFileOpenRouting({
+			openProjectSource: (...args) =>
+				projectController?.openProjectSource?.(...args),
+			supportsReferenceImageFile: (...args) =>
+				referenceImageController?.supportsReferenceImageFile?.(...args) ??
+				false,
+			importDroppedFiles: (...args) =>
+				assetController?.importDroppedFiles?.(...args),
+			importReferenceImageFiles: (...args) =>
+				referenceImageController?.importReferenceImageFiles?.(...args),
+			fallbackOpenFiles: (...args) => assetController?.openFiles?.(...args),
+			setStatus,
+		});
 	runtimeController = createRuntimeController(
 		createRuntimeControllerBindings({
 			renderer,
@@ -778,6 +778,7 @@ export function createCameraFramesController(elements, store) {
 			dropHint,
 			anchorDot,
 			assetController,
+			importOpenedFiles,
 			importReferenceImageFiles:
 				referenceImageController.importReferenceImageFiles,
 			supportsReferenceImageFile:

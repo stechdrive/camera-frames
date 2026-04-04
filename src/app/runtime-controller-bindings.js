@@ -7,6 +7,7 @@ export function createRuntimeControllerBindings({
 	dropHint,
 	anchorDot,
 	assetController,
+	importOpenedFiles,
 	referenceImageController,
 	projectController,
 	historyController,
@@ -66,6 +67,7 @@ export function createRuntimeControllerBindings({
 		dropHint,
 		anchorDot,
 		assetController,
+		importOpenedFiles,
 		importReferenceImageFiles:
 			referenceImageController.importReferenceImageFiles,
 		supportsReferenceImageFile:

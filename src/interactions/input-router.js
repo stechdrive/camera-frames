@@ -29,6 +29,7 @@ export function bindInputRouter({
 	viewportShell,
 	dropHint,
 	anchorDot,
+	importOpenedFiles,
 	assetController,
 	importReferenceImageFiles,
 	supportsReferenceImageFile,
@@ -404,11 +405,15 @@ export function bindInputRouter({
 				: files;
 
 		try {
-			if (referenceImageFiles.length > 0) {
-				await importReferenceImageFiles?.(referenceImageFiles);
-			}
-			if (assetFiles.length > 0) {
-				await assetController.importDroppedFiles(assetFiles);
+			if (typeof importOpenedFiles === "function") {
+				await importOpenedFiles(files);
+			} else {
+				if (referenceImageFiles.length > 0) {
+					await importReferenceImageFiles?.(referenceImageFiles);
+				}
+				if (assetFiles.length > 0) {
+					await assetController.importDroppedFiles(assetFiles);
+				}
 			}
 		} catch (error) {
 			console.error(error);

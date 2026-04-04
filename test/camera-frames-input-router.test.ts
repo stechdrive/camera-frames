@@ -110,6 +110,7 @@ function createInputRouterHarness(overrides = {}) {
 		viewportShell,
 		dropHint,
 		anchorDot,
+		importOpenedFiles: overrides.importOpenedFiles,
 		assetController: {
 			importDroppedFiles: async (files) =>
 				calls.push(["import-assets", files.map((file) => file.name)]),
@@ -249,6 +250,28 @@ function createInputRouterHarness(overrides = {}) {
 			"focus restore must not re-enable Spark FPV keyboard movement",
 		);
 		assert.equal(harness.pointerControls.enable, true);
+	} finally {
+		harness.restore();
+	}
+}
+
+{
+	const calls = [];
+	const harness = createInputRouterHarness({
+		importOpenedFiles: async (files) => {
+			calls.push(["import-opened-files", files.map((file) => file.name)]);
+		},
+	});
+	try {
+		const drop = harness.listeners.get(harness.viewportShell).get("drop");
+		await drop({
+			preventDefault() {},
+			dataTransfer: {
+				files: [{ name: "scene.ssproj" }],
+			},
+		});
+		assert.deepEqual(calls, [["import-opened-files", ["scene.ssproj"]]]);
+		assert.deepEqual(harness.calls, []);
 	} finally {
 		harness.restore();
 	}
