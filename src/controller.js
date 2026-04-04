@@ -17,6 +17,7 @@ import { createFileOpenRouting } from "./app/file-open-routing.js";
 import { createInteractionZoomCommands } from "./app/interaction-zoom-commands.js";
 import { createOutputFrameAccessors } from "./app/output-frame-accessors.js";
 import { createPresentationSync } from "./app/presentation-sync.js";
+import { createProjectOpenApply } from "./app/project-open-apply.js";
 import { createProjectSceneCommands } from "./app/project-scene-commands.js";
 import { createProjectStateBridge } from "./app/project-state-bridge.js";
 import { createProjectionFramingCommands } from "./app/projection-framing-commands.js";
@@ -496,29 +497,13 @@ export function createCameraFramesController(elements, store) {
 		clearOutputFrameSelection,
 	});
 
-	async function applyOpenedProject(
-		parsedProject,
-		{
-			projectName = "",
-			loadedStatus = t("status.projectLoaded"),
-			onAssetProgress = null,
-		} = {},
-	) {
-		assetController.clearScene();
-		const projectSources = parsedProject.assetEntries.map(
-			(entry) => entry.source,
-		);
-		if (projectSources.length > 0) {
-			await assetController.loadSources(projectSources, false, {
-				onProgress: onAssetProgress,
-			});
-		}
-		onAssetProgress?.("apply", t("overlay.importDetailApply"));
-		applySavedProjectState(parsedProject.project);
-		historyController?.clearHistory();
-		setStatus(loadedStatus);
-		return true;
-	}
+	const applyOpenedProject = createProjectOpenApply({
+		getAssetController: () => assetController,
+		applySavedProjectState,
+		getHistoryController: () => historyController,
+		setStatus,
+		t,
+	});
 
 	historyController = createHistoryController({
 		store,
