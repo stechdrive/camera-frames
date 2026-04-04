@@ -69,6 +69,10 @@ export function ViewportShell({ store, controller, refs, t }) {
 	const frameMaskCanvasRef = useRef(null);
 	const mode = store.mode.value;
 	const workbenchCollapsed = store.workbenchCollapsed.value;
+	const splatEditActive = store.splatEdit.active.value;
+	const splatEditTool = store.splatEdit.tool.value;
+	const splatEditScopeCount = store.splatEdit.scopeAssetIds.value.length;
+	const splatEditSelectionCount = store.splatEdit.selectionCount.value;
 	const frames = store.frames.documents.value;
 	const selectedFrameIds = new Set(store.frames.selectedIds.value ?? []);
 	const rememberedMaskFrameIds = new Set(
@@ -243,6 +247,7 @@ export function ViewportShell({ store, controller, refs, t }) {
 		controller()?.startReferenceImageRotate?.(zoneKey, event);
 	const startReferenceImageAnchorDrag = (event) =>
 		controller()?.startReferenceImageAnchorDrag?.(event);
+	const setSplatEditTool = (tool) => controller()?.setSplatEditTool?.(tool);
 
 	useLayoutEffect(() => {
 		const canvas = frameMaskCanvasRef.current;
@@ -372,6 +377,50 @@ export function ViewportShell({ store, controller, refs, t }) {
 				`
 				}
 			</div>
+			${
+				splatEditActive &&
+				html`
+					<div class="viewport-splat-edit-hud">
+						<div class="viewport-splat-edit-hud__header">
+							<strong>${t("action.splatEditTool")}</strong>
+							<span>
+								${t("status.splatEditScopeSummary", {
+									scope: splatEditScopeCount,
+									selected: splatEditSelectionCount,
+								})}
+							</span>
+						</div>
+						<div
+							class="viewport-splat-edit-hud__tools"
+							role="group"
+							aria-label=${t("action.splatEditTool")}
+						>
+							<button
+								type="button"
+								class=${
+									splatEditTool === "box"
+										? "viewport-splat-edit-hud__tool viewport-splat-edit-hud__tool--active"
+										: "viewport-splat-edit-hud__tool"
+								}
+								onClick=${() => setSplatEditTool("box")}
+							>
+								${t("status.splatEditToolBox")}
+							</button>
+							<button
+								type="button"
+								class=${
+									splatEditTool === "brush"
+										? "viewport-splat-edit-hud__tool viewport-splat-edit-hud__tool--active"
+										: "viewport-splat-edit-hud__tool"
+								}
+								onClick=${() => setSplatEditTool("brush")}
+							>
+								${t("status.splatEditToolBrush")}
+							</button>
+						</div>
+					</div>
+				`
+			}
 			<div
 				id="drop-hint"
 				ref=${refs.dropHintRef}

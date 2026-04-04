@@ -583,6 +583,9 @@ const MESSAGES = {
 				"3DGS 編集モードを有効にしました。{count} 件の 3DGS asset を編集対象にします。",
 			splatEditDisabled: "3DGS 編集モードを終了しました。",
 			splatEditRequiresScope: "先に Scene で 3DGS asset を選択してください。",
+			splatEditScopeSummary: "{scope} asset / {selected} splat selected",
+			splatEditToolBox: "BOX",
+			splatEditToolBrush: "BRUSH",
 			zoomToolUnavailable: "ズームツールはここでは使えません。",
 			lensToolEnabled:
 				"焦点距離調整。ドラッグで 35mm横幅換算を変更、Esc で解除。",
@@ -1265,6 +1268,9 @@ const MESSAGES = {
 			splatEditDisabled: "Exited 3DGS edit mode.",
 			splatEditRequiresScope:
 				"Select at least one 3DGS asset in the Scene tab first.",
+			splatEditScopeSummary: "{scope} asset / {selected} splat selected",
+			splatEditToolBox: "BOX",
+			splatEditToolBrush: "BRUSH",
 			zoomToolUnavailable: "The zoom tool is not available here.",
 			lensToolEnabled:
 				"Lens adjust active. Drag to change the 35mm horizontal equivalent, press Esc to exit.",
