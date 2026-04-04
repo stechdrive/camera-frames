@@ -14,6 +14,7 @@ function ReferencePropertyInlineField({
 	onScrubStart = null,
 	onScrubEnd = null,
 	onInteractStart = null,
+	formatDisplayValue = null,
 	scrubStartValue = null,
 	inputMode = "decimal",
 	min = undefined,
@@ -35,6 +36,7 @@ function ReferencePropertyInlineField({
 					controller=${controller}
 					historyLabel=${historyLabel}
 					disabled=${disabled}
+					formatDisplayValue=${formatDisplayValue}
 					onScrubDelta=${onScrubDelta}
 					onScrubStart=${onScrubStart}
 					onScrubEnd=${onScrubEnd}

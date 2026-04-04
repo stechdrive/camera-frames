@@ -183,10 +183,7 @@ function createTestController() {
 	assert.equal(initialInspectorState.rotationDeltaDeg, 0);
 	assert.equal(initialInspectorState.scaleDeltaPercent, 0);
 
-	assert.equal(
-		controller.offsetSelectedReferenceImagesPosition("x", 10),
-		true,
-	);
+	assert.equal(controller.offsetSelectedReferenceImagesPosition("x", 10), true);
 	controller.syncUiState();
 	const afterMoveInspectorState =
 		controller.getSelectedReferenceImageInspectorState();
@@ -203,10 +200,7 @@ function createTestController() {
 	assert.equal(afterRotateInspectorState.offsetYDelta, 0);
 	assert.equal(afterRotateInspectorState.rotationDeltaDeg, 15);
 
-	assert.equal(
-		controller.offsetSelectedReferenceImagesPosition("x", 5),
-		true,
-	);
+	assert.equal(controller.offsetSelectedReferenceImagesPosition("x", 5), true);
 	controller.syncUiState();
 	const afterSecondMoveInspectorState =
 		controller.getSelectedReferenceImageInspectorState();
@@ -341,10 +335,7 @@ function createTestController() {
 	controller.selectReferenceImageItem("item-late-a");
 	controller.selectReferenceImageItem("item-late-b", { additive: true });
 
-	assert.equal(
-		controller.offsetSelectedReferenceImagesPosition("x", 10),
-		true,
-	);
+	assert.equal(controller.offsetSelectedReferenceImagesPosition("x", 10), true);
 	controller.syncUiState();
 	const inspectorState = controller.getSelectedReferenceImageInspectorState();
 	assert.ok(inspectorState);

@@ -1249,8 +1249,8 @@ export function createReferenceImageController({
 									y: store.referenceImages.selectionAnchor.value.y,
 								}
 							: storedSelectionBox &&
-								  Number.isFinite(storedSelectionBox.anchorX) &&
-								  Number.isFinite(storedSelectionBox.anchorY)
+									Number.isFinite(storedSelectionBox.anchorX) &&
+									Number.isFinite(storedSelectionBox.anchorY)
 								? {
 										x: storedSelectionBox.anchorX,
 										y: storedSelectionBox.anchorY,

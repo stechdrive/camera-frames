@@ -32,6 +32,7 @@ function CameraPropertyInlineField({
 	onCommit,
 	onScrubDelta = null,
 	onScrubStart = null,
+	formatDisplayValue = null,
 	scrubStartValue = null,
 	inputMode = "decimal",
 	min = undefined,
@@ -52,6 +53,7 @@ function CameraPropertyInlineField({
 					value=${value}
 					controller=${controller}
 					historyLabel=${historyLabel}
+					formatDisplayValue=${formatDisplayValue}
 					disabled=${disabled}
 					onScrubDelta=${onScrubDelta}
 					onScrubStart=${onScrubStart}

@@ -5,6 +5,7 @@ import {
 	getBaseHorizontalFovDegreesForStandardFrameHorizontalEquivalentMm,
 	snapStandardFrameHorizontalEquivalentMm,
 } from "../engine/camera-lens.js";
+import { formatNumericDraftDisplayValue } from "./numeric-draft-format.js";
 import { WorkbenchIcon } from "./workbench-icons.js";
 
 export function stopUiEvent(event) {
@@ -187,6 +188,7 @@ export function NumericDraftInput({
 	onInteractStart = null,
 	controller = null,
 	historyLabel = "",
+	formatDisplayValue = null,
 	scrubModifiers = null,
 	scrubHandleSide = "auto",
 	scrubStartValue = null,
@@ -269,6 +271,14 @@ export function NumericDraftInput({
 			clamped = Math.min(max, clamped);
 		}
 		return clamped;
+	}
+
+	function formatDisplayNumber(nextValue) {
+		return formatNumericDraftDisplayValue(nextValue, {
+			formatDisplayValue,
+			template: formattedValue,
+			step: props.step,
+		});
 	}
 
 	function getScrubMultiplier(event) {
@@ -389,7 +399,7 @@ export function NumericDraftInput({
 				return;
 			}
 			const nextValue = clampValue(scrubState.appliedValue + deltaValue);
-			const nextDraftValue = String(nextValue);
+			const nextDraftValue = formatDisplayNumber(nextValue);
 			const appliedDeltaValue = nextValue - scrubState.appliedValue;
 			if (
 				!Number.isFinite(appliedDeltaValue) ||
