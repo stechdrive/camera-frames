@@ -302,6 +302,7 @@ export function createCameraFramesController(elements, store) {
 		captureProjectState,
 		buildProjectFilename,
 		applySavedProjectState,
+		resetWorkspaceToDefaults,
 	} = createProjectStateBridge({
 		store,
 		state,
@@ -833,10 +834,8 @@ export function createCameraFramesController(elements, store) {
 			lightingController?.resetLighting?.();
 		},
 		resetProjectWorkspace: () => {
-			measurementController?.clearMeasurementSession?.({ keepActive: false });
 			viewportToolController.setViewportTransformMode(false);
-			restoreShotCameraEditorStates(null);
-			clearActiveShotCameraEditorState();
+			resetWorkspaceToDefaults();
 			referenceImageController?.clearReferenceImages?.();
 			lightingController?.resetLighting?.();
 			assetController.clearScene();

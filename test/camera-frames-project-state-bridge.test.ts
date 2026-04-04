@@ -73,9 +73,11 @@ function createBridgeHarness(overrides = {}) {
 		};
 	const frameController = overrides.frameController ?? {
 		clearFrameInteraction: () => calls.push(["frame-clear"]),
+		clearFrameSelection: () => calls.push(["frame-selection-clear"]),
 	};
 	const outputFrameController = overrides.outputFrameController ?? {
 		clearOutputFramePan: () => calls.push(["output-pan-clear"]),
+		clearOutputFrameSelection: () => calls.push(["output-selection-clear"]),
 		clearOutputFrameAnchorDrag: () => calls.push(["output-anchor-clear"]),
 		clearOutputFrameResize: () => calls.push(["output-resize-clear"]),
 	};
@@ -166,6 +168,9 @@ function createBridgeHarness(overrides = {}) {
 		updateOutputFrameOverlay: () => calls.push(["update-output-overlay"]),
 		updateUi: () => calls.push(["update-ui"]),
 		cloneShotCameraDocumentImpl: (documentState) => ({ ...documentState }),
+		createDefaultShotCameraDocumentsImpl:
+			overrides.createDefaultShotCameraDocumentsImpl ??
+			(() => [{ id: "shot-camera-1", name: "Camera 1" }]),
 		getDefaultProjectFilenameImpl: () => "default.ssproj",
 		buildLegacyProjectImportImpl:
 			overrides.buildLegacyProjectImportImpl ??
@@ -349,6 +354,41 @@ function createBridgeHarness(overrides = {}) {
 	assert.ok(
 		calls.some(([label]) => label === "update-ui"),
 		"refreshes UI after applying saved project state",
+	);
+}
+
+{
+	const { bridge, calls, store, getShotDocuments } = createBridgeHarness({
+		shotDocuments: [
+			{ id: "camera-a", name: "Camera A", frames: [{ id: "frame-z" }] },
+		],
+	});
+
+	bridge.resetWorkspaceToDefaults();
+
+	assert.equal(store.workspace.activeShotCameraId.value, "shot-camera-1");
+	assert.equal(store.viewportBaseFovXDirty.value, false);
+	assert.deepEqual(getShotDocuments(), [
+		{ id: "shot-camera-1", name: "Camera 1" },
+	]);
+	assert.deepEqual(
+		calls.filter(([label]) => label === "set-shot-cameras"),
+		[
+			["set-shot-cameras", []],
+			["set-shot-cameras", ["shot-camera-1"]],
+		],
+	);
+	assert.ok(
+		calls.some(([label]) => label === "frame-selection-clear"),
+		"clears frame selection for a fresh project",
+	);
+	assert.ok(
+		calls.some(([label]) => label === "output-selection-clear"),
+		"clears output frame selection for a fresh project",
+	);
+	assert.ok(
+		calls.some(([label]) => label === "update-ui"),
+		"refreshes UI after resetting to defaults",
 	);
 }
 

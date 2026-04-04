@@ -1,10 +1,22 @@
 import * as THREE from "three";
 import {
+	MIN_STANDARD_FRAME_HORIZONTAL_EQUIVALENT_MM,
+	getBaseHorizontalFovDegreesForStandardFrameHorizontalEquivalentMm,
+} from "../engine/camera-lens.js";
+import {
 	applyLegacyCameraTransform,
 	buildLegacyProjectImport,
 } from "../importers/legacy-ssproj.js";
 import { getDefaultProjectFilename } from "../project-file.js";
-import { cloneShotCameraDocument } from "../workspace-model.js";
+import {
+	cloneShotCameraDocument,
+	createDefaultShotCameraDocuments,
+} from "../workspace-model.js";
+
+const DEFAULT_VIEWPORT_BASE_FOVX =
+	getBaseHorizontalFovDegreesForStandardFrameHorizontalEquivalentMm(
+		MIN_STANDARD_FRAME_HORIZONTAL_EQUIVALENT_MM,
+	);
 
 export function captureCameraPose(camera) {
 	return {
@@ -101,6 +113,7 @@ export function createProjectStateBridge({
 	updateOutputFrameOverlay,
 	updateUi,
 	cloneShotCameraDocumentImpl = cloneShotCameraDocument,
+	createDefaultShotCameraDocumentsImpl = createDefaultShotCameraDocuments,
 	getDefaultProjectFilenameImpl = getDefaultProjectFilename,
 	buildLegacyProjectImportImpl = buildLegacyProjectImport,
 	applyLegacyCameraTransformImpl = applyLegacyCameraTransform,
@@ -401,6 +414,39 @@ export function createProjectStateBridge({
 		updateUi();
 	}
 
+	function resetWorkspaceToDefaults() {
+		const defaultShotCameras = createDefaultShotCameraDocumentsImpl().map(
+			(documentState) => cloneShotCameraDocumentImpl(documentState),
+		);
+		setShotCameraDocuments([]);
+		setShotCameraDocuments(defaultShotCameras);
+		registerShotCameraDocuments();
+		store.workspace.activeShotCameraId.value =
+			defaultShotCameras[0]?.id ?? store.workspace.activeShotCameraId.value;
+		store.viewportBaseFovX.value = DEFAULT_VIEWPORT_BASE_FOVX;
+		store.viewportBaseFovXDirty.value = false;
+		restoreShotCameraEditorStates(null);
+		clearActiveShotCameraEditorState();
+		getMeasurementController?.()?.clearMeasurementSession?.({
+			keepActive: false,
+		});
+		getFrameController?.()?.clearFrameSelection?.();
+		getOutputFrameController?.()?.clearOutputFrameSelection?.();
+		getOutputFrameController?.()?.clearOutputFrameAnchorDrag?.();
+		getOutputFrameController?.()?.clearOutputFrameResize?.();
+		getInteractionController?.()?.clearControlMomentum?.();
+		syncControlsToMode();
+		syncViewportProjection();
+		syncShotProjection();
+		applyCameraViewProjection();
+		syncOutputCamera();
+		updateOutputFrameOverlay();
+		updateShotCameraHelpers();
+		updateCameraSummary();
+		updateUi();
+		return defaultShotCameras;
+	}
+
 	return {
 		captureWorkspaceState,
 		restoreWorkspaceState,
@@ -409,5 +455,6 @@ export function createProjectStateBridge({
 		captureProjectState,
 		buildProjectFilename,
 		applySavedProjectState,
+		resetWorkspaceToDefaults,
 	};
 }
