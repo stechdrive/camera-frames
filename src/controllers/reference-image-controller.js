@@ -51,6 +51,7 @@ import {
 	normalizeReferenceImageEditorStateForRestore,
 	projectReferenceImageSelectionBoxLogicalToScreen,
 } from "./reference-image/selection-state.js";
+import { createReferenceImageStatePersistence } from "./reference-image/state-persistence.js";
 import { createReferenceImageViewportInteraction } from "./reference-image/viewport-interaction.js";
 
 export { ensureWritableReferenceImageImportPreset, supportsReferenceImageFile };
@@ -1279,91 +1280,6 @@ export function createReferenceImageController({
 		referenceImageInput?.click?.();
 	}
 
-	function captureProjectReferenceImagesState() {
-		return cloneReferenceImageDocument(getDocument());
-	}
-
-	function captureReferenceImageEditorState(options = {}) {
-		return captureReferenceImageEditorStateSnapshot({
-			selectedItemIds: getSelectedItemIds(),
-			selectedItemId: store.referenceImages.selectedItemId.value,
-			selectedAssetId: store.referenceImages.selectedAssetId.value,
-			selectionAnchor: store.referenceImages.selectionAnchor.value,
-			selectionBoxLogical: store.referenceImages.selectionBoxLogical.value,
-			rememberedSelectedItemIds:
-				lastNonEmptyReferenceSelectionState.selectedItemIds,
-			rememberedActiveItemId: lastNonEmptyReferenceSelectionState.activeItemId,
-			previewSessionVisible: store.referenceImages.previewSessionVisible.value,
-			includePreviewSessionVisible:
-				options?.includePreviewSessionVisible !== false,
-		});
-	}
-
-	function restoreReferenceImageEditorState(editorState = null, options = {}) {
-		const restoredEditorState = normalizeReferenceImageEditorStateForRestore(
-			editorState,
-			options,
-		);
-		if (restoredEditorState.shouldUpdatePreviewSessionVisible) {
-			store.referenceImages.previewSessionVisible.value =
-				restoredEditorState.previewSessionVisible;
-		}
-		if (!restoredEditorState.hasEditorState) {
-			clearSelection();
-			lastNonEmptyReferenceSelectionState =
-				restoredEditorState.rememberedSelectionState;
-			return;
-		}
-		setSelectionState({
-			selectedItemIds: restoredEditorState.selectedItemIds,
-			activeItemId: restoredEditorState.selectedItemId,
-			activeAssetId: restoredEditorState.selectedAssetId,
-		});
-		lastNonEmptyReferenceSelectionState =
-			restoredEditorState.rememberedSelectionState;
-		if (
-			restoredEditorState.selectedItemIds.length > 1 &&
-			restoredEditorState.selectionBoxLogical
-		) {
-			const nextSelectionAnchor = restoredEditorState.selectionAnchor;
-			store.referenceImages.selectionAnchor.value = nextSelectionAnchor;
-			setStoredSelectionBox(
-				restoredEditorState.selectionBoxLogical,
-				getTransformContext(),
-				nextSelectionAnchor,
-			);
-			return;
-		}
-		store.referenceImages.selectionAnchor.value = null;
-		setStoredSelectionBox(null);
-	}
-
-	function applyProjectReferenceImagesState(documentState, options = {}) {
-		const editorState = options?.editorState ?? null;
-		setDocument(documentState ?? createDefaultReferenceImageDocument());
-		store.referenceImages.previewSessionVisible.value =
-			editorState?.previewSessionVisible !== false;
-		store.referenceImages.exportSessionEnabled.value = true;
-		clearSelection();
-		syncUiState();
-		restoreReferenceImageEditorState(editorState);
-		updateUi?.();
-		refreshUiAfterLayout({
-			expectedVisibleItems: getResolvedPreset()?.items.filter(
-				(item) => item.previewVisible !== false,
-			).length,
-		});
-	}
-
-	function clearReferenceImages() {
-		setDocument(createDefaultReferenceImageDocument());
-		store.referenceImages.previewSessionVisible.value = true;
-		store.referenceImages.exportSessionEnabled.value = true;
-		clearSelection();
-		syncUiState();
-		updateUi?.();
-	}
-
 	function setPreviewSessionVisible(nextVisible) {
 		store.referenceImages.previewSessionVisible.value = nextVisible !== false;
 	}
@@ -2054,6 +1970,36 @@ export function createReferenceImageController({
 		beginHistoryTransaction,
 		commitHistoryTransaction,
 		cancelHistoryTransaction,
+	});
+
+	const {
+		captureProjectReferenceImagesState,
+		captureReferenceImageEditorState,
+		restoreReferenceImageEditorState,
+		applyProjectReferenceImagesState,
+		clearReferenceImages,
+	} = createReferenceImageStatePersistence({
+		store,
+		getDocument,
+		setDocument,
+		getSelectedItemIds,
+		getTransformContext,
+		getResolvedPreset,
+		clearSelection,
+		setSelectionState,
+		setStoredSelectionBox,
+		syncUiState,
+		updateUi,
+		refreshUiAfterLayout,
+		createEmptyDocument: createDefaultReferenceImageDocument,
+		cloneDocument: cloneReferenceImageDocument,
+		captureEditorStateSnapshot: captureReferenceImageEditorStateSnapshot,
+		normalizeEditorStateForRestore:
+			normalizeReferenceImageEditorStateForRestore,
+		getRememberedSelectionState: () => lastNonEmptyReferenceSelectionState,
+		setRememberedSelectionState: (nextState) => {
+			lastNonEmptyReferenceSelectionState = nextState;
+		},
 	});
 
 	syncUiState();
