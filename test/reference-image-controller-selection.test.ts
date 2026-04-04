@@ -220,6 +220,60 @@ function createTestController() {
 }
 
 {
+	const { store, controller, setShotPresetId } = createTestController();
+	const asset = createReferenceImageAsset({
+		id: "asset-locked-inspector-delta",
+		label: "Locked Inspector Delta",
+		sourceMeta: createSourceMeta("locked-inspector-delta.png"),
+	});
+	const preset = createReferenceImagePreset({
+		id: "preset-locked-inspector-delta",
+		name: "Locked Inspector Delta",
+		items: [
+			createReferenceImageItem({
+				id: "item-locked-a",
+				assetId: asset.id,
+				name: "Layer A",
+				order: 0,
+				offsetPx: { x: 0, y: 0 },
+			}),
+			createReferenceImageItem({
+				id: "item-locked-b",
+				assetId: asset.id,
+				name: "Layer B",
+				order: 1,
+				offsetPx: { x: -200, y: 0 },
+			}),
+		],
+	});
+	const documentState = createDefaultReferenceImageDocument();
+	documentState.presets.push(preset);
+	documentState.assets.push(asset);
+	documentState.activePresetId = preset.id;
+	setShotPresetId(preset.id);
+	store.referenceImages.document.value = documentState;
+	controller.syncUiState();
+
+	controller.selectReferenceImageItem("item-locked-a");
+	controller.selectReferenceImageItem("item-locked-b", { additive: true });
+	assert.equal(
+		controller.beginSelectedReferenceImageInspectorTransformSession(),
+		true,
+	);
+	assert.equal(controller.offsetSelectedReferenceImagesPosition("x", 10), true);
+	controller.syncUiState();
+	const lockedInspectorState =
+		controller.getSelectedReferenceImageInspectorState();
+	assert.ok(lockedInspectorState);
+	assert.equal(lockedInspectorState.offsetXDelta, 10);
+	assert.equal(lockedInspectorState.offsetYDelta, 0);
+	assert.equal(
+		controller.endSelectedReferenceImageInspectorTransformSession(),
+		true,
+	);
+}
+
+{
 	const store = createCameraFramesStore();
 	let shotCameraDocument = createShotCameraDocument({
 		name: "Camera A",

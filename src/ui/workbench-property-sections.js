@@ -1,5 +1,12 @@
 import { html } from "htm/preact";
 import { useRef } from "preact/hooks";
+import {
+	computeReferenceMultiSelectionSessionRotationDelta,
+	computeReferenceMultiSelectionSessionScaleFactor,
+	computeReferenceMultiSelectionTargetOffsetDelta,
+	computeReferenceMultiSelectionTargetRotationDelta,
+	computeReferenceMultiSelectionTargetScaleFactor,
+} from "./reference-multi-selection-input.js";
 import { NumericDraftInput } from "./workbench-controls.js";
 import { DisclosureBlock, IconButton } from "./workbench-primitives.js";
 
@@ -14,6 +21,8 @@ function ReferencePropertyInlineField({
 	onScrubStart = null,
 	onScrubEnd = null,
 	onInteractStart = null,
+	onEditStart = null,
+	onEditEnd = null,
 	formatDisplayValue = null,
 	scrubStartValue = null,
 	inputMode = "decimal",
@@ -41,6 +50,8 @@ function ReferencePropertyInlineField({
 					onScrubStart=${onScrubStart}
 					onScrubEnd=${onScrubEnd}
 					onInteractStart=${onInteractStart}
+					onEditStart=${onEditStart}
+					onEditEnd=${onEditEnd}
 					scrubStartValue=${scrubStartValue}
 					onCommit=${onCommit}
 				/>
@@ -72,6 +83,10 @@ export function ReferencePropertiesSection({
 			? (controller()?.getReferenceImageLogicalBounds?.(selectedItem.id) ??
 				null)
 			: null;
+	const multiSelectionScrubBaselineRef = useRef({
+		rotationDeltaDeg: 0,
+		scaleDeltaPercent: 0,
+	});
 
 	const renderContent = (content) => html`
 		<${DisclosureBlock}
@@ -193,6 +208,31 @@ export function ReferencePropertiesSection({
 		)
 			? normalizeDeltaDegrees(multiSelectionState.rotationDeltaDeg)
 			: null;
+		const handleCurrentMultiSelectionScrubStart = () => {
+			multiSelectionScrubBaselineRef.current = {
+				rotationDeltaDeg: Number.isFinite(currentRotation)
+					? currentRotation
+					: 0,
+				scaleDeltaPercent: Number.isFinite(currentScaleDeltaPct)
+					? Number(currentScaleDeltaPct)
+					: 0,
+			};
+			handleMultiSelectionScrubStart();
+		};
+		const handleCurrentMultiSelectionDirectInputStart = () => {
+			multiSelectionScrubBaselineRef.current = {
+				rotationDeltaDeg: Number.isFinite(currentRotation)
+					? currentRotation
+					: 0,
+				scaleDeltaPercent: Number.isFinite(currentScaleDeltaPct)
+					? Number(currentScaleDeltaPct)
+					: 0,
+			};
+			controller()?.beginSelectedReferenceImageInspectorTransformSession?.();
+		};
+		const handleCurrentMultiSelectionDirectInputEnd = () => {
+			controller()?.endSelectedReferenceImageInspectorTransformSession?.();
+		};
 		const getLatestMultiSelectionSession = () =>
 			controller()?.getSelectedReferenceImageInspectorState?.()?.session ??
 			multiSelectionState?.session ??
@@ -202,12 +242,17 @@ export function ReferencePropertiesSection({
 			if (!Number.isFinite(numericValue)) {
 				return;
 			}
+			const scrubBaselineDeltaPct = Number.isFinite(
+				multiSelectionScrubBaselineRef.current.scaleDeltaPercent,
+			)
+				? multiSelectionScrubBaselineRef.current.scaleDeltaPercent
+				: 0;
 			const nextScaleFactor = Math.max(0.01, 1 + numericValue / 100);
 			const selectionSession = getLatestMultiSelectionSession();
 			if (selectionSession) {
 				controller()?.applySelectedReferenceImagesScaleFromSession?.(
 					selectionSession,
-					nextScaleFactor,
+					nextScaleFactor / Math.max(0.01, 1 + scrubBaselineDeltaPct / 100),
 				);
 				return;
 			}
@@ -219,17 +264,59 @@ export function ReferencePropertiesSection({
 				nextScaleFactor / currentScaleFactor,
 			);
 		};
+		const commitMultiSelectionScaleDeltaPercent = (nextDeltaPercent) => {
+			const numericValue = Number(nextDeltaPercent);
+			if (!Number.isFinite(numericValue)) {
+				return;
+			}
+			const inputBaselineDeltaPct = Number.isFinite(
+				multiSelectionScrubBaselineRef.current.scaleDeltaPercent,
+			)
+				? multiSelectionScrubBaselineRef.current.scaleDeltaPercent
+				: 0;
+			const selectionSession = getLatestMultiSelectionSession();
+			if (selectionSession) {
+				const relativeScaleFactor =
+					computeReferenceMultiSelectionSessionScaleFactor(
+						inputBaselineDeltaPct,
+						numericValue,
+					);
+				if (relativeScaleFactor) {
+					controller()?.applySelectedReferenceImagesScaleFromSession?.(
+						selectionSession,
+						relativeScaleFactor,
+					);
+				}
+				return;
+			}
+			const incrementalScaleFactor =
+				computeReferenceMultiSelectionTargetScaleFactor(
+					currentScaleDeltaPct,
+					numericValue,
+				);
+			if (!incrementalScaleFactor) {
+				return;
+			}
+			controller()?.scaleSelectedReferenceImagesByFactor?.(
+				incrementalScaleFactor,
+			);
+		};
 		const applyMultiSelectionRotationDeltaDeg = (nextDeltaDegrees) => {
 			const numericValue = Number(nextDeltaDegrees);
 			if (!Number.isFinite(numericValue)) {
 				return;
 			}
 			const normalizedDeltaDeg = normalizeDeltaDegrees(numericValue);
+			const scrubBaselineRotationDeg = Number.isFinite(
+				multiSelectionScrubBaselineRef.current.rotationDeltaDeg,
+			)
+				? multiSelectionScrubBaselineRef.current.rotationDeltaDeg
+				: 0;
 			const selectionSession = getLatestMultiSelectionSession();
 			if (selectionSession) {
 				controller()?.applySelectedReferenceImagesRotationFromSession?.(
 					selectionSession,
-					normalizedDeltaDeg,
+					normalizeDeltaDegrees(normalizedDeltaDeg - scrubBaselineRotationDeg),
 				);
 				return;
 			}
@@ -240,6 +327,44 @@ export function ReferencePropertiesSection({
 				normalizedDeltaDeg - currentRotationDeltaDeg,
 			);
 			if (Math.abs(incrementalDeltaDeg) <= 1e-8) {
+				return;
+			}
+			controller()?.offsetSelectedReferenceImagesRotationDeg?.(
+				incrementalDeltaDeg,
+			);
+		};
+		const commitMultiSelectionRotationDeltaDeg = (nextDeltaDegrees) => {
+			const numericValue = Number(nextDeltaDegrees);
+			if (!Number.isFinite(numericValue)) {
+				return;
+			}
+			const normalizedTargetDeltaDeg = normalizeDeltaDegrees(numericValue);
+			const inputBaselineRotationDeg = Number.isFinite(
+				multiSelectionScrubBaselineRef.current.rotationDeltaDeg,
+			)
+				? multiSelectionScrubBaselineRef.current.rotationDeltaDeg
+				: 0;
+			const selectionSession = getLatestMultiSelectionSession();
+			if (selectionSession) {
+				const relativeRotationDeltaDeg =
+					computeReferenceMultiSelectionSessionRotationDelta(
+						inputBaselineRotationDeg,
+						normalizedTargetDeltaDeg,
+					);
+				if (relativeRotationDeltaDeg) {
+					controller()?.applySelectedReferenceImagesRotationFromSession?.(
+						selectionSession,
+						relativeRotationDeltaDeg,
+					);
+				}
+				return;
+			}
+			const incrementalDeltaDeg =
+				computeReferenceMultiSelectionTargetRotationDelta(
+					currentRotation,
+					normalizedTargetDeltaDeg,
+				);
+			if (!incrementalDeltaDeg) {
 				return;
 			}
 			controller()?.offsetSelectedReferenceImagesRotationDeg?.(
@@ -274,7 +399,7 @@ export function ReferencePropertiesSection({
 								controller()?.setSelectedReferenceImagesOpacity?.(nextValue)}
 							onCommit=${(nextValue) =>
 								controller()?.setSelectedReferenceImagesOpacity?.(nextValue)}
-							onScrubStart=${handleMultiSelectionScrubStart}
+							onScrubStart=${handleCurrentMultiSelectionScrubStart}
 							onScrubEnd=${handleMultiSelectionScrubEnd}
 							onInteractStart=${ensureReferenceInspectorOverlayVisible}
 						/>
@@ -296,9 +421,11 @@ export function ReferencePropertiesSection({
 							step="0.01"
 							onScrubDelta=${(_deltaValue, nextValue) =>
 								applyMultiSelectionScaleDeltaPercent(nextValue)}
-							onScrubStart=${handleMultiSelectionScrubStart}
+							onScrubStart=${handleCurrentMultiSelectionScrubStart}
 							onScrubEnd=${handleMultiSelectionScrubEnd}
 							onInteractStart=${ensureReferenceInspectorOverlayVisible}
+							onEditStart=${handleCurrentMultiSelectionDirectInputStart}
+							onEditEnd=${handleCurrentMultiSelectionDirectInputEnd}
 							onCommit=${(nextValue) => {
 								const numericValue = Number(nextValue);
 								if (!Number.isFinite(numericValue)) {
@@ -310,7 +437,7 @@ export function ReferencePropertiesSection({
 								if (Math.abs(numericValue - currentDeltaPct) <= 1e-8) {
 									return;
 								}
-								applyMultiSelectionScaleDeltaPercent(numericValue);
+								commitMultiSelectionScaleDeltaPercent(numericValue);
 							}}
 						/>
 					</div>
@@ -330,23 +457,27 @@ export function ReferencePropertiesSection({
 									"x",
 									deltaValue,
 								)}
-							onScrubStart=${handleMultiSelectionScrubStart}
+							onScrubStart=${handleCurrentMultiSelectionScrubStart}
 							onScrubEnd=${handleMultiSelectionScrubEnd}
 							onInteractStart=${ensureReferenceInspectorOverlayVisible}
+							onEditStart=${handleCurrentMultiSelectionDirectInputStart}
+							onEditEnd=${handleCurrentMultiSelectionDirectInputEnd}
 							onCommit=${(nextValue) => {
 								const numericValue = Number(nextValue);
 								if (!Number.isFinite(numericValue)) {
 									return;
 								}
-								const currentValue = Number.isFinite(currentOffsetX)
-									? currentOffsetX
-									: 0;
-								if (Math.abs(numericValue - currentValue) <= 1e-8) {
+								const incrementalDelta =
+									computeReferenceMultiSelectionTargetOffsetDelta(
+										currentOffsetX,
+										numericValue,
+									);
+								if (!incrementalDelta) {
 									return;
 								}
 								controller()?.offsetSelectedReferenceImagesPosition?.(
 									"x",
-									numericValue - currentValue,
+									incrementalDelta,
 								);
 							}}
 						/>
@@ -363,23 +494,27 @@ export function ReferencePropertiesSection({
 									"y",
 									deltaValue,
 								)}
-							onScrubStart=${handleMultiSelectionScrubStart}
+							onScrubStart=${handleCurrentMultiSelectionScrubStart}
 							onScrubEnd=${handleMultiSelectionScrubEnd}
 							onInteractStart=${ensureReferenceInspectorOverlayVisible}
+							onEditStart=${handleCurrentMultiSelectionDirectInputStart}
+							onEditEnd=${handleCurrentMultiSelectionDirectInputEnd}
 							onCommit=${(nextValue) => {
 								const numericValue = Number(nextValue);
 								if (!Number.isFinite(numericValue)) {
 									return;
 								}
-								const currentValue = Number.isFinite(currentOffsetY)
-									? currentOffsetY
-									: 0;
-								if (Math.abs(numericValue - currentValue) <= 1e-8) {
+								const incrementalDelta =
+									computeReferenceMultiSelectionTargetOffsetDelta(
+										currentOffsetY,
+										numericValue,
+									);
+								if (!incrementalDelta) {
 									return;
 								}
 								controller()?.offsetSelectedReferenceImagesPosition?.(
 									"y",
-									numericValue - currentValue,
+									incrementalDelta,
 								);
 							}}
 						/>
@@ -393,9 +528,11 @@ export function ReferencePropertiesSection({
 							step="0.01"
 							onScrubDelta=${(_deltaValue, nextValue) =>
 								applyMultiSelectionRotationDeltaDeg(nextValue)}
-							onScrubStart=${handleMultiSelectionScrubStart}
+							onScrubStart=${handleCurrentMultiSelectionScrubStart}
 							onScrubEnd=${handleMultiSelectionScrubEnd}
 							onInteractStart=${ensureReferenceInspectorOverlayVisible}
+							onEditStart=${handleCurrentMultiSelectionDirectInputStart}
+							onEditEnd=${handleCurrentMultiSelectionDirectInputEnd}
 							onCommit=${(nextValue) => {
 								const numericValue = Number(nextValue);
 								if (!Number.isFinite(numericValue)) {
@@ -409,7 +546,7 @@ export function ReferencePropertiesSection({
 								) {
 									return;
 								}
-								applyMultiSelectionRotationDeltaDeg(numericValue);
+								commitMultiSelectionRotationDeltaDeg(numericValue);
 							}}
 						/>
 					</div>

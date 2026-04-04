@@ -186,6 +186,8 @@ export function NumericDraftInput({
 	onScrubStart = null,
 	onScrubEnd = null,
 	onInteractStart = null,
+	onEditStart = null,
+	onEditEnd = null,
 	controller = null,
 	historyLabel = "",
 	formatDisplayValue = null,
@@ -203,6 +205,7 @@ export function NumericDraftInput({
 	);
 	const scrubStateRef = useRef(null);
 	const inputRef = useRef(null);
+	const suppressNextBlurCommitRef = useRef(false);
 	const resolvedScrubModifiers = resolveNumericScrubModifiers(scrubModifiers);
 
 	useEffect(() => {
@@ -233,9 +236,10 @@ export function NumericDraftInput({
 		);
 	}, [scrubHandleSide]);
 
-	function resetDraft() {
+	function resetDraft(mode = "cancel") {
 		setDraftValue(formattedValue);
 		setIsEditing(false);
+		onEditEnd?.(mode);
 	}
 
 	function focusAndSelectInput() {
@@ -248,11 +252,12 @@ export function NumericDraftInput({
 	function commitDraft(nextRawValue) {
 		const nextValue = String(nextRawValue ?? "").trim();
 		if (nextValue === "") {
-			resetDraft();
+			resetDraft("cancel");
 			return;
 		}
 		onCommit?.(nextValue);
 		setIsEditing(false);
+		onEditEnd?.("commit");
 	}
 
 	function parseNumber(valueToParse) {
@@ -562,6 +567,7 @@ export function NumericDraftInput({
 				onFocus=${(event) => {
 					stopUiEvent(event);
 					onInteractStart?.();
+					onEditStart?.();
 					setIsEditing(true);
 					setDraftValue(String(event.currentTarget.value ?? formattedValue));
 				}}
@@ -571,6 +577,11 @@ export function NumericDraftInput({
 					setDraftValue(event.currentTarget.value);
 				}}
 				onBlur=${(event) => {
+					if (suppressNextBlurCommitRef.current) {
+						suppressNextBlurCommitRef.current = false;
+						setIsEditing(false);
+						return;
+					}
 					commitDraft(event.currentTarget.value);
 				}}
 				onChange=${stopUiEvent}
@@ -591,12 +602,14 @@ export function NumericDraftInput({
 					stopUiEvent(event);
 					if (event.key === "Enter") {
 						event.preventDefault();
+						suppressNextBlurCommitRef.current = true;
 						commitDraft(event.currentTarget.value);
 						event.currentTarget.blur();
 						return;
 					}
 					if (event.key === "Escape") {
 						event.preventDefault();
+						suppressNextBlurCommitRef.current = true;
 						resetDraft();
 						event.currentTarget.blur();
 					}

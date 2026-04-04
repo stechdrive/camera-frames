@@ -378,6 +378,7 @@ export function createReferenceImageController({
 			selectedItems,
 			baselineSignature,
 			sessionSignature,
+			currentSelectionTransformState,
 			...referenceImageInspectorTransformState,
 		};
 	}
@@ -412,7 +413,8 @@ export function createReferenceImageController({
 			baselineItems: inspectorState.baselineItems,
 			baselineSelectionBoxLogical: inspectorState.baselineSelectionBoxLogical,
 			currentSelectionBoxLogical:
-				inspectorState.session?.selectionBoxLogical ?? null,
+				inspectorState.currentSelectionTransformState?.selectionBoxLogical ??
+				store.referenceImages.selectionBoxLogical.value,
 			session: inspectorState.session,
 		});
 	}
