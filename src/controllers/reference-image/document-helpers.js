@@ -190,7 +190,9 @@ export function ensureWritableReferenceImageImportPreset(
 			? shotCameraDocument.referenceImages.presetId
 			: null;
 	const explicitShotPreset = explicitShotPresetId
-		? findMutablePresetInDocument(documentState, explicitShotPresetId)
+		? explicitShotPresetId === REFERENCE_IMAGE_DEFAULT_PRESET_ID
+			? null
+			: findMutablePresetInDocument(documentState, explicitShotPresetId)
 		: null;
 	if (explicitShotPreset) {
 		documentState.activePresetId = explicitShotPreset.id;

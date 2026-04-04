@@ -1,16 +1,19 @@
 import assert from "node:assert/strict";
 import {
 	buildDuplicatePresetName,
+	ensureWritableReferenceImageImportPreset,
 	pruneUnusedReferenceImageAssetsInDocument,
 	sanitizeReferenceImagePresetName,
 	supportsReferenceImageFile,
 } from "../src/controllers/reference-image/document-helpers.js";
 import {
+	REFERENCE_IMAGE_DEFAULT_PRESET_ID,
 	createDefaultReferenceImageDocument,
 	createReferenceImageAsset,
 	createReferenceImageItem,
 	createReferenceImagePreset,
 } from "../src/reference-image-model.js";
+import { createShotCameraDocument } from "../src/workspace-model.js";
 
 assert.equal(supportsReferenceImageFile({ name: "board.PSD" }), true);
 assert.equal(supportsReferenceImageFile({ fileName: "board.txt" }), false);
@@ -56,6 +59,29 @@ assert.equal(sanitizeReferenceImagePresetName(""), "Reference");
 	assert.deepEqual(
 		documentState.assets.map((asset) => asset.id),
 		["reference-asset-used"],
+	);
+}
+
+{
+	const documentState = createDefaultReferenceImageDocument();
+	const shotCameraDocument = createShotCameraDocument({
+		name: "Camera A",
+	});
+	shotCameraDocument.referenceImages.presetId =
+		REFERENCE_IMAGE_DEFAULT_PRESET_ID;
+
+	const preset = ensureWritableReferenceImageImportPreset(
+		documentState,
+		shotCameraDocument,
+		"board.png",
+	);
+
+	assert.notEqual(preset.id, REFERENCE_IMAGE_DEFAULT_PRESET_ID);
+	assert.equal(preset.name, "board");
+	assert.equal(documentState.activePresetId, preset.id);
+	assert.equal(
+		shotCameraDocument.referenceImages.presetId,
+		REFERENCE_IMAGE_DEFAULT_PRESET_ID,
 	);
 }
 
