@@ -33,6 +33,7 @@ import { createProjectionFramingCommands } from "./app/projection-framing-comman
 import { disposeObject } from "./app/resource-disposal.js";
 import { createRuntimeControllerBindings } from "./app/runtime-controller-bindings.js";
 import { createSceneAssetAccessors } from "./app/scene-asset-accessors.js";
+import { createSceneFramingControllerBindings } from "./app/scene-framing-controller-bindings.js";
 import { createShotCameraEditorStateController } from "./app/shot-camera-editor-state.js";
 import { createUiSyncControllerBindings } from "./app/ui-sync-controller-bindings.js";
 import { createViewSyncCommands } from "./app/view-sync-commands.js";
@@ -472,16 +473,17 @@ export function createCameraFramesController(elements, store) {
 		}),
 	);
 
-	sceneFramingController = createSceneFramingController({
-		getSceneBounds,
-		getSceneFramingBounds: () => assetController.getSceneFramingBounds(),
-		viewportCamera,
-		shotCameraRegistry,
-		syncShotCameraEntryFromDocument: (entry) =>
-			cameraController?.syncShotCameraEntryFromDocument(entry),
-		syncControlsToMode: () => interactionController?.syncControlsToMode(),
-		fpsMovement,
-	});
+	sceneFramingController = createSceneFramingController(
+		createSceneFramingControllerBindings({
+			getSceneBounds,
+			assetController,
+			viewportCamera,
+			shotCameraRegistry,
+			cameraController,
+			interactionController,
+			fpsMovement,
+		}),
+	);
 
 	viewportProjectionController = createViewportProjectionController(
 		createViewportProjectionControllerBindings({
