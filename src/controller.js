@@ -13,6 +13,7 @@ import {
 	createShotCameraEditorStateAccessors,
 } from "./app/controller-accessors.js";
 import { createFileOpenRouting } from "./app/file-open-routing.js";
+import { createOutputFrameAccessors } from "./app/output-frame-accessors.js";
 import { createPresentationSync } from "./app/presentation-sync.js";
 import { createProjectSceneCommands } from "./app/project-scene-commands.js";
 import { createProjectStateBridge } from "./app/project-state-bridge.js";
@@ -305,6 +306,16 @@ export function createCameraFramesController(elements, store) {
 		getProjectionController: () => projectionController,
 		getViewportProjectionController: () => viewportProjectionController,
 		updateUi: () => updateUi(),
+	});
+	const {
+		getOutputFrameDocumentState,
+		getOutputSizeState,
+		getViewportSize,
+		syncOutputFrameFitState,
+		getOutputFrameMetrics,
+	} = createOutputFrameAccessors({
+		getActiveShotCameraDocument,
+		getOutputFrameController: () => outputFrameController,
 	});
 
 	function currentLocale() {
@@ -1163,40 +1174,6 @@ export function createCameraFramesController(elements, store) {
 
 	function getSceneBounds() {
 		return assetController.getSceneBounds();
-	}
-
-	function getOutputFrameDocumentState(
-		documentState = getActiveShotCameraDocument(),
-	) {
-		return outputFrameController.getOutputFrameDocumentState(documentState);
-	}
-
-	function getOutputSizeState(documentState = getActiveShotCameraDocument()) {
-		return outputFrameController.getOutputSizeState(documentState);
-	}
-
-	function getViewportSize() {
-		return outputFrameController.getViewportSize();
-	}
-
-	function syncOutputFrameFitState(
-		documentState = getActiveShotCameraDocument(),
-		viewportWidth = getViewportSize().width,
-		viewportHeight = getViewportSize().height,
-		force = false,
-	) {
-		return outputFrameController.syncOutputFrameFitState(
-			documentState,
-			viewportWidth,
-			viewportHeight,
-			force,
-		);
-	}
-
-	function getOutputFrameMetrics(
-		documentState = getActiveShotCameraDocument(),
-	) {
-		return outputFrameController.getOutputFrameMetrics(documentState);
 	}
 
 	function disposeMaterial(material) {
