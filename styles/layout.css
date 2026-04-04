@@ -79,7 +79,9 @@
 
 .workbench-card--tool-rail {
 	flex: 0 0 auto;
+	width: 3.55rem;
 	align-items: center;
+	box-sizing: border-box;
 	padding: 0.45rem;
 	overflow: visible;
 	align-self: flex-start;
@@ -149,6 +151,10 @@
 	max-width: 100%;
 	padding: 0.45rem;
 	border-radius: 22px;
+}
+
+.workbench-shell--mobile .workbench-card--tool-rail {
+	width: auto;
 }
 
 .workbench-shell--mobile .workbench-tool-rail {
