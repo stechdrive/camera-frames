@@ -1,5 +1,6 @@
 export function createProjectOpenApply({
 	getAssetController,
+	getPerSplatEditController,
 	applySavedProjectState,
 	getHistoryController,
 	setStatus,
@@ -14,6 +15,7 @@ export function createProjectOpenApply({
 		} = {},
 	) {
 		const assetController = getAssetController?.();
+		getPerSplatEditController?.()?.resetForSceneChange?.();
 		assetController?.clearScene?.();
 		const projectSources = parsedProject.assetEntries.map(
 			(entry) => entry.source,

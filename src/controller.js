@@ -28,6 +28,7 @@ import { createLightingControllerBindings } from "./app/lighting-controller-bind
 import { createMeasurementControllerBindings } from "./app/measurement-controller-bindings.js";
 import { createOutputFrameAccessors } from "./app/output-frame-accessors.js";
 import { createOutputFrameControllerBindings } from "./app/output-frame-controller-bindings.js";
+import { createPerSplatEditControllerBindings } from "./app/per-splat-edit-controller-bindings.js";
 import { createPresentationSync } from "./app/presentation-sync.js";
 import { createProjectControllerBindings } from "./app/project-controller-bindings.js";
 import { createProjectOpenApply } from "./app/project-open-apply.js";
@@ -67,6 +68,7 @@ import { createInteractionController } from "./controllers/interaction-controlle
 import { createLightingController } from "./controllers/lighting-controller.js";
 import { createMeasurementController } from "./controllers/measurement-controller.js";
 import { createOutputFrameController } from "./controllers/output-frame-controller.js";
+import { createPerSplatEditController } from "./controllers/per-splat-edit-controller.js";
 import { createProjectController } from "./controllers/project-controller.js";
 import { createProjectionController } from "./controllers/projection-controller.js";
 import { createReferenceImageController } from "./controllers/reference-image-controller.js";
@@ -158,6 +160,7 @@ export function createCameraFramesController(elements, store) {
 	let interactionController = null;
 	let lightingController = null;
 	let outputFrameController = null;
+	let perSplatEditController = null;
 	let projectController = null;
 	let projectionController = null;
 	let referenceImageController = null;
@@ -376,6 +379,7 @@ export function createCameraFramesController(elements, store) {
 		getAssetController: () => assetController,
 		getLightingController: () => lightingController,
 		getMeasurementController: () => measurementController,
+		getPerSplatEditController: () => perSplatEditController,
 		getProjectController: () => projectController,
 		getReferenceImageController: () => referenceImageController,
 		getViewportToolController: () => viewportToolController,
@@ -403,14 +407,32 @@ export function createCameraFramesController(elements, store) {
 		getFrameController: () => frameController,
 		getInteractionController: () => interactionController,
 		getMeasurementController: () => measurementController,
+		getPerSplatEditController: () => perSplatEditController,
 		getReferenceImageController: () => referenceImageController,
 		getViewportToolController: () => viewportToolController,
 		clearFrameSelection,
 		clearOutputFrameSelection,
 	});
 
+	perSplatEditController = createPerSplatEditController(
+		createPerSplatEditControllerBindings({
+			store,
+			state,
+			t,
+			setStatus,
+			updateUi,
+			setViewportSelectMode,
+			setViewportReferenceImageEditMode,
+			setViewportTransformMode,
+			setViewportPivotEditMode,
+			setMeasurementMode,
+			getInteractionController: () => interactionController,
+		}),
+	);
+
 	const applyOpenedProject = createProjectOpenApply({
 		getAssetController: () => assetController,
+		getPerSplatEditController: () => perSplatEditController,
 		applySavedProjectState,
 		getHistoryController: () => historyController,
 		setStatus,
@@ -751,6 +773,7 @@ export function createCameraFramesController(elements, store) {
 			restoreShotCameraEditorState,
 			getActiveShotCameraId: () => store.workspace.activeShotCameraId.value,
 			measurementController,
+			perSplatEditController,
 			referenceImageController,
 			lightingController,
 			viewportToolController,
@@ -809,6 +832,8 @@ export function createCameraFramesController(elements, store) {
 			toggleMeasurementMode,
 			toggleZoomTool,
 			toggleViewportSelectMode,
+			toggleSplatEditMode: (...args) =>
+				perSplatEditController?.toggleSplatEditMode?.(...args),
 			toggleViewportReferenceImageEditMode,
 			toggleViewportTransformMode,
 			toggleViewportPivotEditMode,
@@ -874,6 +899,7 @@ export function createCameraFramesController(elements, store) {
 		lightingController,
 		measurementController,
 		outputFrameController,
+		perSplatEditController,
 		assetController,
 		referenceImageController,
 		runtimeController,
@@ -884,6 +910,10 @@ export function createCameraFramesController(elements, store) {
 		toggleViewportTransformMode,
 		setViewportSelectMode,
 		toggleViewportSelectMode,
+		setSplatEditMode: (...args) =>
+			perSplatEditController?.setSplatEditMode?.(...args),
+		toggleSplatEditMode: (...args) =>
+			perSplatEditController?.toggleSplatEditMode?.(...args),
 		setViewportReferenceImageEditMode,
 		activateViewportReferenceImageEditModeImplicit,
 		toggleViewportReferenceImageEditMode,

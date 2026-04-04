@@ -300,10 +300,12 @@ export function ToolRailSection({
 
 	const clearSelectionAndExitTool = () => {
 		controller()?.clearSceneAssetSelection?.();
+		controller()?.clearSplatSelection?.();
 		controller()?.clearReferenceImageSelection?.();
 		controller()?.clearFrameSelection?.();
 		controller()?.clearOutputFrameSelection?.();
 		controller()?.setMeasurementMode?.(false, { silent: true });
+		controller()?.setSplatEditMode?.(false, { silent: true });
 		controller()?.setViewportTransformMode(false);
 	};
 	const toggleTool = (isActive, enableTool) => {
@@ -460,6 +462,22 @@ export function ToolRailSection({
 								onClick=${() =>
 									toggleTool(store.viewportReferenceImageEditMode.value, () =>
 										controller()?.setViewportReferenceImageEditMode(true),
+									)}
+							/>
+							<${IconButton}
+								icon="grip"
+								label=${t("action.splatEditTool")}
+								active=${store.splatEdit.active.value}
+								className="workbench-tool-rail__button"
+								tooltip=${{
+									title: t("action.splatEditTool"),
+									description: t("tooltip.toolSplatEdit"),
+									shortcut: "Shift+E",
+									placement: tooltipPlacement,
+								}}
+								onClick=${() =>
+									toggleTool(store.splatEdit.active.value, () =>
+										controller()?.setSplatEditMode?.(true),
 									)}
 							/>
 							<${IconButton}

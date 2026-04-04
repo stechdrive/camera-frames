@@ -8,6 +8,7 @@ export function createProjectControllerBindings({
 	restoreShotCameraEditorState,
 	getActiveShotCameraId,
 	measurementController,
+	perSplatEditController,
 	referenceImageController,
 	lightingController,
 	viewportToolController,
@@ -31,11 +32,13 @@ export function createProjectControllerBindings({
 		},
 		clearProjectSidecars: () => {
 			measurementController?.clearMeasurementSession?.({ keepActive: false });
+			perSplatEditController?.resetForSceneChange?.();
 			referenceImageController?.clearReferenceImages?.();
 			lightingController?.resetLighting?.();
 		},
 		resetProjectWorkspace: () => {
 			viewportToolController.setViewportTransformMode(false);
+			perSplatEditController?.resetForSceneChange?.();
 			resetWorkspaceToDefaults();
 			referenceImageController?.clearReferenceImages?.();
 			lightingController?.resetLighting?.();

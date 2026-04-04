@@ -99,6 +99,16 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	const viewportTransformMode = computed(
 		() => viewportToolMode.value === "transform",
 	);
+	const viewportSplatEditMode = computed(
+		() => viewportToolMode.value === "splat-edit",
+	);
+	const splatEditTool = signal("box");
+	const splatEditScopeAssetIds = signal([]);
+	const splatEditRememberedScopeAssetIds = signal([]);
+	const splatEditSelectionCount = signal(0);
+	const splatEditBrushSize = signal(24);
+	const splatEditBrushDepthMode = signal("through");
+	const splatEditBrushDepth = signal(0.5);
 	const workbenchManualCollapsed = signal(false);
 	const workbenchAutoCollapsed = signal(false);
 	const workbenchManualExpanded = signal(false);
@@ -368,6 +378,17 @@ export function createCameraFramesStore(runtimeInfo = null) {
 		viewportReferenceImageEditMode,
 		viewportPivotEditMode,
 		viewportTransformMode,
+		viewportSplatEditMode,
+		splatEdit: {
+			active: viewportSplatEditMode,
+			tool: splatEditTool,
+			scopeAssetIds: splatEditScopeAssetIds,
+			rememberedScopeAssetIds: splatEditRememberedScopeAssetIds,
+			selectionCount: splatEditSelectionCount,
+			brushSize: splatEditBrushSize,
+			brushDepthMode: splatEditBrushDepthMode,
+			brushDepth: splatEditBrushDepth,
+		},
 		measurement: {
 			active: measurementActive,
 			startPointWorld: measurementStartPointWorld,

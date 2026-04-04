@@ -45,6 +45,7 @@ export function bindInputRouter({
 	toggleMeasurementMode,
 	toggleZoomTool,
 	toggleViewportSelectMode,
+	toggleSplatEditMode,
 	toggleViewportReferenceImageEditMode,
 	toggleViewportTransformMode,
 	toggleViewportPivotEditMode,
@@ -786,6 +787,19 @@ export function bindInputRouter({
 		) {
 			event.preventDefault();
 			toggleViewportSelectMode?.();
+			return;
+		}
+
+		if (
+			event.code === "KeyE" &&
+			(state.mode === "viewport" || state.mode === "camera") &&
+			!event.altKey &&
+			!event.ctrlKey &&
+			!event.metaKey &&
+			event.shiftKey
+		) {
+			event.preventDefault();
+			toggleSplatEditMode?.();
 			return;
 		}
 

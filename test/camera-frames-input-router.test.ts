@@ -130,6 +130,7 @@ function createInputRouterHarness(overrides = {}) {
 		toggleMeasurementMode: () => {},
 		toggleZoomTool: () => {},
 		toggleViewportSelectMode: () => {},
+		toggleSplatEditMode: () => calls.push(["toggle-splat-edit"]),
 		toggleViewportReferenceImageEditMode: () => {},
 		toggleViewportTransformMode: () => {},
 		toggleViewportPivotEditMode: () => {},
@@ -224,6 +225,26 @@ function createInputRouterHarness(overrides = {}) {
 			globalThis.Element = originalElement;
 		},
 	};
+}
+
+{
+	const harness = createInputRouterHarness();
+	try {
+		const keydown = harness.listeners.get(harness.windowRef).get("keydown");
+		keydown({
+			code: "KeyE",
+			shiftKey: true,
+			altKey: false,
+			ctrlKey: false,
+			metaKey: false,
+			repeat: false,
+			target: null,
+			preventDefault() {},
+		});
+		assert.deepEqual(harness.calls, [["toggle-splat-edit"]]);
+	} finally {
+		harness.restore();
+	}
 }
 
 {
