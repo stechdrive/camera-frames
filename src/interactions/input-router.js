@@ -140,7 +140,8 @@ export function bindInputRouter({
 		}
 
 		const navigationEnabled = state.interactionMode === "navigate";
-		fpsMovement.enable = navigationEnabled;
+		// Spark's default FPV keyboard bindings must stay disabled in CAMERA_FRAMES.
+		fpsMovement.enable = false;
 		pointerControls.enable =
 			navigationEnabled && !isViewportOrthographicActive?.();
 	}

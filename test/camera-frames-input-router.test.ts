@@ -69,7 +69,10 @@ function createInputRouterHarness(overrides = {}) {
 	};
 	const anchorDot = { id: "anchor-dot" };
 	const calls = [];
+	const fpsMovement = { enable: false, moveSpeed: 1 };
+	const pointerControls = { enable: false };
 	const originalWindow = globalThis.window;
+	const originalDocument = globalThis.document;
 	const originalElement = globalThis.Element;
 	class TestElement {
 		closest(_selector: string) {
@@ -84,7 +87,23 @@ function createInputRouterHarness(overrides = {}) {
 		}
 		return null;
 	};
-	globalThis.window = { clearTimeout, setTimeout };
+	const windowRef = {
+		clearTimeout,
+		setTimeout,
+	};
+	globalThis.window = windowRef;
+	globalThis.document = { activeElement: null } as Document;
+	const isInteractiveTextTarget =
+		overrides.isInteractiveTextTarget ??
+		((target) =>
+			Boolean(
+				target &&
+					typeof target === "object" &&
+					typeof target.closest === "function" &&
+					target.closest(
+						'input, textarea, select, option, [contenteditable="true"]',
+					),
+			));
 
 	bindInputRouter({
 		listen,
@@ -122,7 +141,7 @@ function createInputRouterHarness(overrides = {}) {
 		clearSceneAssetSelection: () => {},
 		requestNavigationHistoryCommit: () => {},
 		flushNavigationHistory: () => {},
-		isInteractiveTextTarget: () => false,
+		isInteractiveTextTarget,
 		isViewportSelectMode: () => false,
 		isViewportReferenceImageEditMode: () =>
 			overrides.isViewportReferenceImageEditMode ?? false,
@@ -143,8 +162,8 @@ function createInputRouterHarness(overrides = {}) {
 		closeViewportPieMenu: () => {},
 		handleViewportPieAction: () => {},
 		state: { mode: "viewport", interactionMode: "navigate" },
-		fpsMovement: { enable: false, moveSpeed: 1 },
-		pointerControls: { enable: false },
+		fpsMovement,
+		pointerControls,
 		isFrameSelectionActive: () => false,
 		isReferenceImageSelectionActive: () =>
 			overrides.isReferenceImageSelectionActive ?? false,
@@ -193,13 +212,46 @@ function createInputRouterHarness(overrides = {}) {
 		viewportShell,
 		renderBoxTarget,
 		anchorDot,
+		windowRef,
+		fpsMovement,
+		pointerControls,
 		dropHint,
 		calls,
 		restore() {
 			globalThis.window = originalWindow;
+			globalThis.document = originalDocument;
 			globalThis.Element = originalElement;
 		},
 	};
+}
+
+{
+	const harness = createInputRouterHarness();
+	try {
+		const focusin = harness.listeners.get(harness.windowRef).get("focusin");
+		const focusout = harness.listeners.get(harness.windowRef).get("focusout");
+		const inputTarget = createClosestTarget({
+			input: {},
+		});
+		focusin({
+			target: inputTarget,
+		});
+		assert.equal(harness.fpsMovement.enable, false);
+		assert.equal(harness.pointerControls.enable, false);
+		globalThis.document.activeElement = null;
+		focusout({
+			target: inputTarget,
+		});
+		await Promise.resolve();
+		assert.equal(
+			harness.fpsMovement.enable,
+			false,
+			"focus restore must not re-enable Spark FPV keyboard movement",
+		);
+		assert.equal(harness.pointerControls.enable, true);
+	} finally {
+		harness.restore();
+	}
 }
 
 {
