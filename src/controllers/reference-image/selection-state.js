@@ -95,7 +95,7 @@ export function doesReferenceImageSelectionBoxMatchGeometries(
 	if (!bounds) {
 		return false;
 	}
-	const epsilon = 1e-3;
+	const epsilon = 1;
 	return (
 		Math.abs(bounds.left - logicalBox.left) <= epsilon &&
 		Math.abs(bounds.top - logicalBox.top) <= epsilon &&

@@ -102,6 +102,39 @@ import { getRectCornersFromAnchor } from "../src/engine/reference-image-selectio
 }
 
 {
+	const logicalBox = {
+		left: 718,
+		top: 382,
+		width: 300,
+		height: 100,
+		rotationDeg: 15,
+		anchorX: 0.5,
+		anchorY: 0.5,
+	};
+	assert.equal(
+		doesReferenceImageSelectionBoxMatchGeometries(logicalBox, [
+			{
+				corners: [
+					{ x: 735.6446609406727, y: 344.76275643042055 },
+					{ x: 832.2372435695794, y: 370.6446609406726 },
+					{ x: 806.3553390593273, y: 467.23724356957945 },
+					{ x: 709.7627564304206, y: 441.3553390593274 },
+				],
+			},
+			{
+				corners: [
+					{ x: 929.6446609406727, y: 396.76275643042055 },
+					{ x: 1026.2372435695795, y: 422.6446609406726 },
+					{ x: 1000.3553390593273, y: 519.2372435695795 },
+					{ x: 903.7627564304206, y: 493.3553390593274 },
+				],
+			},
+		]),
+		true,
+	);
+}
+
+{
 	const projected = projectReferenceImageSelectionBoxLogicalToScreen(
 		{
 			left: 10,

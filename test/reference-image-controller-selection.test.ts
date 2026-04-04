@@ -199,7 +199,21 @@ function createTestController() {
 	const afterRotateInspectorState =
 		controller.getSelectedReferenceImageInspectorState();
 	assert.ok(afterRotateInspectorState);
+	assert.equal(afterRotateInspectorState.offsetXDelta, 10);
+	assert.equal(afterRotateInspectorState.offsetYDelta, 0);
 	assert.equal(afterRotateInspectorState.rotationDeltaDeg, 15);
+
+	assert.equal(
+		controller.offsetSelectedReferenceImagesPosition("x", 5),
+		true,
+	);
+	controller.syncUiState();
+	const afterSecondMoveInspectorState =
+		controller.getSelectedReferenceImageInspectorState();
+	assert.ok(afterSecondMoveInspectorState);
+	assert.equal(afterSecondMoveInspectorState.offsetXDelta, 15);
+	assert.equal(afterSecondMoveInspectorState.offsetYDelta, 0);
+	assert.equal(afterSecondMoveInspectorState.rotationDeltaDeg, 15);
 
 	assert.equal(controller.scaleSelectedReferenceImagesByFactor(1.2), true);
 	controller.syncUiState();
