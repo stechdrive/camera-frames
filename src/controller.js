@@ -17,6 +17,7 @@ import { createControllerLocalization } from "./app/controller-localization.js";
 import { createControllerRuntimeResources } from "./app/controller-runtime-resources.js";
 import { createControllerState } from "./app/controller-state.js";
 import { createFileOpenRouting } from "./app/file-open-routing.js";
+import { createInteractionControllerBindings } from "./app/interaction-controller-bindings.js";
 import { createInteractionZoomCommands } from "./app/interaction-zoom-commands.js";
 import { createOutputFrameAccessors } from "./app/output-frame-accessors.js";
 import { createPresentationSync } from "./app/presentation-sync.js";
@@ -645,70 +646,26 @@ export function createCameraFramesController(elements, store) {
 		getActiveShotCameraDocument,
 		getOutputSizeState,
 	});
-	interactionController = createInteractionController({
-		store,
-		state,
-		viewportShell,
-		assetController,
-		fpsMovement,
-		pointerControls,
-		getActiveCamera,
-		workspacePaneCamera: WORKSPACE_PANE_CAMERA,
-		t,
-		setStatus,
-		updateUi,
-		getViewZoomFactor: () => state.outputFrame.viewZoom,
-		setViewZoomFactor: (nextZoom) =>
-			outputFrameController.setViewZoomFactor(nextZoom),
-		getShotCameraBaseFovX: () => state.baseFovX,
-		setShotCameraBaseFovXLive: (nextValue) => {
-			state.baseFovX = Number(nextValue);
-			updateUi();
-		},
-		getViewportBaseFovX: () => state.viewportBaseFovX,
-		setViewportBaseFovXLive: (nextValue) => {
-			state.viewportBaseFovX = Number(nextValue);
-			state.viewportBaseFovXDirty = true;
-			updateUi();
-		},
-		isViewportOrthographic: () =>
-			viewportProjectionController?.isViewportOrthographic?.() ?? false,
-		panViewportOrthographic: (deltaPxX, deltaPxY) =>
-			viewportProjectionController?.panViewportOrthographic?.(
-				deltaPxX,
-				deltaPxY,
-			) ?? false,
-		zoomViewportOrthographic: (deltaY, options) =>
-			viewportProjectionController?.zoomViewportOrthographic?.(
-				deltaY,
-				options,
-			) ?? false,
-		offsetViewportOrthographicDepth: (deltaY, options) =>
-			viewportProjectionController?.offsetViewportOrthographicDepth?.(
-				deltaY,
-				options,
-			) ?? false,
-		ensurePerspectiveForViewportRotation: () =>
-			viewportProjectionController?.ensurePerspectiveForViewportRotation?.() ??
-			false,
-		setViewportTransientReferencePoint: (point, options) =>
-			viewportProjectionController?.setViewportTransientReferencePoint?.(
-				point,
-				options,
-			) ?? false,
-		getShotCameraRollAxisWorld: () =>
-			projectionController?.getShotCameraRollAxisWorld?.() ?? null,
-		getShotCameraRollAngleDegrees: () =>
-			projectionController?.getShotCameraRollAngleDegrees?.() ?? 0,
-		applyActiveShotCameraRoll: (...args) =>
-			cameraController?.applyActiveShotCameraRoll?.(...args),
-		beginHistoryTransaction: (label) =>
-			historyController?.beginHistoryTransaction(label),
-		commitHistoryTransaction: (label) =>
-			historyController?.commitHistoryTransaction(label),
-		cancelHistoryTransaction: () =>
-			historyController?.cancelHistoryTransaction(),
-	});
+	interactionController = createInteractionController(
+		createInteractionControllerBindings({
+			store,
+			state,
+			viewportShell,
+			assetController,
+			fpsMovement,
+			pointerControls,
+			getActiveCamera,
+			workspacePaneCamera: WORKSPACE_PANE_CAMERA,
+			t,
+			setStatus,
+			updateUi,
+			outputFrameController,
+			viewportProjectionController,
+			projectionController,
+			cameraController,
+			historyController,
+		}),
+	);
 	viewportToolController = createViewportToolController({
 		store,
 		state,
