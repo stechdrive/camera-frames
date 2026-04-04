@@ -19,6 +19,7 @@ import { createControllerState } from "./app/controller-state.js";
 import { createFileOpenRouting } from "./app/file-open-routing.js";
 import { createInteractionControllerBindings } from "./app/interaction-controller-bindings.js";
 import { createInteractionZoomCommands } from "./app/interaction-zoom-commands.js";
+import { createMeasurementControllerBindings } from "./app/measurement-controller-bindings.js";
 import { createOutputFrameAccessors } from "./app/output-frame-accessors.js";
 import { createPresentationSync } from "./app/presentation-sync.js";
 import { createProjectControllerBindings } from "./app/project-controller-bindings.js";
@@ -697,20 +698,22 @@ export function createCameraFramesController(elements, store) {
 		getActiveCameraViewCamera,
 		getActiveOutputCamera,
 	});
-	measurementController = createMeasurementController({
-		store,
-		state,
-		viewportShell,
-		viewportCanvas,
-		guides,
-		workspacePaneCamera: WORKSPACE_PANE_CAMERA,
-		getActiveViewportCamera: () => getActiveViewportCamera(),
-		getActiveCameraViewCamera,
-		getActiveOutputCamera,
-		assetController,
-		setStatus,
-		t,
-	});
+	measurementController = createMeasurementController(
+		createMeasurementControllerBindings({
+			store,
+			state,
+			viewportShell,
+			viewportCanvas,
+			guides,
+			workspacePaneCamera: WORKSPACE_PANE_CAMERA,
+			getActiveViewportCamera: () => getActiveViewportCamera(),
+			getActiveCameraViewCamera,
+			getActiveOutputCamera,
+			assetController,
+			setStatus,
+			t,
+		}),
+	);
 	viewportToolController.setCustomGizmoDelegate?.(measurementController);
 	viewportAxisGizmoController = createViewportAxisGizmoController({
 		state,
