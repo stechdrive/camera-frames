@@ -30,6 +30,7 @@ import { disposeObject } from "./app/resource-disposal.js";
 import { createRuntimeControllerBindings } from "./app/runtime-controller-bindings.js";
 import { createSceneAssetAccessors } from "./app/scene-asset-accessors.js";
 import { createShotCameraEditorStateController } from "./app/shot-camera-editor-state.js";
+import { createUiSyncControllerBindings } from "./app/ui-sync-controller-bindings.js";
 import { createViewSyncCommands } from "./app/view-sync-commands.js";
 import { createViewportEditingCommands } from "./app/viewport-editing-commands.js";
 import {
@@ -722,33 +723,30 @@ export function createCameraFramesController(elements, store) {
 		getViewportOrthoState: () =>
 			viewportProjectionController?.getViewportOrthoState?.() ?? null,
 	});
-	uiSyncController = createUiSyncController({
-		store,
-		state,
-		sceneState,
-		viewportShell,
-		renderBox,
-		dropHint,
-		fpsMovement,
-		currentLocale,
-		t,
-		syncActiveShotCameraFromDocument,
-		isZoomToolActive: () => interactionController?.isZoomToolActive() ?? false,
-		updateOutputFrameOverlay,
-		getSceneAssetCounts,
-		getSceneBounds,
-		getTotalLoadedItems,
-		getActiveShotCamera,
-		getActiveCamera,
-		getProjectionState,
-		getShotCameraPoseAngles: () =>
-			projectionController?.getShotCameraPoseAngles?.() ?? {
-				yawDeg: 0,
-				pitchDeg: 0,
-				rollDeg: 0,
-			},
-		getActiveShotCameraDocument,
-	});
+	uiSyncController = createUiSyncController(
+		createUiSyncControllerBindings({
+			store,
+			state,
+			sceneState,
+			viewportShell,
+			renderBox,
+			dropHint,
+			fpsMovement,
+			currentLocale,
+			t,
+			syncActiveShotCameraFromDocument,
+			interactionController,
+			updateOutputFrameOverlay,
+			getSceneAssetCounts,
+			getSceneBounds,
+			getTotalLoadedItems,
+			getActiveShotCamera,
+			getActiveCamera,
+			getProjectionState,
+			projectionController,
+			getActiveShotCameraDocument,
+		}),
+	);
 	lightingController = createLightingController({
 		store,
 		scene,
