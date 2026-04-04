@@ -15,8 +15,8 @@ import { createControllerState } from "../src/app/controller-state.js";
 		},
 	};
 	const calls = [];
-	const { state, outputFrameResizeHandles, sceneState } =
-		createControllerState({
+	const { state, outputFrameResizeHandles, sceneState } = createControllerState(
+		{
 			store,
 			updateActiveShotCameraDocument: (updateDocument) => {
 				const documentState = {
@@ -31,7 +31,8 @@ import { createControllerState } from "../src/app/controller-state.js";
 				updateDocument(documentState);
 				calls.push(documentState);
 			},
-		});
+		},
+	);
 
 	assert.equal(state.mode, "camera");
 	assert.equal(state.baseFovX, 50);

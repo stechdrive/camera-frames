@@ -14,6 +14,7 @@ import {
 } from "./app/controller-accessors.js";
 import { createControllerApi } from "./app/controller-api.js";
 import { createControllerLocalization } from "./app/controller-localization.js";
+import { createControllerRuntimeResources } from "./app/controller-runtime-resources.js";
 import { createControllerState } from "./app/controller-state.js";
 import { createFileOpenRouting } from "./app/file-open-routing.js";
 import { createInteractionZoomCommands } from "./app/interaction-zoom-commands.js";
@@ -94,65 +95,42 @@ export function createCameraFramesController(elements, store) {
 		referenceImageInput,
 	} = elements;
 
-	const renderer = new THREE.WebGLRenderer({
-		canvas: viewportCanvas,
-		antialias: false,
-		alpha: false,
-	});
-	renderer.setPixelRatio(VIEWPORT_PIXEL_RATIO);
-	renderer.outputColorSpace = THREE.SRGBColorSpace;
-
-	const scene = new THREE.Scene();
-	scene.background = new THREE.Color(0x08111d);
-
-	const spark = new SparkRenderer({
+	const {
 		renderer,
-		sortRadial: true,
-		lodSplatScale: 1.1,
+		scene,
+		spark,
+		contentRoot,
+		splatRoot,
+		modelRoot,
+		guides,
+		guideOverlay,
+		viewportCamera,
+		viewportOrthoCamera,
+		shotCameraRegistry,
+		fpsMovement,
+		pointerControls,
+		loader,
+	} = createControllerRuntimeResources({
+		viewportCanvas,
+		viewportPixelRatio: VIEWPORT_PIXEL_RATIO,
+		defaultCameraNear: DEFAULT_CAMERA_NEAR,
+		defaultCameraFar: DEFAULT_CAMERA_FAR,
+		defaultFpsMoveSpeed: DEFAULT_FPS_MOVE_SPEED,
+		defaultPointerSlideSpeed: DEFAULT_POINTER_SLIDE_SPEED,
+		defaultPointerScrollSpeed: DEFAULT_POINTER_SCROLL_SPEED,
+		WebGLRendererImpl: THREE.WebGLRenderer,
+		SceneImpl: THREE.Scene,
+		ColorImpl: THREE.Color,
+		GroupImpl: THREE.Group,
+		PerspectiveCameraImpl: THREE.PerspectiveCamera,
+		OrthographicCameraImpl: THREE.OrthographicCamera,
+		FpsMovementImpl: FpsMovement,
+		PointerControlsImpl: PointerControls,
+		SparkRendererImpl: SparkRenderer,
+		GLTFLoaderImpl: GLTFLoader,
+		createGuideOverlayImpl: createGuideOverlay,
+		srgbColorSpace: THREE.SRGBColorSpace,
 	});
-	scene.add(spark);
-
-	const contentRoot = new THREE.Group();
-	const splatRoot = new THREE.Group();
-	const modelRoot = new THREE.Group();
-	contentRoot.add(splatRoot, modelRoot);
-	scene.add(contentRoot);
-
-	const guides = new THREE.Group();
-	const guideOverlay = createGuideOverlay();
-	guides.add(guideOverlay.group);
-	scene.add(guides);
-
-	const viewportCamera = new THREE.PerspectiveCamera(
-		50,
-		1,
-		DEFAULT_CAMERA_NEAR,
-		DEFAULT_CAMERA_FAR,
-	);
-	const viewportOrthoCamera = new THREE.OrthographicCamera(
-		-1,
-		1,
-		1,
-		-1,
-		DEFAULT_CAMERA_NEAR,
-		DEFAULT_CAMERA_FAR,
-	);
-	const shotCameraRegistry = new Map();
-
-	const fpsMovement = new FpsMovement({
-		moveSpeed: DEFAULT_FPS_MOVE_SPEED,
-	});
-	const pointerControls = new PointerControls({
-		canvas: renderer.domElement,
-		slideSpeed: DEFAULT_POINTER_SLIDE_SPEED,
-		scrollSpeed: DEFAULT_POINTER_SCROLL_SPEED,
-		moveInertia: 0.01,
-		rotateInertia: 0.01,
-		reverseSlide: true,
-	});
-	pointerControls.pointerRollScale = 0.0;
-
-	const loader = new GLTFLoader();
 	let assetController = null;
 	let frameController = null;
 	let cameraController = null;
@@ -207,11 +185,12 @@ export function createCameraFramesController(elements, store) {
 		getOutputFrameController: () => outputFrameController,
 		getSceneFramingController: () => sceneFramingController,
 	});
-	const { state, outputFrameResizeHandles, sceneState } =
-		createControllerState({
+	const { state, outputFrameResizeHandles, sceneState } = createControllerState(
+		{
 			store,
 			updateActiveShotCameraDocument,
-		});
+		},
+	);
 	const {
 		getActiveViewportCamera,
 		getActiveCamera,
