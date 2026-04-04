@@ -12,6 +12,7 @@ import {
 	createShotCameraEditorStateAccessors,
 } from "./app/controller-accessors.js";
 import { createFileOpenRouting } from "./app/file-open-routing.js";
+import { createPresentationSync } from "./app/presentation-sync.js";
 import { createProjectStateBridge } from "./app/project-state-bridge.js";
 import { createShotCameraEditorStateController } from "./app/shot-camera-editor-state.js";
 import {
@@ -330,7 +331,28 @@ export function createCameraFramesController(elements, store) {
 		updateShotCameraHelpers,
 		updateCameraSummary,
 		updateOutputFrameOverlay,
+		updateUi: (...args) => updateUi(...args),
+	});
+	const {
+		setLocale,
+		setStatus,
+		safeSyncReferenceImageUi,
+		safeSyncReferenceImagePreview,
+		setExportStatus,
 		updateUi,
+	} = createPresentationSync({
+		store,
+		state,
+		currentLocale,
+		t,
+		resetLocalizedCaches,
+		getTotalLoadedItems,
+		getReferenceImageController: () => referenceImageController,
+		getReferenceImageRenderController: () => referenceImageRenderController,
+		getProjectController: () => projectController,
+		getUiSyncController: () => uiSyncController,
+		isProjectPresentationSyncSuspended: () => projectPresentationSyncSuspended,
+		updateCameraSummary: () => updateCameraSummary(),
 	});
 
 	async function applyOpenedProject(
@@ -1264,68 +1286,6 @@ export function createCameraFramesController(elements, store) {
 		return projectionController.syncOutputCamera();
 	}
 
-	function setLocale(nextLocale) {
-		if (nextLocale === currentLocale()) {
-			return;
-		}
-
-		store.locale.value = nextLocale;
-		resetLocalizedCaches();
-		if (getTotalLoadedItems() === 0) {
-			store.exportSummary.value = t("exportSummary.empty");
-		}
-		updateUi();
-		updateCameraSummary();
-		setStatus(
-			t("status.localeChanged", {
-				language: t(`localeName.${nextLocale}`),
-			}),
-		);
-	}
-
-	function setStatus(message) {
-		store.statusLine.value = message;
-	}
-
-	let lastReferenceImageUiError = "";
-	let lastReferenceImagePreviewError = "";
-
-	function safeSyncReferenceImageUi() {
-		try {
-			referenceImageController?.syncUiState?.();
-			lastReferenceImageUiError = "";
-		} catch (error) {
-			const nextMessage =
-				error instanceof Error
-					? error.message
-					: String(error ?? "Unknown error");
-			if (nextMessage !== lastReferenceImageUiError) {
-				lastReferenceImageUiError = nextMessage;
-				console.error("[CAMERA_FRAMES] reference-image ui sync failed", error);
-			}
-		}
-	}
-
-	function safeSyncReferenceImagePreview() {
-		try {
-			referenceImageRenderController?.syncPreviewLayers?.();
-			lastReferenceImagePreviewError = "";
-		} catch (error) {
-			const nextMessage =
-				error instanceof Error
-					? error.message
-					: String(error ?? "Unknown error");
-			if (nextMessage !== lastReferenceImagePreviewError) {
-				lastReferenceImagePreviewError = nextMessage;
-				console.error(
-					"[CAMERA_FRAMES] reference-image preview sync failed",
-					error,
-				);
-			}
-			referenceImageRenderController?.clearPreviewLayers?.();
-		}
-	}
-
 	function updateSceneSummary() {
 		return uiSyncController?.updateSceneSummary();
 	}
@@ -1357,22 +1317,6 @@ export function createCameraFramesController(elements, store) {
 
 	function updateCameraSummary() {
 		return uiSyncController?.updateCameraSummary();
-	}
-
-	function setExportStatus(key, busy = false) {
-		state.exportStatusKey = key;
-		state.exportBusy = busy;
-		store.exportStatusKey.value = key;
-		store.exportBusy.value = busy;
-	}
-
-	function updateUi({ syncProjectPresentation = true } = {}) {
-		safeSyncReferenceImageUi();
-		safeSyncReferenceImagePreview();
-		if (!projectPresentationSyncSuspended && syncProjectPresentation) {
-			projectController?.syncProjectPresentation?.();
-		}
-		return uiSyncController?.updateUi();
 	}
 
 	function setViewportToolMode(nextMode) {
