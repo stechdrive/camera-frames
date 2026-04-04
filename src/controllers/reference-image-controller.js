@@ -207,6 +207,7 @@ export function createReferenceImageController({
 			resetReferenceImageInspectorTransformState();
 			if (normalized.selectedItemIds.length > 1) {
 				initializeMultiSelectionTransformBox(items);
+				syncReferenceImageInspectorTransformState(items);
 			} else {
 				setStoredSelectionBox(null);
 			}
