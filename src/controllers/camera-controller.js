@@ -35,6 +35,7 @@ export function createCameraController({
 	setStatus,
 	updateUi,
 	getAutoClipRange,
+	getSceneBounds = () => null,
 	clearFrameDrag,
 	clearOutputFramePan,
 	clearOutputFrameSelection,
@@ -603,10 +604,7 @@ export function createCameraController({
 
 	function createShotCamera() {
 		const nextDocument = createWorkspaceShotCameraDocument();
-		const sourceCamera =
-			state.mode === WORKSPACE_PANE_CAMERA
-				? getActiveShotCamera()
-				: viewportCamera;
+		const hasSceneBounds = Boolean(getSceneBounds?.());
 		runHistoryAction?.("camera.create", () => {
 			setShotCameraDocuments([
 				...store.workspace.shotCameras.value,
@@ -615,7 +613,11 @@ export function createCameraController({
 
 			const entry = shotCameraRegistry.get(nextDocument.id);
 			if (entry) {
-				copyPose(sourceCamera, entry.camera);
+				if (hasSceneBounds) {
+					frameCamera(entry.camera, "camera");
+				} else {
+					placeCameraAtHome(entry.camera, "camera");
+				}
 				syncShotCameraEntryFromDocument(entry);
 			}
 

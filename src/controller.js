@@ -17,6 +17,7 @@ import { createPresentationSync } from "./app/presentation-sync.js";
 import { createProjectSceneCommands } from "./app/project-scene-commands.js";
 import { createProjectStateBridge } from "./app/project-state-bridge.js";
 import { createShotCameraEditorStateController } from "./app/shot-camera-editor-state.js";
+import { createViewSyncCommands } from "./app/view-sync-commands.js";
 import { createViewportEditingCommands } from "./app/viewport-editing-commands.js";
 import {
 	BASE_RENDER_BOX,
@@ -314,6 +315,21 @@ export function createCameraFramesController(elements, store) {
 	}
 
 	const {
+		updateOutputFrameOverlay,
+		updateDropHint,
+		updateSceneSummary,
+		syncGuideOverlayState,
+		updateCameraSummary,
+	} = createViewSyncCommands({
+		state,
+		guideOverlay,
+		getActiveShotCameraDocument,
+		getOutputFrameController: () => outputFrameController,
+		getUiSyncController: () => uiSyncController,
+		getViewportProjectionController: () => viewportProjectionController,
+		safeSyncReferenceImagePreview: () => safeSyncReferenceImagePreview(),
+	});
+	const {
 		captureWorkspaceState,
 		restoreWorkspaceState,
 		applyProjectPackageImport,
@@ -542,6 +558,7 @@ export function createCameraFramesController(elements, store) {
 		t,
 		setStatus,
 		updateUi,
+		getSceneBounds,
 		getAutoClipRange: (camera) =>
 			sceneFramingController.getAutoClipRange(camera),
 		clearFrameDrag: () => frameController.clearFrameDrag(),
@@ -1163,16 +1180,6 @@ export function createCameraFramesController(elements, store) {
 		return projectionController.getProjectionState();
 	}
 
-	function updateOutputFrameOverlay() {
-		const result = outputFrameController.updateOutputFrameOverlay();
-		safeSyncReferenceImagePreview();
-		return result;
-	}
-
-	function updateDropHint() {
-		return uiSyncController?.updateDropHint();
-	}
-
 	function syncShotProjection() {
 		return projectionController.syncShotProjection();
 	}
@@ -1270,39 +1277,6 @@ export function createCameraFramesController(elements, store) {
 
 	function syncOutputCamera() {
 		return projectionController.syncOutputCamera();
-	}
-
-	function updateSceneSummary() {
-		return uiSyncController?.updateSceneSummary();
-	}
-
-	function syncGuideOverlayState(
-		documentState = getActiveShotCameraDocument(),
-		{ gridVisible = true, eyeLevelVisible = true } = {},
-	) {
-		const viewportOrthoPreviewGridPlane =
-			state.mode === WORKSPACE_PANE_VIEWPORT
-				? (viewportProjectionController?.getViewportOrthographicPreviewGridPlane?.() ??
-					null)
-				: null;
-		const showViewportOrthoPreviewGrid =
-			gridVisible !== false && viewportOrthoPreviewGridPlane !== null;
-		guideOverlay.applyState({
-			gridVisible: showViewportOrthoPreviewGrid ? false : gridVisible,
-			eyeLevelVisible,
-			gridLayerMode:
-				documentState?.exportSettings?.exportGridLayerMode === "overlay"
-					? "overlay"
-					: GUIDE_GRID_LAYER_MODE_BOTTOM,
-		});
-		guideOverlay.setViewportOrthographicGridState?.({
-			visible: showViewportOrthoPreviewGrid,
-			plane: viewportOrthoPreviewGridPlane,
-		});
-	}
-
-	function updateCameraSummary() {
-		return uiSyncController?.updateCameraSummary();
 	}
 
 	runtimeController.init();
