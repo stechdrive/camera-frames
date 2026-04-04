@@ -237,6 +237,8 @@ export function ToolRailSection({
 	mode,
 	menuChildren = null,
 	projectMenuItems = [],
+	railRef = null,
+	railOnWheel = null,
 	store,
 	tailContent = null,
 	showQuickMenu = false,
@@ -313,7 +315,12 @@ export function ToolRailSection({
 	};
 
 	return html`
-		<section class="workbench-tool-rail" aria-label=${t("section.tools")}>
+		<section
+			class="workbench-tool-rail"
+			aria-label=${t("section.tools")}
+			ref=${railRef}
+			onWheel=${railOnWheel}
+		>
 			<${HeaderMenu}
 				label=${t("section.file")}
 				items=${projectMenuItems}

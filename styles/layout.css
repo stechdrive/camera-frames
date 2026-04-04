@@ -165,13 +165,23 @@
 	width: auto;
 	max-width: min(calc(100vw - 1rem), 48rem);
 	overflow-x: auto;
-	overflow-y: visible;
-	scrollbar-width: none;
+	overflow-y: hidden;
+	scrollbar-width: thin;
+	scrollbar-color: rgba(255, 255, 255, 0.28) transparent;
 	-webkit-overflow-scrolling: touch;
 }
 
 .workbench-shell--mobile .workbench-tool-rail::-webkit-scrollbar {
-	display: none;
+	height: 0.45rem;
+}
+
+.workbench-shell--mobile .workbench-tool-rail::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.workbench-shell--mobile .workbench-tool-rail::-webkit-scrollbar-thumb {
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.22);
 }
 
 .workbench-shell--mobile .workbench-tool-rail__group {

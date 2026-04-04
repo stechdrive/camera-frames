@@ -92,6 +92,7 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 	const [toolRailPosition, setToolRailPosition] = useState({ x: 0, y: 0 });
 	const [toolRailDragging, setToolRailDragging] = useState(false);
 	const toolRailRef = useRef(null);
+	const dockedToolRailRef = useRef(null);
 	const toolRailDragStateRef = useRef(null);
 	const workbenchCollapsed = store.workbenchCollapsed.value;
 	const mode = store.mode.value;
@@ -346,15 +347,11 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 			return undefined;
 		}
 
-		const widthQuery = window.matchMedia("(max-width: 960px)");
-		const coarseQuery = window.matchMedia("(pointer: coarse)");
-		const hoverQuery = window.matchMedia("(hover: none)");
+		const widthQuery = window.matchMedia("(max-width: 1180px)");
 		const syncMobileWorkbench = () => {
 			setIsMobileWorkbench(
 				shouldUseMobileWorkbenchLayout({
 					widthMatches: widthQuery.matches,
-					coarseMatches: coarseQuery.matches,
-					hoverNoneMatches: hoverQuery.matches,
 				}),
 			);
 		};
@@ -369,11 +366,7 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 			return () => query.removeListener(listener);
 		};
 
-		const cleanups = [
-			addChangeListener(widthQuery, syncMobileWorkbench),
-			addChangeListener(coarseQuery, syncMobileWorkbench),
-			addChangeListener(hoverQuery, syncMobileWorkbench),
-		];
+		const cleanups = [addChangeListener(widthQuery, syncMobileWorkbench)];
 		return () => {
 			for (const cleanup of cleanups) {
 				cleanup();
@@ -448,6 +441,25 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 		event.currentTarget.releasePointerCapture?.(event.pointerId);
 		toolRailDragStateRef.current = null;
 		setToolRailDragging(false);
+	};
+
+	const handleDockedToolRailWheel = (event) => {
+		const railElement = dockedToolRailRef.current;
+		if (!railElement) {
+			return;
+		}
+		if (railElement.scrollWidth <= railElement.clientWidth + 1) {
+			return;
+		}
+		const horizontalDelta =
+			Math.abs(event.deltaX) > Math.abs(event.deltaY)
+				? event.deltaX
+				: event.deltaY;
+		if (!Number.isFinite(horizontalDelta) || horizontalDelta === 0) {
+			return;
+		}
+		railElement.scrollLeft += horizontalDelta;
+		event.preventDefault();
 	};
 
 	const getTabSectionIds = (tabId) => {
@@ -766,6 +778,8 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 							mode=${mode}
 							menuChildren=${fileMenuChildren}
 							projectMenuItems=${projectMenuItems}
+							railRef=${dockedToolRailRef}
+							railOnWheel=${handleDockedToolRailWheel}
 							showQuickMenu=${true}
 							store=${store}
 							t=${t}
