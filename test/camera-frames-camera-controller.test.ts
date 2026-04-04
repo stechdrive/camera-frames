@@ -164,12 +164,13 @@ function createCameraControllerHarness({
 	controller.createShotCamera();
 	assert.equal(store.workspace.shotCameras.value.length, 2);
 	assert.equal(store.workspace.activeShotCameraId.value, "shot-camera-2");
-	assert.ok(calls.some(([label]) => label === "frame-camera"));
+	assert.ok(calls.some(([label]) => label === "place-home"));
+	assert.ok(!calls.some(([label]) => label === "frame-camera"));
 	assert.ok(!calls.some(([label]) => label === "copy-pose"));
 	assert.deepEqual(store.workspace.shotCameras.value[1].pose.position, {
-		x: 9,
-		y: 8,
-		z: 7,
+		x: 2,
+		y: 3,
+		z: 4,
 	});
 }
 

@@ -604,7 +604,6 @@ export function createCameraController({
 
 	function createShotCamera() {
 		const nextDocument = createWorkspaceShotCameraDocument();
-		const hasSceneBounds = Boolean(getSceneBounds?.());
 		runHistoryAction?.("camera.create", () => {
 			setShotCameraDocuments([
 				...store.workspace.shotCameras.value,
@@ -613,11 +612,7 @@ export function createCameraController({
 
 			const entry = shotCameraRegistry.get(nextDocument.id);
 			if (entry) {
-				if (hasSceneBounds) {
-					frameCamera(entry.camera, "camera");
-				} else {
-					placeCameraAtHome(entry.camera, "camera");
-				}
+				placeCameraAtHome(entry.camera, "camera");
 				syncShotCameraEntryFromDocument(entry);
 			}
 
