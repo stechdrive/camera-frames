@@ -64,6 +64,16 @@ export function createControllerApi({
 		toggleSplatEditMode,
 		setSplatEditTool: (...args) =>
 			perSplatEditController?.setSplatEditTool?.(...args),
+		setSplatEditBoxCenterAxis: (...args) =>
+			perSplatEditController?.setSplatEditBoxCenterAxis?.(...args),
+		setSplatEditBoxSizeAxis: (...args) =>
+			perSplatEditController?.setSplatEditBoxSizeAxis?.(...args),
+		scaleSplatEditBoxUniform: (...args) =>
+			perSplatEditController?.scaleSplatEditBoxUniform?.(...args),
+		fitSplatEditBoxToScope: (...args) =>
+			perSplatEditController?.fitSplatEditBoxToScope?.(...args),
+		applySplatEditBoxSelection: (...args) =>
+			perSplatEditController?.applySplatEditBoxSelection?.(...args),
 		clearSplatSelection: (...args) =>
 			perSplatEditController?.clearSplatSelection?.(...args),
 		setViewportReferenceImageEditMode,
@@ -299,6 +309,7 @@ export function createControllerApi({
 		redoHistory: () => historyController?.redoHistory(),
 		dispose() {
 			measurementController?.dispose?.();
+			perSplatEditController?.dispose?.();
 			guideOverlay.dispose();
 			lightingController?.dispose?.();
 			disposeSceneResources?.();

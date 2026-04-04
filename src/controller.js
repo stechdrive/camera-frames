@@ -419,8 +419,10 @@ export function createCameraFramesController(elements, store) {
 			store,
 			state,
 			t,
+			guides,
 			setStatus,
 			updateUi,
+			assetController,
 			setViewportSelectMode,
 			setViewportReferenceImageEditMode,
 			setViewportTransformMode,
@@ -720,7 +722,24 @@ export function createCameraFramesController(elements, store) {
 			t,
 		}),
 	);
-	viewportToolController.setCustomGizmoDelegate?.(measurementController);
+	viewportToolController.setCustomGizmoDelegate?.({
+		getViewportGizmoConfig: (options) =>
+			perSplatEditController?.getViewportGizmoConfig?.(options) ??
+			measurementController?.getViewportGizmoConfig?.(options) ??
+			null,
+		startViewportGizmoDrag: (handleName, options) =>
+			perSplatEditController?.startViewportGizmoDrag?.(handleName, options) ||
+			measurementController?.startViewportGizmoDrag?.(handleName, options) ||
+			false,
+		handleViewportGizmoDragMove: (event, options) =>
+			perSplatEditController?.handleViewportGizmoDragMove?.(event, options) ||
+			measurementController?.handleViewportGizmoDragMove?.(event, options) ||
+			false,
+		handleViewportGizmoDragEnd: (event) =>
+			perSplatEditController?.handleViewportGizmoDragEnd?.(event) ||
+			measurementController?.handleViewportGizmoDragEnd?.(event) ||
+			false,
+	});
 	viewportAxisGizmoController = createViewportAxisGizmoController(
 		createViewportAxisGizmoControllerBindings({
 			state,

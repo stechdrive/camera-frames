@@ -73,6 +73,8 @@ export function ViewportShell({ store, controller, refs, t }) {
 	const splatEditTool = store.splatEdit.tool.value;
 	const splatEditScopeCount = store.splatEdit.scopeAssetIds.value.length;
 	const splatEditSelectionCount = store.splatEdit.selectionCount.value;
+	const splatEditBoxCenter = store.splatEdit.boxCenter.value;
+	const splatEditBoxSize = store.splatEdit.boxSize.value;
 	const frames = store.frames.documents.value;
 	const selectedFrameIds = new Set(store.frames.selectedIds.value ?? []);
 	const rememberedMaskFrameIds = new Set(
@@ -248,6 +250,18 @@ export function ViewportShell({ store, controller, refs, t }) {
 	const startReferenceImageAnchorDrag = (event) =>
 		controller()?.startReferenceImageAnchorDrag?.(event);
 	const setSplatEditTool = (tool) => controller()?.setSplatEditTool?.(tool);
+	const handleSplatEditBoxCenterInput = (axisKey, event) => {
+		const nextValue = Number(event.currentTarget.value);
+		if (Number.isFinite(nextValue)) {
+			controller()?.setSplatEditBoxCenterAxis?.(axisKey, nextValue);
+		}
+	};
+	const handleSplatEditBoxSizeInput = (axisKey, event) => {
+		const nextValue = Number(event.currentTarget.value);
+		if (Number.isFinite(nextValue)) {
+			controller()?.setSplatEditBoxSizeAxis?.(axisKey, nextValue);
+		}
+	};
 
 	useLayoutEffect(() => {
 		const canvas = frameMaskCanvasRef.current;
@@ -418,6 +432,140 @@ export function ViewportShell({ store, controller, refs, t }) {
 								${t("status.splatEditToolBrush")}
 							</button>
 						</div>
+						${
+							splatEditTool === "box" &&
+							html`
+								<div class="viewport-splat-edit-hud__section">
+									<span class="viewport-splat-edit-hud__section-label">
+										${t("status.splatEditCenter")}
+									</span>
+									<div class="viewport-splat-edit-hud__grid">
+										<label class="viewport-splat-edit-hud__field">
+											<span>${t("field.positionX")}</span>
+											<input
+												type="number"
+												step="0.1"
+												value=${Number(splatEditBoxCenter?.x ?? 0).toFixed(2)}
+												onChange=${(event) =>
+													handleSplatEditBoxCenterInput("x", event)}
+											/>
+										</label>
+										<label class="viewport-splat-edit-hud__field">
+											<span>${t("field.positionY")}</span>
+											<input
+												type="number"
+												step="0.1"
+												value=${Number(splatEditBoxCenter?.y ?? 0).toFixed(2)}
+												onChange=${(event) =>
+													handleSplatEditBoxCenterInput("y", event)}
+											/>
+										</label>
+										<label class="viewport-splat-edit-hud__field">
+											<span>${t("field.positionZ")}</span>
+											<input
+												type="number"
+												step="0.1"
+												value=${Number(splatEditBoxCenter?.z ?? 0).toFixed(2)}
+												onChange=${(event) =>
+													handleSplatEditBoxCenterInput("z", event)}
+											/>
+										</label>
+									</div>
+								</div>
+								<div class="viewport-splat-edit-hud__section">
+									<span class="viewport-splat-edit-hud__section-label">
+										${t("status.splatEditSize")}
+									</span>
+									<div class="viewport-splat-edit-hud__grid">
+										<label class="viewport-splat-edit-hud__field">
+											<span>${t("field.positionX")}</span>
+											<input
+												type="number"
+												min="0.01"
+												step="0.1"
+												value=${Number(splatEditBoxSize?.x ?? 1).toFixed(2)}
+												onChange=${(event) =>
+													handleSplatEditBoxSizeInput("x", event)}
+											/>
+										</label>
+										<label class="viewport-splat-edit-hud__field">
+											<span>${t("field.positionY")}</span>
+											<input
+												type="number"
+												min="0.01"
+												step="0.1"
+												value=${Number(splatEditBoxSize?.y ?? 1).toFixed(2)}
+												onChange=${(event) =>
+													handleSplatEditBoxSizeInput("y", event)}
+											/>
+										</label>
+										<label class="viewport-splat-edit-hud__field">
+											<span>${t("field.positionZ")}</span>
+											<input
+												type="number"
+												min="0.01"
+												step="0.1"
+												value=${Number(splatEditBoxSize?.z ?? 1).toFixed(2)}
+												onChange=${(event) =>
+													handleSplatEditBoxSizeInput("z", event)}
+											/>
+										</label>
+									</div>
+								</div>
+								<div class="viewport-splat-edit-hud__actions">
+									<button
+										type="button"
+										class="viewport-splat-edit-hud__tool"
+										onClick=${() => controller()?.scaleSplatEditBoxUniform?.(0.9)}
+									>
+										${t("status.splatEditScaleDown")}
+									</button>
+									<button
+										type="button"
+										class="viewport-splat-edit-hud__tool"
+										onClick=${() => controller()?.scaleSplatEditBoxUniform?.(1.1)}
+									>
+										${t("status.splatEditScaleUp")}
+									</button>
+									<button
+										type="button"
+										class="viewport-splat-edit-hud__tool"
+										onClick=${() => controller()?.fitSplatEditBoxToScope?.()}
+									>
+										${t("status.splatEditFitScope")}
+									</button>
+								</div>
+								<div class="viewport-splat-edit-hud__actions">
+									<button
+										type="button"
+										class="viewport-splat-edit-hud__tool"
+										onClick=${() =>
+											controller()?.applySplatEditBoxSelection?.({
+												subtract: false,
+											})}
+									>
+										${t("status.splatEditAdd")}
+									</button>
+									<button
+										type="button"
+										class="viewport-splat-edit-hud__tool"
+										onClick=${() =>
+											controller()?.applySplatEditBoxSelection?.({
+												subtract: true,
+											})}
+									>
+										${t("status.splatEditSubtract")}
+									</button>
+									<button
+										type="button"
+										class="viewport-splat-edit-hud__tool"
+										onClick=${() => controller()?.clearSplatSelection?.()}
+									>
+										${t("action.clearSelection")}
+									</button>
+								</div>
+							`
+						}
 					</div>
 				`
 			}
