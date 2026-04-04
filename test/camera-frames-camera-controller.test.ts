@@ -132,8 +132,18 @@ function createCameraControllerHarness({
 		clearControlMomentum: () => calls.push(["clear-control-momentum"]),
 		applyNavigateInteractionMode: () => calls.push(["apply-navigate"]),
 		copyPose: () => calls.push(["copy-pose"]),
-		placeCameraAtHome: () => calls.push(["place-home"]),
-		frameCamera: () => calls.push(["frame-camera"]),
+		placeCameraAtHome: (camera) => {
+			calls.push(["place-home"]);
+			camera.position.set(2, 3, 4);
+			camera.lookAt(0, 0, 0);
+			camera.updateMatrixWorld(true);
+		},
+		frameCamera: (camera) => {
+			calls.push(["frame-camera"]);
+			camera.position.set(9, 8, 7);
+			camera.lookAt(0, 1, 0);
+			camera.updateMatrixWorld(true);
+		},
 		syncControlsToMode: () => calls.push(["sync-controls"]),
 		runHistoryAction: (_label, action) => {
 			action();
@@ -156,13 +166,23 @@ function createCameraControllerHarness({
 	assert.equal(store.workspace.activeShotCameraId.value, "shot-camera-2");
 	assert.ok(calls.some(([label]) => label === "frame-camera"));
 	assert.ok(!calls.some(([label]) => label === "copy-pose"));
+	assert.deepEqual(store.workspace.shotCameras.value[1].pose.position, {
+		x: 9,
+		y: 8,
+		z: 7,
+	});
 }
 
 {
-	const { controller, calls } = createCameraControllerHarness();
+	const { controller, calls, store } = createCameraControllerHarness();
 	controller.createShotCamera();
 	assert.ok(calls.some(([label]) => label === "place-home"));
 	assert.ok(!calls.some(([label]) => label === "copy-pose"));
+	assert.deepEqual(store.workspace.shotCameras.value[1].pose.position, {
+		x: 2,
+		y: 3,
+		z: 4,
+	});
 }
 
 console.log("✅ CAMERA_FRAMES camera controller tests passed!");

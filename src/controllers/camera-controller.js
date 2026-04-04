@@ -626,6 +626,7 @@ export function createCameraController({
 				nextDocument.id,
 			);
 			store.workspace.activeShotCameraId.value = nextDocument.id;
+			syncActiveShotCameraDocumentFromLiveCamera();
 			clearFrameDrag();
 			clearOutputFramePan();
 			clearControlMomentum();
