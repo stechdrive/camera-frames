@@ -16,7 +16,12 @@ export function createViewportEditingCommands({
 	clearFrameSelection,
 	clearOutputFrameSelection,
 }) {
+	let referenceImageEditModeActivation = null;
+
 	function setViewportToolMode(nextMode) {
+		if (nextMode !== "reference") {
+			referenceImageEditModeActivation = null;
+		}
 		if (nextMode !== "none") {
 			getMeasurementController()?.setMeasurementMode?.(false, { silent: true });
 		}
@@ -48,10 +53,36 @@ export function createViewportEditingCommands({
 		setViewportToolMode(nextEnabled ? "select" : "none");
 	}
 
-	function setViewportReferenceImageEditMode(nextEnabled) {
+	function setViewportReferenceImageEditMode(
+		nextEnabled,
+		{ activation = "explicit" } = {},
+	) {
+		if (nextEnabled) {
+			if (
+				referenceImageEditModeActivation !== "explicit" ||
+				activation === "explicit"
+			) {
+				referenceImageEditModeActivation = activation;
+			}
+		}
 		setViewportToolMode(nextEnabled ? "reference" : "none");
 		if (nextEnabled) {
 			getReferenceImageController()?.ensureReferenceImageEditingSelection?.();
+		} else {
+			referenceImageEditModeActivation = null;
+		}
+	}
+
+	function activateViewportReferenceImageEditModeImplicit() {
+		setViewportReferenceImageEditMode(true, { activation: "implicit" });
+	}
+
+	function clearViewportReferenceImageEditModeIfImplicit() {
+		if (
+			store.viewportReferenceImageEditMode.value &&
+			referenceImageEditModeActivation === "implicit"
+		) {
+			setViewportReferenceImageEditMode(false);
 		}
 	}
 
@@ -188,6 +219,8 @@ export function createViewportEditingCommands({
 		setViewportPivotEditMode,
 		setViewportSelectMode,
 		setViewportReferenceImageEditMode,
+		activateViewportReferenceImageEditModeImplicit,
+		clearViewportReferenceImageEditModeIfImplicit,
 		setViewportTransformMode,
 		toggleViewportSelectMode,
 		toggleViewportTransformMode,

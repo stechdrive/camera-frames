@@ -95,6 +95,38 @@ function createHarness(overrides = {}) {
 {
 	const { commands, calls } = createHarness({
 		store: {
+			viewportSelectMode: { value: false },
+			viewportReferenceImageEditMode: { value: true },
+			viewportTransformMode: { value: false },
+			viewportPivotEditMode: { value: false },
+			referenceImages: {
+				items: { value: [] },
+				previewSessionVisible: { value: true },
+			},
+		},
+	});
+	commands.clearViewportReferenceImageEditModeIfImplicit();
+	assert.deepEqual(calls, []);
+}
+
+{
+	const { commands, calls, store } = createHarness();
+	commands.activateViewportReferenceImageEditModeImplicit();
+	store.viewportReferenceImageEditMode.value = true;
+	commands.clearViewportReferenceImageEditModeIfImplicit();
+	assert.deepEqual(calls, [
+		["measurement-mode", false, { silent: true }],
+		["tool-reference", true],
+		["sync-controls"],
+		["ensure-reference-selection"],
+		["tool-transform", false],
+		["sync-controls"],
+	]);
+}
+
+{
+	const { commands, calls } = createHarness({
+		store: {
 			viewportSelectMode: { value: true },
 			viewportReferenceImageEditMode: { value: false },
 			viewportTransformMode: { value: false },

@@ -181,7 +181,7 @@ export function ReferencePropertiesSection({
 	}
 
 	function ensureReferenceInspectorOverlayVisible() {
-		controller()?.setViewportReferenceImageEditMode?.(true);
+		controller()?.activateViewportReferenceImageEditModeImplicit?.();
 		controller()?.ensureReferenceImageEditingSelection?.();
 	}
 

@@ -243,6 +243,8 @@ export function createRuntimeController({
 			flushNavigationHistory,
 			isInteractiveTextTarget,
 			isViewportSelectMode: () => store.viewportSelectMode.value,
+			isViewportReferenceImageEditMode: () =>
+				store.viewportReferenceImageEditMode.value,
 			getActiveCamera,
 			isZoomInteractionMode,
 			isPieInteractionMode,

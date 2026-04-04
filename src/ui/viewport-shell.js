@@ -551,11 +551,13 @@ export function ViewportShell({ store, controller, refs, t }) {
 					controller=${controller}
 					frameOverlayCanvasRef=${refs.frameOverlayCanvasRef}
 					canvasOnly=${true}
+					interactionsEnabled=${!referenceImageEditMode}
 				/>
 				<${FrameLayer}
 					store=${store}
 					controller=${controller}
 					itemsOnly=${true}
+					interactionsEnabled=${!referenceImageEditMode}
 				/>
 				${OUTPUT_FRAME_RESIZE_HANDLES.map(
 					(handle) => html`
@@ -563,8 +565,12 @@ export function ViewportShell({ store, controller, refs, t }) {
 							type="button"
 							class=${`render-box__resize-handle render-box__resize-handle--${handle}`}
 							aria-label=${outputFrameLabel}
-							onPointerDown=${(event) =>
-								controller()?.startOutputFrameResize(handle, event)}
+							onPointerDown=${
+								referenceImageEditMode
+									? undefined
+									: (event) =>
+											controller()?.startOutputFrameResize(handle, event)
+							}
 						></button>
 					`,
 				)}
@@ -574,7 +580,11 @@ export function ViewportShell({ store, controller, refs, t }) {
 							type="button"
 							class=${`render-box__pan-edge render-box__pan-edge--${edge}`}
 							aria-label=${outputFrameLabel}
-							onPointerDown=${(event) => controller()?.startOutputFramePan(event)}
+							onPointerDown=${
+								referenceImageEditMode
+									? undefined
+									: (event) => controller()?.startOutputFramePan(event)
+							}
 						></button>
 					`,
 				)}
@@ -582,7 +592,11 @@ export function ViewportShell({ store, controller, refs, t }) {
 					id="render-box-meta"
 					ref=${refs.renderBoxMetaRef}
 					class="render-box__meta"
-					onPointerDown=${(event) => controller()?.startOutputFramePan(event)}
+					onPointerDown=${
+						referenceImageEditMode
+							? undefined
+							: (event) => controller()?.startOutputFramePan(event)
+					}
 				>
 					${store.exportSizeLabel.value} · ${store.renderBox.anchor.value}
 				</div>

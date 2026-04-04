@@ -472,6 +472,8 @@ export function createCameraFramesController(elements, store) {
 		setViewportPivotEditMode,
 		setViewportSelectMode,
 		setViewportReferenceImageEditMode,
+		activateViewportReferenceImageEditModeImplicit,
+		clearViewportReferenceImageEditModeIfImplicit,
 		setViewportTransformMode,
 		toggleViewportSelectMode,
 		toggleViewportTransformMode,
@@ -726,9 +728,9 @@ export function createCameraFramesController(elements, store) {
 		updateUi,
 		ensureCameraMode: () => cameraController.setMode(WORKSPACE_PANE_CAMERA),
 		onReferenceImageSelectionCleared: () =>
-			setViewportReferenceImageEditMode(false),
+			clearViewportReferenceImageEditModeIfImplicit(),
 		onReferenceImageSelectionActivated: () =>
-			setViewportReferenceImageEditMode(true),
+			activateViewportReferenceImageEditModeImplicit(),
 		getActiveShotCameraDocument,
 		updateActiveShotCameraDocument,
 		getOutputSizeState,
@@ -1200,6 +1202,7 @@ export function createCameraFramesController(elements, store) {
 		setViewportSelectMode,
 		toggleViewportSelectMode,
 		setViewportReferenceImageEditMode,
+		activateViewportReferenceImageEditModeImplicit,
 		toggleViewportReferenceImageEditMode,
 		setViewportPivotEditMode,
 		toggleViewportPivotEditMode,

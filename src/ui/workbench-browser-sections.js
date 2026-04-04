@@ -393,7 +393,7 @@ export function ReferenceBrowserSection({ controller, store, t }) {
 			orderedIds,
 		});
 		if (controller()?.isReferenceImageSelectionActive?.()) {
-			controller()?.setViewportReferenceImageEditMode?.(true);
+			controller()?.activateViewportReferenceImageEditModeImplicit?.();
 		}
 	};
 
@@ -738,7 +738,7 @@ export function ReferenceManagerSection({
 			orderedIds,
 		});
 		if (controller()?.isReferenceImageSelectionActive?.()) {
-			controller()?.setViewportReferenceImageEditMode?.(true);
+			controller()?.activateViewportReferenceImageEditModeImplicit?.();
 		}
 	}
 

@@ -41,7 +41,7 @@ export function ReferenceSection({
 			orderedIds,
 		});
 		if (controller()?.isReferenceImageSelectionActive?.()) {
-			controller()?.setViewportReferenceImageEditMode?.(true);
+			controller()?.activateViewportReferenceImageEditModeImplicit?.();
 		}
 	};
 

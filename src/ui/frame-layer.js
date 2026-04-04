@@ -54,6 +54,7 @@ export function FrameLayer({
 	frameOverlayCanvasRef,
 	canvasOnly = false,
 	itemsOnly = false,
+	interactionsEnabled = true,
 }) {
 	const exportWidth = store.exportWidth.value;
 	const exportHeight = store.exportHeight.value;
@@ -177,14 +178,21 @@ export function FrameLayer({
 													aria-label=${deleteFrameLabel}
 													title=${deleteFrameLabel}
 													onPointerDown=${(event) => {
+														if (!interactionsEnabled) {
+															return;
+														}
 														event.preventDefault();
 														event.stopPropagation();
 													}}
-													onClick=${(event) => {
-														event.preventDefault();
-														event.stopPropagation();
-														controller()?.deleteFrame?.(frame.id);
-													}}
+													onClick=${
+														interactionsEnabled
+															? (event) => {
+																	event.preventDefault();
+																	event.stopPropagation();
+																	controller()?.deleteFrame?.(frame.id);
+																}
+															: undefined
+													}
 												>
 													<${WorkbenchIcon} name="trash" size=${11} />
 												</button>
@@ -197,29 +205,41 @@ export function FrameLayer({
 								type="button"
 								class="frame-item__edge frame-item__edge--top"
 								aria-label=${frame.name}
-								onPointerDown=${(event) =>
-									controller()?.startFrameDrag(frame.id, event)}
+								onPointerDown=${
+									interactionsEnabled
+										? (event) => controller()?.startFrameDrag(frame.id, event)
+										: undefined
+								}
 							></button>
 							<button
 								type="button"
 								class="frame-item__edge frame-item__edge--right"
 								aria-label=${frame.name}
-								onPointerDown=${(event) =>
-									controller()?.startFrameDrag(frame.id, event)}
+								onPointerDown=${
+									interactionsEnabled
+										? (event) => controller()?.startFrameDrag(frame.id, event)
+										: undefined
+								}
 							></button>
 							<button
 								type="button"
 								class="frame-item__edge frame-item__edge--bottom"
 								aria-label=${frame.name}
-								onPointerDown=${(event) =>
-									controller()?.startFrameDrag(frame.id, event)}
+								onPointerDown=${
+									interactionsEnabled
+										? (event) => controller()?.startFrameDrag(frame.id, event)
+										: undefined
+								}
 							></button>
 							<button
 								type="button"
 								class="frame-item__edge frame-item__edge--left"
 								aria-label=${frame.name}
-								onPointerDown=${(event) =>
-									controller()?.startFrameDrag(frame.id, event)}
+								onPointerDown=${
+									interactionsEnabled
+										? (event) => controller()?.startFrameDrag(frame.id, event)
+										: undefined
+								}
 							></button>
 							${FRAME_RESIZE_HANDLES.map(
 								(handle) => html`
@@ -233,8 +253,16 @@ export function FrameLayer({
 											),
 										}}
 										aria-label=${frame.name}
-										onPointerDown=${(event) =>
-											controller()?.startFrameResize(frame.id, handle, event)}
+										onPointerDown=${
+											interactionsEnabled
+												? (event) =>
+														controller()?.startFrameResize(
+															frame.id,
+															handle,
+															event,
+														)
+												: undefined
+										}
 									></button>
 								`,
 							)}
@@ -250,8 +278,16 @@ export function FrameLayer({
 											),
 										}}
 										aria-label=${frame.name}
-										onPointerDown=${(event) =>
-											controller()?.startFrameRotate(frame.id, zone, event)}
+										onPointerDown=${
+											interactionsEnabled
+												? (event) =>
+														controller()?.startFrameRotate(
+															frame.id,
+															zone,
+															event,
+														)
+												: undefined
+										}
 									></button>
 								`,
 							)}
@@ -263,8 +299,12 @@ export function FrameLayer({
 									top: `${frameAnchor.y * 100}%`,
 								}}
 								aria-label=${frame.name}
-								onPointerDown=${(event) =>
-									controller()?.startFrameAnchorDrag(frame.id, event)}
+								onPointerDown=${
+									interactionsEnabled
+										? (event) =>
+												controller()?.startFrameAnchorDrag(frame.id, event)
+										: undefined
+								}
 							></button>
 						</div>
 					`;
@@ -318,8 +358,12 @@ export function FrameLayer({
 									type="button"
 									class=${`frame-item__edge frame-item__edge--${edge}`}
 									aria-label="Selected FRAMEs"
-									onPointerDown=${(event) =>
-										controller()?.startSelectedFramesDrag?.(event)}
+									onPointerDown=${
+										interactionsEnabled
+											? (event) =>
+													controller()?.startSelectedFramesDrag?.(event)
+											: undefined
+									}
 								></button>
 							`,
 						)}
@@ -335,8 +379,15 @@ export function FrameLayer({
 										),
 									}}
 									aria-label="Resize selected FRAMEs"
-									onPointerDown=${(event) =>
-										controller()?.startSelectedFramesResize?.(handle, event)}
+									onPointerDown=${
+										interactionsEnabled
+											? (event) =>
+													controller()?.startSelectedFramesResize?.(
+														handle,
+														event,
+													)
+											: undefined
+									}
 								></button>
 							`,
 						)}
@@ -352,8 +403,12 @@ export function FrameLayer({
 										),
 									}}
 									aria-label="Rotate selected FRAMEs"
-									onPointerDown=${(event) =>
-										controller()?.startSelectedFramesRotate?.(zone, event)}
+									onPointerDown=${
+										interactionsEnabled
+											? (event) =>
+													controller()?.startSelectedFramesRotate?.(zone, event)
+											: undefined
+									}
 								></button>
 							`,
 						)}
@@ -365,8 +420,12 @@ export function FrameLayer({
 								top: `${selectionAnchor.y * 100}%`,
 							}}
 							aria-label="Move selected FRAME anchor"
-							onPointerDown=${(event) =>
-								controller()?.startSelectedFramesAnchorDrag?.(event)}
+							onPointerDown=${
+								interactionsEnabled
+									? (event) =>
+											controller()?.startSelectedFramesAnchorDrag?.(event)
+									: undefined
+							}
 						></button>
 					</div>
 				`

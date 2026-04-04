@@ -58,6 +58,7 @@ export function bindInputRouter({
 	flushNavigationHistory,
 	isInteractiveTextTarget,
 	isViewportSelectMode,
+	isViewportReferenceImageEditMode = () => false,
 	getActiveCamera,
 	isZoomInteractionMode,
 	isPieInteractionMode,
@@ -485,6 +486,9 @@ export function bindInputRouter({
 			return;
 		}
 		if (target?.closest("#render-box")) {
+			if (isViewportReferenceImageEditMode?.()) {
+				return;
+			}
 			if (isReferenceImageSelectionActive?.()) {
 				clearReferenceImageSelection?.();
 				updateUi();
@@ -876,5 +880,10 @@ export function bindInputRouter({
 	listen(window, "pointermove", handleViewportTransformDragMove);
 	listen(window, "pointerup", handleViewportTransformDragEnd);
 	listen(window, "pointercancel", handleViewportTransformDragEnd);
-	listen(anchorDot, "pointerdown", startOutputFrameAnchorDrag);
+	listen(anchorDot, "pointerdown", (event) => {
+		if (isViewportReferenceImageEditMode?.()) {
+			return;
+		}
+		startOutputFrameAnchorDrag(event);
+	});
 }

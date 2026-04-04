@@ -46,7 +46,7 @@ function createClosestTarget(matches: Record<string, unknown>) {
 	assert.equal(isNativeHistoryTarget({}), false);
 }
 
-function createInputRouterHarness() {
+function createInputRouterHarness(overrides = {}) {
 	const listeners = new Map();
 	const listen = (target, type, handler) => {
 		if (!listeners.has(target)) {
@@ -70,6 +70,20 @@ function createInputRouterHarness() {
 	const anchorDot = { id: "anchor-dot" };
 	const calls = [];
 	const originalWindow = globalThis.window;
+	const originalElement = globalThis.Element;
+	class TestElement {
+		closest(_selector: string) {
+			return null;
+		}
+	}
+	globalThis.Element = TestElement as typeof Element;
+	const renderBoxTarget = new TestElement();
+	renderBoxTarget.closest = (selector: string) => {
+		if (selector.includes("#render-box")) {
+			return {};
+		}
+		return null;
+	};
 	globalThis.window = { clearTimeout, setTimeout };
 
 	bindInputRouter({
@@ -85,7 +99,7 @@ function createInputRouterHarness() {
 			calls.push(["import-references", files.map((file) => file.name)]),
 		supportsReferenceImageFile: (file) => file.name.endsWith(".png"),
 		updateDropHint: () => calls.push(["update-drop-hint"]),
-		updateUi: () => {},
+		updateUi: () => calls.push(["update-ui"]),
 		updateOutputFrameOverlay: () => {},
 		setStatus: (message) => calls.push(["status", message]),
 		startOrbitAroundHitDrag: () => false,
@@ -110,6 +124,8 @@ function createInputRouterHarness() {
 		flushNavigationHistory: () => {},
 		isInteractiveTextTarget: () => false,
 		isViewportSelectMode: () => false,
+		isViewportReferenceImageEditMode: () =>
+			overrides.isViewportReferenceImageEditMode ?? false,
 		getActiveCamera: () => null,
 		isZoomInteractionMode: () => false,
 		isPieInteractionMode: () => false,
@@ -130,9 +146,11 @@ function createInputRouterHarness() {
 		fpsMovement: { enable: false, moveSpeed: 1 },
 		pointerControls: { enable: false },
 		isFrameSelectionActive: () => false,
-		isReferenceImageSelectionActive: () => false,
-		clearFrameSelection: () => {},
-		clearReferenceImageSelection: () => {},
+		isReferenceImageSelectionActive: () =>
+			overrides.isReferenceImageSelectionActive ?? false,
+		clearFrameSelection: () => calls.push(["clear-frame-selection"]),
+		clearReferenceImageSelection: () =>
+			calls.push(["clear-reference-selection"]),
 		clearOutputFrameSelection: () => {},
 		handleOrbitAroundHitDragMove: () => {},
 		handleOrbitAroundHitDragEnd: () => {},
@@ -166,16 +184,20 @@ function createInputRouterHarness() {
 		handleMeasurementHoverMove: () => {},
 		clearSelectedMeasurementPoint: () => {},
 		deleteSelectedMeasurement: () => {},
-		startOutputFrameAnchorDrag: () => {},
+		startOutputFrameAnchorDrag: () =>
+			calls.push(["start-output-frame-anchor-drag"]),
 	});
 
 	return {
 		listeners,
 		viewportShell,
+		renderBoxTarget,
+		anchorDot,
 		dropHint,
 		calls,
 		restore() {
 			globalThis.window = originalWindow;
+			globalThis.Element = originalElement;
 		},
 	};
 }
@@ -205,6 +227,45 @@ function createInputRouterHarness() {
 			preventDefault() {},
 		});
 		assert.deepEqual(harness.calls, [["update-drop-hint"]]);
+	} finally {
+		harness.restore();
+	}
+}
+
+{
+	const harness = createInputRouterHarness({
+		isViewportReferenceImageEditMode: true,
+		isReferenceImageSelectionActive: true,
+	});
+	try {
+		const pointerdown = harness.listeners
+			.get(harness.viewportShell)
+			.get("pointerdown");
+		pointerdown({
+			button: 0,
+			target: harness.renderBoxTarget,
+			preventDefault() {},
+		});
+		assert.deepEqual(harness.calls, []);
+	} finally {
+		harness.restore();
+	}
+}
+
+{
+	const harness = createInputRouterHarness({
+		isViewportReferenceImageEditMode: true,
+	});
+	try {
+		const pointerdown = harness.listeners
+			.get(harness.anchorDot)
+			.get("pointerdown");
+		pointerdown({
+			button: 0,
+			preventDefault() {},
+			stopPropagation() {},
+		});
+		assert.deepEqual(harness.calls, []);
 	} finally {
 		harness.restore();
 	}
