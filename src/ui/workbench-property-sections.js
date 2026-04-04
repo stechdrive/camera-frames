@@ -12,6 +12,8 @@ function ReferencePropertyInlineField({
 	onCommit,
 	onScrubDelta = null,
 	onScrubStart = null,
+	onScrubEnd = null,
+	onInteractStart = null,
 	scrubStartValue = null,
 	inputMode = "decimal",
 	min = undefined,
@@ -35,6 +37,8 @@ function ReferencePropertyInlineField({
 					disabled=${disabled}
 					onScrubDelta=${onScrubDelta}
 					onScrubStart=${onScrubStart}
+					onScrubEnd=${onScrubEnd}
+					onInteractStart=${onInteractStart}
 					scrubStartValue=${scrubStartValue}
 					onCommit=${onCommit}
 				/>
@@ -57,47 +61,6 @@ export function ReferencePropertiesSection({
 	const selectedItemIdSet = new Set(selectedItemIds);
 	const selectedItems = items.filter((item) => selectedItemIdSet.has(item.id));
 	const selectionCount = selectedItems.length;
-	const selectionSignature = selectedItemIds.join("|");
-	const selectionBaselineRef = useRef({
-		signature: "",
-		items: new Map(),
-	});
-	const transformSessionRef = useRef({
-		signature: "",
-		session: null,
-	});
-
-	if (selectionBaselineRef.current.signature !== selectionSignature) {
-		selectionBaselineRef.current = {
-			signature: selectionSignature,
-			items: new Map(
-				selectedItems.map((item) => [
-					item.id,
-					{
-						opacityPct: Math.round(Number(item.opacity ?? 1) * 100),
-						scalePct: Number(item.scalePct ?? 100),
-						offsetPx: {
-							x: Number(item.offsetPx?.x ?? 0),
-							y: Number(item.offsetPx?.y ?? 0),
-						},
-						rotationDeg: Number(item.rotationDeg ?? 0),
-					},
-				]),
-			),
-		};
-	}
-	if (transformSessionRef.current.signature !== selectionSignature) {
-		transformSessionRef.current = {
-			signature: selectionSignature,
-			session:
-				selectionCount > 1
-					? (controller()?.getSelectedReferenceImageTransformSession?.() ??
-						null)
-					: null,
-		};
-	}
-
-	const selectionBaseline = selectionBaselineRef.current;
 	const selectedItem =
 		selectedItems.find((item) => item.id === selectedItemId) ??
 		selectedItems[0] ??
@@ -192,80 +155,42 @@ export function ReferencePropertiesSection({
 		return wrapped === -180 ? 180 : wrapped;
 	}
 
-	function getSharedSelectionDelta(getValue, { normalize = null } = {}) {
-		let sharedValue = null;
-		for (const item of selectedItems) {
-			const baselineItem = selectionBaseline.items.get(item.id);
-			if (!baselineItem) {
-				return null;
-			}
-			let nextValue = getValue(item, baselineItem);
-			if (normalize) {
-				nextValue = normalize(nextValue);
-			}
-			if (!Number.isFinite(nextValue)) {
-				return null;
-			}
-			if (sharedValue === null) {
-				sharedValue = nextValue;
-				continue;
-			}
-			if (Math.abs(sharedValue - nextValue) > 1e-4) {
-				return null;
-			}
-		}
-		return sharedValue;
+	function handleMultiSelectionScrubStart() {
+		controller()?.beginSelectedReferenceImageInspectorTransformSession?.();
 	}
 
-	function getSharedSelectionValue(getValue) {
-		let sharedValue = null;
-		for (const item of selectedItems) {
-			const nextValue = getValue(item);
-			if (!Number.isFinite(nextValue)) {
-				return null;
-			}
-			if (sharedValue === null) {
-				sharedValue = nextValue;
-				continue;
-			}
-			if (Math.abs(sharedValue - nextValue) > 1e-4) {
-				return null;
-			}
-		}
-		return sharedValue;
+	function handleMultiSelectionScrubEnd() {
+		controller()?.endSelectedReferenceImageInspectorTransformSession?.();
+	}
+
+	function ensureReferenceInspectorOverlayVisible() {
+		controller()?.setViewportReferenceImageEditMode?.(true);
+		controller()?.ensureReferenceImageEditingSelection?.();
 	}
 
 	if (selectionCount > 1) {
-		const sessionTransform = transformSessionRef.current.session;
-		const sharedOpacityPercent = getSharedSelectionValue((item) =>
-			Math.round(Number(item.opacity ?? 1) * 100),
-		);
+		const multiSelectionState =
+			controller()?.getSelectedReferenceImageInspectorState?.() ?? null;
+		const sharedOpacityPercent =
+			multiSelectionState?.sharedOpacityPercent ?? null;
 		const averageOpacityPercent =
-			selectedItems.length > 0
+			multiSelectionState?.averageOpacityPercent ??
+			(selectedItems.length > 0
 				? Math.round(
 						selectedItems.reduce(
 							(sum, item) => sum + Math.round(Number(item.opacity ?? 1) * 100),
 							0,
 						) / selectedItems.length,
 					)
-				: 100;
-		const currentScaleFactor = getSharedSelectionDelta(
-			(item, baselineItem) =>
-				Number(item.scalePct ?? 100) / Number(baselineItem.scalePct ?? 100),
-		);
-		const currentOffsetX = getSharedSelectionDelta(
-			(item, baselineItem) =>
-				Number(item.offsetPx?.x ?? 0) - Number(baselineItem.offsetPx?.x ?? 0),
-		);
-		const currentOffsetY = getSharedSelectionDelta(
-			(item, baselineItem) =>
-				Number(item.offsetPx?.y ?? 0) - Number(baselineItem.offsetPx?.y ?? 0),
-		);
-		const currentRotation = getSharedSelectionDelta(
-			(item, baselineItem) =>
-				Number(item.rotationDeg ?? 0) - Number(baselineItem.rotationDeg ?? 0),
-			{ normalize: normalizeDeltaDegrees },
-		);
+				: 100);
+		const currentScaleDeltaPct = multiSelectionState?.scaleDeltaPercent ?? null;
+		const currentOffsetX = multiSelectionState?.offsetXDelta ?? null;
+		const currentOffsetY = multiSelectionState?.offsetYDelta ?? null;
+		const currentRotation = Number.isFinite(
+			multiSelectionState?.rotationDeltaDeg,
+		)
+			? normalizeDeltaDegrees(multiSelectionState.rotationDeltaDeg)
+			: null;
 
 		return renderContent(html`
 			<div class="reference-properties-panel">
@@ -294,48 +219,58 @@ export function ReferencePropertiesSection({
 								controller()?.setSelectedReferenceImagesOpacity?.(nextValue)}
 							onCommit=${(nextValue) =>
 								controller()?.setSelectedReferenceImagesOpacity?.(nextValue)}
+							onScrubStart=${handleMultiSelectionScrubStart}
+							onScrubEnd=${handleMultiSelectionScrubEnd}
+							onInteractStart=${ensureReferenceInspectorOverlayVisible}
 						/>
 						<${ReferencePropertyInlineField}
 							prefix=${t("field.assetScale")}
 							id="reference-scale-multi"
 							value=${
-								Number.isFinite(currentScaleFactor)
-									? formatDeltaInputValue(
-											(Number(currentScaleFactor) - 1) * 100,
-										)
+								Number.isFinite(currentScaleDeltaPct)
+									? formatDeltaInputValue(Number(currentScaleDeltaPct))
 									: "--"
 							}
 							scrubStartValue=${
-								Number.isFinite(currentScaleFactor)
-									? (Number(currentScaleFactor) - 1) * 100
+								Number.isFinite(currentScaleDeltaPct)
+									? Number(currentScaleDeltaPct)
 									: 0
 							}
 							controller=${controller}
 							historyLabel="reference-image.scale"
 							step="0.01"
-							onScrubDelta=${(_deltaValue, nextValue) =>
-								controller()?.applySelectedReferenceImagesScaleFromSession?.(
-									sessionTransform,
-									Math.max(0.01, 1 + Number(nextValue) / 100),
-								)}
+							onScrubDelta=${(deltaValue, nextValue) => {
+								const previousDeltaPct = Number(nextValue) - Number(deltaValue);
+								const previousFactor = Math.max(
+									0.01,
+									1 + previousDeltaPct / 100,
+								);
+								const nextFactor = Math.max(0.01, 1 + Number(nextValue) / 100);
+								controller()?.scaleSelectedReferenceImagesByFactor?.(
+									nextFactor / previousFactor,
+								);
+							}}
+							onScrubStart=${handleMultiSelectionScrubStart}
+							onScrubEnd=${handleMultiSelectionScrubEnd}
+							onInteractStart=${ensureReferenceInspectorOverlayVisible}
 							onCommit=${(nextValue) => {
 								const numericValue = Number(nextValue);
 								if (!Number.isFinite(numericValue)) {
 									return;
 								}
-								const currentDeltaPct = Number.isFinite(currentScaleFactor)
-									? (Number(currentScaleFactor) - 1) * 100
+								const currentDeltaPct = Number.isFinite(currentScaleDeltaPct)
+									? Number(currentScaleDeltaPct)
 									: 0;
 								if (Math.abs(numericValue - currentDeltaPct) <= 1e-8) {
 									return;
 								}
-								const targetScaleFactor = Math.max(
+								const currentScaleFactor = Math.max(
 									0.01,
-									1 + numericValue / 100,
+									1 + currentDeltaPct / 100,
 								);
-								controller()?.applySelectedReferenceImagesScaleFromSession?.(
-									sessionTransform,
-									targetScaleFactor,
+								const nextScaleFactor = Math.max(0.01, 1 + numericValue / 100);
+								controller()?.scaleSelectedReferenceImagesByFactor?.(
+									nextScaleFactor / currentScaleFactor,
 								);
 							}}
 						/>
@@ -356,6 +291,9 @@ export function ReferencePropertiesSection({
 									"x",
 									deltaValue,
 								)}
+							onScrubStart=${handleMultiSelectionScrubStart}
+							onScrubEnd=${handleMultiSelectionScrubEnd}
+							onInteractStart=${ensureReferenceInspectorOverlayVisible}
 							onCommit=${(nextValue) => {
 								const numericValue = Number(nextValue);
 								if (!Number.isFinite(numericValue)) {
@@ -386,6 +324,9 @@ export function ReferencePropertiesSection({
 									"y",
 									deltaValue,
 								)}
+							onScrubStart=${handleMultiSelectionScrubStart}
+							onScrubEnd=${handleMultiSelectionScrubEnd}
+							onInteractStart=${ensureReferenceInspectorOverlayVisible}
 							onCommit=${(nextValue) => {
 								const numericValue = Number(nextValue);
 								if (!Number.isFinite(numericValue)) {
@@ -411,11 +352,13 @@ export function ReferencePropertiesSection({
 							controller=${controller}
 							historyLabel="reference-image.rotation"
 							step="0.01"
-							onScrubDelta=${(_deltaValue, nextValue) =>
-								controller()?.applySelectedReferenceImagesRotationFromSession?.(
-									sessionTransform,
-									nextValue,
+							onScrubDelta=${(deltaValue) =>
+								controller()?.offsetSelectedReferenceImagesRotationDeg?.(
+									deltaValue,
 								)}
+							onScrubStart=${handleMultiSelectionScrubStart}
+							onScrubEnd=${handleMultiSelectionScrubEnd}
+							onInteractStart=${ensureReferenceInspectorOverlayVisible}
 							onCommit=${(nextValue) => {
 								const numericValue = Number(nextValue);
 								if (!Number.isFinite(numericValue)) {
@@ -429,9 +372,9 @@ export function ReferencePropertiesSection({
 								) {
 									return;
 								}
-								controller()?.applySelectedReferenceImagesRotationFromSession?.(
-									sessionTransform,
-									numericValue,
+								controller()?.offsetSelectedReferenceImagesRotationDeg?.(
+									numericValue -
+										(Number.isFinite(currentRotation) ? currentRotation : 0),
 								);
 							}}
 						/>
@@ -455,6 +398,7 @@ export function ReferencePropertiesSection({
 						min="0"
 						max="100"
 						step="1"
+						onInteractStart=${ensureReferenceInspectorOverlayVisible}
 						onCommit=${(nextValue) =>
 							controller()?.setReferenceImageOpacity?.(
 								selectedItem.id,
@@ -469,6 +413,7 @@ export function ReferencePropertiesSection({
 						historyLabel="reference-image.scale"
 						min="0.1"
 						step="0.01"
+						onInteractStart=${ensureReferenceInspectorOverlayVisible}
 						onCommit=${(nextValue) =>
 							controller()?.setReferenceImageScalePct?.(
 								selectedItem.id,
@@ -486,6 +431,7 @@ export function ReferencePropertiesSection({
 						controller=${controller}
 						historyLabel="reference-image.offset.x"
 						step="1"
+						onInteractStart=${ensureReferenceInspectorOverlayVisible}
 						onScrubDelta=${(deltaValue) =>
 							controller()?.offsetReferenceImageBoundsPosition?.(
 								selectedItem.id,
@@ -506,6 +452,7 @@ export function ReferencePropertiesSection({
 						controller=${controller}
 						historyLabel="reference-image.offset.y"
 						step="1"
+						onInteractStart=${ensureReferenceInspectorOverlayVisible}
 						onScrubDelta=${(deltaValue) =>
 							controller()?.offsetReferenceImageBoundsPosition?.(
 								selectedItem.id,
@@ -526,6 +473,7 @@ export function ReferencePropertiesSection({
 						controller=${controller}
 						historyLabel="reference-image.rotation"
 						step="0.01"
+						onInteractStart=${ensureReferenceInspectorOverlayVisible}
 						onCommit=${(nextValue) =>
 							controller()?.setReferenceImageRotationDeg?.(
 								selectedItem.id,

@@ -8,6 +8,7 @@ import {
 	normalizeReferenceImageEditorStateForRestore,
 	projectReferenceImageSelectionBoxLogicalToScreen,
 } from "../src/controllers/reference-image/selection-state.js";
+import { getRectCornersFromAnchor } from "../src/engine/reference-image-selection.js";
 
 {
 	assert.deepEqual(getSelectedReferenceImageItemIds(undefined), []);
@@ -66,6 +67,34 @@ import {
 					{ x: 50, y: 60 },
 					{ x: 10, y: 60 },
 				],
+			},
+		]),
+		true,
+	);
+}
+
+{
+	const logicalBox = {
+		left: 10,
+		top: 20,
+		width: 40,
+		height: 20,
+		rotationDeg: 90,
+		anchorX: 0.2,
+		anchorY: 0.8,
+	};
+	assert.equal(
+		doesReferenceImageSelectionBoxMatchGeometries(logicalBox, [
+			{
+				corners: getRectCornersFromAnchor({
+					left: logicalBox.left,
+					top: logicalBox.top,
+					width: logicalBox.width,
+					height: logicalBox.height,
+					anchorAx: logicalBox.anchorX,
+					anchorAy: logicalBox.anchorY,
+					rotationDeg: logicalBox.rotationDeg,
+				}),
 			},
 		]),
 		true,

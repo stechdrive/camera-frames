@@ -183,6 +183,8 @@ export function NumericDraftInput({
 	onCommit,
 	onScrubDelta = null,
 	onScrubStart = null,
+	onScrubEnd = null,
+	onInteractStart = null,
 	controller = null,
 	historyLabel = "",
 	scrubModifiers = null,
@@ -341,14 +343,17 @@ export function NumericDraftInput({
 		setIsScrubbing(false);
 		if (mode === "cancel") {
 			controller?.()?.cancelHistoryTransaction?.();
+			onScrubEnd?.("cancel");
 			return;
 		}
 		controller?.()?.commitHistoryTransaction?.(historyLabel);
+		onScrubEnd?.("commit");
 	}
 
 	function beginScrub(event) {
 		stopUiEvent(event);
 		event.preventDefault();
+		onInteractStart?.();
 
 		const startValue =
 			scrubStartValue !== null && scrubStartValue !== undefined
@@ -543,9 +548,10 @@ export function NumericDraftInput({
 				spellcheck="false"
 				autocomplete="off"
 				data-draft-editing=${isEditing ? "true" : "false"}
-				value=${isEditing ? draftValue : formattedValue}
+				value=${isEditing || isScrubbing ? draftValue : formattedValue}
 				onFocus=${(event) => {
 					stopUiEvent(event);
+					onInteractStart?.();
 					setIsEditing(true);
 					setDraftValue(String(event.currentTarget.value ?? formattedValue));
 				}}
@@ -561,6 +567,7 @@ export function NumericDraftInput({
 				onPointerDown=${(event) => {
 					stopUiEvent(event);
 					event.preventDefault();
+					onInteractStart?.();
 					setIsEditing(true);
 					setDraftValue(String(inputRef.current?.value ?? formattedValue));
 					focusAndSelectInput();

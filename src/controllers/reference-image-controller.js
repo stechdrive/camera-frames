@@ -45,6 +45,12 @@ import {
 } from "./reference-image/document-helpers.js";
 import { createReferenceImageImportRuntime } from "./reference-image/import-runtime.js";
 import {
+	buildReferenceImageMultiSelectionInspectorSignature,
+	buildReferenceImageMultiSelectionInspectorState,
+	captureReferenceImageMultiSelectionBaseline,
+} from "./reference-image/inspector-state.js";
+import { createReferenceImagePropertyOperations } from "./reference-image/property-operations.js";
+import {
 	buildReferenceImageSelectionBoxLogicalFromGeometries,
 	captureReferenceImageEditorStateSnapshot,
 	doesReferenceImageSelectionBoxMatchGeometries,
@@ -81,6 +87,13 @@ export function createReferenceImageController({
 	let lastNonEmptyReferenceSelectionState = {
 		selectedItemIds: [],
 		activeItemId: "",
+	};
+	let referenceImageInspectorTransformState = {
+		locked: false,
+		baselineSignature: "",
+		sessionSignature: "",
+		baselineItems: new Map(),
+		session: null,
 	};
 
 	function getSelectedItemIds() {
@@ -189,6 +202,7 @@ export function createReferenceImageController({
 			};
 		}
 		if (previousSelectionKey !== nextSelectionKey) {
+			resetReferenceImageInspectorTransformState();
 			if (normalized.selectedItemIds.length > 1) {
 				initializeMultiSelectionTransformBox(items);
 			} else {
@@ -280,12 +294,113 @@ export function createReferenceImageController({
 
 	function clearSelection() {
 		referenceListSelectionAnchorId = "";
+		resetReferenceImageInspectorTransformState();
 		store.referenceImages.selectionAnchor.value = null;
 		setStoredSelectionBox(null);
 		setSelectionState({
 			selectedItemIds: [],
 			activeItemId: "",
 			activeAssetId: "",
+		});
+	}
+
+	function resetReferenceImageInspectorTransformState() {
+		referenceImageInspectorTransformState = {
+			locked: false,
+			baselineSignature: "",
+			sessionSignature: "",
+			baselineItems: new Map(),
+			session: null,
+		};
+	}
+
+	function syncReferenceImageInspectorTransformState(
+		items = store.referenceImages.items.value,
+	) {
+		const selectedItemIds = getSelectedItemIds();
+		if (selectedItemIds.length <= 1) {
+			resetReferenceImageInspectorTransformState();
+			return null;
+		}
+		const selectedItemIdSet = new Set(selectedItemIds);
+		const selectedItems = (items ?? []).filter((item) =>
+			selectedItemIdSet.has(item.id),
+		);
+		if (selectedItems.length <= 1) {
+			resetReferenceImageInspectorTransformState();
+			return null;
+		}
+		const baselineSignature = selectedItemIds.join("|");
+		const sessionSignature =
+			buildReferenceImageMultiSelectionInspectorSignature({
+				selectedItemIds,
+				selectedItems,
+				selectionAnchor: store.referenceImages.selectionAnchor.value,
+				selectionBoxLogical: store.referenceImages.selectionBoxLogical.value,
+			});
+		if (
+			referenceImageInspectorTransformState.baselineSignature !==
+			baselineSignature
+		) {
+			referenceImageInspectorTransformState = {
+				...referenceImageInspectorTransformState,
+				baselineSignature,
+				baselineItems:
+					captureReferenceImageMultiSelectionBaseline(selectedItems),
+			};
+		}
+		if (
+			!referenceImageInspectorTransformState.locked &&
+			(referenceImageInspectorTransformState.sessionSignature !==
+				sessionSignature ||
+				!referenceImageInspectorTransformState.session)
+		) {
+			referenceImageInspectorTransformState = {
+				...referenceImageInspectorTransformState,
+				locked: false,
+				sessionSignature,
+				session: buildSelectionTransformState({
+					includeScreenState: false,
+				}),
+			};
+		}
+		return {
+			selectedItems,
+			baselineSignature,
+			sessionSignature,
+			...referenceImageInspectorTransformState,
+		};
+	}
+
+	function beginSelectedReferenceImageInspectorTransformSession() {
+		const inspectorState = syncReferenceImageInspectorTransformState();
+		if (!inspectorState) {
+			return false;
+		}
+		referenceImageInspectorTransformState = {
+			...referenceImageInspectorTransformState,
+			locked: true,
+		};
+		return true;
+	}
+
+	function endSelectedReferenceImageInspectorTransformSession() {
+		referenceImageInspectorTransformState = {
+			...referenceImageInspectorTransformState,
+			locked: false,
+		};
+		return true;
+	}
+
+	function getSelectedReferenceImageInspectorState() {
+		const inspectorState = syncReferenceImageInspectorTransformState();
+		if (!inspectorState) {
+			return null;
+		}
+		return buildReferenceImageMultiSelectionInspectorState({
+			selectedItems: inspectorState.selectedItems,
+			baselineItems: inspectorState.baselineItems,
+			session: inspectorState.session,
 		});
 	}
 
@@ -486,7 +601,7 @@ export function createReferenceImageController({
 		};
 	}
 
-	function buildSelectionTransformState() {
+	function buildSelectionTransformState({ includeScreenState = true } = {}) {
 		const context = getTransformContext();
 		if (!context) {
 			return null;
@@ -513,8 +628,10 @@ export function createReferenceImageController({
 		if (geometries.length === 0) {
 			return null;
 		}
-		const selectedLayers = getRenderableSelectionLayers();
-		if (selectedLayers.length === 0) {
+		const selectedLayers = includeScreenState
+			? getRenderableSelectionLayers()
+			: [];
+		if (includeScreenState && selectedLayers.length === 0) {
 			return null;
 		}
 		let pivot;
@@ -524,11 +641,6 @@ export function createReferenceImageController({
 		let selectionBoxScreen;
 		if (geometries.length === 1) {
 			const geometry = geometries[0];
-			const layer =
-				selectedLayers.find((entry) => entry.id === geometry.item.id) ?? null;
-			if (!layer) {
-				return null;
-			}
 			anchorLocal = {
 				x: geometry.item.anchor.ax,
 				y: geometry.item.anchor.ay,
@@ -536,10 +648,6 @@ export function createReferenceImageController({
 			pivot = {
 				x: geometry.anchorPoint.x,
 				y: geometry.anchorPoint.y,
-			};
-			screenPivot = {
-				x: layer.leftPx + layer.widthPx * anchorLocal.x,
-				y: layer.topPx + layer.heightPx * anchorLocal.y,
 			};
 			selectionBoxLogical = {
 				left: geometry.left,
@@ -550,15 +658,26 @@ export function createReferenceImageController({
 				anchorX: anchorLocal.x,
 				anchorY: anchorLocal.y,
 			};
-			selectionBoxScreen = {
-				left: layer.leftPx,
-				top: layer.topPx,
-				width: layer.widthPx,
-				height: layer.heightPx,
-				rotationDeg: layer.rotationDeg,
-				anchorX: anchorLocal.x,
-				anchorY: anchorLocal.y,
-			};
+			if (includeScreenState) {
+				const layer =
+					selectedLayers.find((entry) => entry.id === geometry.item.id) ?? null;
+				if (!layer) {
+					return null;
+				}
+				screenPivot = {
+					x: layer.leftPx + layer.widthPx * anchorLocal.x,
+					y: layer.topPx + layer.heightPx * anchorLocal.y,
+				};
+				selectionBoxScreen = {
+					left: layer.leftPx,
+					top: layer.topPx,
+					width: layer.widthPx,
+					height: layer.heightPx,
+					rotationDeg: layer.rotationDeg,
+					anchorX: anchorLocal.x,
+					anchorY: anchorLocal.y,
+				};
+			}
 		} else {
 			const storedSelectionBox =
 				store.referenceImages.selectionBoxLogical.value ??
@@ -588,14 +707,6 @@ export function createReferenceImageController({
 				anchorX: anchorLocal.x,
 				anchorY: anchorLocal.y,
 			};
-			selectionBoxScreen = projectReferenceImageSelectionBoxLogicalToScreen(
-				selectionBoxLogical,
-				context,
-				anchorLocal,
-			);
-			if (!selectionBoxScreen) {
-				return null;
-			}
 			pivot = getPointFromRectLocal({
 				left: selectionBoxLogical.left,
 				top: selectionBoxLogical.top,
@@ -607,17 +718,27 @@ export function createReferenceImageController({
 				anchorAy: selectionBoxLogical.anchorY,
 				rotationDeg: selectionBoxLogical.rotationDeg,
 			});
-			screenPivot = getPointFromRectLocal({
-				left: selectionBoxScreen.left,
-				top: selectionBoxScreen.top,
-				width: selectionBoxScreen.width,
-				height: selectionBoxScreen.height,
-				localX: anchorLocal.x,
-				localY: anchorLocal.y,
-				anchorAx: selectionBoxScreen.anchorX,
-				anchorAy: selectionBoxScreen.anchorY,
-				rotationDeg: selectionBoxScreen.rotationDeg,
-			});
+			if (includeScreenState) {
+				selectionBoxScreen = projectReferenceImageSelectionBoxLogicalToScreen(
+					selectionBoxLogical,
+					context,
+					anchorLocal,
+				);
+				if (!selectionBoxScreen) {
+					return null;
+				}
+				screenPivot = getPointFromRectLocal({
+					left: selectionBoxScreen.left,
+					top: selectionBoxScreen.top,
+					width: selectionBoxScreen.width,
+					height: selectionBoxScreen.height,
+					localX: anchorLocal.x,
+					localY: anchorLocal.y,
+					anchorAx: selectionBoxScreen.anchorX,
+					anchorAy: selectionBoxScreen.anchorY,
+					rotationDeg: selectionBoxScreen.rotationDeg,
+				});
+			}
 		}
 		return {
 			context,
@@ -1588,145 +1709,6 @@ export function createReferenceImageController({
 		});
 	}
 
-	function setReferenceImagePreviewVisible(itemId, nextVisible) {
-		runReferenceImageHistoryAction("reference-image.preview-visible", () => {
-			updateResolvedReferenceImageItem(itemId, {
-				previewVisible: nextVisible !== false,
-			});
-		});
-	}
-
-	function setSelectedReferenceImagesPreviewVisible(nextVisible) {
-		const selectedItemIdSet = new Set(getSelectedItemIds());
-		if (selectedItemIdSet.size === 0) {
-			return false;
-		}
-		const documentState = getDocument();
-		const resolved = getResolvedShotItems(documentState);
-		runReferenceImageHistoryAction("reference-image.preview-visible", () => {
-			const nextItems = resolved.items.map((item) =>
-				selectedItemIdSet.has(item.id)
-					? createReferenceImageItem({
-							...item,
-							previewVisible: nextVisible !== false,
-						})
-					: item,
-			);
-			commitResolvedItems(documentState, resolved, nextItems);
-		});
-		return true;
-	}
-
-	function setReferenceImageExportEnabled(itemId, nextEnabled) {
-		runReferenceImageHistoryAction("reference-image.export-enabled", () => {
-			updateResolvedReferenceImageItem(itemId, {
-				exportEnabled: nextEnabled !== false,
-			});
-		});
-	}
-
-	function setSelectedReferenceImagesExportEnabled(nextEnabled) {
-		const selectedItemIdSet = new Set(getSelectedItemIds());
-		if (selectedItemIdSet.size === 0) {
-			return false;
-		}
-		const documentState = getDocument();
-		const resolved = getResolvedShotItems(documentState);
-		runReferenceImageHistoryAction("reference-image.export-enabled", () => {
-			const nextItems = resolved.items.map((item) =>
-				selectedItemIdSet.has(item.id)
-					? createReferenceImageItem({
-							...item,
-							exportEnabled: nextEnabled !== false,
-						})
-					: item,
-			);
-			commitResolvedItems(documentState, resolved, nextItems);
-		});
-		return true;
-	}
-
-	function setSelectedReferenceImagesOpacity(nextOpacityPercent) {
-		const selectedItemIdSet = new Set(getSelectedItemIds());
-		if (selectedItemIdSet.size === 0) {
-			return false;
-		}
-		const numericValue = Math.round(Number(nextOpacityPercent));
-		if (!Number.isFinite(numericValue)) {
-			return false;
-		}
-		const clampedOpacity = Math.max(0, Math.min(1, numericValue / 100));
-		const documentState = getDocument();
-		const resolved = getResolvedShotItems(documentState);
-		runReferenceImageHistoryAction("reference-image.opacity", () => {
-			const nextItems = resolved.items.map((item) =>
-				selectedItemIdSet.has(item.id)
-					? createReferenceImageItem({
-							...item,
-							opacity: clampedOpacity,
-						})
-					: item,
-			);
-			commitResolvedItems(documentState, resolved, nextItems);
-		});
-		return true;
-	}
-
-	function setReferenceImageOpacity(itemId, nextOpacityPercent) {
-		const numericValue = Math.round(Number(nextOpacityPercent));
-		if (!Number.isFinite(numericValue)) {
-			return;
-		}
-		runReferenceImageHistoryAction("reference-image.opacity", () => {
-			updateResolvedReferenceImageItem(itemId, {
-				opacity: Math.max(0, Math.min(1, numericValue / 100)),
-			});
-		});
-	}
-
-	function setReferenceImageScalePct(itemId, nextScalePct) {
-		const numericValue = Number(nextScalePct);
-		if (!Number.isFinite(numericValue) || numericValue <= 0) {
-			return;
-		}
-		runReferenceImageHistoryAction("reference-image.scale", () => {
-			updateResolvedReferenceImageItem(itemId, {
-				scalePct: numericValue,
-			});
-		});
-	}
-
-	function setReferenceImageRotationDeg(itemId, nextRotationDeg) {
-		const numericValue = Number(nextRotationDeg);
-		if (!Number.isFinite(numericValue)) {
-			return;
-		}
-		runReferenceImageHistoryAction("reference-image.rotation", () => {
-			updateResolvedReferenceImageItem(itemId, {
-				rotationDeg: numericValue,
-			});
-		});
-	}
-
-	function setReferenceImageOffsetPx(itemId, axis, nextOffsetPx) {
-		const normalizedAxis = axis === "y" ? "y" : "x";
-		const numericValue = Math.round(Number(nextOffsetPx));
-		if (!Number.isFinite(numericValue)) {
-			return;
-		}
-		runReferenceImageHistoryAction(
-			`reference-image.offset.${normalizedAxis}`,
-			() => {
-				updateResolvedReferenceImageItem(itemId, (item) => ({
-					offsetPx: {
-						...item.offsetPx,
-						[normalizedAxis]: numericValue,
-					},
-				}));
-			},
-		);
-	}
-
 	function getReferenceImageLogicalBounds(itemId) {
 		const context = getTransformContext();
 		if (!context) {
@@ -2503,6 +2485,26 @@ export function createReferenceImageController({
 	}
 
 	const {
+		setReferenceImagePreviewVisible,
+		setSelectedReferenceImagesPreviewVisible,
+		setReferenceImageExportEnabled,
+		setSelectedReferenceImagesExportEnabled,
+		setSelectedReferenceImagesOpacity,
+		setReferenceImageOpacity,
+		setReferenceImageScalePct,
+		setReferenceImageRotationDeg,
+		setReferenceImageOffsetPx,
+	} = createReferenceImagePropertyOperations({
+		createReferenceImageItem,
+		getSelectedItemIds,
+		getDocument,
+		getResolvedShotItems,
+		runReferenceImageHistoryAction,
+		updateResolvedReferenceImageItem,
+		commitResolvedItems,
+	});
+
+	const {
 		refreshUiAfterLayout,
 		handleReferenceImageInputChange,
 		importReferenceImageFiles,
@@ -2553,6 +2555,9 @@ export function createReferenceImageController({
 		setReferenceImageExportEnabled,
 		setSelectedReferenceImagesExportEnabled,
 		setSelectedReferenceImagesOpacity,
+		getSelectedReferenceImageInspectorState,
+		beginSelectedReferenceImageInspectorTransformSession,
+		endSelectedReferenceImageInspectorTransformSession,
 		setReferenceImageOpacity,
 		scaleSelectedReferenceImagesByFactor,
 		applySelectedReferenceImagesScaleFromSession,

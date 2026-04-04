@@ -67,9 +67,15 @@ export function doesReferenceImageSelectionBoxMatchGeometries(
 	if (!logicalBox || !Array.isArray(geometries) || geometries.length === 0) {
 		return false;
 	}
+	const anchorX = Number.isFinite(logicalBox.anchorX)
+		? logicalBox.anchorX
+		: 0.5;
+	const anchorY = Number.isFinite(logicalBox.anchorY)
+		? logicalBox.anchorY
+		: 0.5;
 	const anchorPoint = {
-		x: logicalBox.left + logicalBox.width * 0.5,
-		y: logicalBox.top + logicalBox.height * 0.5,
+		x: logicalBox.left + logicalBox.width * anchorX,
+		y: logicalBox.top + logicalBox.height * anchorY,
 	};
 	const rotationRadians = ((logicalBox.rotationDeg ?? 0) * Math.PI) / 180;
 	const unrotatedCorners = geometries.flatMap((geometry) =>
