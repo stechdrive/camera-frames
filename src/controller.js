@@ -13,11 +13,13 @@ import {
 	createShotCameraEditorStateAccessors,
 } from "./app/controller-accessors.js";
 import { createFileOpenRouting } from "./app/file-open-routing.js";
+import { createInteractionZoomCommands } from "./app/interaction-zoom-commands.js";
 import { createOutputFrameAccessors } from "./app/output-frame-accessors.js";
 import { createPresentationSync } from "./app/presentation-sync.js";
 import { createProjectSceneCommands } from "./app/project-scene-commands.js";
 import { createProjectStateBridge } from "./app/project-state-bridge.js";
 import { createProjectionFramingCommands } from "./app/projection-framing-commands.js";
+import { createSceneAssetAccessors } from "./app/scene-asset-accessors.js";
 import { createShotCameraEditorStateController } from "./app/shot-camera-editor-state.js";
 import { createViewSyncCommands } from "./app/view-sync-commands.js";
 import { createViewportEditingCommands } from "./app/viewport-editing-commands.js";
@@ -316,6 +318,29 @@ export function createCameraFramesController(elements, store) {
 	} = createOutputFrameAccessors({
 		getActiveShotCameraDocument,
 		getOutputFrameController: () => outputFrameController,
+	});
+	const {
+		isZoomToolActive,
+		isInteractiveTextTarget,
+		clearZoomToolDrag,
+		applyInteractionMode,
+		toggleZoomTool,
+		startZoomToolDrag,
+		handleZoomToolDragMove,
+		handleZoomToolDragEnd,
+	} = createInteractionZoomCommands({
+		getInteractionController: () => interactionController,
+		getMeasurementController: () => measurementController,
+	});
+	const {
+		resetLocalizedCaches,
+		getSceneAssetCounts,
+		getTotalLoadedItems,
+		getSceneAssets,
+		getSceneBounds,
+	} = createSceneAssetAccessors({
+		getAssetController: () => assetController,
+		getUiSyncController: () => uiSyncController,
 	});
 
 	function currentLocale() {
@@ -1116,64 +1141,6 @@ export function createCameraFramesController(elements, store) {
 
 	function formatNumber(value, digits = 2) {
 		return Number(value).toFixed(digits);
-	}
-
-	function isZoomToolActive() {
-		return interactionController?.isZoomToolActive() ?? false;
-	}
-
-	function isInteractiveTextTarget(target) {
-		return interactionController?.isInteractiveTextTarget(target) ?? false;
-	}
-
-	function clearZoomToolDrag() {
-		return interactionController?.clearZoomToolDrag();
-	}
-
-	function applyInteractionMode(nextMode, { silent = false } = {}) {
-		return interactionController?.applyInteractionMode(nextMode, { silent });
-	}
-
-	function toggleZoomTool() {
-		if (
-			!(interactionController?.isZoomToolActive?.() ?? false) &&
-			measurementController?.isMeasurementModeActive?.()
-		) {
-			measurementController?.setMeasurementMode?.(false, { silent: true });
-		}
-		return interactionController?.toggleZoomTool();
-	}
-
-	function startZoomToolDrag(event) {
-		return interactionController?.startZoomToolDrag(event) ?? false;
-	}
-
-	function handleZoomToolDragMove(event) {
-		return interactionController?.handleZoomToolDragMove(event);
-	}
-
-	function handleZoomToolDragEnd(event) {
-		return interactionController?.handleZoomToolDragEnd(event);
-	}
-
-	function resetLocalizedCaches() {
-		return uiSyncController?.resetLocalizedCaches();
-	}
-
-	function getSceneAssetCounts() {
-		return assetController.getSceneAssetCounts();
-	}
-
-	function getTotalLoadedItems() {
-		return assetController.getTotalLoadedItems();
-	}
-
-	function getSceneAssets() {
-		return assetController.getSceneAssets();
-	}
-
-	function getSceneBounds() {
-		return assetController.getSceneBounds();
 	}
 
 	function disposeMaterial(material) {
