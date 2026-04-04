@@ -191,6 +191,59 @@ export function ReferencePropertiesSection({
 		)
 			? normalizeDeltaDegrees(multiSelectionState.rotationDeltaDeg)
 			: null;
+		const getLatestMultiSelectionSession = () =>
+			controller()?.getSelectedReferenceImageInspectorState?.()?.session ??
+			multiSelectionState?.session ??
+			null;
+		const applyMultiSelectionScaleDeltaPercent = (nextDeltaPercent) => {
+			const numericValue = Number(nextDeltaPercent);
+			if (!Number.isFinite(numericValue)) {
+				return;
+			}
+			const nextScaleFactor = Math.max(0.01, 1 + numericValue / 100);
+			const selectionSession = getLatestMultiSelectionSession();
+			if (selectionSession) {
+				controller()?.applySelectedReferenceImagesScaleFromSession?.(
+					selectionSession,
+					nextScaleFactor,
+				);
+				return;
+			}
+			const currentDeltaPct = Number.isFinite(currentScaleDeltaPct)
+				? Number(currentScaleDeltaPct)
+				: 0;
+			const currentScaleFactor = Math.max(0.01, 1 + currentDeltaPct / 100);
+			controller()?.scaleSelectedReferenceImagesByFactor?.(
+				nextScaleFactor / currentScaleFactor,
+			);
+		};
+		const applyMultiSelectionRotationDeltaDeg = (nextDeltaDegrees) => {
+			const numericValue = Number(nextDeltaDegrees);
+			if (!Number.isFinite(numericValue)) {
+				return;
+			}
+			const normalizedDeltaDeg = normalizeDeltaDegrees(numericValue);
+			const selectionSession = getLatestMultiSelectionSession();
+			if (selectionSession) {
+				controller()?.applySelectedReferenceImagesRotationFromSession?.(
+					selectionSession,
+					normalizedDeltaDeg,
+				);
+				return;
+			}
+			const currentRotationDeltaDeg = Number.isFinite(currentRotation)
+				? currentRotation
+				: 0;
+			const incrementalDeltaDeg = normalizeDeltaDegrees(
+				normalizedDeltaDeg - currentRotationDeltaDeg,
+			);
+			if (Math.abs(incrementalDeltaDeg) <= 1e-8) {
+				return;
+			}
+			controller()?.offsetSelectedReferenceImagesRotationDeg?.(
+				incrementalDeltaDeg,
+			);
+		};
 
 		return renderContent(html`
 			<div class="reference-properties-panel">
@@ -239,17 +292,8 @@ export function ReferencePropertiesSection({
 							controller=${controller}
 							historyLabel="reference-image.scale"
 							step="0.01"
-							onScrubDelta=${(deltaValue, nextValue) => {
-								const previousDeltaPct = Number(nextValue) - Number(deltaValue);
-								const previousFactor = Math.max(
-									0.01,
-									1 + previousDeltaPct / 100,
-								);
-								const nextFactor = Math.max(0.01, 1 + Number(nextValue) / 100);
-								controller()?.scaleSelectedReferenceImagesByFactor?.(
-									nextFactor / previousFactor,
-								);
-							}}
+							onScrubDelta=${(_deltaValue, nextValue) =>
+								applyMultiSelectionScaleDeltaPercent(nextValue)}
 							onScrubStart=${handleMultiSelectionScrubStart}
 							onScrubEnd=${handleMultiSelectionScrubEnd}
 							onInteractStart=${ensureReferenceInspectorOverlayVisible}
@@ -264,14 +308,7 @@ export function ReferencePropertiesSection({
 								if (Math.abs(numericValue - currentDeltaPct) <= 1e-8) {
 									return;
 								}
-								const currentScaleFactor = Math.max(
-									0.01,
-									1 + currentDeltaPct / 100,
-								);
-								const nextScaleFactor = Math.max(0.01, 1 + numericValue / 100);
-								controller()?.scaleSelectedReferenceImagesByFactor?.(
-									nextScaleFactor / currentScaleFactor,
-								);
+								applyMultiSelectionScaleDeltaPercent(numericValue);
 							}}
 						/>
 					</div>
@@ -352,10 +389,8 @@ export function ReferencePropertiesSection({
 							controller=${controller}
 							historyLabel="reference-image.rotation"
 							step="0.01"
-							onScrubDelta=${(deltaValue) =>
-								controller()?.offsetSelectedReferenceImagesRotationDeg?.(
-									deltaValue,
-								)}
+							onScrubDelta=${(_deltaValue, nextValue) =>
+								applyMultiSelectionRotationDeltaDeg(nextValue)}
 							onScrubStart=${handleMultiSelectionScrubStart}
 							onScrubEnd=${handleMultiSelectionScrubEnd}
 							onInteractStart=${ensureReferenceInspectorOverlayVisible}
@@ -372,10 +407,7 @@ export function ReferencePropertiesSection({
 								) {
 									return;
 								}
-								controller()?.offsetSelectedReferenceImagesRotationDeg?.(
-									numericValue -
-										(Number.isFinite(currentRotation) ? currentRotation : 0),
-								);
+								applyMultiSelectionRotationDeltaDeg(numericValue);
 							}}
 						/>
 					</div>

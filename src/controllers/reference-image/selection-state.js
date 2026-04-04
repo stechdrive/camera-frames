@@ -42,10 +42,35 @@ export function getValidReferenceImageSelectionState({
 
 export function buildReferenceImageSelectionBoxLogicalFromGeometries(
 	geometries,
+	{
+		rotationDeg = 0,
+		anchorX = 0.5,
+		anchorY = 0.5,
+		anchorPoint = null,
+	} = {},
 ) {
-	const bounds = getPointsBounds(
-		(geometries ?? []).flatMap((geometry) => geometry.corners ?? []),
-	);
+	const hasAnchorPoint =
+		anchorPoint &&
+		Number.isFinite(anchorPoint.x) &&
+		Number.isFinite(anchorPoint.y);
+	const normalizedRotationDeg = Number.isFinite(rotationDeg) ? rotationDeg : 0;
+	const corners =
+		hasAnchorPoint && Math.abs(normalizedRotationDeg) > 1e-8
+			? (geometries ?? []).flatMap((geometry) =>
+					(geometry.corners ?? []).map((corner) => {
+						const local = inverseRotateVector(
+							corner.x - anchorPoint.x,
+							corner.y - anchorPoint.y,
+							(normalizedRotationDeg * Math.PI) / 180,
+						);
+						return {
+							x: anchorPoint.x + local.x,
+							y: anchorPoint.y + local.y,
+						};
+					}),
+				)
+			: (geometries ?? []).flatMap((geometry) => geometry.corners ?? []);
+	const bounds = getPointsBounds(corners);
 	if (!bounds) {
 		return null;
 	}
@@ -54,9 +79,9 @@ export function buildReferenceImageSelectionBoxLogicalFromGeometries(
 		top: bounds.top,
 		width: bounds.width,
 		height: bounds.height,
-		rotationDeg: 0,
-		anchorX: 0.5,
-		anchorY: 0.5,
+		rotationDeg: normalizedRotationDeg,
+		anchorX: Number.isFinite(anchorX) ? anchorX : 0.5,
+		anchorY: Number.isFinite(anchorY) ? anchorY : 0.5,
 	};
 }
 

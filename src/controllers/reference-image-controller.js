@@ -1240,10 +1240,55 @@ export function createReferenceImageController({
 						geometries,
 					)
 				) {
-					store.referenceImages.selectionAnchor.value = null;
-					initializeMultiSelectionTransformBox(
-						store.referenceImages.items.value,
-					);
+					const preservedSelectionAnchor =
+						store.referenceImages.selectionAnchor.value &&
+						Number.isFinite(store.referenceImages.selectionAnchor.value.x) &&
+						Number.isFinite(store.referenceImages.selectionAnchor.value.y)
+							? {
+									x: store.referenceImages.selectionAnchor.value.x,
+									y: store.referenceImages.selectionAnchor.value.y,
+								}
+							: storedSelectionBox &&
+								  Number.isFinite(storedSelectionBox.anchorX) &&
+								  Number.isFinite(storedSelectionBox.anchorY)
+								? {
+										x: storedSelectionBox.anchorX,
+										y: storedSelectionBox.anchorY,
+									}
+								: null;
+					const rebuiltSelectionBox =
+						storedSelectionBox && preservedSelectionAnchor
+							? buildReferenceImageSelectionBoxLogicalFromGeometries(
+									geometries,
+									{
+										rotationDeg: storedSelectionBox.rotationDeg ?? 0,
+										anchorX: preservedSelectionAnchor.x,
+										anchorY: preservedSelectionAnchor.y,
+										anchorPoint: {
+											x:
+												storedSelectionBox.left +
+												storedSelectionBox.width * preservedSelectionAnchor.x,
+											y:
+												storedSelectionBox.top +
+												storedSelectionBox.height * preservedSelectionAnchor.y,
+										},
+									},
+								)
+							: null;
+					if (rebuiltSelectionBox && preservedSelectionAnchor) {
+						store.referenceImages.selectionAnchor.value =
+							preservedSelectionAnchor;
+						setStoredSelectionBox(
+							rebuiltSelectionBox,
+							context,
+							preservedSelectionAnchor,
+						);
+					} else {
+						store.referenceImages.selectionAnchor.value = null;
+						initializeMultiSelectionTransformBox(
+							store.referenceImages.items.value,
+						);
+					}
 				}
 			}
 		}

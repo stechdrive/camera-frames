@@ -411,6 +411,269 @@ function createTestController() {
 		cancelHistoryTransaction: () => {},
 	});
 	const asset = createReferenceImageAsset({
+		id: "asset-anchor-inspector",
+		label: "Anchor Inspector",
+		sourceMeta: createSourceMeta("anchor-inspector.png"),
+	});
+	const preset = createReferenceImagePreset({
+		id: "preset-anchor-inspector",
+		name: "Anchor Inspector",
+		items: [
+			createReferenceImageItem({
+				id: "item-anchor-a",
+				assetId: asset.id,
+				name: "Layer A",
+				order: 0,
+			}),
+			createReferenceImageItem({
+				id: "item-anchor-b",
+				assetId: asset.id,
+				name: "Layer B",
+				order: 1,
+				offsetPx: { x: -200, y: 0 },
+			}),
+		],
+	});
+	const documentState = createDefaultReferenceImageDocument();
+	documentState.assets.push(asset);
+	documentState.presets.push(preset);
+	documentState.activePresetId = preset.id;
+	shotCameraDocument.referenceImages.presetId = preset.id;
+	store.referenceImages.document.value = documentState;
+	store.viewportToolMode.value = "reference";
+	controller.syncUiState();
+	store.referenceImages.previewLayers.value = [
+		{
+			id: "item-anchor-a",
+			leftPx: 718,
+			topPx: 382,
+			widthPx: 100,
+			heightPx: 100,
+			anchorAx: 0.5,
+			anchorAy: 0.5,
+			rotationDeg: 0,
+		},
+		{
+			id: "item-anchor-b",
+			leftPx: 918,
+			topPx: 382,
+			widthPx: 100,
+			heightPx: 100,
+			anchorAx: 0.5,
+			anchorAy: 0.5,
+			rotationDeg: 0,
+		},
+	];
+	controller.selectReferenceImageItem("item-anchor-a");
+	controller.selectReferenceImageItem("item-anchor-b", { additive: true });
+
+	assert.equal(
+		controller.startReferenceImageAnchorDrag({
+			button: 0,
+			pointerId: 1,
+			clientX: 868,
+			clientY: 432,
+			preventDefault() {},
+			stopPropagation() {},
+		}),
+		true,
+	);
+	controller.handleReferenceImagePointerMove({
+		pointerId: 1,
+		clientX: 900,
+		clientY: 450,
+		preventDefault() {},
+	});
+	controller.handleReferenceImagePointerUp({
+		pointerId: 1,
+		preventDefault() {},
+	});
+	controller.syncUiState();
+
+	const anchoredSelection = {
+		selectionAnchor: store.referenceImages.selectionAnchor.value,
+		selectionBox: store.referenceImages.selectionBoxLogical.value,
+	};
+	assert.ok(anchoredSelection.selectionAnchor);
+	assert.ok(
+		Math.abs(anchoredSelection.selectionAnchor.x - 0.6066666666666667) <= 1e-8,
+	);
+	assert.ok(Math.abs(anchoredSelection.selectionAnchor.y - 0.68) <= 1e-8);
+
+	controller.beginSelectedReferenceImageInspectorTransformSession();
+	assert.equal(controller.offsetSelectedReferenceImagesRotationDeg(15), true);
+	controller.syncUiState();
+	controller.endSelectedReferenceImageInspectorTransformSession();
+	controller.syncUiState();
+
+	assert.deepEqual(
+		store.referenceImages.selectionAnchor.value,
+		anchoredSelection.selectionAnchor,
+	);
+	assert.ok(
+		Math.abs(
+			Number(store.referenceImages.selectionBoxLogical.value?.anchorX ?? 0) -
+				anchoredSelection.selectionAnchor.x,
+		) <= 1e-8,
+	);
+	assert.ok(
+		Math.abs(
+			Number(store.referenceImages.selectionBoxLogical.value?.anchorY ?? 0) -
+				anchoredSelection.selectionAnchor.y,
+		) <= 1e-8,
+	);
+
+	controller.beginSelectedReferenceImageInspectorTransformSession();
+	assert.equal(controller.scaleSelectedReferenceImagesByFactor(1.2), true);
+	controller.syncUiState();
+	controller.endSelectedReferenceImageInspectorTransformSession();
+	controller.syncUiState();
+
+	assert.deepEqual(
+		store.referenceImages.selectionAnchor.value,
+		anchoredSelection.selectionAnchor,
+	);
+	assert.ok(
+		Math.abs(
+			Number(store.referenceImages.selectionBoxLogical.value?.anchorX ?? 0) -
+				anchoredSelection.selectionAnchor.x,
+		) <= 1e-8,
+	);
+	assert.ok(
+		Math.abs(
+			Number(store.referenceImages.selectionBoxLogical.value?.anchorY ?? 0) -
+				anchoredSelection.selectionAnchor.y,
+		) <= 1e-8,
+	);
+
+	const rotationSession =
+		controller.getSelectedReferenceImageInspectorState()?.session ?? null;
+	assert.ok(rotationSession);
+	controller.beginSelectedReferenceImageInspectorTransformSession();
+	for (let index = 1; index <= 10; index += 1) {
+		assert.equal(
+			controller.applySelectedReferenceImagesRotationFromSession(
+				rotationSession,
+				index * 0.5,
+			),
+			true,
+		);
+		controller.syncUiState();
+	}
+	controller.endSelectedReferenceImageInspectorTransformSession();
+	controller.syncUiState();
+
+	assert.deepEqual(
+		store.referenceImages.selectionAnchor.value,
+		anchoredSelection.selectionAnchor,
+	);
+	assert.ok(
+		Math.abs(
+			Number(store.referenceImages.selectionBoxLogical.value?.anchorX ?? 0) -
+				anchoredSelection.selectionAnchor.x,
+		) <= 1e-8,
+	);
+	assert.ok(
+		Math.abs(
+			Number(store.referenceImages.selectionBoxLogical.value?.anchorY ?? 0) -
+				anchoredSelection.selectionAnchor.y,
+		) <= 1e-8,
+	);
+
+	const scaleSession =
+		controller.getSelectedReferenceImageInspectorState()?.session ?? null;
+	assert.ok(scaleSession);
+	controller.beginSelectedReferenceImageInspectorTransformSession();
+	for (let index = 1; index <= 5; index += 1) {
+		assert.equal(
+			controller.applySelectedReferenceImagesScaleFromSession(
+				scaleSession,
+				1 + index * 0.05,
+			),
+			true,
+		);
+		controller.syncUiState();
+	}
+	controller.endSelectedReferenceImageInspectorTransformSession();
+	controller.syncUiState();
+
+	assert.deepEqual(
+		store.referenceImages.selectionAnchor.value,
+		anchoredSelection.selectionAnchor,
+	);
+	assert.ok(
+		Math.abs(
+			Number(store.referenceImages.selectionBoxLogical.value?.anchorX ?? 0) -
+				anchoredSelection.selectionAnchor.x,
+		) <= 1e-8,
+	);
+	assert.ok(
+		Math.abs(
+			Number(store.referenceImages.selectionBoxLogical.value?.anchorY ?? 0) -
+				anchoredSelection.selectionAnchor.y,
+		) <= 1e-8,
+	);
+}
+
+{
+	const store = createCameraFramesStore();
+	let shotCameraDocument = createShotCameraDocument({
+		name: "Camera A",
+	});
+	const renderBoxElement = {
+		clientWidth: 1536,
+		clientHeight: 864,
+		clientLeft: 0,
+		clientTop: 0,
+		getBoundingClientRect() {
+			return {
+				left: 0,
+				top: 0,
+				width: 1536,
+				height: 864,
+			};
+		},
+	};
+	globalThis.document = {
+		getElementById(id) {
+			if (id !== "viewport-shell") {
+				return null;
+			}
+			return {
+				getBoundingClientRect() {
+					return {
+						left: 0,
+						top: 0,
+						width: 1536,
+						height: 864,
+					};
+				},
+			};
+		},
+	};
+	const controller = createReferenceImageController({
+		store,
+		referenceImageInput: null,
+		renderBox: renderBoxElement,
+		t: (key) => key,
+		setStatus: () => {},
+		updateUi: () => {},
+		ensureCameraMode: () => {},
+		getActiveShotCameraDocument: () => shotCameraDocument,
+		updateActiveShotCameraDocument: (updater) => {
+			shotCameraDocument = updater(shotCameraDocument);
+			return shotCameraDocument;
+		},
+		getOutputSizeState: () => ({ width: 1536, height: 864 }),
+		runHistoryAction: (_label, applyChange) => {
+			applyChange?.();
+			return true;
+		},
+		beginHistoryTransaction: () => true,
+		commitHistoryTransaction: () => true,
+		cancelHistoryTransaction: () => {},
+	});
+	const asset = createReferenceImageAsset({
 		id: "asset-move",
 		label: "Move",
 		sourceMeta: createSourceMeta("move.png"),
