@@ -13,6 +13,7 @@ import {
 	createShotCameraEditorStateAccessors,
 } from "./app/controller-accessors.js";
 import { createControllerApi } from "./app/controller-api.js";
+import { createControllerLocalization } from "./app/controller-localization.js";
 import { createFileOpenRouting } from "./app/file-open-routing.js";
 import { createInteractionZoomCommands } from "./app/interaction-zoom-commands.js";
 import { createOutputFrameAccessors } from "./app/output-frame-accessors.js";
@@ -64,7 +65,7 @@ import {
 	formatAssetWorldScale,
 	getDefaultAssetUnitMode,
 } from "./engine/scene-units.js";
-import { getAnchorLabel, translate } from "./i18n.js";
+import { getAnchorLabel } from "./i18n.js";
 import {
 	extractProjectPackageAssets,
 	isProjectPackageSource,
@@ -345,14 +346,9 @@ export function createCameraFramesController(elements, store) {
 		getAssetController: () => assetController,
 		getUiSyncController: () => uiSyncController,
 	});
-
-	function currentLocale() {
-		return store.locale.value;
-	}
-
-	function t(key, params) {
-		return translate(currentLocale(), key, params);
-	}
+	const { currentLocale, t, formatNumber } = createControllerLocalization({
+		store,
+	});
 
 	const {
 		updateOutputFrameOverlay,
@@ -1131,10 +1127,6 @@ export function createCameraFramesController(elements, store) {
 			projectionController?.setShotCameraRollAngleDegrees?.(nextValue),
 	});
 	registerShotCameraDocuments();
-
-	function formatNumber(value, digits = 2) {
-		return Number(value).toFixed(digits);
-	}
 
 	runtimeController.init();
 
