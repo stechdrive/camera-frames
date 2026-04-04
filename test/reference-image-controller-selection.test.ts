@@ -895,6 +895,139 @@ function createTestController({
 		cancelHistoryTransaction: () => {},
 	});
 	const asset = createReferenceImageAsset({
+		id: "asset-shift-additive",
+		label: "Shift Additive",
+		sourceMeta: createSourceMeta("shift-additive.png"),
+	});
+	const preset = createReferenceImagePreset({
+		id: "preset-shift-additive",
+		name: "Shift Additive",
+		items: [
+			createReferenceImageItem({
+				id: "item-shift-a",
+				assetId: asset.id,
+				name: "Layer A",
+				order: 0,
+			}),
+			createReferenceImageItem({
+				id: "item-shift-b",
+				assetId: asset.id,
+				name: "Layer B",
+				order: 1,
+				offsetPx: { x: 100, y: 0 },
+			}),
+		],
+	});
+	const documentState = createDefaultReferenceImageDocument();
+	documentState.assets.push(asset);
+	documentState.presets.push(preset);
+	documentState.activePresetId = preset.id;
+	shotCameraDocument.referenceImages.presetId = preset.id;
+	store.referenceImages.document.value = documentState;
+	store.viewportToolMode.value = "reference";
+	controller.syncUiState();
+	store.referenceImages.previewLayers.value = [
+		{
+			id: "item-shift-a",
+			leftPx: 718,
+			topPx: 382,
+			widthPx: 100,
+			heightPx: 100,
+			anchorAx: 0.5,
+			anchorAy: 0.5,
+			rotationDeg: 0,
+		},
+		{
+			id: "item-shift-b",
+			leftPx: 818,
+			topPx: 382,
+			widthPx: 100,
+			heightPx: 100,
+			anchorAx: 0.5,
+			anchorAy: 0.5,
+			rotationDeg: 0,
+		},
+	];
+	controller.selectReferenceImageItem("item-shift-a");
+
+	const startResult = controller.startReferenceImageMove("item-shift-b", {
+		button: 0,
+		pointerId: 2,
+		clientX: 868,
+		clientY: 432,
+		shiftKey: true,
+		ctrlKey: false,
+		metaKey: false,
+		preventDefault() {},
+		stopPropagation() {},
+	});
+	assert.equal(startResult, true);
+	assert.deepEqual(store.referenceImages.selectedItemIds.value, [
+		"item-shift-a",
+		"item-shift-b",
+	]);
+	assert.equal(store.referenceImages.selectedItemId.value, "item-shift-b");
+}
+
+{
+	const store = createCameraFramesStore();
+	let shotCameraDocument = createShotCameraDocument({
+		name: "Camera A",
+	});
+	const renderBoxElement = {
+		clientWidth: 1536,
+		clientHeight: 864,
+		clientLeft: 0,
+		clientTop: 0,
+		getBoundingClientRect() {
+			return {
+				left: 0,
+				top: 0,
+				width: 1536,
+				height: 864,
+			};
+		},
+	};
+	globalThis.document = {
+		getElementById(id) {
+			if (id !== "viewport-shell") {
+				return null;
+			}
+			return {
+				getBoundingClientRect() {
+					return {
+						left: 0,
+						top: 0,
+						width: 1536,
+						height: 864,
+					};
+				},
+			};
+		},
+	};
+	const controller = createReferenceImageController({
+		store,
+		referenceImageInput: null,
+		renderBox: renderBoxElement,
+		t: (key) => key,
+		setStatus: () => {},
+		updateUi: () => {},
+		ensureCameraMode: () => {},
+		getActiveShotCameraDocument: () => shotCameraDocument,
+		updateActiveShotCameraDocument: (updater) => {
+			shotCameraDocument = updater(shotCameraDocument);
+			return shotCameraDocument;
+		},
+		getOutputSizeState: () => ({ width: 1536, height: 864 }),
+		runHistoryAction: (_label, applyChange) => {
+			applyChange?.();
+			return true;
+		},
+		beginHistoryTransaction: () => true,
+		commitHistoryTransaction: () => true,
+		cancelHistoryTransaction: () => {},
+	});
+	const asset = createReferenceImageAsset({
 		id: "asset-bounds",
 		label: "Bounds",
 		sourceMeta: createSourceMeta("bounds.png"),
