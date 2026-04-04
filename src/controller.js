@@ -14,6 +14,7 @@ import {
 } from "./app/controller-accessors.js";
 import { createControllerApi } from "./app/controller-api.js";
 import { createControllerLocalization } from "./app/controller-localization.js";
+import { createControllerState } from "./app/controller-state.js";
 import { createFileOpenRouting } from "./app/file-open-routing.js";
 import { createInteractionZoomCommands } from "./app/interaction-zoom-commands.js";
 import { createOutputFrameAccessors } from "./app/output-frame-accessors.js";
@@ -92,96 +93,6 @@ export function createCameraFramesController(elements, store) {
 		assetInput,
 		referenceImageInput,
 	} = elements;
-
-	const outputFrameState = {
-		get widthScale() {
-			return store.renderBox.widthScale.value;
-		},
-		set widthScale(value) {
-			updateActiveShotCameraDocument((documentState) => {
-				documentState.outputFrame.widthScale = value;
-				return documentState;
-			});
-		},
-		get heightScale() {
-			return store.renderBox.heightScale.value;
-		},
-		set heightScale(value) {
-			updateActiveShotCameraDocument((documentState) => {
-				documentState.outputFrame.heightScale = value;
-				return documentState;
-			});
-		},
-		get viewZoom() {
-			return store.renderBox.viewZoom.value;
-		},
-		set viewZoom(value) {
-			updateActiveShotCameraDocument((documentState) => {
-				documentState.outputFrame.viewZoom = value;
-				return documentState;
-			});
-		},
-		get anchor() {
-			return store.renderBox.anchor.value;
-		},
-		set anchor(value) {
-			updateActiveShotCameraDocument((documentState) => {
-				documentState.outputFrame.anchor = value;
-				return documentState;
-			});
-		},
-	};
-
-	const state = {
-		get mode() {
-			return store.mode.value;
-		},
-		get baseFovX() {
-			return store.baseFovX.value;
-		},
-		set baseFovX(value) {
-			updateActiveShotCameraDocument((documentState) => {
-				documentState.lens.baseFovX = Number(value);
-				return documentState;
-			});
-		},
-		get viewportBaseFovX() {
-			return store.viewportBaseFovX.value;
-		},
-		set viewportBaseFovX(value) {
-			store.viewportBaseFovX.value = Number(value);
-		},
-		get viewportBaseFovXDirty() {
-			return store.viewportBaseFovXDirty.value;
-		},
-		set viewportBaseFovXDirty(value) {
-			store.viewportBaseFovXDirty.value = Boolean(value);
-		},
-		outputFrame: outputFrameState,
-		exportBusy: false,
-		exportStatusKey: "export.idle",
-		outputFrameSelected: false,
-		interactionMode: "navigate",
-		lastCameraSummary: "",
-		lastSceneSummary: "",
-		lastSceneScaleSummary: "",
-	};
-
-	const OUTPUT_FRAME_RESIZE_HANDLES = {
-		"top-left": { x: 0, y: 0, affectsWidth: true, affectsHeight: true },
-		top: { x: 0.5, y: 0, affectsWidth: false, affectsHeight: true },
-		"top-right": { x: 1, y: 0, affectsWidth: true, affectsHeight: true },
-		right: { x: 1, y: 0.5, affectsWidth: true, affectsHeight: false },
-		"bottom-right": { x: 1, y: 1, affectsWidth: true, affectsHeight: true },
-		bottom: { x: 0.5, y: 1, affectsWidth: false, affectsHeight: true },
-		"bottom-left": { x: 0, y: 1, affectsWidth: true, affectsHeight: true },
-		left: { x: 0, y: 0.5, affectsWidth: true, affectsHeight: false },
-	};
-
-	const sceneState = {
-		assets: [],
-		nextAssetId: 1,
-	};
 
 	const renderer = new THREE.WebGLRenderer({
 		canvas: viewportCanvas,
@@ -296,6 +207,11 @@ export function createCameraFramesController(elements, store) {
 		getOutputFrameController: () => outputFrameController,
 		getSceneFramingController: () => sceneFramingController,
 	});
+	const { state, outputFrameResizeHandles, sceneState } =
+		createControllerState({
+			store,
+			updateActiveShotCameraDocument,
+		});
 	const {
 		getActiveViewportCamera,
 		getActiveCamera,
@@ -675,7 +591,7 @@ export function createCameraFramesController(elements, store) {
 		renderBoxMeta,
 		anchorDot,
 		frameOverlayCanvas,
-		outputFrameResizeHandles: OUTPUT_FRAME_RESIZE_HANDLES,
+		outputFrameResizeHandles,
 		workspacePaneCamera: WORKSPACE_PANE_CAMERA,
 		isZoomToolActive: () => interactionController?.isZoomToolActive() ?? false,
 		t,
