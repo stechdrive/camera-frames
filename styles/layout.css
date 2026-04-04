@@ -184,6 +184,11 @@
 	min-width: 4.35rem;
 }
 
+.workbench-shell--mobile .workbench-tool-rail__segmented--vertical {
+	flex-direction: row;
+	width: auto;
+}
+
 .workbench-shell--mobile .workbench-tool-rail__divider {
 	width: 1px;
 	height: 2rem;
@@ -220,6 +225,13 @@
 .workbench-shell--mobile .workbench-tool-rail__segment svg {
 	width: 1.18rem;
 	height: 1.18rem;
+}
+
+.workbench-shell--mobile
+	.workbench-tool-rail__segmented--vertical
+	.workbench-tool-rail__segment {
+	flex: 1 1 0;
+	width: auto;
 }
 
 .workbench-shell--mobile .workbench-tool-rail__popover {

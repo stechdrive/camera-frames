@@ -2,6 +2,7 @@ import { html } from "htm/preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import { getAnchorOptions } from "../i18n.js";
 import { WorkbenchIcon } from "./workbench-icons.js";
+import { shouldUseMobileWorkbenchLayout } from "./workbench-layout-mode.js";
 import { HeaderMenu, IconButton } from "./workbench-primitives.js";
 import {
 	ExportSection,
@@ -350,7 +351,11 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 		const hoverQuery = window.matchMedia("(hover: none)");
 		const syncMobileWorkbench = () => {
 			setIsMobileWorkbench(
-				widthQuery.matches && (coarseQuery.matches || hoverQuery.matches),
+				shouldUseMobileWorkbenchLayout({
+					widthMatches: widthQuery.matches,
+					coarseMatches: coarseQuery.matches,
+					hoverNoneMatches: hoverQuery.matches,
+				}),
 			);
 		};
 

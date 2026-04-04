@@ -34,6 +34,7 @@ import { createShotCameraEditorStateController } from "./app/shot-camera-editor-
 import { createUiSyncControllerBindings } from "./app/ui-sync-controller-bindings.js";
 import { createViewSyncCommands } from "./app/view-sync-commands.js";
 import { createViewportEditingCommands } from "./app/viewport-editing-commands.js";
+import { createViewportProjectionControllerBindings } from "./app/viewport-projection-controller-bindings.js";
 import {
 	BASE_RENDER_BOX,
 	DEFAULT_CAMERA_FAR,
@@ -480,17 +481,17 @@ export function createCameraFramesController(elements, store) {
 		fpsMovement,
 	});
 
-	viewportProjectionController = createViewportProjectionController({
-		store,
-		viewportShell,
-		viewportPerspectiveCamera: viewportCamera,
-		viewportOrthographicCamera: viewportOrthoCamera,
-		getViewportSize: () => outputFrameController.getViewportSize(),
-		getAutoClipRange: (camera) =>
-			sceneFramingController.getAutoClipRange(camera),
-		getSceneFraming: () => sceneFramingController.getSceneFraming(),
-		getSceneRaycastTargets: () => assetController.getSceneRaycastTargets(),
-	});
+	viewportProjectionController = createViewportProjectionController(
+		createViewportProjectionControllerBindings({
+			store,
+			viewportShell,
+			viewportCamera,
+			viewportOrthoCamera,
+			outputFrameController,
+			sceneFramingController,
+			assetController,
+		}),
+	);
 
 	cameraController = createCameraController({
 		store,
