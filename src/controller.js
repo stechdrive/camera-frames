@@ -7,6 +7,7 @@ import {
 } from "@sparkjsdev/spark";
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { createCameraPoseCommands } from "./app/camera-pose-commands.js";
 import {
 	createControllerAccessors,
 	createShotCameraEditorStateAccessors,
@@ -285,6 +286,23 @@ export function createCameraFramesController(elements, store) {
 		getFrameController: () => frameController,
 		getOutputFrameController: () => outputFrameController,
 		getSceneFramingController: () => sceneFramingController,
+	});
+	const {
+		getActiveViewportCamera,
+		getActiveCamera,
+		getActiveCameraHeadingDeg,
+		getActiveShotCameraPoseState,
+		setActiveShotCameraPoseAngle,
+		moveActiveShotCameraLocalAxis,
+	} = createCameraPoseCommands({
+		state,
+		viewportCamera,
+		getActiveShotCamera,
+		getCameraController: () => cameraController,
+		getHistoryController: () => historyController,
+		getProjectionController: () => projectionController,
+		getViewportProjectionController: () => viewportProjectionController,
+		updateUi: () => updateUi(),
 	});
 
 	function currentLocale() {
@@ -1085,81 +1103,6 @@ export function createCameraFramesController(elements, store) {
 
 	function handleZoomToolDragEnd(event) {
 		return interactionController?.handleZoomToolDragEnd(event);
-	}
-
-	function getActiveViewportCamera() {
-		return (
-			viewportProjectionController?.getActiveViewportCamera?.() ??
-			viewportCamera
-		);
-	}
-
-	function getActiveCamera() {
-		return state.mode === WORKSPACE_PANE_CAMERA
-			? getActiveShotCamera()
-			: getActiveViewportCamera();
-	}
-
-	function getActiveCameraHeadingDeg() {
-		const camera = getActiveCamera();
-		if (!camera) {
-			return 0;
-		}
-
-		const forward = camera.getWorldDirection(new THREE.Vector3());
-		forward.y = 0;
-		if (forward.lengthSq() <= 1e-8) {
-			return 0;
-		}
-		forward.normalize();
-		return THREE.MathUtils.radToDeg(Math.atan2(forward.x, forward.z));
-	}
-
-	function getActiveShotCameraPoseState() {
-		const shotCamera = getActiveShotCamera();
-		const poseAngles = projectionController?.getShotCameraPoseAngles?.() ?? {
-			yawDeg: 0,
-			pitchDeg: 0,
-			rollDeg: 0,
-		};
-
-		return {
-			position: {
-				x: shotCamera.position.x,
-				y: shotCamera.position.y,
-				z: shotCamera.position.z,
-			},
-			rotation: poseAngles,
-		};
-	}
-
-	function setActiveShotCameraPoseAngle(axis, nextValue) {
-		const numericValue = Number(nextValue);
-		if (
-			!["yaw", "pitch", "roll"].includes(axis) ||
-			!Number.isFinite(numericValue)
-		) {
-			return false;
-		}
-
-		return historyController?.runHistoryAction?.(
-			`camera.rotation.${axis}`,
-			() => {
-				const nextAngles =
-					axis === "yaw"
-						? { yawDeg: numericValue }
-						: axis === "pitch"
-							? { pitchDeg: numericValue }
-							: { rollDeg: numericValue };
-				projectionController?.setShotCameraPoseAngles?.(nextAngles);
-				cameraController?.syncActiveShotCameraDocumentFromLiveCamera?.();
-				updateUi();
-			},
-		);
-	}
-
-	function moveActiveShotCameraLocalAxis(axis, distance) {
-		return cameraController?.moveActiveShotCameraLocalAxis?.(axis, distance);
 	}
 
 	function resetLocalizedCaches() {
