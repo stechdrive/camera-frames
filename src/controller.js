@@ -15,6 +15,7 @@ import { createFileOpenRouting } from "./app/file-open-routing.js";
 import { createPresentationSync } from "./app/presentation-sync.js";
 import { createProjectStateBridge } from "./app/project-state-bridge.js";
 import { createShotCameraEditorStateController } from "./app/shot-camera-editor-state.js";
+import { createViewportEditingCommands } from "./app/viewport-editing-commands.js";
 import {
 	BASE_RENDER_BOX,
 	DEFAULT_CAMERA_FAR,
@@ -353,6 +354,32 @@ export function createCameraFramesController(elements, store) {
 		getUiSyncController: () => uiSyncController,
 		isProjectPresentationSyncSuspended: () => projectPresentationSyncSuspended,
 		updateCameraSummary: () => updateCameraSummary(),
+	});
+	const {
+		setViewportToolMode,
+		setViewportPivotEditMode,
+		setViewportSelectMode,
+		setViewportReferenceImageEditMode,
+		setViewportTransformMode,
+		toggleViewportSelectMode,
+		toggleViewportTransformMode,
+		toggleViewportReferenceImageEditMode,
+		toggleViewportPivotEditMode,
+		setMeasurementMode,
+		toggleMeasurementMode,
+		executeViewportPieAction,
+	} = createViewportEditingCommands({
+		store,
+		state,
+		getAssetController: () => assetController,
+		getCameraController: () => cameraController,
+		getFrameController: () => frameController,
+		getInteractionController: () => interactionController,
+		getMeasurementController: () => measurementController,
+		getReferenceImageController: () => referenceImageController,
+		getViewportToolController: () => viewportToolController,
+		clearFrameSelection,
+		clearOutputFrameSelection,
 	});
 
 	async function applyOpenedProject(
@@ -1317,166 +1344,6 @@ export function createCameraFramesController(elements, store) {
 
 	function updateCameraSummary() {
 		return uiSyncController?.updateCameraSummary();
-	}
-
-	function setViewportToolMode(nextMode) {
-		if (nextMode !== "none") {
-			measurementController?.setMeasurementMode?.(false, { silent: true });
-		}
-		switch (nextMode) {
-			case "select":
-				viewportToolController.setViewportSelectMode(true);
-				break;
-			case "reference":
-				viewportToolController.setViewportReferenceImageEditMode(true);
-				break;
-			case "transform":
-				viewportToolController.setViewportTransformMode(true);
-				break;
-			case "pivot":
-				viewportToolController.setViewportPivotEditMode(true);
-				break;
-			default:
-				viewportToolController.setViewportTransformMode(false);
-				break;
-		}
-		interactionController?.syncControlsToMode();
-	}
-
-	function setViewportPivotEditMode(nextEnabled) {
-		setViewportToolMode(nextEnabled ? "pivot" : "none");
-	}
-
-	function setViewportSelectMode(nextEnabled) {
-		setViewportToolMode(nextEnabled ? "select" : "none");
-	}
-
-	function setViewportReferenceImageEditMode(nextEnabled) {
-		setViewportToolMode(nextEnabled ? "reference" : "none");
-		if (nextEnabled) {
-			referenceImageController?.ensureReferenceImageEditingSelection?.();
-		}
-	}
-
-	function setViewportTransformMode(nextEnabled) {
-		setViewportToolMode(nextEnabled ? "transform" : "none");
-	}
-
-	function toggleViewportSelectMode() {
-		setViewportSelectMode(!store.viewportSelectMode.value);
-	}
-
-	function toggleViewportTransformMode() {
-		setViewportTransformMode(!store.viewportTransformMode.value);
-	}
-
-	function toggleViewportReferenceImageEditMode() {
-		setViewportReferenceImageEditMode(
-			!store.viewportReferenceImageEditMode.value,
-		);
-	}
-
-	function toggleViewportPivotEditMode() {
-		setViewportPivotEditMode(!store.viewportPivotEditMode.value);
-	}
-
-	function setMeasurementMode(nextEnabled, options) {
-		if (nextEnabled) {
-			interactionController?.applyNavigateInteractionMode?.({ silent: true });
-		}
-		return measurementController?.setMeasurementMode?.(nextEnabled, options);
-	}
-
-	function toggleMeasurementMode() {
-		return setMeasurementMode(
-			!(measurementController?.isMeasurementModeActive?.() ?? false),
-		);
-	}
-
-	function clearViewportEditingSelection() {
-		assetController.clearSceneAssetSelection();
-		referenceImageController?.clearReferenceImageSelection?.();
-		clearFrameSelection();
-		clearOutputFrameSelection();
-		setMeasurementMode(false, { silent: true });
-		setViewportToolMode("none");
-	}
-
-	function handleViewportPieAction(actionId, pointerEvent = null) {
-		switch (actionId) {
-			case "tool-none":
-				clearViewportEditingSelection();
-				return true;
-			case "tool-select":
-				setViewportSelectMode(!store.viewportSelectMode.value);
-				return true;
-			case "tool-reference":
-				setViewportReferenceImageEditMode(
-					!store.viewportReferenceImageEditMode.value,
-				);
-				return true;
-			case "toggle-reference-preview":
-				if ((store.referenceImages.items.value?.length ?? 0) === 0) {
-					return false;
-				}
-				referenceImageController?.setPreviewSessionVisible?.(
-					!(store.referenceImages.previewSessionVisible.value !== false),
-				);
-				return true;
-			case "tool-transform":
-				setViewportTransformMode(!store.viewportTransformMode.value);
-				return true;
-			case "tool-pivot":
-				setViewportPivotEditMode(!store.viewportPivotEditMode.value);
-				return true;
-			case "toggle-view-mode":
-				cameraController.setMode(
-					state.mode === WORKSPACE_PANE_CAMERA
-						? WORKSPACE_PANE_VIEWPORT
-						: WORKSPACE_PANE_CAMERA,
-				);
-				return true;
-			case "reset-view":
-				cameraController.resetActiveView();
-				return true;
-			case "frame-create":
-				frameController.createFrame();
-				return true;
-			case "frame-mask-all":
-				if (state.mode !== WORKSPACE_PANE_CAMERA) {
-					return false;
-				}
-				frameController.toggleFrameMaskMode("all");
-				return true;
-			case "frame-mask-selected":
-				if (state.mode !== WORKSPACE_PANE_CAMERA) {
-					return false;
-				}
-				frameController.toggleFrameMaskMode("selected");
-				return true;
-			case "frame-mask-toggle": {
-				if (state.mode !== WORKSPACE_PANE_CAMERA) {
-					return false;
-				}
-				frameController.togglePreferredFrameMaskMode();
-				return true;
-			}
-			case "adjust-lens":
-				measurementController?.setMeasurementMode?.(false, { silent: true });
-				return (
-					interactionController?.activateLensAdjustMode(pointerEvent) ?? false
-				);
-			case "clear-selection":
-				clearViewportEditingSelection();
-				return true;
-			default:
-				return false;
-		}
-	}
-
-	function executeViewportPieAction(actionId, pointerEvent = null) {
-		interactionController?.closeViewportPieMenu({ silent: true });
-		return handleViewportPieAction(actionId, pointerEvent);
 	}
 
 	function resetSelectedAssetWorkingPivot() {
