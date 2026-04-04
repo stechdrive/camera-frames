@@ -967,6 +967,23 @@ function createTestController({
 		"item-shift-b",
 	]);
 	assert.equal(store.referenceImages.selectedItemId.value, "item-shift-b");
+
+	const toggleResult = controller.startReferenceImageMove("item-shift-b", {
+		button: 0,
+		pointerId: 3,
+		clientX: 868,
+		clientY: 432,
+		shiftKey: true,
+		ctrlKey: false,
+		metaKey: false,
+		preventDefault() {},
+		stopPropagation() {},
+	});
+	assert.equal(toggleResult, true);
+	assert.deepEqual(store.referenceImages.selectedItemIds.value, [
+		"item-shift-a",
+	]);
+	assert.equal(store.referenceImages.selectedItemId.value, "item-shift-a");
 }
 
 {

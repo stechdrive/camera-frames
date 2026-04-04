@@ -69,7 +69,17 @@ export function createReferenceImageViewportInteraction({
 			toggle: false,
 		};
 		if (selectionOptions.additive || selectionOptions.toggle) {
-			selectReferenceImageItem(itemId, selectionOptions);
+			const currentSelectedItemIds = getSelectedItemIds();
+			const nextSelectionOptions =
+				selectionOptions.additive &&
+				!selectionOptions.toggle &&
+				currentSelectedItemIds.includes(item.id)
+					? {
+							...selectionOptions,
+							toggle: true,
+						}
+					: selectionOptions;
+			selectReferenceImageItem(itemId, nextSelectionOptions);
 			updateUi?.();
 			return true;
 		}
