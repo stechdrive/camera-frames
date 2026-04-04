@@ -385,6 +385,17 @@ export function ReferenceBrowserSection({ controller, store, t }) {
 		store.referenceImages.selectedItemIds.value ?? [],
 	);
 	const selectedItemId = store.referenceImages.selectedItemId.value;
+	const handleReferenceItemClick = (event, itemId, orderedIds) => {
+		controller()?.selectReferenceImageItem?.(itemId, {
+			additive: event.ctrlKey || event.metaKey,
+			toggle: event.ctrlKey || event.metaKey,
+			range: event.shiftKey,
+			orderedIds,
+		});
+		if (controller()?.isReferenceImageSelectionActive?.()) {
+			controller()?.setViewportReferenceImageEditMode?.(true);
+		}
+	};
 
 	if (items.length === 0) {
 		return null;
@@ -407,12 +418,11 @@ export function ReferenceBrowserSection({ controller, store, t }) {
 										: "scene-asset-row scene-asset-row--compact"
 							}
 							onClick=${(event) =>
-								controller()?.selectReferenceImageItem?.(item.id, {
-									additive: event.ctrlKey || event.metaKey,
-									toggle: event.ctrlKey || event.metaKey,
-									range: event.shiftKey,
-									orderedIds: items.map((entry) => entry.id),
-								})}
+								handleReferenceItemClick(
+									event,
+									item.id,
+									items.map((entry) => entry.id),
+								)}
 						>
 							<div class="scene-asset-row__main scene-asset-row__main--flat">
 								<div class="scene-asset-row__title-group">
@@ -720,6 +730,18 @@ export function ReferenceManagerSection({
 		return event.clientY < rect.top + rect.height / 2 ? "before" : "after";
 	}
 
+	function handleReferenceItemClick(event, itemId, orderedIds) {
+		controller()?.selectReferenceImageItem?.(itemId, {
+			additive: event.ctrlKey || event.metaKey,
+			toggle: event.ctrlKey || event.metaKey,
+			range: event.shiftKey,
+			orderedIds,
+		});
+		if (controller()?.isReferenceImageSelectionActive?.()) {
+			controller()?.setViewportReferenceImageEditMode?.(true);
+		}
+	}
+
 	return html`
 		<${DisclosureBlock}
 			icon="reference-tool"
@@ -792,16 +814,10 @@ export function ReferenceManagerSection({
 														key=${item.id}
 														class=${getRowClass(item.id)}
 														onClick=${(event) =>
-															controller()?.selectReferenceImageItem?.(
+															handleReferenceItemClick(
+																event,
 																item.id,
-																{
-																	additive: event.ctrlKey || event.metaKey,
-																	toggle: event.ctrlKey || event.metaKey,
-																	range: event.shiftKey,
-																	orderedIds: itemsForDisplay.map(
-																		(entry) => entry.id,
-																	),
-																},
+																itemsForDisplay.map((entry) => entry.id),
 															)}
 														onDragOver=${(event) => {
 															event.preventDefault();

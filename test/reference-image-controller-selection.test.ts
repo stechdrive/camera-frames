@@ -31,6 +31,7 @@ function createSourceMeta(filename) {
 
 function createTestController({
 	onReferenceImageSelectionCleared = () => {},
+	onReferenceImageSelectionActivated = () => {},
 } = {}) {
 	const store = createCameraFramesStore();
 	let shotCameraDocument = createShotCameraDocument({
@@ -45,6 +46,7 @@ function createTestController({
 		updateUi: () => {},
 		ensureCameraMode: () => {},
 		onReferenceImageSelectionCleared,
+		onReferenceImageSelectionActivated,
 		getActiveShotCameraDocument: () => shotCameraDocument,
 		updateActiveShotCameraDocument: (updater) => {
 			shotCameraDocument = updater(shotCameraDocument);
@@ -137,9 +139,13 @@ function createTestController({
 
 {
 	let clearedCount = 0;
+	let activatedCount = 0;
 	const { store, controller, setShotPresetId } = createTestController({
 		onReferenceImageSelectionCleared: () => {
 			clearedCount += 1;
+		},
+		onReferenceImageSelectionActivated: () => {
+			activatedCount += 1;
 		},
 	});
 	const asset = createReferenceImageAsset({
@@ -171,6 +177,7 @@ function createTestController({
 	assert.deepEqual(store.referenceImages.selectedItemIds.value, [
 		"item-single-reclick",
 	]);
+	assert.equal(activatedCount, 1);
 
 	controller.selectReferenceImageItem("item-single-reclick");
 	assert.deepEqual(store.referenceImages.selectedItemIds.value, []);

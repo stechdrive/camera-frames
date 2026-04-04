@@ -33,6 +33,17 @@ export function ReferenceSection({
 		assets.find(
 			(asset) => asset.id === (selectedItem?.assetId ?? selectedAssetId),
 		) ?? null;
+	const handleReferenceItemClick = (event, itemId, orderedIds) => {
+		controller()?.selectReferenceImageItem?.(itemId, {
+			additive: event.ctrlKey || event.metaKey,
+			toggle: event.ctrlKey || event.metaKey,
+			range: event.shiftKey,
+			orderedIds,
+		});
+		if (controller()?.isReferenceImageSelectionActive?.()) {
+			controller()?.setViewportReferenceImageEditMode?.(true);
+		}
+	};
 
 	function getReferenceRowClass({ selected = false, active = false }) {
 		const classes = ["scene-asset-row"];
@@ -126,16 +137,10 @@ export function ReferenceSection({
 																active: item.id === selectedItemId,
 															})}
 															onClick=${(event) =>
-																controller()?.selectReferenceImageItem?.(
+																handleReferenceItemClick(
+																	event,
 																	item.id,
-																	{
-																		additive: event.ctrlKey || event.metaKey,
-																		toggle: event.ctrlKey || event.metaKey,
-																		range: event.shiftKey,
-																		orderedIds: itemsForDisplay.map(
-																			(entry) => entry.id,
-																		),
-																	},
+																	itemsForDisplay.map((entry) => entry.id),
 																)}
 														>
 															<div class="scene-asset-row__main scene-asset-row__main--flat">

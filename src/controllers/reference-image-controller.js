@@ -72,6 +72,7 @@ export function createReferenceImageController({
 	updateUi,
 	ensureCameraMode,
 	onReferenceImageSelectionCleared = () => {},
+	onReferenceImageSelectionActivated = () => {},
 	getActiveShotCameraDocument,
 	updateActiveShotCameraDocument,
 	getOutputSizeState,
@@ -1722,6 +1723,7 @@ export function createReferenceImageController({
 					activeItemId: item.id,
 					activeAssetId: item.assetId,
 				});
+				onReferenceImageSelectionActivated?.();
 				return;
 			}
 
@@ -1746,6 +1748,9 @@ export function createReferenceImageController({
 				activeItemId: nextActiveItemId,
 				activeAssetId: nextActiveAssetId,
 			});
+			if (nextSelectedIds.length > 0) {
+				onReferenceImageSelectionActivated?.();
+			}
 			return;
 		}
 		if (!additive && !toggle) {
@@ -1764,6 +1769,7 @@ export function createReferenceImageController({
 				activeItemId: item.id,
 				activeAssetId: item.assetId,
 			});
+			onReferenceImageSelectionActivated?.();
 			return;
 		}
 		const nextSelectedIds = [...getSelectedItemIds()];
@@ -1793,6 +1799,9 @@ export function createReferenceImageController({
 							)?.assetId ?? "")
 						: item.assetId,
 		});
+		if (nextSelectedIds.length > 0) {
+			onReferenceImageSelectionActivated?.();
+		}
 	}
 
 	function getReferenceImageLogicalBounds(itemId) {

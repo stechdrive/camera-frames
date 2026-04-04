@@ -726,6 +726,8 @@ export function createCameraFramesController(elements, store) {
 		ensureCameraMode: () => cameraController.setMode(WORKSPACE_PANE_CAMERA),
 		onReferenceImageSelectionCleared: () =>
 			setViewportReferenceImageEditMode(false),
+		onReferenceImageSelectionActivated: () =>
+			setViewportReferenceImageEditMode(true),
 		getActiveShotCameraDocument,
 		updateActiveShotCameraDocument,
 		getOutputSizeState,
