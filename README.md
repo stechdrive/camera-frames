@@ -24,32 +24,36 @@ Implemented or working in the current app:
 
 - Render Box / Output Frame workflow with anchor-based off-axis composition
 - アンカー付き off-axis 構図を含む Render Box / Output Frame ワークフロー
-- Viewport / Camera View separation
-- Viewport / Camera View の分離
-- On-canvas frame placement, move, rotate, resize, and anchor editing
-- キャンバス上での frame 配置、移動、回転、拡縮、アンカー編集
-- Multi-camera document flow and export target selection skeleton
-- 複数カメラ document フローと export target 選択の骨格
-- Spark-based scene loading for supported assets
-- 対応アセットの Spark ベース scene loading
-- Portable `.ssproj` v2 project save / reopen foundation with legacy `.ssproj` read fallback
-- 旧 `.ssproj` 読み込みフォールバックを持つ、portable `.ssproj` v2 project save / reopen の基盤
-- PNG export pipeline and supporting geometry / projection logic
-- PNG export パイプラインと、そのための幾何 / 投影ロジック
+- Viewport / Camera View separation, viewport orthographic views, and HUD axis gizmo
+- Viewport / Camera View の分離、viewport orthographic view、HUD axis gizmo
+- On-canvas frame placement, move, rotate, resize, anchor editing, and frame mask export
+- キャンバス上での frame 配置、移動、回転、拡縮、アンカー編集、frame mask export
+- Multi-camera document flow with add / duplicate / reset / viewport exchange
+- add / duplicate / reset / viewport exchange を含む複数カメラ document フロー
+- Reference image workflow with presets, manager, properties, multi-select editing, and camera-local editor state restore
+- preset / manager / properties / 複数選択編集 / camera-local editor state 復元を含む reference image ワークフロー
+- Spark-based scene loading for supported assets plus working `.ssproj` and portable package save split
+- 対応アセットの Spark ベース scene loading と、working `.ssproj` / portable package save の分離
+- PNG / PSD export with frame, reference image, model, and splat layer support
+- frame / reference image / model / splat layer を含む PNG / PSD export
+- Undo / Redo foundation across scene, camera, frame, reference, and export-related edits
+- scene / camera / frame / reference / export 関連編集をまたぐ Undo / Redo 基盤
+- Measurement tool with viewport / camera view support
+- viewport / camera view 対応の measurement tool
 
 Still in progress or not yet finished:  
 進行中、または未完了の要素:
 
-- export settle policy for Spark LoD convergence
-- Spark の LoD 収束を踏まえた export settle policy
-- Undo / Redo foundation
-- Undo / Redo 基盤
-- reference image workflow
-- reference image ワークフロー
-- camera exchange formats and save-mode expansion
-- camera exchange formats と save mode 拡張
-- PSD export and scene-order contract work
-- PSD export と scene-order contract 周り
+- focus selected / fit scene
+- focus selected / fit scene
+- export settle policy for Spark LoD convergence and color parity
+- Spark の LoD 収束を踏まえた export settle policy と color parity
+- true back-layer composition for reference preview
+- reference preview の true back-layer composition
+- per-splat edit mode
+- per-splat edit mode
+- large package save memory hardening and additional controller/file splits where justified
+- 大きい package save の peak memory hardening と、必要に応じた追加の controller/file 分割
 
 ## Tech Stack / 技術構成
 
