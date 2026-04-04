@@ -16,6 +16,7 @@ import { createFileOpenRouting } from "./app/file-open-routing.js";
 import { createPresentationSync } from "./app/presentation-sync.js";
 import { createProjectSceneCommands } from "./app/project-scene-commands.js";
 import { createProjectStateBridge } from "./app/project-state-bridge.js";
+import { createProjectionFramingCommands } from "./app/projection-framing-commands.js";
 import { createShotCameraEditorStateController } from "./app/shot-camera-editor-state.js";
 import { createViewSyncCommands } from "./app/view-sync-commands.js";
 import { createViewportEditingCommands } from "./app/viewport-editing-commands.js";
@@ -328,6 +329,28 @@ export function createCameraFramesController(elements, store) {
 		getUiSyncController: () => uiSyncController,
 		getViewportProjectionController: () => viewportProjectionController,
 		safeSyncReferenceImagePreview: () => safeSyncReferenceImagePreview(),
+	});
+	const {
+		getProjectionState,
+		syncShotProjection,
+		applyCameraViewProjection,
+		syncViewportProjection,
+		clearControlMomentum,
+		syncControlsToMode,
+		setViewportProjectionMode,
+		alignViewportToOrthographicView,
+		toggleViewportOrthographicAxis,
+		copyPose,
+		frameCamera,
+		frameAllCameras,
+		placeAllCamerasAtHome,
+		handleResize,
+		syncOutputCamera,
+	} = createProjectionFramingCommands({
+		getInteractionController: () => interactionController,
+		getProjectionController: () => projectionController,
+		getSceneFramingController: () => sceneFramingController,
+		getViewportProjectionController: () => viewportProjectionController,
 	});
 	const {
 		captureWorkspaceState,
@@ -1176,77 +1199,6 @@ export function createCameraFramesController(elements, store) {
 		return outputFrameController.getOutputFrameMetrics(documentState);
 	}
 
-	function getProjectionState() {
-		return projectionController.getProjectionState();
-	}
-
-	function syncShotProjection() {
-		return projectionController.syncShotProjection();
-	}
-
-	function applyCameraViewProjection() {
-		return projectionController.applyCameraViewProjection();
-	}
-
-	function syncViewportProjection() {
-		return viewportProjectionController?.syncActiveViewportProjection?.();
-	}
-
-	function clearControlMomentum() {
-		return interactionController?.clearControlMomentum();
-	}
-
-	function syncControlsToMode() {
-		return interactionController?.syncControlsToMode();
-	}
-
-	function setViewportProjectionMode(nextMode, options) {
-		const changed =
-			viewportProjectionController?.setViewportProjectionMode?.(
-				nextMode,
-				options,
-			) ?? false;
-		interactionController?.syncControlsToMode?.();
-		return changed;
-	}
-
-	function alignViewportToOrthographicView(viewId, options) {
-		const changed =
-			viewportProjectionController?.alignViewportToOrthographicView?.(
-				viewId,
-				options,
-			) ?? false;
-		interactionController?.syncControlsToMode?.();
-		return changed;
-	}
-
-	function toggleViewportOrthographicAxis(axisKey) {
-		const changed =
-			viewportProjectionController?.toggleOrthographicAxis?.(axisKey) ?? false;
-		interactionController?.syncControlsToMode?.();
-		return changed;
-	}
-
-	function copyPose(sourceCamera, destinationCamera) {
-		return sceneFramingController.copyPose(sourceCamera, destinationCamera);
-	}
-
-	function frameCamera(camera, variant) {
-		return sceneFramingController.frameCamera(camera, variant);
-	}
-
-	function frameAllCameras() {
-		return sceneFramingController.frameAllCameras();
-	}
-
-	function placeAllCamerasAtHome() {
-		return sceneFramingController.placeAllCamerasAtHome();
-	}
-
-	function handleResize() {
-		return projectionController.handleResize();
-	}
-
 	function disposeMaterial(material) {
 		if (!material) {
 			return;
@@ -1273,10 +1225,6 @@ export function createCameraFramesController(elements, store) {
 				disposeMaterial(node.material);
 			}
 		});
-	}
-
-	function syncOutputCamera() {
-		return projectionController.syncOutputCamera();
 	}
 
 	runtimeController.init();
