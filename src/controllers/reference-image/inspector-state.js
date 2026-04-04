@@ -63,6 +63,21 @@ export function captureReferenceImageMultiSelectionBaseline(
 	);
 }
 
+export function cloneReferenceImageMultiSelectionLogicalBox(logicalBox = null) {
+	if (!logicalBox) {
+		return null;
+	}
+	return {
+		left: Number(logicalBox.left ?? 0),
+		top: Number(logicalBox.top ?? 0),
+		width: Number(logicalBox.width ?? 0),
+		height: Number(logicalBox.height ?? 0),
+		rotationDeg: Number(logicalBox.rotationDeg ?? 0),
+		anchorX: Number(logicalBox.anchorX ?? 0.5),
+		anchorY: Number(logicalBox.anchorY ?? 0.5),
+	};
+}
+
 function getSharedSelectionDelta(
 	selectedItems,
 	baselineItems,
@@ -114,6 +129,8 @@ function getSharedSelectionValue(selectedItems, getValue) {
 export function buildReferenceImageMultiSelectionInspectorState({
 	selectedItems = [],
 	baselineItems = new Map(),
+	baselineSelectionBoxLogical = null,
+	currentSelectionBoxLogical = null,
 	session = null,
 } = {}) {
 	if (!Array.isArray(selectedItems) || selectedItems.length <= 1) {
@@ -138,6 +155,48 @@ export function buildReferenceImageMultiSelectionInspectorState({
 		(item, baselineItem) =>
 			Number(item.scalePct ?? 100) / Number(baselineItem.scalePct ?? 100),
 	);
+	const logicalBoxOffsetX =
+		baselineSelectionBoxLogical && currentSelectionBoxLogical
+			? Number(currentSelectionBoxLogical.left ?? 0) -
+				Number(baselineSelectionBoxLogical.left ?? 0)
+			: null;
+	const logicalBoxOffsetY =
+		baselineSelectionBoxLogical && currentSelectionBoxLogical
+			? Number(currentSelectionBoxLogical.top ?? 0) -
+				Number(baselineSelectionBoxLogical.top ?? 0)
+			: null;
+	const logicalBoxScaleFactor =
+		baselineSelectionBoxLogical && currentSelectionBoxLogical
+			? (() => {
+					const widthRatio =
+						Number(baselineSelectionBoxLogical.width ?? 0) > 1e-8
+							? Number(currentSelectionBoxLogical.width ?? 0) /
+								Number(baselineSelectionBoxLogical.width ?? 0)
+							: null;
+					const heightRatio =
+						Number(baselineSelectionBoxLogical.height ?? 0) > 1e-8
+							? Number(currentSelectionBoxLogical.height ?? 0) /
+								Number(baselineSelectionBoxLogical.height ?? 0)
+							: null;
+					if (Number.isFinite(widthRatio) && Number.isFinite(heightRatio)) {
+						return Math.sqrt(widthRatio * heightRatio);
+					}
+					if (Number.isFinite(widthRatio)) {
+						return widthRatio;
+					}
+					if (Number.isFinite(heightRatio)) {
+						return heightRatio;
+					}
+					return null;
+				})()
+			: null;
+	const logicalBoxRotationDelta =
+		baselineSelectionBoxLogical && currentSelectionBoxLogical
+			? normalizeAngleDeltaDeg(
+					Number(currentSelectionBoxLogical.rotationDeg ?? 0) -
+						Number(baselineSelectionBoxLogical.rotationDeg ?? 0),
+				)
+			: null;
 	return {
 		selectionCount: selectedItems.length,
 		session,
@@ -145,25 +204,36 @@ export function buildReferenceImageMultiSelectionInspectorState({
 		averageOpacityPercent,
 		scaleDeltaPercent: Number.isFinite(currentScaleFactor)
 			? (Number(currentScaleFactor) - 1) * 100
-			: null,
-		offsetXDelta: getSharedSelectionDelta(
-			selectedItems,
-			baselineItems,
-			(item, baselineItem) =>
-				Number(item.offsetPx?.x ?? 0) - Number(baselineItem.offsetPx?.x ?? 0),
-		),
-		offsetYDelta: getSharedSelectionDelta(
-			selectedItems,
-			baselineItems,
-			(item, baselineItem) =>
-				Number(item.offsetPx?.y ?? 0) - Number(baselineItem.offsetPx?.y ?? 0),
-		),
-		rotationDeltaDeg: getSharedSelectionDelta(
-			selectedItems,
-			baselineItems,
-			(item, baselineItem) =>
-				Number(item.rotationDeg ?? 0) - Number(baselineItem.rotationDeg ?? 0),
-			{ normalize: normalizeAngleDeltaDeg },
-		),
+			: Number.isFinite(logicalBoxScaleFactor)
+				? (Number(logicalBoxScaleFactor) - 1) * 100
+				: null,
+		offsetXDelta: Number.isFinite(logicalBoxOffsetX)
+			? logicalBoxOffsetX
+			: getSharedSelectionDelta(
+					selectedItems,
+					baselineItems,
+					(item, baselineItem) =>
+						Number(item.offsetPx?.x ?? 0) -
+						Number(baselineItem.offsetPx?.x ?? 0),
+				),
+		offsetYDelta: Number.isFinite(logicalBoxOffsetY)
+			? logicalBoxOffsetY
+			: getSharedSelectionDelta(
+					selectedItems,
+					baselineItems,
+					(item, baselineItem) =>
+						Number(item.offsetPx?.y ?? 0) -
+						Number(baselineItem.offsetPx?.y ?? 0),
+				),
+		rotationDeltaDeg: Number.isFinite(logicalBoxRotationDelta)
+			? logicalBoxRotationDelta
+			: getSharedSelectionDelta(
+					selectedItems,
+					baselineItems,
+					(item, baselineItem) =>
+						Number(item.rotationDeg ?? 0) -
+						Number(baselineItem.rotationDeg ?? 0),
+					{ normalize: normalizeAngleDeltaDeg },
+				),
 	};
 }

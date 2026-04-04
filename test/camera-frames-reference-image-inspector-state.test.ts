@@ -3,6 +3,7 @@ import {
 	buildReferenceImageMultiSelectionInspectorSignature,
 	buildReferenceImageMultiSelectionInspectorState,
 	captureReferenceImageMultiSelectionBaseline,
+	cloneReferenceImageMultiSelectionLogicalBox,
 } from "../src/controllers/reference-image/inspector-state.js";
 
 const baseItems = [
@@ -42,6 +43,24 @@ const baseItems = [
 			},
 		],
 		baselineItems,
+		baselineSelectionBoxLogical: cloneReferenceImageMultiSelectionLogicalBox({
+			left: 10,
+			top: 20,
+			width: 100,
+			height: 80,
+			rotationDeg: 0,
+			anchorX: 0.5,
+			anchorY: 0.5,
+		}),
+		currentSelectionBoxLogical: cloneReferenceImageMultiSelectionLogicalBox({
+			left: 14,
+			top: 18,
+			width: 125,
+			height: 100,
+			rotationDeg: 30,
+			anchorX: 0.5,
+			anchorY: 0.5,
+		}),
 		session: { id: "session-a" },
 	});
 
@@ -59,6 +78,83 @@ const baseItems = [
 
 {
 	const baselineItems = captureReferenceImageMultiSelectionBaseline(baseItems);
+	const afterMove = buildReferenceImageMultiSelectionInspectorState({
+		selectedItems: [
+			{
+				...baseItems[0],
+				offsetPx: { x: 25, y: 12 },
+			},
+			{
+				...baseItems[1],
+				offsetPx: { x: 10, y: 0 },
+			},
+		],
+		baselineItems,
+		baselineSelectionBoxLogical: cloneReferenceImageMultiSelectionLogicalBox({
+			left: 10,
+			top: 20,
+			width: 100,
+			height: 80,
+			rotationDeg: 0,
+			anchorX: 0.5,
+			anchorY: 0.5,
+		}),
+		currentSelectionBoxLogical: cloneReferenceImageMultiSelectionLogicalBox({
+			left: 25,
+			top: 12,
+			width: 100,
+			height: 80,
+			rotationDeg: 0,
+			anchorX: 0.5,
+			anchorY: 0.5,
+		}),
+	});
+	assert.equal(afterMove.offsetXDelta, 15);
+	assert.equal(afterMove.offsetYDelta, -8);
+
+	const afterRotateAndScale = buildReferenceImageMultiSelectionInspectorState({
+		selectedItems: [
+			{
+				...baseItems[0],
+				scalePct: 125,
+				rotationDeg: 30,
+				offsetPx: { x: 25, y: 12 },
+			},
+			{
+				...baseItems[1],
+				scalePct: 125,
+				rotationDeg: 30,
+				offsetPx: { x: 10, y: 0 },
+			},
+		],
+		baselineItems,
+		baselineSelectionBoxLogical: cloneReferenceImageMultiSelectionLogicalBox({
+			left: 10,
+			top: 20,
+			width: 100,
+			height: 80,
+			rotationDeg: 0,
+			anchorX: 0.5,
+			anchorY: 0.5,
+		}),
+		currentSelectionBoxLogical: cloneReferenceImageMultiSelectionLogicalBox({
+			left: 25,
+			top: 12,
+			width: 125,
+			height: 100,
+			rotationDeg: 30,
+			anchorX: 0.5,
+			anchorY: 0.5,
+		}),
+	});
+	assert.equal(afterRotateAndScale.offsetXDelta, 15);
+	assert.equal(afterRotateAndScale.offsetYDelta, -8);
+	assert.equal(afterRotateAndScale.scaleDeltaPercent, 25);
+	assert.equal(afterRotateAndScale.rotationDeltaDeg, 30);
+}
+
+{
+	const baselineItems = captureReferenceImageMultiSelectionBaseline(baseItems);
 	const inspectorState = buildReferenceImageMultiSelectionInspectorState({
 		selectedItems: [
 			{
@@ -71,6 +167,24 @@ const baseItems = [
 			},
 		],
 		baselineItems,
+		baselineSelectionBoxLogical: cloneReferenceImageMultiSelectionLogicalBox({
+			left: 10,
+			top: 20,
+			width: 100,
+			height: 80,
+			rotationDeg: 0,
+			anchorX: 0.5,
+			anchorY: 0.5,
+		}),
+		currentSelectionBoxLogical: cloneReferenceImageMultiSelectionLogicalBox({
+			left: 10,
+			top: 20,
+			width: 100,
+			height: 80,
+			rotationDeg: 190,
+			anchorX: 0.5,
+			anchorY: 0.5,
+		}),
 	});
 
 	assert.equal(inspectorState.rotationDeltaDeg, -170);

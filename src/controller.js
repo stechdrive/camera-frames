@@ -1326,6 +1326,12 @@ export function createCameraFramesController(elements, store) {
 			referenceImageController.clearReferenceImageSelection,
 		ensureReferenceImageEditingSelection:
 			referenceImageController.ensureReferenceImageEditingSelection,
+		getSelectedReferenceImageInspectorState:
+			referenceImageController.getSelectedReferenceImageInspectorState,
+		beginSelectedReferenceImageInspectorTransformSession:
+			referenceImageController.beginSelectedReferenceImageInspectorTransformSession,
+		endSelectedReferenceImageInspectorTransformSession:
+			referenceImageController.endSelectedReferenceImageInspectorTransformSession,
 		selectReferenceImageAsset:
 			referenceImageController.selectReferenceImageAsset,
 		selectReferenceImageItem: referenceImageController.selectReferenceImageItem,

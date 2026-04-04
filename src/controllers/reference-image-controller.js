@@ -48,6 +48,7 @@ import {
 	buildReferenceImageMultiSelectionInspectorSignature,
 	buildReferenceImageMultiSelectionInspectorState,
 	captureReferenceImageMultiSelectionBaseline,
+	cloneReferenceImageMultiSelectionLogicalBox,
 } from "./reference-image/inspector-state.js";
 import { createReferenceImagePropertyOperations } from "./reference-image/property-operations.js";
 import {
@@ -93,6 +94,7 @@ export function createReferenceImageController({
 		baselineSignature: "",
 		sessionSignature: "",
 		baselineItems: new Map(),
+		baselineSelectionBoxLogical: null,
 		session: null,
 	};
 
@@ -310,6 +312,7 @@ export function createReferenceImageController({
 			baselineSignature: "",
 			sessionSignature: "",
 			baselineItems: new Map(),
+			baselineSelectionBoxLogical: null,
 			session: null,
 		};
 	}
@@ -331,6 +334,9 @@ export function createReferenceImageController({
 			return null;
 		}
 		const baselineSignature = selectedItemIds.join("|");
+		const currentSelectionTransformState = buildSelectionTransformState({
+			includeScreenState: false,
+		});
 		const sessionSignature =
 			buildReferenceImageMultiSelectionInspectorSignature({
 				selectedItemIds,
@@ -347,6 +353,11 @@ export function createReferenceImageController({
 				baselineSignature,
 				baselineItems:
 					captureReferenceImageMultiSelectionBaseline(selectedItems),
+				baselineSelectionBoxLogical:
+					cloneReferenceImageMultiSelectionLogicalBox(
+						currentSelectionTransformState?.selectionBoxLogical ??
+							store.referenceImages.selectionBoxLogical.value,
+					),
 			};
 		}
 		if (
@@ -359,9 +370,7 @@ export function createReferenceImageController({
 				...referenceImageInspectorTransformState,
 				locked: false,
 				sessionSignature,
-				session: buildSelectionTransformState({
-					includeScreenState: false,
-				}),
+				session: currentSelectionTransformState,
 			};
 		}
 		return {
@@ -400,6 +409,9 @@ export function createReferenceImageController({
 		return buildReferenceImageMultiSelectionInspectorState({
 			selectedItems: inspectorState.selectedItems,
 			baselineItems: inspectorState.baselineItems,
+			baselineSelectionBoxLogical: inspectorState.baselineSelectionBoxLogical,
+			currentSelectionBoxLogical:
+				inspectorState.session?.selectionBoxLogical ?? null,
 			session: inspectorState.session,
 		});
 	}
@@ -514,17 +526,30 @@ export function createReferenceImageController({
 		};
 	}
 
-	function getTransformContext(documentState = getDocument()) {
-		const renderBoxElement = renderBox?.current ?? renderBox;
+	function getLogicalTransformContext(documentState = getDocument()) {
 		const outputSize = getOutputSizeState?.();
 		const activeShotCameraDocument = getActiveShotCameraDocument?.() ?? null;
 		const resolved = getResolvedShotItems(documentState);
-		if (
-			!renderBoxElement ||
-			!outputSize?.width ||
-			!outputSize?.height ||
-			!resolved?.preset
-		) {
+		if (!outputSize?.width || !outputSize?.height || !resolved?.preset) {
+			return null;
+		}
+		return {
+			documentState,
+			resolved,
+			outputSize: {
+				w: outputSize.width,
+				h: outputSize.height,
+			},
+			renderBoxAnchor: getReferenceImageRenderBoxAnchor(
+				activeShotCameraDocument?.outputFrame?.anchor ?? "center",
+			),
+		};
+	}
+
+	function getTransformContext(documentState = getDocument()) {
+		const renderBoxElement = renderBox?.current ?? renderBox;
+		const logicalContext = getLogicalTransformContext(documentState);
+		if (!renderBoxElement || !logicalContext) {
 			return null;
 		}
 		const renderBoxWidth = Math.max(renderBoxElement.clientWidth, 0);
@@ -537,21 +562,13 @@ export function createReferenceImageController({
 			return null;
 		}
 		return {
-			documentState,
-			resolved,
-			outputSize: {
-				w: outputSize.width,
-				h: outputSize.height,
-			},
-			renderScaleX: renderBoxWidth / outputSize.width,
-			renderScaleY: renderBoxHeight / outputSize.height,
+			...logicalContext,
+			renderScaleX: renderBoxWidth / logicalContext.outputSize.w,
+			renderScaleY: renderBoxHeight / logicalContext.outputSize.h,
 			renderBoxScreenLeft: previewMetrics.left,
 			renderBoxScreenTop: previewMetrics.top,
 			viewportShellWidth: previewMetrics.viewportShellWidth,
 			viewportShellHeight: previewMetrics.viewportShellHeight,
-			renderBoxAnchor: getReferenceImageRenderBoxAnchor(
-				activeShotCameraDocument?.outputFrame?.anchor ?? "center",
-			),
 		};
 	}
 
@@ -602,7 +619,9 @@ export function createReferenceImageController({
 	}
 
 	function buildSelectionTransformState({ includeScreenState = true } = {}) {
-		const context = getTransformContext();
+		const context = includeScreenState
+			? getTransformContext()
+			: getLogicalTransformContext();
 		if (!context) {
 			return null;
 		}
@@ -752,8 +771,8 @@ export function createReferenceImageController({
 		};
 	}
 
-	function applyGeometryUpdates(geometries, updater) {
-		const context = getTransformContext();
+	function applyGeometryUpdates(geometries, updater, contextOverride = null) {
+		const context = contextOverride ?? getLogicalTransformContext();
 		if (!context) {
 			return false;
 		}
@@ -828,6 +847,7 @@ export function createReferenceImageController({
 					},
 				};
 			},
+			selectionState.context,
 		);
 	}
 
@@ -883,6 +903,7 @@ export function createReferenceImageController({
 					},
 				};
 			},
+			selectionState.context,
 		);
 	}
 
@@ -947,6 +968,7 @@ export function createReferenceImageController({
 					},
 				};
 			},
+			selectionState.context,
 		);
 	}
 
@@ -1805,7 +1827,9 @@ export function createReferenceImageController({
 		if (!Number.isFinite(numericDelta) || Math.abs(numericDelta) <= 1e-8) {
 			return false;
 		}
-		const selectionState = buildSelectionTransformState();
+		const selectionState = buildSelectionTransformState({
+			includeScreenState: false,
+		});
 		if (!selectionState) {
 			return false;
 		}
@@ -1827,7 +1851,9 @@ export function createReferenceImageController({
 		if (!Number.isFinite(numericDelta) || Math.abs(numericDelta) <= 1e-8) {
 			return false;
 		}
-		const selectionState = buildSelectionTransformState();
+		const selectionState = buildSelectionTransformState({
+			includeScreenState: false,
+		});
 		if (!selectionState) {
 			return false;
 		}
@@ -1847,7 +1873,9 @@ export function createReferenceImageController({
 		) {
 			return false;
 		}
-		const selectionState = buildSelectionTransformState();
+		const selectionState = buildSelectionTransformState({
+			includeScreenState: false,
+		});
 		if (!selectionState) {
 			return false;
 		}

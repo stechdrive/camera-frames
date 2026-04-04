@@ -133,6 +133,85 @@ function createTestController() {
 }
 
 {
+	const { store, controller, setShotPresetId } = createTestController();
+	const asset = createReferenceImageAsset({
+		id: "asset-inspector-delta",
+		label: "Inspector Delta",
+		sourceMeta: createSourceMeta("inspector-delta.png"),
+	});
+	const preset = createReferenceImagePreset({
+		id: "preset-inspector-delta",
+		name: "Inspector Delta",
+		items: [
+			createReferenceImageItem({
+				id: "item-delta-a",
+				assetId: asset.id,
+				name: "Layer A",
+				order: 0,
+				offsetPx: { x: 0, y: 0 },
+			}),
+			createReferenceImageItem({
+				id: "item-delta-b",
+				assetId: asset.id,
+				name: "Layer B",
+				order: 1,
+				offsetPx: { x: -200, y: 0 },
+			}),
+		],
+	});
+	const documentState = createDefaultReferenceImageDocument();
+	documentState.presets.push(preset);
+	documentState.assets.push(asset);
+	documentState.activePresetId = preset.id;
+	setShotPresetId(preset.id);
+	store.referenceImages.document.value = documentState;
+	controller.syncUiState();
+
+	controller.selectReferenceImageItem("item-delta-a");
+	controller.selectReferenceImageItem("item-delta-b", { additive: true });
+
+	assert.deepEqual(store.referenceImages.selectedItemIds.value, [
+		"item-delta-a",
+		"item-delta-b",
+	]);
+
+	const initialInspectorState =
+		controller.getSelectedReferenceImageInspectorState();
+	assert.ok(initialInspectorState);
+	assert.equal(initialInspectorState.offsetXDelta, 0);
+	assert.equal(initialInspectorState.offsetYDelta, 0);
+	assert.equal(initialInspectorState.rotationDeltaDeg, 0);
+	assert.equal(initialInspectorState.scaleDeltaPercent, 0);
+
+	assert.equal(
+		controller.offsetSelectedReferenceImagesPosition("x", 10),
+		true,
+	);
+	controller.syncUiState();
+	const afterMoveInspectorState =
+		controller.getSelectedReferenceImageInspectorState();
+	assert.ok(afterMoveInspectorState);
+	assert.equal(afterMoveInspectorState.offsetXDelta, 10);
+	assert.equal(afterMoveInspectorState.offsetYDelta, 0);
+
+	assert.equal(controller.offsetSelectedReferenceImagesRotationDeg(15), true);
+	controller.syncUiState();
+	const afterRotateInspectorState =
+		controller.getSelectedReferenceImageInspectorState();
+	assert.ok(afterRotateInspectorState);
+	assert.equal(afterRotateInspectorState.rotationDeltaDeg, 15);
+
+	assert.equal(controller.scaleSelectedReferenceImagesByFactor(1.2), true);
+	controller.syncUiState();
+	const afterScaleInspectorState =
+		controller.getSelectedReferenceImageInspectorState();
+	assert.ok(afterScaleInspectorState);
+	assert.ok(
+		Math.abs((afterScaleInspectorState.scaleDeltaPercent ?? 0) - 20) <= 1e-8,
+	);
+}
+
+{
 	const store = createCameraFramesStore();
 	let shotCameraDocument = createShotCameraDocument({
 		name: "Camera A",
