@@ -18,6 +18,7 @@ import { createControllerApi } from "./app/controller-api.js";
 import { createControllerLocalization } from "./app/controller-localization.js";
 import { createControllerRuntimeResources } from "./app/controller-runtime-resources.js";
 import { createControllerState } from "./app/controller-state.js";
+import { createExportControllerBindings } from "./app/export-controller-bindings.js";
 import { createFileOpenRouting } from "./app/file-open-routing.js";
 import { createInteractionControllerBindings } from "./app/interaction-controller-bindings.js";
 import { createInteractionZoomCommands } from "./app/interaction-zoom-commands.js";
@@ -441,33 +442,35 @@ export function createCameraFramesController(elements, store) {
 		}),
 	);
 
-	const exportController = createExportController({
-		scene,
-		renderer,
-		spark,
-		guides,
-		guideOverlay,
-		shotCameraRegistry,
-		store,
-		flipPixels,
-		drawFramesToContext,
-		t,
-		setStatus,
-		setExportStatus,
-		updateUi,
-		getTotalLoadedItems,
-		getSceneAssets,
-		getShotCameraDocument,
-		getActiveShotCameraDocument,
-		getActiveOutputCamera,
-		getActiveFrames,
-		getOutputSizeState,
-		getShotCameraExportBaseName,
-		syncActiveShotCameraFromDocument,
-		syncShotProjection,
-		syncOutputCamera,
-		updateShotCameraHelpers,
-	});
+	const exportController = createExportController(
+		createExportControllerBindings({
+			scene,
+			renderer,
+			spark,
+			guides,
+			guideOverlay,
+			shotCameraRegistry,
+			store,
+			flipPixels,
+			drawFramesToContext,
+			t,
+			setStatus,
+			setExportStatus,
+			updateUi,
+			getTotalLoadedItems,
+			getSceneAssets,
+			getShotCameraDocument,
+			getActiveShotCameraDocument,
+			getActiveOutputCamera,
+			getActiveFrames,
+			getOutputSizeState,
+			getShotCameraExportBaseName,
+			syncActiveShotCameraFromDocument,
+			syncShotProjection,
+			syncOutputCamera,
+			updateShotCameraHelpers,
+		}),
+	);
 
 	sceneFramingController = createSceneFramingController({
 		getSceneBounds,
