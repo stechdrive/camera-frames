@@ -377,7 +377,6 @@ export function bindInputRouter({
 
 	listen(viewportShell, "dragover", (event) => {
 		event.preventDefault();
-		dropHint.classList.remove("is-hidden");
 	});
 
 	listen(viewportShell, "dragleave", (event) => {
