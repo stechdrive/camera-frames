@@ -21,6 +21,7 @@ import { createProjectOpenApply } from "./app/project-open-apply.js";
 import { createProjectSceneCommands } from "./app/project-scene-commands.js";
 import { createProjectStateBridge } from "./app/project-state-bridge.js";
 import { createProjectionFramingCommands } from "./app/projection-framing-commands.js";
+import { disposeObject } from "./app/resource-disposal.js";
 import { createSceneAssetAccessors } from "./app/scene-asset-accessors.js";
 import { createShotCameraEditorStateController } from "./app/shot-camera-editor-state.js";
 import { createViewSyncCommands } from "./app/view-sync-commands.js";
@@ -1133,34 +1134,6 @@ export function createCameraFramesController(elements, store) {
 
 	function formatNumber(value, digits = 2) {
 		return Number(value).toFixed(digits);
-	}
-
-	function disposeMaterial(material) {
-		if (!material) {
-			return;
-		}
-
-		for (const value of Object.values(material)) {
-			if (value && typeof value === "object" && value.isTexture) {
-				value.dispose();
-			}
-		}
-
-		material.dispose();
-	}
-
-	function disposeObject(root) {
-		root.traverse((node) => {
-			if (node.geometry) {
-				node.geometry.dispose();
-			}
-
-			if (Array.isArray(node.material)) {
-				node.material.forEach(disposeMaterial);
-			} else if (node.material) {
-				disposeMaterial(node.material);
-			}
-		});
 	}
 
 	runtimeController.init();
