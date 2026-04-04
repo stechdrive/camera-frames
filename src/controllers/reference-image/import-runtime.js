@@ -40,14 +40,27 @@ export function createReferenceImageImportRuntime({
 	commitHistoryTransaction = () => false,
 	cancelHistoryTransaction = () => {},
 }) {
+	function shouldExpectPreviewLayers({ expectedVisibleItems = 0 } = {}) {
+		return (
+			expectedVisibleItems > 0 &&
+			store.mode.value === "camera" &&
+			store.referenceImages.previewSessionVisible.value !== false
+		);
+	}
+
 	function refreshUiAfterLayout({ expectedVisibleItems = 0 } = {}) {
+		const shouldWaitForPreviewLayers = shouldExpectPreviewLayers({
+			expectedVisibleItems,
+		});
+		updateUi?.();
+		if (!shouldWaitForPreviewLayers) {
+			return;
+		}
+
 		const maxAttempts = 4;
 		const runAttempt = (attempt) => {
 			updateUi?.();
-			if (
-				store.referenceImages.previewLayers.value.length > 0 ||
-				expectedVisibleItems <= 0
-			) {
+			if (store.referenceImages.previewLayers.value.length > 0) {
 				return;
 			}
 			if (attempt >= maxAttempts) {

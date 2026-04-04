@@ -7,6 +7,7 @@ import {
 } from "@sparkjsdev/spark";
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { createCameraControllerBindings } from "./app/camera-controller-bindings.js";
 import { createCameraPoseCommands } from "./app/camera-pose-commands.js";
 import {
 	createControllerAccessors,
@@ -493,60 +494,35 @@ export function createCameraFramesController(elements, store) {
 		}),
 	);
 
-	cameraController = createCameraController({
-		store,
-		state,
-		scene,
-		viewportCamera,
-		shotCameraRegistry,
-		horizontalToVerticalFovDegrees,
-		t,
-		setStatus,
-		updateUi,
-		getSceneBounds,
-		getAutoClipRange: (camera) =>
-			sceneFramingController.getAutoClipRange(camera),
-		clearFrameDrag: () => frameController.clearFrameDrag(),
-		clearOutputFramePan,
-		clearOutputFrameSelection,
-		clearControlMomentum: () => interactionController?.clearControlMomentum(),
-		beforeActiveShotCameraChange: (currentShotCameraId) =>
-			prepareForShotCameraSwitch(currentShotCameraId),
-		afterActiveShotCameraChange: (nextShotCameraId) =>
-			restoreAfterShotCameraSwitch(nextShotCameraId),
-		applyNavigateInteractionMode: () =>
-			interactionController?.applyNavigateInteractionMode({ silent: true }),
-		copyPose: (...args) => sceneFramingController.copyPose(...args),
-		placeCameraAtHome: (...args) =>
-			sceneFramingController.placeCameraAtHome(...args),
-		frameCamera: (...args) => sceneFramingController.frameCamera(...args),
-		getViewportCameraForShotCopy: () =>
-			viewportProjectionController?.getActiveViewportCamera?.() ??
+	cameraController = createCameraController(
+		createCameraControllerBindings({
+			store,
+			state,
+			scene,
 			viewportCamera,
-		getViewportPerspectiveCamera: () =>
-			viewportProjectionController?.getViewportPerspectiveCamera?.() ??
-			viewportCamera,
-		prepareViewportPerspectiveMode: () => {
-			const changed =
-				viewportProjectionController?.setViewportProjectionMode?.(
-					"perspective",
-					{
-						copyActivePose: false,
-					},
-				) ?? false;
-			interactionController?.syncControlsToMode?.();
-			return changed;
-		},
-		resetViewportView: () => {
-			if (viewportProjectionController?.isViewportOrthographic?.()) {
-				viewportProjectionController.resetViewportOrthographicView();
-				return true;
-			}
-			return false;
-		},
-		syncControlsToMode: () => interactionController?.syncControlsToMode(),
-		runHistoryAction: historyController.runHistoryAction,
-	});
+			shotCameraRegistry,
+			horizontalToVerticalFovDegrees,
+			t,
+			setStatus,
+			updateUi,
+			getSceneBounds,
+			sceneFramingController,
+			getFrameController: () => frameController,
+			clearOutputFramePan,
+			clearOutputFrameSelection,
+			getInteractionController: () => interactionController,
+			beforeActiveShotCameraChange: (currentShotCameraId) =>
+				shotCameraEditorStateController?.prepareForShotCameraSwitch?.(
+					currentShotCameraId,
+				),
+			afterActiveShotCameraChange: (nextShotCameraId) =>
+				shotCameraEditorStateController?.restoreAfterShotCameraSwitch?.(
+					nextShotCameraId,
+				),
+			viewportProjectionController,
+			historyController,
+		}),
+	);
 	frameController = createFrameController({
 		store,
 		state,
