@@ -1,0 +1,36 @@
+export function createReferenceImageControllerBindings({
+	store,
+	referenceImageInput,
+	renderBox,
+	t,
+	setStatus,
+	updateUi,
+	getCameraController,
+	onReferenceImageSelectionCleared,
+	onReferenceImageSelectionActivated,
+	getActiveShotCameraDocument,
+	updateActiveShotCameraDocument,
+	getOutputSizeState,
+	historyController,
+	workspacePaneCamera,
+} = {}) {
+	return {
+		store,
+		referenceImageInput,
+		renderBox,
+		t,
+		setStatus,
+		updateUi,
+		ensureCameraMode: () =>
+			getCameraController?.()?.setMode(workspacePaneCamera),
+		onReferenceImageSelectionCleared,
+		onReferenceImageSelectionActivated,
+		getActiveShotCameraDocument,
+		updateActiveShotCameraDocument,
+		getOutputSizeState,
+		runHistoryAction: historyController.runHistoryAction,
+		beginHistoryTransaction: historyController.beginHistoryTransaction,
+		commitHistoryTransaction: historyController.commitHistoryTransaction,
+		cancelHistoryTransaction: historyController.cancelHistoryTransaction,
+	};
+}

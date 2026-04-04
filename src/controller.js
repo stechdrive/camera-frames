@@ -20,25 +20,35 @@ import { createControllerRuntimeResources } from "./app/controller-runtime-resou
 import { createControllerState } from "./app/controller-state.js";
 import { createExportControllerBindings } from "./app/export-controller-bindings.js";
 import { createFileOpenRouting } from "./app/file-open-routing.js";
+import { createFrameControllerBindings } from "./app/frame-controller-bindings.js";
+import { createHistoryControllerBindings } from "./app/history-controller-bindings.js";
 import { createInteractionControllerBindings } from "./app/interaction-controller-bindings.js";
 import { createInteractionZoomCommands } from "./app/interaction-zoom-commands.js";
+import { createLightingControllerBindings } from "./app/lighting-controller-bindings.js";
 import { createMeasurementControllerBindings } from "./app/measurement-controller-bindings.js";
 import { createOutputFrameAccessors } from "./app/output-frame-accessors.js";
+import { createOutputFrameControllerBindings } from "./app/output-frame-controller-bindings.js";
 import { createPresentationSync } from "./app/presentation-sync.js";
 import { createProjectControllerBindings } from "./app/project-controller-bindings.js";
 import { createProjectOpenApply } from "./app/project-open-apply.js";
 import { createProjectSceneCommands } from "./app/project-scene-commands.js";
 import { createProjectStateBridge } from "./app/project-state-bridge.js";
+import { createProjectionControllerBindings } from "./app/projection-controller-bindings.js";
 import { createProjectionFramingCommands } from "./app/projection-framing-commands.js";
+import { createReferenceImageControllerBindings } from "./app/reference-image-controller-bindings.js";
+import { createReferenceImageRenderControllerBindings } from "./app/reference-image-render-controller-bindings.js";
 import { disposeObject } from "./app/resource-disposal.js";
 import { createRuntimeControllerBindings } from "./app/runtime-controller-bindings.js";
 import { createSceneAssetAccessors } from "./app/scene-asset-accessors.js";
 import { createSceneFramingControllerBindings } from "./app/scene-framing-controller-bindings.js";
+import { createShotCameraEditorStateControllerBindings } from "./app/shot-camera-editor-state-bindings.js";
 import { createShotCameraEditorStateController } from "./app/shot-camera-editor-state.js";
 import { createUiSyncControllerBindings } from "./app/ui-sync-controller-bindings.js";
 import { createViewSyncCommands } from "./app/view-sync-commands.js";
+import { createViewportAxisGizmoControllerBindings } from "./app/viewport-axis-gizmo-controller-bindings.js";
 import { createViewportEditingCommands } from "./app/viewport-editing-commands.js";
 import { createViewportProjectionControllerBindings } from "./app/viewport-projection-controller-bindings.js";
+import { createViewportToolControllerBindings } from "./app/viewport-tool-controller-bindings.js";
 import {
 	BASE_RENDER_BOX,
 	DEFAULT_CAMERA_FAR,
@@ -407,12 +417,14 @@ export function createCameraFramesController(elements, store) {
 		t,
 	});
 
-	historyController = createHistoryController({
-		store,
-		captureWorkspaceState,
-		restoreWorkspaceState,
-		updateUi: () => updateUi(),
-	});
+	historyController = createHistoryController(
+		createHistoryControllerBindings({
+			store,
+			captureWorkspaceState,
+			restoreWorkspaceState,
+			updateUi: () => updateUi(),
+		}),
+	);
 
 	assetController = createAssetController(
 		createAssetControllerBindings({
@@ -526,88 +538,81 @@ export function createCameraFramesController(elements, store) {
 			historyController,
 		}),
 	);
-	frameController = createFrameController({
-		store,
-		state,
-		renderBox,
-		workspacePaneCamera: WORKSPACE_PANE_CAMERA,
-		isZoomToolActive: () => interactionController?.isZoomToolActive() ?? false,
-		t,
-		setStatus,
-		updateUi,
-		clearOutputFrameSelection: () =>
-			outputFrameController?.clearOutputFrameSelection(),
-		clearOutputFramePan: () => outputFrameController?.clearOutputFramePan(),
-		getActiveShotCameraDocument,
-		updateActiveShotCameraDocument,
-		getOutputFrameMetrics,
-		runHistoryAction: historyController.runHistoryAction,
-		beginHistoryTransaction: historyController.beginHistoryTransaction,
-		commitHistoryTransaction: historyController.commitHistoryTransaction,
-		cancelHistoryTransaction: historyController.cancelHistoryTransaction,
-	});
-	outputFrameController = createOutputFrameController({
-		store,
-		state,
-		viewportShell,
-		workbenchRightColumn,
-		renderBox,
-		renderBoxMeta,
-		anchorDot,
-		frameOverlayCanvas,
-		outputFrameResizeHandles,
-		workspacePaneCamera: WORKSPACE_PANE_CAMERA,
-		isZoomToolActive: () => interactionController?.isZoomToolActive() ?? false,
-		t,
-		getAnchorLabel,
-		currentLocale,
-		clearFrameSelection: () => frameController.clearFrameSelection(),
-		isFrameSelectionActive: () => frameController.isFrameSelectionActive(),
-		getActiveShotCameraDocument,
-		getShotCameraDocument,
-		getActiveShotCameraEntry,
-		shotCameraRegistry,
-		getActiveFrames: () => frameController.getActiveFrames(),
-		getFrameAnchorDocument: (frame) =>
-			frameController.getFrameAnchorDocument(frame),
-		resolveFrameAxis: (value) => frameController.resolveFrameAxis(value),
-		resolveFrameAnchor: (value, fallback) =>
-			frameController.resolveFrameAnchor(value, fallback),
-		getBaseFovX: () => state.baseFovX,
-		updateActiveShotCameraDocument,
-		updateUi,
-		runHistoryAction: historyController.runHistoryAction,
-		beginHistoryTransaction: historyController.beginHistoryTransaction,
-		commitHistoryTransaction: historyController.commitHistoryTransaction,
-		cancelHistoryTransaction: historyController.cancelHistoryTransaction,
-	});
-	referenceImageController = createReferenceImageController({
-		store,
-		referenceImageInput,
-		renderBox,
-		t,
-		setStatus,
-		updateUi,
-		ensureCameraMode: () => cameraController.setMode(WORKSPACE_PANE_CAMERA),
-		onReferenceImageSelectionCleared: () =>
-			clearViewportReferenceImageEditModeIfImplicit(),
-		onReferenceImageSelectionActivated: () =>
-			activateViewportReferenceImageEditModeImplicit(),
-		getActiveShotCameraDocument,
-		updateActiveShotCameraDocument,
-		getOutputSizeState,
-		runHistoryAction: historyController.runHistoryAction,
-		beginHistoryTransaction: historyController.beginHistoryTransaction,
-		commitHistoryTransaction: historyController.commitHistoryTransaction,
-		cancelHistoryTransaction: historyController.cancelHistoryTransaction,
-	});
-	shotCameraEditorStateController = createShotCameraEditorStateController({
-		store,
-		state,
-		getReferenceImageController: () => referenceImageController,
-		getFrameController: () => frameController,
-		updateUi,
-	});
+	frameController = createFrameController(
+		createFrameControllerBindings({
+			store,
+			state,
+			renderBox,
+			workspacePaneCamera: WORKSPACE_PANE_CAMERA,
+			isZoomToolActive: () =>
+				interactionController?.isZoomToolActive() ?? false,
+			t,
+			setStatus,
+			updateUi,
+			getOutputFrameController: () => outputFrameController,
+			getActiveShotCameraDocument,
+			updateActiveShotCameraDocument,
+			getOutputFrameMetrics,
+			historyController,
+		}),
+	);
+	outputFrameController = createOutputFrameController(
+		createOutputFrameControllerBindings({
+			store,
+			state,
+			viewportShell,
+			workbenchRightColumn,
+			renderBox,
+			renderBoxMeta,
+			anchorDot,
+			frameOverlayCanvas,
+			outputFrameResizeHandles,
+			workspacePaneCamera: WORKSPACE_PANE_CAMERA,
+			isZoomToolActive: () =>
+				interactionController?.isZoomToolActive() ?? false,
+			t,
+			getAnchorLabel,
+			currentLocale,
+			getFrameController: () => frameController,
+			getActiveShotCameraDocument,
+			getShotCameraDocument,
+			getActiveShotCameraEntry,
+			shotCameraRegistry,
+			getBaseFovX: () => state.baseFovX,
+			updateActiveShotCameraDocument,
+			updateUi,
+			historyController,
+		}),
+	);
+	referenceImageController = createReferenceImageController(
+		createReferenceImageControllerBindings({
+			store,
+			referenceImageInput,
+			renderBox,
+			t,
+			setStatus,
+			updateUi,
+			getCameraController: () => cameraController,
+			onReferenceImageSelectionCleared: () =>
+				clearViewportReferenceImageEditModeIfImplicit(),
+			onReferenceImageSelectionActivated: () =>
+				activateViewportReferenceImageEditModeImplicit(),
+			getActiveShotCameraDocument,
+			updateActiveShotCameraDocument,
+			getOutputSizeState,
+			historyController,
+			workspacePaneCamera: WORKSPACE_PANE_CAMERA,
+		}),
+	);
+	shotCameraEditorStateController = createShotCameraEditorStateController(
+		createShotCameraEditorStateControllerBindings({
+			store,
+			state,
+			getReferenceImageController: () => referenceImageController,
+			getFrameController: () => frameController,
+			updateUi,
+		}),
+	);
 
 	const {
 		captureActiveShotCameraEditorState,
@@ -622,13 +627,15 @@ export function createCameraFramesController(elements, store) {
 	} = createShotCameraEditorStateAccessors({
 		getShotCameraEditorStateController: () => shotCameraEditorStateController,
 	});
-	referenceImageRenderController = createReferenceImageRenderController({
-		store,
-		renderBox,
-		viewportShell,
-		getActiveShotCameraDocument,
-		getOutputSizeState,
-	});
+	referenceImageRenderController = createReferenceImageRenderController(
+		createReferenceImageRenderControllerBindings({
+			store,
+			renderBox,
+			viewportShell,
+			getActiveShotCameraDocument,
+			getOutputSizeState,
+		}),
+	);
 	interactionController = createInteractionController(
 		createInteractionControllerBindings({
 			store,
@@ -649,35 +656,32 @@ export function createCameraFramesController(elements, store) {
 			historyController,
 		}),
 	);
-	viewportToolController = createViewportToolController({
-		store,
-		state,
-		viewportShell,
-		viewportGizmo,
-		viewportGizmoSvg,
-		getActiveToolCamera: () =>
-			state.mode === WORKSPACE_PANE_CAMERA
-				? getActiveCameraViewCamera()
-				: getActiveViewportCamera(),
-		assetController,
-		beginHistoryTransaction: historyController.beginHistoryTransaction,
-		commitHistoryTransaction: historyController.commitHistoryTransaction,
-	});
-	projectionController = createProjectionController({
-		state,
-		renderer,
-		getOutputSizeState: (documentState) =>
-			outputFrameController.getOutputSizeState(documentState),
-		getOutputFrameMetrics: (documentState) =>
-			outputFrameController.getOutputFrameMetrics(documentState),
-		getViewportSize: () => outputFrameController.getViewportSize(),
-		handleOutputFrameResize: () => outputFrameController.handleResize(),
-		syncActiveShotCameraFromDocument,
-		getActiveShotCamera,
-		getActiveShotCameraDocument,
-		getActiveCameraViewCamera,
-		getActiveOutputCamera,
-	});
+	viewportToolController = createViewportToolController(
+		createViewportToolControllerBindings({
+			store,
+			state,
+			viewportShell,
+			viewportGizmo,
+			viewportGizmoSvg,
+			getActiveCameraViewCamera,
+			getActiveViewportCamera,
+			assetController,
+			historyController,
+			workspacePaneCamera: WORKSPACE_PANE_CAMERA,
+		}),
+	);
+	projectionController = createProjectionController(
+		createProjectionControllerBindings({
+			state,
+			renderer,
+			getOutputFrameController: () => outputFrameController,
+			syncActiveShotCameraFromDocument,
+			getActiveShotCamera,
+			getActiveShotCameraDocument,
+			getActiveCameraViewCamera,
+			getActiveOutputCamera,
+		}),
+	);
 	measurementController = createMeasurementController(
 		createMeasurementControllerBindings({
 			store,
@@ -695,17 +699,15 @@ export function createCameraFramesController(elements, store) {
 		}),
 	);
 	viewportToolController.setCustomGizmoDelegate?.(measurementController);
-	viewportAxisGizmoController = createViewportAxisGizmoController({
-		state,
-		axisGizmo: viewportAxisGizmo,
-		axisGizmoSvg: viewportAxisGizmoSvg,
-		getActiveViewportCamera: () => getActiveViewportCamera(),
-		getViewportProjectionMode: () =>
-			viewportProjectionController?.getViewportProjectionMode?.() ??
-			"perspective",
-		getViewportOrthoState: () =>
-			viewportProjectionController?.getViewportOrthoState?.() ?? null,
-	});
+	viewportAxisGizmoController = createViewportAxisGizmoController(
+		createViewportAxisGizmoControllerBindings({
+			state,
+			viewportAxisGizmo,
+			viewportAxisGizmoSvg,
+			getActiveViewportCamera: () => getActiveViewportCamera(),
+			viewportProjectionController,
+		}),
+	);
 	uiSyncController = createUiSyncController(
 		createUiSyncControllerBindings({
 			store,
@@ -730,12 +732,14 @@ export function createCameraFramesController(elements, store) {
 			getActiveShotCameraDocument,
 		}),
 	);
-	lightingController = createLightingController({
-		store,
-		scene,
-		updateUi,
-		runHistoryAction: historyController.runHistoryAction,
-	});
+	lightingController = createLightingController(
+		createLightingControllerBindings({
+			store,
+			scene,
+			updateUi,
+			historyController,
+		}),
+	);
 	projectController = createProjectController(
 		createProjectControllerBindings({
 			store,
