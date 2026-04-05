@@ -1103,7 +1103,7 @@ async function createPackedSplatAsset({ id, label, centers }) {
 		}),
 		true,
 	);
-	assert.equal(asset.object.visible, true);
+	assert.equal(asset.object.visible, false);
 	assert.ok(
 		Math.abs(asset.disposeTarget.packedSplats.getSplat(0).center.x + 1) < 5e-4,
 	);
