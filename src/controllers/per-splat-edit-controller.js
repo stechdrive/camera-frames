@@ -186,6 +186,7 @@ export function createPerSplatEditController({
 		}
 		const splatMesh = asset.disposeTarget;
 		asset.object.updateMatrixWorld(true);
+		splatMesh?.updateMatrixWorld?.(true);
 		const worldMatrix =
 			splatMesh?.matrixWorld ??
 			asset.contentObject?.matrixWorld ??
@@ -311,16 +312,17 @@ export function createPerSplatEditController({
 				continue;
 			}
 			asset.object.updateMatrixWorld(true);
-			const localToWorldRoot =
-				typeof splatMesh?.localToWorld === "function"
-					? splatMesh
-					: (asset.contentObject ?? asset.object);
+			splatMesh?.updateMatrixWorld?.(true);
+			const worldMatrix =
+				splatMesh?.matrixWorld ??
+				asset.contentObject?.matrixWorld ??
+				asset.object.matrixWorld;
 			const nextSelection = new Set(
 				selectedSplatsByAssetId.get(asset.id) ?? [],
 			);
 			splatMesh.forEachSplat((index, center) => {
 				tempWorldPoint.copy(center);
-				localToWorldRoot.localToWorld(tempWorldPoint);
+				tempWorldPoint.applyMatrix4(worldMatrix);
 				if (!selectionBox.containsPoint(tempWorldPoint)) {
 					return;
 				}

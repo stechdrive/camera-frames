@@ -217,7 +217,7 @@ export function createSplatEditSceneHelper() {
 		"splat-edit-helper-base",
 		BASE_COLOR,
 		0.34,
-		null,
+		handleBeforeRender,
 	);
 	const frontLines = createLineLayer(
 		"splat-edit-helper-front",
@@ -234,6 +234,7 @@ export function createSplatEditSceneHelper() {
 			!isFiniteVector3Like(size)
 		) {
 			helperVisible = false;
+			baseLines.visible = false;
 			frontLines.visible = false;
 			midLines.visible = false;
 			backLines.visible = false;
