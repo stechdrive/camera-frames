@@ -18,6 +18,7 @@ export function createRuntimeControllerBindings({
 	frameController,
 	viewportToolController,
 	measurementController,
+	perSplatEditController = null,
 	viewportAxisGizmoController,
 	exportController,
 	updateDropHint,
@@ -210,6 +211,8 @@ export function createRuntimeControllerBindings({
 			measurementController?.deleteSelectedMeasurement?.() ?? false,
 		syncMeasurementSceneHelpers: () =>
 			measurementController?.syncMeasurementSceneHelpers?.(),
+		syncPerSplatEditSceneHelper: (camera) =>
+			perSplatEditController?.syncSceneHelperForCamera?.(camera),
 		startOutputFrameAnchorDrag:
 			outputFrameController.startOutputFrameAnchorDrag,
 		syncMeasurementOverlay: () =>

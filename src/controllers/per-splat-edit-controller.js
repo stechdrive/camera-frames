@@ -180,6 +180,10 @@ export function createPerSplatEditController({
 		});
 	}
 
+	function syncSceneHelperForCamera(camera) {
+		sceneHelper.syncCamera?.(camera);
+	}
+
 	function getSplatAssetCenterBounds(asset) {
 		if (!asset?.object || asset.object.visible === false) {
 			return null;
@@ -639,6 +643,7 @@ export function createPerSplatEditController({
 		startViewportGizmoDrag,
 		handleViewportGizmoDragMove,
 		handleViewportGizmoDragEnd,
+		syncSceneHelperForCamera,
 		handleToolModeDeactivated,
 		resetForSceneChange,
 		dispose,

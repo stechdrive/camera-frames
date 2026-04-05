@@ -101,6 +101,7 @@ export function createRuntimeController({
 	clearSelectedMeasurementPoint,
 	deleteSelectedMeasurement,
 	syncMeasurementSceneHelpers,
+	syncPerSplatEditSceneHelper,
 	startOutputFrameAnchorDrag,
 	exportController,
 	handleResize,
@@ -372,6 +373,7 @@ export function createRuntimeController({
 			state.mode === WORKSPACE_PANE_CAMERA
 				? getActiveCameraViewCamera()
 				: getActiveViewportCamera();
+		syncPerSplatEditSceneHelper?.(renderCamera);
 		const guideState = guideOverlay.captureState();
 		const previousAutoClear = renderer.autoClear;
 		const previousBackground = scene.background;

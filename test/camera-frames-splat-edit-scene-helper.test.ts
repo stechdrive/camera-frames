@@ -14,19 +14,12 @@ import { createSplatEditSceneHelper } from "../src/engine/splat-edit-scene-helpe
 		center: new THREE.Vector3(0, 0, 0),
 		size: new THREE.Vector3(2, 2, 2),
 	});
-
-	for (const child of helper.group.children) {
-		child.onBeforeRender?.(null, null, camera);
-	}
+	helper.syncCamera(camera);
 
 	const lineLayers = helper.group.children.filter(
 		(child) => child instanceof THREE.LineSegments,
 	);
 	assert.equal(lineLayers.length, 4);
-	assert.equal(
-		lineLayers.every((child) => typeof child.onBeforeRender === "function"),
-		true,
-	);
 	const positionCounts = lineLayers.map(
 		(child) => child.geometry.getAttribute("position")?.count ?? 0,
 	);

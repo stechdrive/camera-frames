@@ -896,6 +896,7 @@ export function createCameraFramesController(elements, store) {
 			frameController,
 			viewportToolController,
 			measurementController,
+			perSplatEditController,
 			viewportAxisGizmoController,
 			projectPresentationSyncSuspendedRef: {
 				get value() {

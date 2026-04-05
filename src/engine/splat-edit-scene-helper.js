@@ -16,7 +16,7 @@ function isFiniteVector3Like(value) {
 	);
 }
 
-function createLineLayer(name, color, opacity, onBeforeRender) {
+function createLineLayer(name, color, opacity) {
 	const geometry = new THREE.BufferGeometry();
 	const material = new THREE.LineBasicMaterial({
 		color,
@@ -31,9 +31,6 @@ function createLineLayer(name, color, opacity, onBeforeRender) {
 	lines.renderOrder = 80;
 	lines.frustumCulled = false;
 	lines.visible = false;
-	if (typeof onBeforeRender === "function") {
-		lines.onBeforeRender = onBeforeRender;
-	}
 	return lines;
 }
 
@@ -192,7 +189,7 @@ export function createSplatEditSceneHelper() {
 		return false;
 	}
 
-	function handleBeforeRender(_renderer, _scene, camera) {
+	function syncCamera(camera) {
 		if (!helperVisible) {
 			return;
 		}
@@ -201,29 +198,13 @@ export function createSplatEditSceneHelper() {
 		}
 	}
 
-	const backLines = createLineLayer(
-		"splat-edit-helper-back",
-		BACK_COLOR,
-		0.42,
-		handleBeforeRender,
-	);
-	const midLines = createLineLayer(
-		"splat-edit-helper-mid",
-		MID_COLOR,
-		0.72,
-		handleBeforeRender,
-	);
-	const baseLines = createLineLayer(
-		"splat-edit-helper-base",
-		BASE_COLOR,
-		0.34,
-		handleBeforeRender,
-	);
+	const backLines = createLineLayer("splat-edit-helper-back", BACK_COLOR, 0.42);
+	const midLines = createLineLayer("splat-edit-helper-mid", MID_COLOR, 0.72);
+	const baseLines = createLineLayer("splat-edit-helper-base", BASE_COLOR, 0.34);
 	const frontLines = createLineLayer(
 		"splat-edit-helper-front",
 		FRONT_COLOR,
 		0.96,
-		handleBeforeRender,
 	);
 	group.add(backLines, baseLines, midLines, frontLines);
 
@@ -285,6 +266,7 @@ export function createSplatEditSceneHelper() {
 	return {
 		group,
 		sync,
+		syncCamera,
 		clear,
 		dispose,
 	};
