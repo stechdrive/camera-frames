@@ -327,6 +327,7 @@ export function createCameraFramesController(elements, store) {
 		getReferenceImageController: () => referenceImageController,
 		getMeasurementController: () => measurementController,
 		getInteractionController: () => interactionController,
+		getPerSplatEditController: () => perSplatEditController,
 		getViewportProjectionController: () => viewportProjectionController,
 		getFrameController: () => frameController,
 		getOutputFrameController: () => outputFrameController,
@@ -437,6 +438,7 @@ export function createCameraFramesController(elements, store) {
 			setViewportPivotEditMode,
 			setMeasurementMode,
 			getInteractionController: () => interactionController,
+			getHistoryController: () => historyController,
 		}),
 	);
 

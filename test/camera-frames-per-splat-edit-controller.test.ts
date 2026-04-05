@@ -170,6 +170,7 @@ function createHarness({
 			store.selectedSceneAssetId.value = assetId;
 		},
 	};
+	const historyCalls = [];
 	const bindings = createPerSplatEditControllerBindings({
 		store,
 		state: { mode },
@@ -209,10 +210,24 @@ function createHarness({
 				calls.push(["navigate-mode", options]),
 			syncControlsToMode: () => calls.push(["sync-controls"]),
 		}),
+		getHistoryController: () => ({
+			beginHistoryTransaction: (label) => {
+				historyCalls.push(["begin", label]);
+				return true;
+			},
+			commitHistoryTransaction: (label) => {
+				historyCalls.push(["commit", label]);
+				return true;
+			},
+			cancelHistoryTransaction: () => {
+				historyCalls.push(["cancel"]);
+			},
+		}),
 	});
 	return {
 		store,
 		calls,
+		historyCalls,
 		guides,
 		selectionHighlightCalls,
 		activeCamera,
@@ -801,6 +816,10 @@ async function createPackedSplatAsset({ id, label, centers }) {
 	assert.equal(harness.store.sceneAssets.value[0].id, "splat-delete");
 	assert.equal(harness.store.sceneAssets.value[0].source.numSplats, 1);
 	assert.equal(harness.store.splatEdit.selectionCount.value, 0);
+	assert.deepEqual(harness.historyCalls, [
+		["begin", "splat-edit.delete"],
+		["commit", "splat-edit.delete"],
+	]);
 }
 
 {
@@ -837,6 +856,76 @@ async function createPackedSplatAsset({ id, label, centers }) {
 	assert.equal(harness.store.sceneAssets.value[1].label, "Facade Split");
 	assert.deepEqual(harness.store.selectedSceneAssetIds.value, ["created-1"]);
 	assert.equal(harness.store.splatEdit.selectionCount.value, 0);
+	assert.deepEqual(harness.historyCalls, [
+		["begin", "splat-edit.separate"],
+		["commit", "splat-edit.separate"],
+	]);
+	assert.equal(harness.store.splatEdit.boxCenter.value.x, 0.25);
+	assert.equal(harness.store.splatEdit.boxSize.value.x, 1.5);
+}
+
+{
+	const harness = createHarness();
+	harness.store.sceneAssets.value = [
+		createSplatAsset({
+			id: "splat-1",
+			centers: [new THREE.Vector3(0, 0, 0)],
+			centerBounds: new THREE.Box3(
+				new THREE.Vector3(-0.5, -0.5, -0.5),
+				new THREE.Vector3(0.5, 0.5, 0.5),
+			),
+		}),
+	];
+	harness.store.selectedSceneAssetIds.value = ["splat-1"];
+
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	harness.controller.setSplatEditBoxCenterAxis("x", 3.5);
+	harness.controller.setSplatEditBoxSizeAxis("x", 2.25);
+	harness.store.selectedSceneAssetIds.value = [];
+	assert.equal(harness.controller.syncScopeToSceneSelection(), true);
+	harness.store.selectedSceneAssetIds.value = ["splat-1"];
+	assert.equal(harness.controller.syncScopeToSceneSelection(), true);
+	assert.equal(harness.store.splatEdit.boxCenter.value.x, 3.5);
+	assert.equal(harness.store.splatEdit.boxSize.value.x, 2.25);
+}
+
+{
+	const harness = createHarness();
+	harness.store.sceneAssets.value = [
+		createSplatAsset({
+			id: "splat-1",
+			centers: [new THREE.Vector3(0, 0, 0), new THREE.Vector3(0.5, 0, 0)],
+			centerBounds: new THREE.Box3(
+				new THREE.Vector3(-0.5, -0.5, -0.5),
+				new THREE.Vector3(0.5, 0.5, 0.5),
+			),
+		}),
+	];
+	harness.store.selectedSceneAssetIds.value = ["splat-1"];
+	harness.store.viewportToolMode.value = "splat-edit";
+	harness.store.splatEdit.scopeAssetIds.value = ["splat-1"];
+	harness.store.splatEdit.rememberedScopeAssetIds.value = ["splat-1"];
+	harness.store.splatEdit.tool.value = "box";
+	harness.store.splatEdit.hudPosition.value = { x: 123, y: 456 };
+	harness.controller.setSplatEditBoxCenterAxis("x", 1.25);
+	harness.controller.setSplatEditBoxSizeAxis("x", 2.5);
+	harness.controller.applySplatEditBoxSelection({ subtract: false });
+
+	const snapshot = harness.controller.captureEditState();
+	harness.controller.clearSplatSelection();
+	harness.store.splatEdit.scopeAssetIds.value = [];
+	harness.store.splatEdit.hudPosition.value = { x: null, y: null };
+
+	assert.equal(harness.controller.restoreEditState(snapshot), true);
+	assert.deepEqual(harness.store.splatEdit.scopeAssetIds.value, ["splat-1"]);
+	assert.equal(harness.store.splatEdit.selectionCount.value, 2);
+	assert.deepEqual(harness.store.splatEdit.hudPosition.value, {
+		x: 123,
+		y: 456,
+	});
 }
 
 console.log("✅ CAMERA_FRAMES per-splat edit controller tests passed!");

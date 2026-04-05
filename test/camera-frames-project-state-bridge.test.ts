@@ -62,6 +62,11 @@ function createBridgeHarness(overrides = {}) {
 		clearMeasurementSession: (options) =>
 			calls.push(["measurement-clear", options]),
 	};
+	const perSplatEditController = overrides.perSplatEditController ?? {
+		captureEditState: () => ({ scopeAssetIds: ["splat-a"], selectionCount: 2 }),
+		restoreEditState: (snapshot) =>
+			calls.push(["restore-splat-edit", snapshot ?? null]),
+	};
 	const interactionController = overrides.interactionController ?? {
 		clearControlMomentum: () => calls.push(["clear-momentum"]),
 	};
@@ -146,6 +151,7 @@ function createBridgeHarness(overrides = {}) {
 		getReferenceImageController: () => referenceImageController,
 		getMeasurementController: () => measurementController,
 		getInteractionController: () => interactionController,
+		getPerSplatEditController: () => perSplatEditController,
 		getViewportProjectionController: () => viewportProjectionController,
 		getFrameController: () => frameController,
 		getOutputFrameController: () => outputFrameController,
@@ -231,6 +237,10 @@ function createBridgeHarness(overrides = {}) {
 		viewportCamera.position.x,
 	);
 	assert.equal(workspaceState.referenceImageEditor.id, "editor-a");
+	assert.deepEqual(workspaceState.splatEdit, {
+		scopeAssetIds: ["splat-a"],
+		selectionCount: 2,
+	});
 	assert.deepEqual(projectState.scene.assets, [{ id: "asset-a" }]);
 	assert.equal(projectState.shotCameras[0].pose.position.x, 4);
 	assert.equal(bridge.buildProjectFilename(), "export-camera-a.ssproj");
@@ -262,6 +272,10 @@ function createBridgeHarness(overrides = {}) {
 	assert.ok(
 		calls.some(([label]) => label === "restore-editor-state"),
 		"restores active shot camera editor state",
+	);
+	assert.ok(
+		calls.some(([label]) => label === "restore-splat-edit"),
+		"restores per-splat edit runtime state",
 	);
 	assert.ok(
 		calls.some(([label]) => label === "sync-controls"),

@@ -17,6 +17,7 @@ export function createPerSplatEditControllerBindings({
 	setViewportPivotEditMode,
 	setMeasurementMode,
 	getInteractionController,
+	getHistoryController,
 } = {}) {
 	return {
 		store,
@@ -40,5 +41,11 @@ export function createPerSplatEditControllerBindings({
 			getInteractionController?.()?.applyNavigateInteractionMode?.(options),
 		syncControlsToMode: () =>
 			getInteractionController?.()?.syncControlsToMode?.(),
+		beginHistoryTransaction: (label) =>
+			getHistoryController?.()?.beginHistoryTransaction?.(label),
+		commitHistoryTransaction: (label) =>
+			getHistoryController?.()?.commitHistoryTransaction?.(label),
+		cancelHistoryTransaction: () =>
+			getHistoryController?.()?.cancelHistoryTransaction?.(),
 	};
 }

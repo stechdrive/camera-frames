@@ -120,8 +120,15 @@ export function createPerSplatEditController({
 	setMeasurementMode,
 	applyNavigateInteractionMode,
 	syncControlsToMode,
+	beginHistoryTransaction = () => false,
+	commitHistoryTransaction = () => false,
+	cancelHistoryTransaction = () => {},
 }) {
 	const isDevRuntime = Boolean(import.meta?.env?.DEV);
+	const defaultBrushSize = Number(store.splatEdit.brushSize.value) || 24;
+	const defaultBrushDepthMode =
+		store.splatEdit.brushDepthMode.value === "depth" ? "depth" : "through";
+	const defaultBrushDepth = Number(store.splatEdit.brushDepth.value) || 0.5;
 	const selectedSplatsByAssetId = new Map();
 	const sceneHelper = createSplatEditSceneHelper();
 	guides?.add?.(sceneHelper.group);
@@ -318,6 +325,163 @@ export function createPerSplatEditController({
 		});
 	}
 
+	function captureEditState() {
+		return {
+			tool: store.splatEdit.tool.value === "brush" ? "brush" : "box",
+			scopeAssetIds: getSplatEditScopeAssetIds(),
+			rememberedScopeAssetIds: normalizeScopeAssetIds(
+				store.splatEdit.rememberedScopeAssetIds.value,
+			),
+			brushSize: Number.isFinite(store.splatEdit.brushSize.value)
+				? Number(store.splatEdit.brushSize.value)
+				: defaultBrushSize,
+			brushDepthMode:
+				store.splatEdit.brushDepthMode.value === "depth" ? "depth" : "through",
+			brushDepth: Number.isFinite(store.splatEdit.brushDepth.value)
+				? Number(store.splatEdit.brushDepth.value)
+				: defaultBrushDepth,
+			boxCenter: {
+				...store.splatEdit.boxCenter.value,
+			},
+			boxSize: {
+				x: clampBoxAxisSize(store.splatEdit.boxSize.value?.x),
+				y: clampBoxAxisSize(store.splatEdit.boxSize.value?.y),
+				z: clampBoxAxisSize(store.splatEdit.boxSize.value?.z),
+			},
+			hudPosition: {
+				x: Number.isFinite(store.splatEdit.hudPosition.value?.x)
+					? Number(store.splatEdit.hudPosition.value.x)
+					: null,
+				y: Number.isFinite(store.splatEdit.hudPosition.value?.y)
+					? Number(store.splatEdit.hudPosition.value.y)
+					: null,
+			},
+			lastOperation: {
+				mode: String(store.splatEdit.lastOperation.value?.mode ?? ""),
+				hitCount: Number.isFinite(store.splatEdit.lastOperation.value?.hitCount)
+					? Number(store.splatEdit.lastOperation.value.hitCount)
+					: 0,
+			},
+			selectedSplatsByAssetId: Array.from(
+				selectedSplatsByAssetId.entries(),
+			).map(([assetId, selectedSplats]) => ({
+				assetId,
+				indices: [...selectedSplats]
+					.filter((index) => Number.isInteger(index) && index >= 0)
+					.sort((left, right) => left - right),
+			})),
+		};
+	}
+
+	function restoreEditState(snapshot = null) {
+		selectedSplatsByAssetId.clear();
+		if (!snapshot || typeof snapshot !== "object") {
+			store.splatEdit.tool.value = "box";
+			store.splatEdit.scopeAssetIds.value = [];
+			store.splatEdit.rememberedScopeAssetIds.value = [];
+			store.splatEdit.brushSize.value = defaultBrushSize;
+			store.splatEdit.brushDepthMode.value = defaultBrushDepthMode;
+			store.splatEdit.brushDepth.value = defaultBrushDepth;
+			store.splatEdit.boxCenter.value = { x: 0, y: 0, z: 0 };
+			store.splatEdit.boxSize.value = { x: 1, y: 1, z: 1 };
+			store.splatEdit.hudPosition.value = { x: null, y: null };
+			store.splatEdit.lastOperation.value = { mode: "", hitCount: 0 };
+			syncSelectionCount();
+			syncSelectionHighlight();
+			syncSceneHelper();
+			updateUi?.();
+			return true;
+		}
+
+		store.splatEdit.tool.value = snapshot.tool === "brush" ? "brush" : "box";
+		store.splatEdit.scopeAssetIds.value = normalizeScopeAssetIds(
+			snapshot.scopeAssetIds,
+		);
+		store.splatEdit.rememberedScopeAssetIds.value = normalizeScopeAssetIds(
+			snapshot.rememberedScopeAssetIds,
+		);
+		store.splatEdit.brushSize.value = Number.isFinite(snapshot.brushSize)
+			? Number(snapshot.brushSize)
+			: defaultBrushSize;
+		store.splatEdit.brushDepthMode.value =
+			snapshot.brushDepthMode === "depth" ? "depth" : "through";
+		store.splatEdit.brushDepth.value = Number.isFinite(snapshot.brushDepth)
+			? Number(snapshot.brushDepth)
+			: defaultBrushDepth;
+		store.splatEdit.boxCenter.value = {
+			x: Number(snapshot.boxCenter?.x ?? 0),
+			y: Number(snapshot.boxCenter?.y ?? 0),
+			z: Number(snapshot.boxCenter?.z ?? 0),
+		};
+		store.splatEdit.boxSize.value = {
+			x: clampBoxAxisSize(snapshot.boxSize?.x),
+			y: clampBoxAxisSize(snapshot.boxSize?.y),
+			z: clampBoxAxisSize(snapshot.boxSize?.z),
+		};
+		store.splatEdit.hudPosition.value = {
+			x: Number.isFinite(snapshot.hudPosition?.x)
+				? Number(snapshot.hudPosition.x)
+				: null,
+			y: Number.isFinite(snapshot.hudPosition?.y)
+				? Number(snapshot.hudPosition.y)
+				: null,
+		};
+		store.splatEdit.lastOperation.value = {
+			mode: String(snapshot.lastOperation?.mode ?? ""),
+			hitCount: Number.isFinite(snapshot.lastOperation?.hitCount)
+				? Number(snapshot.lastOperation.hitCount)
+				: 0,
+		};
+
+		const validAssetIds = new Set(
+			getSceneSplatAssets().map((asset) => getAssetIdKey(asset.id)),
+		);
+		for (const entry of snapshot.selectedSplatsByAssetId ?? []) {
+			const assetIdKey = getAssetIdKey(entry?.assetId);
+			if (!validAssetIds.has(assetIdKey)) {
+				continue;
+			}
+			const asset = getSceneSplatAssets().find(
+				(sceneAsset) => getAssetIdKey(sceneAsset.id) === assetIdKey,
+			);
+			if (!asset) {
+				continue;
+			}
+			const totalCount = getSplatAssetTotalCount(asset);
+			const selectedSet = new Set(
+				(entry?.indices ?? []).filter(
+					(index) =>
+						Number.isInteger(index) && index >= 0 && index < totalCount,
+				),
+			);
+			if (selectedSet.size > 0) {
+				selectedSplatsByAssetId.set(assetIdKey, selectedSet);
+			}
+		}
+
+		syncSelectionCount();
+		syncSelectionHighlight();
+		syncSceneHelper();
+		updateUi?.();
+		return true;
+	}
+
+	async function runHistoryTransaction(label, applyChange) {
+		const hasHistoryTransaction = beginHistoryTransaction?.(label) === true;
+		try {
+			const result = await applyChange();
+			if (hasHistoryTransaction) {
+				commitHistoryTransaction?.(label);
+			}
+			return result;
+		} catch (error) {
+			if (hasHistoryTransaction) {
+				cancelHistoryTransaction?.();
+			}
+			throw error;
+		}
+	}
+
 	function clearSplatSelection() {
 		selectedSplatsByAssetId.clear();
 		syncSelectionCount();
@@ -348,14 +512,10 @@ export function createPerSplatEditController({
 		store.splatEdit.scopeAssetIds.value = [...nextScopeAssetIds];
 		if (nextScopeAssetIds.length > 0) {
 			store.splatEdit.rememberedScopeAssetIds.value = [...nextScopeAssetIds];
-			if (currentScopeAssetIds.length === 0) {
-				placeSplatEditBoxAtViewCenter();
-			}
-		} else {
-			syncSceneHelper();
 		}
 		syncSelectionCount();
 		syncSelectionHighlight();
+		syncSceneHelper();
 		updateUi?.();
 		return true;
 	}
@@ -793,42 +953,44 @@ export function createPerSplatEditController({
 		if (!assetController) {
 			return false;
 		}
-		let deletedCount = 0;
-		for (const operation of operations) {
-			if (operation.remainingIndices.length > 0) {
-				const remainderSource = createDerivedPackedSplatSource(
-					operation.asset,
-					operation.remainingIndices,
-					{
-						label: operation.asset.label,
-						fileName:
-							operation.asset?.source?.fileName ??
-							buildDerivedSplatFileName(operation.asset, "remainder"),
-					},
-				);
-				if (remainderSource) {
-					await assetController.replaceSplatAssetFromSource?.(
-						operation.asset.id,
-						remainderSource,
+		return runHistoryTransaction("splat-edit.delete", async () => {
+			let deletedCount = 0;
+			for (const operation of operations) {
+				if (operation.remainingIndices.length > 0) {
+					const remainderSource = createDerivedPackedSplatSource(
+						operation.asset,
+						operation.remainingIndices,
+						{
+							label: operation.asset.label,
+							fileName:
+								operation.asset?.source?.fileName ??
+								buildDerivedSplatFileName(operation.asset, "remainder"),
+						},
 					);
+					if (remainderSource) {
+						await assetController.replaceSplatAssetFromSource?.(
+							operation.asset.id,
+							remainderSource,
+						);
+					}
+				} else {
+					assetController.removeSceneAssets?.([operation.asset.id]);
 				}
-			} else {
-				assetController.removeSceneAssets?.([operation.asset.id]);
+				selectedSplatsByAssetId.delete(operation.assetIdKey);
+				deletedCount += operation.selectedIndices.length;
 			}
-			selectedSplatsByAssetId.delete(operation.assetIdKey);
-			deletedCount += operation.selectedIndices.length;
-		}
-		store.splatEdit.lastOperation.value = {
-			mode: "delete",
-			hitCount: deletedCount,
-		};
-		syncSelectionCount();
-		syncSelectionHighlight();
-		syncScopeToSceneSelection();
-		syncSceneHelper();
-		updateUi?.();
-		setStatus?.(t("status.splatEditDeleted", { count: deletedCount }));
-		return deletedCount;
+			store.splatEdit.lastOperation.value = {
+				mode: "delete",
+				hitCount: deletedCount,
+			};
+			syncSelectionCount();
+			syncSelectionHighlight();
+			syncScopeToSceneSelection();
+			syncSceneHelper();
+			updateUi?.();
+			setStatus?.(t("status.splatEditDeleted", { count: deletedCount }));
+			return deletedCount;
+		});
 	}
 
 	async function separateSelectedSplats() {
@@ -841,77 +1003,79 @@ export function createPerSplatEditController({
 		if (!assetController) {
 			return false;
 		}
-		const createdAssets = [];
-		let separatedCount = 0;
-		for (const operation of operations) {
-			const currentAssets = assetController.getSceneAssets?.() ?? [];
-			const sourceIndex = currentAssets.findIndex(
-				(asset) => String(asset.id) === String(operation.asset.id),
-			);
-			const splitLabel = buildUniqueSplitLabel(operation.asset.label);
-			const selectedSource = createDerivedPackedSplatSource(
-				operation.asset,
-				operation.selectedIndices,
-				{
-					label: splitLabel,
-					fileName: buildDerivedSplatFileName(operation.asset, "split"),
-				},
-			);
-			const createdAsset = selectedSource
-				? await assetController.createSplatAssetFromSource?.(selectedSource, {
-						insertIndex: sourceIndex >= 0 ? sourceIndex + 1 : null,
-					})
-				: null;
-			if (createdAsset) {
-				createdAssets.push(createdAsset);
-			}
-			if (operation.remainingIndices.length > 0) {
-				const remainderSource = createDerivedPackedSplatSource(
+		return runHistoryTransaction("splat-edit.separate", async () => {
+			const createdAssets = [];
+			let separatedCount = 0;
+			for (const operation of operations) {
+				const currentAssets = assetController.getSceneAssets?.() ?? [];
+				const sourceIndex = currentAssets.findIndex(
+					(asset) => String(asset.id) === String(operation.asset.id),
+				);
+				const splitLabel = buildUniqueSplitLabel(operation.asset.label);
+				const selectedSource = createDerivedPackedSplatSource(
 					operation.asset,
-					operation.remainingIndices,
+					operation.selectedIndices,
 					{
-						label: operation.asset.label,
-						fileName:
-							operation.asset?.source?.fileName ??
-							buildDerivedSplatFileName(operation.asset, "remainder"),
+						label: splitLabel,
+						fileName: buildDerivedSplatFileName(operation.asset, "split"),
 					},
 				);
-				if (remainderSource) {
-					await assetController.replaceSplatAssetFromSource?.(
-						operation.asset.id,
-						remainderSource,
-					);
+				const createdAsset = selectedSource
+					? await assetController.createSplatAssetFromSource?.(selectedSource, {
+							insertIndex: sourceIndex >= 0 ? sourceIndex + 1 : null,
+						})
+					: null;
+				if (createdAsset) {
+					createdAssets.push(createdAsset);
 				}
-			} else {
-				assetController.removeSceneAssets?.([operation.asset.id]);
+				if (operation.remainingIndices.length > 0) {
+					const remainderSource = createDerivedPackedSplatSource(
+						operation.asset,
+						operation.remainingIndices,
+						{
+							label: operation.asset.label,
+							fileName:
+								operation.asset?.source?.fileName ??
+								buildDerivedSplatFileName(operation.asset, "remainder"),
+						},
+					);
+					if (remainderSource) {
+						await assetController.replaceSplatAssetFromSource?.(
+							operation.asset.id,
+							remainderSource,
+						);
+					}
+				} else {
+					assetController.removeSceneAssets?.([operation.asset.id]);
+				}
+				selectedSplatsByAssetId.delete(operation.assetIdKey);
+				separatedCount += operation.selectedIndices.length;
 			}
-			selectedSplatsByAssetId.delete(operation.assetIdKey);
-			separatedCount += operation.selectedIndices.length;
-		}
-		if (createdAssets.length > 0) {
-			assetController.clearSceneAssetSelection?.();
-			const [firstAsset, ...restAssets] = createdAssets;
-			assetController.selectSceneAsset?.(firstAsset.id);
-			for (const asset of restAssets) {
-				assetController.selectSceneAsset?.(asset.id, { additive: true });
+			if (createdAssets.length > 0) {
+				assetController.clearSceneAssetSelection?.();
+				const [firstAsset, ...restAssets] = createdAssets;
+				assetController.selectSceneAsset?.(firstAsset.id);
+				for (const asset of restAssets) {
+					assetController.selectSceneAsset?.(asset.id, { additive: true });
+				}
 			}
-		}
-		store.splatEdit.lastOperation.value = {
-			mode: "separate",
-			hitCount: separatedCount,
-		};
-		syncSelectionCount();
-		syncSelectionHighlight();
-		syncScopeToSceneSelection();
-		syncSceneHelper();
-		updateUi?.();
-		setStatus?.(
-			t("status.splatEditSeparated", {
-				count: separatedCount,
-				assets: createdAssets.length,
-			}),
-		);
-		return createdAssets.length;
+			store.splatEdit.lastOperation.value = {
+				mode: "separate",
+				hitCount: separatedCount,
+			};
+			syncSelectionCount();
+			syncSelectionHighlight();
+			syncScopeToSceneSelection();
+			syncSceneHelper();
+			updateUi?.();
+			setStatus?.(
+				t("status.splatEditSeparated", {
+					count: separatedCount,
+					assets: createdAssets.length,
+				}),
+			);
+			return createdAssets.length;
+		});
 	}
 
 	function handleToolModeDeactivated() {
@@ -1204,6 +1368,8 @@ export function createPerSplatEditController({
 		applySplatEditBoxSelection,
 		deleteSelectedSplats,
 		separateSelectedSplats,
+		captureEditState,
+		restoreEditState,
 		clearSplatSelection,
 		getSplatEditScopeAssetIds,
 		getSplatEditScopeAssets,
