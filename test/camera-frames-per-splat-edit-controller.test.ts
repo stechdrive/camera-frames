@@ -928,4 +928,120 @@ async function createPackedSplatAsset({ id, label, centers }) {
 	});
 }
 
+{
+	const harness = createHarness();
+	const asset = await createPackedSplatAsset({
+		id: "splat-transform-move",
+		label: "Transform Move",
+		centers: [new THREE.Vector3(-0.2, 0, 0), new THREE.Vector3(0.2, 0, 0)],
+	});
+	harness.store.sceneAssets.value = [asset];
+	harness.store.selectedSceneAssetIds.value = [asset.id];
+	harness.store.selectedSceneAssetId.value = asset.id;
+
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	harness.controller.fitSplatEditBoxToScope();
+	assert.equal(
+		harness.controller.applySplatEditBoxSelection({ subtract: false }),
+		2,
+	);
+	assert.equal(harness.controller.setSplatEditTool("transform"), "transform");
+	const gizmoConfig = harness.controller.getViewportGizmoConfig();
+	assert.equal(gizmoConfig?.showRotate, true);
+	assert.equal(gizmoConfig?.showScale, true);
+	assert.equal(
+		harness.controller.moveSelectedSplatsByWorldDelta(
+			new THREE.Vector3(1, 0, 0),
+		),
+		true,
+	);
+	const movedFirstX = asset.disposeTarget.packedSplats.getSplat(0).center.x;
+	const movedSecondX = asset.disposeTarget.packedSplats.getSplat(1).center.x;
+	assert.ok(Math.abs(movedFirstX - 0.8) < 5e-4);
+	assert.ok(Math.abs(movedSecondX - 1.2) < 5e-4);
+	assert.ok(asset.source.packedArray instanceof Uint32Array);
+}
+
+{
+	const harness = createHarness();
+	const asset = await createPackedSplatAsset({
+		id: "splat-transform-rotate",
+		label: "Transform Rotate",
+		centers: [new THREE.Vector3(-1, 0, 0), new THREE.Vector3(1, 0, 0)],
+	});
+	harness.store.sceneAssets.value = [asset];
+	harness.store.selectedSceneAssetIds.value = [asset.id];
+	harness.store.selectedSceneAssetId.value = asset.id;
+
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	harness.controller.fitSplatEditBoxToScope();
+	assert.equal(
+		harness.controller.applySplatEditBoxSelection({ subtract: false }),
+		2,
+	);
+	assert.equal(harness.controller.setSplatEditTool("transform"), "transform");
+	assert.equal(
+		harness.controller.rotateSelectedSplatsAroundSelection(
+			new THREE.Vector3(0, 0, 1),
+			Math.PI * 0.5,
+		),
+		true,
+	);
+	const rotatedFirst = asset.disposeTarget.packedSplats
+		.getSplat(0)
+		.center.clone();
+	const rotatedSecond = asset.disposeTarget.packedSplats
+		.getSplat(1)
+		.center.clone();
+	assert.ok(Math.abs(rotatedFirst.x) < 5e-4);
+	assert.ok(Math.abs(rotatedFirst.y + 1) < 5e-4);
+	assert.ok(Math.abs(rotatedSecond.x) < 5e-4);
+	assert.ok(Math.abs(rotatedSecond.y - 1) < 5e-4);
+}
+
+{
+	const harness = createHarness();
+	const asset = await createPackedSplatAsset({
+		id: "splat-transform-scale",
+		label: "Transform Scale",
+		centers: [new THREE.Vector3(-1, 0, 0), new THREE.Vector3(1, 0, 0)],
+	});
+	harness.store.sceneAssets.value = [asset];
+	harness.store.selectedSceneAssetIds.value = [asset.id];
+	harness.store.selectedSceneAssetId.value = asset.id;
+
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	harness.controller.fitSplatEditBoxToScope();
+	assert.equal(
+		harness.controller.applySplatEditBoxSelection({ subtract: false }),
+		2,
+	);
+	assert.equal(harness.controller.setSplatEditTool("transform"), "transform");
+	const baseScaleX = asset.disposeTarget.packedSplats.getSplat(0).scales.x;
+	const baseScaleY = asset.disposeTarget.packedSplats.getSplat(1).scales.y;
+	assert.equal(
+		harness.controller.scaleSelectedSplatsUniformAroundSelection(2),
+		true,
+	);
+	const scaledFirst = asset.disposeTarget.packedSplats.getSplat(0);
+	const scaledFirstCenterX = scaledFirst.center.x;
+	const scaledFirstScaleX = scaledFirst.scales.x;
+	const scaledSecond = asset.disposeTarget.packedSplats.getSplat(1);
+	const scaledSecondCenterX = scaledSecond.center.x;
+	const scaledSecondScaleY = scaledSecond.scales.y;
+	assert.ok(Math.abs(scaledFirstCenterX + 2) < 5e-4);
+	assert.ok(Math.abs(scaledSecondCenterX - 2) < 5e-4);
+	assert.ok(Math.abs(scaledFirstScaleX - baseScaleX * 2) < 0.01);
+	assert.ok(Math.abs(scaledSecondScaleY - baseScaleY * 2) < 0.01);
+}
+
 console.log("✅ CAMERA_FRAMES per-splat edit controller tests passed!");

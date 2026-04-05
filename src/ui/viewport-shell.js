@@ -535,7 +535,15 @@ export function ViewportShell({ store, controller, refs, t }) {
 														? t("status.splatEditDelete")
 														: splatEditLastOperation.mode === "separate"
 															? t("status.splatEditSeparate")
-															: t("action.clearSelection"),
+															: splatEditLastOperation.mode === "transform-move"
+																? t("status.splatEditTransformMove")
+																: splatEditLastOperation.mode ===
+																		"transform-rotate"
+																	? t("status.splatEditTransformRotate")
+																	: splatEditLastOperation.mode ===
+																			"transform-scale"
+																		? t("status.splatEditTransformScale")
+																		: t("action.clearSelection"),
 										count: splatEditLastOperation.hitCount ?? 0,
 									})}
 								</div>
@@ -567,6 +575,17 @@ export function ViewportShell({ store, controller, refs, t }) {
 								onClick=${() => setSplatEditTool("brush")}
 							>
 								${t("status.splatEditToolBrush")}
+							</button>
+							<button
+								type="button"
+								class=${
+									splatEditTool === "transform"
+										? "viewport-splat-edit-hud__tool viewport-splat-edit-hud__tool--active"
+										: "viewport-splat-edit-hud__tool"
+								}
+								onClick=${() => setSplatEditTool("transform")}
+							>
+								${t("status.splatEditToolTransform")}
 							</button>
 						</div>
 						${
@@ -695,26 +714,43 @@ export function ViewportShell({ store, controller, refs, t }) {
 										${t("action.clearSelection")}
 									</button>
 								</div>
-								<div class="viewport-splat-edit-hud__actions">
-									<button
-										type="button"
-										class="viewport-splat-edit-hud__tool"
-										disabled=${splatEditSelectionCount <= 0}
-										onClick=${() => void controller()?.deleteSelectedSplats?.()}
-									>
-										${t("status.splatEditDelete")}
-									</button>
-									<button
-										type="button"
-										class="viewport-splat-edit-hud__tool"
-										disabled=${splatEditSelectionCount <= 0}
-										onClick=${() => void controller()?.separateSelectedSplats?.()}
-									>
-										${t("status.splatEditSeparate")}
-									</button>
+							`
+						}
+						${
+							splatEditTool === "transform" &&
+							html`
+								<div class="viewport-splat-edit-hud__section">
+									<span class="viewport-splat-edit-hud__section-label">
+										${t("status.splatEditTransformHint")}
+									</span>
 								</div>
 							`
 						}
+						<div class="viewport-splat-edit-hud__actions">
+							<button
+								type="button"
+								class="viewport-splat-edit-hud__tool"
+								onClick=${() => controller()?.clearSplatSelection?.()}
+							>
+								${t("action.clearSelection")}
+							</button>
+							<button
+								type="button"
+								class="viewport-splat-edit-hud__tool"
+								disabled=${splatEditSelectionCount <= 0}
+								onClick=${() => void controller()?.deleteSelectedSplats?.()}
+							>
+								${t("status.splatEditDelete")}
+							</button>
+							<button
+								type="button"
+								class="viewport-splat-edit-hud__tool"
+								disabled=${splatEditSelectionCount <= 0}
+								onClick=${() => void controller()?.separateSelectedSplats?.()}
+							>
+								${t("status.splatEditSeparate")}
+							</button>
+						</div>
 					</div>
 				`
 			}
