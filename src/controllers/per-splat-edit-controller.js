@@ -187,8 +187,8 @@ export function createPerSplatEditController({
 		const splatMesh = asset.disposeTarget;
 		asset.object.updateMatrixWorld(true);
 		const worldMatrix =
-			asset.contentObject?.matrixWorld ??
 			splatMesh?.matrixWorld ??
+			asset.contentObject?.matrixWorld ??
 			asset.object.matrixWorld;
 		const hintedBox =
 			asset.localCenterBoundsHint?.clone?.() ??
@@ -306,12 +306,15 @@ export function createPerSplatEditController({
 		const selectionBox = getSplatEditBoxBounds();
 		let changedCount = 0;
 		for (const asset of getSplatEditScopeAssets()) {
-			const localToWorldRoot = asset.contentObject ?? asset.object;
 			const splatMesh = asset.disposeTarget;
 			if (typeof splatMesh?.forEachSplat !== "function") {
 				continue;
 			}
 			asset.object.updateMatrixWorld(true);
+			const localToWorldRoot =
+				typeof splatMesh?.localToWorld === "function"
+					? splatMesh
+					: (asset.contentObject ?? asset.object);
 			const nextSelection = new Set(
 				selectedSplatsByAssetId.get(asset.id) ?? [],
 			);
@@ -419,12 +422,7 @@ export function createPerSplatEditController({
 		store.viewportToolMode.value = "splat-edit";
 		store.splatEdit.scopeAssetIds.value = [...scopeAssetIds];
 		store.splatEdit.rememberedScopeAssetIds.value = [...scopeAssetIds];
-		if (
-			store.splatEdit.tool.value !== "box" &&
-			store.splatEdit.tool.value !== "brush"
-		) {
-			store.splatEdit.tool.value = "box";
-		}
+		store.splatEdit.tool.value = "box";
 		fitSplatEditBoxToScope();
 		syncSceneHelper();
 		syncSelectionHighlight();

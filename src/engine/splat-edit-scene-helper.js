@@ -3,6 +3,7 @@ import * as THREE from "three";
 const FRONT_COLOR = 0x9ce7ff;
 const MID_COLOR = 0x5ec1ee;
 const BACK_COLOR = 0x355469;
+const BASE_COLOR = 0x6fc7ec;
 const GRID_FRACTIONS = [1 / 3, 2 / 3];
 const CAMERA_EPSILON = 1e-5;
 
@@ -30,7 +31,9 @@ function createLineLayer(name, color, opacity, onBeforeRender) {
 	lines.renderOrder = 80;
 	lines.frustumCulled = false;
 	lines.visible = false;
-	lines.onBeforeRender = onBeforeRender;
+	if (typeof onBeforeRender === "function") {
+		lines.onBeforeRender = onBeforeRender;
+	}
 	return lines;
 }
 
@@ -115,6 +118,7 @@ export function createSplatEditSceneHelper() {
 	let segmentDefinitions = [];
 	let helperVisible = false;
 	let geometryDirty = true;
+	let flatPositions = [];
 
 	function refreshGeometry(camera = null) {
 		const frontPositions = [];
@@ -155,9 +159,11 @@ export function createSplatEditSceneHelper() {
 			);
 		}
 
+		updateGeometryPositions(baseLines.geometry, flatPositions);
 		updateGeometryPositions(frontLines.geometry, frontPositions);
 		updateGeometryPositions(midLines.geometry, midPositions);
 		updateGeometryPositions(backLines.geometry, backPositions);
+		baseLines.visible = helperVisible && flatPositions.length > 0;
 		frontLines.visible = helperVisible && frontPositions.length > 0;
 		midLines.visible = helperVisible && midPositions.length > 0;
 		backLines.visible = helperVisible && backPositions.length > 0;
@@ -207,13 +213,19 @@ export function createSplatEditSceneHelper() {
 		0.72,
 		handleBeforeRender,
 	);
+	const baseLines = createLineLayer(
+		"splat-edit-helper-base",
+		BASE_COLOR,
+		0.34,
+		null,
+	);
 	const frontLines = createLineLayer(
 		"splat-edit-helper-front",
 		FRONT_COLOR,
 		0.96,
 		handleBeforeRender,
 	);
-	group.add(backLines, midLines, frontLines);
+	group.add(backLines, baseLines, midLines, frontLines);
 
 	function sync({ visible = false, center = null, size = null } = {}) {
 		if (
@@ -237,6 +249,17 @@ export function createSplatEditSceneHelper() {
 		currentMin.copy(currentCenter).sub(tempHalfSize);
 		currentMax.copy(currentCenter).add(tempHalfSize);
 		segmentDefinitions = buildBoxSegments(currentMin, currentMax);
+		flatPositions = [];
+		for (const [startPoint, endPoint] of segmentDefinitions) {
+			flatPositions.push(
+				startPoint.x,
+				startPoint.y,
+				startPoint.z,
+				endPoint.x,
+				endPoint.y,
+				endPoint.z,
+			);
+		}
 		helperVisible = true;
 		geometryDirty = true;
 		refreshGeometry(null);
@@ -244,14 +267,15 @@ export function createSplatEditSceneHelper() {
 
 	function clear() {
 		helperVisible = false;
+		baseLines.visible = false;
 		frontLines.visible = false;
 		midLines.visible = false;
 		backLines.visible = false;
 	}
 
 	function dispose() {
-		group.remove(frontLines, midLines, backLines);
-		for (const lineLayer of [frontLines, midLines, backLines]) {
+		group.remove(frontLines, midLines, backLines, baseLines);
+		for (const lineLayer of [frontLines, midLines, backLines, baseLines]) {
 			lineLayer.geometry?.dispose?.();
 			lineLayer.material?.dispose?.();
 		}

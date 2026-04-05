@@ -59,27 +59,31 @@ function createSplatAsset({
 	centers,
 	centerBounds = null,
 	position = new THREE.Vector3(),
+	meshPosition = new THREE.Vector3(),
 } = {}) {
 	const object = new THREE.Group();
 	object.position.copy(position);
 	object.updateMatrixWorld(true);
 	const contentObject = new THREE.Group();
 	object.add(contentObject);
+	const mesh = new THREE.Group();
+	mesh.position.copy(meshPosition);
+	contentObject.add(mesh);
 	contentObject.updateMatrixWorld(true);
+	mesh.updateMatrixWorld(true);
+	mesh.forEachSplat = function forEachSplat(callback) {
+		centers.forEach((center, index) => callback(index, center.clone()));
+	};
+	mesh.getBoundingBox = function getBoundingBox() {
+		return centerBounds?.clone?.() ?? null;
+	};
 	return {
 		id,
 		kind: "splat",
 		object,
 		contentObject,
 		localCenterBoundsHint: centerBounds,
-		disposeTarget: {
-			forEachSplat(callback) {
-				centers.forEach((center, index) => callback(index, center.clone()));
-			},
-			getBoundingBox() {
-				return centerBounds?.clone?.() ?? null;
-			},
-		},
+		disposeTarget: mesh,
 	};
 }
 
@@ -118,6 +122,19 @@ function createSplatAsset({
 	]);
 	assert.deepEqual(harness.calls.at(-2), ["update-ui"]);
 	assert.deepEqual(harness.calls.at(-1), ["status", "enabled:2"]);
+}
+
+{
+	const harness = createHarness();
+	harness.store.sceneAssets.value = [{ id: "splat-1", kind: "splat" }];
+	harness.store.selectedSceneAssetIds.value = ["splat-1"];
+	harness.store.splatEdit.tool.value = "brush";
+
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	assert.equal(harness.store.splatEdit.tool.value, "box");
 }
 
 {
@@ -229,6 +246,34 @@ function createSplatAsset({
 	assert.equal(harness.store.splatEdit.selectionCount.value, 0);
 	assert.equal(harness.selectionHighlightCalls.at(-1)?.[0], "sync");
 	assert.deepEqual(harness.calls.at(-1), ["status", "removed:2"]);
+}
+
+{
+	const harness = createHarness();
+	harness.store.sceneAssets.value = [
+		createSplatAsset({
+			id: "splat-1",
+			centers: [new THREE.Vector3(0, 0, 0)],
+			centerBounds: new THREE.Box3(
+				new THREE.Vector3(-0.5, -0.5, -0.5),
+				new THREE.Vector3(0.5, 0.5, 0.5),
+			),
+			meshPosition: new THREE.Vector3(10, 0, 0),
+		}),
+	];
+	harness.store.selectedSceneAssetIds.value = ["splat-1"];
+
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	assert.equal(harness.controller.setSplatEditBoxCenterAxis("x", 10), true);
+	assert.equal(harness.controller.setSplatEditBoxSizeAxis("x", 2), true);
+	assert.equal(
+		harness.controller.applySplatEditBoxSelection({ subtract: false }),
+		1,
+	);
+	assert.equal(harness.store.splatEdit.selectionCount.value, 1);
 }
 
 console.log("✅ CAMERA_FRAMES per-splat edit controller tests passed!");

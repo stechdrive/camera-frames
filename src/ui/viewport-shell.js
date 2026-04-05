@@ -68,6 +68,7 @@ function getReferenceImageAnchorHandleKey(anchorAx, anchorAy) {
 
 export function ViewportShell({ store, controller, refs, t }) {
 	const frameMaskCanvasRef = useRef(null);
+	const splatEditHudDragRef = useRef(null);
 	const mode = store.mode.value;
 	const workbenchCollapsed = store.workbenchCollapsed.value;
 	const splatEditActive = store.splatEdit.active.value;
@@ -76,6 +77,7 @@ export function ViewportShell({ store, controller, refs, t }) {
 	const splatEditSelectionCount = store.splatEdit.selectionCount.value;
 	const splatEditBoxCenter = store.splatEdit.boxCenter.value;
 	const splatEditBoxSize = store.splatEdit.boxSize.value;
+	const splatEditHudPosition = store.splatEdit.hudPosition.value;
 	const frames = store.frames.documents.value;
 	const selectedFrameIds = new Set(store.frames.selectedIds.value ?? []);
 	const rememberedMaskFrameIds = new Set(
@@ -84,6 +86,7 @@ export function ViewportShell({ store, controller, refs, t }) {
 	const frameMaskMode = store.frames.maskMode.value;
 	const frameMaskOpacityPct = store.frames.maskOpacityPct.value;
 	const referenceImageEditMode = store.viewportReferenceImageEditMode.value;
+	const blockOverlayInteractions = referenceImageEditMode || splatEditActive;
 	const outputFrameLabel = t("section.outputFrame");
 	const referenceImageLayers = store.referenceImages.previewLayers.value;
 	const selectedReferenceImageIds = new Set(
@@ -236,6 +239,16 @@ export function ViewportShell({ store, controller, refs, t }) {
 					transform: "translate(-50%, -50%)",
 				}
 			: undefined;
+	const splatEditHudStyle =
+		Number.isFinite(splatEditHudPosition?.x) &&
+		Number.isFinite(splatEditHudPosition?.y)
+			? {
+					left: `${splatEditHudPosition.x}px`,
+					top: `${splatEditHudPosition.y}px`,
+					right: "auto",
+					bottom: "auto",
+				}
+			: undefined;
 	const frameMaskOpacity = Math.min(
 		1,
 		Math.max(0, (Number(frameMaskOpacityPct) || 0) / 100),
@@ -292,6 +305,36 @@ export function ViewportShell({ store, controller, refs, t }) {
 			</div>
 		</div>
 	`;
+
+	const startSplatEditHudDrag = (event) => {
+		if (event.button !== 0) {
+			return;
+		}
+		const shellElement =
+			refs.viewportShellRef?.current ?? refs.viewportShellRef ?? null;
+		const hudElement = event.currentTarget?.closest?.(
+			".viewport-splat-edit-hud",
+		);
+		if (
+			!(shellElement instanceof HTMLElement) ||
+			!(hudElement instanceof HTMLElement)
+		) {
+			return;
+		}
+		const shellRect = shellElement.getBoundingClientRect();
+		const hudRect = hudElement.getBoundingClientRect();
+		splatEditHudDragRef.current = {
+			pointerId: event.pointerId,
+			offsetX: event.clientX - hudRect.left,
+			offsetY: event.clientY - hudRect.top,
+			width: hudRect.width,
+			height: hudRect.height,
+			shellRect,
+		};
+		event.currentTarget?.setPointerCapture?.(event.pointerId);
+		event.preventDefault();
+		event.stopPropagation();
+	};
 
 	useLayoutEffect(() => {
 		const canvas = frameMaskCanvasRef.current;
@@ -365,6 +408,46 @@ export function ViewportShell({ store, controller, refs, t }) {
 		store.exportWidth.value,
 	]);
 
+	useLayoutEffect(() => {
+		const handlePointerMove = (event) => {
+			const dragState = splatEditHudDragRef.current;
+			if (!dragState || event.pointerId !== dragState.pointerId) {
+				return;
+			}
+			const nextX = Math.min(
+				Math.max(
+					0,
+					event.clientX - dragState.shellRect.left - dragState.offsetX,
+				),
+				Math.max(0, dragState.shellRect.width - dragState.width),
+			);
+			const nextY = Math.min(
+				Math.max(
+					0,
+					event.clientY - dragState.shellRect.top - dragState.offsetY,
+				),
+				Math.max(0, dragState.shellRect.height - dragState.height),
+			);
+			store.splatEdit.hudPosition.value = {
+				x: Math.round(nextX),
+				y: Math.round(nextY),
+			};
+		};
+		const handlePointerEnd = (event) => {
+			if (splatEditHudDragRef.current?.pointerId === event.pointerId) {
+				splatEditHudDragRef.current = null;
+			}
+		};
+		window.addEventListener("pointermove", handlePointerMove);
+		window.addEventListener("pointerup", handlePointerEnd);
+		window.addEventListener("pointercancel", handlePointerEnd);
+		return () => {
+			window.removeEventListener("pointermove", handlePointerMove);
+			window.removeEventListener("pointerup", handlePointerEnd);
+			window.removeEventListener("pointercancel", handlePointerEnd);
+		};
+	}, [store]);
+
 	const transformHandleConfigs = [
 		{
 			id: "move-x",
@@ -424,8 +507,11 @@ export function ViewportShell({ store, controller, refs, t }) {
 			${
 				splatEditActive &&
 				html`
-					<div class="viewport-splat-edit-hud">
-						<div class="viewport-splat-edit-hud__header">
+					<div class="viewport-splat-edit-hud" style=${splatEditHudStyle}>
+						<div
+							class="viewport-splat-edit-hud__header"
+							onPointerDown=${startSplatEditHudDrag}
+						>
 							<strong>${t("action.splatEditTool")}</strong>
 							<span>
 								${t("status.splatEditScopeSummary", {
@@ -766,19 +852,27 @@ export function ViewportShell({ store, controller, refs, t }) {
 					</div>
 				`
 			}
-			<div id="render-box" ref=${refs.renderBoxRef} class="render-box">
+			<div
+				id="render-box"
+				ref=${refs.renderBoxRef}
+				class=${
+					blockOverlayInteractions
+						? "render-box render-box--interaction-disabled"
+						: "render-box"
+				}
+			>
 				<${FrameLayer}
 					store=${store}
 					controller=${controller}
 					frameOverlayCanvasRef=${refs.frameOverlayCanvasRef}
 					canvasOnly=${true}
-					interactionsEnabled=${!referenceImageEditMode}
+					interactionsEnabled=${!blockOverlayInteractions}
 				/>
 				<${FrameLayer}
 					store=${store}
 					controller=${controller}
 					itemsOnly=${true}
-					interactionsEnabled=${!referenceImageEditMode}
+					interactionsEnabled=${!blockOverlayInteractions}
 				/>
 				${OUTPUT_FRAME_RESIZE_HANDLES.map(
 					(handle) => html`
@@ -787,7 +881,7 @@ export function ViewportShell({ store, controller, refs, t }) {
 							class=${`render-box__resize-handle render-box__resize-handle--${handle}`}
 							aria-label=${outputFrameLabel}
 							onPointerDown=${
-								referenceImageEditMode
+								blockOverlayInteractions
 									? undefined
 									: (event) =>
 											controller()?.startOutputFrameResize(handle, event)
@@ -802,7 +896,7 @@ export function ViewportShell({ store, controller, refs, t }) {
 							class=${`render-box__pan-edge render-box__pan-edge--${edge}`}
 							aria-label=${outputFrameLabel}
 							onPointerDown=${
-								referenceImageEditMode
+								blockOverlayInteractions
 									? undefined
 									: (event) => controller()?.startOutputFramePan(event)
 							}
@@ -814,7 +908,7 @@ export function ViewportShell({ store, controller, refs, t }) {
 					ref=${refs.renderBoxMetaRef}
 					class="render-box__meta"
 					onPointerDown=${
-						referenceImageEditMode
+						blockOverlayInteractions
 							? undefined
 							: (event) => controller()?.startOutputFramePan(event)
 					}

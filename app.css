@@ -1636,6 +1636,9 @@ input[type="range"] {
 	display: flex;
 	flex-direction: column;
 	gap: 0.2rem;
+	cursor: move;
+	user-select: none;
+	touch-action: none;
 }
 
 .viewport-splat-edit-hud__header strong {
@@ -3222,6 +3225,13 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	cursor: grabbing;
 }
 
+.render-box--interaction-disabled .render-box__resize-handle,
+.render-box--interaction-disabled .render-box__pan-edge,
+.render-box--interaction-disabled .render-box__meta,
+.render-box--interaction-disabled .render-box__anchor {
+	pointer-events: none !important;
+}
+
 #export-preview {
 	width: 100%;
 	aspect-ratio: 1754 / 1240;
@@ -4173,6 +4183,15 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 
 .frame-layer--items {
 	z-index: 3;
+}
+
+.frame-layer--noninteractive .frame-item__edge,
+.frame-layer--noninteractive .frame-item__resize-handle,
+.frame-layer--noninteractive .frame-item__rotation-zone,
+.frame-layer--noninteractive .frame-item__anchor,
+.frame-layer--noninteractive .frame-item__label,
+.frame-layer--noninteractive .frame-item__label-delete {
+	pointer-events: none !important;
 }
 
 .frame-layer__canvas {

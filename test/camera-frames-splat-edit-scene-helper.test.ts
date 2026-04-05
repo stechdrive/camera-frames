@@ -22,7 +22,11 @@ import { createSplatEditSceneHelper } from "../src/engine/splat-edit-scene-helpe
 	const lineLayers = helper.group.children.filter(
 		(child) => child instanceof THREE.LineSegments,
 	);
-	assert.equal(lineLayers.length, 3);
+	assert.equal(lineLayers.length, 4);
+	assert.equal(
+		lineLayers.every((child) => typeof child.onBeforeRender === "function"),
+		true,
+	);
 	const positionCounts = lineLayers.map(
 		(child) => child.geometry.getAttribute("position")?.count ?? 0,
 	);
