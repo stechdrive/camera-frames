@@ -1702,25 +1702,24 @@ input[type="range"] {
 }
 
 .viewport-splat-edit-hud__field {
-	display: flex;
-	flex-direction: column;
-	gap: 0.18rem;
-}
-
-.viewport-splat-edit-hud__field span {
-	color: rgba(203, 216, 232, 0.72);
-	font: 700 0.56rem / 1 "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
-	letter-spacing: 0.06em;
-}
-
-.viewport-splat-edit-hud__field input {
 	min-width: 0;
-	padding: 0.38rem 0.45rem;
-	border: 1px solid rgba(255, 255, 255, 0.12);
-	border-radius: 8px;
+}
+
+.viewport-splat-edit-hud__field .camera-property-axis-field__prefix {
+	font-size: 0.62rem;
+}
+
+.viewport-splat-edit-hud__field-input {
+	min-width: 0;
+}
+
+.viewport-splat-edit-hud__field-input .numeric-scrub input {
 	background: rgba(255, 255, 255, 0.05);
-	color: rgba(244, 248, 253, 0.96);
-	font: 600 0.65rem / 1 "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+	font-size: 0.65rem;
+}
+
+.viewport-splat-edit-hud__field-input .numeric-scrub__handle {
+	background: rgba(255, 255, 255, 0.07);
 }
 
 .viewport-splat-edit-hud__actions {

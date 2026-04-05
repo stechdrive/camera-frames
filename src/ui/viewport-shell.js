@@ -14,6 +14,7 @@ import { FrameLayer } from "./frame-layer.js";
 import { MeasurementOverlay } from "./measurement-overlay.js";
 import { getProjectStatusDisplay } from "./project-status.js";
 import { ViewportAxisGizmo } from "./viewport-axis-gizmo.js";
+import { NumericDraftInput } from "./workbench-controls.js";
 import { WorkbenchIcon } from "./workbench-icons.js";
 
 const OUTPUT_FRAME_RESIZE_HANDLES = [
@@ -250,18 +251,47 @@ export function ViewportShell({ store, controller, refs, t }) {
 	const startReferenceImageAnchorDrag = (event) =>
 		controller()?.startReferenceImageAnchorDrag?.(event);
 	const setSplatEditTool = (tool) => controller()?.setSplatEditTool?.(tool);
-	const handleSplatEditBoxCenterInput = (axisKey, event) => {
-		const nextValue = Number(event.currentTarget.value);
-		if (Number.isFinite(nextValue)) {
-			controller()?.setSplatEditBoxCenterAxis?.(axisKey, nextValue);
+	const formatSplatEditNumericValue = (numericValue) =>
+		Number(numericValue ?? 0).toFixed(2);
+	const handleSplatEditBoxCenterInput = (axisKey, nextValue) => {
+		const numericValue = Number(nextValue);
+		if (Number.isFinite(numericValue)) {
+			controller()?.setSplatEditBoxCenterAxis?.(axisKey, numericValue);
 		}
 	};
-	const handleSplatEditBoxSizeInput = (axisKey, event) => {
-		const nextValue = Number(event.currentTarget.value);
-		if (Number.isFinite(nextValue)) {
-			controller()?.setSplatEditBoxSizeAxis?.(axisKey, nextValue);
+	const handleSplatEditBoxSizeInput = (axisKey, nextValue) => {
+		const numericValue = Number(nextValue);
+		if (Number.isFinite(numericValue)) {
+			controller()?.setSplatEditBoxSizeAxis?.(axisKey, numericValue);
 		}
 	};
+	const renderSplatEditField = ({
+		label,
+		value,
+		step = "0.10",
+		min = undefined,
+		historyLabel,
+		onScrubValue,
+		onCommitValue,
+	}) => html`
+		<div class="viewport-splat-edit-hud__field camera-property-axis-field">
+			<span class="camera-property-axis-field__prefix">${label}</span>
+			<div class="viewport-splat-edit-hud__field-input camera-property-axis-field__input field">
+				<${NumericDraftInput}
+					inputMode="decimal"
+					min=${min}
+					step=${step}
+					value=${formatSplatEditNumericValue(value)}
+					controller=${controller}
+					historyLabel=${historyLabel}
+					formatDisplayValue=${formatSplatEditNumericValue}
+					scrubStartValue=${Number(value ?? 0)}
+					onScrubDelta=${(_deltaValue, nextValue) => onScrubValue(nextValue)}
+					onCommit=${(nextValue) => onCommitValue(nextValue)}
+				/>
+			</div>
+		</div>
+	`;
 
 	useLayoutEffect(() => {
 		const canvas = frameMaskCanvasRef.current;
@@ -440,36 +470,33 @@ export function ViewportShell({ store, controller, refs, t }) {
 										${t("status.splatEditCenter")}
 									</span>
 									<div class="viewport-splat-edit-hud__grid">
-										<label class="viewport-splat-edit-hud__field">
-											<span>${t("field.positionX")}</span>
-											<input
-												type="number"
-												step="0.1"
-												value=${Number(splatEditBoxCenter?.x ?? 0).toFixed(2)}
-												onChange=${(event) =>
-													handleSplatEditBoxCenterInput("x", event)}
-											/>
-										</label>
-										<label class="viewport-splat-edit-hud__field">
-											<span>${t("field.positionY")}</span>
-											<input
-												type="number"
-												step="0.1"
-												value=${Number(splatEditBoxCenter?.y ?? 0).toFixed(2)}
-												onChange=${(event) =>
-													handleSplatEditBoxCenterInput("y", event)}
-											/>
-										</label>
-										<label class="viewport-splat-edit-hud__field">
-											<span>${t("field.positionZ")}</span>
-											<input
-												type="number"
-												step="0.1"
-												value=${Number(splatEditBoxCenter?.z ?? 0).toFixed(2)}
-												onChange=${(event) =>
-													handleSplatEditBoxCenterInput("z", event)}
-											/>
-										</label>
+										${renderSplatEditField({
+											label: t("field.positionX"),
+											value: splatEditBoxCenter?.x ?? 0,
+											historyLabel: "splat-edit.box-center.x",
+											onScrubValue: (nextValue) =>
+												handleSplatEditBoxCenterInput("x", nextValue),
+											onCommitValue: (nextValue) =>
+												handleSplatEditBoxCenterInput("x", nextValue),
+										})}
+										${renderSplatEditField({
+											label: t("field.positionY"),
+											value: splatEditBoxCenter?.y ?? 0,
+											historyLabel: "splat-edit.box-center.y",
+											onScrubValue: (nextValue) =>
+												handleSplatEditBoxCenterInput("y", nextValue),
+											onCommitValue: (nextValue) =>
+												handleSplatEditBoxCenterInput("y", nextValue),
+										})}
+										${renderSplatEditField({
+											label: t("field.positionZ"),
+											value: splatEditBoxCenter?.z ?? 0,
+											historyLabel: "splat-edit.box-center.z",
+											onScrubValue: (nextValue) =>
+												handleSplatEditBoxCenterInput("z", nextValue),
+											onCommitValue: (nextValue) =>
+												handleSplatEditBoxCenterInput("z", nextValue),
+										})}
 									</div>
 								</div>
 								<div class="viewport-splat-edit-hud__section">
@@ -477,39 +504,36 @@ export function ViewportShell({ store, controller, refs, t }) {
 										${t("status.splatEditSize")}
 									</span>
 									<div class="viewport-splat-edit-hud__grid">
-										<label class="viewport-splat-edit-hud__field">
-											<span>${t("field.positionX")}</span>
-											<input
-												type="number"
-												min="0.01"
-												step="0.1"
-												value=${Number(splatEditBoxSize?.x ?? 1).toFixed(2)}
-												onChange=${(event) =>
-													handleSplatEditBoxSizeInput("x", event)}
-											/>
-										</label>
-										<label class="viewport-splat-edit-hud__field">
-											<span>${t("field.positionY")}</span>
-											<input
-												type="number"
-												min="0.01"
-												step="0.1"
-												value=${Number(splatEditBoxSize?.y ?? 1).toFixed(2)}
-												onChange=${(event) =>
-													handleSplatEditBoxSizeInput("y", event)}
-											/>
-										</label>
-										<label class="viewport-splat-edit-hud__field">
-											<span>${t("field.positionZ")}</span>
-											<input
-												type="number"
-												min="0.01"
-												step="0.1"
-												value=${Number(splatEditBoxSize?.z ?? 1).toFixed(2)}
-												onChange=${(event) =>
-													handleSplatEditBoxSizeInput("z", event)}
-											/>
-										</label>
+										${renderSplatEditField({
+											label: t("field.positionX"),
+											value: splatEditBoxSize?.x ?? 1,
+											min: "0.01",
+											historyLabel: "splat-edit.box-size.x",
+											onScrubValue: (nextValue) =>
+												handleSplatEditBoxSizeInput("x", nextValue),
+											onCommitValue: (nextValue) =>
+												handleSplatEditBoxSizeInput("x", nextValue),
+										})}
+										${renderSplatEditField({
+											label: t("field.positionY"),
+											value: splatEditBoxSize?.y ?? 1,
+											min: "0.01",
+											historyLabel: "splat-edit.box-size.y",
+											onScrubValue: (nextValue) =>
+												handleSplatEditBoxSizeInput("y", nextValue),
+											onCommitValue: (nextValue) =>
+												handleSplatEditBoxSizeInput("y", nextValue),
+										})}
+										${renderSplatEditField({
+											label: t("field.positionZ"),
+											value: splatEditBoxSize?.z ?? 1,
+											min: "0.01",
+											historyLabel: "splat-edit.box-size.z",
+											onScrubValue: (nextValue) =>
+												handleSplatEditBoxSizeInput("z", nextValue),
+											onCommitValue: (nextValue) =>
+												handleSplatEditBoxSizeInput("z", nextValue),
+										})}
 									</div>
 								</div>
 								<div class="viewport-splat-edit-hud__actions">
