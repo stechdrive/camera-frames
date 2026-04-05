@@ -692,6 +692,32 @@ async function createPackedSplatAsset({ id, label, centers }) {
 
 {
 	const harness = createHarness();
+	harness.store.sceneAssets.value = [
+		createSplatAsset({
+			id: "splat-fit-precise",
+			centers: [new THREE.Vector3(0, 0, 0), new THREE.Vector3(20, 0, 0)],
+			centerBounds: new THREE.Box3(
+				new THREE.Vector3(-0.5, -0.5, -0.5),
+				new THREE.Vector3(0.5, 0.5, 0.5),
+			),
+		}),
+	];
+	harness.store.selectedSceneAssetIds.value = ["splat-fit-precise"];
+
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	assert.equal(harness.controller.fitSplatEditBoxToScope(), true);
+	assert.equal(
+		harness.controller.applySplatEditBoxSelection({ subtract: false }),
+		2,
+	);
+	assert.equal(harness.store.splatEdit.selectionCount.value, 2);
+}
+
+{
+	const harness = createHarness();
 	const packed = new PackedSplats({
 		packedArray: new Uint32Array(0),
 		numSplats: 0,

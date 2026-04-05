@@ -516,6 +516,44 @@ export function createPerSplatEditController({
 		return hasBounds && !scopeBox.isEmpty() ? scopeBox : null;
 	}
 
+	function getPreciseScopeCenterBounds() {
+		const scopeAssets = getSplatEditScopeAssets();
+		const scopeBox = new THREE.Box3();
+		let hasBounds = false;
+		for (const asset of scopeAssets) {
+			const splatMesh = asset?.disposeTarget;
+			if (typeof splatMesh?.forEachSplat !== "function") {
+				continue;
+			}
+			asset.object?.updateMatrixWorld?.(true);
+			splatMesh.updateMatrixWorld?.(true);
+			const worldMatrix =
+				splatMesh?.matrixWorld ??
+				asset.contentObject?.matrixWorld ??
+				asset.object?.matrixWorld ??
+				null;
+			if (!worldMatrix) {
+				continue;
+			}
+			splatMesh.forEachSplat((_index, center) => {
+				tempWorldPoint.copy(center);
+				tempWorldPoint.applyMatrix4(worldMatrix);
+				if (!Number.isFinite(tempWorldPoint.x)) {
+					return;
+				}
+				scopeBox.expandByPoint(tempWorldPoint);
+				hasBounds = true;
+			});
+		}
+		if (!hasBounds || scopeBox.isEmpty()) {
+			return null;
+		}
+		// Tiny padding avoids float-boundary misses when the fitted box is reused
+		// immediately for point-in-box selection.
+		scopeBox.expandByScalar(1e-4);
+		return scopeBox;
+	}
+
 	function computeSplatSelectionDebugInfo(asset, selectionBox) {
 		const splatMesh = asset?.disposeTarget;
 		if (!asset?.object || typeof splatMesh?.forEachSplat !== "function") {
@@ -609,7 +647,7 @@ export function createPerSplatEditController({
 	}
 
 	function fitSplatEditBoxToScope() {
-		const scopeBounds = getScopeBounds();
+		const scopeBounds = getPreciseScopeCenterBounds() ?? getScopeBounds();
 		if (!scopeBounds) {
 			return false;
 		}

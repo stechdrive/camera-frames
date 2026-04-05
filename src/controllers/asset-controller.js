@@ -755,6 +755,7 @@ export function createAssetController({
 		openFiles,
 		isProjectPackageSource,
 		isProjectPackagePackedSplatSource,
+		isProjectFilePackedSplatSource,
 		extractProjectPackageAssets,
 		openProjectSource,
 		getExtension,
