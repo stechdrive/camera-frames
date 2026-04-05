@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { createSplatEditSceneHelper } from "../engine/splat-edit-scene-helper.js";
+import { createSplatTransformPreviewController } from "../engine/splat-transform-preview.js";
 import { createProjectFilePackedSplatSource } from "../project-document.js";
 
 const WORLD_AXES = {
@@ -133,6 +134,9 @@ export function createPerSplatEditController({
 	const defaultBrushDepth = Number(store.splatEdit.brushDepth.value) || 0.5;
 	const selectedSplatsByAssetId = new Map();
 	const sceneHelper = createSplatEditSceneHelper();
+	const transformPreviewController = createSplatTransformPreviewController({
+		guides,
+	});
 	guides?.add?.(sceneHelper.group);
 	const raycaster = new THREE.Raycaster();
 	const pointerNdc = new THREE.Vector2();
@@ -144,8 +148,14 @@ export function createPerSplatEditController({
 	const tempWorldPoint = new THREE.Vector3();
 	const tempHalfSize = new THREE.Vector3();
 	const tempBox = new THREE.Box3();
+	const tempTransformMatrix = new THREE.Matrix4();
+	const tempTransformPivotMatrix = new THREE.Matrix4();
+	const tempTransformRotateMatrix = new THREE.Matrix4();
+	const tempTransformScaleMatrix = new THREE.Matrix4();
+	const tempTransformInversePivotMatrix = new THREE.Matrix4();
 	let activeBoxDrag = null;
 	let activeTransformDrag = null;
+	let activeTransformPreview = null;
 
 	function getAssetIdKey(assetId) {
 		return String(assetId);
@@ -368,6 +378,9 @@ export function createPerSplatEditController({
 		selectionHighlightController?.sync?.({
 			scopeAssets: getSplatEditScopeAssets(),
 			selectedSplatsByAssetId,
+			hiddenSelectedSplatsByAssetId:
+				transformPreviewController.getHiddenSelectedSplatsByAssetId?.() ??
+				new Map(),
 		});
 	}
 
@@ -534,6 +547,7 @@ export function createPerSplatEditController({
 	}
 
 	function clearSplatSelection() {
+		clearActiveTransformPreview({ syncUi: false });
 		selectedSplatsByAssetId.clear();
 		syncSelectionCount();
 		store.splatEdit.lastOperation.value = {
@@ -561,6 +575,7 @@ export function createPerSplatEditController({
 		) {
 			return false;
 		}
+		clearActiveTransformPreview({ syncUi: false });
 		store.splatEdit.scopeAssetIds.value = [...nextScopeAssetIds];
 		if (nextScopeAssetIds.length > 0) {
 			store.splatEdit.rememberedScopeAssetIds.value = [...nextScopeAssetIds];
@@ -691,7 +706,56 @@ export function createPerSplatEditController({
 		};
 	}
 
+	function composeSelectedSplatTransformMatrix(
+		transformState,
+		target = new THREE.Matrix4(),
+	) {
+		const translation = transformState?.worldTranslation ?? new THREE.Vector3();
+		const rotation =
+			transformState?.worldRotation instanceof THREE.Quaternion
+				? transformState.worldRotation
+				: new THREE.Quaternion();
+		const pivot = transformState?.pivotWorld ?? new THREE.Vector3();
+		const uniformScale =
+			Number.isFinite(transformState?.uniformScale) &&
+			transformState.uniformScale > 0
+				? Number(transformState.uniformScale)
+				: 1;
+		target.makeTranslation(translation.x, translation.y, translation.z);
+		target.multiply(
+			tempTransformPivotMatrix.makeTranslation(pivot.x, pivot.y, pivot.z),
+		);
+		target.multiply(
+			tempTransformRotateMatrix.makeRotationFromQuaternion(rotation),
+		);
+		target.multiply(
+			tempTransformScaleMatrix.makeScale(
+				uniformScale,
+				uniformScale,
+				uniformScale,
+			),
+		);
+		target.multiply(
+			tempTransformInversePivotMatrix.makeTranslation(
+				-pivot.x,
+				-pivot.y,
+				-pivot.z,
+			),
+		);
+		return target;
+	}
+
 	function getSelectedSplatTransformBounds() {
+		if (activeTransformPreview?.selectionBounds) {
+			return activeTransformPreview.selectionBounds
+				.clone()
+				.applyMatrix4(
+					composeSelectedSplatTransformMatrix(
+						activeTransformPreview,
+						tempTransformMatrix,
+					),
+				);
+		}
 		return getSelectedSplatTransformEntries().selectionBounds;
 	}
 
@@ -700,7 +764,87 @@ export function createPerSplatEditController({
 		return selectionBounds?.getCenter?.(new THREE.Vector3()) ?? null;
 	}
 
-	function applySelectedSplatTransformPreview(
+	function clearActiveTransformPreview({ syncUi = true } = {}) {
+		activeTransformPreview = null;
+		transformPreviewController.clear();
+		if (syncUi) {
+			syncSelectionHighlight();
+			syncSceneHelper();
+			updateUi?.();
+		}
+	}
+
+	function ensureSelectedSplatTransformPreview(
+		entries,
+		selectionBounds,
+		pivotWorld = null,
+	) {
+		if (!Array.isArray(entries) || entries.length === 0 || !selectionBounds) {
+			return null;
+		}
+		clearActiveTransformPreview({ syncUi: false });
+		const previewState = {
+			entries,
+			selectionBounds: selectionBounds.clone(),
+			pivotWorld:
+				pivotWorld?.clone?.() ?? selectionBounds.getCenter(new THREE.Vector3()),
+			worldTranslation: new THREE.Vector3(),
+			worldRotation: new THREE.Quaternion(),
+			uniformScale: 1,
+		};
+		activeTransformPreview = previewState;
+		syncSelectionHighlight();
+		syncSceneHelper();
+		updateUi?.();
+		transformPreviewController
+			.start(previewState)
+			.then((preview) => {
+				if (!preview || activeTransformPreview !== previewState) {
+					return;
+				}
+				transformPreviewController.updateTransform(previewState);
+				syncSelectionHighlight();
+				syncSceneHelper();
+				updateUi?.();
+			})
+			.catch(() => {});
+		return previewState;
+	}
+
+	function updateSelectedSplatTransformPreview(
+		previewState,
+		{
+			worldTranslation = null,
+			worldRotation = null,
+			uniformScale = 1,
+			pivotWorld = null,
+		} = {},
+	) {
+		if (!previewState) {
+			return false;
+		}
+		previewState.worldTranslation.copy(
+			worldTranslation?.clone?.() ?? new THREE.Vector3(),
+		);
+		previewState.worldRotation.copy(
+			worldRotation instanceof THREE.Quaternion
+				? worldRotation
+				: new THREE.Quaternion(),
+		);
+		previewState.uniformScale =
+			Number.isFinite(uniformScale) && uniformScale > 0
+				? Number(uniformScale)
+				: 1;
+		if (pivotWorld?.clone) {
+			previewState.pivotWorld.copy(pivotWorld);
+		}
+		transformPreviewController.updateTransform(previewState);
+		syncSceneHelper();
+		updateUi?.();
+		return true;
+	}
+
+	function applySelectedSplatTransform(
 		entries,
 		{
 			worldTranslation = null,
@@ -765,19 +909,23 @@ export function createPerSplatEditController({
 			updateSplatAssetBoundsHints(entry.asset);
 			changed = true;
 		}
-		syncSceneHelper();
-		updateUi?.();
 		return changed;
 	}
 
 	function finalizeSelectedSplatTransform(entries) {
 		if (!Array.isArray(entries) || entries.length === 0) {
+			clearActiveTransformPreview();
+			return false;
+		}
+		if (!applySelectedSplatTransform(entries, activeTransformPreview ?? {})) {
+			clearActiveTransformPreview();
 			return false;
 		}
 		let changed = false;
 		for (const entry of entries) {
 			changed = syncSplatAssetPersistentSource(entry.asset) || changed;
 		}
+		clearActiveTransformPreview({ syncUi: false });
 		syncSelectionHighlight();
 		syncSceneHelper();
 		updateUi?.();
@@ -789,13 +937,15 @@ export function createPerSplatEditController({
 		if (entries.length === 0 || !worldDelta?.isVector3) {
 			return false;
 		}
-		if (
-			!applySelectedSplatTransformPreview(entries, {
-				worldTranslation: worldDelta,
-			})
-		) {
-			return false;
-		}
+		activeTransformPreview = {
+			entries,
+			selectionBounds: getSelectedSplatTransformBounds()?.clone?.() ?? null,
+			pivotWorld:
+				getSelectedSplatTransformPivotWorld()?.clone?.() ?? new THREE.Vector3(),
+			worldTranslation: worldDelta.clone(),
+			worldRotation: new THREE.Quaternion(),
+			uniformScale: 1,
+		};
 		finalizeSelectedSplatTransform(entries);
 		store.splatEdit.lastOperation.value = {
 			mode: "transform-move",
@@ -823,14 +973,17 @@ export function createPerSplatEditController({
 			axisWorld.clone().normalize(),
 			angleRadians,
 		);
-		if (
-			!applySelectedSplatTransformPreview(entries, {
-				worldRotation,
-				pivotWorld: selectionBounds.getCenter(new THREE.Vector3()),
-			})
-		) {
+		if (!selectionBounds) {
 			return false;
 		}
+		activeTransformPreview = {
+			entries,
+			selectionBounds: selectionBounds.clone(),
+			pivotWorld: selectionBounds.getCenter(new THREE.Vector3()),
+			worldTranslation: new THREE.Vector3(),
+			worldRotation,
+			uniformScale: 1,
+		};
 		finalizeSelectedSplatTransform(entries);
 		store.splatEdit.lastOperation.value = {
 			mode: "transform-rotate",
@@ -854,14 +1007,14 @@ export function createPerSplatEditController({
 		) {
 			return false;
 		}
-		if (
-			!applySelectedSplatTransformPreview(entries, {
-				uniformScale: scaleFactor,
-				pivotWorld: selectionBounds.getCenter(new THREE.Vector3()),
-			})
-		) {
-			return false;
-		}
+		activeTransformPreview = {
+			entries,
+			selectionBounds: selectionBounds.clone(),
+			pivotWorld: selectionBounds.getCenter(new THREE.Vector3()),
+			worldTranslation: new THREE.Vector3(),
+			worldRotation: new THREE.Quaternion(),
+			uniformScale: scaleFactor,
+		};
 		finalizeSelectedSplatTransform(entries);
 		store.splatEdit.lastOperation.value = {
 			mode: "transform-scale",
@@ -1178,6 +1331,9 @@ export function createPerSplatEditController({
 				: nextTool === "transform"
 					? "transform"
 					: "box";
+		if (store.splatEdit.tool.value !== "transform") {
+			clearActiveTransformPreview({ syncUi: false });
+		}
 		syncSceneHelper();
 		updateUi?.();
 		return store.splatEdit.tool.value;
@@ -1433,6 +1589,7 @@ export function createPerSplatEditController({
 			cancelHistoryTransaction?.();
 		}
 		activeTransformDrag = null;
+		clearActiveTransformPreview({ syncUi: false });
 		syncSceneHelper();
 		return true;
 	}
@@ -1455,6 +1612,7 @@ export function createPerSplatEditController({
 			cancelHistoryTransaction?.();
 		}
 		activeTransformDrag = null;
+		clearActiveTransformPreview({ syncUi: false });
 		syncSceneHelper();
 		syncControlsToMode?.();
 		selectionHighlightController?.clear?.();
@@ -1482,6 +1640,7 @@ export function createPerSplatEditController({
 				cancelHistoryTransaction?.();
 			}
 			activeTransformDrag = null;
+			clearActiveTransformPreview({ syncUi: false });
 			syncSceneHelper();
 			syncControlsToMode?.();
 			selectionHighlightController?.clear?.();
@@ -1601,6 +1760,11 @@ export function createPerSplatEditController({
 			const anchorWorld = selection.selectionBounds.getCenter(
 				new THREE.Vector3(),
 			);
+			const previewState = ensureSelectedSplatTransformPreview(
+				selection.entries,
+				selection.selectionBounds,
+				anchorWorld,
+			);
 
 			if (MOVE_AXIS_HANDLE_NAMES.includes(handleName)) {
 				const axisKey = handleName.split("-")[1];
@@ -1633,6 +1797,7 @@ export function createPerSplatEditController({
 					planeNormal: planeNormal.clone(),
 					planePoint: planePoint.clone(),
 					entries: selection.entries,
+					preview: previewState,
 					historyStarted:
 						beginHistoryTransaction?.("splat-edit.transform") === true,
 				};
@@ -1667,6 +1832,7 @@ export function createPerSplatEditController({
 					planeNormal: planeNormal.clone(),
 					planePoint: planePoint.clone(),
 					entries: selection.entries,
+					preview: previewState,
 					historyStarted:
 						beginHistoryTransaction?.("splat-edit.transform") === true,
 				};
@@ -1698,6 +1864,7 @@ export function createPerSplatEditController({
 					axisWorld: axisWorld.clone(),
 					startVector: startVector.clone(),
 					entries: selection.entries,
+					preview: previewState,
 					historyStarted:
 						beginHistoryTransaction?.("splat-edit.transform") === true,
 				};
@@ -1715,6 +1882,7 @@ export function createPerSplatEditController({
 					startClientX: event.clientX,
 					startClientY: event.clientY,
 					entries: selection.entries,
+					preview: previewState,
 					historyStarted:
 						beginHistoryTransaction?.("splat-edit.transform") === true,
 				};
@@ -1836,7 +2004,7 @@ export function createPerSplatEditController({
 					.copy(hitPoint)
 					.sub(activeTransformDrag.planePoint)
 					.projectOnVector(activeTransformDrag.axisWorld);
-				applySelectedSplatTransformPreview(activeTransformDrag.entries, {
+				updateSelectedSplatTransformPreview(activeTransformDrag.preview, {
 					worldTranslation: worldDelta,
 				});
 				return true;
@@ -1854,7 +2022,7 @@ export function createPerSplatEditController({
 				const worldDelta = dragDelta
 					.copy(hitPoint)
 					.sub(activeTransformDrag.planePoint);
-				applySelectedSplatTransformPreview(activeTransformDrag.entries, {
+				updateSelectedSplatTransformPreview(activeTransformDrag.preview, {
 					worldTranslation: worldDelta,
 				});
 				return true;
@@ -1887,7 +2055,7 @@ export function createPerSplatEditController({
 					activeTransformDrag.axisWorld,
 					angle,
 				);
-				applySelectedSplatTransformPreview(activeTransformDrag.entries, {
+				updateSelectedSplatTransformPreview(activeTransformDrag.preview, {
 					worldRotation,
 					pivotWorld: activeTransformDrag.anchorWorld,
 				});
@@ -1900,7 +2068,7 @@ export function createPerSplatEditController({
 					activeTransformDrag.startClientX -
 					(event.clientY - activeTransformDrag.startClientY);
 				const uniformScale = Math.exp(deltaPixels * 0.01);
-				applySelectedSplatTransformPreview(activeTransformDrag.entries, {
+				updateSelectedSplatTransformPreview(activeTransformDrag.preview, {
 					uniformScale,
 					pivotWorld: activeTransformDrag.anchorWorld,
 				});
@@ -2002,6 +2170,8 @@ export function createPerSplatEditController({
 	}
 
 	function dispose() {
+		clearActiveTransformPreview({ syncUi: false });
+		transformPreviewController.dispose();
 		selectionHighlightController?.dispose?.();
 		sceneHelper.clear();
 		guides?.remove?.(sceneHelper.group);

@@ -56,6 +56,17 @@ function toPlainPoint(vector) {
 	};
 }
 
+function createPointerEvent({ pointerId = 1, clientX = 0, clientY = 0 } = {}) {
+	return {
+		pointerId,
+		clientX,
+		clientY,
+		preventDefault() {},
+		stopPropagation() {},
+		stopImmediatePropagation() {},
+	};
+}
+
 function createHarness({
 	mode = "viewport",
 	camera = null,
@@ -1042,6 +1053,72 @@ async function createPackedSplatAsset({ id, label, centers }) {
 	assert.ok(Math.abs(scaledSecondCenterX - 2) < 5e-4);
 	assert.ok(Math.abs(scaledFirstScaleX - baseScaleX * 2) < 0.01);
 	assert.ok(Math.abs(scaledSecondScaleY - baseScaleY * 2) < 0.01);
+}
+
+{
+	const harness = createHarness();
+	const asset = await createPackedSplatAsset({
+		id: "splat-transform-preview",
+		label: "Transform Preview",
+		centers: [new THREE.Vector3(-1, 0, 0), new THREE.Vector3(1, 0, 0)],
+	});
+	const viewportRect = { left: 0, top: 0, width: 1000, height: 1000 };
+	harness.store.sceneAssets.value = [asset];
+	harness.store.selectedSceneAssetIds.value = [asset.id];
+	harness.store.selectedSceneAssetId.value = asset.id;
+
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	harness.controller.fitSplatEditBoxToScope();
+	assert.equal(
+		harness.controller.applySplatEditBoxSelection({ subtract: false }),
+		2,
+	);
+	assert.equal(harness.controller.setSplatEditTool("transform"), "transform");
+	const gizmoConfig = harness.controller.getViewportGizmoConfig();
+	assert.equal(
+		harness.controller.startViewportGizmoDrag("scale-uniform", {
+			camera: harness.activeCamera,
+			viewportRect,
+			config: gizmoConfig,
+			event: createPointerEvent({
+				pointerId: 9,
+				clientX: 500,
+				clientY: 500,
+			}),
+		}),
+		true,
+	);
+	const previewMoveEvent = createPointerEvent({
+		pointerId: 9,
+		clientX: 550,
+		clientY: 500,
+	});
+	assert.equal(
+		harness.controller.handleViewportGizmoDragMove(previewMoveEvent, {
+			camera: harness.activeCamera,
+			viewportRect,
+		}),
+		true,
+	);
+	assert.ok(
+		Math.abs(asset.disposeTarget.packedSplats.getSplat(0).center.x + 1) < 5e-4,
+	);
+	assert.ok(
+		Math.abs(asset.disposeTarget.packedSplats.getSplat(1).center.x - 1) < 5e-4,
+	);
+	assert.equal(
+		harness.controller.handleViewportGizmoDragEnd(previewMoveEvent),
+		true,
+	);
+	assert.ok(
+		Math.abs(asset.disposeTarget.packedSplats.getSplat(0).center.x + 1) > 0.1,
+	);
+	assert.ok(
+		Math.abs(asset.disposeTarget.packedSplats.getSplat(1).center.x - 1) > 0.1,
+	);
 }
 
 console.log("✅ CAMERA_FRAMES per-splat edit controller tests passed!");

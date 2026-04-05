@@ -107,4 +107,31 @@ function createSplatMesh(colors) {
 	assert.equal(mesh.updateGeneratorCalls, 2);
 }
 
+{
+	const mesh = createSplatMesh([
+		{ color: { r: 0.4, g: 0.4, b: 0.4 }, opacity: 1 },
+	]);
+	const asset = {
+		id: "splat-hidden",
+		kind: "splat",
+		disposeTarget: mesh,
+	};
+	const controller = createSplatSelectionHighlightController({
+		RgbaArrayImpl: FakeRgbaArray,
+		highlightRgba: { r: 0, g: 255, b: 0 },
+		highlightMix: 1,
+	});
+
+	controller.sync({
+		scopeAssets: [asset],
+		selectedSplatsByAssetId: new Map([["splat-hidden", new Set([0])]]),
+		hiddenSelectedSplatsByAssetId: new Map([["splat-hidden", new Set([0])]]),
+	});
+
+	assert.deepEqual(
+		Array.from(mesh.splatRgba.array.slice(0, 4)),
+		[102, 102, 102, 0],
+	);
+}
+
 console.log("✅ CAMERA_FRAMES splat selection highlight tests passed!");

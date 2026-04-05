@@ -71,6 +71,14 @@ function restoreBaseColor(array, baseArray, index) {
 	array[baseOffset + 3] = baseArray[baseOffset + 3];
 }
 
+function hideBaseColor(array, baseArray, index) {
+	const baseOffset = index * 4;
+	array[baseOffset] = baseArray[baseOffset];
+	array[baseOffset + 1] = baseArray[baseOffset + 1];
+	array[baseOffset + 2] = baseArray[baseOffset + 2];
+	array[baseOffset + 3] = 0;
+}
+
 export function createSplatSelectionHighlightController({
 	RgbaArrayImpl = RgbaArray,
 	highlightRgba = DEFAULT_HIGHLIGHT_RGBA,
@@ -125,6 +133,7 @@ export function createSplatSelectionHighlightController({
 			rgbaArray,
 			previousSplatRgba: splatMesh.splatRgba ?? null,
 			highlightedIndices: new Set(),
+			hiddenIndices: new Set(),
 		};
 		splatMesh.splatRgba = rgbaArray;
 		splatMesh.updateGenerator?.();
@@ -132,18 +141,23 @@ export function createSplatSelectionHighlightController({
 		return entry;
 	}
 
-	function syncAssetSelection(entry, selectedIndices) {
+	function syncAssetSelection(entry, selectedIndices, hiddenIndices) {
 		const nextSelectedIndices = selectedIndices ?? new Set();
+		const nextHiddenIndices = hiddenIndices ?? new Set();
+		const nextTouchedIndices = new Set([
+			...entry.highlightedIndices,
+			...nextSelectedIndices,
+		]);
 		let changed = false;
-		for (const index of entry.highlightedIndices) {
-			if (nextSelectedIndices.has(index)) {
+		for (const index of nextTouchedIndices) {
+			if (!nextSelectedIndices.has(index)) {
+				restoreBaseColor(entry.rgbaArray.array, entry.baseArray, index);
+				changed = true;
 				continue;
 			}
-			restoreBaseColor(entry.rgbaArray.array, entry.baseArray, index);
-			changed = true;
-		}
-		for (const index of nextSelectedIndices) {
-			if (entry.highlightedIndices.has(index)) {
+			if (nextHiddenIndices.has(index)) {
+				hideBaseColor(entry.rgbaArray.array, entry.baseArray, index);
+				changed = true;
 				continue;
 			}
 			setHighlightColor(
@@ -156,6 +170,7 @@ export function createSplatSelectionHighlightController({
 			changed = true;
 		}
 		entry.highlightedIndices = new Set(nextSelectedIndices);
+		entry.hiddenIndices = new Set(nextHiddenIndices);
 		if (changed) {
 			entry.rgbaArray.needsUpdate = true;
 			entry.rgbaArray.getTexture?.();
@@ -165,6 +180,7 @@ export function createSplatSelectionHighlightController({
 	function sync({
 		scopeAssets = [],
 		selectedSplatsByAssetId = new Map(),
+		hiddenSelectedSplatsByAssetId = new Map(),
 	} = {}) {
 		const scopeAssetMap = new Map(
 			scopeAssets
@@ -186,7 +202,11 @@ export function createSplatSelectionHighlightController({
 			activeSelectedAssetIds.add(assetId);
 			const entry = ensureEntry(scopeAssetMap.get(assetId));
 			if (entry) {
-				syncAssetSelection(entry, selectedIndices);
+				syncAssetSelection(
+					entry,
+					selectedIndices,
+					hiddenSelectedSplatsByAssetId.get(assetId),
+				);
 			}
 		}
 		for (const [assetId, entry] of entriesByAssetId.entries()) {
