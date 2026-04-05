@@ -8,6 +8,7 @@ function createHarness() {
 	const store = createCameraFramesStore();
 	const calls = [];
 	const guides = new THREE.Group();
+	const selectionHighlightCalls = [];
 	const bindings = createPerSplatEditControllerBindings({
 		store,
 		state: { mode: "viewport" },
@@ -23,6 +24,11 @@ function createHarness() {
 		setStatus: (message) => calls.push(["status", message]),
 		updateUi: () => calls.push(["update-ui"]),
 		assetController: {},
+		selectionHighlightController: {
+			sync: (payload) => selectionHighlightCalls.push(["sync", payload]),
+			clear: () => selectionHighlightCalls.push(["clear"]),
+			dispose: () => selectionHighlightCalls.push(["dispose"]),
+		},
 		setViewportSelectMode: (nextValue) =>
 			calls.push(["select-mode", nextValue]),
 		setViewportReferenceImageEditMode: (nextValue) =>
@@ -43,6 +49,7 @@ function createHarness() {
 		store,
 		calls,
 		guides,
+		selectionHighlightCalls,
 		controller: createPerSplatEditController(bindings),
 	};
 }
@@ -213,12 +220,14 @@ function createSplatAsset({
 		2,
 	);
 	assert.equal(harness.store.splatEdit.selectionCount.value, 2);
+	assert.equal(harness.selectionHighlightCalls.at(-1)?.[0], "sync");
 	assert.deepEqual(harness.calls.at(-1), ["status", "added:2"]);
 	assert.equal(
 		harness.controller.applySplatEditBoxSelection({ subtract: true }),
 		2,
 	);
 	assert.equal(harness.store.splatEdit.selectionCount.value, 0);
+	assert.equal(harness.selectionHighlightCalls.at(-1)?.[0], "sync");
 	assert.deepEqual(harness.calls.at(-1), ["status", "removed:2"]);
 }
 

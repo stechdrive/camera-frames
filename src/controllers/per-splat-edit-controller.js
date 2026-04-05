@@ -66,6 +66,7 @@ export function createPerSplatEditController({
 	setStatus,
 	updateUi,
 	assetController,
+	selectionHighlightController,
 	setViewportSelectMode,
 	setViewportReferenceImageEditMode,
 	setViewportTransformMode,
@@ -120,9 +121,17 @@ export function createPerSplatEditController({
 		store.splatEdit.selectionCount.value = totalCount;
 	}
 
+	function syncSelectionHighlight() {
+		selectionHighlightController?.sync?.({
+			scopeAssets: getSplatEditScopeAssets(),
+			selectedSplatsByAssetId,
+		});
+	}
+
 	function clearSplatSelection() {
 		selectedSplatsByAssetId.clear();
 		syncSelectionCount();
+		selectionHighlightController?.clear?.();
 		updateUi?.();
 	}
 
@@ -331,6 +340,7 @@ export function createPerSplatEditController({
 			}
 		}
 		syncSelectionCount();
+		syncSelectionHighlight();
 		updateUi?.();
 		setStatus?.(
 			t(
@@ -365,6 +375,7 @@ export function createPerSplatEditController({
 		activeBoxDrag = null;
 		syncSceneHelper();
 		syncControlsToMode?.();
+		selectionHighlightController?.clear?.();
 		updateUi?.();
 	}
 
@@ -383,6 +394,7 @@ export function createPerSplatEditController({
 			activeBoxDrag = null;
 			syncSceneHelper();
 			syncControlsToMode?.();
+			selectionHighlightController?.clear?.();
 			updateUi?.();
 			if (wasActive && !silent) {
 				setStatus?.(t("status.splatEditDisabled"));
@@ -415,6 +427,7 @@ export function createPerSplatEditController({
 		}
 		fitSplatEditBoxToScope();
 		syncSceneHelper();
+		syncSelectionHighlight();
 		syncControlsToMode?.();
 		updateUi?.();
 		if (!silent) {
@@ -603,6 +616,7 @@ export function createPerSplatEditController({
 	}
 
 	function dispose() {
+		selectionHighlightController?.dispose?.();
 		sceneHelper.clear();
 		guides?.remove?.(sceneHelper.group);
 		sceneHelper.dispose();

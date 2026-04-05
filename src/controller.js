@@ -89,6 +89,7 @@ import {
 	formatAssetWorldScale,
 	getDefaultAssetUnitMode,
 } from "./engine/scene-units.js";
+import { createSplatSelectionHighlightController } from "./engine/splat-selection-highlight.js";
 import { getAnchorLabel } from "./i18n.js";
 import {
 	extractProjectPackageAssets,
@@ -153,6 +154,8 @@ export function createCameraFramesController(elements, store) {
 		createGuideOverlayImpl: createGuideOverlay,
 		srgbColorSpace: THREE.SRGBColorSpace,
 	});
+	const splatSelectionHighlightController =
+		createSplatSelectionHighlightController();
 	let assetController = null;
 	let frameController = null;
 	let cameraController = null;
@@ -423,6 +426,7 @@ export function createCameraFramesController(elements, store) {
 			setStatus,
 			updateUi,
 			assetController,
+			selectionHighlightController: splatSelectionHighlightController,
 			setViewportSelectMode,
 			setViewportReferenceImageEditMode,
 			setViewportTransformMode,
