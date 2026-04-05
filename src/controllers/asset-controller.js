@@ -150,6 +150,7 @@ export function createAssetController({
 	extractProjectPackageAssets,
 	applyProjectPackageImport,
 	openProjectSource = null,
+	onSceneAssetSelectionChanged = null,
 	disposeObject,
 	runHistoryAction = (_label, applyChange) => {
 		applyChange?.();
@@ -266,6 +267,7 @@ export function createAssetController({
 		sceneState,
 		store,
 		updateUi,
+		onSelectionChanged: onSceneAssetSelectionChanged,
 		setStatus,
 		t,
 		runHistoryAction,

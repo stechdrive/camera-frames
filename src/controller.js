@@ -480,6 +480,7 @@ export function createCameraFramesController(elements, store) {
 			projectController,
 			disposeObject,
 			historyController,
+			getPerSplatEditController: () => perSplatEditController,
 		}),
 	);
 

@@ -114,8 +114,12 @@ export function createPerSplatEditController({
 	}
 
 	function syncSelectionCount() {
+		const scopeAssetIds = new Set(getSplatEditScopeAssetIds());
 		let totalCount = 0;
-		for (const selectedSplats of selectedSplatsByAssetId.values()) {
+		for (const [assetId, selectedSplats] of selectedSplatsByAssetId.entries()) {
+			if (!scopeAssetIds.has(assetId)) {
+				continue;
+			}
 			totalCount += selectedSplats?.size ?? 0;
 		}
 		store.splatEdit.selectionCount.value = totalCount;
@@ -133,6 +137,35 @@ export function createPerSplatEditController({
 		syncSelectionCount();
 		selectionHighlightController?.clear?.();
 		updateUi?.();
+	}
+
+	function syncScopeToSceneSelection() {
+		if (!isSplatEditModeActive()) {
+			return false;
+		}
+		const nextScopeAssetIds = normalizeScopeAssetIds(
+			store.selectedSceneAssetIds.value,
+		);
+		const currentScopeAssetIds = getSplatEditScopeAssetIds();
+		if (
+			nextScopeAssetIds.length === currentScopeAssetIds.length &&
+			nextScopeAssetIds.every(
+				(assetId, index) => assetId === currentScopeAssetIds[index],
+			)
+		) {
+			return false;
+		}
+		store.splatEdit.scopeAssetIds.value = [...nextScopeAssetIds];
+		if (nextScopeAssetIds.length > 0) {
+			store.splatEdit.rememberedScopeAssetIds.value = [...nextScopeAssetIds];
+			fitSplatEditBoxToScope();
+		} else {
+			syncSceneHelper();
+		}
+		syncSelectionCount();
+		syncSelectionHighlight();
+		updateUi?.();
+		return true;
 	}
 
 	function getSplatEditScopeAssetIds() {
@@ -630,6 +663,7 @@ export function createPerSplatEditController({
 		isSplatEditModeActive,
 		setSplatEditMode,
 		toggleSplatEditMode,
+		syncScopeToSceneSelection,
 		setSplatEditTool,
 		setSplatEditBoxCenterAxis,
 		setSplatEditBoxSizeAxis,

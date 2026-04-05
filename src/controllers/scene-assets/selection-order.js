@@ -7,6 +7,7 @@ export function createSceneAssetSelectionOrderController({
 	sceneState,
 	store,
 	updateUi,
+	onSelectionChanged = null,
 	setStatus,
 	t,
 	runHistoryAction = (_label, applyChange) => {
@@ -58,6 +59,10 @@ export function createSceneAssetSelectionOrderController({
 				setSelectionAnchorId?.(asset.id);
 				store.selectedSceneAssetIds.value = [asset.id];
 				store.selectedSceneAssetId.value = asset.id;
+				onSelectionChanged?.({
+					selectedAssetIds: [...store.selectedSceneAssetIds.value],
+					activeAssetId: store.selectedSceneAssetId.value,
+				});
 				updateUi();
 				return;
 			}
@@ -88,6 +93,10 @@ export function createSceneAssetSelectionOrderController({
 
 			store.selectedSceneAssetIds.value = [...new Set(nextSelectedIds)];
 			store.selectedSceneAssetId.value = nextSelectedId;
+			onSelectionChanged?.({
+				selectedAssetIds: [...store.selectedSceneAssetIds.value],
+				activeAssetId: store.selectedSceneAssetId.value,
+			});
 			updateUi();
 			return;
 		}
@@ -116,6 +125,10 @@ export function createSceneAssetSelectionOrderController({
 		setSelectionAnchorId?.(nextSelectedId ?? asset.id);
 		store.selectedSceneAssetIds.value = [...new Set(nextSelectedIds)];
 		store.selectedSceneAssetId.value = nextSelectedId;
+		onSelectionChanged?.({
+			selectedAssetIds: [...store.selectedSceneAssetIds.value],
+			activeAssetId: store.selectedSceneAssetId.value,
+		});
 		updateUi();
 	}
 
@@ -123,6 +136,10 @@ export function createSceneAssetSelectionOrderController({
 		setSelectionAnchorId?.(null);
 		store.selectedSceneAssetIds.value = [];
 		store.selectedSceneAssetId.value = null;
+		onSelectionChanged?.({
+			selectedAssetIds: [],
+			activeAssetId: null,
+		});
 		updateUi();
 	}
 
