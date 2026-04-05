@@ -25,9 +25,40 @@ function createRectElement({
 	};
 }
 
+function computeExpectedSpawnPoint({
+	camera,
+	viewportRect,
+	viewRect = viewportRect,
+}) {
+	const raycaster = new THREE.Raycaster();
+	const pointerNdc = new THREE.Vector2(
+		((viewRect.left + viewRect.width * 0.5 - viewportRect.left) /
+			viewportRect.width) *
+			2 -
+			1,
+		-(
+			(viewRect.top + viewRect.height * 0.5 - viewportRect.top) /
+			viewportRect.height
+		) *
+			2 +
+			1,
+	);
+	raycaster.setFromCamera(pointerNdc, camera);
+	return raycaster.ray.at(1, new THREE.Vector3());
+}
+
+function toPlainPoint(vector) {
+	return {
+		x: vector.x,
+		y: vector.y,
+		z: vector.z,
+	};
+}
+
 function createHarness({
 	mode = "viewport",
 	camera = null,
+	cameraViewCamera = null,
 	viewportRect = { left: 0, top: 0, width: 1000, height: 1000 },
 	renderBoxRect = null,
 } = {}) {
@@ -49,6 +80,7 @@ function createHarness({
 	activeCamera.lookAt(0, 0, 0);
 	activeCamera.updateProjectionMatrix();
 	activeCamera.updateMatrixWorld(true);
+	const activeCameraViewCamera = cameraViewCamera ?? activeCamera;
 	const bindings = createPerSplatEditControllerBindings({
 		store,
 		state: { mode },
@@ -69,6 +101,7 @@ function createHarness({
 			getSceneAssets: () => store.sceneAssets.value,
 		}),
 		getActiveCamera: () => activeCamera,
+		getActiveCameraViewCamera: () => activeCameraViewCamera,
 		selectionHighlightController: {
 			sync: (payload) => selectionHighlightCalls.push(["sync", payload]),
 			clear: () => selectionHighlightCalls.push(["clear"]),
@@ -95,6 +128,8 @@ function createHarness({
 		calls,
 		guides,
 		selectionHighlightCalls,
+		activeCamera,
+		activeCameraViewCamera,
 		controller: createPerSplatEditController(bindings),
 	};
 }
@@ -227,15 +262,14 @@ function createSplatAsset({
 
 {
 	const harness = createHarness();
-	const scopeBounds = new THREE.Box3(
-		new THREE.Vector3(-1, -2, -3),
-		new THREE.Vector3(3, 4, 1),
-	);
 	harness.store.sceneAssets.value = [
 		createSplatAsset({
 			id: "splat-1",
 			centers: [new THREE.Vector3(0, 0, 0)],
-			centerBounds: scopeBounds,
+			centerBounds: new THREE.Box3(
+				new THREE.Vector3(-1, -2, -3),
+				new THREE.Vector3(3, 4, 1),
+			),
 		}),
 	];
 	harness.store.selectedSceneAssetIds.value = ["splat-1"];
@@ -244,11 +278,15 @@ function createSplatAsset({
 		harness.controller.setSplatEditMode(true, { silent: true }),
 		true,
 	);
-	assert.deepEqual(harness.store.splatEdit.boxCenter.value, {
-		x: 0,
-		y: 0,
-		z: 1,
-	});
+	assert.deepEqual(
+		harness.store.splatEdit.boxCenter.value,
+		toPlainPoint(
+			computeExpectedSpawnPoint({
+				camera: harness.activeCamera,
+				viewportRect: { left: 0, top: 0, width: 1000, height: 1000 },
+			}),
+		),
+	);
 	assert.deepEqual(harness.store.splatEdit.boxSize.value, {
 		x: 1,
 		y: 1,
@@ -278,8 +316,11 @@ function createSplatAsset({
 		harness.controller.setSplatEditMode(true, { silent: true }),
 		true,
 	);
-	assert.equal(harness.controller.setSplatEditBoxCenterAxis("x", 0.5), true);
-	assert.equal(harness.controller.setSplatEditBoxSizeAxis("x", 2), true);
+	harness.controller.setSplatEditBoxCenterAxis("x", 0.5);
+	harness.controller.setSplatEditBoxCenterAxis("z", 0);
+	harness.controller.setSplatEditBoxSizeAxis("x", 2);
+	assert.equal(harness.store.splatEdit.boxCenter.value.x, 0.5);
+	assert.equal(harness.store.splatEdit.boxSize.value.x, 2);
 	assert.equal(
 		harness.controller.applySplatEditBoxSelection({ subtract: false }),
 		2,
@@ -315,8 +356,11 @@ function createSplatAsset({
 		harness.controller.setSplatEditMode(true, { silent: true }),
 		true,
 	);
-	assert.equal(harness.controller.setSplatEditBoxCenterAxis("x", 10), true);
-	assert.equal(harness.controller.setSplatEditBoxSizeAxis("x", 2), true);
+	harness.controller.setSplatEditBoxCenterAxis("x", 10);
+	harness.controller.setSplatEditBoxCenterAxis("z", 0);
+	harness.controller.setSplatEditBoxSizeAxis("x", 2);
+	assert.equal(harness.store.splatEdit.boxCenter.value.x, 10);
+	assert.equal(harness.store.splatEdit.boxSize.value.x, 2);
 	assert.equal(
 		harness.controller.applySplatEditBoxSelection({ subtract: false }),
 		1,
@@ -389,9 +433,63 @@ function createSplatAsset({
 		harness.controller.setSplatEditMode(true, { silent: true }),
 		true,
 	);
+	const expectedCenter = computeExpectedSpawnPoint({
+		camera,
+		viewportRect: { left: 0, top: 0, width: 1400, height: 1000 },
+		viewRect: { left: 100, top: 100, width: 800, height: 800 },
+	});
 	assert.ok(
-		harness.store.splatEdit.boxCenter.value.x < -0.5,
-		"camera mode should use render box center instead of viewport shell center",
+		Math.abs(harness.store.splatEdit.boxCenter.value.x - expectedCenter.x) <
+			1e-6,
+	);
+	assert.ok(
+		Math.abs(harness.store.splatEdit.boxCenter.value.y - expectedCenter.y) <
+			1e-6,
+	);
+	assert.ok(
+		Math.abs(harness.store.splatEdit.boxCenter.value.z - expectedCenter.z) <
+			1e-6,
+	);
+}
+
+{
+	const harnessA = createHarness();
+	const harnessB = createHarness();
+	harnessA.store.sceneAssets.value = [
+		createSplatAsset({
+			id: "splat-a",
+			centers: [new THREE.Vector3(0, 0, 0)],
+			centerBounds: new THREE.Box3(
+				new THREE.Vector3(-100, -100, -100),
+				new THREE.Vector3(-90, -90, -90),
+			),
+		}),
+	];
+	harnessB.store.sceneAssets.value = [
+		createSplatAsset({
+			id: "splat-b",
+			centers: [new THREE.Vector3(0, 0, 0)],
+			centerBounds: new THREE.Box3(
+				new THREE.Vector3(250, 250, 250),
+				new THREE.Vector3(260, 260, 260),
+			),
+		}),
+	];
+	harnessA.store.selectedSceneAssetIds.value = ["splat-a"];
+	harnessB.store.selectedSceneAssetIds.value = ["splat-b"];
+
+	assert.equal(
+		harnessA.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	assert.equal(
+		harnessB.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	assert.deepEqual(
+		harnessA.store.splatEdit.boxCenter.value,
+		harnessB.store.splatEdit.boxCenter.value,
+		"initial box spawn should not change just because the selected splat asset changed",
 	);
 }
 
@@ -414,6 +512,7 @@ function createSplatAsset({
 		true,
 	);
 	assert.deepEqual(harness.store.splatEdit.scopeAssetIds.value, ["7"]);
+	harness.controller.setSplatEditBoxCenterAxis("z", 0);
 	assert.equal(
 		harness.controller.applySplatEditBoxSelection({ subtract: false }),
 		2,
@@ -467,6 +566,7 @@ function createSplatAsset({
 		harness.controller.setSplatEditMode(true, { silent: true }),
 		true,
 	);
+	harness.controller.setSplatEditBoxCenterAxis("z", 0);
 	assert.equal(
 		harness.controller.applySplatEditBoxSelection({ subtract: false }),
 		1,

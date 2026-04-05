@@ -81,6 +81,7 @@ export function createPerSplatEditController({
 	updateUi,
 	getAssetController,
 	getActiveCamera,
+	getActiveCameraViewCamera,
 	selectionHighlightController,
 	setViewportSelectMode,
 	setViewportReferenceImageEditMode,
@@ -251,8 +252,10 @@ export function createPerSplatEditController({
 	}
 
 	function placeSplatEditBoxAtViewCenter() {
-		const scopeBounds = getScopeBounds();
-		const camera = getActiveCamera?.() ?? null;
+		const camera =
+			state.mode === "camera"
+				? (getActiveCameraViewCamera?.() ?? getActiveCamera?.() ?? null)
+				: (getActiveCamera?.() ?? null);
 		const viewportRect = getViewportRect();
 		const viewRect = getPrimaryViewRect();
 		let nextCenter = null;
@@ -268,32 +271,17 @@ export function createPerSplatEditController({
 				camera,
 				viewportRect,
 			);
-			if (scopeBounds) {
-				const hitPoint = pointerRay.intersectBox(
-					scopeBounds,
-					new THREE.Vector3(),
-				);
-				if (hitPoint) {
-					nextCenter = hitPoint.clone();
-				} else {
-					const scopeCenter = scopeBounds.getCenter(new THREE.Vector3());
-					const projectedDistance = tempVector
-						.copy(scopeCenter)
-						.sub(pointerRay.origin)
-						.dot(pointerRay.direction);
-					nextCenter =
-						projectedDistance > 0
-							? pointerRay.at(projectedDistance, new THREE.Vector3())
-							: scopeCenter;
-				}
-			} else {
-				nextCenter = pointerRay.at(DEFAULT_BOX_SIZE, new THREE.Vector3());
+			const raycastTargets =
+				getAssetController?.()?.getSceneRaycastTargets?.() ?? [];
+			if (raycastTargets.length > 0) {
+				const intersections = raycaster.intersectObjects(raycastTargets, true);
+				nextCenter = intersections[0]?.point?.clone?.() ?? null;
 			}
+			nextCenter ??= pointerRay.at(DEFAULT_BOX_SIZE, new THREE.Vector3());
 		}
 
 		if (!nextCenter) {
-			nextCenter =
-				scopeBounds?.getCenter(new THREE.Vector3()) ?? new THREE.Vector3();
+			nextCenter = new THREE.Vector3();
 		}
 
 		store.splatEdit.boxCenter.value = toPlainPoint(nextCenter);

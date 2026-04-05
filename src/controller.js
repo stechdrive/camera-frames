@@ -429,6 +429,7 @@ export function createCameraFramesController(elements, store) {
 			updateUi,
 			getAssetController: () => assetController,
 			getActiveCamera: () => getActiveCamera(),
+			getActiveCameraViewCamera: () => getActiveCameraViewCamera(),
 			selectionHighlightController: splatSelectionHighlightController,
 			setViewportSelectMode,
 			setViewportReferenceImageEditMode,
