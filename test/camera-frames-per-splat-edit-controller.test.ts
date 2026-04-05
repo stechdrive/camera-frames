@@ -5,15 +5,56 @@ import { createPerSplatEditControllerBindings } from "../src/app/per-splat-edit-
 import { createPerSplatEditController } from "../src/controllers/per-splat-edit-controller.js";
 import { createCameraFramesStore } from "../src/store.js";
 
-function createHarness() {
+function createRectElement({
+	left = 0,
+	top = 0,
+	width = 1000,
+	height = 1000,
+} = {}) {
+	return {
+		getBoundingClientRect() {
+			return {
+				left,
+				top,
+				width,
+				height,
+				right: left + width,
+				bottom: top + height,
+			};
+		},
+	};
+}
+
+function createHarness({
+	mode = "viewport",
+	camera = null,
+	viewportRect = { left: 0, top: 0, width: 1000, height: 1000 },
+	renderBoxRect = null,
+} = {}) {
 	const store = createCameraFramesStore();
 	const calls = [];
 	const guides = new THREE.Group();
 	const selectionHighlightCalls = [];
+	const viewportShell = createRectElement(viewportRect);
+	const renderBox = renderBoxRect ? createRectElement(renderBoxRect) : null;
+	const activeCamera =
+		camera ??
+		new THREE.PerspectiveCamera(
+			90,
+			viewportRect.width / viewportRect.height,
+			0.1,
+			1000,
+		);
+	activeCamera.position.set(0, 0, 5);
+	activeCamera.lookAt(0, 0, 0);
+	activeCamera.updateProjectionMatrix();
+	activeCamera.updateMatrixWorld(true);
 	const bindings = createPerSplatEditControllerBindings({
 		store,
-		state: { mode: "viewport" },
+		state: { mode },
 		guides,
+		viewportShell,
+		renderBox,
 		t: (key, values = {}) =>
 			key === "status.splatEditEnabled"
 				? `enabled:${values.count}`
@@ -24,7 +65,10 @@ function createHarness() {
 						: key,
 		setStatus: (message) => calls.push(["status", message]),
 		updateUi: () => calls.push(["update-ui"]),
-		assetController: {},
+		getAssetController: () => ({
+			getSceneAssets: () => store.sceneAssets.value,
+		}),
+		getActiveCamera: () => activeCamera,
 		selectionHighlightController: {
 			sync: (payload) => selectionHighlightCalls.push(["sync", payload]),
 			clear: () => selectionHighlightCalls.push(["clear"]),
@@ -112,16 +156,19 @@ function createSplatAsset({
 		"splat-1",
 	]);
 	assert.equal(harness.controller.isSplatEditModeActive(), true);
-	assert.deepEqual(harness.calls.slice(0, 7), [
+	assert.deepEqual(harness.calls.slice(0, 6), [
 		["measurement-mode", false, { silent: true }],
 		["select-mode", false],
 		["reference-mode", false],
 		["transform-mode", false],
 		["pivot-mode", false],
 		["navigate-mode", { silent: true }],
-		["sync-controls"],
 	]);
-	assert.deepEqual(harness.calls.at(-2), ["update-ui"]);
+	assert.ok(
+		harness.calls.some(
+			(entry) => Array.isArray(entry) && entry[0] === "sync-controls",
+		),
+	);
 	assert.deepEqual(harness.calls.at(-1), ["status", "enabled:2"]);
 }
 
@@ -182,7 +229,7 @@ function createSplatAsset({
 	const harness = createHarness();
 	const scopeBounds = new THREE.Box3(
 		new THREE.Vector3(-1, -2, -3),
-		new THREE.Vector3(3, 4, 5),
+		new THREE.Vector3(3, 4, 1),
 	);
 	harness.store.sceneAssets.value = [
 		createSplatAsset({
@@ -198,14 +245,14 @@ function createSplatAsset({
 		true,
 	);
 	assert.deepEqual(harness.store.splatEdit.boxCenter.value, {
-		x: 1,
-		y: 1,
+		x: 0,
+		y: 0,
 		z: 1,
 	});
 	assert.deepEqual(harness.store.splatEdit.boxSize.value, {
-		x: 4,
-		y: 6,
-		z: 8,
+		x: 1,
+		y: 1,
+		z: 1,
 	});
 }
 
@@ -304,17 +351,74 @@ function createSplatAsset({
 		true,
 	);
 	assert.deepEqual(harness.store.splatEdit.scopeAssetIds.value, ["splat-1"]);
+	const initialBoxCenter = { ...harness.store.splatEdit.boxCenter.value };
 	harness.store.selectedSceneAssetIds.value = ["splat-2"];
 	assert.equal(harness.controller.syncScopeToSceneSelection(), true);
 	assert.deepEqual(harness.store.splatEdit.scopeAssetIds.value, ["splat-2"]);
 	assert.deepEqual(harness.store.splatEdit.rememberedScopeAssetIds.value, [
 		"splat-2",
 	]);
-	assert.deepEqual(harness.store.splatEdit.boxCenter.value, {
-		x: 10,
-		y: 0,
-		z: 0,
+	assert.deepEqual(harness.store.splatEdit.boxCenter.value, initialBoxCenter);
+}
+
+{
+	const camera = new THREE.PerspectiveCamera(90, 1.4, 0.1, 1000);
+	camera.position.set(0, 0, 5);
+	camera.lookAt(0, 0, 0);
+	camera.updateProjectionMatrix();
+	camera.updateMatrixWorld(true);
+	const harness = createHarness({
+		mode: "camera",
+		camera,
+		viewportRect: { left: 0, top: 0, width: 1400, height: 1000 },
+		renderBoxRect: { left: 100, top: 100, width: 800, height: 800 },
 	});
+	harness.store.sceneAssets.value = [
+		createSplatAsset({
+			id: "splat-1",
+			centers: [new THREE.Vector3(0, 0, 0)],
+			centerBounds: new THREE.Box3(
+				new THREE.Vector3(-10, -10, -1),
+				new THREE.Vector3(10, 10, 1),
+			),
+		}),
+	];
+	harness.store.selectedSceneAssetIds.value = ["splat-1"];
+
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	assert.ok(
+		harness.store.splatEdit.boxCenter.value.x < -0.5,
+		"camera mode should use render box center instead of viewport shell center",
+	);
+}
+
+{
+	const harness = createHarness();
+	harness.store.sceneAssets.value = [
+		createSplatAsset({
+			id: 7,
+			centers: [new THREE.Vector3(0, 0, 0), new THREE.Vector3(0.25, 0, 0)],
+			centerBounds: new THREE.Box3(
+				new THREE.Vector3(-0.5, -0.5, -0.5),
+				new THREE.Vector3(0.5, 0.5, 0.5),
+			),
+		}),
+	];
+	harness.store.selectedSceneAssetIds.value = [7];
+
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	assert.deepEqual(harness.store.splatEdit.scopeAssetIds.value, ["7"]);
+	assert.equal(
+		harness.controller.applySplatEditBoxSelection({ subtract: false }),
+		2,
+	);
+	assert.equal(harness.store.splatEdit.selectionCount.value, 2);
 }
 
 {
@@ -343,7 +447,6 @@ function createSplatAsset({
 	mesh.enableWorldToView = true;
 	await mesh.initialized;
 	const object = new THREE.Group();
-	object.position.set(10, 0, 0);
 	object.add(mesh);
 	object.updateMatrixWorld(true);
 	mesh.updateMatrixWorld(true);
@@ -366,9 +469,9 @@ function createSplatAsset({
 	);
 	assert.equal(
 		harness.controller.applySplatEditBoxSelection({ subtract: false }),
-		2,
+		1,
 	);
-	assert.equal(harness.store.splatEdit.selectionCount.value, 2);
+	assert.equal(harness.store.splatEdit.selectionCount.value, 1);
 }
 
 console.log("✅ CAMERA_FRAMES per-splat edit controller tests passed!");

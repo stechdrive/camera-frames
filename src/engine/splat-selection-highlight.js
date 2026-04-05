@@ -78,6 +78,10 @@ export function createSplatSelectionHighlightController({
 } = {}) {
 	const entriesByAssetId = new Map();
 
+	function getAssetIdKey(assetId) {
+		return String(assetId);
+	}
+
 	function disposeEntry(entry) {
 		if (!entry) {
 			return;
@@ -93,13 +97,14 @@ export function createSplatSelectionHighlightController({
 		if (!asset?.id || !asset?.disposeTarget) {
 			return null;
 		}
-		const existingEntry = entriesByAssetId.get(asset.id);
+		const assetIdKey = getAssetIdKey(asset.id);
+		const existingEntry = entriesByAssetId.get(assetIdKey);
 		if (existingEntry?.mesh === asset.disposeTarget) {
 			return existingEntry;
 		}
 		if (existingEntry) {
 			disposeEntry(existingEntry);
-			entriesByAssetId.delete(asset.id);
+			entriesByAssetId.delete(assetIdKey);
 		}
 		const splatMesh = asset.disposeTarget;
 		const count = getSplatCount(splatMesh);
@@ -114,7 +119,7 @@ export function createSplatSelectionHighlightController({
 		});
 		rgbaArray.getTexture?.();
 		const entry = {
-			assetId: asset.id,
+			assetId: assetIdKey,
 			mesh: splatMesh,
 			baseArray,
 			rgbaArray,
@@ -123,7 +128,7 @@ export function createSplatSelectionHighlightController({
 		};
 		splatMesh.splatRgba = rgbaArray;
 		splatMesh.updateGenerator?.();
-		entriesByAssetId.set(asset.id, entry);
+		entriesByAssetId.set(assetIdKey, entry);
 		return entry;
 	}
 
@@ -164,7 +169,7 @@ export function createSplatSelectionHighlightController({
 		const scopeAssetMap = new Map(
 			scopeAssets
 				.filter((asset) => asset?.kind === "splat" && asset?.disposeTarget)
-				.map((asset) => [asset.id, asset]),
+				.map((asset) => [getAssetIdKey(asset.id), asset]),
 		);
 		const activeSelectedAssetIds = new Set();
 		for (const [

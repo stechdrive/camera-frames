@@ -1660,6 +1660,13 @@ input[type="range"] {
 	gap: 0.36rem;
 }
 
+.viewport-splat-edit-hud__status {
+	color: rgba(214, 228, 244, 0.84);
+	font: 600 0.64rem / 1.25 "IBM Plex Mono", "SFMono-Regular", Consolas,
+		monospace;
+	letter-spacing: 0.02em;
+}
+
 .viewport-splat-edit-hud__tool {
 	appearance: none;
 	border: 1px solid rgba(255, 255, 255, 0.12);

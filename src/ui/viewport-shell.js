@@ -78,6 +78,7 @@ export function ViewportShell({ store, controller, refs, t }) {
 	const splatEditBoxCenter = store.splatEdit.boxCenter.value;
 	const splatEditBoxSize = store.splatEdit.boxSize.value;
 	const splatEditHudPosition = store.splatEdit.hudPosition.value;
+	const splatEditLastOperation = store.splatEdit.lastOperation.value;
 	const frames = store.frames.documents.value;
 	const selectedFrameIds = new Set(store.frames.selectedIds.value ?? []);
 	const rememberedMaskFrameIds = new Set(
@@ -520,6 +521,22 @@ export function ViewportShell({ store, controller, refs, t }) {
 								})}
 							</span>
 						</div>
+						${
+							splatEditLastOperation?.mode &&
+							html`
+								<div class="viewport-splat-edit-hud__status">
+									${t("status.splatEditLastOperation", {
+										mode:
+											splatEditLastOperation.mode === "add"
+												? t("status.splatEditAdd")
+												: splatEditLastOperation.mode === "subtract"
+													? t("status.splatEditSubtract")
+													: t("action.clearSelection"),
+										count: splatEditLastOperation.hitCount ?? 0,
+									})}
+								</div>
+							`
+						}
 						<div
 							class="viewport-splat-edit-hud__tools"
 							role="group"

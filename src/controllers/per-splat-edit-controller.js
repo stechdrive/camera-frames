@@ -58,14 +58,29 @@ function updatePointerRay(raycaster, pointerNdc, event, camera, viewportRect) {
 	return raycaster.ray;
 }
 
+function resolveElementRect(target) {
+	const element = target?.current ?? target ?? null;
+	if (typeof element?.getBoundingClientRect !== "function") {
+		return null;
+	}
+	const rect = element.getBoundingClientRect();
+	if (!rect || rect.width <= 0 || rect.height <= 0) {
+		return null;
+	}
+	return rect;
+}
+
 export function createPerSplatEditController({
 	store,
 	state,
 	t,
 	guides,
+	viewportShell,
+	renderBox,
 	setStatus,
 	updateUi,
-	assetController,
+	getAssetController,
+	getActiveCamera,
 	selectionHighlightController,
 	setViewportSelectMode,
 	setViewportReferenceImageEditMode,
@@ -75,6 +90,7 @@ export function createPerSplatEditController({
 	applyNavigateInteractionMode,
 	syncControlsToMode,
 }) {
+	const isDevRuntime = Boolean(import.meta?.env?.DEV);
 	const selectedSplatsByAssetId = new Map();
 	const sceneHelper = createSplatEditSceneHelper();
 	guides?.add?.(sceneHelper.group);
@@ -90,15 +106,25 @@ export function createPerSplatEditController({
 	const tempBox = new THREE.Box3();
 	let activeBoxDrag = null;
 
+	function getAssetIdKey(assetId) {
+		return String(assetId);
+	}
+
 	function getSceneSplatAssets() {
-		return (store.sceneAssets.value ?? []).filter(
-			(asset) => asset?.kind === "splat",
-		);
+		const runtimeAssets =
+			getAssetController?.()?.getSceneAssets?.() ??
+			store.sceneAssets.value ??
+			[];
+		return runtimeAssets.filter((asset) => asset?.kind === "splat");
 	}
 
 	function normalizeScopeAssetIds(assetIds = []) {
-		const validIds = new Set(getSceneSplatAssets().map((asset) => asset.id));
-		return [...new Set(assetIds)].filter((assetId) => validIds.has(assetId));
+		const validIds = new Set(
+			getSceneSplatAssets().map((asset) => getAssetIdKey(asset.id)),
+		);
+		return [...new Set((assetIds ?? []).map(getAssetIdKey))].filter((assetId) =>
+			validIds.has(assetId),
+		);
 	}
 
 	function resolveEntryScopeAssetIds() {
@@ -135,6 +161,10 @@ export function createPerSplatEditController({
 	function clearSplatSelection() {
 		selectedSplatsByAssetId.clear();
 		syncSelectionCount();
+		store.splatEdit.lastOperation.value = {
+			mode: "clear",
+			hitCount: 0,
+		};
 		selectionHighlightController?.clear?.();
 		updateUi?.();
 	}
@@ -158,7 +188,9 @@ export function createPerSplatEditController({
 		store.splatEdit.scopeAssetIds.value = [...nextScopeAssetIds];
 		if (nextScopeAssetIds.length > 0) {
 			store.splatEdit.rememberedScopeAssetIds.value = [...nextScopeAssetIds];
-			fitSplatEditBoxToScope();
+			if (currentScopeAssetIds.length === 0) {
+				placeSplatEditBoxAtViewCenter();
+			}
 		} else {
 			syncSceneHelper();
 		}
@@ -174,7 +206,9 @@ export function createPerSplatEditController({
 
 	function getSplatEditScopeAssets() {
 		const scopeIds = new Set(getSplatEditScopeAssetIds());
-		return getSceneSplatAssets().filter((asset) => scopeIds.has(asset.id));
+		return getSceneSplatAssets().filter((asset) =>
+			scopeIds.has(getAssetIdKey(asset.id)),
+		);
 	}
 
 	function getSplatEditBoxCenter() {
@@ -200,6 +234,77 @@ export function createPerSplatEditController({
 				center.clone().add(tempHalfSize),
 			),
 		);
+	}
+
+	function getViewportRect() {
+		return resolveElementRect(viewportShell);
+	}
+
+	function getPrimaryViewRect() {
+		if (state.mode === "camera") {
+			const renderRect = resolveElementRect(renderBox);
+			if (renderRect) {
+				return renderRect;
+			}
+		}
+		return getViewportRect();
+	}
+
+	function placeSplatEditBoxAtViewCenter() {
+		const scopeBounds = getScopeBounds();
+		const camera = getActiveCamera?.() ?? null;
+		const viewportRect = getViewportRect();
+		const viewRect = getPrimaryViewRect();
+		let nextCenter = null;
+
+		if (camera && viewportRect && viewRect) {
+			const pointerRay = updatePointerRay(
+				raycaster,
+				pointerNdc,
+				{
+					clientX: viewRect.left + viewRect.width * 0.5,
+					clientY: viewRect.top + viewRect.height * 0.5,
+				},
+				camera,
+				viewportRect,
+			);
+			if (scopeBounds) {
+				const hitPoint = pointerRay.intersectBox(
+					scopeBounds,
+					new THREE.Vector3(),
+				);
+				if (hitPoint) {
+					nextCenter = hitPoint.clone();
+				} else {
+					const scopeCenter = scopeBounds.getCenter(new THREE.Vector3());
+					const projectedDistance = tempVector
+						.copy(scopeCenter)
+						.sub(pointerRay.origin)
+						.dot(pointerRay.direction);
+					nextCenter =
+						projectedDistance > 0
+							? pointerRay.at(projectedDistance, new THREE.Vector3())
+							: scopeCenter;
+				}
+			} else {
+				nextCenter = pointerRay.at(DEFAULT_BOX_SIZE, new THREE.Vector3());
+			}
+		}
+
+		if (!nextCenter) {
+			nextCenter =
+				scopeBounds?.getCenter(new THREE.Vector3()) ?? new THREE.Vector3();
+		}
+
+		store.splatEdit.boxCenter.value = toPlainPoint(nextCenter);
+		store.splatEdit.boxSize.value = {
+			x: DEFAULT_BOX_SIZE,
+			y: DEFAULT_BOX_SIZE,
+			z: DEFAULT_BOX_SIZE,
+		};
+		syncSceneHelper();
+		updateUi?.();
+		return true;
 	}
 
 	function syncSceneHelper() {
@@ -262,6 +367,98 @@ export function createPerSplatEditController({
 			hasBounds = true;
 		}
 		return hasBounds && !scopeBox.isEmpty() ? scopeBox : null;
+	}
+
+	function computeSplatSelectionDebugInfo(asset, selectionBox) {
+		const splatMesh = asset?.disposeTarget;
+		if (!asset?.object || typeof splatMesh?.forEachSplat !== "function") {
+			return null;
+		}
+		asset.object.updateMatrixWorld(true);
+		splatMesh.updateMatrixWorld?.(true);
+		const worldMatrix =
+			splatMesh?.matrixWorld ??
+			asset.contentObject?.matrixWorld ??
+			asset.object.matrixWorld;
+		const iteratedBounds = new THREE.Box3();
+		const sampleCenters = [];
+		let totalSplats = 0;
+		let hitSplats = 0;
+		splatMesh.forEachSplat((index, center) => {
+			tempWorldPoint.copy(center);
+			tempWorldPoint.applyMatrix4(worldMatrix);
+			iteratedBounds.expandByPoint(tempWorldPoint);
+			if (sampleCenters.length < 8) {
+				sampleCenters.push({
+					index,
+					world: {
+						x: tempWorldPoint.x,
+						y: tempWorldPoint.y,
+						z: tempWorldPoint.z,
+					},
+				});
+			}
+			if (selectionBox.containsPoint(tempWorldPoint)) {
+				hitSplats += 1;
+			}
+			totalSplats += 1;
+		});
+		return {
+			assetId: getAssetIdKey(asset.id),
+			label: asset.label,
+			totalSplats,
+			hitSplats,
+			selectionBox: {
+				min: {
+					x: selectionBox.min.x,
+					y: selectionBox.min.y,
+					z: selectionBox.min.z,
+				},
+				max: {
+					x: selectionBox.max.x,
+					y: selectionBox.max.y,
+					z: selectionBox.max.z,
+				},
+			},
+			worldBounds:
+				!iteratedBounds.isEmpty() && Number.isFinite(iteratedBounds.min.x)
+					? {
+							min: {
+								x: iteratedBounds.min.x,
+								y: iteratedBounds.min.y,
+								z: iteratedBounds.min.z,
+							},
+							max: {
+								x: iteratedBounds.max.x,
+								y: iteratedBounds.max.y,
+								z: iteratedBounds.max.z,
+							},
+						}
+					: null,
+			sampleCenters,
+		};
+	}
+
+	function reportSelectionDebugIfEmpty(selectionBox, changedCount, subtract) {
+		if (!isDevRuntime || changedCount > 0) {
+			return;
+		}
+		const scopeAssets = getSplatEditScopeAssets();
+		const details = scopeAssets
+			.map((asset) => computeSplatSelectionDebugInfo(asset, selectionBox))
+			.filter(Boolean);
+		const sceneAssets = getSceneSplatAssets().map((asset) => ({
+			assetId: getAssetIdKey(asset.id),
+			label: asset.label,
+			hasDisposeTarget: Boolean(asset.disposeTarget),
+			hasForEachSplat: typeof asset.disposeTarget?.forEachSplat === "function",
+		}));
+		console.warn("[CAMERA_FRAMES] splat edit selection matched 0 splats", {
+			mode: subtract ? "subtract" : "add",
+			scopeAssetIds: getSplatEditScopeAssetIds(),
+			sceneAssets,
+			details,
+		});
 	}
 
 	function fitSplatEditBoxToScope() {
@@ -354,8 +551,9 @@ export function createPerSplatEditController({
 				splatMesh?.matrixWorld ??
 				asset.contentObject?.matrixWorld ??
 				asset.object.matrixWorld;
+			const assetIdKey = getAssetIdKey(asset.id);
 			const nextSelection = new Set(
-				selectedSplatsByAssetId.get(asset.id) ?? [],
+				selectedSplatsByAssetId.get(assetIdKey) ?? [],
 			);
 			splatMesh.forEachSplat((index, center) => {
 				tempWorldPoint.copy(center);
@@ -376,14 +574,19 @@ export function createPerSplatEditController({
 				}
 			});
 			if (nextSelection.size > 0) {
-				selectedSplatsByAssetId.set(asset.id, nextSelection);
+				selectedSplatsByAssetId.set(assetIdKey, nextSelection);
 			} else {
-				selectedSplatsByAssetId.delete(asset.id);
+				selectedSplatsByAssetId.delete(assetIdKey);
 			}
 		}
 		syncSelectionCount();
+		store.splatEdit.lastOperation.value = {
+			mode: subtract ? "subtract" : "add",
+			hitCount: changedCount,
+		};
 		syncSelectionHighlight();
 		updateUi?.();
+		reportSelectionDebugIfEmpty(selectionBox, changedCount, subtract);
 		setStatus?.(
 			t(
 				subtract
@@ -411,6 +614,10 @@ export function createPerSplatEditController({
 		store.splatEdit.rememberedScopeAssetIds.value = [];
 		store.splatEdit.boxCenter.value = { x: 0, y: 0, z: 0 };
 		store.splatEdit.boxSize.value = { x: 1, y: 1, z: 1 };
+		store.splatEdit.lastOperation.value = {
+			mode: "",
+			hitCount: 0,
+		};
 		if (store.viewportToolMode.value === "splat-edit") {
 			store.viewportToolMode.value = "none";
 		}
@@ -430,6 +637,10 @@ export function createPerSplatEditController({
 			const wasActive = isSplatEditModeActive();
 			clearSplatSelection();
 			store.splatEdit.scopeAssetIds.value = [];
+			store.splatEdit.lastOperation.value = {
+				mode: "",
+				hitCount: 0,
+			};
 			if (store.viewportToolMode.value === "splat-edit") {
 				store.viewportToolMode.value = "none";
 			}
@@ -462,7 +673,11 @@ export function createPerSplatEditController({
 		store.splatEdit.scopeAssetIds.value = [...scopeAssetIds];
 		store.splatEdit.rememberedScopeAssetIds.value = [...scopeAssetIds];
 		store.splatEdit.tool.value = "box";
-		fitSplatEditBoxToScope();
+		store.splatEdit.lastOperation.value = {
+			mode: "",
+			hitCount: 0,
+		};
+		placeSplatEditBoxAtViewCenter();
 		syncSceneHelper();
 		syncSelectionHighlight();
 		syncControlsToMode?.();
@@ -668,6 +883,7 @@ export function createPerSplatEditController({
 		setSplatEditBoxCenterAxis,
 		setSplatEditBoxSizeAxis,
 		scaleSplatEditBoxUniform,
+		placeSplatEditBoxAtViewCenter,
 		fitSplatEditBoxToScope,
 		applySplatEditBoxSelection,
 		clearSplatSelection,

@@ -112,6 +112,10 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	const splatEditBoxCenter = signal({ x: 0, y: 0, z: 0 });
 	const splatEditBoxSize = signal({ x: 1, y: 1, z: 1 });
 	const splatEditHudPosition = signal({ x: null, y: null });
+	const splatEditLastOperation = signal({
+		mode: "",
+		hitCount: 0,
+	});
 	const workbenchManualCollapsed = signal(false);
 	const workbenchAutoCollapsed = signal(false);
 	const workbenchManualExpanded = signal(false);
@@ -394,6 +398,7 @@ export function createCameraFramesStore(runtimeInfo = null) {
 			boxCenter: splatEditBoxCenter,
 			boxSize: splatEditBoxSize,
 			hudPosition: splatEditHudPosition,
+			lastOperation: splatEditLastOperation,
 		},
 		measurement: {
 			active: measurementActive,
