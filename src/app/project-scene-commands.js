@@ -3,6 +3,7 @@ export function createProjectSceneCommands({
 	getAssetController,
 	getLightingController,
 	getMeasurementController,
+	getPerSplatEditController = null,
 	getProjectController,
 	getReferenceImageController,
 	getViewportToolController,
@@ -23,6 +24,7 @@ export function createProjectSceneCommands({
 		getMeasurementController()?.clearMeasurementSession?.({
 			keepActive: false,
 		});
+		getPerSplatEditController?.()?.resetForSceneChange?.();
 		getViewportToolController()?.setViewportTransformMode?.(false);
 		getReferenceImageController()?.clearReferenceImages?.();
 		getLightingController()?.resetLighting?.();

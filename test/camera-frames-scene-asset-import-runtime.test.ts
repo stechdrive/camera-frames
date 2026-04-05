@@ -66,6 +66,8 @@ function createHarness(overrides = {}) {
 		},
 		isProjectPackageSource: () => false,
 		isProjectPackagePackedSplatSource: () => false,
+		isProjectFilePackedSplatSource: (source) =>
+			source?.sourceType === "packed-splat",
 		extractProjectPackageAssets: async () => ({
 			files: [],
 			importState: null,
@@ -153,6 +155,18 @@ function createHarness(overrides = {}) {
 	assert.deepEqual(calls.openProjectSources, [projectFile]);
 	assert.equal(calls.loadedModels.length, 0);
 	assert.equal(calls.loadedSplats.length, 0);
+}
+
+{
+	const { runtime, calls } = createHarness();
+	const packedProjectSource = {
+		sourceType: "packed-splat",
+		fileName: "split.rawsplat",
+	};
+	const imported = await runtime.loadSources([packedProjectSource], false);
+	assert.equal(imported, undefined);
+	assert.deepEqual(calls.loadedSplats, [packedProjectSource]);
+	assert.equal(calls.loadedModels.length, 0);
 }
 
 {

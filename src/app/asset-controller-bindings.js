@@ -23,6 +23,7 @@ export function createAssetControllerBindings({
 	projectController,
 	disposeObject,
 	historyController,
+	getPerSplatEditController,
 } = {}) {
 	return {
 		sceneState,
@@ -48,6 +49,8 @@ export function createAssetControllerBindings({
 		applyProjectPackageImport,
 		openProjectSource: (...args) =>
 			projectController?.openProjectSource?.(...args),
+		onSceneAssetSelectionChanged: (...args) =>
+			getPerSplatEditController?.()?.syncScopeToSceneSelection?.(...args),
 		disposeObject,
 		runHistoryAction: historyController.runHistoryAction,
 		beginHistoryTransaction: historyController.beginHistoryTransaction,

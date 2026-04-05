@@ -9,6 +9,7 @@ import {
 	PROJECT_DOCUMENT_PATH,
 	PROJECT_FORMAT,
 	PROJECT_MANIFEST_PATH,
+	PROJECT_RESOURCE_RAW_PACKED_SPLAT,
 	PROJECT_VERSION,
 	buildProjectFingerprint,
 	buildProjectManifest,
@@ -24,6 +25,7 @@ import {
 	normalizeProjectFileName,
 	sha256Hex,
 	toUint8Array,
+	toUint32Array,
 } from "./project-document.js";
 import { ZipReader } from "./project-package.js";
 import {
@@ -126,6 +128,11 @@ function getProjectResourceFileLabel(resource) {
 			) || "meta.json"
 		);
 	}
+	if (resource?.type === PROJECT_RESOURCE_RAW_PACKED_SPLAT) {
+		return (
+			normalizeProjectFileName(resource.originalName, "") || "derived.rawsplat"
+		);
+	}
 	return "asset";
 }
 
@@ -158,6 +165,34 @@ function clonePackedSplatResource(resource) {
 			sha256: extraFile.sha256,
 			size: Number(extraFile.size ?? 0),
 		})),
+	};
+}
+
+function cloneRawPackedSplatResource(resource) {
+	return {
+		type: PROJECT_RESOURCE_RAW_PACKED_SPLAT,
+		assetKind: "splat",
+		originalName: resource.originalName,
+		numSplats: Number(resource.numSplats ?? 0),
+		splatEncoding:
+			resource.splatEncoding && typeof resource.splatEncoding === "object"
+				? JSON.parse(JSON.stringify(resource.splatEncoding))
+				: null,
+		packedArray: {
+			path: resource.packedArray?.path,
+			sha256: resource.packedArray?.sha256,
+			size: Number(resource.packedArray?.size ?? 0),
+		},
+		extraArrays: (resource.extraArrays ?? []).map((entry) => ({
+			name: entry.name,
+			path: entry.path,
+			sha256: entry.sha256,
+			size: Number(entry.size ?? 0),
+		})),
+		radMeta:
+			resource.radMeta && typeof resource.radMeta === "object"
+				? JSON.parse(JSON.stringify(resource.radMeta))
+				: null,
 	};
 }
 
@@ -394,6 +429,83 @@ async function serializePackedSplatProjectSource(
 	};
 }
 
+function createBinaryEntryBytes(value) {
+	if (value instanceof Uint32Array) {
+		return new Uint8Array(
+			value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength),
+		);
+	}
+	return toUint8Array(value);
+}
+
+async function serializeRawPackedSplatProjectSource(
+	source,
+	{ onProgress = null, progress = null } = {},
+) {
+	if (progress) {
+		await notifyPackageProgress(onProgress, {
+			...progress,
+			stage: "copy-packed-splat",
+		});
+	}
+	const originalName = normalizeProjectFileName(
+		source.fileName,
+		"derived.rawsplat",
+	);
+	const packedArrayBytes = createBinaryEntryBytes(source.packedArray);
+	const packedArrayHash = await sha256Hex(packedArrayBytes);
+	const packedArrayResource = {
+		path: buildProjectResourcePath(
+			packedArrayHash,
+			`${originalName}.packed.u32`,
+		),
+		sha256: packedArrayHash,
+		size: packedArrayBytes.byteLength,
+	};
+	const archiveEntries = {
+		[packedArrayResource.path]: packedArrayBytes,
+	};
+	const archiveEntryLabels = {
+		[packedArrayResource.path]: `${originalName} packedArray`,
+	};
+	const extraArrays = [];
+	for (const [name, value] of Object.entries(source.extra ?? {})) {
+		if (name === "radMeta") {
+			continue;
+		}
+		const bytes = createBinaryEntryBytes(value);
+		if (bytes.byteLength === 0) {
+			continue;
+		}
+		const hash = await sha256Hex(bytes);
+		const path = buildProjectResourcePath(hash, `${originalName}.${name}.u32`);
+		archiveEntries[path] = bytes;
+		archiveEntryLabels[path] = `${originalName} ${name}`;
+		extraArrays.push({
+			name,
+			path,
+			sha256: hash,
+			size: bytes.byteLength,
+		});
+	}
+	const resource = cloneRawPackedSplatResource({
+		type: PROJECT_RESOURCE_RAW_PACKED_SPLAT,
+		assetKind: "splat",
+		originalName,
+		numSplats: source.numSplats ?? 0,
+		splatEncoding: source.splatEncoding ?? null,
+		packedArray: packedArrayResource,
+		extraArrays,
+		radMeta: source.extra?.radMeta ?? null,
+	});
+	source.resource = resource;
+	return {
+		resource,
+		archiveEntries,
+		archiveEntryLabels,
+	};
+}
+
 export {
 	createProjectFileEmbeddedFileSource,
 	createProjectFilePackedSplatSource,
@@ -486,6 +598,12 @@ async function serializeProjectAssetSource(
 	}
 
 	if (isProjectFilePackedSplatSource(asset.source)) {
+		if ((asset.source.packedArray?.length ?? 0) > 0) {
+			return await serializeRawPackedSplatProjectSource(asset.source, {
+				onProgress,
+				progress,
+			});
+		}
 		return await serializePackedSplatProjectSource(asset.source, {
 			onProgress,
 			progress,
@@ -620,6 +738,13 @@ function countSerializedSourceEntries(source) {
 		return 1;
 	}
 	if (isProjectFilePackedSplatSource(source)) {
+		if ((source.packedArray?.length ?? 0) > 0) {
+			return (
+				1 +
+				Object.keys(source.extra ?? {}).filter((key) => key !== "radMeta")
+					.length
+			);
+		}
 		return 1 + Object.keys(source.extraFiles ?? {}).length;
 	}
 	return 0;
@@ -901,6 +1026,32 @@ export async function readCameraFramesProject(
 						projectAssetState: asset,
 						legacyState: asset.legacyState ?? null,
 						resource: clonePackedSplatResource(resource),
+					}),
+				});
+				continue;
+			}
+
+			if (resource.type === PROJECT_RESOURCE_RAW_PACKED_SPLAT) {
+				const packedArrayBlob = await reader.blob(resource.packedArray?.path);
+				const extra = {};
+				for (const extraArray of resource.extraArrays ?? []) {
+					const extraBlob = await reader.blob(extraArray.path);
+					extra[extraArray.name] = toUint32Array(await extraBlob.arrayBuffer());
+				}
+				if (resource.radMeta) {
+					extra.radMeta = JSON.parse(JSON.stringify(resource.radMeta));
+				}
+				assetEntries.push({
+					...asset,
+					source: createProjectFilePackedSplatSource({
+						fileName: resource.originalName,
+						packedArray: toUint32Array(await packedArrayBlob.arrayBuffer()),
+						numSplats: resource.numSplats ?? 0,
+						extra,
+						splatEncoding: resource.splatEncoding ?? null,
+						projectAssetState: asset,
+						legacyState: asset.legacyState ?? null,
+						resource: cloneRawPackedSplatResource(resource),
 					}),
 				});
 				continue;

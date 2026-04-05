@@ -86,6 +86,7 @@ export function FrameLayer({
 				"frame-layer",
 				canvasOnly ? "frame-layer--canvas" : "",
 				itemsOnly ? "frame-layer--items" : "",
+				!interactionsEnabled ? "frame-layer--noninteractive" : "",
 			]
 				.filter(Boolean)
 				.join(" ")}

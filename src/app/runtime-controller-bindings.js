@@ -18,6 +18,7 @@ export function createRuntimeControllerBindings({
 	frameController,
 	viewportToolController,
 	measurementController,
+	perSplatEditController = null,
 	viewportAxisGizmoController,
 	exportController,
 	updateDropHint,
@@ -28,6 +29,7 @@ export function createRuntimeControllerBindings({
 	toggleMeasurementMode,
 	toggleZoomTool,
 	toggleViewportSelectMode,
+	toggleSplatEditMode,
 	toggleViewportReferenceImageEditMode,
 	toggleViewportTransformMode,
 	toggleViewportPivotEditMode,
@@ -89,6 +91,16 @@ export function createRuntimeControllerBindings({
 		toggleMeasurementMode,
 		toggleZoomTool,
 		toggleViewportSelectMode,
+		toggleSplatEditMode,
+		isSplatEditModeActive: () =>
+			perSplatEditController?.isSplatEditModeActive?.() ?? false,
+		needsSplatEditBoxPlacement: () =>
+			perSplatEditController?.needsSplatEditBoxPlacement?.() ?? false,
+		placeSplatEditBoxAtPointer: (event) =>
+			perSplatEditController?.placeSplatEditBoxAtPointer?.(event, {
+				camera: getActiveCamera?.(),
+				viewportRect: viewportShell?.getBoundingClientRect?.() ?? null,
+			}) ?? false,
 		toggleViewportReferenceImageEditMode,
 		toggleViewportTransformMode,
 		toggleViewportPivotEditMode,
@@ -208,6 +220,8 @@ export function createRuntimeControllerBindings({
 			measurementController?.deleteSelectedMeasurement?.() ?? false,
 		syncMeasurementSceneHelpers: () =>
 			measurementController?.syncMeasurementSceneHelpers?.(),
+		syncPerSplatEditSceneHelper: (camera, viewportSize) =>
+			perSplatEditController?.syncSceneHelperForCamera?.(camera, viewportSize),
 		startOutputFrameAnchorDrag:
 			outputFrameController.startOutputFrameAnchorDrag,
 		syncMeasurementOverlay: () =>

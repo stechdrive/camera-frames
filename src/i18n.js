@@ -248,6 +248,7 @@ const MESSAGES = {
 			adjustLens: "焦点距離調整",
 			adjustRoll: "カメラロール",
 			zoomTool: "ズーム",
+			splatEditTool: "3DGS編集",
 			quickMenu: "クイックメニュー",
 			pinQuickSection: "レールに追加",
 			unpinQuickSection: "レールから外す",
@@ -286,6 +287,8 @@ const MESSAGES = {
 			toolSelect: "3D オブジェクトの選択モードです。もう一度押すと解除します。",
 			toolReference:
 				"下絵の選択と変形モードです。Shift+R で切り替えます。R は下絵表示の一時切替です。もう一度押すと解除します。",
+			toolSplatEdit:
+				"3DGS の per-splat 編集モードです。選択中の 3DGS asset を scope にして Box / Brush 編集へ入ります。Shift+E で切り替えます。",
 			toolTransform:
 				"3D オブジェクトの変形モードです。もう一度押すと解除します。",
 			toolPivot:
@@ -576,6 +579,38 @@ const MESSAGES = {
 			measurementDisabled: "測定ツールを終了しました。",
 			measurementScaleApplied:
 				"測定値に合わせて選択中オブジェクトへ {scale}x のスケールを適用しました。",
+			splatEditEnabled:
+				"3DGS 編集モードを有効にしました。{count} 件の 3DGS asset を編集対象にします。",
+			splatEditDisabled: "3DGS 編集モードを終了しました。",
+			splatEditRequiresScope: "先に Scene で 3DGS asset を選択してください。",
+			splatEditScopeSummary:
+				"対象 {scope} アセット / 選択 {selected} スプラット",
+			splatEditToolBox: "直方体",
+			splatEditToolBrush: "ブラシ",
+			splatEditToolTransform: "変形",
+			splatEditPlaceBoxHint: "ビューをクリックしてBoxを配置",
+			splatEditCenter: "中心",
+			splatEditSize: "サイズ",
+			splatEditScaleDown: "-10%",
+			splatEditScaleUp: "+10%",
+			splatEditFitScope: "対象に合わせる",
+			splatEditAdd: "追加",
+			splatEditSubtract: "除外",
+			splatEditDelete: "削除",
+			splatEditSeparate: "分離",
+			splatEditTransformMove: "移動",
+			splatEditTransformRotate: "回転",
+			splatEditTransformScale: "均等スケール",
+			splatEditTransformHint: "ギズモで移動・回転・均等スケールを操作します。",
+			splatEditLastOperation: "直近: {mode} / {count} hit",
+			splatEditSelectionAdded: "{count} splat を選択範囲に追加しました。",
+			splatEditSelectionRemoved: "{count} splat を選択範囲から外しました。",
+			splatEditSelectionMissing: "先に 3DGS の splat を選択してください。",
+			splatEditDeleted: "{count} splat を削除しました。",
+			splatEditSeparated: "{count} splat を {assets} asset に分離しました。",
+			splatEditTransformedMove: "{count} splat を移動しました。",
+			splatEditTransformedRotate: "{count} splat を回転しました。",
+			splatEditTransformedScale: "{count} splat を均等スケールしました。",
 			zoomToolUnavailable: "ズームツールはここでは使えません。",
 			lensToolEnabled:
 				"焦点距離調整。ドラッグで 35mm横幅換算を変更、Esc で解除。",
@@ -917,6 +952,7 @@ const MESSAGES = {
 			adjustLens: "Adjust Lens",
 			adjustRoll: "Camera Roll",
 			zoomTool: "Zoom",
+			splatEditTool: "3DGS Edit",
 			quickMenu: "Quick Menu",
 			pinQuickSection: "Add To Rail",
 			unpinQuickSection: "Remove From Rail",
@@ -958,6 +994,8 @@ const MESSAGES = {
 			toolSelect: "Select 3D objects. Press again to return to no active tool.",
 			toolReference:
 				"Edit reference images. Toggle with Shift+R. R temporarily shows or hides references. Press again to return to no active tool.",
+			toolSplatEdit:
+				"Enter per-splat editing for the selected 3DGS assets. This is the entry point for Box and Brush tools. Toggle with Shift+E.",
 			toolTransform:
 				"Transform 3D objects. Press again to return to no active tool.",
 			toolPivot:
@@ -1250,6 +1288,39 @@ const MESSAGES = {
 			measurementDisabled: "Measurement tool disabled.",
 			measurementScaleApplied:
 				"Applied a {scale}x scale ratio to the selected objects from the measurement.",
+			splatEditEnabled:
+				"Enabled 3DGS edit mode. {count} selected 3DGS assets are now in scope.",
+			splatEditDisabled: "Exited 3DGS edit mode.",
+			splatEditRequiresScope:
+				"Select at least one 3DGS asset in the Scene tab first.",
+			splatEditScopeSummary: "Scope {scope} asset / Selected {selected} splat",
+			splatEditToolBox: "Box",
+			splatEditToolBrush: "Brush",
+			splatEditToolTransform: "Transform",
+			splatEditPlaceBoxHint: "Click in the view to place the box",
+			splatEditCenter: "Center",
+			splatEditSize: "Size",
+			splatEditScaleDown: "-10%",
+			splatEditScaleUp: "+10%",
+			splatEditFitScope: "Fit Scope",
+			splatEditAdd: "Add",
+			splatEditSubtract: "Subtract",
+			splatEditDelete: "Delete",
+			splatEditSeparate: "Separate",
+			splatEditTransformMove: "Move",
+			splatEditTransformRotate: "Rotate",
+			splatEditTransformScale: "Uniform Scale",
+			splatEditTransformHint:
+				"Use the gizmo to move, rotate, or scale the selected splats.",
+			splatEditLastOperation: "Last: {mode} / {count} hit",
+			splatEditSelectionAdded: "Added {count} splats to the selection.",
+			splatEditSelectionRemoved: "Removed {count} splats from the selection.",
+			splatEditSelectionMissing: "Select 3DGS splats first.",
+			splatEditDeleted: "Deleted {count} splats.",
+			splatEditSeparated: "Separated {count} splats into {assets} asset(s).",
+			splatEditTransformedMove: "Moved {count} splats.",
+			splatEditTransformedRotate: "Rotated {count} splats.",
+			splatEditTransformedScale: "Scaled {count} splats uniformly.",
 			zoomToolUnavailable: "The zoom tool is not available here.",
 			lensToolEnabled:
 				"Lens adjust active. Drag to change the 35mm horizontal equivalent, press Esc to exit.",

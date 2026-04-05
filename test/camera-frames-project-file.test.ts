@@ -254,4 +254,69 @@ assert.equal(
 	12,
 );
 
+const rawPackedProjectSnapshot = {
+	workspace: projectSnapshot.workspace,
+	shotCameras: projectSnapshot.shotCameras,
+	scene: {
+		assets: [
+			{
+				id: "asset-raw-splat",
+				kind: "splat",
+				label: "Derived Splat",
+				source: createProjectFilePackedSplatSource({
+					fileName: "derived.rawsplat",
+					packedArray: new Uint32Array([1, 2, 3, 4, 5, 6, 7, 8]),
+					numSplats: 1,
+					extra: {
+						sh1: new Uint32Array([11, 12, 13, 14]),
+					},
+					splatEncoding: {
+						rgbMin: 0,
+						rgbMax: 1,
+					},
+				}),
+				transform: {
+					position: { x: 0, y: 0, z: 0 },
+					quaternion: { x: 0, y: 0, z: 0, w: 1 },
+				},
+				worldScale: 1,
+				unitMode: "meters",
+				visible: true,
+				exportRole: "beauty",
+				maskGroup: "",
+				workingPivotLocal: null,
+			},
+		],
+		lighting: projectSnapshot.scene.lighting,
+		referenceImages: createDefaultReferenceImageDocument(),
+	},
+};
+
+const rawPackedArchive = await buildCameraFramesProjectArchive(
+	rawPackedProjectSnapshot,
+);
+const rawPackedResult = await readCameraFramesProject(
+	new File([rawPackedArchive], "raw-packed.ssproj"),
+);
+
+assert.equal(rawPackedResult.project.scene.assets.length, 1);
+assert.equal(
+	isProjectFilePackedSplatSource(rawPackedResult.assetEntries[0].source),
+	true,
+);
+assert.equal(
+	rawPackedResult.assetEntries[0].source.fileName,
+	"derived.rawsplat",
+);
+assert.deepEqual(
+	Array.from(rawPackedResult.assetEntries[0].source.packedArray),
+	[1, 2, 3, 4, 5, 6, 7, 8],
+);
+assert.equal(rawPackedResult.assetEntries[0].source.numSplats, 1);
+assert.deepEqual(
+	Array.from(rawPackedResult.assetEntries[0].source.extra.sh1),
+	[11, 12, 13, 14],
+);
+assert.equal(rawPackedResult.assetEntries[0].source.splatEncoding.rgbMax, 1);
+
 console.log("✅ CAMERA_FRAMES project file tests passed!");

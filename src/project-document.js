@@ -23,6 +23,7 @@ export const PROJECT_JOURNAL_PATH = "journal.json";
 export const DEFAULT_PROJECT_FILENAME = "camera-frames-project.ssproj";
 export const PROJECT_FILE_EMBEDDED_FILE_SOURCE = "project-file-embedded-file";
 export const PROJECT_FILE_PACKED_SPLAT_SOURCE = "project-file-packed-splat";
+export const PROJECT_RESOURCE_RAW_PACKED_SPLAT = "raw-packed-splat";
 export const PROJECT_ASSET_LABEL_MAX_LENGTH = 128;
 
 function isFiniteNumber(value) {
@@ -444,6 +445,41 @@ export function toUint8Array(value) {
 	return new Uint8Array();
 }
 
+export function toUint32Array(value) {
+	if (value instanceof Uint32Array) {
+		return value;
+	}
+	if (value instanceof ArrayBuffer) {
+		return new Uint32Array(value);
+	}
+	if (ArrayBuffer.isView(value)) {
+		return new Uint32Array(
+			value.buffer,
+			value.byteOffset,
+			value.byteLength / 4,
+		);
+	}
+	return new Uint32Array();
+}
+
+function clonePackedSplatExtra(extra = null) {
+	if (!extra || typeof extra !== "object") {
+		return {};
+	}
+
+	const nextExtra = {};
+	for (const key of ["sh1", "sh2", "sh3", "lodTree"]) {
+		const array = toUint32Array(extra[key]);
+		if (array.length > 0) {
+			nextExtra[key] = new Uint32Array(array);
+		}
+	}
+	if (extra.radMeta && typeof extra.radMeta === "object") {
+		nextExtra.radMeta = JSON.parse(JSON.stringify(extra.radMeta));
+	}
+	return nextExtra;
+}
+
 export async function sha256Hex(bytes) {
 	const normalizedBytes = toUint8Array(bytes);
 	const buffer = normalizedBytes.buffer.slice(
@@ -479,6 +515,13 @@ export function getProjectResourceStableKey(resource) {
 		typeof resource.manifest?.sha256 === "string"
 	) {
 		return `packed-splat:${resource.manifest.sha256}:${resource.originalName ?? ""}`;
+	}
+
+	if (
+		resource.type === PROJECT_RESOURCE_RAW_PACKED_SPLAT &&
+		typeof resource.packedArray?.sha256 === "string"
+	) {
+		return `raw-packed-splat:${resource.packedArray.sha256}:${resource.originalName ?? ""}`;
 	}
 
 	return null;
@@ -561,10 +604,15 @@ export function createProjectFilePackedSplatSource({
 	inputBytes,
 	extraFiles = {},
 	fileType = null,
+	packedArray = null,
+	numSplats = 0,
+	extra = null,
+	splatEncoding = null,
 	projectAssetState = null,
 	legacyState = null,
 	resource = null,
 } = {}) {
+	const normalizedPackedArray = toUint32Array(packedArray);
 	return {
 		sourceType: PROJECT_FILE_PACKED_SPLAT_SOURCE,
 		kind: "splat",
@@ -574,6 +622,17 @@ export function createProjectFilePackedSplatSource({
 			Object.entries(extraFiles).map(([key, value]) => [key, value]),
 		),
 		fileType: fileType ? String(fileType) : null,
+		packedArray:
+			normalizedPackedArray.length > 0
+				? new Uint32Array(normalizedPackedArray)
+				: new Uint32Array(),
+		numSplats:
+			Number.isFinite(numSplats) && numSplats >= 0 ? Math.floor(numSplats) : 0,
+		extra: clonePackedSplatExtra(extra),
+		splatEncoding:
+			splatEncoding && typeof splatEncoding === "object"
+				? JSON.parse(JSON.stringify(splatEncoding))
+				: null,
 		projectAssetState,
 		legacyState,
 		resource,

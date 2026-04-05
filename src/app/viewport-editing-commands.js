@@ -11,6 +11,7 @@ export function createViewportEditingCommands({
 	getFrameController,
 	getInteractionController,
 	getMeasurementController,
+	getPerSplatEditController = null,
 	getReferenceImageController,
 	getViewportToolController,
 	clearFrameSelection,
@@ -21,6 +22,9 @@ export function createViewportEditingCommands({
 	function setViewportToolMode(nextMode) {
 		if (nextMode !== "reference") {
 			referenceImageEditModeActivation = null;
+		}
+		if (nextMode !== "splat-edit") {
+			getPerSplatEditController?.()?.handleToolModeDeactivated?.();
 		}
 		if (nextMode !== "none") {
 			getMeasurementController()?.setMeasurementMode?.(false, { silent: true });
@@ -128,6 +132,9 @@ export function createViewportEditingCommands({
 
 	function clearViewportEditingSelection() {
 		getAssetController()?.clearSceneAssetSelection?.();
+		getPerSplatEditController?.()?.setSplatEditMode?.(false, {
+			silent: true,
+		});
 		getReferenceImageController()?.clearReferenceImageSelection?.();
 		clearFrameSelection?.();
 		clearOutputFrameSelection?.();

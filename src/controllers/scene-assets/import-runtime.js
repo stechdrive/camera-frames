@@ -52,6 +52,7 @@ export function createAssetImportRuntime({
 	openFiles,
 	isProjectPackageSource,
 	isProjectPackagePackedSplatSource,
+	isProjectFilePackedSplatSource,
 	extractProjectPackageAssets,
 	openProjectSource = null,
 	getExtension,
@@ -202,6 +203,9 @@ export function createAssetImportRuntime({
 	}
 
 	async function loadSource(source) {
+		if (isProjectFilePackedSplatSource?.(source)) {
+			return loadSplatFromSource(source);
+		}
 		if (isProjectPackagePackedSplatSource(source)) {
 			return loadSplatFromSource(source);
 		}

@@ -91,6 +91,7 @@ export function createProjectStateBridge({
 	getReferenceImageController,
 	getMeasurementController,
 	getInteractionController,
+	getPerSplatEditController,
 	getViewportProjectionController,
 	getFrameController,
 	getOutputFrameController,
@@ -173,6 +174,7 @@ export function createProjectStateBridge({
 			sceneReferenceImages:
 				getReferenceImageController?.()?.captureProjectReferenceImagesState?.() ??
 				null,
+			splatEdit: getPerSplatEditController?.()?.captureEditState?.() ?? null,
 			shotCameraEditorStates,
 			referenceImageEditor:
 				shotCameraEditorStates?.[store.workspace.activeShotCameraId.value]
@@ -228,6 +230,9 @@ export function createProjectStateBridge({
 		getReferenceImageController?.()?.applyProjectReferenceImagesState?.(
 			snapshot.sceneReferenceImages ?? null,
 			{ editorState: null },
+		);
+		getPerSplatEditController?.()?.restoreEditState?.(
+			snapshot.splatEdit ?? null,
 		);
 		getMeasurementController?.()?.clearMeasurementSession?.({
 			keepActive: false,

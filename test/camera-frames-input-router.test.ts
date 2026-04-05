@@ -52,7 +52,16 @@ function createInputRouterHarness(overrides = {}) {
 		if (!listeners.has(target)) {
 			listeners.set(target, new Map());
 		}
-		listeners.get(target).set(type, handler);
+		const targetListeners = listeners.get(target);
+		const existingHandler = targetListeners.get(type);
+		if (typeof existingHandler === "function") {
+			targetListeners.set(type, (event) => {
+				existingHandler(event);
+				handler(event);
+			});
+			return;
+		}
+		targetListeners.set(type, handler);
 	};
 	const viewportShell = { id: "viewport-shell" };
 	const dropHint = {
@@ -130,6 +139,12 @@ function createInputRouterHarness(overrides = {}) {
 		toggleMeasurementMode: () => {},
 		toggleZoomTool: () => {},
 		toggleViewportSelectMode: () => {},
+		toggleSplatEditMode: () => calls.push(["toggle-splat-edit"]),
+		isSplatEditModeActive: () => overrides.isSplatEditModeActive ?? false,
+		needsSplatEditBoxPlacement: () =>
+			overrides.needsSplatEditBoxPlacement ?? false,
+		placeSplatEditBoxAtPointer: (event) =>
+			calls.push(["place-splat-box", event.clientX, event.clientY]),
 		toggleViewportReferenceImageEditMode: () => {},
 		toggleViewportTransformMode: () => {},
 		toggleViewportPivotEditMode: () => {},
@@ -224,6 +239,61 @@ function createInputRouterHarness(overrides = {}) {
 			globalThis.Element = originalElement;
 		},
 	};
+}
+
+{
+	const harness = createInputRouterHarness();
+	try {
+		const keydown = harness.listeners.get(harness.windowRef).get("keydown");
+		keydown({
+			code: "KeyE",
+			shiftKey: true,
+			altKey: false,
+			ctrlKey: false,
+			metaKey: false,
+			repeat: false,
+			target: null,
+			preventDefault() {},
+		});
+		assert.deepEqual(harness.calls, [["toggle-splat-edit"]]);
+	} finally {
+		harness.restore();
+	}
+}
+
+{
+	const harness = createInputRouterHarness({
+		isSplatEditModeActive: true,
+		needsSplatEditBoxPlacement: true,
+	});
+	try {
+		const pointerdown = harness.listeners
+			.get(harness.viewportShell)
+			.get("pointerdown");
+		const pointerup = harness.listeners.get(harness.windowRef).get("pointerup");
+		const viewportTarget = new globalThis.Element();
+		viewportTarget.closest = (selector: string) => {
+			if (selector === "#viewport") {
+				return {};
+			}
+			return null;
+		};
+		pointerdown({
+			pointerId: 1,
+			button: 0,
+			clientX: 320,
+			clientY: 240,
+			target: viewportTarget,
+		});
+		pointerup({
+			pointerId: 1,
+			clientX: 320,
+			clientY: 240,
+		});
+		assert.deepEqual(harness.calls, [["place-splat-box", 320, 240]]);
+	} finally {
+		harness.restore();
+	}
 }
 
 {

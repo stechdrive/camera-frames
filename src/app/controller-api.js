@@ -11,6 +11,7 @@ export function createControllerApi({
 	lightingController,
 	measurementController,
 	outputFrameController,
+	perSplatEditController = null,
 	assetController,
 	referenceImageController,
 	runtimeController,
@@ -21,6 +22,8 @@ export function createControllerApi({
 	toggleViewportTransformMode,
 	setViewportSelectMode,
 	toggleViewportSelectMode,
+	setSplatEditMode,
+	toggleSplatEditMode,
 	setViewportReferenceImageEditMode,
 	activateViewportReferenceImageEditModeImplicit,
 	toggleViewportReferenceImageEditMode,
@@ -57,6 +60,26 @@ export function createControllerApi({
 		toggleViewportTransformMode,
 		setViewportSelectMode,
 		toggleViewportSelectMode,
+		setSplatEditMode,
+		toggleSplatEditMode,
+		setSplatEditTool: (...args) =>
+			perSplatEditController?.setSplatEditTool?.(...args),
+		setSplatEditBoxCenterAxis: (...args) =>
+			perSplatEditController?.setSplatEditBoxCenterAxis?.(...args),
+		setSplatEditBoxSizeAxis: (...args) =>
+			perSplatEditController?.setSplatEditBoxSizeAxis?.(...args),
+		scaleSplatEditBoxUniform: (...args) =>
+			perSplatEditController?.scaleSplatEditBoxUniform?.(...args),
+		fitSplatEditBoxToScope: (...args) =>
+			perSplatEditController?.fitSplatEditBoxToScope?.(...args),
+		applySplatEditBoxSelection: (...args) =>
+			perSplatEditController?.applySplatEditBoxSelection?.(...args),
+		deleteSelectedSplats: (...args) =>
+			perSplatEditController?.deleteSelectedSplats?.(...args),
+		separateSelectedSplats: (...args) =>
+			perSplatEditController?.separateSelectedSplats?.(...args),
+		clearSplatSelection: (...args) =>
+			perSplatEditController?.clearSplatSelection?.(...args),
 		setViewportReferenceImageEditMode,
 		activateViewportReferenceImageEditModeImplicit,
 		toggleViewportReferenceImageEditMode,
@@ -290,6 +313,7 @@ export function createControllerApi({
 		redoHistory: () => historyController?.redoHistory(),
 		dispose() {
 			measurementController?.dispose?.();
+			perSplatEditController?.dispose?.();
 			guideOverlay.dispose();
 			lightingController?.dispose?.();
 			disposeSceneResources?.();

@@ -28,6 +28,10 @@ export function createRuntimeController({
 	toggleMeasurementMode,
 	toggleZoomTool,
 	toggleViewportSelectMode,
+	toggleSplatEditMode,
+	isSplatEditModeActive,
+	needsSplatEditBoxPlacement,
+	placeSplatEditBoxAtPointer,
 	toggleViewportReferenceImageEditMode,
 	toggleViewportTransformMode,
 	toggleViewportPivotEditMode,
@@ -100,6 +104,7 @@ export function createRuntimeController({
 	clearSelectedMeasurementPoint,
 	deleteSelectedMeasurement,
 	syncMeasurementSceneHelpers,
+	syncPerSplatEditSceneHelper,
 	startOutputFrameAnchorDrag,
 	exportController,
 	handleResize,
@@ -134,6 +139,7 @@ export function createRuntimeController({
 		beginHistoryTransaction,
 		commitHistoryTransaction,
 	});
+	const renderViewportSize = new THREE.Vector2();
 
 	function getActiveCameraHistoryTargetKey() {
 		return state.mode === WORKSPACE_PANE_CAMERA
@@ -231,6 +237,10 @@ export function createRuntimeController({
 			toggleMeasurementMode,
 			toggleZoomTool,
 			toggleViewportSelectMode,
+			toggleSplatEditMode,
+			isSplatEditModeActive,
+			needsSplatEditBoxPlacement,
+			placeSplatEditBoxAtPointer,
 			toggleViewportReferenceImageEditMode,
 			toggleViewportTransformMode,
 			toggleViewportPivotEditMode,
@@ -370,6 +380,8 @@ export function createRuntimeController({
 			state.mode === WORKSPACE_PANE_CAMERA
 				? getActiveCameraViewCamera()
 				: getActiveViewportCamera();
+		renderer.getSize(renderViewportSize);
+		syncPerSplatEditSceneHelper?.(renderCamera, renderViewportSize);
 		const guideState = guideOverlay.captureState();
 		const previousAutoClear = renderer.autoClear;
 		const previousBackground = scene.background;
