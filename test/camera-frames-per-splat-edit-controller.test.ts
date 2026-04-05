@@ -1103,6 +1103,7 @@ async function createPackedSplatAsset({ id, label, centers }) {
 		}),
 		true,
 	);
+	assert.equal(asset.object.visible, false);
 	assert.ok(
 		Math.abs(asset.disposeTarget.packedSplats.getSplat(0).center.x + 1) < 5e-4,
 	);
@@ -1113,6 +1114,7 @@ async function createPackedSplatAsset({ id, label, centers }) {
 		harness.controller.handleViewportGizmoDragEnd(previewMoveEvent),
 		true,
 	);
+	assert.equal(asset.object.visible, true);
 	assert.ok(
 		Math.abs(asset.disposeTarget.packedSplats.getSplat(0).center.x + 1) > 0.1,
 	);

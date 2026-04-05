@@ -31,9 +31,14 @@ export function createSplatTransformPreviewController({
 } = {}) {
 	const root = new THREE.Group();
 	root.name = "splat-transform-preview";
-	root.matrixAutoUpdate = false;
 	root.visible = false;
 	guides?.add?.(root);
+	const staticRoot = new THREE.Group();
+	staticRoot.name = "splat-transform-preview-static";
+	const transformedRoot = new THREE.Group();
+	transformedRoot.name = "splat-transform-preview-transform";
+	transformedRoot.matrixAutoUpdate = false;
+	root.add(staticRoot, transformedRoot);
 
 	const EMPTY_HIDDEN_MAP = new Map();
 	const tempMatrix = new THREE.Matrix4();
@@ -71,50 +76,55 @@ export function createSplatTransformPreviewController({
 	function disposeActivePreview() {
 		if (!activePreview) {
 			root.visible = false;
+			staticRoot.visible = false;
+			transformedRoot.visible = false;
 			return;
 		}
-		for (const node of activePreview.nodes) {
-			node.assetRoot?.remove?.(node.mesh);
-			root.remove(node.assetRoot);
-			node.mesh?.dispose?.();
-			node.packedSplats?.dispose?.();
+		for (const entry of activePreview.entries) {
+			if (entry.asset?.object) {
+				entry.asset.object.visible = entry.previousVisible;
+			}
+			for (const node of entry.nodes) {
+				node.parent?.remove?.(node.assetRoot);
+				node.assetRoot?.remove?.(node.mesh);
+				node.mesh?.dispose?.();
+				node.packedSplats?.dispose?.();
+			}
 		}
 		activePreview = null;
 		root.visible = false;
-		while (root.children.length > 0) {
-			root.remove(root.children[0]);
+		staticRoot.visible = false;
+		transformedRoot.visible = false;
+		while (staticRoot.children.length > 0) {
+			staticRoot.remove(staticRoot.children[0]);
+		}
+		while (transformedRoot.children.length > 0) {
+			transformedRoot.remove(transformedRoot.children[0]);
 		}
 	}
 
-	async function start(previewState) {
-		disposeActivePreview();
-		const nextGeneration = generation + 1;
-		generation = nextGeneration;
-		if (!previewState || !Array.isArray(previewState.entries)) {
-			return null;
+	function createPreviewNode({
+		entry,
+		indices,
+		tint = false,
+		parent,
+		nextGeneration,
+		previewState,
+	}) {
+		if (!(indices instanceof Uint32Array) || indices.length === 0) {
+			return Promise.resolve(null);
 		}
-
-		const preview = {
-			previewState,
-			nodes: [],
-			hiddenSelectedSplatsByAssetId: new Map(),
-			ready: false,
-		};
-		activePreview = preview;
-
-		for (const entry of previewState.entries) {
-			const extractedSplats = entry.packedSplats.extractSplats(
-				new Uint32Array(entry.splats.map((splat) => splat.index)),
-				false,
-			);
+		const extractedSplats = entry.packedSplats.extractSplats(indices, false);
+		if (tint) {
 			applyPreviewTint(extractedSplats, highlightColor, highlightMix);
-			const previewMesh = new SplatMesh({
-				packedSplats: extractedSplats,
-				fileName: `preview-${entry.assetIdKey}.rawsplat`,
-				lod: true,
-			});
-			previewMesh.enableWorldToView = true;
-			await previewMesh.initialized;
+		}
+		const previewMesh = new SplatMesh({
+			packedSplats: extractedSplats,
+			fileName: `${tint ? "selected" : "remainder"}-${entry.assetIdKey}.rawsplat`,
+			lod: true,
+		});
+		previewMesh.enableWorldToView = true;
+		return previewMesh.initialized.then(() => {
 			if (
 				generation !== nextGeneration ||
 				activePreview?.previewState !== previewState
@@ -129,16 +139,78 @@ export function createSplatTransformPreviewController({
 			assetRoot.matrixWorldNeedsUpdate = true;
 			assetRoot.add(previewMesh);
 			assetRoot.updateMatrixWorld(true);
-			root.add(assetRoot);
-			preview.nodes.push({
+			parent.add(assetRoot);
+			return {
 				assetRoot,
 				mesh: previewMesh,
 				packedSplats: extractedSplats,
-			});
-			preview.hiddenSelectedSplatsByAssetId.set(
-				entry.assetIdKey,
-				new Set(entry.splats.map((splat) => splat.index)),
+				parent,
+			};
+		});
+	}
+
+	async function start(previewState) {
+		disposeActivePreview();
+		const nextGeneration = generation + 1;
+		generation = nextGeneration;
+		if (!previewState || !Array.isArray(previewState.entries)) {
+			return null;
+		}
+
+		const preview = {
+			previewState,
+			entries: [],
+			hiddenSelectedSplatsByAssetId: new Map(),
+			ready: false,
+		};
+		activePreview = preview;
+
+		for (const entry of previewState.entries) {
+			const selectedIndices = new Uint32Array(
+				entry.splats.map((splat) => splat.index),
 			);
+			const selectedIndexSet = new Set(selectedIndices);
+			const remainderIndices = [];
+			const totalCount = Number(entry.totalCount ?? 0);
+			for (let index = 0; index < totalCount; index += 1) {
+				if (!selectedIndexSet.has(index)) {
+					remainderIndices.push(index);
+				}
+			}
+			const previewEntry = {
+				asset: entry.asset,
+				previousVisible: entry.asset?.object?.visible !== false,
+				nodes: [],
+			};
+			preview.entries.push(previewEntry);
+			if (entry.asset?.object) {
+				entry.asset.object.visible = false;
+			}
+			const remainderNode = await createPreviewNode({
+				entry,
+				indices:
+					remainderIndices.length > 0
+						? new Uint32Array(remainderIndices)
+						: null,
+				tint: false,
+				parent: staticRoot,
+				nextGeneration,
+				previewState,
+			});
+			if (remainderNode) {
+				previewEntry.nodes.push(remainderNode);
+			}
+			const selectedNode = await createPreviewNode({
+				entry,
+				indices: selectedIndices,
+				tint: true,
+				parent: transformedRoot,
+				nextGeneration,
+				previewState,
+			});
+			if (selectedNode) {
+				previewEntry.nodes.push(selectedNode);
+			}
 		}
 
 		if (
@@ -149,9 +221,11 @@ export function createSplatTransformPreviewController({
 			return null;
 		}
 
-		preview.ready = preview.nodes.length > 0;
+		preview.ready = preview.entries.some((entry) => entry.nodes.length > 0);
 		updateTransform(previewState);
 		root.visible = preview.ready;
+		staticRoot.visible = preview.ready;
+		transformedRoot.visible = preview.ready;
 		return preview;
 	}
 
@@ -159,10 +233,13 @@ export function createSplatTransformPreviewController({
 		if (!activePreview || activePreview.previewState !== previewState) {
 			return false;
 		}
-		root.matrix.copy(composePreviewMatrix(previewState, tempMatrix));
-		root.matrixWorldNeedsUpdate = true;
-		root.updateMatrixWorld(true);
+		transformedRoot.matrix.copy(composePreviewMatrix(previewState, tempMatrix));
+		transformedRoot.matrixWorldNeedsUpdate = true;
+		staticRoot.updateMatrixWorld(true);
+		transformedRoot.updateMatrixWorld(true);
 		root.visible = activePreview.ready;
+		staticRoot.visible = activePreview.ready;
+		transformedRoot.visible = activePreview.ready;
 		return true;
 	}
 

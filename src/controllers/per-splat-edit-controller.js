@@ -654,6 +654,7 @@ export function createPerSplatEditController({
 			const worldScale = new THREE.Vector3();
 			worldMatrix.decompose(worldPosition, worldQuaternion, worldScale);
 			const inverseWorldQuaternion = worldQuaternion.clone().invert();
+			const totalCount = getSplatAssetTotalCount(asset);
 			const splats = [];
 			splatMesh.forEachSplat(
 				(index, center, scales, quaternion, opacity, color) => {
@@ -696,6 +697,7 @@ export function createPerSplatEditController({
 				worldMatrixInverse,
 				worldQuaternion,
 				inverseWorldQuaternion,
+				totalCount,
 				splats,
 			});
 		}
