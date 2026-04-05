@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { createSplatEditSceneHelper } from "../engine/splat-edit-scene-helper.js";
+import { createProjectFilePackedSplatSource } from "../project-document.js";
 
 const WORLD_AXES = {
 	x: new THREE.Vector3(1, 0, 0),
@@ -11,6 +12,7 @@ const MOVE_AXIS_HANDLE_NAMES = ["move-x", "move-y", "move-z"];
 const MOVE_PLANE_HANDLE_NAMES = ["move-xy", "move-yz", "move-zx"];
 const MIN_BOX_AXIS_SIZE = 0.01;
 const DEFAULT_BOX_SIZE = 1;
+const DERIVED_SPLAT_FILE_EXTENSION = "rawsplat";
 
 function toPlainPoint(vector) {
 	return {
@@ -30,6 +32,34 @@ function toVector3(point, fallback = 0) {
 
 function clampBoxAxisSize(value) {
 	return Math.max(MIN_BOX_AXIS_SIZE, Number(value) || DEFAULT_BOX_SIZE);
+}
+
+function clonePackedExtra(extra = null) {
+	if (!extra || typeof extra !== "object") {
+		return {};
+	}
+
+	const nextExtra = {};
+	for (const key of ["sh1", "sh2", "sh3", "lodTree"]) {
+		const value = extra[key];
+		if (value instanceof Uint32Array) {
+			nextExtra[key] = new Uint32Array(value);
+		}
+	}
+	if (extra.radMeta && typeof extra.radMeta === "object") {
+		nextExtra.radMeta = JSON.parse(JSON.stringify(extra.radMeta));
+	}
+	return nextExtra;
+}
+
+function sanitizeFileStem(value, fallback = "splat-edit") {
+	const normalized = String(value ?? "")
+		.trim()
+		.replace(/[\\/:*?"<>|]+/g, "-")
+		.replace(/\s+/g, "-")
+		.replace(/-+/g, "-")
+		.replace(/^-|-$/g, "");
+	return normalized || fallback;
 }
 
 function buildAxisPlaneNormal(axisWorld, camera, helperA, helperB) {
@@ -117,6 +147,135 @@ export function createPerSplatEditController({
 			store.sceneAssets.value ??
 			[];
 		return runtimeAssets.filter((asset) => asset?.kind === "splat");
+	}
+
+	function getSplatPackedSource(asset) {
+		return asset?.disposeTarget?.packedSplats ?? null;
+	}
+
+	function getSplatAssetTotalCount(asset) {
+		const packedSplats = getSplatPackedSource(asset);
+		if (Number.isFinite(packedSplats?.numSplats)) {
+			return packedSplats.numSplats;
+		}
+		let totalCount = 0;
+		asset?.disposeTarget?.forEachSplat?.(() => {
+			totalCount += 1;
+		});
+		return totalCount;
+	}
+
+	function buildRemainingIndices(totalCount, selectedIndexSet) {
+		const remaining = [];
+		for (let index = 0; index < totalCount; index += 1) {
+			if (!selectedIndexSet.has(index)) {
+				remaining.push(index);
+			}
+		}
+		return new Uint32Array(remaining);
+	}
+
+	function buildSelectedSplatOperations() {
+		const operations = [];
+		for (const asset of getSplatEditScopeAssets()) {
+			const assetIdKey = getAssetIdKey(asset.id);
+			const selectedSet = selectedSplatsByAssetId.get(assetIdKey);
+			if (!selectedSet || selectedSet.size === 0) {
+				continue;
+			}
+			const totalCount = getSplatAssetTotalCount(asset);
+			if (totalCount <= 0) {
+				continue;
+			}
+			const selectedIndices = new Uint32Array(
+				[...selectedSet]
+					.filter(
+						(index) =>
+							Number.isInteger(index) && index >= 0 && index < totalCount,
+					)
+					.sort((left, right) => left - right),
+			);
+			if (selectedIndices.length === 0) {
+				continue;
+			}
+			const selectedIndexSet = new Set(selectedIndices);
+			operations.push({
+				asset,
+				assetIdKey,
+				totalCount,
+				selectedIndices,
+				selectedIndexSet,
+				remainingIndices: buildRemainingIndices(totalCount, selectedIndexSet),
+			});
+		}
+		return operations;
+	}
+
+	function getCapturedProjectAssetState(asset, { label = asset?.label } = {}) {
+		const snapshot =
+			getAssetController?.()
+				?.captureProjectSceneState?.()
+				?.find((entry) => String(entry.id) === String(asset?.id)) ?? null;
+		if (!snapshot) {
+			return null;
+		}
+		return {
+			...snapshot,
+			label: String(label ?? snapshot.label ?? asset?.label ?? "3DGS"),
+		};
+	}
+
+	function buildDerivedSplatFileName(asset, suffix = "derived") {
+		const sourceFileName =
+			asset?.source?.fileName ?? asset?.label ?? `${asset?.id ?? "splat"}`;
+		const baseName = String(sourceFileName).replace(/\.[^./\\]+$/, "");
+		return `${sanitizeFileStem(baseName)}-${suffix}.${DERIVED_SPLAT_FILE_EXTENSION}`;
+	}
+
+	function buildUniqueSplitLabel(baseLabel) {
+		const existingLabels = new Set(
+			getSceneSplatAssets().map((asset) => String(asset.label ?? "").trim()),
+		);
+		const base = `${String(baseLabel ?? "3DGS").trim() || "3DGS"} Split`;
+		if (!existingLabels.has(base)) {
+			return base;
+		}
+		let index = 2;
+		while (existingLabels.has(`${base} ${index}`)) {
+			index += 1;
+		}
+		return `${base} ${index}`;
+	}
+
+	function createDerivedPackedSplatSource(
+		asset,
+		indices,
+		{ label, fileName } = {},
+	) {
+		const packedSplats = getSplatPackedSource(asset);
+		if (
+			!packedSplats ||
+			!(indices instanceof Uint32Array) ||
+			indices.length === 0
+		) {
+			return null;
+		}
+		const extracted = packedSplats.extractSplats(indices, false);
+		return createProjectFilePackedSplatSource({
+			fileName:
+				fileName ??
+				asset?.source?.fileName ??
+				buildDerivedSplatFileName(asset, "selection"),
+			packedArray: extracted.packedArray,
+			numSplats: extracted.numSplats,
+			extra: clonePackedExtra(extracted.extra),
+			splatEncoding:
+				extracted.splatEncoding && typeof extracted.splatEncoding === "object"
+					? JSON.parse(JSON.stringify(extracted.splatEncoding))
+					: null,
+			projectAssetState: getCapturedProjectAssetState(asset, { label }),
+			legacyState: asset?.source?.legacyState ?? null,
+		});
 	}
 
 	function normalizeScopeAssetIds(assetIds = []) {
@@ -586,6 +745,137 @@ export function createPerSplatEditController({
 		return changedCount;
 	}
 
+	async function deleteSelectedSplats() {
+		const operations = buildSelectedSplatOperations();
+		if (operations.length === 0) {
+			setStatus?.(t("status.splatEditSelectionMissing"));
+			return false;
+		}
+		const assetController = getAssetController?.();
+		if (!assetController) {
+			return false;
+		}
+		let deletedCount = 0;
+		for (const operation of operations) {
+			if (operation.remainingIndices.length > 0) {
+				const remainderSource = createDerivedPackedSplatSource(
+					operation.asset,
+					operation.remainingIndices,
+					{
+						label: operation.asset.label,
+						fileName:
+							operation.asset?.source?.fileName ??
+							buildDerivedSplatFileName(operation.asset, "remainder"),
+					},
+				);
+				if (remainderSource) {
+					await assetController.replaceSplatAssetFromSource?.(
+						operation.asset.id,
+						remainderSource,
+					);
+				}
+			} else {
+				assetController.removeSceneAssets?.([operation.asset.id]);
+			}
+			selectedSplatsByAssetId.delete(operation.assetIdKey);
+			deletedCount += operation.selectedIndices.length;
+		}
+		store.splatEdit.lastOperation.value = {
+			mode: "delete",
+			hitCount: deletedCount,
+		};
+		syncSelectionCount();
+		syncSelectionHighlight();
+		syncScopeToSceneSelection();
+		syncSceneHelper();
+		updateUi?.();
+		setStatus?.(t("status.splatEditDeleted", { count: deletedCount }));
+		return deletedCount;
+	}
+
+	async function separateSelectedSplats() {
+		const operations = buildSelectedSplatOperations();
+		if (operations.length === 0) {
+			setStatus?.(t("status.splatEditSelectionMissing"));
+			return false;
+		}
+		const assetController = getAssetController?.();
+		if (!assetController) {
+			return false;
+		}
+		const createdAssets = [];
+		let separatedCount = 0;
+		for (const operation of operations) {
+			const currentAssets = assetController.getSceneAssets?.() ?? [];
+			const sourceIndex = currentAssets.findIndex(
+				(asset) => String(asset.id) === String(operation.asset.id),
+			);
+			const splitLabel = buildUniqueSplitLabel(operation.asset.label);
+			const selectedSource = createDerivedPackedSplatSource(
+				operation.asset,
+				operation.selectedIndices,
+				{
+					label: splitLabel,
+					fileName: buildDerivedSplatFileName(operation.asset, "split"),
+				},
+			);
+			const createdAsset = selectedSource
+				? await assetController.createSplatAssetFromSource?.(selectedSource, {
+						insertIndex: sourceIndex >= 0 ? sourceIndex + 1 : null,
+					})
+				: null;
+			if (createdAsset) {
+				createdAssets.push(createdAsset);
+			}
+			if (operation.remainingIndices.length > 0) {
+				const remainderSource = createDerivedPackedSplatSource(
+					operation.asset,
+					operation.remainingIndices,
+					{
+						label: operation.asset.label,
+						fileName:
+							operation.asset?.source?.fileName ??
+							buildDerivedSplatFileName(operation.asset, "remainder"),
+					},
+				);
+				if (remainderSource) {
+					await assetController.replaceSplatAssetFromSource?.(
+						operation.asset.id,
+						remainderSource,
+					);
+				}
+			} else {
+				assetController.removeSceneAssets?.([operation.asset.id]);
+			}
+			selectedSplatsByAssetId.delete(operation.assetIdKey);
+			separatedCount += operation.selectedIndices.length;
+		}
+		if (createdAssets.length > 0) {
+			assetController.clearSceneAssetSelection?.();
+			const [firstAsset, ...restAssets] = createdAssets;
+			assetController.selectSceneAsset?.(firstAsset.id);
+			for (const asset of restAssets) {
+				assetController.selectSceneAsset?.(asset.id, { additive: true });
+			}
+		}
+		store.splatEdit.lastOperation.value = {
+			mode: "separate",
+			hitCount: separatedCount,
+		};
+		syncSelectionCount();
+		syncSelectionHighlight();
+		syncScopeToSceneSelection();
+		syncSceneHelper();
+		updateUi?.();
+		setStatus?.(
+			t("status.splatEditSeparated", {
+				count: separatedCount,
+				assets: createdAssets.length,
+			}),
+		);
+		return createdAssets.length;
+	}
+
 	function handleToolModeDeactivated() {
 		if (!isSplatEditModeActive()) {
 			return false;
@@ -874,6 +1164,8 @@ export function createPerSplatEditController({
 		placeSplatEditBoxAtViewCenter,
 		fitSplatEditBoxToScope,
 		applySplatEditBoxSelection,
+		deleteSelectedSplats,
+		separateSelectedSplats,
 		clearSplatSelection,
 		getSplatEditScopeAssetIds,
 		getSplatEditScopeAssets,

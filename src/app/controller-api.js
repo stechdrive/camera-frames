@@ -74,6 +74,10 @@ export function createControllerApi({
 			perSplatEditController?.fitSplatEditBoxToScope?.(...args),
 		applySplatEditBoxSelection: (...args) =>
 			perSplatEditController?.applySplatEditBoxSelection?.(...args),
+		deleteSelectedSplats: (...args) =>
+			perSplatEditController?.deleteSelectedSplats?.(...args),
+		separateSelectedSplats: (...args) =>
+			perSplatEditController?.separateSelectedSplats?.(...args),
 		clearSplatSelection: (...args) =>
 			perSplatEditController?.clearSplatSelection?.(...args),
 		setViewportReferenceImageEditMode,

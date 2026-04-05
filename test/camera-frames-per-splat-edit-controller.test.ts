@@ -3,6 +3,7 @@ import { PackedSplats, SplatMesh } from "@sparkjsdev/spark";
 import * as THREE from "three";
 import { createPerSplatEditControllerBindings } from "../src/app/per-splat-edit-controller-bindings.js";
 import { createPerSplatEditController } from "../src/controllers/per-splat-edit-controller.js";
+import { createProjectFilePackedSplatSource } from "../src/project-document.js";
 import { createCameraFramesStore } from "../src/store.js";
 
 function createRectElement({
@@ -81,6 +82,94 @@ function createHarness({
 	activeCamera.updateProjectionMatrix();
 	activeCamera.updateMatrixWorld(true);
 	const activeCameraViewCamera = cameraViewCamera ?? activeCamera;
+	let createdAssetIndex = 1;
+	const assetController = {
+		getSceneAssets: () => store.sceneAssets.value,
+		captureProjectSceneState: () =>
+			store.sceneAssets.value.map((asset, index) => ({
+				id: String(asset.id),
+				kind: asset.kind,
+				label: asset.label ?? `Asset ${index + 1}`,
+				source: asset.source ?? null,
+				transform: {
+					position: {
+						x: asset.object?.position?.x ?? 0,
+						y: asset.object?.position?.y ?? 0,
+						z: asset.object?.position?.z ?? 0,
+					},
+					quaternion: {
+						x: asset.object?.quaternion?.x ?? 0,
+						y: asset.object?.quaternion?.y ?? 0,
+						z: asset.object?.quaternion?.z ?? 0,
+						w: asset.object?.quaternion?.w ?? 1,
+					},
+				},
+				contentTransform: null,
+				baseScale: { x: 1, y: 1, z: 1 },
+				worldScale: 1,
+				unitMode: "meters",
+				visible: asset.object?.visible !== false,
+				exportRole: "beauty",
+				maskGroup: "",
+				workingPivotLocal: null,
+				order: index,
+			})),
+		createSplatAssetFromSource: async (source, { insertIndex = null } = {}) => {
+			const asset = createDerivedRuntimeAsset({
+				id: `created-${createdAssetIndex++}`,
+				label: source.projectAssetState?.label ?? source.fileName,
+				source,
+			});
+			if (Number.isFinite(insertIndex)) {
+				store.sceneAssets.value.splice(insertIndex, 0, asset);
+			} else {
+				store.sceneAssets.value.push(asset);
+			}
+			return asset;
+		},
+		replaceSplatAssetFromSource: async (assetId, source) => {
+			const index = store.sceneAssets.value.findIndex(
+				(asset) => String(asset.id) === String(assetId),
+			);
+			if (index === -1) {
+				return null;
+			}
+			const asset = createDerivedRuntimeAsset({
+				id: assetId,
+				label: source.projectAssetState?.label ?? source.fileName,
+				source,
+			});
+			store.sceneAssets.value[index] = asset;
+			return asset;
+		},
+		removeSceneAssets: (assetIds = []) => {
+			const deleteIds = new Set(assetIds.map(String));
+			store.sceneAssets.value = store.sceneAssets.value.filter(
+				(asset) => !deleteIds.has(String(asset.id)),
+			);
+			store.selectedSceneAssetIds.value =
+				store.selectedSceneAssetIds.value.filter(
+					(assetId) => !deleteIds.has(String(assetId)),
+				);
+			store.selectedSceneAssetId.value =
+				store.selectedSceneAssetIds.value[0] ?? null;
+			return true;
+		},
+		clearSceneAssetSelection: () => {
+			store.selectedSceneAssetIds.value = [];
+			store.selectedSceneAssetId.value = null;
+		},
+		selectSceneAsset: (assetId, { additive = false } = {}) => {
+			if (additive) {
+				const nextIds = new Set(store.selectedSceneAssetIds.value);
+				nextIds.add(assetId);
+				store.selectedSceneAssetIds.value = [...nextIds];
+			} else {
+				store.selectedSceneAssetIds.value = [assetId];
+			}
+			store.selectedSceneAssetId.value = assetId;
+		},
+	};
 	const bindings = createPerSplatEditControllerBindings({
 		store,
 		state: { mode },
@@ -97,9 +186,7 @@ function createHarness({
 						: key,
 		setStatus: (message) => calls.push(["status", message]),
 		updateUi: () => calls.push(["update-ui"]),
-		getAssetController: () => ({
-			getSceneAssets: () => store.sceneAssets.value,
-		}),
+		getAssetController: () => assetController,
 		getActiveCamera: () => activeCamera,
 		getActiveCameraViewCamera: () => activeCameraViewCamera,
 		selectionHighlightController: {
@@ -130,6 +217,7 @@ function createHarness({
 		selectionHighlightCalls,
 		activeCamera,
 		activeCameraViewCamera,
+		assetController,
 		controller: createPerSplatEditController(bindings),
 	};
 }
@@ -164,6 +252,88 @@ function createSplatAsset({
 		contentObject,
 		localCenterBoundsHint: centerBounds,
 		disposeTarget: mesh,
+	};
+}
+
+function createDerivedRuntimeAsset({ id, label, source }) {
+	const object = new THREE.Group();
+	object.updateMatrixWorld(true);
+	const contentObject = new THREE.Group();
+	object.add(contentObject);
+	const mesh = new THREE.Group();
+	mesh.packedSplats = {
+		numSplats: source.numSplats ?? 0,
+	};
+	contentObject.add(mesh);
+	contentObject.updateMatrixWorld(true);
+	mesh.updateMatrixWorld(true);
+	return {
+		id,
+		kind: "splat",
+		label,
+		object,
+		contentObject,
+		disposeTarget: mesh,
+		source,
+		localCenterBoundsHint: null,
+	};
+}
+
+async function createPackedSplatAsset({ id, label, centers }) {
+	const packed = new PackedSplats({
+		packedArray: new Uint32Array(0),
+		numSplats: 0,
+	});
+	await packed.initialized;
+	for (const center of centers) {
+		packed.pushSplat(
+			center,
+			new THREE.Vector3(0.1, 0.1, 0.1),
+			new THREE.Quaternion(),
+			1,
+			new THREE.Color(1, 1, 1),
+		);
+	}
+	packed.needsUpdate = true;
+	const mesh = new SplatMesh({ packedSplats: packed, lod: true });
+	mesh.enableWorldToView = true;
+	await mesh.initialized;
+	const object = new THREE.Group();
+	object.add(mesh);
+	object.updateMatrixWorld(true);
+	mesh.updateMatrixWorld(true);
+	return {
+		id,
+		kind: "splat",
+		label,
+		object,
+		contentObject: object,
+		disposeTarget: mesh,
+		source: createProjectFilePackedSplatSource({
+			fileName: `${id}.rawsplat`,
+			packedArray: packed.packedArray,
+			numSplats: packed.numSplats,
+			extra: packed.extra,
+			splatEncoding: packed.splatEncoding,
+			projectAssetState: {
+				id: String(id),
+				kind: "splat",
+				label,
+				transform: {
+					position: { x: 0, y: 0, z: 0 },
+					quaternion: { x: 0, y: 0, z: 0, w: 1 },
+				},
+				contentTransform: null,
+				baseScale: { x: 1, y: 1, z: 1 },
+				worldScale: 1,
+				unitMode: "meters",
+				visible: true,
+				exportRole: "beauty",
+				maskGroup: "",
+				workingPivotLocal: null,
+			},
+		}),
+		localCenterBoundsHint: mesh.getBoundingBox(true),
 	};
 }
 
@@ -572,6 +742,75 @@ function createSplatAsset({
 		1,
 	);
 	assert.equal(harness.store.splatEdit.selectionCount.value, 1);
+}
+
+{
+	const harness = createHarness();
+	const asset = await createPackedSplatAsset({
+		id: "splat-delete",
+		label: "Terrain",
+		centers: [
+			new THREE.Vector3(0, 0, 0),
+			new THREE.Vector3(0.5, 0, 0),
+			new THREE.Vector3(2, 0, 0),
+		],
+	});
+	harness.store.sceneAssets.value = [asset];
+	harness.store.selectedSceneAssetIds.value = [asset.id];
+	harness.store.selectedSceneAssetId.value = asset.id;
+
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	harness.controller.setSplatEditBoxCenterAxis("x", 0.25);
+	harness.controller.setSplatEditBoxCenterAxis("z", 0);
+	harness.controller.setSplatEditBoxSizeAxis("x", 1.5);
+	assert.equal(
+		harness.controller.applySplatEditBoxSelection({ subtract: false }),
+		2,
+	);
+	assert.equal(await harness.controller.deleteSelectedSplats(), 2);
+	assert.equal(harness.store.sceneAssets.value.length, 1);
+	assert.equal(harness.store.sceneAssets.value[0].id, "splat-delete");
+	assert.equal(harness.store.sceneAssets.value[0].source.numSplats, 1);
+	assert.equal(harness.store.splatEdit.selectionCount.value, 0);
+}
+
+{
+	const harness = createHarness();
+	const asset = await createPackedSplatAsset({
+		id: "splat-separate",
+		label: "Facade",
+		centers: [
+			new THREE.Vector3(0, 0, 0),
+			new THREE.Vector3(0.5, 0, 0),
+			new THREE.Vector3(2, 0, 0),
+		],
+	});
+	harness.store.sceneAssets.value = [asset];
+	harness.store.selectedSceneAssetIds.value = [asset.id];
+	harness.store.selectedSceneAssetId.value = asset.id;
+
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	harness.controller.setSplatEditBoxCenterAxis("x", 0.25);
+	harness.controller.setSplatEditBoxCenterAxis("z", 0);
+	harness.controller.setSplatEditBoxSizeAxis("x", 1.5);
+	assert.equal(
+		harness.controller.applySplatEditBoxSelection({ subtract: false }),
+		2,
+	);
+	assert.equal(await harness.controller.separateSelectedSplats(), 1);
+	assert.equal(harness.store.sceneAssets.value.length, 2);
+	assert.equal(harness.store.sceneAssets.value[0].id, "splat-separate");
+	assert.equal(harness.store.sceneAssets.value[0].source.numSplats, 1);
+	assert.equal(harness.store.sceneAssets.value[1].source.numSplats, 2);
+	assert.equal(harness.store.sceneAssets.value[1].label, "Facade Split");
+	assert.deepEqual(harness.store.selectedSceneAssetIds.value, ["created-1"]);
+	assert.equal(harness.store.splatEdit.selectionCount.value, 0);
 }
 
 console.log("✅ CAMERA_FRAMES per-splat edit controller tests passed!");

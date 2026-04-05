@@ -531,7 +531,11 @@ export function ViewportShell({ store, controller, refs, t }) {
 												? t("status.splatEditAdd")
 												: splatEditLastOperation.mode === "subtract"
 													? t("status.splatEditSubtract")
-													: t("action.clearSelection"),
+													: splatEditLastOperation.mode === "delete"
+														? t("status.splatEditDelete")
+														: splatEditLastOperation.mode === "separate"
+															? t("status.splatEditSeparate")
+															: t("action.clearSelection"),
 										count: splatEditLastOperation.hitCount ?? 0,
 									})}
 								</div>
@@ -689,6 +693,24 @@ export function ViewportShell({ store, controller, refs, t }) {
 										onClick=${() => controller()?.clearSplatSelection?.()}
 									>
 										${t("action.clearSelection")}
+									</button>
+								</div>
+								<div class="viewport-splat-edit-hud__actions">
+									<button
+										type="button"
+										class="viewport-splat-edit-hud__tool"
+										disabled=${splatEditSelectionCount <= 0}
+										onClick=${() => void controller()?.deleteSelectedSplats?.()}
+									>
+										${t("status.splatEditDelete")}
+									</button>
+									<button
+										type="button"
+										class="viewport-splat-edit-hud__tool"
+										disabled=${splatEditSelectionCount <= 0}
+										onClick=${() => void controller()?.separateSelectedSplats?.()}
+									>
+										${t("status.splatEditSeparate")}
 									</button>
 								</div>
 							`
