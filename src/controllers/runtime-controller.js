@@ -136,6 +136,7 @@ export function createRuntimeController({
 		beginHistoryTransaction,
 		commitHistoryTransaction,
 	});
+	const renderViewportSize = new THREE.Vector2();
 
 	function getActiveCameraHistoryTargetKey() {
 		return state.mode === WORKSPACE_PANE_CAMERA
@@ -373,7 +374,8 @@ export function createRuntimeController({
 			state.mode === WORKSPACE_PANE_CAMERA
 				? getActiveCameraViewCamera()
 				: getActiveViewportCamera();
-		syncPerSplatEditSceneHelper?.(renderCamera);
+		renderer.getSize(renderViewportSize);
+		syncPerSplatEditSceneHelper?.(renderCamera, renderViewportSize);
 		const guideState = guideOverlay.captureState();
 		const previousAutoClear = renderer.autoClear;
 		const previousBackground = scene.background;

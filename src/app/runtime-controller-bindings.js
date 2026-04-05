@@ -211,8 +211,8 @@ export function createRuntimeControllerBindings({
 			measurementController?.deleteSelectedMeasurement?.() ?? false,
 		syncMeasurementSceneHelpers: () =>
 			measurementController?.syncMeasurementSceneHelpers?.(),
-		syncPerSplatEditSceneHelper: (camera) =>
-			perSplatEditController?.syncSceneHelperForCamera?.(camera),
+		syncPerSplatEditSceneHelper: (camera, viewportSize) =>
+			perSplatEditController?.syncSceneHelperForCamera?.(camera, viewportSize),
 		startOutputFrameAnchorDrag:
 			outputFrameController.startOutputFrameAnchorDrag,
 		syncMeasurementOverlay: () =>

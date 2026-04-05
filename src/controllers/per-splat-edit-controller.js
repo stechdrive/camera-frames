@@ -180,8 +180,8 @@ export function createPerSplatEditController({
 		});
 	}
 
-	function syncSceneHelperForCamera(camera) {
-		sceneHelper.syncCamera?.(camera);
+	function syncSceneHelperForCamera(camera, viewportSize = null) {
+		sceneHelper.syncCamera?.(camera, viewportSize);
 	}
 
 	function getSplatAssetCenterBounds(asset) {

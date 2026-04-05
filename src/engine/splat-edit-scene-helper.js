@@ -1,9 +1,12 @@
 import * as THREE from "three";
+import { LineMaterial } from "three/addons/lines/LineMaterial.js";
+import { LineSegments2 } from "three/addons/lines/LineSegments2.js";
+import { LineSegmentsGeometry } from "three/addons/lines/LineSegmentsGeometry.js";
 
-const FRONT_COLOR = 0x9ce7ff;
-const MID_COLOR = 0x5ec1ee;
-const BACK_COLOR = 0x355469;
-const BASE_COLOR = 0x6fc7ec;
+const FRONT_COLOR = 0xc6fbff;
+const MID_COLOR = 0x59c9ff;
+const BACK_COLOR = 0xff9a62;
+const BASE_COLOR = 0x2b586f;
 const GRID_FRACTIONS = [1 / 3, 2 / 3];
 const CAMERA_EPSILON = 1e-5;
 
@@ -16,17 +19,19 @@ function isFiniteVector3Like(value) {
 	);
 }
 
-function createLineLayer(name, color, opacity) {
-	const geometry = new THREE.BufferGeometry();
-	const material = new THREE.LineBasicMaterial({
+function createLineLayer(name, color, opacity, lineWidth) {
+	const geometry = new LineSegmentsGeometry();
+	const material = new LineMaterial({
 		color,
 		transparent: true,
 		opacity,
+		linewidth: lineWidth,
 		depthTest: false,
 		depthWrite: false,
 		toneMapped: false,
+		worldUnits: false,
 	});
-	const lines = new THREE.LineSegments(geometry, material);
+	const lines = new LineSegments2(geometry, material);
 	lines.name = name;
 	lines.renderOrder = 80;
 	lines.frustumCulled = false;
@@ -87,15 +92,7 @@ function buildBoxSegments(min, max) {
 }
 
 function updateGeometryPositions(geometry, positions) {
-	geometry.setAttribute(
-		"position",
-		new THREE.Float32BufferAttribute(positions, 3),
-	);
-	if (positions.length > 0) {
-		geometry.computeBoundingSphere();
-	} else {
-		geometry.boundingSphere = null;
-	}
+	geometry.setPositions(positions);
 }
 
 export function createSplatEditSceneHelper() {
@@ -116,6 +113,32 @@ export function createSplatEditSceneHelper() {
 	let helperVisible = false;
 	let geometryDirty = true;
 	let flatPositions = [];
+	const currentResolution = new THREE.Vector2(1, 1);
+
+	function setResolution(viewportSize = null) {
+		const width = Math.max(
+			1,
+			Math.round(
+				Number(viewportSize?.x ?? viewportSize?.width ?? currentResolution.x) ||
+					1,
+			),
+		);
+		const height = Math.max(
+			1,
+			Math.round(
+				Number(
+					viewportSize?.y ?? viewportSize?.height ?? currentResolution.y,
+				) || 1,
+			),
+		);
+		if (currentResolution.x === width && currentResolution.y === height) {
+			return;
+		}
+		currentResolution.set(width, height);
+		for (const lineLayer of [frontLines, midLines, backLines, baseLines]) {
+			lineLayer.material.resolution.set(width, height);
+		}
+	}
 
 	function refreshGeometry(camera = null) {
 		const frontPositions = [];
@@ -189,22 +212,39 @@ export function createSplatEditSceneHelper() {
 		return false;
 	}
 
-	function syncCamera(camera) {
+	function syncCamera(camera, viewportSize = null) {
 		if (!helperVisible) {
 			return;
 		}
+		setResolution(viewportSize);
 		if (geometryDirty || hasCameraChanged(camera)) {
 			refreshGeometry(camera);
 		}
 	}
 
-	const backLines = createLineLayer("splat-edit-helper-back", BACK_COLOR, 0.42);
-	const midLines = createLineLayer("splat-edit-helper-mid", MID_COLOR, 0.72);
-	const baseLines = createLineLayer("splat-edit-helper-base", BASE_COLOR, 0.34);
+	const backLines = createLineLayer(
+		"splat-edit-helper-back",
+		BACK_COLOR,
+		0.9,
+		2.1,
+	);
+	const midLines = createLineLayer(
+		"splat-edit-helper-mid",
+		MID_COLOR,
+		0.86,
+		1.8,
+	);
+	const baseLines = createLineLayer(
+		"splat-edit-helper-base",
+		BASE_COLOR,
+		0.42,
+		1.5,
+	);
 	const frontLines = createLineLayer(
 		"splat-edit-helper-front",
 		FRONT_COLOR,
-		0.96,
+		0.98,
+		2.6,
 	);
 	group.add(backLines, baseLines, midLines, frontLines);
 
