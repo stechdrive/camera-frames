@@ -8,13 +8,13 @@ function buildSelectionMaskTexture(totalCount, selectedIndices) {
 		if (!Number.isInteger(index) || index < 0 || index >= width) {
 			continue;
 		}
-		array[index * 4] = 1;
+		array[index * 4] = 255;
 	}
 	const texture = new THREE.DataTexture(
 		array,
 		width,
 		1,
-		THREE.RGBAIntegerFormat,
+		THREE.RGBAFormat,
 		THREE.UnsignedByteType,
 	);
 	texture.magFilter = THREE.NearestFilter;
@@ -31,12 +31,15 @@ function createSelectionTransformModifier({
 	translateUniform,
 	assetIdKey,
 }) {
-	const maskUniform = dyno.dynoUsampler2D(
+	const maskUniform = dyno.dynoSampler2D(
 		maskTexture,
 		`splatTransformMask_${assetIdKey}`,
 	);
 	const zeroInt = dyno.int(0);
-	const zeroUint = dyno.uint(0);
+	const selectionThreshold = dyno.dynoFloat(
+		0.5,
+		`splatTransformMaskThreshold_${assetIdKey}`,
+	);
 	return dyno.dynoBlock(
 		{ gsplat: dyno.Gsplat },
 		{ gsplat: dyno.Gsplat },
@@ -49,7 +52,7 @@ function createSelectionTransformModifier({
 			});
 			const maskTexel = dyno.texelFetch(maskUniform, maskCoord, zeroInt);
 			const maskChannels = dyno.split(maskTexel);
-			const selected = dyno.greaterThan(maskChannels.x, zeroUint);
+			const selected = dyno.greaterThan(maskChannels.x, selectionThreshold);
 			const transformed = dyno.splitGsplat(
 				dyno.transformGsplat(gsplat, {
 					scale: scaleUniform,
