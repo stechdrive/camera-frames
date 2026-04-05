@@ -33,12 +33,10 @@ export function createSplatTransformPreviewController({
 	root.name = "splat-transform-preview";
 	root.visible = false;
 	guides?.add?.(root);
-	const staticRoot = new THREE.Group();
-	staticRoot.name = "splat-transform-preview-static";
 	const transformedRoot = new THREE.Group();
 	transformedRoot.name = "splat-transform-preview-transform";
 	transformedRoot.matrixAutoUpdate = false;
-	root.add(staticRoot, transformedRoot);
+	root.add(transformedRoot);
 
 	const EMPTY_HIDDEN_MAP = new Map();
 	const tempMatrix = new THREE.Matrix4();
@@ -76,14 +74,10 @@ export function createSplatTransformPreviewController({
 	function disposeActivePreview() {
 		if (!activePreview) {
 			root.visible = false;
-			staticRoot.visible = false;
 			transformedRoot.visible = false;
 			return;
 		}
 		for (const entry of activePreview.entries) {
-			if (entry.asset?.object) {
-				entry.asset.object.visible = entry.previousVisible;
-			}
 			for (const node of entry.nodes) {
 				node.parent?.remove?.(node.assetRoot);
 				node.assetRoot?.remove?.(node.mesh);
@@ -93,11 +87,7 @@ export function createSplatTransformPreviewController({
 		}
 		activePreview = null;
 		root.visible = false;
-		staticRoot.visible = false;
 		transformedRoot.visible = false;
-		while (staticRoot.children.length > 0) {
-			staticRoot.remove(staticRoot.children[0]);
-		}
 		while (transformedRoot.children.length > 0) {
 			transformedRoot.remove(transformedRoot.children[0]);
 		}
@@ -169,37 +159,10 @@ export function createSplatTransformPreviewController({
 			const selectedIndices = new Uint32Array(
 				entry.splats.map((splat) => splat.index),
 			);
-			const selectedIndexSet = new Set(selectedIndices);
-			const remainderIndices = [];
-			const totalCount = Number(entry.totalCount ?? 0);
-			for (let index = 0; index < totalCount; index += 1) {
-				if (!selectedIndexSet.has(index)) {
-					remainderIndices.push(index);
-				}
-			}
 			const previewEntry = {
-				asset: entry.asset,
-				previousVisible: entry.asset?.object?.visible !== false,
 				nodes: [],
 			};
 			preview.entries.push(previewEntry);
-			if (entry.asset?.object) {
-				entry.asset.object.visible = false;
-			}
-			const remainderNode = await createPreviewNode({
-				entry,
-				indices:
-					remainderIndices.length > 0
-						? new Uint32Array(remainderIndices)
-						: null,
-				tint: false,
-				parent: staticRoot,
-				nextGeneration,
-				previewState,
-			});
-			if (remainderNode) {
-				previewEntry.nodes.push(remainderNode);
-			}
 			const selectedNode = await createPreviewNode({
 				entry,
 				indices: selectedIndices,
@@ -228,7 +191,6 @@ export function createSplatTransformPreviewController({
 		preview.ready = preview.entries.some((entry) => entry.nodes.length > 0);
 		updateTransform(previewState);
 		root.visible = preview.ready;
-		staticRoot.visible = preview.ready;
 		transformedRoot.visible = preview.ready;
 		return preview;
 	}
@@ -239,10 +201,8 @@ export function createSplatTransformPreviewController({
 		}
 		transformedRoot.matrix.copy(composePreviewMatrix(previewState, tempMatrix));
 		transformedRoot.matrixWorldNeedsUpdate = true;
-		staticRoot.updateMatrixWorld(true);
 		transformedRoot.updateMatrixWorld(true);
 		root.visible = activePreview.ready;
-		staticRoot.visible = activePreview.ready;
 		transformedRoot.visible = activePreview.ready;
 		return true;
 	}
