@@ -48,4 +48,44 @@ import { createSplatEditSceneHelper } from "../src/engine/splat-edit-scene-helpe
 	helper.dispose();
 }
 
+{
+	const helper = createSplatEditSceneHelper();
+	const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
+	const viewportSize = new THREE.Vector2(960, 540);
+	camera.position.set(4, 3, 5);
+	camera.lookAt(0, 0, 0);
+	camera.updateMatrixWorld(true);
+
+	helper.sync({
+		visible: true,
+		center: new THREE.Vector3(0, 0, 0),
+		size: new THREE.Vector3(2, 2, 2),
+	});
+	helper.syncCamera(camera, viewportSize);
+
+	helper.sync({
+		visible: true,
+		center: new THREE.Vector3(0, 0, 4),
+		size: new THREE.Vector3(2, 2, 2),
+	});
+	helper.syncCamera(camera, viewportSize);
+
+	const lineLayers = Object.fromEntries(
+		helper.group.children
+			.filter((child) => child?.isLineSegments2 === true)
+			.map((child) => [child.name, child]),
+	);
+
+	assert.ok(
+		(lineLayers["splat-edit-helper-front"]?.geometry.getAttribute(
+			"instanceStart",
+		)?.count ?? 0) > 0 ||
+			(lineLayers["splat-edit-helper-back"]?.geometry.getAttribute(
+				"instanceStart",
+			)?.count ?? 0) > 0,
+	);
+
+	helper.dispose();
+}
+
 console.log("✅ CAMERA_FRAMES splat edit scene helper tests passed!");

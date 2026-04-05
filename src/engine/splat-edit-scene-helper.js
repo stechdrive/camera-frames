@@ -187,7 +187,7 @@ export function createSplatEditSceneHelper() {
 		frontLines.visible = helperVisible && frontPositions.length > 0;
 		midLines.visible = helperVisible && midPositions.length > 0;
 		backLines.visible = helperVisible && backPositions.length > 0;
-		geometryDirty = false;
+		geometryDirty = !camera?.matrixWorldInverse;
 	}
 
 	function hasCameraChanged(camera) {
