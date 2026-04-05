@@ -40,6 +40,8 @@ Implemented or working in the current app:
 - scene / camera / frame / reference / export 関連編集をまたぐ Undo / Redo 基盤
 - Measurement tool with viewport / camera view support
 - viewport / camera view 対応の measurement tool
+- Initial per-splat edit workflow with Box selection, Move / Rotate / Uniform Scale, Delete, Separate, Undo / Redo, and `.ssproj` persistence
+- Box 選択、Move / Rotate / Uniform Scale、Delete、Separate、Undo / Redo、`.ssproj` 保存復元を含む初期 per-splat edit ワークフロー
 
 Still in progress or not yet finished:  
 進行中、または未完了の要素:
@@ -50,8 +52,8 @@ Still in progress or not yet finished:
 - Spark の LoD 収束を踏まえた export settle policy と color parity
 - true back-layer composition for reference preview
 - reference preview の true back-layer composition
-- per-splat edit mode
-- per-splat edit mode
+- per-splat Brush tool, further transform/orbit performance tuning, and additional splat-edit polish
+- per-splat Brush tool、追加の transform/orbit パフォーマンス調整、その他の splat-edit polish
 - large package save memory hardening and additional controller/file splits where justified
 - 大きい package save の peak memory hardening と、必要に応じた追加の controller/file 分割
 
