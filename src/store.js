@@ -109,6 +109,7 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	const splatEditBrushSize = signal(24);
 	const splatEditBrushDepthMode = signal("through");
 	const splatEditBrushDepth = signal(0.5);
+	const splatEditBoxPlaced = signal(false);
 	const splatEditBoxCenter = signal({ x: 0, y: 0, z: 0 });
 	const splatEditBoxSize = signal({ x: 1, y: 1, z: 1 });
 	const splatEditHudPosition = signal({ x: null, y: null });
@@ -395,6 +396,7 @@ export function createCameraFramesStore(runtimeInfo = null) {
 			brushSize: splatEditBrushSize,
 			brushDepthMode: splatEditBrushDepthMode,
 			brushDepth: splatEditBrushDepth,
+			boxPlaced: splatEditBoxPlaced,
 			boxCenter: splatEditBoxCenter,
 			boxSize: splatEditBoxSize,
 			hudPosition: splatEditHudPosition,

@@ -399,6 +399,7 @@ export function createPerSplatEditController({
 			brushDepth: Number.isFinite(store.splatEdit.brushDepth.value)
 				? Number(store.splatEdit.brushDepth.value)
 				: defaultBrushDepth,
+			boxPlaced: store.splatEdit.boxPlaced.value === true,
 			boxCenter: {
 				...store.splatEdit.boxCenter.value,
 			},
@@ -441,6 +442,7 @@ export function createPerSplatEditController({
 			store.splatEdit.brushSize.value = defaultBrushSize;
 			store.splatEdit.brushDepthMode.value = defaultBrushDepthMode;
 			store.splatEdit.brushDepth.value = defaultBrushDepth;
+			store.splatEdit.boxPlaced.value = false;
 			store.splatEdit.boxCenter.value = { x: 0, y: 0, z: 0 };
 			store.splatEdit.boxSize.value = { x: 1, y: 1, z: 1 };
 			store.splatEdit.hudPosition.value = { x: null, y: null };
@@ -472,6 +474,8 @@ export function createPerSplatEditController({
 		store.splatEdit.brushDepth.value = Number.isFinite(snapshot.brushDepth)
 			? Number(snapshot.brushDepth)
 			: defaultBrushDepth;
+		store.splatEdit.boxPlaced.value =
+			typeof snapshot.boxPlaced === "boolean" ? snapshot.boxPlaced : true;
 		store.splatEdit.boxCenter.value = {
 			x: Number(snapshot.boxCenter?.x ?? 0),
 			y: Number(snapshot.boxCenter?.y ?? 0),
@@ -612,6 +616,9 @@ export function createPerSplatEditController({
 	}
 
 	function getSplatEditBoxBounds() {
+		if (!store.splatEdit.boxPlaced.value) {
+			return null;
+		}
 		const center = getSplatEditBoxCenter();
 		const size = getSplatEditBoxSize();
 		tempHalfSize.copy(size).multiplyScalar(0.5);
@@ -1045,21 +1052,31 @@ export function createPerSplatEditController({
 	}
 
 	function placeSplatEditBoxAtViewCenter() {
+		const viewRect = getPrimaryViewRect();
+		if (!viewRect) {
+			return false;
+		}
+		return placeSplatEditBoxAtClientPoint({
+			clientX: viewRect.left + viewRect.width * 0.5,
+			clientY: viewRect.top + viewRect.height * 0.5,
+		});
+	}
+
+	function placeSplatEditBoxAtClientPoint({ clientX, clientY } = {}) {
 		const camera =
 			state.mode === "camera"
 				? (getActiveCameraViewCamera?.() ?? getActiveCamera?.() ?? null)
 				: (getActiveCamera?.() ?? null);
 		const viewportRect = getViewportRect();
-		const viewRect = getPrimaryViewRect();
 		let nextCenter = null;
 
-		if (camera && viewportRect && viewRect) {
+		if (camera && viewportRect) {
 			const pointerRay = updatePointerRay(
 				raycaster,
 				pointerNdc,
 				{
-					clientX: viewRect.left + viewRect.width * 0.5,
-					clientY: viewRect.top + viewRect.height * 0.5,
+					clientX,
+					clientY,
 				},
 				camera,
 				viewportRect,
@@ -1077,6 +1094,7 @@ export function createPerSplatEditController({
 			nextCenter = new THREE.Vector3();
 		}
 
+		store.splatEdit.boxPlaced.value = true;
 		store.splatEdit.boxCenter.value = toPlainPoint(nextCenter);
 		store.splatEdit.boxSize.value = {
 			x: DEFAULT_BOX_SIZE,
@@ -1095,6 +1113,7 @@ export function createPerSplatEditController({
 		if (
 			isSplatEditModeActive() &&
 			store.splatEdit.tool.value === "box" &&
+			store.splatEdit.boxPlaced.value &&
 			getSplatEditScopeAssetIds().length > 0
 		) {
 			helperVisible = true;
@@ -1307,6 +1326,7 @@ export function createPerSplatEditController({
 		}
 		const nextCenter = scopeBounds.getCenter(new THREE.Vector3());
 		const nextSize = scopeBounds.getSize(new THREE.Vector3());
+		store.splatEdit.boxPlaced.value = true;
 		store.splatEdit.boxCenter.value = toPlainPoint(nextCenter);
 		store.splatEdit.boxSize.value = {
 			x: clampBoxAxisSize(nextSize.x),
@@ -1345,6 +1365,7 @@ export function createPerSplatEditController({
 		if (!["x", "y", "z"].includes(axisKey) || !Number.isFinite(nextValue)) {
 			return false;
 		}
+		store.splatEdit.boxPlaced.value = true;
 		const nextCenter = {
 			...store.splatEdit.boxCenter.value,
 			[axisKey]: Number(nextValue),
@@ -1359,6 +1380,7 @@ export function createPerSplatEditController({
 		if (!["x", "y", "z"].includes(axisKey) || !Number.isFinite(nextValue)) {
 			return false;
 		}
+		store.splatEdit.boxPlaced.value = true;
 		const nextSize = {
 			...store.splatEdit.boxSize.value,
 			[axisKey]: clampBoxAxisSize(nextValue),
@@ -1373,6 +1395,7 @@ export function createPerSplatEditController({
 		if (!Number.isFinite(scaleFactor) || scaleFactor <= 0) {
 			return false;
 		}
+		store.splatEdit.boxPlaced.value = true;
 		const currentSize = getSplatEditBoxSize();
 		store.splatEdit.boxSize.value = {
 			x: clampBoxAxisSize(currentSize.x * scaleFactor),
@@ -1386,6 +1409,9 @@ export function createPerSplatEditController({
 
 	function applySplatEditBoxSelection({ subtract = false } = {}) {
 		const selectionBox = getSplatEditBoxBounds();
+		if (!selectionBox) {
+			return 0;
+		}
 		let changedCount = 0;
 		for (const asset of getSplatEditScopeAssets()) {
 			const splatMesh = asset.disposeTarget;
@@ -1587,6 +1613,7 @@ export function createPerSplatEditController({
 		}
 		clearSplatSelection();
 		store.splatEdit.scopeAssetIds.value = [];
+		store.splatEdit.boxPlaced.value = false;
 		if (activeTransformDrag?.historyStarted) {
 			cancelHistoryTransaction?.();
 		}
@@ -1600,6 +1627,7 @@ export function createPerSplatEditController({
 		clearSplatSelection();
 		store.splatEdit.scopeAssetIds.value = [];
 		store.splatEdit.rememberedScopeAssetIds.value = [];
+		store.splatEdit.boxPlaced.value = false;
 		store.splatEdit.boxCenter.value = { x: 0, y: 0, z: 0 };
 		store.splatEdit.boxSize.value = { x: 1, y: 1, z: 1 };
 		store.splatEdit.lastOperation.value = {
@@ -1630,6 +1658,7 @@ export function createPerSplatEditController({
 			const wasActive = isSplatEditModeActive();
 			clearSplatSelection();
 			store.splatEdit.scopeAssetIds.value = [];
+			store.splatEdit.boxPlaced.value = false;
 			store.splatEdit.lastOperation.value = {
 				mode: "",
 				hitCount: 0,
@@ -1671,11 +1700,11 @@ export function createPerSplatEditController({
 		store.splatEdit.scopeAssetIds.value = [...scopeAssetIds];
 		store.splatEdit.rememberedScopeAssetIds.value = [...scopeAssetIds];
 		store.splatEdit.tool.value = "box";
+		store.splatEdit.boxPlaced.value = false;
 		store.splatEdit.lastOperation.value = {
 			mode: "",
 			hitCount: 0,
 		};
-		placeSplatEditBoxAtViewCenter();
 		syncSceneHelper();
 		syncSelectionHighlight();
 		syncControlsToMode?.();
@@ -1697,6 +1726,9 @@ export function createPerSplatEditController({
 			return null;
 		}
 		if (store.splatEdit.tool.value === "box") {
+			if (!store.splatEdit.boxPlaced.value) {
+				return null;
+			}
 			return {
 				pivotWorld: getSplatEditBoxCenter(),
 				basisWorld: {
@@ -2202,7 +2234,31 @@ export function createPerSplatEditController({
 		clearSplatSelection,
 		getSplatEditScopeAssetIds,
 		getSplatEditScopeAssets,
+		needsSplatEditBoxPlacement() {
+			return (
+				isSplatEditModeActive() &&
+				store.splatEdit.tool.value === "box" &&
+				!store.splatEdit.boxPlaced.value &&
+				getSplatEditScopeAssetIds().length > 0
+			);
+		},
 		getViewportGizmoConfig,
+		placeSplatEditBoxAtPointer(event, { camera, viewportRect } = {}) {
+			if (
+				!isSplatEditModeActive() ||
+				store.splatEdit.tool.value !== "box" ||
+				!camera ||
+				!viewportRect ||
+				!Number.isFinite(event?.clientX) ||
+				!Number.isFinite(event?.clientY)
+			) {
+				return false;
+			}
+			return placeSplatEditBoxAtClientPoint({
+				clientX: Number(event.clientX),
+				clientY: Number(event.clientY),
+			});
+		},
 		startViewportGizmoDrag,
 		handleViewportGizmoDragMove,
 		handleViewportGizmoDragEnd,

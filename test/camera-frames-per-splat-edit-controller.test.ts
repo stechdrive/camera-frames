@@ -474,6 +474,17 @@ async function createPackedSplatAsset({ id, label, centers }) {
 		harness.controller.setSplatEditMode(true, { silent: true }),
 		true,
 	);
+	assert.equal(harness.store.splatEdit.boxPlaced.value, false);
+	assert.equal(
+		harness.controller.placeSplatEditBoxAtPointer(
+			createPointerEvent({ clientX: 500, clientY: 500 }),
+			{
+				camera: harness.activeCamera,
+				viewportRect: { left: 0, top: 0, width: 1000, height: 1000 },
+			},
+		),
+		true,
+	);
 	assert.deepEqual(
 		harness.store.splatEdit.boxCenter.value,
 		toPlainPoint(
@@ -629,11 +640,22 @@ async function createPackedSplatAsset({ id, label, centers }) {
 		harness.controller.setSplatEditMode(true, { silent: true }),
 		true,
 	);
+	assert.equal(harness.store.splatEdit.boxPlaced.value, false);
 	const expectedCenter = computeExpectedSpawnPoint({
 		camera,
 		viewportRect: { left: 0, top: 0, width: 1400, height: 1000 },
 		viewRect: { left: 100, top: 100, width: 800, height: 800 },
 	});
+	assert.equal(
+		harness.controller.placeSplatEditBoxAtPointer(
+			createPointerEvent({ clientX: 500, clientY: 500 }),
+			{
+				camera,
+				viewportRect: { left: 0, top: 0, width: 1400, height: 1000 },
+			},
+		),
+		true,
+	);
 	assert.ok(
 		Math.abs(harness.store.splatEdit.boxCenter.value.x - expectedCenter.x) <
 			1e-6,
@@ -680,6 +702,26 @@ async function createPackedSplatAsset({ id, label, centers }) {
 	);
 	assert.equal(
 		harnessB.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	assert.equal(
+		harnessA.controller.placeSplatEditBoxAtPointer(
+			createPointerEvent({ clientX: 500, clientY: 500 }),
+			{
+				camera: harnessA.activeCamera,
+				viewportRect: { left: 0, top: 0, width: 1000, height: 1000 },
+			},
+		),
+		true,
+	);
+	assert.equal(
+		harnessB.controller.placeSplatEditBoxAtPointer(
+			createPointerEvent({ clientX: 500, clientY: 500 }),
+			{
+				camera: harnessB.activeCamera,
+				viewportRect: { left: 0, top: 0, width: 1000, height: 1000 },
+			},
+		),
 		true,
 	);
 	assert.deepEqual(

@@ -92,6 +92,15 @@ export function createRuntimeControllerBindings({
 		toggleZoomTool,
 		toggleViewportSelectMode,
 		toggleSplatEditMode,
+		isSplatEditModeActive: () =>
+			perSplatEditController?.isSplatEditModeActive?.() ?? false,
+		needsSplatEditBoxPlacement: () =>
+			perSplatEditController?.needsSplatEditBoxPlacement?.() ?? false,
+		placeSplatEditBoxAtPointer: (event) =>
+			perSplatEditController?.placeSplatEditBoxAtPointer?.(event, {
+				camera: getActiveCamera?.(),
+				viewportRect: viewportShell?.getBoundingClientRect?.() ?? null,
+			}) ?? false,
 		toggleViewportReferenceImageEditMode,
 		toggleViewportTransformMode,
 		toggleViewportPivotEditMode,

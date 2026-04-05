@@ -46,6 +46,9 @@ export function bindInputRouter({
 	toggleZoomTool,
 	toggleViewportSelectMode,
 	toggleSplatEditMode,
+	isSplatEditModeActive = () => false,
+	needsSplatEditBoxPlacement = () => false,
+	placeSplatEditBoxAtPointer = () => false,
 	toggleViewportReferenceImageEditMode,
 	toggleViewportTransformMode,
 	toggleViewportPivotEditMode,
@@ -121,6 +124,7 @@ export function bindInputRouter({
 	isInteractionBlocked = null,
 }) {
 	let viewportSelectClickCandidate = null;
+	let splatEditBoxPlacementClickCandidate = null;
 	let viewportOrthoRotationGesture = null;
 	let viewportPieTouchHoldState = null;
 	const VIEWPORT_PIE_TOUCH_HOLD_MS = 320;
@@ -492,6 +496,20 @@ export function bindInputRouter({
 		if (target?.closest("#viewport-gizmo")) {
 			return;
 		}
+		if (
+			isSplatEditModeActive?.() &&
+			needsSplatEditBoxPlacement?.() &&
+			event.button === 0 &&
+			(target?.closest("#render-box") || target?.closest("#viewport"))
+		) {
+			splatEditBoxPlacementClickCandidate = {
+				pointerId: event.pointerId,
+				startClientX: event.clientX,
+				startClientY: event.clientY,
+				startPose: getCameraPoseSignature(),
+			};
+			return;
+		}
 		if (target?.closest("#render-box")) {
 			if (isViewportReferenceImageEditMode?.()) {
 				return;
@@ -599,6 +617,32 @@ export function bindInputRouter({
 	listen(window, "pointercancel", (event) => {
 		if (viewportPieTouchHoldState?.pointerId === event.pointerId) {
 			clearViewportPieTouchHold();
+		}
+	});
+	listen(window, "pointerup", (event) => {
+		if (
+			splatEditBoxPlacementClickCandidate &&
+			event.pointerId === splatEditBoxPlacementClickCandidate.pointerId
+		) {
+			const deltaX =
+				event.clientX - splatEditBoxPlacementClickCandidate.startClientX;
+			const deltaY =
+				event.clientY - splatEditBoxPlacementClickCandidate.startClientY;
+			const isClickLike =
+				Math.hypot(deltaX, deltaY) <= VIEWPORT_POINTER_CLICK_DISTANCE_PX;
+			const cameraPoseChanged =
+				splatEditBoxPlacementClickCandidate.startPose !==
+				getCameraPoseSignature();
+			const shouldPlace = isClickLike && !cameraPoseChanged;
+			splatEditBoxPlacementClickCandidate = null;
+			if (shouldPlace) {
+				placeSplatEditBoxAtPointer?.(event);
+			}
+		}
+	});
+	listen(window, "pointercancel", (event) => {
+		if (splatEditBoxPlacementClickCandidate?.pointerId === event.pointerId) {
+			splatEditBoxPlacementClickCandidate = null;
 		}
 	});
 	listen(window, "pointerup", (event) => {
