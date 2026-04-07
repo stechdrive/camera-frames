@@ -829,19 +829,7 @@ export function createPerSplatEditController({
 		selectionHighlightController?.clear?.();
 	}
 
-	function syncSelectionHighlight({ defer = false } = {}) {
-		if (defer && typeof globalThis.requestAnimationFrame === "function") {
-			if (pendingSelectionHighlightFrameId !== null) {
-				return true;
-			}
-			pendingSelectionHighlightFrameId = globalThis.requestAnimationFrame(
-				() => {
-					pendingSelectionHighlightFrameId = null;
-					runSelectionHighlightSync();
-				},
-			);
-			return true;
-		}
+	function syncSelectionHighlight() {
 		cancelPendingSelectionHighlightSync();
 		runSelectionHighlightSync();
 		return true;
@@ -2278,7 +2266,7 @@ export function createPerSplatEditController({
 		}
 		if (changedCount > 0) {
 			syncSelectionCount();
-			syncSelectionHighlight({ defer: activeBrushStroke !== null });
+			syncSelectionHighlight();
 		}
 		store.splatEdit.lastOperation.value = {
 			mode: subtract ? "subtract" : "add",

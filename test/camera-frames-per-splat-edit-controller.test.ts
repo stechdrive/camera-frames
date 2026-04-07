@@ -1613,88 +1613,48 @@ async function createPackedSplatAsset({ id, label, centers }) {
 	);
 }
 
+// Brush stroke syncs highlight immediately during drag
 {
-	const originalRequestAnimationFrame = globalThis.requestAnimationFrame;
-	const originalCancelAnimationFrame = globalThis.cancelAnimationFrame;
-	let nextFrameId = 1;
-	const queuedFrames = new Map();
-	globalThis.requestAnimationFrame = (callback) => {
-		const frameId = nextFrameId++;
-		queuedFrames.set(frameId, callback);
-		return frameId;
-	};
-	globalThis.cancelAnimationFrame = (frameId) => {
-		queuedFrames.delete(frameId);
-	};
-	try {
-		const harness = createHarness();
-		harness.store.sceneAssets.value = [
-			createPlanarBrushSplatAsset({
-				id: "splat-batched-highlight",
-				centers: [new THREE.Vector3(-0.4, 0, 0), new THREE.Vector3(0.4, 0, 0)],
-			}),
-		];
-		harness.store.selectedSceneAssetIds.value = ["splat-batched-highlight"];
-		assert.equal(
-			harness.controller.setSplatEditMode(true, { silent: true }),
-			true,
-		);
-		assert.equal(harness.controller.setSplatEditTool("brush"), "brush");
-		assert.equal(harness.controller.setSplatEditBrushSize(0.2), true);
-		harness.selectionHighlightCalls.length = 0;
+	const harness = createHarness();
+	harness.store.sceneAssets.value = [
+		createPlanarBrushSplatAsset({
+			id: "splat-immediate-highlight",
+			centers: [new THREE.Vector3(-0.4, 0, 0), new THREE.Vector3(0.4, 0, 0)],
+		}),
+	];
+	harness.store.selectedSceneAssetIds.value = ["splat-immediate-highlight"];
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	assert.equal(harness.controller.setSplatEditTool("brush"), "brush");
+	assert.equal(harness.controller.setSplatEditBrushSize(200), true);
+	harness.selectionHighlightCalls.length = 0;
 
-		assert.equal(
-			harness.controller.startSplatEditBrushStroke(
-				createPointerEvent({
-					pointerId: 21,
-					clientX: 460,
-					clientY: 500,
-				}),
-			),
-			true,
-		);
-		assert.equal(harness.selectionHighlightCalls.length, 0);
-		assert.equal(queuedFrames.size, 1);
-		assert.equal(
-			harness.controller.handleSplatEditBrushStrokeMove(
-				createPointerEvent({
-					pointerId: 21,
-					clientX: 540,
-					clientY: 500,
-				}),
-			),
-			true,
-		);
-		assert.equal(harness.selectionHighlightCalls.length, 0);
-		assert.equal(queuedFrames.size, 1);
-		assert.equal(
-			harness.controller.finishSplatEditBrushStroke(
-				createPointerEvent({
-					pointerId: 21,
-					clientX: 540,
-					clientY: 500,
-				}),
-			),
-			true,
-		);
-		assert.equal(
-			harness.selectionHighlightCalls.filter((entry) => entry[0] === "sync")
-				.length,
-			1,
-		);
-		assert.equal(queuedFrames.size, 0);
-	} finally {
-		if (originalRequestAnimationFrame === undefined) {
-			globalThis.requestAnimationFrame = undefined;
-		} else {
-			globalThis.requestAnimationFrame = originalRequestAnimationFrame;
-		}
-		if (originalCancelAnimationFrame === undefined) {
-			globalThis.cancelAnimationFrame = undefined;
-		} else {
-			globalThis.cancelAnimationFrame = originalCancelAnimationFrame;
-		}
-	}
+	assert.equal(
+		harness.controller.startSplatEditBrushStroke(
+			createPointerEvent({
+				pointerId: 21,
+				clientX: 460,
+				clientY: 500,
+			}),
+		),
+		true,
+	);
+	const syncCountAfterStart = harness.selectionHighlightCalls.filter(
+		(entry) => entry[0] === "sync",
+	).length;
+	assert.ok(syncCountAfterStart >= 1, "highlight should sync on stroke start");
+	assert.equal(
+		harness.controller.finishSplatEditBrushStroke(
+			createPointerEvent({
+				pointerId: 21,
+				clientX: 540,
+				clientY: 500,
+			}),
+		),
+		true,
+	);
 }
 
 {
