@@ -1676,6 +1676,31 @@ input[type="range"] {
 		rgba(255, 140, 96, 0.28);
 }
 
+.viewport-splat-edit-brush-preview__depth-bar {
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	width: 2px;
+	transform: translateX(-50%);
+	background: linear-gradient(
+		180deg,
+		rgba(132, 219, 255, 0.9) 0%,
+		rgba(132, 219, 255, 0.3) 70%,
+		rgba(132, 219, 255, 0) 100%
+	);
+	border-radius: 1px;
+}
+
+.viewport-splat-edit-brush-preview--subtract
+	.viewport-splat-edit-brush-preview__depth-bar {
+	background: linear-gradient(
+		180deg,
+		rgba(255, 170, 132, 0.9) 0%,
+		rgba(255, 170, 132, 0.3) 70%,
+		rgba(255, 170, 132, 0) 100%
+	);
+}
+
 .viewport-splat-edit-brush-preview__label {
 	position: absolute;
 	transform: translate(-50%, 0);
