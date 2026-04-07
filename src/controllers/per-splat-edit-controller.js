@@ -184,6 +184,8 @@ export function createPerSplatEditController({
 	const tempBrushBoundsSize = new THREE.Vector3();
 	const tempBrushQueryBounds = new THREE.Box3();
 	let lastBrushRayDepth = 0;
+	const brushDepthPlane = new THREE.Plane();
+	const tempPlaneHitPoint = new THREE.Vector3();
 	const tempBrushUpVector = new THREE.Vector3();
 	let activeBoxDrag = null;
 	let activeBrushStroke = null;
@@ -1530,7 +1532,12 @@ export function createPerSplatEditController({
 		let hitPoint = intersections[0]?.point?.clone?.() ?? null;
 		if (hitPoint) {
 			camera.getWorldPosition(tempCameraPosition);
+			camera.getWorldDirection(tempCameraDirection).normalize();
 			lastBrushRayDepth = hitPoint.distanceTo(tempCameraPosition);
+			brushDepthPlane.setFromNormalAndCoplanarPoint(
+				tempCameraDirection,
+				hitPoint,
+			);
 		} else {
 			hitPoint = resolveBrushFallbackHitPoint(camera, pointerRay);
 		}
@@ -1565,9 +1572,16 @@ export function createPerSplatEditController({
 			camera,
 			viewRect,
 		);
+		const hitPoint = raycaster.ray.intersectPlane(
+			brushDepthPlane,
+			tempPlaneHitPoint,
+		);
+		if (!hitPoint) {
+			return null;
+		}
 		return {
 			camera,
-			hitPoint: pointerRay.at(lastBrushRayDepth, new THREE.Vector3()),
+			hitPoint: hitPoint.clone(),
 			rayDirection: pointerRay.direction.clone().normalize(),
 			viewRect,
 		};
