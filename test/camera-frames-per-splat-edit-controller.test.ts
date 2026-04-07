@@ -517,6 +517,23 @@ async function createPackedSplatAsset({ id, label, centers }) {
 
 {
 	const harness = createHarness();
+	assert.equal(harness.controller.setSplatEditTool("brush"), "brush");
+	assert.ok(
+		harness.calls.some(
+			(entry) => Array.isArray(entry) && entry[0] === "sync-controls",
+		),
+	);
+	harness.calls.length = 0;
+	assert.equal(harness.controller.setSplatEditTool("transform"), "transform");
+	assert.ok(
+		harness.calls.some(
+			(entry) => Array.isArray(entry) && entry[0] === "sync-controls",
+		),
+	);
+}
+
+{
+	const harness = createHarness();
 	harness.store.sceneAssets.value = [
 		createSplatAsset({
 			id: "splat-1",

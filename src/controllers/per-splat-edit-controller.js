@@ -1519,6 +1519,12 @@ export function createPerSplatEditController({
 			clearActiveTransformPreview({ syncUi: false });
 		}
 		syncSceneHelper();
+		if (
+			(previousTool === "brush") !==
+			(store.splatEdit.tool.value === "brush")
+		) {
+			syncControlsToMode?.();
+		}
 		updateUi?.();
 		return store.splatEdit.tool.value;
 	}
@@ -1701,9 +1707,8 @@ export function createPerSplatEditController({
 				asset.contentObject?.matrixWorld ??
 				asset.object.matrixWorld;
 			const assetIdKey = getAssetIdKey(asset.id);
-			const nextSelection = new Set(
-				selectedSplatsByAssetId.get(assetIdKey) ?? [],
-			);
+			const nextSelection =
+				selectedSplatsByAssetId.get(assetIdKey) ?? new Set();
 			splatMesh.forEachSplat((index, center) => {
 				tempWorldPoint.copy(center);
 				tempWorldPoint.applyMatrix4(worldMatrix);
@@ -1736,13 +1741,14 @@ export function createPerSplatEditController({
 				selectedSplatsByAssetId.delete(assetIdKey);
 			}
 		}
-		syncSelectionCount();
+		if (changedCount > 0) {
+			syncSelectionCount();
+			syncSelectionHighlight();
+		}
 		store.splatEdit.lastOperation.value = {
 			mode: subtract ? "subtract" : "add",
 			hitCount: changedCount,
 		};
-		syncSelectionHighlight();
-		syncSceneHelper();
 		if (syncUi) {
 			updateUi?.();
 		}
