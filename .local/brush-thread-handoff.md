@@ -48,13 +48,13 @@
 ## Next Work (priority order)
 
 ### 1. トランスフォーム中のハイライト追従
-- **現状**: world modifier 方式でスプラット本体の移動は軽い
-- **問題**: ドラッグ中にハイライト領域が追従しない（マウスアップ確定まで見えない）
-- **原因推定**: ハイライト RGBA テクスチャはワールド座標に紐づいていて、world modifier の変換が反映されない
-- **方針**: world modifier の変換行列をハイライトシステムにも適用するか、ハイライトを modifier 側で処理する方法を探る
+- **現在の方式**: `extractSplats` で選択スプラットを抽出し、別 `SplatMesh` を作成。`transformedRoot` の子にして行列で移動（world modifier ではない）
+- **問題**: ドラッグ中にハイライト色の選択領域が追従しない（マウスアップ確定まで見えない）
+- **過去の試み**: world modifier 方式（`SplatMesh.worldModifier`）を試したら描画は軽くなったが、ハイライトがドラッグ中に更新されず断念、現在の extractSplats 方式に戻した経緯あり
+- **方針案**: (a) extractSplats プレビューメッシュにハイライト色の tint を適用する方法を改善する (b) world modifier で移動しつつ、ハイライト用 RGBA テクスチャを modifier の変換に連動させる方法を探る (c) Spark の `SplatEdit` / `SplatEdits` API が使えないか調査
 
 ### 2. トランスフォーム確定後のカメラ回転パフォーマンス
-- #1 と関連している可能性。world modifier の状態管理を整理すれば一緒に解決するかも
+- extractSplats でプレビューメッシュを作成/破棄するコストか、確定後のメッシュ再構築が原因の可能性
 
 ### 3. Duplicate（複製）
 - Separate の応用。選択スプラットを同じ位置にコピーして新アセットに追加
@@ -79,7 +79,7 @@ pointermove
 
 - `src/controllers/per-splat-edit-controller.js` — ブラシ本体 + spatial index + transform
 - `src/engine/splat-selection-highlight.js` — ハイライト RGBA テクスチャ
-- `src/engine/splat-transform-preview.js` — トランスフォームプレビュー（world modifier）
+- `src/engine/splat-transform-preview.js` — トランスフォームプレビュー（extractSplats + 別 SplatMesh 方式）
 - `src/controllers/interaction-controller.js` — 右ドラッグオービット/パン
 - `src/controllers/runtime-controller.js` — バインディング配線
 - `src/interactions/input-router.js` — ポインタイベントルーティング
