@@ -75,6 +75,9 @@ export function ViewportShell({ store, controller, refs, t }) {
 	const splatEditTool = store.splatEdit.tool.value;
 	const splatEditScopeCount = store.splatEdit.scopeAssetIds.value.length;
 	const splatEditSelectionCount = store.splatEdit.selectionCount.value;
+	const splatEditBrushSize = store.splatEdit.brushSize.value;
+	const splatEditBrushDepthMode = store.splatEdit.brushDepthMode.value;
+	const splatEditBrushDepth = store.splatEdit.brushDepth.value;
 	const splatEditBoxPlaced = store.splatEdit.boxPlaced.value;
 	const splatEditBoxCenter = store.splatEdit.boxCenter.value;
 	const splatEditBoxSize = store.splatEdit.boxSize.value;
@@ -280,6 +283,20 @@ export function ViewportShell({ store, controller, refs, t }) {
 			controller()?.setSplatEditBoxSizeAxis?.(axisKey, numericValue);
 		}
 	};
+	const handleSplatEditBrushSizeInput = (nextValue) => {
+		const numericValue = Number(nextValue);
+		if (Number.isFinite(numericValue)) {
+			controller()?.setSplatEditBrushSize?.(numericValue);
+		}
+	};
+	const handleSplatEditBrushDepthInput = (nextValue) => {
+		const numericValue = Number(nextValue);
+		if (Number.isFinite(numericValue)) {
+			controller()?.setSplatEditBrushDepth?.(numericValue);
+		}
+	};
+	const setSplatEditBrushDepthMode = (nextMode) =>
+		controller()?.setSplatEditBrushDepthMode?.(nextMode);
 	const renderSplatEditField = ({
 		label,
 		value,
@@ -735,6 +752,84 @@ export function ViewportShell({ store, controller, refs, t }) {
 													</button>
 												</div>
 											`
+								}
+							`
+						}
+						${
+							splatEditTool === "brush" &&
+							html`
+								<div class="viewport-splat-edit-hud__section">
+									<span class="viewport-splat-edit-hud__section-label">
+										${t("status.splatEditBrushHint")}
+									</span>
+								</div>
+								<div class="viewport-splat-edit-hud__section">
+									<span class="viewport-splat-edit-hud__section-label">
+										${t("status.splatEditSize")}
+									</span>
+									<div class="viewport-splat-edit-hud__grid">
+										${renderSplatEditField({
+											label: t("status.splatEditToolBrush"),
+											value: splatEditBrushSize ?? 0.2,
+											min: "0.01",
+											historyLabel: "splat-edit.brush-size",
+											onScrubValue: (nextValue) =>
+												handleSplatEditBrushSizeInput(nextValue),
+											onCommitValue: (nextValue) =>
+												handleSplatEditBrushSizeInput(nextValue),
+										})}
+									</div>
+								</div>
+								<div class="viewport-splat-edit-hud__section">
+									<span class="viewport-splat-edit-hud__section-label">
+										${t("status.splatEditBrushMode")}
+									</span>
+								</div>
+								<div class="viewport-splat-edit-hud__actions">
+									<button
+										type="button"
+										class=${
+											splatEditBrushDepthMode === "through"
+												? "viewport-splat-edit-hud__tool viewport-splat-edit-hud__tool--active"
+												: "viewport-splat-edit-hud__tool"
+										}
+										onClick=${() => setSplatEditBrushDepthMode("through")}
+									>
+										${t("status.splatEditBrushModeThrough")}
+									</button>
+									<button
+										type="button"
+										class=${
+											splatEditBrushDepthMode === "depth"
+												? "viewport-splat-edit-hud__tool viewport-splat-edit-hud__tool--active"
+												: "viewport-splat-edit-hud__tool"
+										}
+										onClick=${() => setSplatEditBrushDepthMode("depth")}
+									>
+										${t("status.splatEditBrushModeDepth")}
+									</button>
+								</div>
+								${
+									splatEditBrushDepthMode === "depth" &&
+									html`
+										<div class="viewport-splat-edit-hud__section">
+											<span class="viewport-splat-edit-hud__section-label">
+												${t("status.splatEditBrushDepth")}
+											</span>
+											<div class="viewport-splat-edit-hud__grid">
+												${renderSplatEditField({
+													label: t("status.splatEditBrushModeDepth"),
+													value: splatEditBrushDepth ?? 0.2,
+													min: "0.01",
+													historyLabel: "splat-edit.brush-depth",
+													onScrubValue: (nextValue) =>
+														handleSplatEditBrushDepthInput(nextValue),
+													onCommitValue: (nextValue) =>
+														handleSplatEditBrushDepthInput(nextValue),
+												})}
+											</div>
+										</div>
+									`
 								}
 							`
 						}

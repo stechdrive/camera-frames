@@ -64,6 +64,12 @@ export function createControllerApi({
 		toggleSplatEditMode,
 		setSplatEditTool: (...args) =>
 			perSplatEditController?.setSplatEditTool?.(...args),
+		setSplatEditBrushSize: (...args) =>
+			perSplatEditController?.setSplatEditBrushSize?.(...args),
+		setSplatEditBrushDepthMode: (...args) =>
+			perSplatEditController?.setSplatEditBrushDepthMode?.(...args),
+		setSplatEditBrushDepth: (...args) =>
+			perSplatEditController?.setSplatEditBrushDepth?.(...args),
 		setSplatEditBoxCenterAxis: (...args) =>
 			perSplatEditController?.setSplatEditBoxCenterAxis?.(...args),
 		setSplatEditBoxSizeAxis: (...args) =>

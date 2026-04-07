@@ -141,10 +141,18 @@ function createInputRouterHarness(overrides = {}) {
 		toggleViewportSelectMode: () => {},
 		toggleSplatEditMode: () => calls.push(["toggle-splat-edit"]),
 		isSplatEditModeActive: () => overrides.isSplatEditModeActive ?? false,
+		isSplatEditBrushActive: () => overrides.isSplatEditBrushActive ?? false,
 		needsSplatEditBoxPlacement: () =>
 			overrides.needsSplatEditBoxPlacement ?? false,
 		placeSplatEditBoxAtPointer: (event) =>
 			calls.push(["place-splat-box", event.clientX, event.clientY]),
+		applySplatEditBrushAtPointer: (event) =>
+			calls.push([
+				"apply-splat-brush",
+				event.clientX,
+				event.clientY,
+				Boolean(event.altKey),
+			]),
 		toggleViewportReferenceImageEditMode: () => {},
 		toggleViewportTransformMode: () => {},
 		toggleViewportPivotEditMode: () => {},
@@ -291,6 +299,42 @@ function createInputRouterHarness(overrides = {}) {
 			clientY: 240,
 		});
 		assert.deepEqual(harness.calls, [["place-splat-box", 320, 240]]);
+	} finally {
+		harness.restore();
+	}
+}
+
+{
+	const harness = createInputRouterHarness({
+		isSplatEditModeActive: true,
+		isSplatEditBrushActive: true,
+	});
+	try {
+		const pointerdown = harness.listeners
+			.get(harness.viewportShell)
+			.get("pointerdown");
+		const pointerup = harness.listeners.get(harness.windowRef).get("pointerup");
+		const viewportTarget = new globalThis.Element();
+		viewportTarget.closest = (selector: string) => {
+			if (selector === "#viewport") {
+				return {};
+			}
+			return null;
+		};
+		pointerdown({
+			pointerId: 2,
+			button: 0,
+			clientX: 640,
+			clientY: 360,
+			target: viewportTarget,
+		});
+		pointerup({
+			pointerId: 2,
+			clientX: 640,
+			clientY: 360,
+			altKey: true,
+		});
+		assert.deepEqual(harness.calls, [["apply-splat-brush", 640, 360, true]]);
 	} finally {
 		harness.restore();
 	}

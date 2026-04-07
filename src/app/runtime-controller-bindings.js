@@ -94,6 +94,8 @@ export function createRuntimeControllerBindings({
 		toggleSplatEditMode,
 		isSplatEditModeActive: () =>
 			perSplatEditController?.isSplatEditModeActive?.() ?? false,
+		isSplatEditBrushActive: () =>
+			perSplatEditController?.isSplatEditBrushActive?.() ?? false,
 		needsSplatEditBoxPlacement: () =>
 			perSplatEditController?.needsSplatEditBoxPlacement?.() ?? false,
 		placeSplatEditBoxAtPointer: (event) =>
@@ -101,6 +103,8 @@ export function createRuntimeControllerBindings({
 				camera: getActiveCamera?.(),
 				viewportRect: viewportShell?.getBoundingClientRect?.() ?? null,
 			}) ?? false,
+		applySplatEditBrushAtPointer: (event) =>
+			perSplatEditController?.applySplatEditBrushAtPointer?.(event) ?? false,
 		toggleViewportReferenceImageEditMode,
 		toggleViewportTransformMode,
 		toggleViewportPivotEditMode,

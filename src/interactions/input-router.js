@@ -47,8 +47,10 @@ export function bindInputRouter({
 	toggleViewportSelectMode,
 	toggleSplatEditMode,
 	isSplatEditModeActive = () => false,
+	isSplatEditBrushActive = () => false,
 	needsSplatEditBoxPlacement = () => false,
 	placeSplatEditBoxAtPointer = () => false,
+	applySplatEditBrushAtPointer = () => false,
 	toggleViewportReferenceImageEditMode,
 	toggleViewportTransformMode,
 	toggleViewportPivotEditMode,
@@ -124,7 +126,7 @@ export function bindInputRouter({
 	isInteractionBlocked = null,
 }) {
 	let viewportSelectClickCandidate = null;
-	let splatEditBoxPlacementClickCandidate = null;
+	let splatEditClickCandidate = null;
 	let viewportOrthoRotationGesture = null;
 	let viewportPieTouchHoldState = null;
 	const VIEWPORT_PIE_TOUCH_HOLD_MS = 320;
@@ -498,17 +500,24 @@ export function bindInputRouter({
 		}
 		if (
 			isSplatEditModeActive?.() &&
-			needsSplatEditBoxPlacement?.() &&
 			event.button === 0 &&
 			(target?.closest("#render-box") || target?.closest("#viewport"))
 		) {
-			splatEditBoxPlacementClickCandidate = {
+			splatEditClickCandidate = {
 				pointerId: event.pointerId,
 				startClientX: event.clientX,
 				startClientY: event.clientY,
 				startPose: getCameraPoseSignature(),
+				action: needsSplatEditBoxPlacement?.()
+					? "box"
+					: isSplatEditBrushActive?.()
+						? "brush"
+						: "",
 			};
-			return;
+			if (splatEditClickCandidate.action) {
+				return;
+			}
+			splatEditClickCandidate = null;
 		}
 		if (target?.closest("#render-box")) {
 			if (isViewportReferenceImageEditMode?.()) {
@@ -621,28 +630,30 @@ export function bindInputRouter({
 	});
 	listen(window, "pointerup", (event) => {
 		if (
-			splatEditBoxPlacementClickCandidate &&
-			event.pointerId === splatEditBoxPlacementClickCandidate.pointerId
+			splatEditClickCandidate &&
+			event.pointerId === splatEditClickCandidate.pointerId
 		) {
-			const deltaX =
-				event.clientX - splatEditBoxPlacementClickCandidate.startClientX;
-			const deltaY =
-				event.clientY - splatEditBoxPlacementClickCandidate.startClientY;
+			const completedClick = splatEditClickCandidate;
+			const deltaX = event.clientX - completedClick.startClientX;
+			const deltaY = event.clientY - completedClick.startClientY;
 			const isClickLike =
 				Math.hypot(deltaX, deltaY) <= VIEWPORT_POINTER_CLICK_DISTANCE_PX;
 			const cameraPoseChanged =
-				splatEditBoxPlacementClickCandidate.startPose !==
-				getCameraPoseSignature();
-			const shouldPlace = isClickLike && !cameraPoseChanged;
-			splatEditBoxPlacementClickCandidate = null;
-			if (shouldPlace) {
-				placeSplatEditBoxAtPointer?.(event);
+				completedClick.startPose !== getCameraPoseSignature();
+			const shouldApply = isClickLike && !cameraPoseChanged;
+			splatEditClickCandidate = null;
+			if (shouldApply) {
+				if (completedClick.action === "box") {
+					placeSplatEditBoxAtPointer?.(event);
+				} else if (completedClick.action === "brush") {
+					applySplatEditBrushAtPointer?.(event);
+				}
 			}
 		}
 	});
 	listen(window, "pointercancel", (event) => {
-		if (splatEditBoxPlacementClickCandidate?.pointerId === event.pointerId) {
-			splatEditBoxPlacementClickCandidate = null;
+		if (splatEditClickCandidate?.pointerId === event.pointerId) {
+			splatEditClickCandidate = null;
 		}
 	});
 	listen(window, "pointerup", (event) => {

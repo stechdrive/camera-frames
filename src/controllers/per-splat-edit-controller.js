@@ -14,7 +14,11 @@ const MOVE_PLANE_HANDLE_NAMES = ["move-xy", "move-yz", "move-zx"];
 const ROTATE_AXIS_HANDLE_NAMES = ["rotate-x", "rotate-y", "rotate-z"];
 const SPLAT_SCALE_HANDLE_NAME = "scale-uniform";
 const MIN_BOX_AXIS_SIZE = 0.01;
+const MIN_BRUSH_SIZE = 0.01;
+const MIN_BRUSH_DEPTH = 0.01;
 const DEFAULT_BOX_SIZE = 1;
+const DEFAULT_BRUSH_SIZE = 0.2;
+const DEFAULT_BRUSH_DEPTH = 0.2;
 const DERIVED_SPLAT_FILE_EXTENSION = "rawsplat";
 
 function toPlainPoint(vector) {
@@ -35,6 +39,14 @@ function toVector3(point, fallback = 0) {
 
 function clampBoxAxisSize(value) {
 	return Math.max(MIN_BOX_AXIS_SIZE, Number(value) || DEFAULT_BOX_SIZE);
+}
+
+function clampBrushSize(value) {
+	return Math.max(MIN_BRUSH_SIZE, Number(value) || DEFAULT_BRUSH_SIZE);
+}
+
+function clampBrushDepth(value) {
+	return Math.max(MIN_BRUSH_DEPTH, Number(value) || DEFAULT_BRUSH_DEPTH);
 }
 
 function clonePackedExtra(extra = null) {
@@ -128,10 +140,10 @@ export function createPerSplatEditController({
 	cancelHistoryTransaction = () => {},
 }) {
 	const isDevRuntime = Boolean(import.meta?.env?.DEV);
-	const defaultBrushSize = Number(store.splatEdit.brushSize.value) || 24;
+	const defaultBrushSize = clampBrushSize(store.splatEdit.brushSize.value);
 	const defaultBrushDepthMode =
-		store.splatEdit.brushDepthMode.value === "depth" ? "depth" : "through";
-	const defaultBrushDepth = Number(store.splatEdit.brushDepth.value) || 0.5;
+		store.splatEdit.brushDepthMode.value === "through" ? "through" : "depth";
+	const defaultBrushDepth = clampBrushDepth(store.splatEdit.brushDepth.value);
 	const selectedSplatsByAssetId = new Map();
 	const sceneHelper = createSplatEditSceneHelper();
 	const transformPreviewController = createSplatTransformPreviewController({
@@ -386,19 +398,22 @@ export function createPerSplatEditController({
 
 	function captureEditState() {
 		return {
-			tool: store.splatEdit.tool.value === "brush" ? "brush" : "box",
+			tool:
+				store.splatEdit.tool.value === "brush"
+					? "brush"
+					: store.splatEdit.tool.value === "transform"
+						? "transform"
+						: "box",
 			scopeAssetIds: getSplatEditScopeAssetIds(),
 			rememberedScopeAssetIds: normalizeScopeAssetIds(
 				store.splatEdit.rememberedScopeAssetIds.value,
 			),
-			brushSize: Number.isFinite(store.splatEdit.brushSize.value)
-				? Number(store.splatEdit.brushSize.value)
-				: defaultBrushSize,
+			brushSize: clampBrushSize(store.splatEdit.brushSize.value),
 			brushDepthMode:
-				store.splatEdit.brushDepthMode.value === "depth" ? "depth" : "through",
-			brushDepth: Number.isFinite(store.splatEdit.brushDepth.value)
-				? Number(store.splatEdit.brushDepth.value)
-				: defaultBrushDepth,
+				store.splatEdit.brushDepthMode.value === "through"
+					? "through"
+					: "depth",
+			brushDepth: clampBrushDepth(store.splatEdit.brushDepth.value),
 			boxPlaced: store.splatEdit.boxPlaced.value === true,
 			boxCenter: {
 				...store.splatEdit.boxCenter.value,
@@ -466,14 +481,10 @@ export function createPerSplatEditController({
 		store.splatEdit.rememberedScopeAssetIds.value = normalizeScopeAssetIds(
 			snapshot.rememberedScopeAssetIds,
 		);
-		store.splatEdit.brushSize.value = Number.isFinite(snapshot.brushSize)
-			? Number(snapshot.brushSize)
-			: defaultBrushSize;
+		store.splatEdit.brushSize.value = clampBrushSize(snapshot.brushSize);
 		store.splatEdit.brushDepthMode.value =
-			snapshot.brushDepthMode === "depth" ? "depth" : "through";
-		store.splatEdit.brushDepth.value = Number.isFinite(snapshot.brushDepth)
-			? Number(snapshot.brushDepth)
-			: defaultBrushDepth;
+			snapshot.brushDepthMode === "through" ? "through" : "depth";
+		store.splatEdit.brushDepth.value = clampBrushDepth(snapshot.brushDepth);
 		store.splatEdit.boxPlaced.value =
 			typeof snapshot.boxPlaced === "boolean" ? snapshot.boxPlaced : true;
 		store.splatEdit.boxCenter.value = {
@@ -1051,6 +1062,44 @@ export function createPerSplatEditController({
 		return getViewportRect();
 	}
 
+	function getPrimaryViewCamera() {
+		return state.mode === "camera"
+			? (getActiveCameraViewCamera?.() ?? getActiveCamera?.() ?? null)
+			: (getActiveCamera?.() ?? null);
+	}
+
+	function getBrushHitFromClientPoint({ clientX, clientY } = {}) {
+		if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) {
+			return null;
+		}
+		const camera = getPrimaryViewCamera();
+		const viewRect = getPrimaryViewRect();
+		if (!camera || !viewRect) {
+			return null;
+		}
+		const pointerRay = updatePointerRay(
+			raycaster,
+			pointerNdc,
+			{ clientX, clientY },
+			camera,
+			viewRect,
+		);
+		const raycastTargets =
+			getAssetController?.()?.getSceneRaycastTargets?.() ?? [];
+		if (raycastTargets.length <= 0) {
+			return null;
+		}
+		const intersections = raycaster.intersectObjects(raycastTargets, true);
+		const hitPoint = intersections[0]?.point?.clone?.() ?? null;
+		if (!hitPoint) {
+			return null;
+		}
+		return {
+			hitPoint,
+			rayDirection: pointerRay.direction.clone().normalize(),
+		};
+	}
+
 	function placeSplatEditBoxAtViewCenter() {
 		const viewRect = getPrimaryViewRect();
 		if (!viewRect) {
@@ -1346,6 +1395,14 @@ export function createPerSplatEditController({
 		return store.splatEdit.active.value === true;
 	}
 
+	function isSplatEditBrushActive() {
+		return (
+			isSplatEditModeActive() &&
+			store.splatEdit.tool.value === "brush" &&
+			getSplatEditScopeAssetIds().length > 0
+		);
+	}
+
 	function setSplatEditTool(nextTool) {
 		store.splatEdit.tool.value =
 			nextTool === "brush"
@@ -1461,6 +1518,122 @@ export function createPerSplatEditController({
 		syncSceneHelper();
 		updateUi?.();
 		reportSelectionDebugIfEmpty(selectionBox, changedCount, subtract);
+		setStatus?.(
+			t(
+				subtract
+					? "status.splatEditSelectionRemoved"
+					: "status.splatEditSelectionAdded",
+				{ count: changedCount },
+			),
+		);
+		return changedCount;
+	}
+
+	function setSplatEditBrushSize(nextValue) {
+		if (!Number.isFinite(nextValue)) {
+			return false;
+		}
+		store.splatEdit.brushSize.value = clampBrushSize(nextValue);
+		updateUi?.();
+		return true;
+	}
+
+	function setSplatEditBrushDepthMode(nextMode) {
+		store.splatEdit.brushDepthMode.value =
+			nextMode === "through" ? "through" : "depth";
+		updateUi?.();
+		return store.splatEdit.brushDepthMode.value;
+	}
+
+	function setSplatEditBrushDepth(nextValue) {
+		if (!Number.isFinite(nextValue)) {
+			return false;
+		}
+		store.splatEdit.brushDepth.value = clampBrushDepth(nextValue);
+		updateUi?.();
+		return true;
+	}
+
+	function applySplatEditBrushAtClientPoint({
+		clientX,
+		clientY,
+		subtract = false,
+	} = {}) {
+		if (
+			!isSplatEditModeActive() ||
+			store.splatEdit.tool.value !== "brush" ||
+			getSplatEditScopeAssetIds().length <= 0
+		) {
+			return 0;
+		}
+		const brushHit = getBrushHitFromClientPoint({ clientX, clientY });
+		if (!brushHit) {
+			setStatus?.(t("status.splatEditBrushHitMissing"));
+			return 0;
+		}
+		const brushRadiusSq =
+			(clampBrushSize(store.splatEdit.brushSize.value) * 0.5) ** 2;
+		const brushDepthMode =
+			store.splatEdit.brushDepthMode.value === "through" ? "through" : "depth";
+		const brushDepth = clampBrushDepth(store.splatEdit.brushDepth.value);
+		const maxAxialDistance =
+			brushDepthMode === "through" ? Number.POSITIVE_INFINITY : brushDepth;
+		let changedCount = 0;
+		for (const asset of getSplatEditScopeAssets()) {
+			const splatMesh = asset.disposeTarget;
+			if (typeof splatMesh?.forEachSplat !== "function") {
+				continue;
+			}
+			asset.object.updateMatrixWorld(true);
+			splatMesh?.updateMatrixWorld?.(true);
+			const worldMatrix =
+				splatMesh?.matrixWorld ??
+				asset.contentObject?.matrixWorld ??
+				asset.object.matrixWorld;
+			const assetIdKey = getAssetIdKey(asset.id);
+			const nextSelection = new Set(
+				selectedSplatsByAssetId.get(assetIdKey) ?? [],
+			);
+			splatMesh.forEachSplat((index, center) => {
+				tempWorldPoint.copy(center);
+				tempWorldPoint.applyMatrix4(worldMatrix);
+				tempVector.copy(tempWorldPoint).sub(brushHit.hitPoint);
+				const axialDistance = tempVector.dot(brushHit.rayDirection);
+				if (axialDistance < -1e-4 || axialDistance > maxAxialDistance) {
+					return;
+				}
+				tempVector2
+					.copy(tempVector)
+					.addScaledVector(brushHit.rayDirection, -axialDistance);
+				if (tempVector2.lengthSq() > brushRadiusSq) {
+					return;
+				}
+				if (subtract) {
+					if (nextSelection.delete(index)) {
+						changedCount += 1;
+					}
+					return;
+				}
+				const sizeBefore = nextSelection.size;
+				nextSelection.add(index);
+				if (nextSelection.size !== sizeBefore) {
+					changedCount += 1;
+				}
+			});
+			if (nextSelection.size > 0) {
+				selectedSplatsByAssetId.set(assetIdKey, nextSelection);
+			} else {
+				selectedSplatsByAssetId.delete(assetIdKey);
+			}
+		}
+		syncSelectionCount();
+		store.splatEdit.lastOperation.value = {
+			mode: subtract ? "subtract" : "add",
+			hitCount: changedCount,
+		};
+		syncSelectionHighlight();
+		syncSceneHelper();
+		updateUi?.();
 		setStatus?.(
 			t(
 				subtract
@@ -2214,16 +2387,21 @@ export function createPerSplatEditController({
 
 	return {
 		isSplatEditModeActive,
+		isSplatEditBrushActive,
 		setSplatEditMode,
 		toggleSplatEditMode,
 		syncScopeToSceneSelection,
 		setSplatEditTool,
+		setSplatEditBrushSize,
+		setSplatEditBrushDepthMode,
+		setSplatEditBrushDepth,
 		setSplatEditBoxCenterAxis,
 		setSplatEditBoxSizeAxis,
 		scaleSplatEditBoxUniform,
 		placeSplatEditBoxAtViewCenter,
 		fitSplatEditBoxToScope,
 		applySplatEditBoxSelection,
+		applySplatEditBrushAtClientPoint,
 		moveSelectedSplatsByWorldDelta,
 		rotateSelectedSplatsAroundSelection,
 		scaleSelectedSplatsUniformAroundSelection,
@@ -2258,6 +2436,23 @@ export function createPerSplatEditController({
 				clientX: Number(event.clientX),
 				clientY: Number(event.clientY),
 			});
+		},
+		applySplatEditBrushAtPointer(event) {
+			if (
+				!isSplatEditModeActive() ||
+				store.splatEdit.tool.value !== "brush" ||
+				!Number.isFinite(event?.clientX) ||
+				!Number.isFinite(event?.clientY)
+			) {
+				return false;
+			}
+			return (
+				applySplatEditBrushAtClientPoint({
+					clientX: Number(event.clientX),
+					clientY: Number(event.clientY),
+					subtract: event?.altKey === true,
+				}) > 0
+			);
 		},
 		startViewportGizmoDrag,
 		handleViewportGizmoDragMove,
