@@ -823,9 +823,10 @@ export function ViewportShell({ store, controller, refs, t }) {
 									</span>
 									<div class="viewport-splat-edit-hud__grid">
 										${renderSplatEditField({
-											label: t("status.splatEditToolBrush"),
-											value: splatEditBrushSize ?? 0.2,
-											min: "0.01",
+											label: "px",
+											value: splatEditBrushSize ?? 30,
+											step: "1",
+											min: "4",
 											historyLabel: "splat-edit.brush-size",
 											onScrubValue: (nextValue) =>
 												handleSplatEditBrushSizeInput(nextValue),
