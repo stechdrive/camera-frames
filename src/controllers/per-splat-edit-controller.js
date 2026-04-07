@@ -2409,7 +2409,7 @@ export function createPerSplatEditController({
 			const alpha = sampleIndex / sampleCount;
 			const sampleClientX = activeBrushStroke.lastClientX + deltaX * alpha;
 			const sampleClientY = activeBrushStroke.lastClientY + deltaY * alpha;
-			const brushHit = getBrushHitFromClientPointFast({
+			const brushHit = getBrushHitFromClientPoint({
 				clientX: sampleClientX,
 				clientY: sampleClientY,
 			});
