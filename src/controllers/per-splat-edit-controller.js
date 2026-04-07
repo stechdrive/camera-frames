@@ -121,7 +121,6 @@ export function createPerSplatEditController({
 	t,
 	guides,
 	viewportShell,
-	renderBox,
 	setStatus,
 	updateUi,
 	getAssetController,
@@ -1060,12 +1059,8 @@ export function createPerSplatEditController({
 	}
 
 	function getPrimaryViewRect() {
-		if (state.mode === "camera") {
-			const renderRect = resolveElementRect(renderBox);
-			if (renderRect) {
-				return renderRect;
-			}
-		}
+		// Camera View uses the preview camera with an off-axis projection that
+		// already bakes the render-box offset into the camera frustum.
 		return getViewportRect();
 	}
 
