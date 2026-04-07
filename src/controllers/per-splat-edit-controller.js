@@ -2405,7 +2405,7 @@ export function createPerSplatEditController({
 		const deltaX = nextClientX - activeBrushStroke.lastClientX;
 		const deltaY = nextClientY - activeBrushStroke.lastClientY;
 		const distancePx = Math.hypot(deltaX, deltaY);
-		const sampleDivisor = Math.max(activeBrushStroke.lastRadiusPx * 2, 12);
+		const sampleDivisor = Math.max(activeBrushStroke.lastRadiusPx * 3, 12);
 		const sampleCount = Math.max(1, Math.ceil(distancePx / sampleDivisor));
 		for (let sampleIndex = 1; sampleIndex <= sampleCount; sampleIndex += 1) {
 			const alpha = sampleIndex / sampleCount;
