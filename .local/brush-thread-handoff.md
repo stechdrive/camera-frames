@@ -1,106 +1,102 @@
 # Brush Thread Handoff
 
-最終更新: 2026-04-07
+最終更新: 2026-04-08
 
 ## Scope
 
 - repo: `D:\GitHub\camera-frames`
 - active branch: `codex/splat-brush`
-- code baseline for this memo: `5bff338` (`Add depth bar visual to brush preview cursor`)
+- code baseline for this memo: `686bdc8` (`Tune brush sample spacing to 1.5x diameter`)
 - `main / v0.7.0` には `Brush` はまだ入っていない
 - この branch の `Brush` は実装途中で、まだ merge-ready ではない
 
 ## What Exists Now
 
-- `3DGS編集` mode の `Brush` ツール
-- ray-hit 基準の円柱選択（packed array 直接アクセスで高速化済み）
-- 通常 add / `Alt` subtract
-- `through / depth`
-- default depth `0.2m`
-- drag stroke（ストローク中はレイキャストをスキップしてキャッシュ深度を使用）
-- brush preview ring + depth bar（ラベルは削除済み）
-- `Camera View` の ray context ずれ修正
+### Brush ツール
+- スクリーンスペースのブラシサイズ（デフォルト 30px）
+- ワールド半径はヒット深度 × FOV から逆算
+- ray-hit 基準の円柱選択（packed array 直接アクセス + spatial index）
+- 通常 add / `Alt` subtract / `through` / `depth` モード
+- drag stroke: 最終サンプルのみフル raycast、中間は深度平面交差
+- サンプル間隔: ブラシ直径 × 1.5 ごと（スプレー感）
+- カーソル（ring）はヒット計算の前に即更新 → マウス追従が軽い
 - ブラシ中の右ドラッグ=オービット、右+Shift=パン
-- レイキャスト外れ時のフォールバック深度（キャッシュ→シーン境界→固定距離）
-- highlight 更新: `updateGenerator()` を毎回呼んで視覚反映を保証
+- depth bar（デフォルト非表示、`brushDepthBarVisible` で有効化可能）
+- Vite HMR: controllers/engine 変更時に full reload を強制
 
-関連コミット（新→旧）:
+### Per-splat 編集全般
+- Box 選択、Transform（Move/Rotate/Scale）、Delete、Separate
+- Undo/Redo
+- 選択ハイライト（RGBA テクスチャ + `updateGenerator()`）
 
-- `5bff338` `Add depth bar visual to brush preview cursor`
-- `0a02e32` `Optimize brush hit loop and remove brush cursor label`
-- `4e90892` `Optimize brush stroke by skipping raycast during drag`
-- `4ff7125` `Wire brush stroke bindings into input router`
-- `482162a` `Fix brush tool selection and highlight update`
-- `58d8d21` `Improve splat brush responsiveness`
-- `21a610d` `Fix camera-view splat edit ray context`
+## 関連コミット（新→旧、このセッション分）
 
-## Fixed Issues (this session)
-
-1. **ブラシが選択できなかった**: レイキャスト外れ時にフォールバック深度を追加
-2. **ハイライトが初回以降更新されなかった**: `syncAssetSelection` で `updateGenerator()` を呼ぶように修正
-3. **ドラッグで塗れなかった**: `runtime-controller.js` → `bindInputRouter()` にブラシストローク関連5関数が渡されていなかった
-4. **ブラシ中カメラが動かせなかった**: 右ドラッグ=オービット、右+Shift=パンを追加
-
-## Current Problems
-
-- 大きい splat asset ではまだ重い（O(N) ループが主因）
-- `per-splat-edit-controller.js` が Vite HMR で反映されない問題あり（dev 体験の問題）
-- browser QA 完全ではない
-
-## Performance Status
-
-最適化済み:
-- ストローク中のレイキャストスキップ（`getBrushHitFromClientPointFast`）
-- packed array 直接アクセス（`forEachSplat` コールバック廃止）
-- through モードの深度カリング省略
-- 既選択スプラットの早期スキップ（add モード）
-- インライン行列変換
-
-残りのボトルネック:
-- `applySplatEditBrushHit` の O(N) ループ — 根本解決には空間インデックスが必要
-- `updateGenerator()` のコスト — Spark 側は `generatorDirty = true` を設定するだけなのでフラグ自体は軽量、実際の再構築はレンダーループで遅延実行
+- `686bdc8` Tune brush sample spacing to 1.5x diameter
+- `b817355` Move brush cursor update before hit computation in drag
+- `d88a11f` Increase brush sample spacing to brush diameter
+- `3297f56` Use depth plane for intermediate brush samples, raycast only on last
+- `932e586` Restore per-sample raycast during brush drag
+- `c895c7a` Fix brush drag depth by using camera-forward depth plane
+- `148b701` Fix brush drag not painting by removing rAF highlight deferral
+- `d9f34a3` Switch brush from world-space to screen-space sizing
+- `797e301` Force full reload for controller/engine file changes
+- `bf6ea0d` Add spatial index tests and ignore .claude directory
+- `9c0ce86` Default brush depth bar to hidden, keep as opt-in feature
+- `482162a` Fix brush tool selection and highlight update
+- `4ff7125` Wire brush stroke bindings into input router
 
 ## Next Work (priority order)
 
-1. **空間インデックス**: uniform grid or octree で brush cylinder 内のスプラットだけ走査
-2. **ストローク中の highlight 更新最適化**: `requestAnimationFrame` 単位でバッチ
-3. **Box + Brush 実運用フロー QA**: Box で荒く選んで Brush で add/subtract
-4. Brush が納得いくまで `Duplicate` には進まない
+### 1. トランスフォーム中のハイライト追従
+- **現状**: world modifier 方式でスプラット本体の移動は軽い
+- **問題**: ドラッグ中にハイライト領域が追従しない（マウスアップ確定まで見えない）
+- **原因推定**: ハイライト RGBA テクスチャはワールド座標に紐づいていて、world modifier の変換が反映されない
+- **方針**: world modifier の変換行列をハイライトシステムにも適用するか、ハイライトを modifier 側で処理する方法を探る
+
+### 2. トランスフォーム確定後のカメラ回転パフォーマンス
+- #1 と関連している可能性。world modifier の状態管理を整理すれば一緒に解決するかも
+
+### 3. Duplicate（複製）
+- Separate の応用。選択スプラットを同じ位置にコピーして新アセットに追加
+- トランスフォームが安定してから着手
+
+## Performance Architecture
+
+```
+pointermove
+  ├─ syncBrushPreviewFromPointer(clientX, clientY)  ← 即座（DOM更新のみ）
+  │
+  └─ for each sample (間隔: ブラシ直径×1.5):
+       ├─ 中間サンプル: getBrushHitFromClientPointFast（深度平面交差、軽い）
+       └─ 最終サンプル: getBrushHitFromClientPoint（WASM raycast、表面追従）
+            └─ applySplatEditBrushHit
+                 ├─ ensureBrushSpatialIndex（lazy uniform grid）
+                 ├─ getBrushIndexQueryCandidates（grid cell query, O(k)）
+                 └─ syncSelectionHighlight → updateGenerator()
+```
 
 ## Important Files
 
-- `src/controllers/per-splat-edit-controller.js` — ブラシ本体（fallback depth, fast path, packed array loop）
-- `src/engine/splat-selection-highlight.js` — ハイライト更新（`updateGenerator` 呼び出し追加）
+- `src/controllers/per-splat-edit-controller.js` — ブラシ本体 + spatial index + transform
+- `src/engine/splat-selection-highlight.js` — ハイライト RGBA テクスチャ
+- `src/engine/splat-transform-preview.js` — トランスフォームプレビュー（world modifier）
 - `src/controllers/interaction-controller.js` — 右ドラッグオービット/パン
-- `src/controllers/runtime-controller.js` — ブラシバインディング配線
+- `src/controllers/runtime-controller.js` — バインディング配線
 - `src/interactions/input-router.js` — ポインタイベントルーティング
-- `src/ui/viewport-shell.js` — ブラシプレビュー ring + depth bar
+- `vite.config.js` — HMR force reload 設定
 
 ## Important Notes
 
 - `Camera View` では preview camera が off-axis projection を持つ。render-box rect との二重補正に注意
-- Box 初回生成は「初回クリックで 1m box 配置」が正本
-- raw selection は package save 対象ではない
 - `fromHalf` を `@sparkjsdev/spark` からインポートして packed center 抽出に使用
-- Vite dev 環境で `per-splat-edit-controller.js` の変更が HMR で反映されないことがある。ハードリロード + `rm -rf node_modules/.vite` でも解消しないケースあり
-
-## Minimum QA Checklist
-
-- `Shift+E` で `3DGS編集`
-- 初回クリックで box 配置
-- `Box` で荒く選択
-- `Brush` で add（クリック＋ドラッグ）
-- `Alt+Brush` で subtract
-- drag 中に selection count と highlight が追従する
-- ブラシカーソル（ring）がホバーで表示される
-- depth モードで depth bar が表示される
-- 右ドラッグでオービット、右+Shift でパン
-- `Camera View` で click 位置と hit がずれない
-- `Box -> Brush -> Transform -> Undo / Redo` が破綻しない
+- `brushSize` store 値はピクセル単位（旧：メートル単位）
+- Vite HMR で `per-splat-edit-controller.js` の変更が反映されない問題は force reload plugin で解決済み
+- `updateGenerator()` は `generatorDirty = true` を設定するだけ（軽い）。実際の再構築はレンダーループで遅延実行
+- rAF バッチハイライトは廃止（メインスレッド占有中に rAF が実行されない問題があった）
 
 ## Current Validation
 
 - `npm test`: pass (120 tests)
 - `npm run lint`: pass
 - `npm run build`: pass
-- browser smoke for `Brush`: partial — 選択・ドラッグ・ハイライト動作確認済み、パフォーマンスは改善途上
+- browser smoke: ブラシ選択・ドラッグ・ハイライト・カーソル追従 動作確認済み
