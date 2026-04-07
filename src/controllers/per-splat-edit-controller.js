@@ -1143,6 +1143,7 @@ export function createPerSplatEditController({
 			x: 0,
 			y: 0,
 			radiusPx: 0,
+			depthBarPx: 0,
 			painting: false,
 			subtract: false,
 		};
@@ -1197,11 +1198,29 @@ export function createPerSplatEditController({
 			brushHit.viewRect.top +
 			(1 - tempScreenPoint2.y) * 0.5 * brushHit.viewRect.height;
 		const radiusPx = Math.max(6, Math.hypot(edgeX - centerX, edgeY - centerY));
+		const brushDepthMode =
+			store.splatEdit.brushDepthMode.value === "through" ? "through" : "depth";
+		const brushDepth = clampBrushDepth(store.splatEdit.brushDepth.value);
+		let depthBarPx = 0;
+		if (brushDepthMode === "depth") {
+			tempScreenPoint2
+				.copy(brushHit.hitPoint)
+				.addScaledVector(brushHit.rayDirection, brushDepth)
+				.project(brushHit.camera);
+			const farX =
+				brushHit.viewRect.left +
+				(tempScreenPoint2.x + 1) * 0.5 * brushHit.viewRect.width;
+			const farY =
+				brushHit.viewRect.top +
+				(1 - tempScreenPoint2.y) * 0.5 * brushHit.viewRect.height;
+			depthBarPx = Math.max(0, Math.hypot(farX - centerX, farY - centerY));
+		}
 		store.splatEdit.brushPreview.value = {
 			visible: true,
 			x: centerX,
 			y: centerY,
 			radiusPx,
+			depthBarPx,
 			painting,
 			subtract,
 		};
@@ -1842,14 +1861,6 @@ export function createPerSplatEditController({
 			!Number.isFinite(event?.clientX) ||
 			!Number.isFinite(event?.clientY)
 		) {
-			if (isDevRuntime) {
-				console.debug(
-					"[brush] stroke rejected: active=%o tool=%s btn=%d",
-					isSplatEditModeActive(),
-					store.splatEdit.tool.value,
-					event?.button,
-				);
-			}
 			return false;
 		}
 		const subtract = event.altKey === true;
@@ -1858,23 +1869,8 @@ export function createPerSplatEditController({
 			clientY: Number(event.clientY),
 		});
 		if (!brushHit) {
-			if (isDevRuntime) {
-				console.debug(
-					"[brush] no hit at (%d,%d)",
-					event.clientX,
-					event.clientY,
-				);
-			}
 			clearBrushPreview();
 			return false;
-		}
-		if (isDevRuntime) {
-			console.debug(
-				"[brush] stroke start at (%d,%d) hitPoint=%o",
-				event.clientX,
-				event.clientY,
-				brushHit.hitPoint,
-			);
 		}
 		activeBrushStroke = {
 			pointerId: event.pointerId,

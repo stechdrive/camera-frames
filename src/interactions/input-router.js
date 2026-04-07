@@ -419,25 +419,10 @@ export function bindInputRouter({
 				) ||
 				target?.closest("#viewport-gizmo")
 			) {
-				if (import.meta?.env?.DEV) {
-					console.debug(
-						"[brush-router] pointerdown skipped: btn=%d ctrl=%o brush=%o vpTarget=%o hudTarget=%o target=%s",
-						event.button,
-						event.ctrlKey,
-						isSplatEditBrushActive?.(),
-						isViewportPointerTarget(target),
-						!!target?.closest?.(
-							".viewport-splat-edit-hud, .viewport-project-status",
-						),
-						target?.tagName,
-					);
-				}
 				return;
 			}
-			if (!startSplatEditBrushStroke?.(event)) {
-				if (import.meta?.env?.DEV) {
-					console.debug("[brush-router] stroke start failed");
-				}
+			const strokeResult = startSplatEditBrushStroke?.(event);
+			if (!strokeResult) {
 				return;
 			}
 			splatEditBrushStrokePointerId = event.pointerId;
@@ -665,9 +650,6 @@ export function bindInputRouter({
 	listen(window, "pointerup", (event) => {
 		if (event.pointerId !== splatEditBrushStrokePointerId) {
 			return;
-		}
-		if (import.meta?.env?.DEV) {
-			console.debug("[brush-router] stroke end pointerId=%d", event.pointerId);
 		}
 		splatEditBrushStrokePointerId = null;
 		if (finishSplatEditBrushStroke?.(event, { cancel: false })) {
