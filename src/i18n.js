@@ -590,7 +590,7 @@ const MESSAGES = {
 			splatEditToolTransform: "変形",
 			splatEditPlaceBoxHint: "ビューをクリックしてBoxを配置",
 			splatEditBrushHint:
-				"クリックで追加。Alt を押しながらクリックで除外します。",
+				"ドラッグで追加。Alt+ドラッグで除外。Ctrl+ドラッグで視点回転。",
 			splatEditBrushMode: "深さモード",
 			splatEditBrushModeThrough: "貫通",
 			splatEditBrushModeDepth: "Depth",
@@ -1305,7 +1305,8 @@ const MESSAGES = {
 			splatEditToolBrush: "Brush",
 			splatEditToolTransform: "Transform",
 			splatEditPlaceBoxHint: "Click in the view to place the box",
-			splatEditBrushHint: "Click to add. Hold Alt while clicking to subtract.",
+			splatEditBrushHint:
+				"Drag to add. Hold Alt while dragging to subtract. Hold Ctrl while dragging to orbit.",
 			splatEditBrushMode: "Depth Mode",
 			splatEditBrushModeThrough: "Through",
 			splatEditBrushModeDepth: "Depth",

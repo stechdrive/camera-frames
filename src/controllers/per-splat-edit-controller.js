@@ -165,7 +165,12 @@ export function createPerSplatEditController({
 	const tempTransformRotateMatrix = new THREE.Matrix4();
 	const tempTransformScaleMatrix = new THREE.Matrix4();
 	const tempTransformInversePivotMatrix = new THREE.Matrix4();
+	const tempScreenPoint = new THREE.Vector3();
+	const tempScreenPoint2 = new THREE.Vector3();
+	const tempBrushRightVector = new THREE.Vector3();
+	const tempBrushUpVector = new THREE.Vector3();
 	let activeBoxDrag = null;
+	let activeBrushStroke = null;
 	let activeTransformDrag = null;
 	let activeTransformPreview = null;
 
@@ -450,6 +455,8 @@ export function createPerSplatEditController({
 
 	function restoreEditState(snapshot = null) {
 		selectedSplatsByAssetId.clear();
+		activeBrushStroke = null;
+		clearBrushPreview({ syncUi: false });
 		if (!snapshot || typeof snapshot !== "object") {
 			store.splatEdit.tool.value = "box";
 			store.splatEdit.scopeAssetIds.value = [];
@@ -1095,9 +1102,107 @@ export function createPerSplatEditController({
 			return null;
 		}
 		return {
+			camera,
 			hitPoint,
 			rayDirection: pointerRay.direction.clone().normalize(),
+			viewRect,
 		};
+	}
+
+	function clearBrushPreview({ syncUi = true } = {}) {
+		const currentPreview = store.splatEdit.brushPreview.value;
+		if (!currentPreview?.visible && currentPreview?.painting !== true) {
+			return false;
+		}
+		store.splatEdit.brushPreview.value = {
+			visible: false,
+			x: 0,
+			y: 0,
+			radiusPx: 0,
+			painting: false,
+			subtract: false,
+		};
+		if (syncUi) {
+			updateUi?.();
+		}
+		return true;
+	}
+
+	function syncBrushPreviewFromHit(
+		brushHit,
+		{ subtract = false, painting = false } = {},
+	) {
+		if (!brushHit?.hitPoint || !brushHit?.camera || !brushHit?.viewRect) {
+			return clearBrushPreview();
+		}
+		const brushRadius = clampBrushSize(store.splatEdit.brushSize.value) * 0.5;
+		tempScreenPoint.copy(brushHit.hitPoint).project(brushHit.camera);
+		if (
+			!Number.isFinite(tempScreenPoint.x) ||
+			!Number.isFinite(tempScreenPoint.y) ||
+			tempScreenPoint.z < -1 ||
+			tempScreenPoint.z > 1
+		) {
+			return clearBrushPreview();
+		}
+		tempBrushUpVector.set(0, 1, 0).applyQuaternion(brushHit.camera.quaternion);
+		tempBrushRightVector
+			.copy(brushHit.rayDirection)
+			.cross(tempBrushUpVector)
+			.normalize();
+		if (tempBrushRightVector.lengthSq() <= 1e-6) {
+			tempBrushRightVector
+				.set(1, 0, 0)
+				.applyQuaternion(brushHit.camera.quaternion)
+				.normalize();
+		}
+		tempScreenPoint2
+			.copy(brushHit.hitPoint)
+			.addScaledVector(tempBrushRightVector, brushRadius)
+			.project(brushHit.camera);
+		const centerX =
+			brushHit.viewRect.left +
+			(tempScreenPoint.x + 1) * 0.5 * brushHit.viewRect.width;
+		const centerY =
+			brushHit.viewRect.top +
+			(1 - tempScreenPoint.y) * 0.5 * brushHit.viewRect.height;
+		const edgeX =
+			brushHit.viewRect.left +
+			(tempScreenPoint2.x + 1) * 0.5 * brushHit.viewRect.width;
+		const edgeY =
+			brushHit.viewRect.top +
+			(1 - tempScreenPoint2.y) * 0.5 * brushHit.viewRect.height;
+		const radiusPx = Math.max(6, Math.hypot(edgeX - centerX, edgeY - centerY));
+		store.splatEdit.brushPreview.value = {
+			visible: true,
+			x: centerX,
+			y: centerY,
+			radiusPx,
+			painting,
+			subtract,
+		};
+		updateUi?.();
+		return true;
+	}
+
+	function updateBrushPreviewFromClientPoint({
+		clientX,
+		clientY,
+		subtract = false,
+		painting = false,
+	} = {}) {
+		if (
+			!isSplatEditModeActive() ||
+			store.splatEdit.tool.value !== "brush" ||
+			getSplatEditScopeAssetIds().length <= 0
+		) {
+			return clearBrushPreview();
+		}
+		const brushHit = getBrushHitFromClientPoint({ clientX, clientY });
+		if (!brushHit) {
+			return clearBrushPreview();
+		}
+		return syncBrushPreviewFromHit(brushHit, { subtract, painting });
 	}
 
 	function placeSplatEditBoxAtViewCenter() {
@@ -1404,12 +1509,17 @@ export function createPerSplatEditController({
 	}
 
 	function setSplatEditTool(nextTool) {
+		const previousTool = store.splatEdit.tool.value;
 		store.splatEdit.tool.value =
 			nextTool === "brush"
 				? "brush"
 				: nextTool === "transform"
 					? "transform"
 					: "box";
+		if (previousTool === "brush" && store.splatEdit.tool.value !== "brush") {
+			activeBrushStroke = null;
+			clearBrushPreview({ syncUi: false });
+		}
 		if (store.splatEdit.tool.value !== "transform") {
 			clearActiveTransformPreview({ syncUi: false });
 		}
@@ -1533,7 +1643,19 @@ export function createPerSplatEditController({
 		if (!Number.isFinite(nextValue)) {
 			return false;
 		}
-		store.splatEdit.brushSize.value = clampBrushSize(nextValue);
+		const previousSize = clampBrushSize(store.splatEdit.brushSize.value);
+		const nextSizeClamped = clampBrushSize(nextValue);
+		store.splatEdit.brushSize.value = nextSizeClamped;
+		const currentPreview = store.splatEdit.brushPreview.value;
+		if (currentPreview?.visible && previousSize > 0) {
+			store.splatEdit.brushPreview.value = {
+				...currentPreview,
+				radiusPx: Math.max(
+					6,
+					(currentPreview.radiusPx * nextSizeClamped) / previousSize,
+				),
+			};
+		}
 		updateUi?.();
 		return true;
 	}
@@ -1554,21 +1676,14 @@ export function createPerSplatEditController({
 		return true;
 	}
 
-	function applySplatEditBrushAtClientPoint({
-		clientX,
-		clientY,
-		subtract = false,
-	} = {}) {
-		if (
-			!isSplatEditModeActive() ||
-			store.splatEdit.tool.value !== "brush" ||
-			getSplatEditScopeAssetIds().length <= 0
-		) {
-			return 0;
-		}
-		const brushHit = getBrushHitFromClientPoint({ clientX, clientY });
-		if (!brushHit) {
-			setStatus?.(t("status.splatEditBrushHitMissing"));
+	function applySplatEditBrushHit(
+		brushHit,
+		{ subtract = false, syncUi = true, announce = true } = {},
+	) {
+		if (!brushHit?.hitPoint || !brushHit?.rayDirection) {
+			if (announce) {
+				setStatus?.(t("status.splatEditBrushHitMissing"));
+			}
 			return 0;
 		}
 		const brushRadiusSq =
@@ -1633,16 +1748,194 @@ export function createPerSplatEditController({
 		};
 		syncSelectionHighlight();
 		syncSceneHelper();
-		updateUi?.();
-		setStatus?.(
-			t(
-				subtract
-					? "status.splatEditSelectionRemoved"
-					: "status.splatEditSelectionAdded",
-				{ count: changedCount },
-			),
-		);
+		if (syncUi) {
+			updateUi?.();
+		}
+		if (announce) {
+			setStatus?.(
+				t(
+					subtract
+						? "status.splatEditSelectionRemoved"
+						: "status.splatEditSelectionAdded",
+					{ count: changedCount },
+				),
+			);
+		}
 		return changedCount;
+	}
+
+	function applySplatEditBrushAtClientPoint({
+		clientX,
+		clientY,
+		subtract = false,
+		syncUi = true,
+		announce = true,
+	} = {}) {
+		if (
+			!isSplatEditModeActive() ||
+			store.splatEdit.tool.value !== "brush" ||
+			getSplatEditScopeAssetIds().length <= 0
+		) {
+			return 0;
+		}
+		const brushHit = getBrushHitFromClientPoint({ clientX, clientY });
+		if (!brushHit) {
+			if (announce) {
+				setStatus?.(t("status.splatEditBrushHitMissing"));
+			}
+			return 0;
+		}
+		return applySplatEditBrushHit(brushHit, {
+			subtract,
+			syncUi,
+			announce,
+		});
+	}
+
+	function updateActiveBrushStrokeStatus() {
+		if (!activeBrushStroke) {
+			return false;
+		}
+		store.splatEdit.lastOperation.value = {
+			mode: activeBrushStroke.subtract ? "subtract" : "add",
+			hitCount: activeBrushStroke.changedCount,
+		};
+		updateUi?.();
+		return true;
+	}
+
+	function startSplatEditBrushStroke(event) {
+		if (
+			!isSplatEditModeActive() ||
+			store.splatEdit.tool.value !== "brush" ||
+			event?.button !== 0 ||
+			!Number.isFinite(event?.clientX) ||
+			!Number.isFinite(event?.clientY)
+		) {
+			return false;
+		}
+		const subtract = event.altKey === true;
+		const brushHit = getBrushHitFromClientPoint({
+			clientX: Number(event.clientX),
+			clientY: Number(event.clientY),
+		});
+		if (!brushHit) {
+			clearBrushPreview();
+			return false;
+		}
+		activeBrushStroke = {
+			pointerId: event.pointerId,
+			subtract,
+			changedCount: 0,
+			lastClientX: Number(event.clientX),
+			lastClientY: Number(event.clientY),
+			lastRadiusPx:
+				Number(store.splatEdit.brushPreview.value?.radiusPx) > 0
+					? Number(store.splatEdit.brushPreview.value.radiusPx)
+					: 18,
+		};
+		activeBrushStroke.changedCount += applySplatEditBrushHit(brushHit, {
+			subtract,
+			syncUi: false,
+			announce: false,
+		});
+		syncBrushPreviewFromHit(brushHit, { subtract, painting: true });
+		updateActiveBrushStrokeStatus();
+		return true;
+	}
+
+	function handleSplatEditBrushStrokeMove(event) {
+		if (
+			!activeBrushStroke ||
+			event?.pointerId !== activeBrushStroke.pointerId ||
+			!Number.isFinite(event?.clientX) ||
+			!Number.isFinite(event?.clientY)
+		) {
+			return false;
+		}
+		const nextClientX = Number(event.clientX);
+		const nextClientY = Number(event.clientY);
+		const deltaX = nextClientX - activeBrushStroke.lastClientX;
+		const deltaY = nextClientY - activeBrushStroke.lastClientY;
+		const distancePx = Math.hypot(deltaX, deltaY);
+		const sampleDivisor = Math.min(
+			Math.max(activeBrushStroke.lastRadiusPx * 0.5, 6),
+			36,
+		);
+		const sampleCount = Math.max(1, Math.ceil(distancePx / sampleDivisor));
+		let lastBrushHit = null;
+		for (let sampleIndex = 1; sampleIndex <= sampleCount; sampleIndex += 1) {
+			const alpha = sampleIndex / sampleCount;
+			const sampleClientX = activeBrushStroke.lastClientX + deltaX * alpha;
+			const sampleClientY = activeBrushStroke.lastClientY + deltaY * alpha;
+			const brushHit = getBrushHitFromClientPoint({
+				clientX: sampleClientX,
+				clientY: sampleClientY,
+			});
+			if (!brushHit) {
+				continue;
+			}
+			activeBrushStroke.changedCount += applySplatEditBrushHit(brushHit, {
+				subtract: activeBrushStroke.subtract,
+				syncUi: false,
+				announce: false,
+			});
+			lastBrushHit = brushHit;
+		}
+		activeBrushStroke.lastClientX = nextClientX;
+		activeBrushStroke.lastClientY = nextClientY;
+		if (lastBrushHit) {
+			syncBrushPreviewFromHit(lastBrushHit, {
+				subtract: activeBrushStroke.subtract,
+				painting: true,
+			});
+			activeBrushStroke.lastRadiusPx = Math.max(
+				6,
+				Number(store.splatEdit.brushPreview.value?.radiusPx) || 6,
+			);
+		} else {
+			clearBrushPreview({ syncUi: false });
+			updateUi?.();
+		}
+		updateActiveBrushStrokeStatus();
+		return true;
+	}
+
+	function finishSplatEditBrushStroke(event, { cancel = false } = {}) {
+		if (
+			!activeBrushStroke ||
+			(event?.pointerId !== undefined &&
+				event.pointerId !== activeBrushStroke.pointerId)
+		) {
+			return false;
+		}
+		const stroke = activeBrushStroke;
+		activeBrushStroke = null;
+		if (
+			cancel !== true &&
+			Number.isFinite(event?.clientX) &&
+			Number.isFinite(event?.clientY)
+		) {
+			updateBrushPreviewFromClientPoint({
+				clientX: Number(event.clientX),
+				clientY: Number(event.clientY),
+				subtract: event?.altKey === true,
+				painting: false,
+			});
+		} else {
+			clearBrushPreview();
+		}
+		if (cancel !== true) {
+			setStatus?.(
+				t(
+					stroke.subtract
+						? "status.splatEditSelectionRemoved"
+						: "status.splatEditSelectionAdded",
+					{ count: stroke.changedCount },
+				),
+			);
+		}
+		return true;
 	}
 
 	async function deleteSelectedSplats() {
@@ -1784,20 +2077,24 @@ export function createPerSplatEditController({
 		if (!isSplatEditModeActive()) {
 			return false;
 		}
-		clearSplatSelection();
-		store.splatEdit.scopeAssetIds.value = [];
-		store.splatEdit.boxPlaced.value = false;
+		activeBoxDrag = null;
+		activeBrushStroke = null;
+		clearBrushPreview({ syncUi: false });
 		if (activeTransformDrag?.historyStarted) {
 			cancelHistoryTransaction?.();
 		}
 		activeTransformDrag = null;
 		clearActiveTransformPreview({ syncUi: false });
 		syncSceneHelper();
+		selectionHighlightController?.clear?.();
+		updateUi?.();
 		return true;
 	}
 
 	function resetForSceneChange() {
 		clearSplatSelection();
+		activeBrushStroke = null;
+		clearBrushPreview({ syncUi: false });
 		store.splatEdit.scopeAssetIds.value = [];
 		store.splatEdit.rememberedScopeAssetIds.value = [];
 		store.splatEdit.boxPlaced.value = false;
@@ -1829,21 +2126,16 @@ export function createPerSplatEditController({
 
 		if (!nextEnabled) {
 			const wasActive = isSplatEditModeActive();
-			clearSplatSelection();
-			store.splatEdit.scopeAssetIds.value = [];
-			store.splatEdit.boxPlaced.value = false;
-			store.splatEdit.lastOperation.value = {
-				mode: "",
-				hitCount: 0,
-			};
 			if (store.viewportToolMode.value === "splat-edit") {
 				store.viewportToolMode.value = "none";
 			}
 			activeBoxDrag = null;
+			activeBrushStroke = null;
 			if (activeTransformDrag?.historyStarted) {
 				cancelHistoryTransaction?.();
 			}
 			activeTransformDrag = null;
+			clearBrushPreview({ syncUi: false });
 			clearActiveTransformPreview({ syncUi: false });
 			syncSceneHelper();
 			syncControlsToMode?.();
@@ -1870,14 +2162,21 @@ export function createPerSplatEditController({
 		setViewportPivotEditMode?.(false);
 		applyNavigateInteractionMode?.({ silent: true });
 		store.viewportToolMode.value = "splat-edit";
+		const previousScopeAssetIds = getSplatEditScopeAssetIds();
 		store.splatEdit.scopeAssetIds.value = [...scopeAssetIds];
 		store.splatEdit.rememberedScopeAssetIds.value = [...scopeAssetIds];
-		store.splatEdit.tool.value = "box";
-		store.splatEdit.boxPlaced.value = false;
-		store.splatEdit.lastOperation.value = {
-			mode: "",
-			hitCount: 0,
-		};
+		if (
+			previousScopeAssetIds.length !== scopeAssetIds.length ||
+			previousScopeAssetIds.some(
+				(assetId, index) => assetId !== scopeAssetIds[index],
+			)
+		) {
+			store.splatEdit.lastOperation.value = {
+				mode: "",
+				hitCount: 0,
+			};
+		}
+		syncSelectionCount();
 		syncSceneHelper();
 		syncSelectionHighlight();
 		syncControlsToMode?.();
@@ -2377,6 +2676,8 @@ export function createPerSplatEditController({
 	}
 
 	function dispose() {
+		activeBrushStroke = null;
+		clearBrushPreview({ syncUi: false });
 		clearActiveTransformPreview({ syncUi: false });
 		transformPreviewController.dispose();
 		selectionHighlightController?.dispose?.();
@@ -2402,6 +2703,7 @@ export function createPerSplatEditController({
 		fitSplatEditBoxToScope,
 		applySplatEditBoxSelection,
 		applySplatEditBrushAtClientPoint,
+		updateBrushPreviewFromClientPoint,
 		moveSelectedSplatsByWorldDelta,
 		rotateSelectedSplatsAroundSelection,
 		scaleSelectedSplatsUniformAroundSelection,
@@ -2454,6 +2756,10 @@ export function createPerSplatEditController({
 				}) > 0
 			);
 		},
+		startSplatEditBrushStroke,
+		handleSplatEditBrushStrokeMove,
+		finishSplatEditBrushStroke,
+		clearBrushPreview,
 		startViewportGizmoDrag,
 		handleViewportGizmoDragMove,
 		handleViewportGizmoDragEnd,

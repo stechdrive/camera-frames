@@ -61,12 +61,14 @@ function createPointerEvent({
 	clientX = 0,
 	clientY = 0,
 	altKey = false,
+	button = 0,
 } = {}) {
 	return {
 		pointerId,
 		clientX,
 		clientY,
 		altKey,
+		button,
 		preventDefault() {},
 		stopPropagation() {},
 		stopImmediatePropagation() {},
@@ -313,6 +315,46 @@ function createSplatAsset({
 	};
 }
 
+function createPlanarBrushSplatAsset({ id, centers, planeZ = 0 } = {}) {
+	const object = new THREE.Group();
+	object.updateMatrixWorld(true);
+	const contentObject = new THREE.Group();
+	object.add(contentObject);
+	const mesh = new THREE.Group();
+	contentObject.add(mesh);
+	contentObject.updateMatrixWorld(true);
+	mesh.updateMatrixWorld(true);
+	mesh.raycast = function raycast(raycaster, intersections) {
+		const directionZ = raycaster.ray.direction.z;
+		if (Math.abs(directionZ) <= 1e-6) {
+			return;
+		}
+		const distance = (planeZ - raycaster.ray.origin.z) / directionZ;
+		if (distance < 0) {
+			return;
+		}
+		intersections.push({
+			distance,
+			point: raycaster.ray.at(distance, new THREE.Vector3()).clone(),
+			object: this,
+		});
+	};
+	mesh.forEachSplat = function forEachSplat(callback) {
+		centers.forEach((center, index) => callback(index, center.clone()));
+	};
+	mesh.getBoundingBox = function getBoundingBox() {
+		return new THREE.Box3().setFromPoints(centers);
+	};
+	return {
+		id,
+		kind: "splat",
+		object,
+		contentObject,
+		localCenterBoundsHint: new THREE.Box3().setFromPoints(centers),
+		disposeTarget: mesh,
+	};
+}
+
 function createDerivedRuntimeAsset({ id, label, source }) {
 	const object = new THREE.Group();
 	object.updateMatrixWorld(true);
@@ -445,7 +487,43 @@ async function createPackedSplatAsset({ id, label, centers }) {
 		harness.controller.setSplatEditMode(true, { silent: true }),
 		true,
 	);
-	assert.equal(harness.store.splatEdit.tool.value, "box");
+	assert.equal(harness.store.splatEdit.tool.value, "brush");
+}
+
+{
+	const harness = createHarness();
+	harness.store.sceneAssets.value = [
+		createSplatAsset({
+			id: "splat-1",
+			centers: [new THREE.Vector3(0, 0, 0)],
+			raycastHitPoint: new THREE.Vector3(0, 0, 0),
+		}),
+	];
+	harness.store.selectedSceneAssetIds.value = ["splat-1"];
+
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	assert.equal(harness.controller.setSplatEditTool("brush"), "brush");
+	assert.equal(
+		harness.controller.applySplatEditBrushAtClientPoint({
+			clientX: 500,
+			clientY: 500,
+		}),
+		1,
+	);
+	assert.equal(harness.store.splatEdit.selectionCount.value, 1);
+	assert.equal(
+		harness.controller.setSplatEditMode(false, { silent: true }),
+		true,
+	);
+	assert.equal(harness.store.splatEdit.selectionCount.value, 1);
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	assert.equal(harness.store.splatEdit.selectionCount.value, 1);
 }
 
 {
@@ -613,6 +691,58 @@ async function createPackedSplatAsset({ id, label, centers }) {
 		2,
 	);
 	assert.equal(harness.store.splatEdit.selectionCount.value, 2);
+	assert.deepEqual(harness.calls.at(-1), ["status", "added:2"]);
+}
+
+{
+	const harness = createHarness();
+	harness.store.sceneAssets.value = [
+		createPlanarBrushSplatAsset({
+			id: "splat-1",
+			centers: [new THREE.Vector3(-0.4, 0, 0), new THREE.Vector3(0.4, 0, 0)],
+		}),
+	];
+	harness.store.selectedSceneAssetIds.value = ["splat-1"];
+
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	assert.equal(harness.controller.setSplatEditTool("brush"), "brush");
+	assert.equal(harness.controller.setSplatEditBrushSize(0.2), true);
+	assert.equal(
+		harness.controller.startSplatEditBrushStroke(
+			createPointerEvent({
+				pointerId: 9,
+				clientX: 460,
+				clientY: 500,
+			}),
+		),
+		true,
+	);
+	assert.equal(
+		harness.controller.handleSplatEditBrushStrokeMove(
+			createPointerEvent({
+				pointerId: 9,
+				clientX: 540,
+				clientY: 500,
+			}),
+		),
+		true,
+	);
+	assert.equal(
+		harness.controller.finishSplatEditBrushStroke(
+			createPointerEvent({
+				pointerId: 9,
+				clientX: 540,
+				clientY: 500,
+			}),
+		),
+		true,
+	);
+	assert.equal(harness.store.splatEdit.selectionCount.value, 2);
+	assert.equal(harness.store.splatEdit.brushPreview.value.visible, true);
+	assert.equal(harness.store.splatEdit.brushPreview.value.painting, false);
 	assert.deepEqual(harness.calls.at(-1), ["status", "added:2"]);
 }
 

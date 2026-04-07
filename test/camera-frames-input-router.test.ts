@@ -63,7 +63,10 @@ function createInputRouterHarness(overrides = {}) {
 		}
 		targetListeners.set(type, handler);
 	};
-	const viewportShell = { id: "viewport-shell" };
+	const viewportShell = {
+		id: "viewport-shell",
+		setPointerCapture() {},
+	};
 	const dropHint = {
 		classList: {
 			removed: [],
@@ -146,6 +149,42 @@ function createInputRouterHarness(overrides = {}) {
 			overrides.needsSplatEditBoxPlacement ?? false,
 		placeSplatEditBoxAtPointer: (event) =>
 			calls.push(["place-splat-box", event.clientX, event.clientY]),
+		startSplatEditBrushStroke: (event) => {
+			calls.push([
+				"start-splat-brush",
+				event.clientX,
+				event.clientY,
+				Boolean(event.altKey),
+			]);
+			return overrides.startSplatEditBrushStrokeResult ?? true;
+		},
+		handleSplatEditBrushStrokeMove: (event) => {
+			calls.push([
+				"move-splat-brush",
+				event.clientX,
+				event.clientY,
+				Boolean(event.altKey),
+			]);
+			return true;
+		},
+		finishSplatEditBrushStroke: (event, options) => {
+			calls.push([
+				"finish-splat-brush",
+				event.clientX,
+				event.clientY,
+				Boolean(event.altKey),
+				Boolean(options?.cancel),
+			]);
+			return true;
+		},
+		updateSplatEditBrushPreview: (event) =>
+			calls.push([
+				"preview-splat-brush",
+				event.clientX,
+				event.clientY,
+				Boolean(event.altKey),
+			]),
+		clearSplatEditBrushPreview: () => calls.push(["clear-splat-brush-preview"]),
 		applySplatEditBrushAtPointer: (event) =>
 			calls.push([
 				"apply-splat-brush",
@@ -313,6 +352,9 @@ function createInputRouterHarness(overrides = {}) {
 		const pointerdown = harness.listeners
 			.get(harness.viewportShell)
 			.get("pointerdown");
+		const pointermove = harness.listeners
+			.get(harness.windowRef)
+			.get("pointermove");
 		const pointerup = harness.listeners.get(harness.windowRef).get("pointerup");
 		const viewportTarget = new globalThis.Element();
 		viewportTarget.closest = (selector: string) => {
@@ -327,14 +369,96 @@ function createInputRouterHarness(overrides = {}) {
 			clientX: 640,
 			clientY: 360,
 			target: viewportTarget,
+			preventDefault() {},
+			stopPropagation() {},
+			stopImmediatePropagation() {},
+		});
+		pointermove({
+			pointerId: 2,
+			clientX: 672,
+			clientY: 392,
+			target: viewportTarget,
+			altKey: true,
+			preventDefault() {},
+			stopPropagation() {},
+			stopImmediatePropagation() {},
 		});
 		pointerup({
 			pointerId: 2,
+			clientX: 672,
+			clientY: 392,
+			altKey: true,
+			preventDefault() {},
+			stopPropagation() {},
+			stopImmediatePropagation() {},
+		});
+		assert.deepEqual(harness.calls, [
+			["start-splat-brush", 640, 360, false],
+			["move-splat-brush", 672, 392, true],
+			["finish-splat-brush", 672, 392, true, false],
+		]);
+	} finally {
+		harness.restore();
+	}
+}
+
+{
+	const harness = createInputRouterHarness({
+		isSplatEditModeActive: true,
+		isSplatEditBrushActive: true,
+	});
+	try {
+		const pointerdown = harness.listeners
+			.get(harness.viewportShell)
+			.get("pointerdown");
+		const viewportTarget = new globalThis.Element();
+		viewportTarget.closest = (selector: string) => {
+			if (selector === "#viewport") {
+				return {};
+			}
+			return null;
+		};
+		pointerdown({
+			pointerId: 4,
+			button: 0,
 			clientX: 640,
 			clientY: 360,
-			altKey: true,
+			target: viewportTarget,
+			ctrlKey: true,
+			preventDefault() {},
+			stopPropagation() {},
+			stopImmediatePropagation() {},
 		});
-		assert.deepEqual(harness.calls, [["apply-splat-brush", 640, 360, true]]);
+		assert.deepEqual(harness.calls, []);
+	} finally {
+		harness.restore();
+	}
+}
+
+{
+	const harness = createInputRouterHarness({
+		isSplatEditModeActive: true,
+		isSplatEditBrushActive: true,
+	});
+	try {
+		const pointermove = harness.listeners
+			.get(harness.windowRef)
+			.get("pointermove");
+		const viewportTarget = new globalThis.Element();
+		viewportTarget.closest = (selector: string) => {
+			if (selector === "#viewport") {
+				return {};
+			}
+			return null;
+		};
+		pointermove({
+			pointerId: 3,
+			clientX: 500,
+			clientY: 280,
+			target: viewportTarget,
+			altKey: false,
+		});
+		assert.deepEqual(harness.calls, [["preview-splat-brush", 500, 280, false]]);
 	} finally {
 		harness.restore();
 	}

@@ -78,6 +78,7 @@ export function ViewportShell({ store, controller, refs, t }) {
 	const splatEditBrushSize = store.splatEdit.brushSize.value;
 	const splatEditBrushDepthMode = store.splatEdit.brushDepthMode.value;
 	const splatEditBrushDepth = store.splatEdit.brushDepth.value;
+	const splatEditBrushPreview = store.splatEdit.brushPreview.value;
 	const splatEditBoxPlaced = store.splatEdit.boxPlaced.value;
 	const splatEditBoxCenter = store.splatEdit.boxCenter.value;
 	const splatEditBoxSize = store.splatEdit.boxSize.value;
@@ -231,6 +232,8 @@ export function ViewportShell({ store, controller, refs, t }) {
 			: frameMaskMode === "selected"
 				? frames.filter((frame) => rememberedMaskFrameIds.has(frame.id))
 				: [];
+	const viewportShellElement =
+		refs.viewportShellRef?.current ?? refs.viewportShellRef ?? null;
 	const renderBoxElement =
 		refs.renderBoxRef?.current ?? refs.renderBoxRef ?? null;
 	const dropHintStyle =
@@ -254,6 +257,32 @@ export function ViewportShell({ store, controller, refs, t }) {
 					bottom: "auto",
 				}
 			: undefined;
+	const brushPreviewRadiusPx = Math.max(
+		0,
+		Number(splatEditBrushPreview?.radiusPx ?? 0),
+	);
+	const splatEditBrushPreviewStyle =
+		splatEditActive &&
+		splatEditTool === "brush" &&
+		splatEditBrushPreview?.visible &&
+		viewportShellElement instanceof HTMLElement
+			? (() => {
+					const shellRect = viewportShellElement.getBoundingClientRect();
+					return {
+						left: `${splatEditBrushPreview.x - shellRect.left - brushPreviewRadiusPx}px`,
+						top: `${splatEditBrushPreview.y - shellRect.top - brushPreviewRadiusPx}px`,
+						width: `${brushPreviewRadiusPx * 2}px`,
+						height: `${brushPreviewRadiusPx * 2}px`,
+					};
+				})()
+			: null;
+	const splatEditBrushPreviewLabelStyle =
+		splatEditBrushPreviewStyle && brushPreviewRadiusPx > 0
+			? {
+					left: `${brushPreviewRadiusPx}px`,
+					top: `${brushPreviewRadiusPx * 2 + 10}px`,
+				}
+			: null;
 	const frameMaskOpacity = Math.min(
 		1,
 		Math.max(0, (Number(frameMaskOpacityPct) || 0) / 100),
@@ -523,6 +552,36 @@ export function ViewportShell({ store, controller, refs, t }) {
 				`
 				}
 			</div>
+			${
+				splatEditBrushPreviewStyle &&
+				html`
+					<div
+						class=${
+							splatEditBrushPreview?.subtract
+								? splatEditBrushPreview?.painting
+									? "viewport-splat-edit-brush-preview viewport-splat-edit-brush-preview--subtract viewport-splat-edit-brush-preview--painting"
+									: "viewport-splat-edit-brush-preview viewport-splat-edit-brush-preview--subtract"
+								: splatEditBrushPreview?.painting
+									? "viewport-splat-edit-brush-preview viewport-splat-edit-brush-preview--painting"
+									: "viewport-splat-edit-brush-preview"
+						}
+						style=${splatEditBrushPreviewStyle}
+						aria-hidden="true"
+					>
+						<div class="viewport-splat-edit-brush-preview__ring"></div>
+						<div
+							class="viewport-splat-edit-brush-preview__label"
+							style=${splatEditBrushPreviewLabelStyle}
+						>
+							${`${formatSplatEditNumericValue(splatEditBrushSize)}m / ${
+								splatEditBrushDepthMode === "through"
+									? t("status.splatEditBrushModeThrough")
+									: `${formatSplatEditNumericValue(splatEditBrushDepth)}m`
+							}`}
+						</div>
+					</div>
+				`
+			}
 			${
 				splatEditActive &&
 				html`
