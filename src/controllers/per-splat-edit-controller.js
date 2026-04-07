@@ -2396,12 +2396,17 @@ export function createPerSplatEditController({
 		}
 		const nextClientX = Number(event.clientX);
 		const nextClientY = Number(event.clientY);
+
+		syncBrushPreviewFromPointer(nextClientX, nextClientY, {
+			subtract: activeBrushStroke.subtract,
+			painting: true,
+		});
+
 		const deltaX = nextClientX - activeBrushStroke.lastClientX;
 		const deltaY = nextClientY - activeBrushStroke.lastClientY;
 		const distancePx = Math.hypot(deltaX, deltaY);
 		const sampleDivisor = Math.max(activeBrushStroke.lastRadiusPx * 2, 12);
 		const sampleCount = Math.max(1, Math.ceil(distancePx / sampleDivisor));
-		let lastBrushHit = null;
 		for (let sampleIndex = 1; sampleIndex <= sampleCount; sampleIndex += 1) {
 			const alpha = sampleIndex / sampleCount;
 			const sampleClientX = activeBrushStroke.lastClientX + deltaX * alpha;
@@ -2424,14 +2429,9 @@ export function createPerSplatEditController({
 				syncUi: false,
 				announce: false,
 			});
-			lastBrushHit = brushHit;
 		}
 		activeBrushStroke.lastClientX = nextClientX;
 		activeBrushStroke.lastClientY = nextClientY;
-		syncBrushPreviewFromPointer(nextClientX, nextClientY, {
-			subtract: activeBrushStroke.subtract,
-			painting: true,
-		});
 		activeBrushStroke.lastRadiusPx = Math.max(
 			MIN_BRUSH_SIZE_PX * 0.5,
 			clampBrushSizePx(store.splatEdit.brushSize.value) * 0.5,
