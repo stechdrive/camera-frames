@@ -1113,6 +1113,34 @@ export function createPerSplatEditController({
 		};
 	}
 
+	function getBrushHitFromClientPointFast({ clientX, clientY } = {}) {
+		if (
+			!Number.isFinite(clientX) ||
+			!Number.isFinite(clientY) ||
+			lastBrushRayDepth <= 0.01
+		) {
+			return null;
+		}
+		const camera = getPrimaryViewCamera();
+		const viewRect = getPrimaryViewRect();
+		if (!camera || !viewRect) {
+			return null;
+		}
+		const pointerRay = updatePointerRay(
+			raycaster,
+			pointerNdc,
+			{ clientX, clientY },
+			camera,
+			viewRect,
+		);
+		return {
+			camera,
+			hitPoint: pointerRay.at(lastBrushRayDepth, new THREE.Vector3()),
+			rayDirection: pointerRay.direction.clone().normalize(),
+			viewRect,
+		};
+	}
+
 	function resolveBrushFallbackHitPoint(camera, pointerRay) {
 		if (lastBrushRayDepth > 0.01) {
 			return pointerRay.at(lastBrushRayDepth, new THREE.Vector3());
@@ -1917,7 +1945,7 @@ export function createPerSplatEditController({
 			const alpha = sampleIndex / sampleCount;
 			const sampleClientX = activeBrushStroke.lastClientX + deltaX * alpha;
 			const sampleClientY = activeBrushStroke.lastClientY + deltaY * alpha;
-			const brushHit = getBrushHitFromClientPoint({
+			const brushHit = getBrushHitFromClientPointFast({
 				clientX: sampleClientX,
 				clientY: sampleClientY,
 			});
