@@ -55,6 +55,7 @@ export function bindInputRouter({
 	finishSplatEditBrushStroke = () => false,
 	updateSplatEditBrushPreview = () => false,
 	clearSplatEditBrushPreview = () => false,
+	applySplatEditBrushAtPointer = () => false,
 	toggleViewportReferenceImageEditMode,
 	toggleViewportTransformMode,
 	toggleViewportPivotEditMode,
@@ -156,7 +157,9 @@ export function bindInputRouter({
 		// Spark's default FPV keyboard bindings must stay disabled in CAMERA_FRAMES.
 		fpsMovement.enable = false;
 		pointerControls.enable =
-			navigationEnabled && !isViewportOrthographicActive?.();
+			navigationEnabled &&
+			!isViewportOrthographicActive?.() &&
+			!isSplatEditBrushActive?.();
 	}
 
 	function getCameraPoseSignature() {
@@ -188,7 +191,9 @@ export function bindInputRouter({
 
 	function isViewportPointerTarget(target) {
 		return Boolean(
-			target?.closest?.("#render-box") || target?.closest?.("#viewport"),
+			target?.closest?.("#render-box") ||
+				target?.closest?.("#viewport") ||
+				target?.closest?.("#viewport-shell"),
 		);
 	}
 
@@ -407,6 +412,7 @@ export function bindInputRouter({
 				event.metaKey ||
 				!isSplatEditBrushActive?.() ||
 				!isViewportPointerTarget(target) ||
+				target?.closest(".viewport-splat-edit-hud, .viewport-project-status") ||
 				target?.closest(".viewport-pie") ||
 				target?.closest(
 					".measurement-overlay__point, .measurement-overlay__chip",
@@ -554,7 +560,11 @@ export function bindInputRouter({
 				startClientX: event.clientX,
 				startClientY: event.clientY,
 				startPose: getCameraPoseSignature(),
-				action: needsSplatEditBoxPlacement?.() ? "box" : "",
+				action: needsSplatEditBoxPlacement?.()
+					? "box"
+					: isSplatEditBrushActive?.()
+						? "brush"
+						: "",
 			};
 			if (splatEditClickCandidate.action) {
 				return;
@@ -627,7 +637,10 @@ export function bindInputRouter({
 			return;
 		}
 		const target = event.target instanceof Element ? event.target : null;
-		if (!isViewportPointerTarget(target)) {
+		if (
+			!isViewportPointerTarget(target) ||
+			target?.closest(".viewport-splat-edit-hud, .viewport-project-status")
+		) {
 			clearSplatEditBrushPreview?.();
 			return;
 		}
@@ -732,6 +745,8 @@ export function bindInputRouter({
 			if (shouldApply) {
 				if (completedClick.action === "box") {
 					placeSplatEditBoxAtPointer?.(event);
+				} else if (completedClick.action === "brush") {
+					applySplatEditBrushAtPointer?.(event);
 				}
 			}
 		}

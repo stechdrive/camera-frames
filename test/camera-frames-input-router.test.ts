@@ -406,6 +406,50 @@ function createInputRouterHarness(overrides = {}) {
 	const harness = createInputRouterHarness({
 		isSplatEditModeActive: true,
 		isSplatEditBrushActive: true,
+		startSplatEditBrushStrokeResult: false,
+	});
+	try {
+		const pointerdown = harness.listeners
+			.get(harness.viewportShell)
+			.get("pointerdown");
+		const pointerup = harness.listeners.get(harness.windowRef).get("pointerup");
+		const viewportTarget = new globalThis.Element();
+		viewportTarget.closest = (selector: string) => {
+			if (selector === "#viewport" || selector === "#viewport-shell") {
+				return {};
+			}
+			return null;
+		};
+		pointerdown({
+			pointerId: 8,
+			button: 0,
+			clientX: 640,
+			clientY: 360,
+			target: viewportTarget,
+			altKey: true,
+			preventDefault() {},
+			stopPropagation() {},
+			stopImmediatePropagation() {},
+		});
+		pointerup({
+			pointerId: 8,
+			clientX: 640,
+			clientY: 360,
+			altKey: true,
+		});
+		assert.deepEqual(harness.calls, [
+			["start-splat-brush", 640, 360, true],
+			["apply-splat-brush", 640, 360, true],
+		]);
+	} finally {
+		harness.restore();
+	}
+}
+
+{
+	const harness = createInputRouterHarness({
+		isSplatEditModeActive: true,
+		isSplatEditBrushActive: true,
 	});
 	try {
 		const pointerdown = harness.listeners

@@ -88,6 +88,13 @@ export function createInteractionController({
 		return state.mode !== workspacePaneCamera && isViewportOrthographic?.();
 	}
 
+	function isSplatEditBrushNavigationSuppressed() {
+		return (
+			store.splatEdit?.active?.value === true &&
+			store.splatEdit?.tool?.value === "brush"
+		);
+	}
+
 	function isInteractiveTextTarget(target) {
 		return (
 			target instanceof Element &&
@@ -176,7 +183,9 @@ export function createInteractionController({
 		orbitAroundHitDragState = null;
 		viewportShell.classList.remove("is-orbit-dragging");
 		pointerControls.enable =
-			state.interactionMode === INTERACTION_MODE_NAVIGATE;
+			state.interactionMode === INTERACTION_MODE_NAVIGATE &&
+			!isViewportOrthographicActive() &&
+			!isSplatEditBrushNavigationSuppressed();
 	}
 
 	function clearViewportOrthographicPanDrag({ cancel = false } = {}) {
@@ -257,7 +266,9 @@ export function createInteractionController({
 		}
 		const navigationEnabled = nextMode === INTERACTION_MODE_NAVIGATE;
 		const pointerNavigationEnabled =
-			navigationEnabled && !isViewportOrthographicActive();
+			navigationEnabled &&
+			!isViewportOrthographicActive() &&
+			!isSplatEditBrushNavigationSuppressed();
 		fpsMovement.enable = false;
 		pointerControls.enable = pointerNavigationEnabled;
 		if (!silent) {
@@ -801,7 +812,9 @@ export function createInteractionController({
 		const navigationEnabled =
 			state.interactionMode === INTERACTION_MODE_NAVIGATE;
 		const pointerNavigationEnabled =
-			navigationEnabled && !isViewportOrthographicActive();
+			navigationEnabled &&
+			!isViewportOrthographicActive() &&
+			!isSplatEditBrushNavigationSuppressed();
 		fpsMovement.enable = false;
 		pointerControls.enable = pointerNavigationEnabled;
 		updateUi({ syncProjectPresentation: false });

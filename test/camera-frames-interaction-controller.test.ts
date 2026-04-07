@@ -8,6 +8,10 @@ function createHarness() {
 		viewportPieMenu: { value: null },
 		viewportLensHud: { value: null },
 		viewportRollHud: { value: null },
+		splatEdit: {
+			active: { value: false },
+			tool: { value: "box" },
+		},
 	};
 	const state = {
 		interactionMode: "navigate",
@@ -63,6 +67,7 @@ function createHarness() {
 		controller,
 		state,
 		store,
+		pointerControls,
 		updateUiCalls,
 	};
 }
@@ -83,3 +88,16 @@ function createHarness() {
 		syncProjectPresentation: false,
 	});
 }
+
+{
+	const harness = createHarness();
+	harness.store.splatEdit.active.value = true;
+	harness.store.splatEdit.tool.value = "brush";
+	harness.controller.syncControlsToMode();
+	assert.equal(harness.pointerControls.enable, false);
+	assert.deepEqual(harness.updateUiCalls.at(-1), {
+		syncProjectPresentation: false,
+	});
+}
+
+console.log("✅ CAMERA_FRAMES interaction controller tests passed!");
