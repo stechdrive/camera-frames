@@ -109,6 +109,7 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	const splatEditBrushSize = signal(0.2);
 	const splatEditBrushDepthMode = signal("depth");
 	const splatEditBrushDepth = signal(0.2);
+	const splatEditBrushDepthBarVisible = signal(false);
 	const splatEditBrushPreview = signal({
 		visible: false,
 		x: 0,
@@ -404,6 +405,7 @@ export function createCameraFramesStore(runtimeInfo = null) {
 			brushSize: splatEditBrushSize,
 			brushDepthMode: splatEditBrushDepthMode,
 			brushDepth: splatEditBrushDepth,
+			brushDepthBarVisible: splatEditBrushDepthBarVisible,
 			brushPreview: splatEditBrushPreview,
 			boxPlaced: splatEditBoxPlaced,
 			boxCenter: splatEditBoxCenter,

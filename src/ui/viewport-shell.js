@@ -563,7 +563,7 @@ export function ViewportShell({ store, controller, refs, t }) {
 					>
 						<div class="viewport-splat-edit-brush-preview__ring"></div>
 						${
-							splatEditBrushDepthMode !== "through" &&
+							store.splatEdit.brushDepthBarVisible.value &&
 							Number(splatEditBrushPreview?.depthBarPx) > 2 &&
 							html`
 								<div
