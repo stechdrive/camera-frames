@@ -167,6 +167,9 @@ export function createPerSplatEditController({
 	const tempScreenPoint = new THREE.Vector3();
 	const tempScreenPoint2 = new THREE.Vector3();
 	const tempBrushRightVector = new THREE.Vector3();
+	const tempCameraPosition = new THREE.Vector3();
+	const tempCameraDirection = new THREE.Vector3();
+	let lastBrushRayDepth = 0;
 	const tempBrushUpVector = new THREE.Vector3();
 	let activeBoxDrag = null;
 	let activeBrushStroke = null;
@@ -1092,7 +1095,13 @@ export function createPerSplatEditController({
 			return null;
 		}
 		const intersections = raycaster.intersectObjects(raycastTargets, true);
-		const hitPoint = intersections[0]?.point?.clone?.() ?? null;
+		let hitPoint = intersections[0]?.point?.clone?.() ?? null;
+		if (hitPoint) {
+			camera.getWorldPosition(tempCameraPosition);
+			lastBrushRayDepth = hitPoint.distanceTo(tempCameraPosition);
+		} else {
+			hitPoint = resolveBrushFallbackHitPoint(camera, pointerRay);
+		}
 		if (!hitPoint) {
 			return null;
 		}
@@ -1102,6 +1111,26 @@ export function createPerSplatEditController({
 			rayDirection: pointerRay.direction.clone().normalize(),
 			viewRect,
 		};
+	}
+
+	function resolveBrushFallbackHitPoint(camera, pointerRay) {
+		if (lastBrushRayDepth > 0.01) {
+			return pointerRay.at(lastBrushRayDepth, new THREE.Vector3());
+		}
+		const sceneBounds = getAssetController?.()?.getSceneBounds?.();
+		if (sceneBounds?.box && !sceneBounds.box.isEmpty()) {
+			const sceneCenter = sceneBounds.box.getCenter(new THREE.Vector3());
+			camera.getWorldPosition(tempCameraPosition);
+			camera.getWorldDirection(tempCameraDirection).normalize();
+			const depth = sceneCenter
+				.sub(tempCameraPosition)
+				.dot(tempCameraDirection);
+			if (depth > 0.01) {
+				lastBrushRayDepth = depth;
+				return pointerRay.at(depth, new THREE.Vector3());
+			}
+		}
+		return pointerRay.at(DEFAULT_BOX_SIZE, new THREE.Vector3());
 	}
 
 	function clearBrushPreview({ syncUi = true } = {}) {
@@ -1813,6 +1842,14 @@ export function createPerSplatEditController({
 			!Number.isFinite(event?.clientX) ||
 			!Number.isFinite(event?.clientY)
 		) {
+			if (isDevRuntime) {
+				console.debug(
+					"[brush] stroke rejected: active=%o tool=%s btn=%d",
+					isSplatEditModeActive(),
+					store.splatEdit.tool.value,
+					event?.button,
+				);
+			}
 			return false;
 		}
 		const subtract = event.altKey === true;
@@ -1821,8 +1858,23 @@ export function createPerSplatEditController({
 			clientY: Number(event.clientY),
 		});
 		if (!brushHit) {
+			if (isDevRuntime) {
+				console.debug(
+					"[brush] no hit at (%d,%d)",
+					event.clientX,
+					event.clientY,
+				);
+			}
 			clearBrushPreview();
 			return false;
+		}
+		if (isDevRuntime) {
+			console.debug(
+				"[brush] stroke start at (%d,%d) hitPoint=%o",
+				event.clientX,
+				event.clientY,
+				brushHit.hitPoint,
+			);
 		}
 		activeBrushStroke = {
 			pointerId: event.pointerId,

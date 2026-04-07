@@ -185,6 +185,7 @@ export function createSplatSelectionHighlightController({
 		if (changed) {
 			entry.rgbaArray.needsUpdate = true;
 			entry.rgbaArray.getTexture?.();
+			entry.mesh?.updateGenerator?.();
 		}
 	}
 

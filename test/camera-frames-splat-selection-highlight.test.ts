@@ -63,7 +63,7 @@ function createSplatMesh(colors) {
 	});
 
 	assert.ok(mesh.splatRgba instanceof FakeRgbaArray);
-	assert.equal(mesh.updateGeneratorCalls, 1);
+	assert.equal(mesh.updateGeneratorCalls, 2);
 	assert.deepEqual(
 		Array.from(mesh.splatRgba.array.slice(0, 4)),
 		[51, 102, 153, 191],
@@ -76,7 +76,7 @@ function createSplatMesh(colors) {
 	controller.clear();
 
 	assert.equal(mesh.splatRgba, null);
-	assert.equal(mesh.updateGeneratorCalls, 2);
+	assert.equal(mesh.updateGeneratorCalls, 3);
 }
 
 {
@@ -104,7 +104,7 @@ function createSplatMesh(colors) {
 	});
 
 	assert.equal(mesh.splatRgba, previousRgba);
-	assert.equal(mesh.updateGeneratorCalls, 2);
+	assert.equal(mesh.updateGeneratorCalls, 3);
 }
 
 {

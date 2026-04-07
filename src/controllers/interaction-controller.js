@@ -634,11 +634,16 @@ export function createInteractionController({
 	}
 
 	function isOrbitAroundHitDragEligible(event) {
-		return (
-			state.interactionMode === INTERACTION_MODE_NAVIGATE &&
-			event.button === 0 &&
-			event.ctrlKey
-		);
+		if (state.interactionMode !== INTERACTION_MODE_NAVIGATE) {
+			return false;
+		}
+		if (event.button === 0 && event.ctrlKey) {
+			return true;
+		}
+		if (event.button === 2 && isSplatEditBrushNavigationSuppressed()) {
+			return true;
+		}
+		return false;
 	}
 
 	function getOrbitAroundHitHistoryLabel() {
@@ -690,7 +695,37 @@ export function createInteractionController({
 			return intersection.point.clone();
 		}
 
+		const sceneBounds = assetController?.getSceneBounds?.();
+		if (sceneBounds?.box && !sceneBounds.box.isEmpty()) {
+			return sceneBounds.box.getCenter(new THREE.Vector3());
+		}
 		return null;
+	}
+
+	function applyPanAroundHitDelta(camera, dragState, deltaX, deltaY) {
+		const pivotWorld = dragState.pivotWorld;
+		const cameraPos = camera.position;
+		const viewDepth = cameraPos.distanceTo(pivotWorld);
+		if (viewDepth <= 0.001) {
+			return;
+		}
+		const verticalFovRadians = THREE.MathUtils.degToRad(camera.fov ?? 60);
+		const viewportRect = viewportShell.getBoundingClientRect();
+		const pixelHeight = Math.max(viewportRect.height, 1);
+		const worldPerPixel =
+			(2 * Math.tan(verticalFovRadians * 0.5) * viewDepth) / pixelHeight;
+		const right = new THREE.Vector3(1, 0, 0)
+			.applyQuaternion(camera.quaternion)
+			.normalize();
+		const up = new THREE.Vector3(0, 1, 0)
+			.applyQuaternion(camera.quaternion)
+			.normalize();
+		const offset = right
+			.multiplyScalar(-deltaX * worldPerPixel)
+			.addScaledVector(up, deltaY * worldPerPixel);
+		camera.position.add(offset);
+		dragState.pivotWorld.add(offset);
+		camera.updateMatrixWorld(true);
 	}
 
 	function applyOrbitAroundHitDelta(camera, pivotWorld, deltaX, deltaY, event) {
@@ -745,6 +780,7 @@ export function createInteractionController({
 			lastClientX: event.clientX,
 			lastClientY: event.clientY,
 			historyLabel: getOrbitAroundHitHistoryLabel(),
+			brushPan: isSplatEditBrushNavigationSuppressed(),
 		};
 		if (state.mode !== workspacePaneCamera) {
 			setViewportTransientReferencePoint?.(pivotWorld);
@@ -782,13 +818,17 @@ export function createInteractionController({
 
 		event.preventDefault();
 		event.stopPropagation();
-		applyOrbitAroundHitDelta(
-			camera,
-			orbitAroundHitDragState.pivotWorld,
-			deltaX,
-			deltaY,
-			event,
-		);
+		if (event.shiftKey && orbitAroundHitDragState.brushPan) {
+			applyPanAroundHitDelta(camera, orbitAroundHitDragState, deltaX, deltaY);
+		} else {
+			applyOrbitAroundHitDelta(
+				camera,
+				orbitAroundHitDragState.pivotWorld,
+				deltaX,
+				deltaY,
+				event,
+			);
+		}
 	}
 
 	function handleOrbitAroundHitDragEnd(event) {

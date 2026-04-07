@@ -1531,4 +1531,71 @@ async function createPackedSplatAsset({ id, label, centers }) {
 	);
 }
 
+// Brush selects splats via fallback depth when raycast misses
+{
+	const harness = createHarness();
+	harness.store.sceneAssets.value = [
+		createSplatAsset({
+			id: "splat-no-raycast",
+			centers: [new THREE.Vector3(0, 0, 0), new THREE.Vector3(0.05, 0, 0)],
+			// No raycastHitPoint → mesh has no raycast method → raycaster will miss
+		}),
+	];
+	harness.store.selectedSceneAssetIds.value = ["splat-no-raycast"];
+
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	assert.equal(harness.controller.setSplatEditTool("brush"), "brush");
+	assert.equal(harness.controller.setSplatEditBrushSize(2), true);
+	assert.equal(
+		harness.controller.setSplatEditBrushDepthMode("through"),
+		"through",
+	);
+	// Brush should still work via fallback depth even without raycast hit
+	const hitCount = harness.controller.applySplatEditBrushAtClientPoint({
+		clientX: 500,
+		clientY: 500,
+	});
+	assert.ok(
+		hitCount > 0,
+		`brush should select splats via fallback depth, got ${hitCount}`,
+	);
+	assert.ok(harness.store.splatEdit.selectionCount.value > 0);
+}
+
+// Brush stroke lifecycle works with fallback depth
+{
+	const harness = createHarness();
+	harness.store.sceneAssets.value = [
+		createSplatAsset({
+			id: "splat-stroke-fallback",
+			centers: [new THREE.Vector3(0, 0, 0)],
+		}),
+	];
+	harness.store.selectedSceneAssetIds.value = ["splat-stroke-fallback"];
+
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	assert.equal(harness.controller.setSplatEditTool("brush"), "brush");
+	assert.equal(harness.controller.setSplatEditBrushSize(2), true);
+	assert.equal(
+		harness.controller.setSplatEditBrushDepthMode("through"),
+		"through",
+	);
+	const started = harness.controller.startSplatEditBrushStroke(
+		createPointerEvent({ pointerId: 20, clientX: 500, clientY: 500 }),
+	);
+	assert.equal(started, true, "brush stroke should start with fallback depth");
+	assert.equal(
+		harness.controller.finishSplatEditBrushStroke(
+			createPointerEvent({ pointerId: 20, clientX: 510, clientY: 500 }),
+		),
+		true,
+	);
+}
+
 console.log("✅ CAMERA_FRAMES per-splat edit controller tests passed!");
