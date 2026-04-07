@@ -31,6 +31,7 @@
 
 ## 関連コミット（新→旧、このセッション分）
 
+- (未コミット) Fix transform post-confirm perf: LOD invalidation, matrix precompose, eliminate double-clone, remove transform mode scene helper box
 - `686bdc8` Tune brush sample spacing to 1.5x diameter
 - `b817355` Move brush cursor update before hit computation in drag
 - `d88a11f` Increase brush sample spacing to brush diameter
@@ -47,25 +48,39 @@
 
 ## Next Work (priority order)
 
-### 1. トランスフォームの描画パフォーマンス改善
+### 1. トランスフォームの描画パフォーマンス改善（調査・一部改善済み）
 
 **現行方式: extractSplats + 別 SplatMesh**
 - ドラッグ中のハイライト追従: 動作する
 - 描画コスト: 元メッシュ + プレビューメッシュの2重描画
-- 確定後のカメラ回転: 重い（原因要調査）
+- 確定後のカメラ回転: 改善済み（sync 228ms→3ms）だが apply+persist で ~1.2s 残存
 - メモリ: 選択スプラットを丸ごとコピー
 
-**代替方式: world modifier**
-- 過去に試行済み。スプラット本体の移動描画は軽かった
-- 問題だった点: ハイライト（RGBA テクスチャ）がドラッグ中に追従しなかった
-- もし RGBA ハイライトを world modifier の変換に連動できれば最善
-- Spark の `SplatMesh.worldModifier` / `SplatMesh.worldModifiers` は変換行列をシェーダー側で適用するため、CPU 側でスプラットをコピーせずに済む
+**確定後パフォーマンス — 調査結果と実施済み改善:**
 
-**次スレッドでの検討事項:**
-- world modifier 方式でハイライト RGBA を追従させる方法があるか調査
-- Spark の `SplatEdit` / `SplatEdits` API がトランスフォームプレビューに使えないか
-- 現行方式の確定後パフォーマンス劣化の原因特定（プレビューメッシュ残骸、テクスチャ状態など）
-- 両方式のメリット・デメリットを踏まえて方針決定
+1. **LOD stale data 修正済み**: `applySelectedSplatTransform` で `disposeLodSplats()` を追加。PackedSplats の LOD データ（ExtSplats）はトランスフォーム後に古い位置データを保持していた。Spark の `SplatMesh.update()` は LOD 有効時に `lodSplats` を使い packed data の変更を無視するため、LOD を破棄して正しい packed data にフォールバック
+2. **transform モードの scene helper box 削除済み**: `syncSceneHelper` から transform モードの bounding box 描画を除去。ギズモで十分
+3. **apply ループ最適化済み**: 変換行列を事前合成（`composeSelectedSplatTransformMatrix` + `worldMatrixInverse`）、temp オブジェクト再利用で GC 圧力削減
+4. **persist の extra 二重コピー除去済み**: `clonePackedExtra` 呼び出しを削除、`createProjectFilePackedSplatSource` 内部の単一クローンに統一
+
+**残存ボトルネック（RTX5080, ~500K選択スプラット）:**
+- apply ~570ms: `setSplat()` per-splat encoding（Spark packed format）
+- persist ~600ms: `createProjectFilePackedSplatSource` 内の `new Uint32Array(packedArray)` 全体コピー + SH データクローン
+
+**さらなる最適化の候補:**
+- persist の遅延化: packed data snapshot を `requestIdleCallback` で非同期実行（undo/redo との整合性要検討）
+- apply: Spark packed format への直接書き込み（Spark 内部依存で fragile）
+- ドラッグ中の rAF violation は extractSplats プレビューの 2重描画コスト
+
+**worldModifier 方式 — 調査結果（不採用）:**
+- `worldModifier` は Dyno ベースで `{ gsplat }` のみ受け取る。splat index にアクセスできない
+- 全スプラットに一律適用されるため、選択スプラットだけの条件付き変換が困難
+- splatRgba alpha にフラグを埋め込む案は recolor/rgbaDisplaceEdits 通過後に alpha が変質するため不安定
+
+**SplatEdit API — 調査結果（不適合）:**
+- SDF ベースの空間マスク + color/displace のみ
+- displace は平行移動のみ（回転・スケール不可）
+- per-splat-index ではなく空間領域ベース
 
 ### 3. Duplicate（複製）
 - Separate の応用。選択スプラットを同じ位置にコピーして新アセットに追加
@@ -104,6 +119,9 @@ pointermove
 - Vite HMR で `per-splat-edit-controller.js` の変更が反映されない問題は force reload plugin で解決済み
 - `updateGenerator()` は `generatorDirty = true` を設定するだけ（軽い）。実際の再構築はレンダーループで遅延実行
 - rAF バッチハイライトは廃止（メインスレッド占有中に rAF が実行されない問題があった）
+- PackedSplats の `needsUpdate = true` は `maybeUpdateSource()` で source テクスチャを GPU 再アップロードする。LOD 有効時は `lodSplats` が優先されるため、packed data 変更後は `disposeLodSplats()` が必要
+- `syncSceneHelper` は box ツール専用。transform モードでの selection bounds box 表示は削除済み（ギズモで十分）
+- `createProjectFilePackedSplatSource` は内部で `packedArray` と `extra` をクローンするため、呼び出し側での事前クローンは不要
 
 ## Current Validation
 

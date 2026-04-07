@@ -346,7 +346,7 @@ export function createPerSplatEditController({
 			fileType: asset?.source?.fileType ?? null,
 			packedArray: packedSplats.packedArray ?? new Uint32Array(),
 			numSplats: packedSplats.getNumSplats?.() ?? packedSplats.numSplats ?? 0,
-			extra: clonePackedExtra(packedSplats.extra),
+			extra: packedSplats.extra ?? {},
 			splatEncoding: packedSplats.splatEncoding ?? null,
 			projectAssetState: getCapturedProjectAssetState(asset.id, {
 				label: asset.label,
@@ -1319,54 +1319,54 @@ export function createPerSplatEditController({
 		if (!Array.isArray(entries) || entries.length === 0) {
 			return false;
 		}
-		const translation = worldTranslation?.clone?.() ?? new THREE.Vector3();
-		const rotation =
-			worldRotation instanceof THREE.Quaternion ? worldRotation.clone() : null;
 		const scaleFactor =
 			Number.isFinite(uniformScale) && uniformScale > 0 ? uniformScale : 1;
-		const pivot = pivotWorld?.clone?.() ?? new THREE.Vector3();
+		const worldTransformMatrix = composeSelectedSplatTransformMatrix(
+			{ worldTranslation, worldRotation, uniformScale, pivotWorld },
+			tempTransformMatrix,
+		);
+		const rotation =
+			worldRotation instanceof THREE.Quaternion ? worldRotation : null;
+		const tempCenter = tempVector;
+		const tempScales = tempVector2;
+		const tempLocalDeltaQuat = new THREE.Quaternion();
+		const tempSplatQuat = new THREE.Quaternion();
+		const tempCombinedMatrix = tempTransformPivotMatrix;
 		let changed = false;
 		for (const entry of entries) {
-			const localDeltaQuaternion = rotation
-				? entry.inverseWorldQuaternion
-						.clone()
-						.multiply(rotation)
-						.multiply(entry.worldQuaternion)
-						.normalize()
-				: null;
+			tempCombinedMatrix
+				.copy(entry.worldMatrixInverse)
+				.multiply(worldTransformMatrix);
+			let hasRotation = false;
+			if (rotation) {
+				tempLocalDeltaQuat
+					.copy(entry.inverseWorldQuaternion)
+					.multiply(rotation)
+					.multiply(entry.worldQuaternion)
+					.normalize();
+				hasRotation = true;
+			}
 			for (const splat of entry.splats) {
-				let nextWorldCenter = splat.worldCenter.clone().add(translation);
-				if (rotation) {
-					nextWorldCenter = nextWorldCenter
-						.sub(pivot)
-						.applyQuaternion(rotation)
-						.add(pivot);
-				}
+				tempCenter.copy(splat.worldCenter).applyMatrix4(tempCombinedMatrix);
 				if (scaleFactor !== 1) {
-					nextWorldCenter = nextWorldCenter
-						.sub(pivot)
-						.multiplyScalar(scaleFactor)
-						.add(pivot);
+					tempScales.copy(splat.scales).multiplyScalar(scaleFactor);
 				}
-				const nextLocalCenter = nextWorldCenter.applyMatrix4(
-					entry.worldMatrixInverse,
-				);
-				const nextScales =
-					scaleFactor === 1
-						? splat.scales
-						: splat.scales.clone().multiplyScalar(scaleFactor);
-				const nextQuaternion = localDeltaQuaternion
-					? localDeltaQuaternion.clone().multiply(splat.quaternion).normalize()
-					: splat.quaternion;
+				if (hasRotation) {
+					tempSplatQuat
+						.copy(tempLocalDeltaQuat)
+						.multiply(splat.quaternion)
+						.normalize();
+				}
 				entry.packedSplats.setSplat(
 					splat.index,
-					nextLocalCenter,
-					nextScales,
-					nextQuaternion,
+					tempCenter,
+					scaleFactor === 1 ? splat.scales : tempScales,
+					hasRotation ? tempSplatQuat : splat.quaternion,
 					splat.opacity,
 					splat.color,
 				);
 			}
+			entry.packedSplats.disposeLodSplats?.();
 			entry.packedSplats.needsUpdate = true;
 			entry.splatMesh.updateGenerator?.();
 			updateSplatAssetBoundsHints(entry.asset);
@@ -1380,18 +1380,25 @@ export function createPerSplatEditController({
 			clearActiveTransformPreview();
 			return false;
 		}
+		const t0 = performance.now();
 		if (!applySelectedSplatTransform(entries, activeTransformPreview ?? {})) {
 			clearActiveTransformPreview();
 			return false;
 		}
+		const t1 = performance.now();
 		let changed = false;
 		for (const entry of entries) {
 			changed = syncSplatAssetPersistentSource(entry.asset) || changed;
 		}
+		const t2 = performance.now();
 		clearActiveTransformPreview({ syncUi: false });
 		syncSelectionHighlight();
 		syncSceneHelper();
 		updateUi?.();
+		const t3 = performance.now();
+		console.debug(
+			`[splat-transform] finalize: apply=${(t1 - t0).toFixed(1)}ms persist=${(t2 - t1).toFixed(1)}ms sync=${(t3 - t2).toFixed(1)}ms total=${(t3 - t0).toFixed(1)}ms`,
+		);
 		return changed;
 	}
 
@@ -1733,17 +1740,6 @@ export function createPerSplatEditController({
 			helperVisible = true;
 			helperCenter = getSplatEditBoxCenter();
 			helperSize = getSplatEditBoxSize();
-		} else if (
-			isSplatEditModeActive() &&
-			store.splatEdit.tool.value === "transform" &&
-			store.splatEdit.selectionCount.value > 0
-		) {
-			const selectionBounds = getSelectedSplatTransformBounds();
-			if (selectionBounds && !selectionBounds.isEmpty()) {
-				helperVisible = true;
-				helperCenter = selectionBounds.getCenter(new THREE.Vector3());
-				helperSize = selectionBounds.getSize(new THREE.Vector3());
-			}
 		}
 		sceneHelper.sync({
 			visible: helperVisible,
