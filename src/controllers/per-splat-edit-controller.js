@@ -1,3 +1,4 @@
+import { fromHalf } from "@sparkjsdev/spark";
 import * as THREE from "three";
 import { createSplatEditSceneHelper } from "../engine/splat-edit-scene-helper.js";
 import { createSplatTransformPreviewController } from "../engine/splat-transform-preview.js";
@@ -1771,10 +1772,21 @@ export function createPerSplatEditController({
 		const maxAxialDistance =
 			brushDepthMode === "through" ? Number.POSITIVE_INFINITY : brushDepth;
 		let changedCount = 0;
+		const isThrough = brushDepthMode === "through";
+		const hitX = brushHit.hitPoint.x;
+		const hitY = brushHit.hitPoint.y;
+		const hitZ = brushHit.hitPoint.z;
+		const dirX = brushHit.rayDirection.x;
+		const dirY = brushHit.rayDirection.y;
+		const dirZ = brushHit.rayDirection.z;
 		for (const asset of getSplatEditScopeAssets()) {
 			const splatMesh = asset.disposeTarget;
-			if (typeof splatMesh?.forEachSplat !== "function") {
-				continue;
+			const packedArray = splatMesh?.packedSplats?.packedArray;
+			const numSplats = splatMesh?.packedSplats?.numSplats ?? 0;
+			if (!packedArray || numSplats <= 0) {
+				if (typeof splatMesh?.forEachSplat !== "function") {
+					continue;
+				}
 			}
 			asset.object.updateMatrixWorld(true);
 			splatMesh?.updateMatrixWorld?.(true);
@@ -1782,35 +1794,76 @@ export function createPerSplatEditController({
 				splatMesh?.matrixWorld ??
 				asset.contentObject?.matrixWorld ??
 				asset.object.matrixWorld;
+			const me = worldMatrix.elements;
 			const assetIdKey = getAssetIdKey(asset.id);
 			const nextSelection =
 				selectedSplatsByAssetId.get(assetIdKey) ?? new Set();
-			splatMesh.forEachSplat((index, center) => {
-				tempWorldPoint.copy(center);
-				tempWorldPoint.applyMatrix4(worldMatrix);
-				tempVector.copy(tempWorldPoint).sub(brushHit.hitPoint);
-				const axialDistance = tempVector.dot(brushHit.rayDirection);
-				if (axialDistance < -1e-4 || axialDistance > maxAxialDistance) {
-					return;
-				}
-				tempVector2
-					.copy(tempVector)
-					.addScaledVector(brushHit.rayDirection, -axialDistance);
-				if (tempVector2.lengthSq() > brushRadiusSq) {
-					return;
-				}
-				if (subtract) {
-					if (nextSelection.delete(index)) {
+			if (packedArray && numSplats > 0) {
+				for (let i = 0; i < numSplats; i++) {
+					if (!subtract && nextSelection.has(i)) {
+						continue;
+					}
+					const i4 = i * 4;
+					const word1 = packedArray[i4 + 1];
+					const word2 = packedArray[i4 + 2];
+					const lx = fromHalf(word1 & 0xffff);
+					const ly = fromHalf(word1 >>> 16);
+					const lz = fromHalf(word2 & 0xffff);
+					const wx = me[0] * lx + me[4] * ly + me[8] * lz + me[12];
+					const wy = me[1] * lx + me[5] * ly + me[9] * lz + me[13];
+					const wz = me[2] * lx + me[6] * ly + me[10] * lz + me[14];
+					const vx = wx - hitX;
+					const vy = wy - hitY;
+					const vz = wz - hitZ;
+					const axial = vx * dirX + vy * dirY + vz * dirZ;
+					if (!isThrough && (axial < -1e-4 || axial > maxAxialDistance)) {
+						continue;
+					}
+					const px = vx - dirX * axial;
+					const py = vy - dirY * axial;
+					const pz = vz - dirZ * axial;
+					if (px * px + py * py + pz * pz > brushRadiusSq) {
+						continue;
+					}
+					if (subtract) {
+						if (nextSelection.delete(i)) {
+							changedCount += 1;
+						}
+					} else {
+						nextSelection.add(i);
 						changedCount += 1;
 					}
-					return;
 				}
-				const sizeBefore = nextSelection.size;
-				nextSelection.add(index);
-				if (nextSelection.size !== sizeBefore) {
-					changedCount += 1;
-				}
-			});
+			} else {
+				splatMesh.forEachSplat((index, center) => {
+					if (!subtract && nextSelection.has(index)) {
+						return;
+					}
+					tempWorldPoint.copy(center);
+					tempWorldPoint.applyMatrix4(worldMatrix);
+					const vx = tempWorldPoint.x - hitX;
+					const vy = tempWorldPoint.y - hitY;
+					const vz = tempWorldPoint.z - hitZ;
+					const axial = vx * dirX + vy * dirY + vz * dirZ;
+					if (!isThrough && (axial < -1e-4 || axial > maxAxialDistance)) {
+						return;
+					}
+					const px = vx - dirX * axial;
+					const py = vy - dirY * axial;
+					const pz = vz - dirZ * axial;
+					if (px * px + py * py + pz * pz > brushRadiusSq) {
+						return;
+					}
+					if (subtract) {
+						if (nextSelection.delete(index)) {
+							changedCount += 1;
+						}
+					} else {
+						nextSelection.add(index);
+						changedCount += 1;
+					}
+				});
+			}
 			if (nextSelection.size > 0) {
 				selectedSplatsByAssetId.set(assetIdKey, nextSelection);
 			} else {

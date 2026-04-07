@@ -276,13 +276,6 @@ export function ViewportShell({ store, controller, refs, t }) {
 					};
 				})()
 			: null;
-	const splatEditBrushPreviewLabelStyle =
-		splatEditBrushPreviewStyle && brushPreviewRadiusPx > 0
-			? {
-					left: `${brushPreviewRadiusPx}px`,
-					top: `${brushPreviewRadiusPx * 2 + 10}px`,
-				}
-			: null;
 	const frameMaskOpacity = Math.min(
 		1,
 		Math.max(0, (Number(frameMaskOpacityPct) || 0) / 100),
@@ -569,16 +562,18 @@ export function ViewportShell({ store, controller, refs, t }) {
 						aria-hidden="true"
 					>
 						<div class="viewport-splat-edit-brush-preview__ring"></div>
-						<div
-							class="viewport-splat-edit-brush-preview__label"
-							style=${splatEditBrushPreviewLabelStyle}
-						>
-							${`${formatSplatEditNumericValue(splatEditBrushSize)}m / ${
-								splatEditBrushDepthMode === "through"
-									? t("status.splatEditBrushModeThrough")
-									: `${formatSplatEditNumericValue(splatEditBrushDepth)}m`
-							}`}
-						</div>
+						${
+							splatEditBrushDepthMode !== "through" &&
+							Number(splatEditBrushPreview?.depthBarPx) > 2 &&
+							html`
+								<div
+									class="viewport-splat-edit-brush-preview__depth-bar"
+									style=${{
+										height: `${Number(splatEditBrushPreview.depthBarPx)}px`,
+									}}
+								></div>
+							`
+						}
 					</div>
 				`
 			}
