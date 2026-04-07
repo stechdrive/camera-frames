@@ -159,6 +159,22 @@ export default defineConfig(({ command }) => {
 		builtAt: new Date().toISOString(),
 	};
 
+	const forceReloadPlugin = {
+		name: "camera-frames-force-reload",
+		handleHotUpdate(context) {
+			const rel = relative(repoRoot, context.file).replace(/\\/g, "/");
+			if (
+				rel.startsWith("src/controllers/") ||
+				rel.startsWith("src/engine/") ||
+				rel === "src/controller.js" ||
+				rel === "src/store.js"
+			) {
+				context.server.ws.send({ type: "full-reload" });
+				return [];
+			}
+		},
+	};
+
 	return {
 		base: command === "build" ? "/camera-frames/" : "/",
 		define: {
@@ -172,6 +188,7 @@ export default defineConfig(({ command }) => {
 		plugins: [
 			createDevStampPlugin(repoRoot),
 			createVersionAssetPlugin(buildInfo),
+			forceReloadPlugin,
 		],
 		optimizeDeps: {
 			exclude: ["playcanvas", "@playcanvas/splat-transform"],
