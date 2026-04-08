@@ -1,6 +1,9 @@
 import * as THREE from "three";
 
 const CAMERA_SPACE_POINT = new THREE.Vector3();
+const _projPivotScreen = new THREE.Vector3();
+const _projEndpointScreen = new THREE.Vector3();
+const _projTempOffset = new THREE.Vector3();
 
 function toFiniteRect(rect) {
 	if (!rect || rect.width <= 0 || rect.height <= 0) {
@@ -147,20 +150,18 @@ export function getProjectedAxisDirection({
 		return null;
 	}
 
-	const pivotScreen = new THREE.Vector3();
-	const endpointScreen = new THREE.Vector3();
-	projectWorldToLocalScreen(pivotWorld, context, pivotScreen);
+	projectWorldToLocalScreen(pivotWorld, context, _projPivotScreen);
 	projectWorldToLocalScreen(
-		new THREE.Vector3()
+		_projTempOffset
 			.copy(pivotWorld)
 			.addScaledVector(axisWorld, worldUnitsPerPixel * pixelDistance),
 		context,
-		endpointScreen,
+		_projEndpointScreen,
 	);
 
 	target.set(
-		endpointScreen.x - pivotScreen.x,
-		endpointScreen.y - pivotScreen.y,
+		_projEndpointScreen.x - _projPivotScreen.x,
+		_projEndpointScreen.y - _projPivotScreen.y,
 	);
 	const length = target.length();
 	if (length < 1e-4) {

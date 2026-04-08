@@ -11,9 +11,11 @@ export function createViewSyncCommands({
 	safeSyncReferenceImagePreview,
 }) {
 	function updateOutputFrameOverlay() {
-		const result = getOutputFrameController()?.updateOutputFrameOverlay?.();
+		return getOutputFrameController()?.updateOutputFrameOverlay?.();
+	}
+
+	function syncReferenceImagePreview() {
 		safeSyncReferenceImagePreview?.();
-		return result;
 	}
 
 	function updateDropHint() {
@@ -55,6 +57,7 @@ export function createViewSyncCommands({
 
 	return {
 		updateOutputFrameOverlay,
+		syncReferenceImagePreview,
 		updateDropHint,
 		updateSceneSummary,
 		syncGuideOverlayState,

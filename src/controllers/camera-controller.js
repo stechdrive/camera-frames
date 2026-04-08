@@ -233,7 +233,9 @@ export function createCameraController({
 		}
 
 		activeEntry.helper.visible = state.mode === WORKSPACE_PANE_VIEWPORT;
-		activeEntry.helper.update();
+		if (activeEntry.helper.visible) {
+			activeEntry.helper.update();
+		}
 	}
 
 	function clampClipNear(value) {

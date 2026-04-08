@@ -273,6 +273,7 @@ export function createCameraFramesController(elements, store) {
 
 	const {
 		updateOutputFrameOverlay,
+		syncReferenceImagePreview,
 		updateDropHint,
 		updateSceneSummary,
 		syncGuideOverlayState,
@@ -850,6 +851,7 @@ export function createCameraFramesController(elements, store) {
 			updateDropHint,
 			updateUi,
 			updateOutputFrameOverlay,
+			syncReferenceImagePreview,
 			setStatus,
 			startOrbitAroundHitDrag: (...args) =>
 				interactionController?.startOrbitAroundHitDrag(...args) ?? false,

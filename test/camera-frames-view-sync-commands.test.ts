@@ -49,10 +49,13 @@ function createHarness(overrides = {}) {
 {
 	const { commands, calls } = createHarness();
 	assert.equal(commands.updateOutputFrameOverlay(), "overlay-result");
-	assert.deepEqual(calls, [
-		["update-output-overlay"],
-		["sync-reference-preview"],
-	]);
+	assert.deepEqual(calls, [["update-output-overlay"]]);
+}
+
+{
+	const { commands, calls } = createHarness();
+	commands.syncReferenceImagePreview();
+	assert.deepEqual(calls, [["sync-reference-preview"]]);
 }
 
 {

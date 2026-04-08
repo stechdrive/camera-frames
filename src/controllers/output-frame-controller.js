@@ -476,8 +476,27 @@ export function createOutputFrameController({
 		context.setTransform(1, 0, 0, 1, 0, 0);
 	}
 
+	let _lastOverlaySignature = "";
+	let _lastOverlayFrames = null;
+
 	function updateOutputFrameOverlay() {
 		const metrics = getOutputFrameMetrics();
+		const frames = getActiveFrames();
+		const frameSelectionActive = isFrameSelectionActive();
+		const selectedIds = frameSelectionActive
+			? (store.frames.selectedIds.value ?? [])
+			: [];
+		const activeFrameId = frameSelectionActive
+			? (getActiveShotCameraDocument()?.activeFrameId ?? null)
+			: null;
+
+		const signature = `${metrics.boxLeft}|${metrics.boxTop}|${metrics.boxWidth}|${metrics.boxHeight}|${metrics.exportWidth}|${metrics.exportHeight}|${state.outputFrame.anchor}|${frameSelectionActive}|${activeFrameId}|${selectedIds.join(",")}`;
+		if (signature === _lastOverlaySignature && frames === _lastOverlayFrames) {
+			return;
+		}
+		_lastOverlaySignature = signature;
+		_lastOverlayFrames = frames;
+
 		const anchorX = metrics.boxLeft + metrics.boxWidth * metrics.anchor.x;
 		const anchorY = metrics.boxTop + metrics.boxHeight * metrics.anchor.y;
 

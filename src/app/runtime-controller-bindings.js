@@ -24,6 +24,7 @@ export function createRuntimeControllerBindings({
 	updateDropHint,
 	updateUi,
 	updateOutputFrameOverlay,
+	syncReferenceImagePreview,
 	setStatus,
 	startZoomToolDrag,
 	toggleMeasurementMode,
@@ -77,6 +78,7 @@ export function createRuntimeControllerBindings({
 		updateDropHint,
 		updateUi,
 		updateOutputFrameOverlay,
+		syncReferenceImagePreview,
 		setStatus,
 		startOrbitAroundHitDrag: (...args) =>
 			interactionController?.startOrbitAroundHitDrag(...args) ?? false,

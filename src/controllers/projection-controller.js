@@ -25,6 +25,8 @@ export function createProjectionController({
 }) {
 	let cachedProjectionState = null;
 	let insideAnimateFrame = false;
+	let _lastResizeWidth = -1;
+	let _lastResizeHeight = -1;
 
 	function advanceFrame() {
 		insideAnimateFrame = true;
@@ -224,6 +226,11 @@ export function createProjectionController({
 
 	function handleResize() {
 		const { width, height } = getViewportSize();
+		if (width === _lastResizeWidth && height === _lastResizeHeight) {
+			return;
+		}
+		_lastResizeWidth = width;
+		_lastResizeHeight = height;
 		renderer.setSize(width, height, false);
 		handleOutputFrameResize();
 	}
