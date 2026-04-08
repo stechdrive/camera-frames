@@ -611,6 +611,7 @@ export function createProjectFilePackedSplatSource({
 	projectAssetState = null,
 	legacyState = null,
 	resource = null,
+	skipClone = false,
 } = {}) {
 	const normalizedPackedArray = toUint32Array(packedArray);
 	return {
@@ -622,16 +623,19 @@ export function createProjectFilePackedSplatSource({
 			Object.entries(extraFiles).map(([key, value]) => [key, value]),
 		),
 		fileType: fileType ? String(fileType) : null,
-		packedArray:
-			normalizedPackedArray.length > 0
+		packedArray: skipClone
+			? normalizedPackedArray
+			: normalizedPackedArray.length > 0
 				? new Uint32Array(normalizedPackedArray)
 				: new Uint32Array(),
 		numSplats:
 			Number.isFinite(numSplats) && numSplats >= 0 ? Math.floor(numSplats) : 0,
-		extra: clonePackedSplatExtra(extra),
+		extra: skipClone ? (extra ?? {}) : clonePackedSplatExtra(extra),
 		splatEncoding:
 			splatEncoding && typeof splatEncoding === "object"
-				? JSON.parse(JSON.stringify(splatEncoding))
+				? skipClone
+					? splatEncoding
+					: JSON.parse(JSON.stringify(splatEncoding))
 				: null,
 		projectAssetState,
 		legacyState,

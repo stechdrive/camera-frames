@@ -53,6 +53,11 @@ export class ZipReader {
 		return await entry.getData(new BlobWriter());
 	}
 
+	async bytes(name) {
+		const entry = this.getEntry(name);
+		return await entry.getData(new Uint8ArrayWriter());
+	}
+
 	async text(name) {
 		const entry = this.getEntry(name);
 		return await entry.getData(new TextWriter());

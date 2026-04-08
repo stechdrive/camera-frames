@@ -255,19 +255,46 @@ export function createAssetImportRuntime({
 
 		setStatus(t("status.loadingItems", { count: expandedSources.length }));
 
+		const CONCURRENCY = 3;
 		let loaded = 0;
-		for (const source of expandedSources) {
-			onProgress?.(
-				"load",
-				t("overlay.importDetailLoadAsset", {
-					index: loaded + 1,
-					count: expandedSources.length,
-					name: getDisplayName(source),
-				}),
-			);
-			await loadSource(source);
-			loaded += 1;
-		}
+		let running = 0;
+		let nextIndex = 0;
+		const total = expandedSources.length;
+
+		await new Promise((resolve, reject) => {
+			function kick() {
+				while (running < CONCURRENCY && nextIndex < total) {
+					const index = nextIndex++;
+					const source = expandedSources[index];
+					running += 1;
+					onProgress?.(
+						"load",
+						t("overlay.importDetailLoadAsset", {
+							index: index + 1,
+							count: total,
+							name: getDisplayName(source),
+						}),
+					);
+					loadSource(source).then(
+						() => {
+							loaded += 1;
+							running -= 1;
+							if (loaded === total) {
+								resolve();
+							} else {
+								kick();
+							}
+						},
+						(error) => reject(error),
+					);
+				}
+			}
+			if (total === 0) {
+				resolve();
+			} else {
+				kick();
+			}
+		});
 
 		onProgress?.("apply", t("overlay.importDetailApply"));
 		const importedProjectState =

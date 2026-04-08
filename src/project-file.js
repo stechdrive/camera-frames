@@ -970,95 +970,109 @@ export async function readCameraFramesProject(
 		const normalizedReferenceImages = normalizeReferenceImageDocument(
 			project.scene.referenceImages,
 		);
-		const assetEntries = [];
 		const totalAssets = project.scene.assets.length;
 
-		for (const [index, asset] of project.scene.assets.entries()) {
-			const resourceId = asset.source?.resourceId;
-			const resource = project.resources?.[resourceId];
-			if (!resource) {
-				throw new Error(`Missing project resource for asset "${asset.label}".`);
-			}
-			await notifyProjectReadProgress(onProgress, {
-				phase: "expand",
-				stage: "extract-project-asset",
-				index: index + 1,
-				total: totalAssets,
-				assetLabel: asset.label,
-				fileLabel:
-					resource.type === "packed-splat"
-						? resource.originalName || resource.manifest?.path || "meta.json"
-						: resource.originalName || resource.path,
-			});
+		const assetExtractors = project.scene.assets.map(
+			(asset, index) => async () => {
+				const resourceId = asset.source?.resourceId;
+				const resource = project.resources?.[resourceId];
+				if (!resource) {
+					throw new Error(
+						`Missing project resource for asset "${asset.label}".`,
+					);
+				}
+				await notifyProjectReadProgress(onProgress, {
+					phase: "expand",
+					stage: "extract-project-asset",
+					index: index + 1,
+					total: totalAssets,
+					assetLabel: asset.label,
+					fileLabel:
+						resource.type === "packed-splat"
+							? resource.originalName || resource.manifest?.path || "meta.json"
+							: resource.originalName || resource.path,
+				});
 
-			if (resource.type === "file") {
-				const blob = await reader.blob(resource.path);
-				assetEntries.push({
-					...asset,
-					source: createProjectFileEmbeddedFileSource({
-						kind: asset.kind,
-						file: new File([blob], resource.originalName, {
-							type: resource.mediaType || blob.type || undefined,
+				if (resource.type === "file") {
+					const bytes = await reader.bytes(resource.path);
+					return {
+						...asset,
+						source: createProjectFileEmbeddedFileSource({
+							kind: asset.kind,
+							file: new File([bytes], resource.originalName, {
+								type: resource.mediaType || undefined,
+							}),
+							fileName: resource.originalName,
+							projectAssetState: asset,
+							legacyState: asset.legacyState ?? null,
+							resource: cloneFileResource(resource, asset.kind),
 						}),
-						fileName: resource.originalName,
-						projectAssetState: asset,
-						legacyState: asset.legacyState ?? null,
-						resource: cloneFileResource(resource, asset.kind),
-					}),
-				});
-				continue;
-			}
-
-			if (resource.type === "packed-splat") {
-				const manifestBlob = await reader.blob(resource.manifest?.path);
-				const extraFiles = {};
-				for (const extraFile of resource.extraFiles ?? []) {
-					const extraBlob = await reader.blob(extraFile.path);
-					extraFiles[extraFile.name] = await extraBlob.arrayBuffer();
+					};
 				}
-				assetEntries.push({
-					...asset,
-					source: createProjectFilePackedSplatSource({
-						fileName: resource.originalName,
-						inputBytes: new Uint8Array(await manifestBlob.arrayBuffer()),
-						extraFiles,
-						fileType: resource.fileType ?? null,
-						projectAssetState: asset,
-						legacyState: asset.legacyState ?? null,
-						resource: clonePackedSplatResource(resource),
-					}),
-				});
-				continue;
-			}
 
-			if (resource.type === PROJECT_RESOURCE_RAW_PACKED_SPLAT) {
-				const packedArrayBlob = await reader.blob(resource.packedArray?.path);
-				const extra = {};
-				for (const extraArray of resource.extraArrays ?? []) {
-					const extraBlob = await reader.blob(extraArray.path);
-					extra[extraArray.name] = toUint32Array(await extraBlob.arrayBuffer());
+				if (resource.type === "packed-splat") {
+					const [inputBytes, ...extraBytesArray] = await Promise.all([
+						reader.bytes(resource.manifest?.path),
+						...(resource.extraFiles ?? []).map((ef) => reader.bytes(ef.path)),
+					]);
+					const extraFiles = {};
+					for (const [i, extraFile] of (resource.extraFiles ?? []).entries()) {
+						extraFiles[extraFile.name] = extraBytesArray[i].buffer;
+					}
+					return {
+						...asset,
+						source: createProjectFilePackedSplatSource({
+							fileName: resource.originalName,
+							inputBytes,
+							extraFiles,
+							fileType: resource.fileType ?? null,
+							projectAssetState: asset,
+							legacyState: asset.legacyState ?? null,
+							resource: clonePackedSplatResource(resource),
+							skipClone: true,
+						}),
+					};
 				}
-				if (resource.radMeta) {
-					extra.radMeta = JSON.parse(JSON.stringify(resource.radMeta));
-				}
-				assetEntries.push({
-					...asset,
-					source: createProjectFilePackedSplatSource({
-						fileName: resource.originalName,
-						packedArray: toUint32Array(await packedArrayBlob.arrayBuffer()),
-						numSplats: resource.numSplats ?? 0,
-						extra,
-						splatEncoding: resource.splatEncoding ?? null,
-						projectAssetState: asset,
-						legacyState: asset.legacyState ?? null,
-						resource: cloneRawPackedSplatResource(resource),
-					}),
-				});
-				continue;
-			}
 
-			throw new Error(`Unsupported project resource type "${resource.type}".`);
-		}
+				if (resource.type === PROJECT_RESOURCE_RAW_PACKED_SPLAT) {
+					const [packedArrayBytes, ...extraBytesArray] = await Promise.all([
+						reader.bytes(resource.packedArray?.path),
+						...(resource.extraArrays ?? []).map((ea) => reader.bytes(ea.path)),
+					]);
+					const extra = {};
+					for (const [i, extraArray] of (
+						resource.extraArrays ?? []
+					).entries()) {
+						extra[extraArray.name] = toUint32Array(extraBytesArray[i].buffer);
+					}
+					if (resource.radMeta) {
+						extra.radMeta = JSON.parse(JSON.stringify(resource.radMeta));
+					}
+					return {
+						...asset,
+						source: createProjectFilePackedSplatSource({
+							fileName: resource.originalName,
+							packedArray: toUint32Array(packedArrayBytes.buffer),
+							numSplats: resource.numSplats ?? 0,
+							extra,
+							splatEncoding: resource.splatEncoding ?? null,
+							projectAssetState: asset,
+							legacyState: asset.legacyState ?? null,
+							resource: cloneRawPackedSplatResource(resource),
+							skipClone: true,
+						}),
+					};
+				}
+
+				throw new Error(
+					`Unsupported project resource type "${resource.type}".`,
+				);
+			},
+		);
+
+		const assetEntries = await Promise.all(
+			assetExtractors.map((extract) => extract()),
+		);
 
 		const reconstructedReferenceImageAssets = [];
 		for (const referenceAsset of normalizedReferenceImages.assets) {

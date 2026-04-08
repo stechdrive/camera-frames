@@ -120,22 +120,50 @@ export function createSceneAssetBoundsController({
 		return buildSplatLocalBoundsFromIterator(splatSource, centersOnly);
 	}
 
-	function computeTrimmedRange(sortedValues, trimFraction = 0.01) {
-		if (!Array.isArray(sortedValues) || sortedValues.length === 0) {
+	function quickselect(arr, k, initialLeft = 0, initialRight = arr.length - 1) {
+		let lo = initialLeft;
+		let hi = initialRight;
+		while (lo < hi) {
+			const pivot = arr[(lo + hi) >> 1];
+			let i = lo;
+			let j = hi;
+			while (i <= j) {
+				while (arr[i] < pivot) i++;
+				while (arr[j] > pivot) j--;
+				if (i <= j) {
+					const tmp = arr[i];
+					arr[i] = arr[j];
+					arr[j] = tmp;
+					i++;
+					j--;
+				}
+			}
+			if (k <= j) {
+				hi = j;
+			} else if (k >= i) {
+				lo = i;
+			} else {
+				break;
+			}
+		}
+		return arr[k];
+	}
+
+	function computeTrimmedRange(values, trimFraction = 0.01) {
+		if (!Array.isArray(values) || values.length === 0) {
 			return null;
 		}
 
 		const trimCount =
-			sortedValues.length >= 256
+			values.length >= 256
 				? Math.min(
-						Math.floor(sortedValues.length * trimFraction),
-						Math.floor((sortedValues.length - 1) / 2),
+						Math.floor(values.length * trimFraction),
+						Math.floor((values.length - 1) / 2),
 					)
 				: 0;
-		return {
-			min: sortedValues[trimCount],
-			max: sortedValues[sortedValues.length - 1 - trimCount],
-		};
+		const lo = quickselect(values, trimCount);
+		const hi = quickselect(values, values.length - 1 - trimCount);
+		return { min: lo, max: hi };
 	}
 
 	function expandBoxByPadding(box, paddingFactor = 0.05) {
@@ -180,10 +208,6 @@ export function createSceneAssetBoundsController({
 		if (xs.length === 0) {
 			return null;
 		}
-
-		xs.sort((a, b) => a - b);
-		ys.sort((a, b) => a - b);
-		zs.sort((a, b) => a - b);
 
 		const xRange = computeTrimmedRange(xs, trimFraction);
 		const yRange = computeTrimmedRange(ys, trimFraction);
