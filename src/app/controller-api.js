@@ -88,6 +88,10 @@ export function createControllerApi({
 			perSplatEditController?.duplicateSelectedSplats?.(...args),
 		clearSplatSelection: (...args) =>
 			perSplatEditController?.clearSplatSelection?.(...args),
+		selectAllSplats: (...args) =>
+			perSplatEditController?.selectAllSplats?.(...args),
+		invertSplatSelection: (...args) =>
+			perSplatEditController?.invertSplatSelection?.(...args),
 		setViewportReferenceImageEditMode,
 		activateViewportReferenceImageEditModeImplicit,
 		toggleViewportReferenceImageEditMode,

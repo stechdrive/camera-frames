@@ -94,6 +94,11 @@ export function createRuntimeControllerBindings({
 		toggleSplatEditMode,
 		isSplatEditModeActive: () =>
 			perSplatEditController?.isSplatEditModeActive?.() ?? false,
+		hasSplatSelection: () => (store?.splatEdit?.selectionCount?.value ?? 0) > 0,
+		clearSplatSelection: () => perSplatEditController?.clearSplatSelection?.(),
+		selectAllSplats: () => perSplatEditController?.selectAllSplats?.(),
+		invertSplatSelection: () =>
+			perSplatEditController?.invertSplatSelection?.(),
 		isSplatEditBrushActive: () =>
 			perSplatEditController?.isSplatEditBrushActive?.() ?? false,
 		needsSplatEditBoxPlacement: () =>

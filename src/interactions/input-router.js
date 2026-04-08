@@ -47,6 +47,10 @@ export function bindInputRouter({
 	toggleViewportSelectMode,
 	toggleSplatEditMode,
 	isSplatEditModeActive = () => false,
+	hasSplatSelection = () => false,
+	clearSplatSelection = () => {},
+	selectAllSplats = () => {},
+	invertSplatSelection = () => {},
 	isSplatEditBrushActive = () => false,
 	needsSplatEditBoxPlacement = () => false,
 	placeSplatEditBoxAtPointer = () => false,
@@ -412,7 +416,9 @@ export function bindInputRouter({
 				event.metaKey ||
 				!isSplatEditBrushActive?.() ||
 				!isViewportPointerTarget(target) ||
-				target?.closest(".viewport-splat-edit-hud, .viewport-project-status") ||
+				target?.closest(
+					".viewport-splat-edit-toolbar, .viewport-splat-edit-popover, .viewport-project-status",
+				) ||
 				target?.closest(".viewport-pie") ||
 				target?.closest(
 					".measurement-overlay__point, .measurement-overlay__chip",
@@ -554,7 +560,10 @@ export function bindInputRouter({
 		if (
 			isSplatEditModeActive?.() &&
 			event.button === 0 &&
-			isViewportPointerTarget(target)
+			isViewportPointerTarget(target) &&
+			!target?.closest(
+				".viewport-splat-edit-toolbar, .viewport-splat-edit-popover, .viewport-project-status",
+			)
 		) {
 			splatEditClickCandidate = {
 				pointerId: event.pointerId,
@@ -640,7 +649,9 @@ export function bindInputRouter({
 		const target = event.target instanceof Element ? event.target : null;
 		if (
 			!isViewportPointerTarget(target) ||
-			target?.closest(".viewport-splat-edit-hud, .viewport-project-status")
+			target?.closest(
+				".viewport-splat-edit-toolbar, .viewport-splat-edit-popover, .viewport-project-status",
+			)
 		) {
 			clearSplatEditBrushPreview?.();
 			return;
@@ -860,7 +871,37 @@ export function bindInputRouter({
 			!isInteractiveTextTarget(event.target)
 		) {
 			event.preventDefault();
-			clearSceneAssetSelection?.();
+			if (isSplatEditModeActive?.() && hasSplatSelection?.()) {
+				clearSplatSelection?.();
+			} else {
+				clearSceneAssetSelection?.();
+			}
+			return;
+		}
+
+		if (
+			(event.ctrlKey || event.metaKey) &&
+			event.code === "KeyA" &&
+			!event.altKey &&
+			!event.shiftKey &&
+			!isInteractiveTextTarget(event.target) &&
+			isSplatEditModeActive?.()
+		) {
+			event.preventDefault();
+			selectAllSplats?.();
+			return;
+		}
+
+		if (
+			(event.ctrlKey || event.metaKey) &&
+			event.code === "KeyI" &&
+			!event.altKey &&
+			!event.shiftKey &&
+			!isInteractiveTextTarget(event.target) &&
+			isSplatEditModeActive?.()
+		) {
+			event.preventDefault();
+			invertSplatSelection?.();
 			return;
 		}
 

@@ -1047,6 +1047,74 @@ export function createPerSplatEditController({
 		updateUi?.();
 	}
 
+	function selectAllSplats() {
+		if (!isSplatEditModeActive()) {
+			return false;
+		}
+		const scopeAssets = getSplatEditScopeAssets();
+		if (scopeAssets.length === 0) {
+			return false;
+		}
+		clearActiveTransformPreview({ syncUi: false });
+		selectAllSplatsForAssets(scopeAssets);
+		let totalSelected = 0;
+		for (const asset of scopeAssets) {
+			totalSelected += getSplatAssetTotalCount(asset);
+		}
+		store.splatEdit.lastOperation.value = {
+			mode: "select-all",
+			hitCount: totalSelected,
+		};
+		syncSelectionCount();
+		syncSelectionHighlight();
+		syncSceneHelper();
+		updateUi?.();
+		setStatus?.(t("status.splatEditSelectAllDone", { count: totalSelected }));
+		return totalSelected;
+	}
+
+	function invertSplatSelection() {
+		if (!isSplatEditModeActive()) {
+			return false;
+		}
+		const scopeAssets = getSplatEditScopeAssets();
+		if (scopeAssets.length === 0) {
+			return false;
+		}
+		clearActiveTransformPreview({ syncUi: false });
+		let invertedCount = 0;
+		for (const asset of scopeAssets) {
+			const assetIdKey = getAssetIdKey(asset.id);
+			const totalCount = getSplatAssetTotalCount(asset);
+			if (totalCount <= 0) {
+				continue;
+			}
+			const currentSet = selectedSplatsByAssetId.get(assetIdKey);
+			const currentIndexSet = currentSet ?? new Set();
+			const remaining = buildRemainingIndices(totalCount, currentIndexSet);
+			if (remaining.length > 0) {
+				const newSet = new Set();
+				for (let i = 0; i < remaining.length; i += 1) {
+					newSet.add(remaining[i]);
+				}
+				selectedSplatsByAssetId.set(assetIdKey, newSet);
+				invertedCount += remaining.length;
+			} else {
+				selectedSplatsByAssetId.delete(assetIdKey);
+			}
+		}
+		store.splatEdit.lastOperation.value = {
+			mode: "invert",
+			hitCount: invertedCount,
+		};
+		syncSelectionCount();
+		syncSelectionHighlight();
+		syncSceneHelper();
+		updateUi?.();
+		setStatus?.(t("status.splatEditInverted", { count: invertedCount }));
+		return invertedCount;
+	}
+
 	function syncScopeToSceneSelection() {
 		if (!isSplatEditModeActive()) {
 			return false;
@@ -1994,12 +2062,19 @@ export function createPerSplatEditController({
 
 	function setSplatEditTool(nextTool) {
 		const previousTool = store.splatEdit.tool.value;
-		store.splatEdit.tool.value =
+		const resolvedTool =
 			nextTool === "brush"
 				? "brush"
 				: nextTool === "transform"
 					? "transform"
 					: "box";
+		if (previousTool === "box" && resolvedTool === "box") {
+			store.splatEdit.boxPlaced.value = false;
+			syncSceneHelper();
+			updateUi?.();
+			return store.splatEdit.tool.value;
+		}
+		store.splatEdit.tool.value = resolvedTool;
 		if (previousTool === "brush" && store.splatEdit.tool.value !== "brush") {
 			activeBrushStroke = null;
 			clearBrushPreview({ syncUi: false });
@@ -3353,6 +3428,8 @@ export function createPerSplatEditController({
 		captureEditState,
 		restoreEditState,
 		clearSplatSelection,
+		selectAllSplats,
+		invertSplatSelection,
 		getSplatEditScopeAssetIds,
 		getSplatEditScopeAssets,
 		needsSplatEditBoxPlacement() {
