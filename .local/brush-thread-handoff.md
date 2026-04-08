@@ -84,7 +84,23 @@
 
 ### 3. Duplicate（複製）
 - Separate の応用。選択スプラットを同じ位置にコピーして新アセットに追加
-- トランスフォームが安定してから着手
+
+**実装方針:**
+- `separateSelectedSplats` (line ~2528) をベースに `duplicateSelectedSplats` を作成
+- 差分: Separate は元アセットから選択スプラットを「切り出す」（remainder で replace）が、Duplicate は元アセットをそのまま残す
+- つまり Separate のうち「remainder で元を置換する」部分（line 2564-2583）と「選択を消す」部分（line 2584）を省くだけ
+- 新アセット作成: `createDerivedPackedSplatSource` → `assetController.createSplatAssetFromSource` は同じ
+- UI 配線: store の tool に `"duplicate"` を追加するか、コマンドとして呼べるようにする
+- undo: `runHistoryTransaction("splat-edit.duplicate", ...)` で囲む
+- i18n: `status.splatEditDuplicated` を追加
+- 作成後、新アセットを選択状態にする（Separate と同じ flow）
+
+**関連関数:**
+- `buildSelectedSplatOperations()` — 選択状態から操作対象リスト構築
+- `createDerivedPackedSplatSource(asset, indices, { label, fileName })` — packed data から新 source 作成
+- `assetController.createSplatAssetFromSource(source, { insertIndex })` — scene にアセット追加
+- `buildUniqueSplitLabel(label)` — ラベル生成（`buildUniqueDuplicateLabel` 的なものが必要かも）
+- `buildDerivedSplatFileName(asset, suffix)` — ファイル名生成
 
 ## Performance Architecture
 

@@ -315,6 +315,21 @@ export function createPerSplatEditController({
 		return `${base} ${index}`;
 	}
 
+	function buildUniqueDuplicateLabel(baseLabel) {
+		const existingLabels = new Set(
+			getSceneSplatAssets().map((asset) => String(asset.label ?? "").trim()),
+		);
+		const base = `${String(baseLabel ?? "3DGS").trim() || "3DGS"} Copy`;
+		if (!existingLabels.has(base)) {
+			return base;
+		}
+		let index = 2;
+		while (existingLabels.has(`${base} ${index}`)) {
+			index += 1;
+		}
+		return `${base} ${index}`;
+	}
+
 	function updateSplatAssetBoundsHints(asset) {
 		const splatMesh = asset?.disposeTarget;
 		if (!splatMesh || typeof splatMesh.getBoundingBox !== "function") {
@@ -2611,6 +2626,58 @@ export function createPerSplatEditController({
 		});
 	}
 
+	async function duplicateSelectedSplats() {
+		const operations = buildSelectedSplatOperations();
+		if (operations.length === 0) {
+			setStatus?.(t("status.splatEditSelectionMissing"));
+			return false;
+		}
+		const assetController = getAssetController?.();
+		if (!assetController) {
+			return false;
+		}
+		return runHistoryTransaction("splat-edit.duplicate", async () => {
+			const createdAssets = [];
+			let duplicatedCount = 0;
+			for (const operation of operations) {
+				const currentAssets = assetController.getSceneAssets?.() ?? [];
+				const sourceIndex = currentAssets.findIndex(
+					(asset) => String(asset.id) === String(operation.asset.id),
+				);
+				const duplicateLabel = buildUniqueDuplicateLabel(operation.asset.label);
+				const selectedSource = createDerivedPackedSplatSource(
+					operation.asset,
+					operation.selectedIndices,
+					{
+						label: duplicateLabel,
+						fileName: buildDerivedSplatFileName(operation.asset, "copy"),
+					},
+				);
+				const createdAsset = selectedSource
+					? await assetController.createSplatAssetFromSource?.(selectedSource, {
+							insertIndex: sourceIndex >= 0 ? sourceIndex + 1 : null,
+						})
+					: null;
+				if (createdAsset) {
+					createdAssets.push(createdAsset);
+				}
+				duplicatedCount += operation.selectedIndices.length;
+			}
+			store.splatEdit.lastOperation.value = {
+				mode: "duplicate",
+				hitCount: duplicatedCount,
+			};
+			updateUi?.();
+			setStatus?.(
+				t("status.splatEditDuplicated", {
+					count: duplicatedCount,
+					assets: createdAssets.length,
+				}),
+			);
+			return createdAssets.length;
+		});
+	}
+
 	function handleToolModeDeactivated() {
 		if (!isSplatEditModeActive()) {
 			return false;
@@ -3251,6 +3318,7 @@ export function createPerSplatEditController({
 		scaleSelectedSplatsUniformAroundSelection,
 		deleteSelectedSplats,
 		separateSelectedSplats,
+		duplicateSelectedSplats,
 		captureEditState,
 		restoreEditState,
 		clearSplatSelection,

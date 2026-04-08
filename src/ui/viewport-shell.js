@@ -607,15 +607,18 @@ export function ViewportShell({ store, controller, refs, t }) {
 														? t("status.splatEditDelete")
 														: splatEditLastOperation.mode === "separate"
 															? t("status.splatEditSeparate")
-															: splatEditLastOperation.mode === "transform-move"
-																? t("status.splatEditTransformMove")
+															: splatEditLastOperation.mode === "duplicate"
+																? t("status.splatEditDuplicate")
 																: splatEditLastOperation.mode ===
-																		"transform-rotate"
-																	? t("status.splatEditTransformRotate")
+																		"transform-move"
+																	? t("status.splatEditTransformMove")
 																	: splatEditLastOperation.mode ===
-																			"transform-scale"
-																		? t("status.splatEditTransformScale")
-																		: t("action.clearSelection"),
+																			"transform-rotate"
+																		? t("status.splatEditTransformRotate")
+																		: splatEditLastOperation.mode ===
+																				"transform-scale"
+																			? t("status.splatEditTransformScale")
+																			: t("action.clearSelection"),
 										count: splatEditLastOperation.hitCount ?? 0,
 									})}
 								</div>
@@ -921,6 +924,14 @@ export function ViewportShell({ store, controller, refs, t }) {
 								onClick=${() => void controller()?.separateSelectedSplats?.()}
 							>
 								${t("status.splatEditSeparate")}
+							</button>
+							<button
+								type="button"
+								class="viewport-splat-edit-hud__tool"
+								disabled=${splatEditSelectionCount <= 0}
+								onClick=${() => void controller()?.duplicateSelectedSplats?.()}
+							>
+								${t("status.splatEditDuplicate")}
 							</button>
 						</div>
 					</div>
