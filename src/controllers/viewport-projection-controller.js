@@ -147,8 +147,11 @@ export function createViewportProjectionController({
 	}
 
 	function syncActiveViewportProjection() {
-		syncPerspectiveViewportProjection();
-		syncOrthographicViewportProjection();
+		if (isViewportOrthographic()) {
+			syncOrthographicViewportProjection();
+		} else {
+			syncPerspectiveViewportProjection();
+		}
 	}
 
 	function ensureOrthoStateInitialized() {

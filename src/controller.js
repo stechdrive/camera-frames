@@ -287,6 +287,8 @@ export function createCameraFramesController(elements, store) {
 		safeSyncReferenceImagePreview: () => safeSyncReferenceImagePreview(),
 	});
 	const {
+		advanceFrame: advanceProjectionFrame,
+		finalizeFrame: finalizeProjectionFrame,
 		getProjectionState,
 		syncShotProjection,
 		applyCameraViewProjection,
@@ -880,6 +882,8 @@ export function createCameraFramesController(elements, store) {
 			getActiveCamera,
 			guideOverlay,
 			syncGuideOverlayState,
+			advanceProjectionFrame,
+			finalizeProjectionFrame,
 			syncViewportProjection,
 			syncShotProjection,
 			applyCameraViewProjection,

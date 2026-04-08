@@ -130,6 +130,8 @@ export function createRuntimeController({
 	syncViewportTransformGizmo,
 	syncViewportAxisGizmo,
 	syncViewportProjection,
+	advanceProjectionFrame,
+	finalizeProjectionFrame,
 	syncShotProjection,
 	applyCameraViewProjection,
 	updateShotCameraHelpers,
@@ -164,30 +166,71 @@ export function createRuntimeController({
 			: "viewport.pose";
 	}
 
-	function getCameraPoseSignature(camera) {
-		if (!camera) {
-			return "none";
-		}
+	const POSE_EPSILON = 1e-7;
+	const lastPoseSnapshot = {
+		px: Number.NaN,
+		py: Number.NaN,
+		pz: Number.NaN,
+		qx: Number.NaN,
+		qy: Number.NaN,
+		qz: Number.NaN,
+		qw: Number.NaN,
+		isOrtho: false,
+		left: Number.NaN,
+		right: Number.NaN,
+		top: Number.NaN,
+		bottom: Number.NaN,
+		zoom: Number.NaN,
+	};
 
-		return [
-			camera.position.x.toFixed(6),
-			camera.position.y.toFixed(6),
-			camera.position.z.toFixed(6),
-			camera.quaternion.x.toFixed(6),
-			camera.quaternion.y.toFixed(6),
-			camera.quaternion.z.toFixed(6),
-			camera.quaternion.w.toFixed(6),
-			camera.isOrthographicCamera
-				? [
-						"ortho",
-						Number(camera.left).toFixed(6),
-						Number(camera.right).toFixed(6),
-						Number(camera.top).toFixed(6),
-						Number(camera.bottom).toFixed(6),
-						Number(camera.zoom).toFixed(6),
-					].join("|")
-				: "perspective",
-		].join("|");
+	function snapshotCameraPose(camera) {
+		if (!camera) {
+			return;
+		}
+		lastPoseSnapshot.px = camera.position.x;
+		lastPoseSnapshot.py = camera.position.y;
+		lastPoseSnapshot.pz = camera.position.z;
+		lastPoseSnapshot.qx = camera.quaternion.x;
+		lastPoseSnapshot.qy = camera.quaternion.y;
+		lastPoseSnapshot.qz = camera.quaternion.z;
+		lastPoseSnapshot.qw = camera.quaternion.w;
+		lastPoseSnapshot.isOrtho = Boolean(camera.isOrthographicCamera);
+		if (camera.isOrthographicCamera) {
+			lastPoseSnapshot.left = camera.left;
+			lastPoseSnapshot.right = camera.right;
+			lastPoseSnapshot.top = camera.top;
+			lastPoseSnapshot.bottom = camera.bottom;
+			lastPoseSnapshot.zoom = camera.zoom;
+		}
+	}
+
+	function hasCameraPoseChanged(camera) {
+		if (!camera) {
+			return false;
+		}
+		const s = lastPoseSnapshot;
+		const eps = POSE_EPSILON;
+		if (
+			Math.abs(camera.position.x - s.px) > eps ||
+			Math.abs(camera.position.y - s.py) > eps ||
+			Math.abs(camera.position.z - s.pz) > eps ||
+			Math.abs(camera.quaternion.x - s.qx) > eps ||
+			Math.abs(camera.quaternion.y - s.qy) > eps ||
+			Math.abs(camera.quaternion.z - s.qz) > eps ||
+			Math.abs(camera.quaternion.w - s.qw) > eps
+		) {
+			return true;
+		}
+		if (camera.isOrthographicCamera) {
+			return (
+				Math.abs(camera.left - s.left) > eps ||
+				Math.abs(camera.right - s.right) > eps ||
+				Math.abs(camera.top - s.top) > eps ||
+				Math.abs(camera.bottom - s.bottom) > eps ||
+				Math.abs(camera.zoom - s.zoom) > eps
+			);
+		}
+		return s.isOrtho !== Boolean(camera.isOrthographicCamera);
 	}
 
 	function hasKeyboardNavigationActivity() {
@@ -353,6 +396,7 @@ export function createRuntimeController({
 	}
 
 	function animate(timeMs) {
+		advanceProjectionFrame?.();
 		handleResize();
 		if (exportController.isRenderLocked()) {
 			flushNavigationHistory();
@@ -368,7 +412,7 @@ export function createRuntimeController({
 			state.mode === WORKSPACE_PANE_CAMERA && getShotCameraRollLock?.()
 				? Number(store.shotCamera.rollDeg.value)
 				: null;
-		const poseBefore = getCameraPoseSignature(activeCamera);
+		snapshotCameraPose(activeCamera);
 		const navigationActiveBeforeUpdate =
 			hasKeyboardNavigationActivity() || hasPointerNavigationActivity();
 		fpsMovement.update(deltaTime, activeCamera);
@@ -376,18 +420,19 @@ export function createRuntimeController({
 		if (Number.isFinite(lockedRollDegrees)) {
 			setShotCameraRollAngleDegrees?.(lockedRollDegrees);
 		}
-		const poseAfter = getCameraPoseSignature(activeCamera);
+		const poseChanged = hasCameraPoseChanged(activeCamera);
+		snapshotCameraPose(activeCamera);
 		navigationHistory.noteFrame({
 			targetKey: getActiveCameraHistoryTargetKey(),
 			label: getActiveCameraHistoryLabel(),
-			poseChanged: poseBefore !== poseAfter,
+			poseChanged,
 			navigationActive:
 				navigationActiveBeforeUpdate ||
 				hasKeyboardNavigationActivity() ||
 				hasPointerNavigationActivity(),
 			deltaMs: deltaTime * 1000,
 		});
-		if (poseBefore !== poseAfter) {
+		if (poseChanged) {
 			syncProjectPresentation?.();
 		}
 
@@ -437,6 +482,7 @@ export function createRuntimeController({
 		syncViewportTransformGizmo?.();
 		syncViewportAxisGizmo?.();
 		updateOutputFrameOverlay();
+		finalizeProjectionFrame?.();
 	}
 
 	function init() {

@@ -26,9 +26,13 @@ export function createViewportAxisGizmoController({
 }) {
 	const nodeElements = new Map();
 	const lineElements = new Map();
+	const nodeRadiusCache = new Map();
+	let cachedGizmoWidth = 0;
+	let cachedGizmoHeight = 0;
 	const cameraRight = new THREE.Vector3();
 	const cameraUp = new THREE.Vector3();
 	const cameraForward = new THREE.Vector3();
+	const tempNegAxis = new THREE.Vector3();
 	const projected = {
 		x: {
 			positive: { x: 0, y: 0, depth: 0 },
@@ -117,11 +121,16 @@ export function createViewportAxisGizmoController({
 	}
 
 	function getNodeRadiusPx(nodeId) {
+		if (nodeRadiusCache.has(nodeId)) {
+			return nodeRadiusCache.get(nodeId);
+		}
 		const element = getNodeElement(nodeId);
 		const width = Number(element?.offsetWidth ?? 0);
 		const height = Number(element?.offsetHeight ?? 0);
 		const radius = Math.max(width, height) * 0.5;
-		return radius > 0 ? radius : GIZMO_NODE_RADIUS_PX_FALLBACK;
+		const result = radius > 0 ? radius : GIZMO_NODE_RADIUS_PX_FALLBACK;
+		nodeRadiusCache.set(nodeId, result);
+		return result;
 	}
 
 	function setLinePoints(axisKey, x1, y1, x2, y2) {
@@ -180,15 +189,13 @@ export function createViewportAxisGizmoController({
 		}
 
 		showAxisGizmo();
-		const gizmoRect = axisGizmo.getBoundingClientRect();
-		const gizmoWidth = Math.max(
-			gizmoRect.width || axisGizmo.clientWidth || 0,
-			0,
-		);
-		const gizmoHeight = Math.max(
-			gizmoRect.height || axisGizmo.clientHeight || 0,
-			0,
-		);
+		const gizmoWidth = Math.max(axisGizmo.clientWidth || 0, 0);
+		const gizmoHeight = Math.max(axisGizmo.clientHeight || 0, 0);
+		if (gizmoWidth !== cachedGizmoWidth || gizmoHeight !== cachedGizmoHeight) {
+			cachedGizmoWidth = gizmoWidth;
+			cachedGizmoHeight = gizmoHeight;
+			nodeRadiusCache.clear();
+		}
 		if (gizmoWidth <= 0 || gizmoHeight <= 0) {
 			hideAxisGizmo();
 			return;
@@ -217,7 +224,7 @@ export function createViewportAxisGizmoController({
 				projected[axisKey].positive,
 			);
 			const negative = projectAxisDirection(
-				axisVector.clone().multiplyScalar(-1),
+				tempNegAxis.copy(axisVector).multiplyScalar(-1),
 				projected[axisKey].negative,
 			);
 			const positiveX = gizmoCenterX + positive.x * gizmoRadius;
