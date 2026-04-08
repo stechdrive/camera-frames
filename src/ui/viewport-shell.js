@@ -601,10 +601,10 @@ export function ViewportShell({ store, controller, refs, t }) {
 							html`
 							<div class="viewport-splat-edit-popover">
 								${renderSplatEditField({ label: "px", value: splatEditBrushSize ?? 30, step: "1", min: "4", historyLabel: "splat-edit.brush-size", onScrubValue: (v) => handleSplatEditBrushSizeInput(v), onCommitValue: (v) => handleSplatEditBrushSizeInput(v) })}
-								<button type="button" title=${t("status.splatEditBrushModeThrough")} class=${`viewport-splat-edit-toolbar__btn${splatEditBrushDepthMode === "through" ? " viewport-splat-edit-toolbar__btn--active" : ""}`} onClick=${() => setSplatEditBrushDepthMode("through")}>
+								<button type="button" class=${`viewport-splat-edit-toolbar__btn${splatEditBrushDepthMode === "through" ? " viewport-splat-edit-toolbar__btn--active" : ""}`} onClick=${() => setSplatEditBrushDepthMode("through")}>
 									${t("status.splatEditBrushModeThrough")}
 								</button>
-								<button type="button" title=${t("status.splatEditBrushModeDepth")} class=${`viewport-splat-edit-toolbar__btn${splatEditBrushDepthMode === "depth" ? " viewport-splat-edit-toolbar__btn--active" : ""}`} onClick=${() => setSplatEditBrushDepthMode("depth")}>
+								<button type="button" class=${`viewport-splat-edit-toolbar__btn${splatEditBrushDepthMode === "depth" ? " viewport-splat-edit-toolbar__btn--active" : ""}`} onClick=${() => setSplatEditBrushDepthMode("depth")}>
 									${t("status.splatEditBrushModeDepth")}
 								</button>
 								${
@@ -635,29 +635,29 @@ export function ViewportShell({ store, controller, refs, t }) {
 										${renderSplatEditField({ label: t("field.positionY"), value: splatEditBoxSize?.y ?? 1, min: "0.01", historyLabel: "splat-edit.box-size.y", onScrubValue: (v) => handleSplatEditBoxSizeInput("y", v), onCommitValue: (v) => handleSplatEditBoxSizeInput("y", v) })}
 										${renderSplatEditField({ label: t("field.positionZ"), value: splatEditBoxSize?.z ?? 1, min: "0.01", historyLabel: "splat-edit.box-size.z", onScrubValue: (v) => handleSplatEditBoxSizeInput("z", v), onCommitValue: (v) => handleSplatEditBoxSizeInput("z", v) })}
 									</div>
-									<button type="button" title=${t("status.splatEditAdd")} class="viewport-splat-edit-toolbar__btn" onClick=${() => controller()?.applySplatEditBoxSelection?.({ subtract: false })}>${t("status.splatEditAdd")}</button>
-									<button type="button" title=${t("status.splatEditSubtract")} class="viewport-splat-edit-toolbar__btn" onClick=${() => controller()?.applySplatEditBoxSelection?.({ subtract: true })}>${t("status.splatEditSubtract")}</button>
-									<button type="button" title=${t("status.splatEditScaleDown")} class="viewport-splat-edit-toolbar__btn" onClick=${() => controller()?.scaleSplatEditBoxUniform?.(0.9)}>−</button>
-									<button type="button" title=${t("status.splatEditScaleUp")} class="viewport-splat-edit-toolbar__btn" onClick=${() => controller()?.scaleSplatEditBoxUniform?.(1.1)}>+</button>
+									<button type="button" class="viewport-splat-edit-toolbar__btn" onClick=${() => controller()?.applySplatEditBoxSelection?.({ subtract: false })}>${t("status.splatEditAdd")}</button>
+									<button type="button" class="viewport-splat-edit-toolbar__btn" onClick=${() => controller()?.applySplatEditBoxSelection?.({ subtract: true })}>${t("status.splatEditSubtract")}</button>
+									<button type="button" class="viewport-splat-edit-toolbar__btn button--tooltip" onClick=${() => controller()?.scaleSplatEditBoxUniform?.(0.9)}>−<${TooltipBubble} title=${t("status.splatEditScaleDown")} placement="top" /></button>
+									<button type="button" class="viewport-splat-edit-toolbar__btn button--tooltip" onClick=${() => controller()?.scaleSplatEditBoxUniform?.(1.1)}>+<${TooltipBubble} title=${t("status.splatEditScaleUp")} placement="top" /></button>
 								`
 										: html`
 									<span class="viewport-splat-edit-toolbar__info">${t("status.splatEditPlaceBoxHint")}</span>
 								`
 								}
-								<button type="button" title=${t("status.splatEditFitScope")} class="viewport-splat-edit-toolbar__btn" onClick=${() => controller()?.fitSplatEditBoxToScope?.()}>${t("status.splatEditFitScope")}</button>
+								<button type="button" class="viewport-splat-edit-toolbar__btn" onClick=${() => controller()?.fitSplatEditBoxToScope?.()}>${t("status.splatEditFitScope")}</button>
 							</div>
 						`
 						}
 						<div class="viewport-splat-edit-toolbar__bar">
 							<!-- Tool selector -->
 							<div class="viewport-splat-edit-toolbar__group" role="group" aria-label=${t("action.splatEditTool")}>
-								<button type="button" title=${t("status.splatEditToolBox")} class=${`viewport-splat-edit-toolbar__btn${splatEditTool === "box" ? " viewport-splat-edit-toolbar__btn--active" : ""}`} onClick=${() => setSplatEditTool("box")}>
+								<button type="button" class=${`viewport-splat-edit-toolbar__btn${splatEditTool === "box" ? " viewport-splat-edit-toolbar__btn--active" : ""}`} onClick=${() => setSplatEditTool("box")}>
 									${t("status.splatEditToolBox")}
 								</button>
-								<button type="button" title=${t("status.splatEditToolBrush")} class=${`viewport-splat-edit-toolbar__btn${splatEditTool === "brush" ? " viewport-splat-edit-toolbar__btn--active" : ""}`} onClick=${() => setSplatEditTool("brush")}>
+								<button type="button" class=${`viewport-splat-edit-toolbar__btn${splatEditTool === "brush" ? " viewport-splat-edit-toolbar__btn--active" : ""}`} onClick=${() => setSplatEditTool("brush")}>
 									${t("status.splatEditToolBrush")}
 								</button>
-								<button type="button" title=${t("status.splatEditToolTransform")} class=${`viewport-splat-edit-toolbar__btn${splatEditTool === "transform" ? " viewport-splat-edit-toolbar__btn--active" : ""}`} disabled=${splatEditSelectionCount <= 0 && splatEditTool !== "transform"} onClick=${() => setSplatEditTool("transform")}>
+								<button type="button" class=${`viewport-splat-edit-toolbar__btn${splatEditTool === "transform" ? " viewport-splat-edit-toolbar__btn--active" : ""}`} disabled=${splatEditSelectionCount <= 0 && splatEditTool !== "transform"} onClick=${() => setSplatEditTool("transform")}>
 									${t("status.splatEditToolTransform")}
 								</button>
 							</div>
@@ -679,13 +679,13 @@ export function ViewportShell({ store, controller, refs, t }) {
 
 							<!-- Edit actions -->
 							<div class="viewport-splat-edit-toolbar__group">
-								<button type="button" title=${t("status.splatEditDelete")} class="viewport-splat-edit-toolbar__btn viewport-splat-edit-toolbar__btn--danger" disabled=${splatEditSelectionCount <= 0} onClick=${() => void controller()?.deleteSelectedSplats?.()}>
+								<button type="button" class="viewport-splat-edit-toolbar__btn viewport-splat-edit-toolbar__btn--danger" disabled=${splatEditSelectionCount <= 0} onClick=${() => void controller()?.deleteSelectedSplats?.()}>
 									${t("status.splatEditDelete")}
 								</button>
-								<button type="button" title=${t("status.splatEditSeparate")} class="viewport-splat-edit-toolbar__btn" disabled=${splatEditSelectionCount <= 0} onClick=${() => void controller()?.separateSelectedSplats?.()}>
+								<button type="button" class="viewport-splat-edit-toolbar__btn" disabled=${splatEditSelectionCount <= 0} onClick=${() => void controller()?.separateSelectedSplats?.()}>
 									${t("status.splatEditSeparate")}
 								</button>
-								<button type="button" title=${t("status.splatEditDuplicate")} class="viewport-splat-edit-toolbar__btn" disabled=${splatEditSelectionCount <= 0} onClick=${() => void controller()?.duplicateSelectedSplats?.()}>
+								<button type="button" class="viewport-splat-edit-toolbar__btn" disabled=${splatEditSelectionCount <= 0} onClick=${() => void controller()?.duplicateSelectedSplats?.()}>
 									${t("status.splatEditDuplicate")}
 								</button>
 							</div>
