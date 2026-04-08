@@ -32,6 +32,7 @@ export function createViewportAxisGizmoController({
 	const cameraRight = new THREE.Vector3();
 	const cameraUp = new THREE.Vector3();
 	const cameraForward = new THREE.Vector3();
+	const tempNegAxis = new THREE.Vector3();
 	const projected = {
 		x: {
 			positive: { x: 0, y: 0, depth: 0 },
@@ -223,7 +224,7 @@ export function createViewportAxisGizmoController({
 				projected[axisKey].positive,
 			);
 			const negative = projectAxisDirection(
-				axisVector.clone().multiplyScalar(-1),
+				tempNegAxis.copy(axisVector).multiplyScalar(-1),
 				projected[axisKey].negative,
 			);
 			const positiveX = gizmoCenterX + positive.x * gizmoRadius;

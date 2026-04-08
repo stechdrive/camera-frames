@@ -30,6 +30,8 @@ export function createUiSyncController({
 	getShotCameraPoseAngles,
 	getActiveShotCameraDocument,
 }) {
+	const tempForward = new THREE.Vector3();
+
 	function formatNumber(value, digits = 2) {
 		return Number(value).toFixed(digits);
 	}
@@ -135,7 +137,7 @@ export function createUiSyncController({
 		const shotCamera = getActiveShotCamera();
 		const activeCamera = getActiveCamera();
 		const shotPoseAngles = getShotCameraPoseAngles();
-		const forward = activeCamera.getWorldDirection(new THREE.Vector3());
+		const forward = activeCamera.getWorldDirection(tempForward);
 		const { targetFrustum } = getProjectionState();
 		const targetHorizontalFov = frustumSpanToFovDegrees(
 			targetFrustum.width,

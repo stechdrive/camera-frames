@@ -23,7 +23,23 @@ export function createProjectionController({
 	getActiveCameraViewCamera,
 	getActiveOutputCamera,
 }) {
+	let cachedProjectionState = null;
+	let insideAnimateFrame = false;
+
+	function advanceFrame() {
+		insideAnimateFrame = true;
+		cachedProjectionState = null;
+	}
+
+	function finalizeFrame() {
+		insideAnimateFrame = false;
+		cachedProjectionState = null;
+	}
+
 	function getProjectionState() {
+		if (cachedProjectionState !== null && insideAnimateFrame) {
+			return cachedProjectionState;
+		}
 		syncActiveShotCameraFromDocument();
 		const shotCamera = getActiveShotCamera();
 		const outputFrameDocument =
@@ -43,12 +59,13 @@ export function createProjectionController({
 			metrics,
 		});
 
-		return {
+		cachedProjectionState = {
 			exportSize,
 			metrics,
 			targetFrustum,
 			previewFrustum,
 		};
+		return cachedProjectionState;
 	}
 
 	function setPerspectiveExtents(camera, left, right, top, bottom) {
@@ -212,6 +229,8 @@ export function createProjectionController({
 	}
 
 	return {
+		advanceFrame,
+		finalizeFrame,
 		getProjectionState,
 		syncShotProjection,
 		applyCameraViewProjection,

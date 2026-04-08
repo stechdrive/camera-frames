@@ -102,6 +102,107 @@ function SplatEditBrushPreview({ store, viewportShellRef }) {
 	`;
 }
 
+function FrameMaskCanvas({ store, refs }) {
+	const canvasRef = useRef(null);
+	const mode = store.mode.value;
+	const frames = store.frames.documents.value;
+	const frameMaskMode = store.frames.maskMode.value;
+	const frameMaskOpacityPct = store.frames.maskOpacityPct.value;
+	const rememberedMaskFrameIds = new Set(
+		store.frames.maskSelectedIds.value ?? [],
+	);
+	const exportWidth = store.exportWidth.value;
+	const exportHeight = store.exportHeight.value;
+	const frameMaskOpacity = Math.min(
+		1,
+		Math.max(0, (Number(frameMaskOpacityPct) || 0) / 100),
+	);
+	const maskedFrames =
+		frameMaskMode === "all"
+			? frames
+			: frameMaskMode === "selected"
+				? frames.filter((frame) => rememberedMaskFrameIds.has(frame.id))
+				: [];
+
+	useLayoutEffect(() => {
+		const canvas = canvasRef.current;
+		const shellElement =
+			refs.viewportShellRef?.current ?? refs.viewportShellRef ?? null;
+		const renderBoxNode =
+			refs.renderBoxRef?.current ?? refs.renderBoxRef ?? null;
+		if (
+			!(canvas instanceof HTMLCanvasElement) ||
+			!(shellElement instanceof HTMLElement)
+		) {
+			return;
+		}
+		const context = canvas.getContext("2d");
+		if (!context) {
+			return;
+		}
+		const shellWidth = Math.max(1, shellElement.clientWidth);
+		const shellHeight = Math.max(1, shellElement.clientHeight);
+		const canvasWidth = Math.max(
+			1,
+			Math.round(shellWidth * VIEWPORT_PIXEL_RATIO),
+		);
+		const canvasHeight = Math.max(
+			1,
+			Math.round(shellHeight * VIEWPORT_PIXEL_RATIO),
+		);
+		if (canvas.width !== canvasWidth) {
+			canvas.width = canvasWidth;
+		}
+		if (canvas.height !== canvasHeight) {
+			canvas.height = canvasHeight;
+		}
+		canvas.style.width = `${shellWidth}px`;
+		canvas.style.height = `${shellHeight}px`;
+		context.setTransform(1, 0, 0, 1, 0, 0);
+		context.clearRect(0, 0, canvas.width, canvas.height);
+		if (
+			mode !== "camera" ||
+			frameMaskOpacity <= 0 ||
+			maskedFrames.length === 0 ||
+			!(renderBoxNode instanceof HTMLElement) ||
+			renderBoxNode.offsetWidth <= 0 ||
+			renderBoxNode.offsetHeight <= 0
+		) {
+			return;
+		}
+		context.scale(VIEWPORT_PIXEL_RATIO, VIEWPORT_PIXEL_RATIO);
+		drawFrameMaskToContext(context, maskedFrames, {
+			canvasWidth: shellWidth,
+			canvasHeight: shellHeight,
+			frameSpaceWidth: renderBoxNode.offsetWidth,
+			frameSpaceHeight: renderBoxNode.offsetHeight,
+			logicalSpaceWidth: exportWidth,
+			logicalSpaceHeight: exportHeight,
+			offsetX: renderBoxNode.offsetLeft,
+			offsetY: renderBoxNode.offsetTop,
+			fillStyle: `rgba(3, 6, 11, ${frameMaskOpacity})`,
+		});
+		context.setTransform(1, 0, 0, 1, 0, 0);
+	}, [
+		frameMaskOpacity,
+		maskedFrames,
+		mode,
+		refs.renderBoxRef,
+		refs.viewportShellRef,
+		exportWidth,
+		exportHeight,
+	]);
+
+	if (mode !== "camera" || frameMaskOpacity <= 0 || maskedFrames.length === 0) {
+		return null;
+	}
+	return html`
+		<div class="frame-mask-layer">
+			<canvas ref=${canvasRef} class="frame-mask-layer__canvas"></canvas>
+		</div>
+	`;
+}
+
 function getReferenceImageAnchorHandleKey(anchorAx, anchorAy) {
 	if (
 		!Number.isFinite(anchorAx) ||
@@ -117,7 +218,6 @@ function getReferenceImageAnchorHandleKey(anchorAx, anchorAy) {
 }
 
 export function ViewportShell({ store, controller, refs, t }) {
-	const frameMaskCanvasRef = useRef(null);
 	const splatEditHudDragRef = useRef(null);
 	const mode = store.mode.value;
 	const workbenchCollapsed = store.workbenchCollapsed.value;
@@ -135,11 +235,6 @@ export function ViewportShell({ store, controller, refs, t }) {
 	const splatEditLastOperation = store.splatEdit.lastOperation.value;
 	const frames = store.frames.documents.value;
 	const selectedFrameIds = new Set(store.frames.selectedIds.value ?? []);
-	const rememberedMaskFrameIds = new Set(
-		store.frames.maskSelectedIds.value ?? [],
-	);
-	const frameMaskMode = store.frames.maskMode.value;
-	const frameMaskOpacityPct = store.frames.maskOpacityPct.value;
 	const referenceImageEditMode = store.viewportReferenceImageEditMode.value;
 	const blockOverlayInteractions = referenceImageEditMode || splatEditActive;
 	const outputFrameLabel = t("section.outputFrame");
@@ -275,12 +370,6 @@ export function ViewportShell({ store, controller, refs, t }) {
 		left: `${selectionBox.anchorAx * 100}%`,
 		top: `${selectionBox.anchorAy * 100}%`,
 	});
-	const maskedFrames =
-		frameMaskMode === "all"
-			? frames
-			: frameMaskMode === "selected"
-				? frames.filter((frame) => rememberedMaskFrameIds.has(frame.id))
-				: [];
 	const viewportShellElement =
 		refs.viewportShellRef?.current ?? refs.viewportShellRef ?? null;
 	const renderBoxElement =
@@ -306,10 +395,6 @@ export function ViewportShell({ store, controller, refs, t }) {
 					bottom: "auto",
 				}
 			: undefined;
-	const frameMaskOpacity = Math.min(
-		1,
-		Math.max(0, (Number(frameMaskOpacityPct) || 0) / 100),
-	);
 	const { projectDisplayName, projectDirty, showProjectPackageDirty } =
 		getProjectStatusDisplay(store, t);
 	const startReferenceImageMove = (itemId, event) =>
@@ -406,78 +491,6 @@ export function ViewportShell({ store, controller, refs, t }) {
 		event.preventDefault();
 		event.stopPropagation();
 	};
-
-	useLayoutEffect(() => {
-		const canvas = frameMaskCanvasRef.current;
-		const shellElement =
-			refs.viewportShellRef?.current ?? refs.viewportShellRef ?? null;
-		const renderBoxNode =
-			refs.renderBoxRef?.current ?? refs.renderBoxRef ?? null;
-		if (
-			!(canvas instanceof HTMLCanvasElement) ||
-			!(shellElement instanceof HTMLElement)
-		) {
-			return;
-		}
-		const context = canvas.getContext("2d");
-		if (!context) {
-			return;
-		}
-
-		const shellWidth = Math.max(1, shellElement.clientWidth);
-		const shellHeight = Math.max(1, shellElement.clientHeight);
-		const canvasWidth = Math.max(
-			1,
-			Math.round(shellWidth * VIEWPORT_PIXEL_RATIO),
-		);
-		const canvasHeight = Math.max(
-			1,
-			Math.round(shellHeight * VIEWPORT_PIXEL_RATIO),
-		);
-		if (canvas.width !== canvasWidth) {
-			canvas.width = canvasWidth;
-		}
-		if (canvas.height !== canvasHeight) {
-			canvas.height = canvasHeight;
-		}
-		canvas.style.width = `${shellWidth}px`;
-		canvas.style.height = `${shellHeight}px`;
-
-		context.setTransform(1, 0, 0, 1, 0, 0);
-		context.clearRect(0, 0, canvas.width, canvas.height);
-		if (
-			mode !== "camera" ||
-			frameMaskOpacity <= 0 ||
-			maskedFrames.length === 0 ||
-			!(renderBoxNode instanceof HTMLElement) ||
-			renderBoxNode.offsetWidth <= 0 ||
-			renderBoxNode.offsetHeight <= 0
-		) {
-			return;
-		}
-
-		context.scale(VIEWPORT_PIXEL_RATIO, VIEWPORT_PIXEL_RATIO);
-		drawFrameMaskToContext(context, maskedFrames, {
-			canvasWidth: shellWidth,
-			canvasHeight: shellHeight,
-			frameSpaceWidth: renderBoxNode.offsetWidth,
-			frameSpaceHeight: renderBoxNode.offsetHeight,
-			logicalSpaceWidth: store.exportWidth.value,
-			logicalSpaceHeight: store.exportHeight.value,
-			offsetX: renderBoxNode.offsetLeft,
-			offsetY: renderBoxNode.offsetTop,
-			fillStyle: `rgba(3, 6, 11, ${frameMaskOpacity})`,
-		});
-		context.setTransform(1, 0, 0, 1, 0, 0);
-	}, [
-		frameMaskOpacity,
-		maskedFrames,
-		mode,
-		refs.renderBoxRef,
-		refs.viewportShellRef,
-		store.exportHeight.value,
-		store.exportWidth.value,
-	]);
 
 	useLayoutEffect(() => {
 		const handlePointerMove = (event) => {
@@ -588,10 +601,10 @@ export function ViewportShell({ store, controller, refs, t }) {
 							html`
 							<div class="viewport-splat-edit-popover">
 								${renderSplatEditField({ label: "px", value: splatEditBrushSize ?? 30, step: "1", min: "4", historyLabel: "splat-edit.brush-size", onScrubValue: (v) => handleSplatEditBrushSizeInput(v), onCommitValue: (v) => handleSplatEditBrushSizeInput(v) })}
-								<button type="button" class=${`viewport-splat-edit-toolbar__btn${splatEditBrushDepthMode === "through" ? " viewport-splat-edit-toolbar__btn--active" : ""}`} onClick=${() => setSplatEditBrushDepthMode("through")}>
+								<button type="button" title=${t("status.splatEditBrushModeThrough")} class=${`viewport-splat-edit-toolbar__btn${splatEditBrushDepthMode === "through" ? " viewport-splat-edit-toolbar__btn--active" : ""}`} onClick=${() => setSplatEditBrushDepthMode("through")}>
 									${t("status.splatEditBrushModeThrough")}
 								</button>
-								<button type="button" class=${`viewport-splat-edit-toolbar__btn${splatEditBrushDepthMode === "depth" ? " viewport-splat-edit-toolbar__btn--active" : ""}`} onClick=${() => setSplatEditBrushDepthMode("depth")}>
+								<button type="button" title=${t("status.splatEditBrushModeDepth")} class=${`viewport-splat-edit-toolbar__btn${splatEditBrushDepthMode === "depth" ? " viewport-splat-edit-toolbar__btn--active" : ""}`} onClick=${() => setSplatEditBrushDepthMode("depth")}>
 									${t("status.splatEditBrushModeDepth")}
 								</button>
 								${
@@ -622,29 +635,29 @@ export function ViewportShell({ store, controller, refs, t }) {
 										${renderSplatEditField({ label: t("field.positionY"), value: splatEditBoxSize?.y ?? 1, min: "0.01", historyLabel: "splat-edit.box-size.y", onScrubValue: (v) => handleSplatEditBoxSizeInput("y", v), onCommitValue: (v) => handleSplatEditBoxSizeInput("y", v) })}
 										${renderSplatEditField({ label: t("field.positionZ"), value: splatEditBoxSize?.z ?? 1, min: "0.01", historyLabel: "splat-edit.box-size.z", onScrubValue: (v) => handleSplatEditBoxSizeInput("z", v), onCommitValue: (v) => handleSplatEditBoxSizeInput("z", v) })}
 									</div>
-									<button type="button" class="viewport-splat-edit-toolbar__btn" onClick=${() => controller()?.applySplatEditBoxSelection?.({ subtract: false })}>${t("status.splatEditAdd")}</button>
-									<button type="button" class="viewport-splat-edit-toolbar__btn" onClick=${() => controller()?.applySplatEditBoxSelection?.({ subtract: true })}>${t("status.splatEditSubtract")}</button>
-									<button type="button" class="viewport-splat-edit-toolbar__btn button--tooltip" onClick=${() => controller()?.scaleSplatEditBoxUniform?.(0.9)}>−<${TooltipBubble} title=${t("status.splatEditScaleDown")} placement="top" /></button>
-									<button type="button" class="viewport-splat-edit-toolbar__btn button--tooltip" onClick=${() => controller()?.scaleSplatEditBoxUniform?.(1.1)}>+<${TooltipBubble} title=${t("status.splatEditScaleUp")} placement="top" /></button>
+									<button type="button" title=${t("status.splatEditAdd")} class="viewport-splat-edit-toolbar__btn" onClick=${() => controller()?.applySplatEditBoxSelection?.({ subtract: false })}>${t("status.splatEditAdd")}</button>
+									<button type="button" title=${t("status.splatEditSubtract")} class="viewport-splat-edit-toolbar__btn" onClick=${() => controller()?.applySplatEditBoxSelection?.({ subtract: true })}>${t("status.splatEditSubtract")}</button>
+									<button type="button" title=${t("status.splatEditScaleDown")} class="viewport-splat-edit-toolbar__btn" onClick=${() => controller()?.scaleSplatEditBoxUniform?.(0.9)}>−</button>
+									<button type="button" title=${t("status.splatEditScaleUp")} class="viewport-splat-edit-toolbar__btn" onClick=${() => controller()?.scaleSplatEditBoxUniform?.(1.1)}>+</button>
 								`
 										: html`
 									<span class="viewport-splat-edit-toolbar__info">${t("status.splatEditPlaceBoxHint")}</span>
 								`
 								}
-								<button type="button" class="viewport-splat-edit-toolbar__btn" onClick=${() => controller()?.fitSplatEditBoxToScope?.()}>${t("status.splatEditFitScope")}</button>
+								<button type="button" title=${t("status.splatEditFitScope")} class="viewport-splat-edit-toolbar__btn" onClick=${() => controller()?.fitSplatEditBoxToScope?.()}>${t("status.splatEditFitScope")}</button>
 							</div>
 						`
 						}
 						<div class="viewport-splat-edit-toolbar__bar">
 							<!-- Tool selector -->
 							<div class="viewport-splat-edit-toolbar__group" role="group" aria-label=${t("action.splatEditTool")}>
-								<button type="button" class=${`viewport-splat-edit-toolbar__btn${splatEditTool === "box" ? " viewport-splat-edit-toolbar__btn--active" : ""}`} onClick=${() => setSplatEditTool("box")}>
+								<button type="button" title=${t("status.splatEditToolBox")} class=${`viewport-splat-edit-toolbar__btn${splatEditTool === "box" ? " viewport-splat-edit-toolbar__btn--active" : ""}`} onClick=${() => setSplatEditTool("box")}>
 									${t("status.splatEditToolBox")}
 								</button>
-								<button type="button" class=${`viewport-splat-edit-toolbar__btn${splatEditTool === "brush" ? " viewport-splat-edit-toolbar__btn--active" : ""}`} onClick=${() => setSplatEditTool("brush")}>
+								<button type="button" title=${t("status.splatEditToolBrush")} class=${`viewport-splat-edit-toolbar__btn${splatEditTool === "brush" ? " viewport-splat-edit-toolbar__btn--active" : ""}`} onClick=${() => setSplatEditTool("brush")}>
 									${t("status.splatEditToolBrush")}
 								</button>
-								<button type="button" class=${`viewport-splat-edit-toolbar__btn${splatEditTool === "transform" ? " viewport-splat-edit-toolbar__btn--active" : ""}`} disabled=${splatEditSelectionCount <= 0 && splatEditTool !== "transform"} onClick=${() => setSplatEditTool("transform")}>
+								<button type="button" title=${t("status.splatEditToolTransform")} class=${`viewport-splat-edit-toolbar__btn${splatEditTool === "transform" ? " viewport-splat-edit-toolbar__btn--active" : ""}`} disabled=${splatEditSelectionCount <= 0 && splatEditTool !== "transform"} onClick=${() => setSplatEditTool("transform")}>
 									${t("status.splatEditToolTransform")}
 								</button>
 							</div>
@@ -666,13 +679,13 @@ export function ViewportShell({ store, controller, refs, t }) {
 
 							<!-- Edit actions -->
 							<div class="viewport-splat-edit-toolbar__group">
-								<button type="button" class="viewport-splat-edit-toolbar__btn viewport-splat-edit-toolbar__btn--danger" disabled=${splatEditSelectionCount <= 0} onClick=${() => void controller()?.deleteSelectedSplats?.()}>
+								<button type="button" title=${t("status.splatEditDelete")} class="viewport-splat-edit-toolbar__btn viewport-splat-edit-toolbar__btn--danger" disabled=${splatEditSelectionCount <= 0} onClick=${() => void controller()?.deleteSelectedSplats?.()}>
 									${t("status.splatEditDelete")}
 								</button>
-								<button type="button" class="viewport-splat-edit-toolbar__btn" disabled=${splatEditSelectionCount <= 0} onClick=${() => void controller()?.separateSelectedSplats?.()}>
+								<button type="button" title=${t("status.splatEditSeparate")} class="viewport-splat-edit-toolbar__btn" disabled=${splatEditSelectionCount <= 0} onClick=${() => void controller()?.separateSelectedSplats?.()}>
 									${t("status.splatEditSeparate")}
 								</button>
-								<button type="button" class="viewport-splat-edit-toolbar__btn" disabled=${splatEditSelectionCount <= 0} onClick=${() => void controller()?.duplicateSelectedSplats?.()}>
+								<button type="button" title=${t("status.splatEditDuplicate")} class="viewport-splat-edit-toolbar__btn" disabled=${splatEditSelectionCount <= 0} onClick=${() => void controller()?.duplicateSelectedSplats?.()}>
 									${t("status.splatEditDuplicate")}
 								</button>
 							</div>
@@ -846,19 +859,7 @@ export function ViewportShell({ store, controller, refs, t }) {
 				rootRef=${refs.viewportAxisGizmoRef}
 				svgRef=${refs.viewportAxisGizmoSvgRef}
 			/>
-			${
-				mode === "camera" &&
-				frameMaskOpacity > 0 &&
-				maskedFrames.length > 0 &&
-				html`
-					<div class="frame-mask-layer">
-						<canvas
-							ref=${frameMaskCanvasRef}
-							class="frame-mask-layer__canvas"
-						></canvas>
-					</div>
-				`
-			}
+			<${FrameMaskCanvas} store=${store} refs=${refs} />
 			<div
 				id="render-box"
 				ref=${refs.renderBoxRef}
