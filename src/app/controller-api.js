@@ -64,6 +64,12 @@ export function createControllerApi({
 		toggleSplatEditMode,
 		setSplatEditTool: (...args) =>
 			perSplatEditController?.setSplatEditTool?.(...args),
+		setSplatEditBrushSize: (...args) =>
+			perSplatEditController?.setSplatEditBrushSize?.(...args),
+		setSplatEditBrushDepthMode: (...args) =>
+			perSplatEditController?.setSplatEditBrushDepthMode?.(...args),
+		setSplatEditBrushDepth: (...args) =>
+			perSplatEditController?.setSplatEditBrushDepth?.(...args),
 		setSplatEditBoxCenterAxis: (...args) =>
 			perSplatEditController?.setSplatEditBoxCenterAxis?.(...args),
 		setSplatEditBoxSizeAxis: (...args) =>
@@ -78,8 +84,14 @@ export function createControllerApi({
 			perSplatEditController?.deleteSelectedSplats?.(...args),
 		separateSelectedSplats: (...args) =>
 			perSplatEditController?.separateSelectedSplats?.(...args),
+		duplicateSelectedSplats: (...args) =>
+			perSplatEditController?.duplicateSelectedSplats?.(...args),
 		clearSplatSelection: (...args) =>
 			perSplatEditController?.clearSplatSelection?.(...args),
+		selectAllSplats: (...args) =>
+			perSplatEditController?.selectAllSplats?.(...args),
+		invertSplatSelection: (...args) =>
+			perSplatEditController?.invertSplatSelection?.(...args),
 		setViewportReferenceImageEditMode,
 		activateViewportReferenceImageEditModeImplicit,
 		toggleViewportReferenceImageEditMode,

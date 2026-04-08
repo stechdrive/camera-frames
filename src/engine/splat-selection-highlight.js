@@ -144,10 +144,21 @@ export function createSplatSelectionHighlightController({
 	function syncAssetSelection(entry, selectedIndices, hiddenIndices) {
 		const nextSelectedIndices = selectedIndices ?? new Set();
 		const nextHiddenIndices = hiddenIndices ?? new Set();
-		const nextTouchedIndices = new Set([
-			...entry.highlightedIndices,
-			...nextSelectedIndices,
-		]);
+		const nextTouchedIndices = new Set();
+		for (const index of entry.highlightedIndices) {
+			if (!nextSelectedIndices.has(index)) {
+				nextTouchedIndices.add(index);
+			}
+		}
+		for (const index of nextSelectedIndices) {
+			if (!entry.highlightedIndices.has(index)) {
+				nextTouchedIndices.add(index);
+				continue;
+			}
+			if (entry.hiddenIndices.has(index) !== nextHiddenIndices.has(index)) {
+				nextTouchedIndices.add(index);
+			}
+		}
 		let changed = false;
 		for (const index of nextTouchedIndices) {
 			if (!nextSelectedIndices.has(index)) {
@@ -174,6 +185,7 @@ export function createSplatSelectionHighlightController({
 		if (changed) {
 			entry.rgbaArray.needsUpdate = true;
 			entry.rgbaArray.getTexture?.();
+			entry.mesh?.updateGenerator?.();
 		}
 	}
 

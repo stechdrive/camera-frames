@@ -106,9 +106,18 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	const splatEditScopeAssetIds = signal([]);
 	const splatEditRememberedScopeAssetIds = signal([]);
 	const splatEditSelectionCount = signal(0);
-	const splatEditBrushSize = signal(24);
-	const splatEditBrushDepthMode = signal("through");
-	const splatEditBrushDepth = signal(0.5);
+	const splatEditBrushSize = signal(30);
+	const splatEditBrushDepthMode = signal("depth");
+	const splatEditBrushDepth = signal(0.2);
+	const splatEditBrushDepthBarVisible = signal(false);
+	const splatEditBrushPreview = signal({
+		visible: false,
+		x: 0,
+		y: 0,
+		radiusPx: 0,
+		painting: false,
+		subtract: false,
+	});
 	const splatEditBoxPlaced = signal(false);
 	const splatEditBoxCenter = signal({ x: 0, y: 0, z: 0 });
 	const splatEditBoxSize = signal({ x: 1, y: 1, z: 1 });
@@ -396,6 +405,8 @@ export function createCameraFramesStore(runtimeInfo = null) {
 			brushSize: splatEditBrushSize,
 			brushDepthMode: splatEditBrushDepthMode,
 			brushDepth: splatEditBrushDepth,
+			brushDepthBarVisible: splatEditBrushDepthBarVisible,
+			brushPreview: splatEditBrushPreview,
 			boxPlaced: splatEditBoxPlaced,
 			boxCenter: splatEditBoxCenter,
 			boxSize: splatEditBoxSize,

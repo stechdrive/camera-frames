@@ -94,6 +94,13 @@ export function createRuntimeControllerBindings({
 		toggleSplatEditMode,
 		isSplatEditModeActive: () =>
 			perSplatEditController?.isSplatEditModeActive?.() ?? false,
+		hasSplatSelection: () => (store?.splatEdit?.selectionCount?.value ?? 0) > 0,
+		clearSplatSelection: () => perSplatEditController?.clearSplatSelection?.(),
+		selectAllSplats: () => perSplatEditController?.selectAllSplats?.(),
+		invertSplatSelection: () =>
+			perSplatEditController?.invertSplatSelection?.(),
+		isSplatEditBrushActive: () =>
+			perSplatEditController?.isSplatEditBrushActive?.() ?? false,
 		needsSplatEditBoxPlacement: () =>
 			perSplatEditController?.needsSplatEditBoxPlacement?.() ?? false,
 		placeSplatEditBoxAtPointer: (event) =>
@@ -101,6 +108,24 @@ export function createRuntimeControllerBindings({
 				camera: getActiveCamera?.(),
 				viewportRect: viewportShell?.getBoundingClientRect?.() ?? null,
 			}) ?? false,
+		startSplatEditBrushStroke: (event) =>
+			perSplatEditController?.startSplatEditBrushStroke?.(event) ?? false,
+		handleSplatEditBrushStrokeMove: (event) =>
+			perSplatEditController?.handleSplatEditBrushStrokeMove?.(event) ?? false,
+		finishSplatEditBrushStroke: (event, options) =>
+			perSplatEditController?.finishSplatEditBrushStroke?.(event, options) ??
+			false,
+		updateSplatEditBrushPreview: (event) =>
+			perSplatEditController?.updateBrushPreviewFromClientPoint?.({
+				clientX: Number(event?.clientX),
+				clientY: Number(event?.clientY),
+				subtract: event?.altKey === true,
+				painting: false,
+			}) ?? false,
+		clearSplatEditBrushPreview: () =>
+			perSplatEditController?.clearBrushPreview?.() ?? false,
+		applySplatEditBrushAtPointer: (event) =>
+			perSplatEditController?.applySplatEditBrushAtPointer?.(event) ?? false,
 		toggleViewportReferenceImageEditMode,
 		toggleViewportTransformMode,
 		toggleViewportPivotEditMode,

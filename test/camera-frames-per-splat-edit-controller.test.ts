@@ -48,6 +48,46 @@ function computeExpectedSpawnPoint({
 	return raycaster.ray.at(1, new THREE.Vector3());
 }
 
+function computeExpectedPlanarHitPoint({
+	camera,
+	viewportRect,
+	viewRect = viewportRect,
+	planeZ = 0,
+}) {
+	const raycaster = new THREE.Raycaster();
+	const pointerNdc = new THREE.Vector2(
+		((viewRect.left + viewRect.width * 0.5 - viewportRect.left) /
+			viewportRect.width) *
+			2 -
+			1,
+		-(
+			(viewRect.top + viewRect.height * 0.5 - viewportRect.top) /
+			viewportRect.height
+		) *
+			2 +
+			1,
+	);
+	raycaster.setFromCamera(pointerNdc, camera);
+	const directionZ = raycaster.ray.direction.z;
+	const distance = (planeZ - raycaster.ray.origin.z) / directionZ;
+	return raycaster.ray.at(distance, new THREE.Vector3());
+}
+
+function worldToClientPoint({
+	camera,
+	viewportRect,
+	worldPoint,
+	viewRect = viewportRect,
+}) {
+	const projectedPoint = worldPoint.clone().project(camera);
+	return {
+		clientX:
+			viewRect.left + ((projectedPoint.x + 1) * 0.5 * viewRect.width - 0),
+		clientY:
+			viewRect.top + ((1 - projectedPoint.y) * 0.5 * viewRect.height - 0),
+	};
+}
+
 function toPlainPoint(vector) {
 	return {
 		x: vector.x,
@@ -56,11 +96,19 @@ function toPlainPoint(vector) {
 	};
 }
 
-function createPointerEvent({ pointerId = 1, clientX = 0, clientY = 0 } = {}) {
+function createPointerEvent({
+	pointerId = 1,
+	clientX = 0,
+	clientY = 0,
+	altKey = false,
+	button = 0,
+} = {}) {
 	return {
 		pointerId,
 		clientX,
 		clientY,
+		altKey,
+		button,
 		preventDefault() {},
 		stopPropagation() {},
 		stopImmediatePropagation() {},
@@ -96,6 +144,10 @@ function createHarness({
 	let createdAssetIndex = 1;
 	const assetController = {
 		getSceneAssets: () => store.sceneAssets.value,
+		getSceneRaycastTargets: () =>
+			store.sceneAssets.value
+				.filter((asset) => asset?.object?.visible !== false)
+				.map((asset) => asset.object),
 		captureProjectSceneState: () =>
 			store.sceneAssets.value.map((asset, index) => ({
 				id: String(asset.id),
@@ -254,6 +306,7 @@ function createSplatAsset({
 	centerBounds = null,
 	position = new THREE.Vector3(),
 	meshPosition = new THREE.Vector3(),
+	raycastHitPoint = null,
 } = {}) {
 	const object = new THREE.Group();
 	object.position.copy(position);
@@ -265,6 +318,27 @@ function createSplatAsset({
 	contentObject.add(mesh);
 	contentObject.updateMatrixWorld(true);
 	mesh.updateMatrixWorld(true);
+	if (raycastHitPoint) {
+		mesh.raycast = function raycast(raycaster, intersections) {
+			const hitPoint = raycastHitPoint.clone();
+			const offset = hitPoint.clone().sub(raycaster.ray.origin);
+			const distance = offset.dot(raycaster.ray.direction);
+			if (distance < 0) {
+				return;
+			}
+			const closestPoint = raycaster.ray
+				.at(distance, new THREE.Vector3())
+				.clone();
+			if (closestPoint.distanceToSquared(hitPoint) > 1e-8) {
+				return;
+			}
+			intersections.push({
+				distance,
+				point: hitPoint,
+				object: this,
+			});
+		};
+	}
 	mesh.forEachSplat = function forEachSplat(callback) {
 		centers.forEach((center, index) => callback(index, center.clone()));
 	};
@@ -277,6 +351,46 @@ function createSplatAsset({
 		object,
 		contentObject,
 		localCenterBoundsHint: centerBounds,
+		disposeTarget: mesh,
+	};
+}
+
+function createPlanarBrushSplatAsset({ id, centers, planeZ = 0 } = {}) {
+	const object = new THREE.Group();
+	object.updateMatrixWorld(true);
+	const contentObject = new THREE.Group();
+	object.add(contentObject);
+	const mesh = new THREE.Group();
+	contentObject.add(mesh);
+	contentObject.updateMatrixWorld(true);
+	mesh.updateMatrixWorld(true);
+	mesh.raycast = function raycast(raycaster, intersections) {
+		const directionZ = raycaster.ray.direction.z;
+		if (Math.abs(directionZ) <= 1e-6) {
+			return;
+		}
+		const distance = (planeZ - raycaster.ray.origin.z) / directionZ;
+		if (distance < 0) {
+			return;
+		}
+		intersections.push({
+			distance,
+			point: raycaster.ray.at(distance, new THREE.Vector3()).clone(),
+			object: this,
+		});
+	};
+	mesh.forEachSplat = function forEachSplat(callback) {
+		centers.forEach((center, index) => callback(index, center.clone()));
+	};
+	mesh.getBoundingBox = function getBoundingBox() {
+		return new THREE.Box3().setFromPoints(centers);
+	};
+	return {
+		id,
+		kind: "splat",
+		object,
+		contentObject,
+		localCenterBoundsHint: new THREE.Box3().setFromPoints(centers),
 		disposeTarget: mesh,
 	};
 }
@@ -413,7 +527,62 @@ async function createPackedSplatAsset({ id, label, centers }) {
 		harness.controller.setSplatEditMode(true, { silent: true }),
 		true,
 	);
-	assert.equal(harness.store.splatEdit.tool.value, "box");
+	assert.equal(harness.store.splatEdit.tool.value, "brush");
+}
+
+{
+	const harness = createHarness();
+	assert.equal(harness.controller.setSplatEditTool("brush"), "brush");
+	assert.ok(
+		harness.calls.some(
+			(entry) => Array.isArray(entry) && entry[0] === "sync-controls",
+		),
+	);
+	harness.calls.length = 0;
+	assert.equal(harness.controller.setSplatEditTool("transform"), "transform");
+	assert.ok(
+		harness.calls.some(
+			(entry) => Array.isArray(entry) && entry[0] === "sync-controls",
+		),
+	);
+}
+
+{
+	const harness = createHarness();
+	harness.store.sceneAssets.value = [
+		createSplatAsset({
+			id: "splat-1",
+			centers: [new THREE.Vector3(0, 0, 0)],
+			raycastHitPoint: new THREE.Vector3(0, 0, 0),
+		}),
+	];
+	harness.store.selectedSceneAssetIds.value = ["splat-1"];
+
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	assert.equal(harness.controller.setSplatEditTool("brush"), "brush");
+	assert.equal(
+		harness.controller.applySplatEditBrushAtClientPoint({
+			clientX: 500,
+			clientY: 500,
+		}),
+		1,
+	);
+	assert.equal(harness.controller.setSplatEditBoxCenterAxis("x", 0), true);
+	assert.equal(harness.store.splatEdit.boxPlaced.value, true);
+	assert.equal(harness.store.splatEdit.selectionCount.value, 1);
+	assert.equal(
+		harness.controller.setSplatEditMode(false, { silent: true }),
+		true,
+	);
+	assert.equal(harness.store.splatEdit.selectionCount.value, 1);
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	assert.equal(harness.store.splatEdit.selectionCount.value, 1);
 }
 
 {
@@ -426,6 +595,35 @@ async function createPackedSplatAsset({ id, label, centers }) {
 		"status",
 		"status.splatEditRequiresScope",
 	]);
+}
+
+{
+	const harness = createHarness();
+	harness.store.sceneAssets.value = [
+		createSplatAsset({
+			id: "splat-1",
+			centers: [new THREE.Vector3(0, 0, 0)],
+			raycastHitPoint: new THREE.Vector3(0, 0, 0),
+		}),
+	];
+	harness.store.selectedSceneAssetIds.value = ["splat-1"];
+
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	assert.equal(harness.controller.setSplatEditTool("brush"), "brush");
+	assert.equal(
+		harness.controller.applySplatEditBrushAtClientPoint({
+			clientX: 500,
+			clientY: 500,
+		}),
+		1,
+	);
+	assert.equal(harness.controller.setSplatEditBoxCenterAxis("x", 0), true);
+	assert.equal(harness.store.splatEdit.boxPlaced.value, true);
+	assert.equal(harness.controller.handleToolModeDeactivated(), true);
+	assert.equal(harness.store.splatEdit.selectionCount.value, 1);
 }
 
 {
@@ -541,6 +739,189 @@ async function createPackedSplatAsset({ id, label, centers }) {
 	);
 	assert.equal(harness.store.splatEdit.selectionCount.value, 0);
 	assert.equal(harness.selectionHighlightCalls.at(-1)?.[0], "sync");
+	assert.deepEqual(harness.calls.at(-1), ["status", "removed:2"]);
+}
+
+{
+	const harness = createHarness();
+	harness.store.sceneAssets.value = [
+		createSplatAsset({
+			id: "splat-1",
+			centers: [
+				new THREE.Vector3(0, 0, -0.05),
+				new THREE.Vector3(0, 0, -0.18),
+				new THREE.Vector3(0, 0, -0.25),
+				new THREE.Vector3(0.12, 0, -0.05),
+				new THREE.Vector3(0, 0, 0.05),
+			],
+			centerBounds: new THREE.Box3(
+				new THREE.Vector3(-0.5, -0.5, -0.5),
+				new THREE.Vector3(0.5, 0.5, 0.5),
+			),
+			raycastHitPoint: new THREE.Vector3(0, 0, 0),
+		}),
+	];
+	harness.store.selectedSceneAssetIds.value = ["splat-1"];
+
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	assert.equal(harness.controller.setSplatEditTool("brush"), "brush");
+	assert.equal(harness.controller.setSplatEditBrushSize(0.2), true);
+	assert.equal(harness.controller.setSplatEditBrushDepthMode("depth"), "depth");
+	assert.equal(harness.controller.setSplatEditBrushDepth(0.2), true);
+	assert.equal(
+		harness.controller.applySplatEditBrushAtClientPoint({
+			clientX: 500,
+			clientY: 500,
+		}),
+		2,
+	);
+	assert.equal(harness.store.splatEdit.selectionCount.value, 2);
+	assert.deepEqual(harness.calls.at(-1), ["status", "added:2"]);
+}
+
+{
+	const harness = createHarness();
+	harness.store.sceneAssets.value = [
+		createPlanarBrushSplatAsset({
+			id: "splat-1",
+			centers: [new THREE.Vector3(-0.4, 0, 0), new THREE.Vector3(0.4, 0, 0)],
+		}),
+	];
+	harness.store.selectedSceneAssetIds.value = ["splat-1"];
+
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	assert.equal(harness.controller.setSplatEditTool("brush"), "brush");
+	assert.equal(harness.controller.setSplatEditBrushSize(0.2), true);
+	assert.equal(
+		harness.controller.startSplatEditBrushStroke(
+			createPointerEvent({
+				pointerId: 9,
+				clientX: 460,
+				clientY: 500,
+			}),
+		),
+		true,
+	);
+	assert.equal(
+		harness.controller.handleSplatEditBrushStrokeMove(
+			createPointerEvent({
+				pointerId: 9,
+				clientX: 540,
+				clientY: 500,
+			}),
+		),
+		true,
+	);
+	assert.equal(
+		harness.controller.finishSplatEditBrushStroke(
+			createPointerEvent({
+				pointerId: 9,
+				clientX: 540,
+				clientY: 500,
+			}),
+		),
+		true,
+	);
+	assert.equal(harness.store.splatEdit.selectionCount.value, 2);
+	assert.equal(harness.store.splatEdit.brushPreview.value.visible, true);
+	assert.equal(harness.store.splatEdit.brushPreview.value.painting, false);
+	assert.deepEqual(harness.calls.at(-1), ["status", "added:2"]);
+}
+
+{
+	const camera = new THREE.PerspectiveCamera(90, 1.4, 0.1, 1000);
+	camera.position.set(0, 0, 5);
+	camera.lookAt(0, 0, 0);
+	camera.updateProjectionMatrix();
+	camera.updateMatrixWorld(true);
+	const viewportRect = { left: 0, top: 0, width: 1400, height: 1000 };
+	const renderBoxRect = { left: 100, top: 100, width: 800, height: 800 };
+	const harness = createHarness({
+		mode: "camera",
+		camera,
+		viewportRect,
+		renderBoxRect,
+	});
+	const hitPoint = computeExpectedPlanarHitPoint({
+		camera,
+		viewportRect,
+		viewRect: renderBoxRect,
+		planeZ: 0,
+	});
+	harness.store.sceneAssets.value = [
+		createPlanarBrushSplatAsset({
+			id: "splat-1",
+			centers: [hitPoint.clone()],
+		}),
+	];
+	harness.store.selectedSceneAssetIds.value = ["splat-1"];
+
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	assert.equal(harness.controller.setSplatEditTool("brush"), "brush");
+	assert.equal(harness.controller.setSplatEditBrushSize(0.2), true);
+	assert.equal(
+		harness.controller.applySplatEditBrushAtClientPoint({
+			clientX: 500,
+			clientY: 500,
+		}),
+		1,
+	);
+	assert.equal(harness.store.splatEdit.selectionCount.value, 1);
+}
+
+{
+	const harness = createHarness();
+	harness.store.sceneAssets.value = [
+		createSplatAsset({
+			id: "splat-1",
+			centers: [
+				new THREE.Vector3(0, 0, -0.05),
+				new THREE.Vector3(0, 0, -1.5),
+				new THREE.Vector3(0.12, 0, -0.05),
+			],
+			centerBounds: new THREE.Box3(
+				new THREE.Vector3(-2, -2, -2),
+				new THREE.Vector3(2, 2, 2),
+			),
+			raycastHitPoint: new THREE.Vector3(0, 0, 0),
+		}),
+	];
+	harness.store.selectedSceneAssetIds.value = ["splat-1"];
+
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	assert.equal(harness.controller.setSplatEditTool("brush"), "brush");
+	assert.equal(harness.controller.setSplatEditBrushSize(0.2), true);
+	assert.equal(
+		harness.controller.setSplatEditBrushDepthMode("through"),
+		"through",
+	);
+	assert.equal(
+		harness.controller.applySplatEditBrushAtClientPoint({
+			clientX: 500,
+			clientY: 500,
+		}),
+		2,
+	);
+	assert.equal(harness.store.splatEdit.selectionCount.value, 2);
+	assert.equal(
+		harness.controller.applySplatEditBrushAtPointer(
+			createPointerEvent({ clientX: 500, clientY: 500, altKey: true }),
+		),
+		true,
+	);
+	assert.equal(harness.store.splatEdit.selectionCount.value, 0);
 	assert.deepEqual(harness.calls.at(-1), ["status", "removed:2"]);
 }
 
@@ -908,7 +1289,7 @@ async function createPackedSplatAsset({ id, label, centers }) {
 	assert.equal(harness.store.sceneAssets.value[1].source.numSplats, 2);
 	assert.equal(harness.store.sceneAssets.value[1].label, "Facade Split");
 	assert.deepEqual(harness.store.selectedSceneAssetIds.value, ["created-1"]);
-	assert.equal(harness.store.splatEdit.selectionCount.value, 0);
+	assert.equal(harness.store.splatEdit.selectionCount.value, 2);
 	assert.deepEqual(harness.historyCalls, [
 		["begin", "splat-edit.separate"],
 		["commit", "splat-edit.separate"],
@@ -1163,6 +1544,186 @@ async function createPackedSplatAsset({ id, label, centers }) {
 	assert.ok(
 		Math.abs(asset.disposeTarget.packedSplats.getSplat(1).center.x - 1) > 0.1,
 	);
+}
+
+// Brush selects splats via fallback depth when raycast misses
+{
+	const harness = createHarness();
+	harness.store.sceneAssets.value = [
+		createSplatAsset({
+			id: "splat-no-raycast",
+			centers: [new THREE.Vector3(0, 0, 0), new THREE.Vector3(0.05, 0, 0)],
+			// No raycastHitPoint → mesh has no raycast method → raycaster will miss
+		}),
+	];
+	harness.store.selectedSceneAssetIds.value = ["splat-no-raycast"];
+
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	assert.equal(harness.controller.setSplatEditTool("brush"), "brush");
+	assert.equal(harness.controller.setSplatEditBrushSize(2), true);
+	assert.equal(
+		harness.controller.setSplatEditBrushDepthMode("through"),
+		"through",
+	);
+	// Brush should still work via fallback depth even without raycast hit
+	const hitCount = harness.controller.applySplatEditBrushAtClientPoint({
+		clientX: 500,
+		clientY: 500,
+	});
+	assert.ok(
+		hitCount > 0,
+		`brush should select splats via fallback depth, got ${hitCount}`,
+	);
+	assert.ok(harness.store.splatEdit.selectionCount.value > 0);
+}
+
+// Brush stroke lifecycle works with fallback depth
+{
+	const harness = createHarness();
+	harness.store.sceneAssets.value = [
+		createSplatAsset({
+			id: "splat-stroke-fallback",
+			centers: [new THREE.Vector3(0, 0, 0)],
+		}),
+	];
+	harness.store.selectedSceneAssetIds.value = ["splat-stroke-fallback"];
+
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	assert.equal(harness.controller.setSplatEditTool("brush"), "brush");
+	assert.equal(harness.controller.setSplatEditBrushSize(2), true);
+	assert.equal(
+		harness.controller.setSplatEditBrushDepthMode("through"),
+		"through",
+	);
+	const started = harness.controller.startSplatEditBrushStroke(
+		createPointerEvent({ pointerId: 20, clientX: 500, clientY: 500 }),
+	);
+	assert.equal(started, true, "brush stroke should start with fallback depth");
+	assert.equal(
+		harness.controller.finishSplatEditBrushStroke(
+			createPointerEvent({ pointerId: 20, clientX: 510, clientY: 500 }),
+		),
+		true,
+	);
+}
+
+// Brush stroke syncs highlight immediately during drag
+{
+	const harness = createHarness();
+	harness.store.sceneAssets.value = [
+		createPlanarBrushSplatAsset({
+			id: "splat-immediate-highlight",
+			centers: [new THREE.Vector3(-0.4, 0, 0), new THREE.Vector3(0.4, 0, 0)],
+		}),
+	];
+	harness.store.selectedSceneAssetIds.value = ["splat-immediate-highlight"];
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	assert.equal(harness.controller.setSplatEditTool("brush"), "brush");
+	assert.equal(harness.controller.setSplatEditBrushSize(200), true);
+	harness.selectionHighlightCalls.length = 0;
+
+	assert.equal(
+		harness.controller.startSplatEditBrushStroke(
+			createPointerEvent({
+				pointerId: 21,
+				clientX: 460,
+				clientY: 500,
+			}),
+		),
+		true,
+	);
+	const syncCountAfterStart = harness.selectionHighlightCalls.filter(
+		(entry) => entry[0] === "sync",
+	).length;
+	assert.ok(syncCountAfterStart >= 1, "highlight should sync on stroke start");
+	assert.equal(
+		harness.controller.finishSplatEditBrushStroke(
+			createPointerEvent({
+				pointerId: 21,
+				clientX: 540,
+				clientY: 500,
+			}),
+		),
+		true,
+	);
+}
+
+{
+	const harness = createHarness();
+	const centers = Array.from({ length: 300 }, (_value, index) => {
+		return new THREE.Vector3((index - 150) * 0.05, 0, 0);
+	});
+	const asset = await createPackedSplatAsset({
+		id: "splat-brush-index",
+		label: "Brush Index",
+		centers,
+	});
+	asset.disposeTarget.raycast = function raycast(raycaster, intersections) {
+		const directionZ = raycaster.ray.direction.z;
+		if (Math.abs(directionZ) <= 1e-6) {
+			return;
+		}
+		const distance = -raycaster.ray.origin.z / directionZ;
+		if (distance < 0) {
+			return;
+		}
+		intersections.push({
+			distance,
+			point: raycaster.ray.at(distance, new THREE.Vector3()).clone(),
+			object: this,
+		});
+	};
+	harness.store.sceneAssets.value = [asset];
+	harness.store.selectedSceneAssetIds.value = [asset.id];
+	harness.store.selectedSceneAssetId.value = asset.id;
+
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	assert.equal(harness.controller.setSplatEditTool("brush"), "brush");
+	assert.equal(harness.controller.setSplatEditBrushSize(0.2), true);
+	assert.equal(
+		harness.controller.setSplatEditBrushDepthMode("through"),
+		"through",
+	);
+	const viewportRect = { left: 0, top: 0, width: 1000, height: 1000 };
+	const initialClientPoint = worldToClientPoint({
+		camera: harness.activeCamera,
+		viewportRect,
+		worldPoint: new THREE.Vector3(0, 0, 0),
+	});
+	const addedCount =
+		harness.controller.applySplatEditBrushAtClientPoint(initialClientPoint);
+	assert.ok(addedCount > 0);
+	const selectedCount = harness.store.splatEdit.selectionCount.value;
+	assert.equal(selectedCount, addedCount);
+	assert.equal(
+		harness.controller.moveSelectedSplatsByWorldDelta(
+			new THREE.Vector3(1, 0, 0),
+		),
+		true,
+	);
+	const movedClientPoint = worldToClientPoint({
+		camera: harness.activeCamera,
+		viewportRect,
+		worldPoint: new THREE.Vector3(1, 0, 0),
+	});
+	const removedCount = harness.controller.applySplatEditBrushAtClientPoint({
+		...movedClientPoint,
+		subtract: true,
+	});
+	assert.equal(removedCount, selectedCount);
+	assert.equal(harness.store.splatEdit.selectionCount.value, 0);
 }
 
 console.log("✅ CAMERA_FRAMES per-splat edit controller tests passed!");

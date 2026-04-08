@@ -47,8 +47,19 @@ export function bindInputRouter({
 	toggleViewportSelectMode,
 	toggleSplatEditMode,
 	isSplatEditModeActive = () => false,
+	hasSplatSelection = () => false,
+	clearSplatSelection = () => {},
+	selectAllSplats = () => {},
+	invertSplatSelection = () => {},
+	isSplatEditBrushActive = () => false,
 	needsSplatEditBoxPlacement = () => false,
 	placeSplatEditBoxAtPointer = () => false,
+	startSplatEditBrushStroke = () => false,
+	handleSplatEditBrushStrokeMove = () => false,
+	finishSplatEditBrushStroke = () => false,
+	updateSplatEditBrushPreview = () => false,
+	clearSplatEditBrushPreview = () => false,
+	applySplatEditBrushAtPointer = () => false,
 	toggleViewportReferenceImageEditMode,
 	toggleViewportTransformMode,
 	toggleViewportPivotEditMode,
@@ -124,7 +135,8 @@ export function bindInputRouter({
 	isInteractionBlocked = null,
 }) {
 	let viewportSelectClickCandidate = null;
-	let splatEditBoxPlacementClickCandidate = null;
+	let splatEditClickCandidate = null;
+	let splatEditBrushStrokePointerId = null;
 	let viewportOrthoRotationGesture = null;
 	let viewportPieTouchHoldState = null;
 	const VIEWPORT_PIE_TOUCH_HOLD_MS = 320;
@@ -149,7 +161,9 @@ export function bindInputRouter({
 		// Spark's default FPV keyboard bindings must stay disabled in CAMERA_FRAMES.
 		fpsMovement.enable = false;
 		pointerControls.enable =
-			navigationEnabled && !isViewportOrthographicActive?.();
+			navigationEnabled &&
+			!isViewportOrthographicActive?.() &&
+			!isSplatEditBrushActive?.();
 	}
 
 	function getCameraPoseSignature() {
@@ -177,6 +191,14 @@ export function bindInputRouter({
 					].join("|")
 				: "perspective",
 		].join("|");
+	}
+
+	function isViewportPointerTarget(target) {
+		return Boolean(
+			target?.closest?.("#render-box") ||
+				target?.closest?.("#viewport") ||
+				target?.closest?.("#viewport-shell"),
+		);
 	}
 
 	function isMiddleMouseButton(event) {
@@ -383,6 +405,45 @@ export function bindInputRouter({
 		{ capture: true },
 	);
 
+	listen(
+		viewportShell,
+		"pointerdown",
+		(event) => {
+			const target = event.target instanceof Element ? event.target : null;
+			if (
+				event.button !== 0 ||
+				event.ctrlKey ||
+				event.metaKey ||
+				!isSplatEditBrushActive?.() ||
+				!isViewportPointerTarget(target) ||
+				target?.closest(
+					".viewport-splat-edit-toolbar, .viewport-splat-edit-popover, .viewport-project-status",
+				) ||
+				target?.closest(".viewport-pie") ||
+				target?.closest(
+					".measurement-overlay__point, .measurement-overlay__chip",
+				) ||
+				target?.closest("#viewport-gizmo")
+			) {
+				return;
+			}
+			const strokeResult = startSplatEditBrushStroke?.(event);
+			if (!strokeResult) {
+				return;
+			}
+			splatEditBrushStrokePointerId = event.pointerId;
+			try {
+				viewportShell.setPointerCapture?.(event.pointerId);
+			} catch {
+				// Ignore failed pointer capture.
+			}
+			event.preventDefault();
+			event.stopPropagation();
+			event.stopImmediatePropagation?.();
+		},
+		{ capture: true },
+	);
+
 	listen(viewportShell, "dragover", (event) => {
 		event.preventDefault();
 	});
@@ -498,17 +559,27 @@ export function bindInputRouter({
 		}
 		if (
 			isSplatEditModeActive?.() &&
-			needsSplatEditBoxPlacement?.() &&
 			event.button === 0 &&
-			(target?.closest("#render-box") || target?.closest("#viewport"))
+			isViewportPointerTarget(target) &&
+			!target?.closest(
+				".viewport-splat-edit-toolbar, .viewport-splat-edit-popover, .viewport-project-status",
+			)
 		) {
-			splatEditBoxPlacementClickCandidate = {
+			splatEditClickCandidate = {
 				pointerId: event.pointerId,
 				startClientX: event.clientX,
 				startClientY: event.clientY,
 				startPose: getCameraPoseSignature(),
+				action: needsSplatEditBoxPlacement?.()
+					? "box"
+					: isSplatEditBrushActive?.()
+						? "brush"
+						: "",
 			};
-			return;
+			if (splatEditClickCandidate.action) {
+				return;
+			}
+			splatEditClickCandidate = null;
 		}
 		if (target?.closest("#render-box")) {
 			if (isViewportReferenceImageEditMode?.()) {
@@ -559,6 +630,56 @@ export function bindInputRouter({
 	listen(window, "pointermove", handleZoomToolDragMove);
 	listen(window, "pointerup", handleZoomToolDragEnd);
 	listen(window, "pointercancel", handleZoomToolDragEnd);
+	listen(window, "pointermove", (event) => {
+		if (
+			splatEditBrushStrokePointerId !== null &&
+			event.pointerId === splatEditBrushStrokePointerId
+		) {
+			if (handleSplatEditBrushStrokeMove?.(event)) {
+				event.preventDefault();
+				event.stopPropagation?.();
+				event.stopImmediatePropagation?.();
+			}
+			return;
+		}
+		if (!isSplatEditBrushActive?.()) {
+			clearSplatEditBrushPreview?.();
+			return;
+		}
+		const target = event.target instanceof Element ? event.target : null;
+		if (
+			!isViewportPointerTarget(target) ||
+			target?.closest(
+				".viewport-splat-edit-toolbar, .viewport-splat-edit-popover, .viewport-project-status",
+			)
+		) {
+			clearSplatEditBrushPreview?.();
+			return;
+		}
+		updateSplatEditBrushPreview?.(event);
+	});
+	listen(window, "pointerup", (event) => {
+		if (event.pointerId !== splatEditBrushStrokePointerId) {
+			return;
+		}
+		splatEditBrushStrokePointerId = null;
+		if (finishSplatEditBrushStroke?.(event, { cancel: false })) {
+			event.preventDefault();
+			event.stopPropagation?.();
+			event.stopImmediatePropagation?.();
+		}
+	});
+	listen(window, "pointercancel", (event) => {
+		if (event.pointerId !== splatEditBrushStrokePointerId) {
+			return;
+		}
+		splatEditBrushStrokePointerId = null;
+		if (finishSplatEditBrushStroke?.(event, { cancel: true })) {
+			event.preventDefault();
+			event.stopPropagation?.();
+			event.stopImmediatePropagation?.();
+		}
+	});
 	listen(window, "pointermove", (event) => {
 		handleMeasurementHoverMove?.(event);
 	});
@@ -621,28 +742,30 @@ export function bindInputRouter({
 	});
 	listen(window, "pointerup", (event) => {
 		if (
-			splatEditBoxPlacementClickCandidate &&
-			event.pointerId === splatEditBoxPlacementClickCandidate.pointerId
+			splatEditClickCandidate &&
+			event.pointerId === splatEditClickCandidate.pointerId
 		) {
-			const deltaX =
-				event.clientX - splatEditBoxPlacementClickCandidate.startClientX;
-			const deltaY =
-				event.clientY - splatEditBoxPlacementClickCandidate.startClientY;
+			const completedClick = splatEditClickCandidate;
+			const deltaX = event.clientX - completedClick.startClientX;
+			const deltaY = event.clientY - completedClick.startClientY;
 			const isClickLike =
 				Math.hypot(deltaX, deltaY) <= VIEWPORT_POINTER_CLICK_DISTANCE_PX;
 			const cameraPoseChanged =
-				splatEditBoxPlacementClickCandidate.startPose !==
-				getCameraPoseSignature();
-			const shouldPlace = isClickLike && !cameraPoseChanged;
-			splatEditBoxPlacementClickCandidate = null;
-			if (shouldPlace) {
-				placeSplatEditBoxAtPointer?.(event);
+				completedClick.startPose !== getCameraPoseSignature();
+			const shouldApply = isClickLike && !cameraPoseChanged;
+			splatEditClickCandidate = null;
+			if (shouldApply) {
+				if (completedClick.action === "box") {
+					placeSplatEditBoxAtPointer?.(event);
+				} else if (completedClick.action === "brush") {
+					applySplatEditBrushAtPointer?.(event);
+				}
 			}
 		}
 	});
 	listen(window, "pointercancel", (event) => {
-		if (splatEditBoxPlacementClickCandidate?.pointerId === event.pointerId) {
-			splatEditBoxPlacementClickCandidate = null;
+		if (splatEditClickCandidate?.pointerId === event.pointerId) {
+			splatEditClickCandidate = null;
 		}
 	});
 	listen(window, "pointerup", (event) => {
@@ -748,7 +871,37 @@ export function bindInputRouter({
 			!isInteractiveTextTarget(event.target)
 		) {
 			event.preventDefault();
-			clearSceneAssetSelection?.();
+			if (isSplatEditModeActive?.() && hasSplatSelection?.()) {
+				clearSplatSelection?.();
+			} else {
+				clearSceneAssetSelection?.();
+			}
+			return;
+		}
+
+		if (
+			(event.ctrlKey || event.metaKey) &&
+			event.code === "KeyA" &&
+			!event.altKey &&
+			!event.shiftKey &&
+			!isInteractiveTextTarget(event.target) &&
+			isSplatEditModeActive?.()
+		) {
+			event.preventDefault();
+			selectAllSplats?.();
+			return;
+		}
+
+		if (
+			(event.ctrlKey || event.metaKey) &&
+			event.code === "KeyI" &&
+			!event.altKey &&
+			!event.shiftKey &&
+			!isInteractiveTextTarget(event.target) &&
+			isSplatEditModeActive?.()
+		) {
+			event.preventDefault();
+			invertSplatSelection?.();
 			return;
 		}
 

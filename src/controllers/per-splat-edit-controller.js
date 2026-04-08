@@ -1,3 +1,4 @@
+import { fromHalf } from "@sparkjsdev/spark";
 import * as THREE from "three";
 import { createSplatEditSceneHelper } from "../engine/splat-edit-scene-helper.js";
 import { createSplatTransformPreviewController } from "../engine/splat-transform-preview.js";
@@ -14,8 +15,17 @@ const MOVE_PLANE_HANDLE_NAMES = ["move-xy", "move-yz", "move-zx"];
 const ROTATE_AXIS_HANDLE_NAMES = ["rotate-x", "rotate-y", "rotate-z"];
 const SPLAT_SCALE_HANDLE_NAME = "scale-uniform";
 const MIN_BOX_AXIS_SIZE = 0.01;
+const MIN_BRUSH_SIZE_PX = 4;
+const MAX_BRUSH_SIZE_PX = 400;
+const MIN_BRUSH_DEPTH = 0.01;
 const DEFAULT_BOX_SIZE = 1;
+const DEFAULT_BRUSH_SIZE_PX = 30;
+const DEFAULT_BRUSH_DEPTH = 0.2;
 const DERIVED_SPLAT_FILE_EXTENSION = "rawsplat";
+const MIN_BRUSH_INDEX_SPLAT_COUNT = 256;
+const MIN_BRUSH_GRID_CELL_SIZE = 0.05;
+const MAX_BRUSH_GRID_CELL_SIZE = 4;
+const MAX_BRUSH_GRID_QUERY_CELLS = 4096;
 
 function toPlainPoint(vector) {
 	return {
@@ -35,6 +45,17 @@ function toVector3(point, fallback = 0) {
 
 function clampBoxAxisSize(value) {
 	return Math.max(MIN_BOX_AXIS_SIZE, Number(value) || DEFAULT_BOX_SIZE);
+}
+
+function clampBrushSizePx(value) {
+	return Math.min(
+		MAX_BRUSH_SIZE_PX,
+		Math.max(MIN_BRUSH_SIZE_PX, Number(value) || DEFAULT_BRUSH_SIZE_PX),
+	);
+}
+
+function clampBrushDepth(value) {
+	return Math.max(MIN_BRUSH_DEPTH, Number(value) || DEFAULT_BRUSH_DEPTH);
 }
 
 function clonePackedExtra(extra = null) {
@@ -109,7 +130,6 @@ export function createPerSplatEditController({
 	t,
 	guides,
 	viewportShell,
-	renderBox,
 	setStatus,
 	updateUi,
 	getAssetController,
@@ -128,11 +148,12 @@ export function createPerSplatEditController({
 	cancelHistoryTransaction = () => {},
 }) {
 	const isDevRuntime = Boolean(import.meta?.env?.DEV);
-	const defaultBrushSize = Number(store.splatEdit.brushSize.value) || 24;
+	const defaultBrushSize = clampBrushSizePx(store.splatEdit.brushSize.value);
 	const defaultBrushDepthMode =
-		store.splatEdit.brushDepthMode.value === "depth" ? "depth" : "through";
-	const defaultBrushDepth = Number(store.splatEdit.brushDepth.value) || 0.5;
+		store.splatEdit.brushDepthMode.value === "through" ? "through" : "depth";
+	const defaultBrushDepth = clampBrushDepth(store.splatEdit.brushDepth.value);
 	const selectedSplatsByAssetId = new Map();
+	const brushSpatialIndexByAssetId = new Map();
 	const sceneHelper = createSplatEditSceneHelper();
 	const transformPreviewController = createSplatTransformPreviewController({
 		guides,
@@ -153,9 +174,24 @@ export function createPerSplatEditController({
 	const tempTransformRotateMatrix = new THREE.Matrix4();
 	const tempTransformScaleMatrix = new THREE.Matrix4();
 	const tempTransformInversePivotMatrix = new THREE.Matrix4();
+	const tempScreenPoint = new THREE.Vector3();
+	const tempScreenPoint2 = new THREE.Vector3();
+	const tempBrushRightVector = new THREE.Vector3();
+	const tempCameraPosition = new THREE.Vector3();
+	const tempCameraDirection = new THREE.Vector3();
+	const tempBrushQueryStart = new THREE.Vector3();
+	const tempBrushQueryEnd = new THREE.Vector3();
+	const tempBrushBoundsSize = new THREE.Vector3();
+	const tempBrushQueryBounds = new THREE.Box3();
+	let lastBrushRayDepth = 0;
+	const brushDepthPlane = new THREE.Plane();
+	const tempPlaneHitPoint = new THREE.Vector3();
+	const tempBrushUpVector = new THREE.Vector3();
 	let activeBoxDrag = null;
+	let activeBrushStroke = null;
 	let activeTransformDrag = null;
 	let activeTransformPreview = null;
+	let pendingSelectionHighlightFrameId = null;
 
 	function getAssetIdKey(assetId) {
 		return String(assetId);
@@ -171,6 +207,18 @@ export function createPerSplatEditController({
 
 	function getSplatPackedSource(asset) {
 		return asset?.disposeTarget?.packedSplats ?? null;
+	}
+
+	function getSplatAssetWorldMatrix(asset) {
+		const splatMesh = asset?.disposeTarget;
+		asset?.object?.updateMatrixWorld?.(true);
+		splatMesh?.updateMatrixWorld?.(true);
+		return (
+			splatMesh?.matrixWorld ??
+			asset?.contentObject?.matrixWorld ??
+			asset?.object?.matrixWorld ??
+			null
+		);
 	}
 
 	function getSplatAssetTotalCount(asset) {
@@ -193,6 +241,21 @@ export function createPerSplatEditController({
 			}
 		}
 		return new Uint32Array(remaining);
+	}
+
+	function selectAllSplatsForAssets(assets) {
+		for (const asset of assets) {
+			const assetIdKey = getAssetIdKey(asset.id);
+			const totalCount = getSplatAssetTotalCount(asset);
+			if (totalCount <= 0) {
+				continue;
+			}
+			const allIndices = new Set();
+			for (let i = 0; i < totalCount; i += 1) {
+				allIndices.add(i);
+			}
+			selectedSplatsByAssetId.set(assetIdKey, allIndices);
+		}
 	}
 
 	function buildSelectedSplatOperations() {
@@ -267,6 +330,21 @@ export function createPerSplatEditController({
 		return `${base} ${index}`;
 	}
 
+	function buildUniqueDuplicateLabel(baseLabel) {
+		const existingLabels = new Set(
+			getSceneSplatAssets().map((asset) => String(asset.label ?? "").trim()),
+		);
+		const base = `${String(baseLabel ?? "3DGS").trim() || "3DGS"} Copy`;
+		if (!existingLabels.has(base)) {
+			return base;
+		}
+		let index = 2;
+		while (existingLabels.has(`${base} ${index}`)) {
+			index += 1;
+		}
+		return `${base} ${index}`;
+	}
+
 	function updateSplatAssetBoundsHints(asset) {
 		const splatMesh = asset?.disposeTarget;
 		if (!splatMesh || typeof splatMesh.getBoundingBox !== "function") {
@@ -298,7 +376,7 @@ export function createPerSplatEditController({
 			fileType: asset?.source?.fileType ?? null,
 			packedArray: packedSplats.packedArray ?? new Uint32Array(),
 			numSplats: packedSplats.getNumSplats?.() ?? packedSplats.numSplats ?? 0,
-			extra: clonePackedExtra(packedSplats.extra),
+			extra: packedSplats.extra ?? {},
 			splatEncoding: packedSplats.splatEncoding ?? null,
 			projectAssetState: getCapturedProjectAssetState(asset.id, {
 				label: asset.label,
@@ -307,6 +385,7 @@ export function createPerSplatEditController({
 			resource: asset?.source?.resource ?? null,
 		});
 		updateSplatAssetBoundsHints(asset);
+		invalidateBrushSpatialIndex(asset);
 		return true;
 	}
 
@@ -362,6 +441,380 @@ export function createPerSplatEditController({
 		);
 	}
 
+	function invalidateBrushSpatialIndex(assetOrAssetId) {
+		const rawAssetId = assetOrAssetId?.id ?? assetOrAssetId;
+		if (rawAssetId === null || rawAssetId === undefined) {
+			return false;
+		}
+		const assetIdKey = getAssetIdKey(rawAssetId);
+		return brushSpatialIndexByAssetId.delete(assetIdKey);
+	}
+
+	function clearBrushSpatialIndices() {
+		brushSpatialIndexByAssetId.clear();
+	}
+
+	function matrixElementsMatch(cachedElements, nextElements) {
+		if (
+			!Array.isArray(cachedElements) ||
+			!nextElements ||
+			cachedElements.length !== 16
+		) {
+			return false;
+		}
+		for (let index = 0; index < 16; index += 1) {
+			if (cachedElements[index] !== nextElements[index]) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	function estimateBrushSpatialIndexCellSize(
+		worldBounds,
+		splatCount,
+		brushSize,
+	) {
+		if (!worldBounds || worldBounds.isEmpty()) {
+			return clampBrushSizePx(brushSize);
+		}
+		const boundsSize = worldBounds.getSize(tempBrushBoundsSize);
+		const extents = [boundsSize.x, boundsSize.y, boundsSize.z].filter(
+			(axisLength) => Number.isFinite(axisLength) && axisLength > 1e-4,
+		);
+		let spacingEstimate = clampBrushSizePx(brushSize);
+		if (extents.length > 0 && splatCount > 1) {
+			const measure = extents.reduce(
+				(product, axisLength) => product * axisLength,
+				1,
+			);
+			if (measure > 0) {
+				spacingEstimate =
+					extents.length === 1
+						? measure / splatCount
+						: extents.length === 2
+							? Math.sqrt(measure / splatCount)
+							: Math.cbrt(measure / splatCount);
+			}
+		}
+		return Math.min(
+			MAX_BRUSH_GRID_CELL_SIZE,
+			Math.max(
+				MIN_BRUSH_GRID_CELL_SIZE,
+				Math.max(clampBrushSizePx(brushSize) * 0.75, spacingEstimate * 2),
+			),
+		);
+	}
+
+	function getBrushGridCellKey(x, y, z, inverseCellSize) {
+		return `${Math.floor(x * inverseCellSize)},${Math.floor(y * inverseCellSize)},${Math.floor(z * inverseCellSize)}`;
+	}
+
+	function ensureBrushSpatialIndex(asset, brushSize) {
+		const splatMesh = asset?.disposeTarget;
+		if (!asset?.id || !splatMesh) {
+			return null;
+		}
+		const packedSplats = getSplatPackedSource(asset);
+		const packedArray = packedSplats?.packedArray ?? null;
+		const totalCount = Number.isFinite(packedSplats?.numSplats)
+			? packedSplats.numSplats
+			: getSplatAssetTotalCount(asset);
+		if (totalCount < MIN_BRUSH_INDEX_SPLAT_COUNT) {
+			invalidateBrushSpatialIndex(asset);
+			return null;
+		}
+		const worldMatrix = getSplatAssetWorldMatrix(asset);
+		if (!worldMatrix?.elements) {
+			return null;
+		}
+		const assetIdKey = getAssetIdKey(asset.id);
+		const brushSizeHint = clampBrushSizePx(brushSize);
+		const existingEntry = brushSpatialIndexByAssetId.get(assetIdKey);
+		if (
+			existingEntry?.mesh === splatMesh &&
+			existingEntry.totalCount === totalCount &&
+			existingEntry.packedArray === packedArray &&
+			matrixElementsMatch(
+				existingEntry.worldMatrixElements,
+				worldMatrix.elements,
+			) &&
+			brushSizeHint >= existingEntry.brushSizeHint * 0.5 &&
+			brushSizeHint <= existingEntry.brushSizeHint * 2
+		) {
+			return existingEntry;
+		}
+
+		const worldPoints = new Float32Array(totalCount * 3);
+		const worldBounds = new THREE.Box3();
+		let hasBounds = false;
+		if (packedArray && totalCount > 0) {
+			const me = worldMatrix.elements;
+			for (let index = 0; index < totalCount; index += 1) {
+				const packedOffset = index * 4;
+				const word1 = packedArray[packedOffset + 1];
+				const word2 = packedArray[packedOffset + 2];
+				const lx = fromHalf(word1 & 0xffff);
+				const ly = fromHalf(word1 >>> 16);
+				const lz = fromHalf(word2 & 0xffff);
+				const pointOffset = index * 3;
+				const wx = me[0] * lx + me[4] * ly + me[8] * lz + me[12];
+				const wy = me[1] * lx + me[5] * ly + me[9] * lz + me[13];
+				const wz = me[2] * lx + me[6] * ly + me[10] * lz + me[14];
+				worldPoints[pointOffset] = wx;
+				worldPoints[pointOffset + 1] = wy;
+				worldPoints[pointOffset + 2] = wz;
+				tempWorldPoint.set(wx, wy, wz);
+				worldBounds.expandByPoint(tempWorldPoint);
+				hasBounds = true;
+			}
+		} else if (typeof splatMesh?.forEachSplat === "function") {
+			splatMesh.forEachSplat((index, center) => {
+				tempWorldPoint.copy(center);
+				tempWorldPoint.applyMatrix4(worldMatrix);
+				const pointOffset = index * 3;
+				worldPoints[pointOffset] = tempWorldPoint.x;
+				worldPoints[pointOffset + 1] = tempWorldPoint.y;
+				worldPoints[pointOffset + 2] = tempWorldPoint.z;
+				worldBounds.expandByPoint(tempWorldPoint);
+				hasBounds = true;
+			});
+		}
+		if (!hasBounds || worldBounds.isEmpty()) {
+			brushSpatialIndexByAssetId.delete(assetIdKey);
+			return null;
+		}
+
+		const cellSize = estimateBrushSpatialIndexCellSize(
+			worldBounds,
+			totalCount,
+			brushSizeHint,
+		);
+		const inverseCellSize = 1 / cellSize;
+		const cells = new Map();
+		for (let index = 0; index < totalCount; index += 1) {
+			const pointOffset = index * 3;
+			const cellKey = getBrushGridCellKey(
+				worldPoints[pointOffset],
+				worldPoints[pointOffset + 1],
+				worldPoints[pointOffset + 2],
+				inverseCellSize,
+			);
+			let cell = cells.get(cellKey);
+			if (!cell) {
+				cell = [];
+				cells.set(cellKey, cell);
+			}
+			cell.push(index);
+		}
+
+		const nextEntry = {
+			mesh: splatMesh,
+			packedArray,
+			totalCount,
+			brushSizeHint,
+			cellSize,
+			inverseCellSize,
+			worldBounds,
+			worldPoints,
+			cells,
+			worldMatrixElements: Array.from(worldMatrix.elements),
+		};
+		brushSpatialIndexByAssetId.set(assetIdKey, nextEntry);
+		return nextEntry;
+	}
+
+	function getBrushIndexQueryCandidates(
+		indexEntry,
+		{
+			hitX,
+			hitY,
+			hitZ,
+			dirX,
+			dirY,
+			dirZ,
+			maxAxialDistance,
+			brushRadius,
+			isThrough,
+		},
+	) {
+		const worldBounds = indexEntry?.worldBounds;
+		if (!worldBounds || worldBounds.isEmpty()) {
+			return null;
+		}
+		let axialMin = Number.POSITIVE_INFINITY;
+		let axialMax = Number.NEGATIVE_INFINITY;
+		for (const cornerX of [worldBounds.min.x, worldBounds.max.x]) {
+			for (const cornerY of [worldBounds.min.y, worldBounds.max.y]) {
+				for (const cornerZ of [worldBounds.min.z, worldBounds.max.z]) {
+					const axial =
+						(cornerX - hitX) * dirX +
+						(cornerY - hitY) * dirY +
+						(cornerZ - hitZ) * dirZ;
+					axialMin = Math.min(axialMin, axial);
+					axialMax = Math.max(axialMax, axial);
+				}
+			}
+		}
+		if (!Number.isFinite(axialMin) || !Number.isFinite(axialMax)) {
+			return null;
+		}
+		const queryAxialMin = isThrough ? axialMin : Math.max(-1e-4, axialMin, 0);
+		const queryAxialMax = isThrough
+			? axialMax
+			: Math.min(maxAxialDistance, axialMax);
+		if (queryAxialMax < queryAxialMin) {
+			return [];
+		}
+		tempBrushQueryStart
+			.set(hitX, hitY, hitZ)
+			.addScaledVector(tempVector.set(dirX, dirY, dirZ), queryAxialMin);
+		tempBrushQueryEnd
+			.set(hitX, hitY, hitZ)
+			.addScaledVector(tempVector.set(dirX, dirY, dirZ), queryAxialMax);
+		tempBrushQueryBounds.makeEmpty();
+		tempBrushQueryBounds.expandByPoint(tempBrushQueryStart);
+		tempBrushQueryBounds.expandByPoint(tempBrushQueryEnd);
+		tempBrushQueryBounds.expandByScalar(brushRadius);
+		const minCellX = Math.floor(
+			tempBrushQueryBounds.min.x * indexEntry.inverseCellSize,
+		);
+		const maxCellX = Math.floor(
+			tempBrushQueryBounds.max.x * indexEntry.inverseCellSize,
+		);
+		const minCellY = Math.floor(
+			tempBrushQueryBounds.min.y * indexEntry.inverseCellSize,
+		);
+		const maxCellY = Math.floor(
+			tempBrushQueryBounds.max.y * indexEntry.inverseCellSize,
+		);
+		const minCellZ = Math.floor(
+			tempBrushQueryBounds.min.z * indexEntry.inverseCellSize,
+		);
+		const maxCellZ = Math.floor(
+			tempBrushQueryBounds.max.z * indexEntry.inverseCellSize,
+		);
+		const queryCellCount =
+			(maxCellX - minCellX + 1) *
+			(maxCellY - minCellY + 1) *
+			(maxCellZ - minCellZ + 1);
+		if (
+			!Number.isFinite(queryCellCount) ||
+			queryCellCount <= 0 ||
+			queryCellCount > MAX_BRUSH_GRID_QUERY_CELLS
+		) {
+			return null;
+		}
+		const candidateIndices = [];
+		for (let cellX = minCellX; cellX <= maxCellX; cellX += 1) {
+			for (let cellY = minCellY; cellY <= maxCellY; cellY += 1) {
+				for (let cellZ = minCellZ; cellZ <= maxCellZ; cellZ += 1) {
+					const cellIndices = indexEntry.cells.get(
+						`${cellX},${cellY},${cellZ}`,
+					);
+					if (cellIndices?.length) {
+						candidateIndices.push(...cellIndices);
+					}
+				}
+			}
+		}
+		return candidateIndices;
+	}
+
+	function brushPointMatchesCylinder(
+		worldX,
+		worldY,
+		worldZ,
+		{
+			hitX,
+			hitY,
+			hitZ,
+			dirX,
+			dirY,
+			dirZ,
+			brushRadiusSq,
+			maxAxialDistance,
+			isThrough,
+		},
+	) {
+		const vx = worldX - hitX;
+		const vy = worldY - hitY;
+		const vz = worldZ - hitZ;
+		const axial = vx * dirX + vy * dirY + vz * dirZ;
+		if (!isThrough && (axial < -1e-4 || axial > maxAxialDistance)) {
+			return false;
+		}
+		const px = vx - dirX * axial;
+		const py = vy - dirY * axial;
+		const pz = vz - dirZ * axial;
+		return px * px + py * py + pz * pz <= brushRadiusSq;
+	}
+
+	function applyBrushHitToSpatialIndex(
+		indexEntry,
+		nextSelection,
+		brushOptions,
+		subtract,
+	) {
+		const candidateIndices = getBrushIndexQueryCandidates(
+			indexEntry,
+			brushOptions,
+		);
+		let changedCount = 0;
+		if (Array.isArray(candidateIndices)) {
+			for (const index of candidateIndices) {
+				if (!subtract && nextSelection.has(index)) {
+					continue;
+				}
+				const pointOffset = index * 3;
+				if (
+					!brushPointMatchesCylinder(
+						indexEntry.worldPoints[pointOffset],
+						indexEntry.worldPoints[pointOffset + 1],
+						indexEntry.worldPoints[pointOffset + 2],
+						brushOptions,
+					)
+				) {
+					continue;
+				}
+				if (subtract) {
+					if (nextSelection.delete(index)) {
+						changedCount += 1;
+					}
+				} else {
+					nextSelection.add(index);
+					changedCount += 1;
+				}
+			}
+			return changedCount;
+		}
+		for (let index = 0; index < indexEntry.totalCount; index += 1) {
+			if (!subtract && nextSelection.has(index)) {
+				continue;
+			}
+			const pointOffset = index * 3;
+			if (
+				!brushPointMatchesCylinder(
+					indexEntry.worldPoints[pointOffset],
+					indexEntry.worldPoints[pointOffset + 1],
+					indexEntry.worldPoints[pointOffset + 2],
+					brushOptions,
+				)
+			) {
+				continue;
+			}
+			if (subtract) {
+				if (nextSelection.delete(index)) {
+					changedCount += 1;
+				}
+			} else {
+				nextSelection.add(index);
+				changedCount += 1;
+			}
+		}
+		return changedCount;
+	}
+
 	function syncSelectionCount() {
 		const scopeAssetIds = new Set(getSplatEditScopeAssetIds());
 		let totalCount = 0;
@@ -374,7 +827,7 @@ export function createPerSplatEditController({
 		store.splatEdit.selectionCount.value = totalCount;
 	}
 
-	function syncSelectionHighlight() {
+	function runSelectionHighlightSync() {
 		selectionHighlightController?.sync?.({
 			scopeAssets: getSplatEditScopeAssets(),
 			selectedSplatsByAssetId,
@@ -384,21 +837,54 @@ export function createPerSplatEditController({
 		});
 	}
 
+	function cancelPendingSelectionHighlightSync() {
+		if (
+			pendingSelectionHighlightFrameId !== null &&
+			typeof globalThis.cancelAnimationFrame === "function"
+		) {
+			globalThis.cancelAnimationFrame(pendingSelectionHighlightFrameId);
+		}
+		pendingSelectionHighlightFrameId = null;
+	}
+
+	function flushPendingSelectionHighlightSync() {
+		if (pendingSelectionHighlightFrameId === null) {
+			return false;
+		}
+		cancelPendingSelectionHighlightSync();
+		runSelectionHighlightSync();
+		return true;
+	}
+
+	function clearSelectionHighlight() {
+		cancelPendingSelectionHighlightSync();
+		selectionHighlightController?.clear?.();
+	}
+
+	function syncSelectionHighlight() {
+		cancelPendingSelectionHighlightSync();
+		runSelectionHighlightSync();
+		return true;
+	}
+
 	function captureEditState() {
 		return {
-			tool: store.splatEdit.tool.value === "brush" ? "brush" : "box",
+			tool:
+				store.splatEdit.tool.value === "brush"
+					? "brush"
+					: store.splatEdit.tool.value === "transform"
+						? "transform"
+						: "box",
 			scopeAssetIds: getSplatEditScopeAssetIds(),
 			rememberedScopeAssetIds: normalizeScopeAssetIds(
 				store.splatEdit.rememberedScopeAssetIds.value,
 			),
-			brushSize: Number.isFinite(store.splatEdit.brushSize.value)
-				? Number(store.splatEdit.brushSize.value)
-				: defaultBrushSize,
+			brushSize: clampBrushSizePx(store.splatEdit.brushSize.value),
 			brushDepthMode:
-				store.splatEdit.brushDepthMode.value === "depth" ? "depth" : "through",
-			brushDepth: Number.isFinite(store.splatEdit.brushDepth.value)
-				? Number(store.splatEdit.brushDepth.value)
-				: defaultBrushDepth,
+				store.splatEdit.brushDepthMode.value === "through"
+					? "through"
+					: "depth",
+			brushDepth: clampBrushDepth(store.splatEdit.brushDepth.value),
 			boxPlaced: store.splatEdit.boxPlaced.value === true,
 			boxCenter: {
 				...store.splatEdit.boxCenter.value,
@@ -435,6 +921,8 @@ export function createPerSplatEditController({
 
 	function restoreEditState(snapshot = null) {
 		selectedSplatsByAssetId.clear();
+		activeBrushStroke = null;
+		clearBrushPreview({ syncUi: false });
 		if (!snapshot || typeof snapshot !== "object") {
 			store.splatEdit.tool.value = "box";
 			store.splatEdit.scopeAssetIds.value = [];
@@ -466,14 +954,10 @@ export function createPerSplatEditController({
 		store.splatEdit.rememberedScopeAssetIds.value = normalizeScopeAssetIds(
 			snapshot.rememberedScopeAssetIds,
 		);
-		store.splatEdit.brushSize.value = Number.isFinite(snapshot.brushSize)
-			? Number(snapshot.brushSize)
-			: defaultBrushSize;
+		store.splatEdit.brushSize.value = clampBrushSizePx(snapshot.brushSize);
 		store.splatEdit.brushDepthMode.value =
-			snapshot.brushDepthMode === "depth" ? "depth" : "through";
-		store.splatEdit.brushDepth.value = Number.isFinite(snapshot.brushDepth)
-			? Number(snapshot.brushDepth)
-			: defaultBrushDepth;
+			snapshot.brushDepthMode === "through" ? "through" : "depth";
+		store.splatEdit.brushDepth.value = clampBrushDepth(snapshot.brushDepth);
 		store.splatEdit.boxPlaced.value =
 			typeof snapshot.boxPlaced === "boolean" ? snapshot.boxPlaced : true;
 		store.splatEdit.boxCenter.value = {
@@ -558,9 +1042,77 @@ export function createPerSplatEditController({
 			mode: "clear",
 			hitCount: 0,
 		};
-		selectionHighlightController?.clear?.();
+		clearSelectionHighlight();
 		syncSceneHelper();
 		updateUi?.();
+	}
+
+	function selectAllSplats() {
+		if (!isSplatEditModeActive()) {
+			return false;
+		}
+		const scopeAssets = getSplatEditScopeAssets();
+		if (scopeAssets.length === 0) {
+			return false;
+		}
+		clearActiveTransformPreview({ syncUi: false });
+		selectAllSplatsForAssets(scopeAssets);
+		let totalSelected = 0;
+		for (const asset of scopeAssets) {
+			totalSelected += getSplatAssetTotalCount(asset);
+		}
+		store.splatEdit.lastOperation.value = {
+			mode: "select-all",
+			hitCount: totalSelected,
+		};
+		syncSelectionCount();
+		syncSelectionHighlight();
+		syncSceneHelper();
+		updateUi?.();
+		setStatus?.(t("status.splatEditSelectAllDone", { count: totalSelected }));
+		return totalSelected;
+	}
+
+	function invertSplatSelection() {
+		if (!isSplatEditModeActive()) {
+			return false;
+		}
+		const scopeAssets = getSplatEditScopeAssets();
+		if (scopeAssets.length === 0) {
+			return false;
+		}
+		clearActiveTransformPreview({ syncUi: false });
+		let invertedCount = 0;
+		for (const asset of scopeAssets) {
+			const assetIdKey = getAssetIdKey(asset.id);
+			const totalCount = getSplatAssetTotalCount(asset);
+			if (totalCount <= 0) {
+				continue;
+			}
+			const currentSet = selectedSplatsByAssetId.get(assetIdKey);
+			const currentIndexSet = currentSet ?? new Set();
+			const remaining = buildRemainingIndices(totalCount, currentIndexSet);
+			if (remaining.length > 0) {
+				const newSet = new Set();
+				for (let i = 0; i < remaining.length; i += 1) {
+					newSet.add(remaining[i]);
+				}
+				selectedSplatsByAssetId.set(assetIdKey, newSet);
+				invertedCount += remaining.length;
+			} else {
+				selectedSplatsByAssetId.delete(assetIdKey);
+			}
+		}
+		store.splatEdit.lastOperation.value = {
+			mode: "invert",
+			hitCount: invertedCount,
+		};
+		syncSelectionCount();
+		syncSelectionHighlight();
+		syncSceneHelper();
+		updateUi?.();
+		setStatus?.(t("status.splatEditInverted", { count: invertedCount }));
+		return invertedCount;
 	}
 
 	function syncScopeToSceneSelection() {
@@ -865,54 +1417,54 @@ export function createPerSplatEditController({
 		if (!Array.isArray(entries) || entries.length === 0) {
 			return false;
 		}
-		const translation = worldTranslation?.clone?.() ?? new THREE.Vector3();
-		const rotation =
-			worldRotation instanceof THREE.Quaternion ? worldRotation.clone() : null;
 		const scaleFactor =
 			Number.isFinite(uniformScale) && uniformScale > 0 ? uniformScale : 1;
-		const pivot = pivotWorld?.clone?.() ?? new THREE.Vector3();
+		const worldTransformMatrix = composeSelectedSplatTransformMatrix(
+			{ worldTranslation, worldRotation, uniformScale, pivotWorld },
+			tempTransformMatrix,
+		);
+		const rotation =
+			worldRotation instanceof THREE.Quaternion ? worldRotation : null;
+		const tempCenter = tempVector;
+		const tempScales = tempVector2;
+		const tempLocalDeltaQuat = new THREE.Quaternion();
+		const tempSplatQuat = new THREE.Quaternion();
+		const tempCombinedMatrix = tempTransformPivotMatrix;
 		let changed = false;
 		for (const entry of entries) {
-			const localDeltaQuaternion = rotation
-				? entry.inverseWorldQuaternion
-						.clone()
-						.multiply(rotation)
-						.multiply(entry.worldQuaternion)
-						.normalize()
-				: null;
+			tempCombinedMatrix
+				.copy(entry.worldMatrixInverse)
+				.multiply(worldTransformMatrix);
+			let hasRotation = false;
+			if (rotation) {
+				tempLocalDeltaQuat
+					.copy(entry.inverseWorldQuaternion)
+					.multiply(rotation)
+					.multiply(entry.worldQuaternion)
+					.normalize();
+				hasRotation = true;
+			}
 			for (const splat of entry.splats) {
-				let nextWorldCenter = splat.worldCenter.clone().add(translation);
-				if (rotation) {
-					nextWorldCenter = nextWorldCenter
-						.sub(pivot)
-						.applyQuaternion(rotation)
-						.add(pivot);
-				}
+				tempCenter.copy(splat.worldCenter).applyMatrix4(tempCombinedMatrix);
 				if (scaleFactor !== 1) {
-					nextWorldCenter = nextWorldCenter
-						.sub(pivot)
-						.multiplyScalar(scaleFactor)
-						.add(pivot);
+					tempScales.copy(splat.scales).multiplyScalar(scaleFactor);
 				}
-				const nextLocalCenter = nextWorldCenter.applyMatrix4(
-					entry.worldMatrixInverse,
-				);
-				const nextScales =
-					scaleFactor === 1
-						? splat.scales
-						: splat.scales.clone().multiplyScalar(scaleFactor);
-				const nextQuaternion = localDeltaQuaternion
-					? localDeltaQuaternion.clone().multiply(splat.quaternion).normalize()
-					: splat.quaternion;
+				if (hasRotation) {
+					tempSplatQuat
+						.copy(tempLocalDeltaQuat)
+						.multiply(splat.quaternion)
+						.normalize();
+				}
 				entry.packedSplats.setSplat(
 					splat.index,
-					nextLocalCenter,
-					nextScales,
-					nextQuaternion,
+					tempCenter,
+					scaleFactor === 1 ? splat.scales : tempScales,
+					hasRotation ? tempSplatQuat : splat.quaternion,
 					splat.opacity,
 					splat.color,
 				);
 			}
+			entry.packedSplats.disposeLodSplats?.();
 			entry.packedSplats.needsUpdate = true;
 			entry.splatMesh.updateGenerator?.();
 			updateSplatAssetBoundsHints(entry.asset);
@@ -926,18 +1478,25 @@ export function createPerSplatEditController({
 			clearActiveTransformPreview();
 			return false;
 		}
+		const t0 = performance.now();
 		if (!applySelectedSplatTransform(entries, activeTransformPreview ?? {})) {
 			clearActiveTransformPreview();
 			return false;
 		}
+		const t1 = performance.now();
 		let changed = false;
 		for (const entry of entries) {
 			changed = syncSplatAssetPersistentSource(entry.asset) || changed;
 		}
+		const t2 = performance.now();
 		clearActiveTransformPreview({ syncUi: false });
 		syncSelectionHighlight();
 		syncSceneHelper();
 		updateUi?.();
+		const t3 = performance.now();
+		console.debug(
+			`[splat-transform] finalize: apply=${(t1 - t0).toFixed(1)}ms persist=${(t2 - t1).toFixed(1)}ms sync=${(t3 - t2).toFixed(1)}ms total=${(t3 - t0).toFixed(1)}ms`,
+		);
 		return changed;
 	}
 
@@ -1042,13 +1601,173 @@ export function createPerSplatEditController({
 	}
 
 	function getPrimaryViewRect() {
-		if (state.mode === "camera") {
-			const renderRect = resolveElementRect(renderBox);
-			if (renderRect) {
-				return renderRect;
+		// Camera View uses the preview camera with an off-axis projection that
+		// already bakes the render-box offset into the camera frustum.
+		return getViewportRect();
+	}
+
+	function getPrimaryViewCamera() {
+		return state.mode === "camera"
+			? (getActiveCameraViewCamera?.() ?? getActiveCamera?.() ?? null)
+			: (getActiveCamera?.() ?? null);
+	}
+
+	function getBrushHitFromClientPoint({ clientX, clientY } = {}) {
+		if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) {
+			return null;
+		}
+		const camera = getPrimaryViewCamera();
+		const viewRect = getPrimaryViewRect();
+		if (!camera || !viewRect) {
+			return null;
+		}
+		const pointerRay = updatePointerRay(
+			raycaster,
+			pointerNdc,
+			{ clientX, clientY },
+			camera,
+			viewRect,
+		);
+		const raycastTargets =
+			getAssetController?.()?.getSceneRaycastTargets?.() ?? [];
+		if (raycastTargets.length <= 0) {
+			return null;
+		}
+		const intersections = raycaster.intersectObjects(raycastTargets, true);
+		let hitPoint = intersections[0]?.point?.clone?.() ?? null;
+		if (hitPoint) {
+			camera.getWorldPosition(tempCameraPosition);
+			camera.getWorldDirection(tempCameraDirection).normalize();
+			lastBrushRayDepth = hitPoint.distanceTo(tempCameraPosition);
+			brushDepthPlane.setFromNormalAndCoplanarPoint(
+				tempCameraDirection,
+				hitPoint,
+			);
+		} else {
+			hitPoint = resolveBrushFallbackHitPoint(camera, pointerRay);
+		}
+		if (!hitPoint) {
+			return null;
+		}
+		return {
+			camera,
+			hitPoint,
+			rayDirection: pointerRay.direction.clone().normalize(),
+			viewRect,
+		};
+	}
+
+	function getBrushHitFromClientPointFast({ clientX, clientY } = {}) {
+		if (
+			!Number.isFinite(clientX) ||
+			!Number.isFinite(clientY) ||
+			lastBrushRayDepth <= 0.01
+		) {
+			return null;
+		}
+		const camera = getPrimaryViewCamera();
+		const viewRect = getPrimaryViewRect();
+		if (!camera || !viewRect) {
+			return null;
+		}
+		const pointerRay = updatePointerRay(
+			raycaster,
+			pointerNdc,
+			{ clientX, clientY },
+			camera,
+			viewRect,
+		);
+		const hitPoint = raycaster.ray.intersectPlane(
+			brushDepthPlane,
+			tempPlaneHitPoint,
+		);
+		if (!hitPoint) {
+			return null;
+		}
+		return {
+			camera,
+			hitPoint: hitPoint.clone(),
+			rayDirection: pointerRay.direction.clone().normalize(),
+			viewRect,
+		};
+	}
+
+	function resolveBrushFallbackHitPoint(camera, pointerRay) {
+		if (lastBrushRayDepth > 0.01) {
+			return pointerRay.at(lastBrushRayDepth, new THREE.Vector3());
+		}
+		const sceneBounds = getAssetController?.()?.getSceneBounds?.();
+		if (sceneBounds?.box && !sceneBounds.box.isEmpty()) {
+			const sceneCenter = sceneBounds.box.getCenter(new THREE.Vector3());
+			camera.getWorldPosition(tempCameraPosition);
+			camera.getWorldDirection(tempCameraDirection).normalize();
+			const depth = sceneCenter
+				.sub(tempCameraPosition)
+				.dot(tempCameraDirection);
+			if (depth > 0.01) {
+				lastBrushRayDepth = depth;
+				return pointerRay.at(depth, new THREE.Vector3());
 			}
 		}
-		return getViewportRect();
+		return pointerRay.at(DEFAULT_BOX_SIZE, new THREE.Vector3());
+	}
+
+	function clearBrushPreview({ syncUi = true } = {}) {
+		const currentPreview = store.splatEdit.brushPreview.value;
+		if (!currentPreview?.visible && currentPreview?.painting !== true) {
+			return false;
+		}
+		store.splatEdit.brushPreview.value = {
+			visible: false,
+			x: 0,
+			y: 0,
+			radiusPx: 0,
+			depthBarPx: 0,
+			painting: false,
+			subtract: false,
+		};
+		if (syncUi) {
+			updateUi?.();
+		}
+		return true;
+	}
+
+	function syncBrushPreviewFromPointer(
+		clientX,
+		clientY,
+		{ subtract = false, painting = false } = {},
+	) {
+		const radiusPx = clampBrushSizePx(store.splatEdit.brushSize.value) * 0.5;
+		store.splatEdit.brushPreview.value = {
+			visible: true,
+			x: clientX,
+			y: clientY,
+			radiusPx,
+			depthBarPx: 0,
+			painting,
+			subtract,
+		};
+		updateUi?.();
+		return true;
+	}
+
+	function updateBrushPreviewFromClientPoint({
+		clientX,
+		clientY,
+		subtract = false,
+		painting = false,
+	} = {}) {
+		if (
+			!isSplatEditModeActive() ||
+			store.splatEdit.tool.value !== "brush" ||
+			getSplatEditScopeAssetIds().length <= 0
+		) {
+			return clearBrushPreview();
+		}
+		return syncBrushPreviewFromPointer(clientX, clientY, {
+			subtract,
+			painting,
+		});
 	}
 
 	function placeSplatEditBoxAtViewCenter() {
@@ -1119,17 +1838,6 @@ export function createPerSplatEditController({
 			helperVisible = true;
 			helperCenter = getSplatEditBoxCenter();
 			helperSize = getSplatEditBoxSize();
-		} else if (
-			isSplatEditModeActive() &&
-			store.splatEdit.tool.value === "transform" &&
-			store.splatEdit.selectionCount.value > 0
-		) {
-			const selectionBounds = getSelectedSplatTransformBounds();
-			if (selectionBounds && !selectionBounds.isEmpty()) {
-				helperVisible = true;
-				helperCenter = selectionBounds.getCenter(new THREE.Vector3());
-				helperSize = selectionBounds.getSize(new THREE.Vector3());
-			}
 		}
 		sceneHelper.sync({
 			visible: helperVisible,
@@ -1147,12 +1855,10 @@ export function createPerSplatEditController({
 			return null;
 		}
 		const splatMesh = asset.disposeTarget;
-		asset.object.updateMatrixWorld(true);
-		splatMesh?.updateMatrixWorld?.(true);
-		const worldMatrix =
-			splatMesh?.matrixWorld ??
-			asset.contentObject?.matrixWorld ??
-			asset.object.matrixWorld;
+		const worldMatrix = getSplatAssetWorldMatrix(asset);
+		if (!worldMatrix) {
+			return null;
+		}
 		const hintedBox =
 			asset.localCenterBoundsHint?.clone?.() ??
 			asset.localBoundsHint?.clone?.() ??
@@ -1346,17 +2052,44 @@ export function createPerSplatEditController({
 		return store.splatEdit.active.value === true;
 	}
 
+	function isSplatEditBrushActive() {
+		return (
+			isSplatEditModeActive() &&
+			store.splatEdit.tool.value === "brush" &&
+			getSplatEditScopeAssetIds().length > 0
+		);
+	}
+
 	function setSplatEditTool(nextTool) {
-		store.splatEdit.tool.value =
+		const previousTool = store.splatEdit.tool.value;
+		const resolvedTool =
 			nextTool === "brush"
 				? "brush"
 				: nextTool === "transform"
 					? "transform"
 					: "box";
+		if (previousTool === "box" && resolvedTool === "box") {
+			store.splatEdit.boxPlaced.value = false;
+			syncSceneHelper();
+			updateUi?.();
+			return store.splatEdit.tool.value;
+		}
+		store.splatEdit.tool.value = resolvedTool;
+		if (previousTool === "brush" && store.splatEdit.tool.value !== "brush") {
+			activeBrushStroke = null;
+			clearBrushPreview({ syncUi: false });
+			flushPendingSelectionHighlightSync();
+		}
 		if (store.splatEdit.tool.value !== "transform") {
 			clearActiveTransformPreview({ syncUi: false });
 		}
 		syncSceneHelper();
+		if (
+			(previousTool === "brush") !==
+			(store.splatEdit.tool.value === "brush")
+		) {
+			syncControlsToMode?.();
+		}
 		updateUi?.();
 		return store.splatEdit.tool.value;
 	}
@@ -1472,6 +2205,380 @@ export function createPerSplatEditController({
 		return changedCount;
 	}
 
+	function setSplatEditBrushSize(nextValue) {
+		if (!Number.isFinite(nextValue)) {
+			return false;
+		}
+		const previousSize = clampBrushSizePx(store.splatEdit.brushSize.value);
+		const nextSizeClamped = clampBrushSizePx(nextValue);
+		store.splatEdit.brushSize.value = nextSizeClamped;
+		const currentPreview = store.splatEdit.brushPreview.value;
+		if (currentPreview?.visible && previousSize > 0) {
+			store.splatEdit.brushPreview.value = {
+				...currentPreview,
+				radiusPx: Math.max(
+					6,
+					(currentPreview.radiusPx * nextSizeClamped) / previousSize,
+				),
+			};
+		}
+		updateUi?.();
+		return true;
+	}
+
+	function setSplatEditBrushDepthMode(nextMode) {
+		store.splatEdit.brushDepthMode.value =
+			nextMode === "through" ? "through" : "depth";
+		updateUi?.();
+		return store.splatEdit.brushDepthMode.value;
+	}
+
+	function setSplatEditBrushDepth(nextValue) {
+		if (!Number.isFinite(nextValue)) {
+			return false;
+		}
+		store.splatEdit.brushDepth.value = clampBrushDepth(nextValue);
+		updateUi?.();
+		return true;
+	}
+
+	function applySplatEditBrushHit(
+		brushHit,
+		{ subtract = false, syncUi = true, announce = true } = {},
+	) {
+		if (!brushHit?.hitPoint || !brushHit?.rayDirection || !brushHit?.camera) {
+			if (announce) {
+				setStatus?.(t("status.splatEditBrushHitMissing"));
+			}
+			return 0;
+		}
+		const brushSizePx = clampBrushSizePx(store.splatEdit.brushSize.value);
+		const camera = brushHit.camera;
+		const viewRect = brushHit.viewRect ?? getPrimaryViewRect();
+		const viewHeight = Math.max(viewRect?.height ?? 1, 1);
+		camera.getWorldPosition(tempCameraPosition);
+		const hitDepth = brushHit.hitPoint.distanceTo(tempCameraPosition);
+		const worldUnitsPerPx = camera.isOrthographicCamera
+			? (camera.top - camera.bottom) / camera.zoom / viewHeight
+			: (2 *
+					Math.tan(THREE.MathUtils.degToRad(camera.fov) * 0.5) *
+					Math.max(hitDepth, 0.01)) /
+				viewHeight;
+		const brushRadius = brushSizePx * 0.5 * worldUnitsPerPx;
+		const brushRadiusSq = brushRadius ** 2;
+		const brushDepthMode =
+			store.splatEdit.brushDepthMode.value === "through" ? "through" : "depth";
+		const brushDepth = clampBrushDepth(store.splatEdit.brushDepth.value);
+		const maxAxialDistance =
+			brushDepthMode === "through" ? Number.POSITIVE_INFINITY : brushDepth;
+		let changedCount = 0;
+		const isThrough = brushDepthMode === "through";
+		const hitX = brushHit.hitPoint.x;
+		const hitY = brushHit.hitPoint.y;
+		const hitZ = brushHit.hitPoint.z;
+		const dirX = brushHit.rayDirection.x;
+		const dirY = brushHit.rayDirection.y;
+		const dirZ = brushHit.rayDirection.z;
+		const brushOptions = {
+			hitX,
+			hitY,
+			hitZ,
+			dirX,
+			dirY,
+			dirZ,
+			brushRadius,
+			brushRadiusSq,
+			maxAxialDistance,
+			isThrough,
+		};
+		for (const asset of getSplatEditScopeAssets()) {
+			const splatMesh = asset.disposeTarget;
+			const packedArray = splatMesh?.packedSplats?.packedArray;
+			const numSplats = splatMesh?.packedSplats?.numSplats ?? 0;
+			if (!packedArray || numSplats <= 0) {
+				if (typeof splatMesh?.forEachSplat !== "function") {
+					continue;
+				}
+			}
+			const assetIdKey = getAssetIdKey(asset.id);
+			const nextSelection =
+				selectedSplatsByAssetId.get(assetIdKey) ?? new Set();
+			const brushIndex = ensureBrushSpatialIndex(asset, brushRadius * 2);
+			if (brushIndex) {
+				changedCount += applyBrushHitToSpatialIndex(
+					brushIndex,
+					nextSelection,
+					brushOptions,
+					subtract,
+				);
+			} else if (packedArray && numSplats > 0) {
+				const worldMatrix = getSplatAssetWorldMatrix(asset);
+				const me = worldMatrix?.elements;
+				if (!me) {
+					continue;
+				}
+				for (let i = 0; i < numSplats; i++) {
+					if (!subtract && nextSelection.has(i)) {
+						continue;
+					}
+					const i4 = i * 4;
+					const word1 = packedArray[i4 + 1];
+					const word2 = packedArray[i4 + 2];
+					const lx = fromHalf(word1 & 0xffff);
+					const ly = fromHalf(word1 >>> 16);
+					const lz = fromHalf(word2 & 0xffff);
+					const wx = me[0] * lx + me[4] * ly + me[8] * lz + me[12];
+					const wy = me[1] * lx + me[5] * ly + me[9] * lz + me[13];
+					const wz = me[2] * lx + me[6] * ly + me[10] * lz + me[14];
+					if (!brushPointMatchesCylinder(wx, wy, wz, brushOptions)) {
+						continue;
+					}
+					if (subtract) {
+						if (nextSelection.delete(i)) {
+							changedCount += 1;
+						}
+					} else {
+						nextSelection.add(i);
+						changedCount += 1;
+					}
+				}
+			} else {
+				const worldMatrix = getSplatAssetWorldMatrix(asset);
+				if (!worldMatrix) {
+					continue;
+				}
+				splatMesh.forEachSplat((index, center) => {
+					if (!subtract && nextSelection.has(index)) {
+						return;
+					}
+					tempWorldPoint.copy(center);
+					tempWorldPoint.applyMatrix4(worldMatrix);
+					if (
+						!brushPointMatchesCylinder(
+							tempWorldPoint.x,
+							tempWorldPoint.y,
+							tempWorldPoint.z,
+							brushOptions,
+						)
+					) {
+						return;
+					}
+					if (subtract) {
+						if (nextSelection.delete(index)) {
+							changedCount += 1;
+						}
+					} else {
+						nextSelection.add(index);
+						changedCount += 1;
+					}
+				});
+			}
+			if (nextSelection.size > 0) {
+				selectedSplatsByAssetId.set(assetIdKey, nextSelection);
+			} else {
+				selectedSplatsByAssetId.delete(assetIdKey);
+			}
+		}
+		if (changedCount > 0) {
+			syncSelectionCount();
+			syncSelectionHighlight();
+		}
+		store.splatEdit.lastOperation.value = {
+			mode: subtract ? "subtract" : "add",
+			hitCount: changedCount,
+		};
+		if (syncUi) {
+			updateUi?.();
+		}
+		if (announce) {
+			setStatus?.(
+				t(
+					subtract
+						? "status.splatEditSelectionRemoved"
+						: "status.splatEditSelectionAdded",
+					{ count: changedCount },
+				),
+			);
+		}
+		return changedCount;
+	}
+
+	function applySplatEditBrushAtClientPoint({
+		clientX,
+		clientY,
+		subtract = false,
+		syncUi = true,
+		announce = true,
+	} = {}) {
+		if (
+			!isSplatEditModeActive() ||
+			store.splatEdit.tool.value !== "brush" ||
+			getSplatEditScopeAssetIds().length <= 0
+		) {
+			return 0;
+		}
+		const brushHit = getBrushHitFromClientPoint({ clientX, clientY });
+		if (!brushHit) {
+			if (announce) {
+				setStatus?.(t("status.splatEditBrushHitMissing"));
+			}
+			return 0;
+		}
+		return applySplatEditBrushHit(brushHit, {
+			subtract,
+			syncUi,
+			announce,
+		});
+	}
+
+	function updateActiveBrushStrokeStatus() {
+		if (!activeBrushStroke) {
+			return false;
+		}
+		store.splatEdit.lastOperation.value = {
+			mode: activeBrushStroke.subtract ? "subtract" : "add",
+			hitCount: activeBrushStroke.changedCount,
+		};
+		updateUi?.();
+		return true;
+	}
+
+	function startSplatEditBrushStroke(event) {
+		if (
+			!isSplatEditModeActive() ||
+			store.splatEdit.tool.value !== "brush" ||
+			event?.button !== 0 ||
+			!Number.isFinite(event?.clientX) ||
+			!Number.isFinite(event?.clientY)
+		) {
+			return false;
+		}
+		const subtract = event.altKey === true;
+		const brushHit = getBrushHitFromClientPoint({
+			clientX: Number(event.clientX),
+			clientY: Number(event.clientY),
+		});
+		if (!brushHit) {
+			clearBrushPreview();
+			return false;
+		}
+		activeBrushStroke = {
+			pointerId: event.pointerId,
+			subtract,
+			changedCount: 0,
+			lastClientX: Number(event.clientX),
+			lastClientY: Number(event.clientY),
+			lastRadiusPx:
+				Number(store.splatEdit.brushPreview.value?.radiusPx) > 0
+					? Number(store.splatEdit.brushPreview.value.radiusPx)
+					: 18,
+		};
+		activeBrushStroke.changedCount += applySplatEditBrushHit(brushHit, {
+			subtract,
+			syncUi: false,
+			announce: false,
+		});
+		syncBrushPreviewFromPointer(Number(event.clientX), Number(event.clientY), {
+			subtract,
+			painting: true,
+		});
+		updateActiveBrushStrokeStatus();
+		return true;
+	}
+
+	function handleSplatEditBrushStrokeMove(event) {
+		if (
+			!activeBrushStroke ||
+			event?.pointerId !== activeBrushStroke.pointerId ||
+			!Number.isFinite(event?.clientX) ||
+			!Number.isFinite(event?.clientY)
+		) {
+			return false;
+		}
+		const nextClientX = Number(event.clientX);
+		const nextClientY = Number(event.clientY);
+
+		syncBrushPreviewFromPointer(nextClientX, nextClientY, {
+			subtract: activeBrushStroke.subtract,
+			painting: true,
+		});
+
+		const deltaX = nextClientX - activeBrushStroke.lastClientX;
+		const deltaY = nextClientY - activeBrushStroke.lastClientY;
+		const distancePx = Math.hypot(deltaX, deltaY);
+		const sampleDivisor = Math.max(activeBrushStroke.lastRadiusPx * 3, 12);
+		const sampleCount = Math.max(1, Math.ceil(distancePx / sampleDivisor));
+		for (let sampleIndex = 1; sampleIndex <= sampleCount; sampleIndex += 1) {
+			const alpha = sampleIndex / sampleCount;
+			const sampleClientX = activeBrushStroke.lastClientX + deltaX * alpha;
+			const sampleClientY = activeBrushStroke.lastClientY + deltaY * alpha;
+			const isLastSample = sampleIndex === sampleCount;
+			const brushHit = isLastSample
+				? getBrushHitFromClientPoint({
+						clientX: sampleClientX,
+						clientY: sampleClientY,
+					})
+				: getBrushHitFromClientPointFast({
+						clientX: sampleClientX,
+						clientY: sampleClientY,
+					});
+			if (!brushHit) {
+				continue;
+			}
+			activeBrushStroke.changedCount += applySplatEditBrushHit(brushHit, {
+				subtract: activeBrushStroke.subtract,
+				syncUi: false,
+				announce: false,
+			});
+		}
+		activeBrushStroke.lastClientX = nextClientX;
+		activeBrushStroke.lastClientY = nextClientY;
+		activeBrushStroke.lastRadiusPx = Math.max(
+			MIN_BRUSH_SIZE_PX * 0.5,
+			clampBrushSizePx(store.splatEdit.brushSize.value) * 0.5,
+		);
+		updateActiveBrushStrokeStatus();
+		return true;
+	}
+
+	function finishSplatEditBrushStroke(event, { cancel = false } = {}) {
+		if (
+			!activeBrushStroke ||
+			(event?.pointerId !== undefined &&
+				event.pointerId !== activeBrushStroke.pointerId)
+		) {
+			return false;
+		}
+		const stroke = activeBrushStroke;
+		activeBrushStroke = null;
+		flushPendingSelectionHighlightSync();
+		if (
+			cancel !== true &&
+			Number.isFinite(event?.clientX) &&
+			Number.isFinite(event?.clientY)
+		) {
+			updateBrushPreviewFromClientPoint({
+				clientX: Number(event.clientX),
+				clientY: Number(event.clientY),
+				subtract: event?.altKey === true,
+				painting: false,
+			});
+		} else {
+			clearBrushPreview();
+		}
+		if (cancel !== true) {
+			setStatus?.(
+				t(
+					stroke.subtract
+						? "status.splatEditSelectionRemoved"
+						: "status.splatEditSelectionAdded",
+					{ count: stroke.changedCount },
+				),
+			);
+		}
+		return true;
+	}
+
 	async function deleteSelectedSplats() {
 		const operations = buildSelectedSplatOperations();
 		if (operations.length === 0) {
@@ -1485,6 +2592,7 @@ export function createPerSplatEditController({
 		return runHistoryTransaction("splat-edit.delete", async () => {
 			let deletedCount = 0;
 			for (const operation of operations) {
+				invalidateBrushSpatialIndex(operation.assetIdKey);
 				if (operation.remainingIndices.length > 0) {
 					const remainderSource = createDerivedPackedSplatSource(
 						operation.asset,
@@ -1536,6 +2644,7 @@ export function createPerSplatEditController({
 			const createdAssets = [];
 			let separatedCount = 0;
 			for (const operation of operations) {
+				invalidateBrushSpatialIndex(operation.assetIdKey);
 				const currentAssets = assetController.getSceneAssets?.() ?? [];
 				const sourceIndex = currentAssets.findIndex(
 					(asset) => String(asset.id) === String(operation.asset.id),
@@ -1592,9 +2701,10 @@ export function createPerSplatEditController({
 				mode: "separate",
 				hitCount: separatedCount,
 			};
+			syncScopeToSceneSelection();
+			selectAllSplatsForAssets(createdAssets);
 			syncSelectionCount();
 			syncSelectionHighlight();
-			syncScopeToSceneSelection();
 			syncSceneHelper();
 			updateUi?.();
 			setStatus?.(
@@ -1607,24 +2717,95 @@ export function createPerSplatEditController({
 		});
 	}
 
+	async function duplicateSelectedSplats() {
+		const operations = buildSelectedSplatOperations();
+		if (operations.length === 0) {
+			setStatus?.(t("status.splatEditSelectionMissing"));
+			return false;
+		}
+		const assetController = getAssetController?.();
+		if (!assetController) {
+			return false;
+		}
+		return runHistoryTransaction("splat-edit.duplicate", async () => {
+			const createdAssets = [];
+			let duplicatedCount = 0;
+			for (const operation of operations) {
+				const currentAssets = assetController.getSceneAssets?.() ?? [];
+				const sourceIndex = currentAssets.findIndex(
+					(asset) => String(asset.id) === String(operation.asset.id),
+				);
+				const duplicateLabel = buildUniqueDuplicateLabel(operation.asset.label);
+				const selectedSource = createDerivedPackedSplatSource(
+					operation.asset,
+					operation.selectedIndices,
+					{
+						label: duplicateLabel,
+						fileName: buildDerivedSplatFileName(operation.asset, "copy"),
+					},
+				);
+				const createdAsset = selectedSource
+					? await assetController.createSplatAssetFromSource?.(selectedSource, {
+							insertIndex: sourceIndex >= 0 ? sourceIndex + 1 : null,
+						})
+					: null;
+				if (createdAsset) {
+					createdAssets.push(createdAsset);
+				}
+				duplicatedCount += operation.selectedIndices.length;
+			}
+			if (createdAssets.length > 0) {
+				assetController.clearSceneAssetSelection?.();
+				const [firstAsset, ...restAssets] = createdAssets;
+				assetController.selectSceneAsset?.(firstAsset.id);
+				for (const asset of restAssets) {
+					assetController.selectSceneAsset?.(asset.id, {
+						additive: true,
+					});
+				}
+			}
+			store.splatEdit.lastOperation.value = {
+				mode: "duplicate",
+				hitCount: duplicatedCount,
+			};
+			syncScopeToSceneSelection();
+			selectAllSplatsForAssets(createdAssets);
+			syncSelectionCount();
+			syncSelectionHighlight();
+			syncSceneHelper();
+			updateUi?.();
+			setStatus?.(
+				t("status.splatEditDuplicated", {
+					count: duplicatedCount,
+					assets: createdAssets.length,
+				}),
+			);
+			return createdAssets.length;
+		});
+	}
+
 	function handleToolModeDeactivated() {
 		if (!isSplatEditModeActive()) {
 			return false;
 		}
-		clearSplatSelection();
-		store.splatEdit.scopeAssetIds.value = [];
-		store.splatEdit.boxPlaced.value = false;
+		activeBoxDrag = null;
+		activeBrushStroke = null;
+		clearBrushPreview({ syncUi: false });
 		if (activeTransformDrag?.historyStarted) {
 			cancelHistoryTransaction?.();
 		}
 		activeTransformDrag = null;
 		clearActiveTransformPreview({ syncUi: false });
 		syncSceneHelper();
+		clearSelectionHighlight();
+		updateUi?.();
 		return true;
 	}
 
 	function resetForSceneChange() {
 		clearSplatSelection();
+		activeBrushStroke = null;
+		clearBrushPreview({ syncUi: false });
 		store.splatEdit.scopeAssetIds.value = [];
 		store.splatEdit.rememberedScopeAssetIds.value = [];
 		store.splatEdit.boxPlaced.value = false;
@@ -1645,7 +2826,8 @@ export function createPerSplatEditController({
 		clearActiveTransformPreview({ syncUi: false });
 		syncSceneHelper();
 		syncControlsToMode?.();
-		selectionHighlightController?.clear?.();
+		clearSelectionHighlight();
+		clearBrushSpatialIndices();
 		updateUi?.();
 	}
 
@@ -1656,25 +2838,21 @@ export function createPerSplatEditController({
 
 		if (!nextEnabled) {
 			const wasActive = isSplatEditModeActive();
-			clearSplatSelection();
-			store.splatEdit.scopeAssetIds.value = [];
-			store.splatEdit.boxPlaced.value = false;
-			store.splatEdit.lastOperation.value = {
-				mode: "",
-				hitCount: 0,
-			};
 			if (store.viewportToolMode.value === "splat-edit") {
 				store.viewportToolMode.value = "none";
 			}
 			activeBoxDrag = null;
+			activeBrushStroke = null;
 			if (activeTransformDrag?.historyStarted) {
 				cancelHistoryTransaction?.();
 			}
 			activeTransformDrag = null;
+			clearBrushPreview({ syncUi: false });
 			clearActiveTransformPreview({ syncUi: false });
 			syncSceneHelper();
 			syncControlsToMode?.();
-			selectionHighlightController?.clear?.();
+			clearSelectionHighlight();
+			clearBrushSpatialIndices();
 			updateUi?.();
 			if (wasActive && !silent) {
 				setStatus?.(t("status.splatEditDisabled"));
@@ -1697,14 +2875,21 @@ export function createPerSplatEditController({
 		setViewportPivotEditMode?.(false);
 		applyNavigateInteractionMode?.({ silent: true });
 		store.viewportToolMode.value = "splat-edit";
+		const previousScopeAssetIds = getSplatEditScopeAssetIds();
 		store.splatEdit.scopeAssetIds.value = [...scopeAssetIds];
 		store.splatEdit.rememberedScopeAssetIds.value = [...scopeAssetIds];
-		store.splatEdit.tool.value = "box";
-		store.splatEdit.boxPlaced.value = false;
-		store.splatEdit.lastOperation.value = {
-			mode: "",
-			hitCount: 0,
-		};
+		if (
+			previousScopeAssetIds.length !== scopeAssetIds.length ||
+			previousScopeAssetIds.some(
+				(assetId, index) => assetId !== scopeAssetIds[index],
+			)
+		) {
+			store.splatEdit.lastOperation.value = {
+				mode: "",
+				hitCount: 0,
+			};
+		}
+		syncSelectionCount();
 		syncSceneHelper();
 		syncSelectionHighlight();
 		syncControlsToMode?.();
@@ -2204,7 +3389,11 @@ export function createPerSplatEditController({
 	}
 
 	function dispose() {
+		activeBrushStroke = null;
+		clearBrushPreview({ syncUi: false });
 		clearActiveTransformPreview({ syncUi: false });
+		clearSelectionHighlight();
+		clearBrushSpatialIndices();
 		transformPreviewController.dispose();
 		selectionHighlightController?.dispose?.();
 		sceneHelper.clear();
@@ -2214,24 +3403,33 @@ export function createPerSplatEditController({
 
 	return {
 		isSplatEditModeActive,
+		isSplatEditBrushActive,
 		setSplatEditMode,
 		toggleSplatEditMode,
 		syncScopeToSceneSelection,
 		setSplatEditTool,
+		setSplatEditBrushSize,
+		setSplatEditBrushDepthMode,
+		setSplatEditBrushDepth,
 		setSplatEditBoxCenterAxis,
 		setSplatEditBoxSizeAxis,
 		scaleSplatEditBoxUniform,
 		placeSplatEditBoxAtViewCenter,
 		fitSplatEditBoxToScope,
 		applySplatEditBoxSelection,
+		applySplatEditBrushAtClientPoint,
+		updateBrushPreviewFromClientPoint,
 		moveSelectedSplatsByWorldDelta,
 		rotateSelectedSplatsAroundSelection,
 		scaleSelectedSplatsUniformAroundSelection,
 		deleteSelectedSplats,
 		separateSelectedSplats,
+		duplicateSelectedSplats,
 		captureEditState,
 		restoreEditState,
 		clearSplatSelection,
+		selectAllSplats,
+		invertSplatSelection,
 		getSplatEditScopeAssetIds,
 		getSplatEditScopeAssets,
 		needsSplatEditBoxPlacement() {
@@ -2259,6 +3457,27 @@ export function createPerSplatEditController({
 				clientY: Number(event.clientY),
 			});
 		},
+		applySplatEditBrushAtPointer(event) {
+			if (
+				!isSplatEditModeActive() ||
+				store.splatEdit.tool.value !== "brush" ||
+				!Number.isFinite(event?.clientX) ||
+				!Number.isFinite(event?.clientY)
+			) {
+				return false;
+			}
+			return (
+				applySplatEditBrushAtClientPoint({
+					clientX: Number(event.clientX),
+					clientY: Number(event.clientY),
+					subtract: event?.altKey === true,
+				}) > 0
+			);
+		},
+		startSplatEditBrushStroke,
+		handleSplatEditBrushStrokeMove,
+		finishSplatEditBrushStroke,
+		clearBrushPreview,
 		startViewportGizmoDrag,
 		handleViewportGizmoDragMove,
 		handleViewportGizmoDragEnd,
