@@ -243,6 +243,21 @@ export function createPerSplatEditController({
 		return new Uint32Array(remaining);
 	}
 
+	function selectAllSplatsForAssets(assets) {
+		for (const asset of assets) {
+			const assetIdKey = getAssetIdKey(asset.id);
+			const totalCount = getSplatAssetTotalCount(asset);
+			if (totalCount <= 0) {
+				continue;
+			}
+			const allIndices = new Set();
+			for (let i = 0; i < totalCount; i += 1) {
+				allIndices.add(i);
+			}
+			selectedSplatsByAssetId.set(assetIdKey, allIndices);
+		}
+	}
+
 	function buildSelectedSplatOperations() {
 		const operations = [];
 		for (const asset of getSplatEditScopeAssets()) {
@@ -2611,9 +2626,10 @@ export function createPerSplatEditController({
 				mode: "separate",
 				hitCount: separatedCount,
 			};
+			syncScopeToSceneSelection();
+			selectAllSplatsForAssets(createdAssets);
 			syncSelectionCount();
 			syncSelectionHighlight();
-			syncScopeToSceneSelection();
 			syncSceneHelper();
 			updateUi?.();
 			setStatus?.(
@@ -2663,10 +2679,25 @@ export function createPerSplatEditController({
 				}
 				duplicatedCount += operation.selectedIndices.length;
 			}
+			if (createdAssets.length > 0) {
+				assetController.clearSceneAssetSelection?.();
+				const [firstAsset, ...restAssets] = createdAssets;
+				assetController.selectSceneAsset?.(firstAsset.id);
+				for (const asset of restAssets) {
+					assetController.selectSceneAsset?.(asset.id, {
+						additive: true,
+					});
+				}
+			}
 			store.splatEdit.lastOperation.value = {
 				mode: "duplicate",
 				hitCount: duplicatedCount,
 			};
+			syncScopeToSceneSelection();
+			selectAllSplatsForAssets(createdAssets);
+			syncSelectionCount();
+			syncSelectionHighlight();
+			syncSceneHelper();
 			updateUi?.();
 			setStatus?.(
 				t("status.splatEditDuplicated", {

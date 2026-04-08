@@ -1289,7 +1289,7 @@ async function createPackedSplatAsset({ id, label, centers }) {
 	assert.equal(harness.store.sceneAssets.value[1].source.numSplats, 2);
 	assert.equal(harness.store.sceneAssets.value[1].label, "Facade Split");
 	assert.deepEqual(harness.store.selectedSceneAssetIds.value, ["created-1"]);
-	assert.equal(harness.store.splatEdit.selectionCount.value, 0);
+	assert.equal(harness.store.splatEdit.selectionCount.value, 2);
 	assert.deepEqual(harness.historyCalls, [
 		["begin", "splat-edit.separate"],
 		["commit", "splat-edit.separate"],
