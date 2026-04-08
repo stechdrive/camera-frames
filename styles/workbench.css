@@ -184,7 +184,6 @@
 		var(--bg-elev) 100%
 	);
 	box-shadow: var(--shadow);
-	backdrop-filter: blur(20px);
 }
 
 .workbench-menu__panel--up {
@@ -359,7 +358,6 @@
 		var(--bg-elev) 100%
 	);
 	box-shadow: var(--shadow);
-	backdrop-filter: blur(24px);
 	color: var(--text);
 	cursor: pointer;
 	pointer-events: auto;
@@ -527,7 +525,6 @@
 		var(--bg-elev) 100%
 	);
 	box-shadow: var(--shadow);
-	backdrop-filter: blur(20px);
 }
 
 .workbench-tool-rail__popover--mask {

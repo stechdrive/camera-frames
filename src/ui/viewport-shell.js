@@ -16,6 +16,7 @@ import { getProjectStatusDisplay } from "./project-status.js";
 import { ViewportAxisGizmo } from "./viewport-axis-gizmo.js";
 import { NumericDraftInput } from "./workbench-controls.js";
 import { WorkbenchIcon } from "./workbench-icons.js";
+import { TooltipBubble } from "./workbench-primitives.js";
 
 const OUTPUT_FRAME_RESIZE_HANDLES = [
 	"top-left",
@@ -52,6 +53,55 @@ const REFERENCE_IMAGE_ROTATION_ZONES = [
 	"left",
 ];
 
+function SplatEditBrushPreview({ store, viewportShellRef }) {
+	const splatEditActive = store.splatEdit.active.value;
+	const splatEditTool = store.splatEdit.tool.value;
+	const brushPreview = store.splatEdit.brushPreview.value;
+	if (!splatEditActive || splatEditTool !== "brush" || !brushPreview?.visible) {
+		return null;
+	}
+	const shellElement = viewportShellRef?.current ?? viewportShellRef ?? null;
+	if (!(shellElement instanceof HTMLElement)) {
+		return null;
+	}
+	const radiusPx = Math.max(0, Number(brushPreview?.radiusPx ?? 0));
+	const shellRect = shellElement.getBoundingClientRect();
+	const style = {
+		left: `${brushPreview.x - shellRect.left - radiusPx}px`,
+		top: `${brushPreview.y - shellRect.top - radiusPx}px`,
+		width: `${radiusPx * 2}px`,
+		height: `${radiusPx * 2}px`,
+	};
+	const depthBarVisible = store.splatEdit.brushDepthBarVisible.value;
+	return html`
+		<div
+			class=${
+				brushPreview?.subtract
+					? brushPreview?.painting
+						? "viewport-splat-edit-brush-preview viewport-splat-edit-brush-preview--subtract viewport-splat-edit-brush-preview--painting"
+						: "viewport-splat-edit-brush-preview viewport-splat-edit-brush-preview--subtract"
+					: brushPreview?.painting
+						? "viewport-splat-edit-brush-preview viewport-splat-edit-brush-preview--painting"
+						: "viewport-splat-edit-brush-preview"
+			}
+			style=${style}
+			aria-hidden="true"
+		>
+			<div class="viewport-splat-edit-brush-preview__ring"></div>
+			${
+				depthBarVisible &&
+				Number(brushPreview?.depthBarPx) > 2 &&
+				html`
+					<div
+						class="viewport-splat-edit-brush-preview__depth-bar"
+						style=${{ height: `${Number(brushPreview.depthBarPx)}px` }}
+					></div>
+				`
+			}
+		</div>
+	`;
+}
+
 function getReferenceImageAnchorHandleKey(anchorAx, anchorAy) {
 	if (
 		!Number.isFinite(anchorAx) ||
@@ -78,7 +128,6 @@ export function ViewportShell({ store, controller, refs, t }) {
 	const splatEditBrushSize = store.splatEdit.brushSize.value;
 	const splatEditBrushDepthMode = store.splatEdit.brushDepthMode.value;
 	const splatEditBrushDepth = store.splatEdit.brushDepth.value;
-	const splatEditBrushPreview = store.splatEdit.brushPreview.value;
 	const splatEditBoxPlaced = store.splatEdit.boxPlaced.value;
 	const splatEditBoxCenter = store.splatEdit.boxCenter.value;
 	const splatEditBoxSize = store.splatEdit.boxSize.value;
@@ -257,25 +306,6 @@ export function ViewportShell({ store, controller, refs, t }) {
 					bottom: "auto",
 				}
 			: undefined;
-	const brushPreviewRadiusPx = Math.max(
-		0,
-		Number(splatEditBrushPreview?.radiusPx ?? 0),
-	);
-	const splatEditBrushPreviewStyle =
-		splatEditActive &&
-		splatEditTool === "brush" &&
-		splatEditBrushPreview?.visible &&
-		viewportShellElement instanceof HTMLElement
-			? (() => {
-					const shellRect = viewportShellElement.getBoundingClientRect();
-					return {
-						left: `${splatEditBrushPreview.x - shellRect.left - brushPreviewRadiusPx}px`,
-						top: `${splatEditBrushPreview.y - shellRect.top - brushPreviewRadiusPx}px`,
-						width: `${brushPreviewRadiusPx * 2}px`,
-						height: `${brushPreviewRadiusPx * 2}px`,
-					};
-				})()
-			: null;
 	const frameMaskOpacity = Math.min(
 		1,
 		Math.max(0, (Number(frameMaskOpacityPct) || 0) / 100),
@@ -545,38 +575,10 @@ export function ViewportShell({ store, controller, refs, t }) {
 				`
 				}
 			</div>
-			${
-				splatEditBrushPreviewStyle &&
-				html`
-					<div
-						class=${
-							splatEditBrushPreview?.subtract
-								? splatEditBrushPreview?.painting
-									? "viewport-splat-edit-brush-preview viewport-splat-edit-brush-preview--subtract viewport-splat-edit-brush-preview--painting"
-									: "viewport-splat-edit-brush-preview viewport-splat-edit-brush-preview--subtract"
-								: splatEditBrushPreview?.painting
-									? "viewport-splat-edit-brush-preview viewport-splat-edit-brush-preview--painting"
-									: "viewport-splat-edit-brush-preview"
-						}
-						style=${splatEditBrushPreviewStyle}
-						aria-hidden="true"
-					>
-						<div class="viewport-splat-edit-brush-preview__ring"></div>
-						${
-							store.splatEdit.brushDepthBarVisible.value &&
-							Number(splatEditBrushPreview?.depthBarPx) > 2 &&
-							html`
-								<div
-									class="viewport-splat-edit-brush-preview__depth-bar"
-									style=${{
-										height: `${Number(splatEditBrushPreview.depthBarPx)}px`,
-									}}
-								></div>
-							`
-						}
-					</div>
-				`
-			}
+			<${SplatEditBrushPreview}
+				store=${store}
+				viewportShellRef=${refs.viewportShellRef}
+			/>
 			${
 				splatEditActive &&
 				html`
@@ -586,10 +588,10 @@ export function ViewportShell({ store, controller, refs, t }) {
 							html`
 							<div class="viewport-splat-edit-popover">
 								${renderSplatEditField({ label: "px", value: splatEditBrushSize ?? 30, step: "1", min: "4", historyLabel: "splat-edit.brush-size", onScrubValue: (v) => handleSplatEditBrushSizeInput(v), onCommitValue: (v) => handleSplatEditBrushSizeInput(v) })}
-								<button type="button" title=${t("status.splatEditBrushModeThrough")} class=${`viewport-splat-edit-toolbar__btn${splatEditBrushDepthMode === "through" ? " viewport-splat-edit-toolbar__btn--active" : ""}`} onClick=${() => setSplatEditBrushDepthMode("through")}>
+								<button type="button" class=${`viewport-splat-edit-toolbar__btn${splatEditBrushDepthMode === "through" ? " viewport-splat-edit-toolbar__btn--active" : ""}`} onClick=${() => setSplatEditBrushDepthMode("through")}>
 									${t("status.splatEditBrushModeThrough")}
 								</button>
-								<button type="button" title=${t("status.splatEditBrushModeDepth")} class=${`viewport-splat-edit-toolbar__btn${splatEditBrushDepthMode === "depth" ? " viewport-splat-edit-toolbar__btn--active" : ""}`} onClick=${() => setSplatEditBrushDepthMode("depth")}>
+								<button type="button" class=${`viewport-splat-edit-toolbar__btn${splatEditBrushDepthMode === "depth" ? " viewport-splat-edit-toolbar__btn--active" : ""}`} onClick=${() => setSplatEditBrushDepthMode("depth")}>
 									${t("status.splatEditBrushModeDepth")}
 								</button>
 								${
@@ -620,29 +622,29 @@ export function ViewportShell({ store, controller, refs, t }) {
 										${renderSplatEditField({ label: t("field.positionY"), value: splatEditBoxSize?.y ?? 1, min: "0.01", historyLabel: "splat-edit.box-size.y", onScrubValue: (v) => handleSplatEditBoxSizeInput("y", v), onCommitValue: (v) => handleSplatEditBoxSizeInput("y", v) })}
 										${renderSplatEditField({ label: t("field.positionZ"), value: splatEditBoxSize?.z ?? 1, min: "0.01", historyLabel: "splat-edit.box-size.z", onScrubValue: (v) => handleSplatEditBoxSizeInput("z", v), onCommitValue: (v) => handleSplatEditBoxSizeInput("z", v) })}
 									</div>
-									<button type="button" title=${t("status.splatEditAdd")} class="viewport-splat-edit-toolbar__btn" onClick=${() => controller()?.applySplatEditBoxSelection?.({ subtract: false })}>${t("status.splatEditAdd")}</button>
-									<button type="button" title=${t("status.splatEditSubtract")} class="viewport-splat-edit-toolbar__btn" onClick=${() => controller()?.applySplatEditBoxSelection?.({ subtract: true })}>${t("status.splatEditSubtract")}</button>
-									<button type="button" title=${t("status.splatEditScaleDown")} class="viewport-splat-edit-toolbar__btn" onClick=${() => controller()?.scaleSplatEditBoxUniform?.(0.9)}>−</button>
-									<button type="button" title=${t("status.splatEditScaleUp")} class="viewport-splat-edit-toolbar__btn" onClick=${() => controller()?.scaleSplatEditBoxUniform?.(1.1)}>+</button>
+									<button type="button" class="viewport-splat-edit-toolbar__btn" onClick=${() => controller()?.applySplatEditBoxSelection?.({ subtract: false })}>${t("status.splatEditAdd")}</button>
+									<button type="button" class="viewport-splat-edit-toolbar__btn" onClick=${() => controller()?.applySplatEditBoxSelection?.({ subtract: true })}>${t("status.splatEditSubtract")}</button>
+									<button type="button" class="viewport-splat-edit-toolbar__btn button--tooltip" onClick=${() => controller()?.scaleSplatEditBoxUniform?.(0.9)}>−<${TooltipBubble} title=${t("status.splatEditScaleDown")} placement="top" /></button>
+									<button type="button" class="viewport-splat-edit-toolbar__btn button--tooltip" onClick=${() => controller()?.scaleSplatEditBoxUniform?.(1.1)}>+<${TooltipBubble} title=${t("status.splatEditScaleUp")} placement="top" /></button>
 								`
 										: html`
 									<span class="viewport-splat-edit-toolbar__info">${t("status.splatEditPlaceBoxHint")}</span>
 								`
 								}
-								<button type="button" title=${t("status.splatEditFitScope")} class="viewport-splat-edit-toolbar__btn" onClick=${() => controller()?.fitSplatEditBoxToScope?.()}>${t("status.splatEditFitScope")}</button>
+								<button type="button" class="viewport-splat-edit-toolbar__btn" onClick=${() => controller()?.fitSplatEditBoxToScope?.()}>${t("status.splatEditFitScope")}</button>
 							</div>
 						`
 						}
 						<div class="viewport-splat-edit-toolbar__bar">
 							<!-- Tool selector -->
 							<div class="viewport-splat-edit-toolbar__group" role="group" aria-label=${t("action.splatEditTool")}>
-								<button type="button" title=${t("status.splatEditToolBox")} class=${`viewport-splat-edit-toolbar__btn${splatEditTool === "box" ? " viewport-splat-edit-toolbar__btn--active" : ""}`} onClick=${() => setSplatEditTool("box")}>
+								<button type="button" class=${`viewport-splat-edit-toolbar__btn${splatEditTool === "box" ? " viewport-splat-edit-toolbar__btn--active" : ""}`} onClick=${() => setSplatEditTool("box")}>
 									${t("status.splatEditToolBox")}
 								</button>
-								<button type="button" title=${t("status.splatEditToolBrush")} class=${`viewport-splat-edit-toolbar__btn${splatEditTool === "brush" ? " viewport-splat-edit-toolbar__btn--active" : ""}`} onClick=${() => setSplatEditTool("brush")}>
+								<button type="button" class=${`viewport-splat-edit-toolbar__btn${splatEditTool === "brush" ? " viewport-splat-edit-toolbar__btn--active" : ""}`} onClick=${() => setSplatEditTool("brush")}>
 									${t("status.splatEditToolBrush")}
 								</button>
-								<button type="button" title=${t("status.splatEditToolTransform")} class=${`viewport-splat-edit-toolbar__btn${splatEditTool === "transform" ? " viewport-splat-edit-toolbar__btn--active" : ""}`} disabled=${splatEditSelectionCount <= 0 && splatEditTool !== "transform"} onClick=${() => setSplatEditTool("transform")}>
+								<button type="button" class=${`viewport-splat-edit-toolbar__btn${splatEditTool === "transform" ? " viewport-splat-edit-toolbar__btn--active" : ""}`} disabled=${splatEditSelectionCount <= 0 && splatEditTool !== "transform"} onClick=${() => setSplatEditTool("transform")}>
 									${t("status.splatEditToolTransform")}
 								</button>
 							</div>
@@ -650,27 +652,27 @@ export function ViewportShell({ store, controller, refs, t }) {
 
 							<!-- Selection operations -->
 							<div class="viewport-splat-edit-toolbar__group">
-								<button type="button" title="${t("status.splatEditSelectAll")} (Ctrl+A)" class="viewport-splat-edit-toolbar__btn" onClick=${() => controller()?.selectAllSplats?.()}>
-									${t("status.splatEditSelectAll")}
+								<button type="button" class="viewport-splat-edit-toolbar__btn button--tooltip" onClick=${() => controller()?.selectAllSplats?.()}>
+									${t("status.splatEditSelectAll")}<${TooltipBubble} title=${t("status.splatEditSelectAll")} shortcut="Ctrl+A" placement="top" />
 								</button>
-								<button type="button" title="${t("status.splatEditInvert")} (Ctrl+I)" class="viewport-splat-edit-toolbar__btn" disabled=${splatEditSelectionCount <= 0} onClick=${() => controller()?.invertSplatSelection?.()}>
-									${t("status.splatEditInvert")}
+								<button type="button" class="viewport-splat-edit-toolbar__btn button--tooltip" disabled=${splatEditSelectionCount <= 0} onClick=${() => controller()?.invertSplatSelection?.()}>
+									${t("status.splatEditInvert")}<${TooltipBubble} title=${t("status.splatEditInvert")} shortcut="Ctrl+I" placement="top" />
 								</button>
-								<button type="button" title="${t("action.clearSelection")} (Ctrl+D)" class="viewport-splat-edit-toolbar__btn" disabled=${splatEditSelectionCount <= 0} onClick=${() => controller()?.clearSplatSelection?.()}>
-									${t("action.clearSelection")}
+								<button type="button" class="viewport-splat-edit-toolbar__btn button--tooltip" disabled=${splatEditSelectionCount <= 0} onClick=${() => controller()?.clearSplatSelection?.()}>
+									${t("action.clearSelection")}<${TooltipBubble} title=${t("action.clearSelection")} shortcut="Ctrl+D" placement="top" />
 								</button>
 							</div>
 							<div class="viewport-splat-edit-toolbar__separator" />
 
 							<!-- Edit actions -->
 							<div class="viewport-splat-edit-toolbar__group">
-								<button type="button" title=${t("status.splatEditDelete")} class="viewport-splat-edit-toolbar__btn viewport-splat-edit-toolbar__btn--danger" disabled=${splatEditSelectionCount <= 0} onClick=${() => void controller()?.deleteSelectedSplats?.()}>
+								<button type="button" class="viewport-splat-edit-toolbar__btn viewport-splat-edit-toolbar__btn--danger" disabled=${splatEditSelectionCount <= 0} onClick=${() => void controller()?.deleteSelectedSplats?.()}>
 									${t("status.splatEditDelete")}
 								</button>
-								<button type="button" title=${t("status.splatEditSeparate")} class="viewport-splat-edit-toolbar__btn" disabled=${splatEditSelectionCount <= 0} onClick=${() => void controller()?.separateSelectedSplats?.()}>
+								<button type="button" class="viewport-splat-edit-toolbar__btn" disabled=${splatEditSelectionCount <= 0} onClick=${() => void controller()?.separateSelectedSplats?.()}>
 									${t("status.splatEditSeparate")}
 								</button>
-								<button type="button" title=${t("status.splatEditDuplicate")} class="viewport-splat-edit-toolbar__btn" disabled=${splatEditSelectionCount <= 0} onClick=${() => void controller()?.duplicateSelectedSplats?.()}>
+								<button type="button" class="viewport-splat-edit-toolbar__btn" disabled=${splatEditSelectionCount <= 0} onClick=${() => void controller()?.duplicateSelectedSplats?.()}>
 									${t("status.splatEditDuplicate")}
 								</button>
 							</div>

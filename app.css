@@ -3488,6 +3488,18 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	min-height: 1.68rem !important;
 	padding: 0.28rem 0.42rem !important;
 	font-size: 0.76rem !important;
+	transition: border-color 0.15s, background-color 0.15s;
+}
+
+.shot-camera-manager__inline-name-input[data-draft-editing="false"] {
+	border-color: transparent !important;
+	background: transparent !important;
+	font-family: "Avenir Next", "Segoe UI", sans-serif !important;
+	font-weight: 700 !important;
+}
+
+.shot-camera-manager__inline-name-input[data-draft-editing="false"]:hover {
+	border-color: var(--line) !important;
 }
 
 .reference-preset-section {
@@ -3840,7 +3852,19 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 .scene-asset-row__inline-name-input {
 	min-height: 1.68rem !important;
 	padding: 0.28rem 0.42rem !important;
-	font-size: 0.76rem !important;
+	font-size: 0.84rem !important;
+	transition: border-color 0.15s, background-color 0.15s;
+}
+
+.scene-asset-row__inline-name-input[data-draft-editing="false"] {
+	border-color: transparent !important;
+	background: transparent !important;
+	font-family: "Avenir Next", "Segoe UI", sans-serif !important;
+	font-weight: 700 !important;
+}
+
+.scene-asset-row__inline-name-input[data-draft-editing="false"]:hover {
+	border-color: var(--line) !important;
 }
 
 .scene-asset-row__name-button {

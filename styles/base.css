@@ -2,6 +2,16 @@
 	box-sizing: border-box;
 }
 
+.app-shell {
+	user-select: none;
+}
+
+.app-shell input,
+.app-shell textarea,
+.app-shell [contenteditable] {
+	user-select: text;
+}
+
 html,
 body,
 #app-root {
