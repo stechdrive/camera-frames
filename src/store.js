@@ -7,7 +7,7 @@ import {
 } from "./constants.js";
 import {
 	DEFAULT_SHOT_CAMERA_BASE_FOVX,
-	MIN_STANDARD_FRAME_HORIZONTAL_EQUIVALENT_MM,
+	DEFAULT_VIEWPORT_CAMERA_BASE_FOVX,
 	getBaseHorizontalFovDegreesForStandardFrameHorizontalEquivalentMm,
 	getStandardFrameHorizontalEquivalentMm,
 	getStandardFrameHorizontalFovDegrees,
@@ -38,11 +38,6 @@ function formatNumber(value, digits = 0) {
 	return Number(value).toFixed(digits);
 }
 
-const DEFAULT_VIEWPORT_BASE_FOVX =
-	getBaseHorizontalFovDegreesForStandardFrameHorizontalEquivalentMm(
-		MIN_STANDARD_FRAME_HORIZONTAL_EQUIVALENT_MM,
-	);
-
 export function createCameraFramesStore(runtimeInfo = null) {
 	const initialLocale = resolveInitialLocale();
 	const locale = signal(initialLocale);
@@ -51,7 +46,7 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	const activePaneId = signal(workspacePanes.value[0].id);
 	const shotCameras = signal(createDefaultShotCameraDocuments());
 	const activeShotCameraId = signal(shotCameras.value[0].id);
-	const viewportBaseFovX = signal(DEFAULT_VIEWPORT_BASE_FOVX);
+	const viewportBaseFovX = signal(DEFAULT_VIEWPORT_CAMERA_BASE_FOVX);
 	const viewportBaseFovXDirty = signal(false);
 	const viewportProjectionMode = signal(VIEWPORT_PROJECTION_PERSPECTIVE);
 	const viewportOrthoView = signal(DEFAULT_VIEWPORT_ORTHO_VIEW);

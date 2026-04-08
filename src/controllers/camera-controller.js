@@ -4,10 +4,7 @@ import {
 	DEFAULT_CAMERA_FAR,
 	DEFAULT_CAMERA_NEAR,
 } from "../constants.js";
-import {
-	MIN_STANDARD_FRAME_HORIZONTAL_EQUIVALENT_MM,
-	getBaseHorizontalFovDegreesForStandardFrameHorizontalEquivalentMm,
-} from "../engine/camera-lens.js";
+import { DEFAULT_VIEWPORT_CAMERA_BASE_FOVX } from "../engine/camera-lens.js";
 import {
 	WORKSPACE_PANE_CAMERA,
 	WORKSPACE_PANE_VIEWPORT,
@@ -18,11 +15,6 @@ import {
 	getShotCameraDocumentId,
 	setSinglePaneRole,
 } from "../workspace-model.js";
-
-const DEFAULT_VIEWPORT_BASE_FOVX =
-	getBaseHorizontalFovDegreesForStandardFrameHorizontalEquivalentMm(
-		MIN_STANDARD_FRAME_HORIZONTAL_EQUIVALENT_MM,
-	);
 
 export function createCameraController({
 	store,
@@ -314,7 +306,7 @@ export function createCameraController({
 		}
 
 		if (mode === WORKSPACE_PANE_VIEWPORT && !state.viewportBaseFovXDirty) {
-			state.viewportBaseFovX = DEFAULT_VIEWPORT_BASE_FOVX;
+			state.viewportBaseFovX = DEFAULT_VIEWPORT_CAMERA_BASE_FOVX;
 		}
 
 		store.workspace.panes.value = setSinglePaneRole(

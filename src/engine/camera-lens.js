@@ -74,5 +74,12 @@ export function getBaseHorizontalFovDegreesForStandardFrameHorizontalEquivalentM
 	);
 }
 
+export const DEFAULT_VIEWPORT_CAMERA_EQUIVALENT_MM = 24;
+
 export const DEFAULT_SHOT_CAMERA_BASE_FOVX =
 	getBaseHorizontalFovDegreesForStandardFrameHorizontalEquivalentMm(35);
+
+export const DEFAULT_VIEWPORT_CAMERA_BASE_FOVX =
+	getBaseHorizontalFovDegreesForStandardFrameHorizontalEquivalentMm(
+		DEFAULT_VIEWPORT_CAMERA_EQUIVALENT_MM,
+	);

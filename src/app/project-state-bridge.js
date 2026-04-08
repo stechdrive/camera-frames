@@ -1,8 +1,5 @@
 import * as THREE from "three";
-import {
-	MIN_STANDARD_FRAME_HORIZONTAL_EQUIVALENT_MM,
-	getBaseHorizontalFovDegreesForStandardFrameHorizontalEquivalentMm,
-} from "../engine/camera-lens.js";
+import { DEFAULT_VIEWPORT_CAMERA_BASE_FOVX } from "../engine/camera-lens.js";
 import {
 	applyLegacyCameraTransform,
 	buildLegacyProjectImport,
@@ -12,11 +9,6 @@ import {
 	cloneShotCameraDocument,
 	createDefaultShotCameraDocuments,
 } from "../workspace-model.js";
-
-const DEFAULT_VIEWPORT_BASE_FOVX =
-	getBaseHorizontalFovDegreesForStandardFrameHorizontalEquivalentMm(
-		MIN_STANDARD_FRAME_HORIZONTAL_EQUIVALENT_MM,
-	);
 
 export function captureCameraPose(camera) {
 	return {
@@ -428,7 +420,7 @@ export function createProjectStateBridge({
 		registerShotCameraDocuments();
 		store.workspace.activeShotCameraId.value =
 			defaultShotCameras[0]?.id ?? store.workspace.activeShotCameraId.value;
-		store.viewportBaseFovX.value = DEFAULT_VIEWPORT_BASE_FOVX;
+		store.viewportBaseFovX.value = DEFAULT_VIEWPORT_CAMERA_BASE_FOVX;
 		store.viewportBaseFovXDirty.value = false;
 		restoreShotCameraEditorStates(null);
 		clearActiveShotCameraEditorState();
