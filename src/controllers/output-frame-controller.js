@@ -31,15 +31,16 @@ export function computeWorkbenchLayoutState({
 	const safeLeft = 0;
 	let safeRight = viewportWidth;
 	if (!stackedLayout && !workbenchCollapsed) {
-		const rightInset = rightRect
-			? Math.max(
-					0,
-					Math.min(
-						viewportWidth,
-						shellRect.right - rightRect.left + WORKBENCH_SAFE_GUTTER_PX,
-					),
-				)
+		const overlapWidth = rightRect
+			? Math.max(0, Number(shellRect?.right ?? 0) - Number(rightRect.left ?? 0))
 			: 0;
+		const rightInset =
+			overlapWidth > 0
+				? Math.max(
+						0,
+						Math.min(viewportWidth, overlapWidth + WORKBENCH_SAFE_GUTTER_PX),
+					)
+				: 0;
 		safeWidth = Math.max(1, viewportWidth - rightInset);
 		safeRight = safeWidth;
 	}

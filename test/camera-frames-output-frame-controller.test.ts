@@ -42,6 +42,19 @@ function getFrameOverlayCanvasOffset(metrics, renderBox) {
 
 {
 	const layout = computeWorkbenchLayoutState({
+		viewportWidth: 1230,
+		viewportHeight: 900,
+		shellRect: { right: 1230 },
+		rightRect: { left: 1240 },
+		workbenchCollapsed: false,
+	});
+	assert.equal(layout.stackedLayout, false);
+	assert.equal(layout.safeWidth, 1230);
+	assert.equal(layout.safeRight, 1230);
+}
+
+{
+	const layout = computeWorkbenchLayoutState({
 		viewportWidth: 1600,
 		viewportHeight: 900,
 		shellRect: { right: 1600 },
