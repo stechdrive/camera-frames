@@ -10,6 +10,7 @@ import {
 	VIEWPORT_PIE_RADIUS,
 	buildViewportPieActions,
 } from "../engine/viewport-pie.js";
+import { computeDropHintStyle, getOverlayBounds } from "./drop-hint-layout.js";
 import { FrameLayer } from "./frame-layer.js";
 import { MeasurementOverlay } from "./measurement-overlay.js";
 import { getProjectStatusDisplay } from "./project-status.js";
@@ -374,17 +375,12 @@ export function ViewportShell({ store, controller, refs, t }) {
 		refs.viewportShellRef?.current ?? refs.viewportShellRef ?? null;
 	const renderBoxElement =
 		refs.renderBoxRef?.current ?? refs.renderBoxRef ?? null;
-	const dropHintStyle =
-		renderBoxElement instanceof HTMLElement &&
-		renderBoxElement.offsetWidth > 0 &&
-		renderBoxElement.offsetHeight > 0
-			? {
-					left: `${renderBoxElement.offsetLeft + renderBoxElement.offsetWidth * 0.5}px`,
-					top: `${renderBoxElement.offsetTop + renderBoxElement.offsetHeight * 0.5}px`,
-					bottom: "auto",
-					transform: "translate(-50%, -50%)",
-				}
-			: undefined;
+	const dropHintStyle = computeDropHintStyle({
+		viewportRect: getOverlayBounds(viewportShellElement, {
+			preferClientSize: true,
+		}),
+		renderBoxRect: getOverlayBounds(renderBoxElement),
+	});
 	const splatEditHudStyle =
 		Number.isFinite(splatEditHudPosition?.x) &&
 		Number.isFinite(splatEditHudPosition?.y)
