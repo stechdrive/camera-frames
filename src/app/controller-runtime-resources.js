@@ -1,3 +1,5 @@
+import { patchSparkOrthographicLod } from "../engine/spark-orthographic-lod.js";
+
 export function createControllerRuntimeResources({
 	viewportCanvas,
 	viewportPixelRatio,
@@ -30,11 +32,13 @@ export function createControllerRuntimeResources({
 	const scene = new SceneImpl();
 	scene.background = new ColorImpl(0x08111d);
 
-	const spark = new SparkRendererImpl({
-		renderer,
-		sortRadial: true,
-		lodSplatScale: 1.1,
-	});
+	const spark = patchSparkOrthographicLod(
+		new SparkRendererImpl({
+			renderer,
+			sortRadial: true,
+			lodSplatScale: 1.1,
+		}),
+	);
 	scene.add(spark);
 
 	const contentRoot = new GroupImpl();

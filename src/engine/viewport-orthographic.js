@@ -18,6 +18,8 @@ export const DEFAULT_VIEWPORT_ORTHO_FOCUS = Object.freeze({
 	y: 1,
 	z: 0,
 });
+export const VIEWPORT_ORTHO_REFERENCE_DISTANCE_USER_DATA_KEY =
+	"__cameraFramesViewportOrthoDistance";
 
 const VIEWPORT_ORTHO_VIEW_DEFINITIONS = Object.freeze({
 	[VIEWPORT_ORTHO_VIEW_POS_X]: Object.freeze({
@@ -288,6 +290,9 @@ export function configureViewportOrthographicCamera(
 	camera.top = halfHeight;
 	camera.bottom = -halfHeight;
 	camera.zoom = 1;
+	camera.userData = camera.userData ?? {};
+	camera.userData[VIEWPORT_ORTHO_REFERENCE_DISTANCE_USER_DATA_KEY] =
+		safeState.distance;
 	camera.lookAt(focusVector);
 	camera.updateProjectionMatrix();
 	camera.updateMatrixWorld(true);
