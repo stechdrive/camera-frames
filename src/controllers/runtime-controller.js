@@ -410,7 +410,13 @@ export function createRuntimeController({
 
 	function animate(timeMs) {
 		const timing = window.__cameraFramesTiming;
-		let t0, t1, t2, t3, t4, t5, t6;
+		let t0;
+		let t1;
+		let t2;
+		let t3;
+		let t4;
+		let t5;
+		let t6;
 		if (timing) t0 = performance.now();
 
 		advanceProjectionFrame?.();
@@ -537,7 +543,7 @@ export function createRuntimeController({
 						`render=${(_timingAccum.render / n).toFixed(2)}ms ` +
 						`overlays=${(_timingAccum.overlays / n).toFixed(2)}ms ` +
 						`ui=${(_timingAccum.ui / n).toFixed(2)}ms ` +
-						`total=${((t6 - t0)).toFixed(2)}ms`,
+						`total=${(t6 - t0).toFixed(2)}ms`,
 				);
 				_timingFrameCount = 0;
 				for (const k in _timingAccum) _timingAccum[k] = 0;

@@ -1,122 +1,96 @@
 # CAMERA_FRAMES
 
-CAMERA_FRAMES is a standalone shot-layout and export app built on top of Spark 2.0 preview.  
-CAMERA_FRAMES は Spark 2.0 preview をベースにした、スタンドアロンのショットレイアウト兼エクスポート用アプリです。
+## English
 
-This repository is the current app home. Spark is consumed as an external engine dependency, while the CAMERA_FRAMES workflow, UI, state model, and export behavior are implemented in the app layer.  
-このリポジトリは現在のアプリ本体です。Spark は外部エンジン依存として利用し、CAMERA_FRAMES のワークフロー、UI、状態モデル、書き出し挙動はアプリ層で実装しています。
+CAMERA_FRAMES is a production-oriented shot-layout and export app built for Japanese animation workflows.
 
-## Project Goal / 目的
+It is made for practical layout work: using 3DGS and GLB scene assets from real or modeled locations as background reference, deciding framing per camera, placing multiple FRAMEs for PAN / TU / TB style instructions, and exporting PNG / PSD sheets that stay aligned with the Camera View output.
 
-The long-term goal of this repository is to reproduce the current CAMERA_FRAMES workflow on top of Spark 2.0.  
-このリポジトリの長期目標は、現在の CAMERA_FRAMES ワークフローを Spark 2.0 上で再現することです。
+### Who This Is For
 
-The feature baseline and prior implementation live in the `supersplat-cameraframes` repository. This repository focuses on rebuilding that tool as a dedicated Spark-based app rather than carrying the old editor integration forward.  
-機能ベースラインと従来実装は `supersplat-cameraframes` リポジトリにあります。このリポジトリでは、従来のエディタ統合を引き継ぐのではなく、Spark ベースの専用アプリとして再構築することに注力しています。
+- Artists creating layout sheets or background key drawings for Japanese animation.
+- Teams working from modeled locations, scanned environments, or photogrammetry-derived scene reference.
+- People who need framing, camera instructions, reference-image alignment, and export in one place.
 
-## Current Status / 現状
+### Why This App Exists
 
-The project is already beyond a pure prototype and has a usable standalone app shell, but the port is still in progress.  
-このプロジェクトは純粋なプロトタイプ段階は超えており、利用可能なスタンドアロン app shell を備えていますが、移植自体はまだ進行中です。
+- Background-layout workflow instead of a generic viewer.
+- Paper-first composition around the final output area.
+- Multiple FRAMEs on one sheet for pan / track-up / track-back style instructions.
+- Camera View preview aligned with PNG / PSD export.
+- Reference-image aware workflow with per-camera adjustments.
+- 3DGS + GLB hybrid scene setup for practical background work.
+- Per-camera export settings and layered PSD delivery.
 
-Implemented or working in the current app:  
-現時点のアプリで実装済み、または動作している要素:
+### Quick Links
 
-- Render Box / Output Frame workflow with anchor-based off-axis composition
-- アンカー付き off-axis 構図を含む Render Box / Output Frame ワークフロー
-- Viewport / Camera View separation, viewport orthographic views, and HUD axis gizmo
-- Viewport / Camera View の分離、viewport orthographic view、HUD axis gizmo
-- On-canvas frame placement, move, rotate, resize, anchor editing, and frame mask export
-- キャンバス上での frame 配置、移動、回転、拡縮、アンカー編集、frame mask export
-- Multi-camera document flow with add / duplicate / reset / viewport exchange
-- add / duplicate / reset / viewport exchange を含む複数カメラ document フロー
-- Reference image workflow with presets, manager, properties, multi-select editing, and camera-local editor state restore
-- preset / manager / properties / 複数選択編集 / camera-local editor state 復元を含む reference image ワークフロー
-- Spark-based scene loading for supported assets plus working `.ssproj` and portable package save split
-- 対応アセットの Spark ベース scene loading と、working `.ssproj` / portable package save の分離
-- PNG / PSD export with frame, reference image, model, and splat layer support
-- frame / reference image / model / splat layer を含む PNG / PSD export
-- Undo / Redo foundation across scene, camera, frame, reference, and export-related edits
-- scene / camera / frame / reference / export 関連編集をまたぐ Undo / Redo 基盤
-- Measurement tool with viewport / camera view support
-- viewport / camera view 対応の measurement tool
-- Initial per-splat edit workflow with Box selection, Move / Rotate / Uniform Scale, Delete, Separate, Undo / Redo, and `.ssproj` persistence
-- Box 選択、Move / Rotate / Uniform Scale、Delete、Separate、Undo / Redo、`.ssproj` 保存復元を含む初期 per-splat edit ワークフロー
+- Live app: [https://stechdrive.github.io/camera-frames/](https://stechdrive.github.io/camera-frames/)
+- English UI: [https://stechdrive.github.io/camera-frames/?lang=en](https://stechdrive.github.io/camera-frames/?lang=en)
+- Repository: [https://github.com/stechdrive/camera-frames](https://github.com/stechdrive/camera-frames)
 
-Still in progress or not yet finished:  
-進行中、または未完了の要素:
+## 日本語
 
-- focus selected / fit scene
-- focus selected / fit scene
-- export settle policy for Spark LoD convergence and color parity
-- Spark の LoD 収束を踏まえた export settle policy と color parity
-- true back-layer composition for reference preview
-- reference preview の true back-layer composition
-- per-splat Brush tool, further transform/orbit performance tuning, and additional splat-edit polish
-- per-splat Brush tool、追加の transform/orbit パフォーマンス調整、その他の splat-edit polish
-- large package save memory hardening and additional controller/file splits where justified
-- 大きい package save の peak memory hardening と、必要に応じた追加の controller/file 分割
+CAMERA_FRAMES は、日本のアニメ制作で背景原図やレイアウトを作るための、実制作向けのレイアウト作成・書き出しアプリです。
 
-## Tech Stack / 技術構成
+モデル地のある作品や、フォトグラメトリ、スキャン、3D モデルから起こした空間資料をもとに、3D Gaussian Splatting で表現したロケ地や空間資料と、GLB 形式のプロップや当たり用の 3DCG オブジェクトを組み合わせて構図を決め、PAN / TU / TB などの撮影指示フレームを 1 枚の紙面上に配置し、カメラビューと揃った PNG / PSD を出力できるようにしています。
 
-- Spark 2.0 preview as the rendering engine dependency
-- レンダリングエンジン依存としての Spark 2.0 preview
-- Preact + Signals + htm for the app UI
-- アプリ UI 用の Preact + Signals + htm
-- Vite for local development and production build
-- ローカル開発と本番ビルド用の Vite
-- Three.js utilities where needed around asset loading and camera math
-- アセット読み込みやカメラ計算まわりで必要に応じて使う Three.js utility
+### どういう人向けか
 
-## Development / 開発
+- アニメのレイアウトや背景原図を作る人。
+- モデル地、スキャン環境、フォトグラメトリ由来の空間資料を背景作業に使いたい人。
+- 構図決め、撮影指示、下絵合わせ、書き出しを 1 つのツールでやりたい人。
+
+### このツールの価値
+
+- 3DGS ビューアではなく背景原図・レイアウト作業のためのツール。
+- 最終出力の範囲を基準にした紙面設計。
+- 複数の撮影指示フレームを 1 枚に置いて整理できる。
+- カメラビューの見えと PNG / PSD の書き出し結果を揃えやすい。
+- 下絵の読み込み、プリセット管理、カメラごとの調整に対応。
+- 3D Gaussian Splatting で表現したロケ地・空間資料と、GLB 形式の 3DCG オブジェクトを同じシーンで扱える。
+- カメラごとに書き出し設定を持ち、PSD のレイヤー出力にも対応。
+
+### 主なリンク
+
+- 公開版: [https://stechdrive.github.io/camera-frames/](https://stechdrive.github.io/camera-frames/)
+- 英語 UI: [https://stechdrive.github.io/camera-frames/?lang=en](https://stechdrive.github.io/camera-frames/?lang=en)
+- リポジトリ: [https://github.com/stechdrive/camera-frames](https://github.com/stechdrive/camera-frames)
+
+## 何ができるか
+
+- 3D Gaussian Splatting 形式のロケ地・空間資料（`.ply`, `.spz`, `.splat`, `.ksplat`, `.zip`, `.sog`, `.rad`）、GLB / GLTF 形式の 3DCG オブジェクト（`.glb`, `.gltf`）、プロジェクトファイル（`.ssproj`）を読み込む
+- 複数のカメラを切り替えながら構図を作る
+- カメラビュー上に複数の撮影指示フレームを置き、移動・回転・拡縮・基準点の編集を行う
+- 下絵（`.png`, `.jpg`, `.jpeg`, `.webp`, `.psd`）を読み込み、プリセット管理やカメラごとの調整を行う
+- 3DGS を構成する個々のスプラット単位で選択・変形・削除・分離・複製する
+- PNG / PSD に書き出す
+
+## 主な機能
+
+- ビューポート / カメラビューの分離
+- 最終出力の範囲を基準にした紙面設計
+- 複数カメラ管理
+- 撮影指示フレームの追加、複製、削除、マスク表示
+- 下絵の読み込み、PSD レイヤー読込、複数選択編集
+- 3D オブジェクトの位置、回転、スケール、表示、順序、書き出し設定の管理
+- 照明設定と測定
+- 書き出し対象の切り替え: 現在のカメラ / 全カメラ / 選択カメラ
+- PNG / PSD 書き出し。PSD ではガイド、下絵、GLB / 3DGS のレイヤー出力に対応
+- `.ssproj` の保存と再読込
+
+## 対応ファイル
+
+- シーン: `.ply`, `.spz`, `.splat`, `.ksplat`, `.zip`, `.sog`, `.rad`, `.glb`, `.gltf`, `.ssproj`
+- 下絵: `.png`, `.jpg`, `.jpeg`, `.webp`, `.psd`
+- 書き出し: `.png`, `.psd`
+
+## ローカル開発
 
 ```powershell
 npm install
 npm run develop
 ```
 
-Start the local development server.  
-ローカル開発サーバーを起動します。
+## ライセンス
 
-## Validation / 検証
-
-```powershell
-npm run lint
-npm run build
-npm run test
-```
-
-Run lint, build, and tests.  
-コードチェック、ビルド、テストを実行します。
-
-## Versioning / バージョニング
-
-`package.json` is the single source of truth for the app version. The app footer shows the current SemVer and short git commit, and production builds emit `dist/version.json` for runtime inspection and future update checks.  
-アプリのバージョン正本は `package.json` です。アプリの footer には現在の SemVer と短縮 git commit が表示され、本番 build では runtime 確認や将来の更新検知用に `dist/version.json` も出力されます。
-
-Use standard npm version bumps for releases:  
-リリース時の version 更新は標準の npm コマンドを使います:
-
-```powershell
-npm version patch
-npm version minor
-npm version major
-```
-
-For this GitHub Pages app there is no service worker yet, so deploy updates rely on normal asset hashing plus browser refresh.  
-この GitHub Pages アプリには現時点で service worker は入っていないため、deploy 後の更新反映は通常の asset hash とブラウザ再読み込みに依存します。
-
-## Scripts / スクリプト
-
-- `npm run develop`: start the Vite dev server / Vite の開発サーバーを起動
-- `npm run build`: create a production build in `dist/` / `dist/` に本番ビルドを生成
-- `npm run preview`: preview the production build locally / 本番ビルドをローカルで確認
-- `npm run lint`: run Biome checks / Biome によるチェックを実行
-- `npm run format`: run Biome formatting / Biome による整形を実行
-- `npm run test`: run the Node test suite / Node のテストスイートを実行
-- `npm run deploy`: build and publish the app to `gh-pages` for GitHub Pages / GitHub Pages 向けに `gh-pages` へ build と publish を行う
-
-## License / ライセンス
-
-MIT. See [LICENSE](./LICENSE).  
 MIT ライセンスです。詳細は [LICENSE](./LICENSE) を参照してください。
