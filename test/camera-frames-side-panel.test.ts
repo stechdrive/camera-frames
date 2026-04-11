@@ -1,9 +1,14 @@
 import assert from "node:assert/strict";
-import { shouldUseMobileWorkbenchLayout } from "../src/ui/workbench-layout-mode.js";
+import {
+	shouldUseCompactDesktopWorkbenchLayout,
+	shouldUseMobileWorkbenchLayout,
+} from "../src/ui/workbench-layout-mode.js";
 
 assert.equal(
 	shouldUseMobileWorkbenchLayout({
 		widthMatches: true,
+		coarsePointerMatches: true,
+		noHoverMatches: true,
 	}),
 	true,
 );
@@ -11,6 +16,53 @@ assert.equal(
 assert.equal(
 	shouldUseMobileWorkbenchLayout({
 		widthMatches: false,
+		coarsePointerMatches: true,
+		noHoverMatches: true,
+	}),
+	false,
+);
+
+assert.equal(
+	shouldUseMobileWorkbenchLayout({
+		widthMatches: true,
+		coarsePointerMatches: false,
+		noHoverMatches: true,
+	}),
+	false,
+);
+
+assert.equal(
+	shouldUseMobileWorkbenchLayout({
+		widthMatches: true,
+		coarsePointerMatches: true,
+		noHoverMatches: false,
+	}),
+	false,
+);
+
+assert.equal(
+	shouldUseCompactDesktopWorkbenchLayout({
+		widthMatches: true,
+		coarsePointerMatches: false,
+		noHoverMatches: false,
+	}),
+	true,
+);
+
+assert.equal(
+	shouldUseCompactDesktopWorkbenchLayout({
+		widthMatches: true,
+		coarsePointerMatches: true,
+		noHoverMatches: true,
+	}),
+	false,
+);
+
+assert.equal(
+	shouldUseCompactDesktopWorkbenchLayout({
+		widthMatches: false,
+		coarsePointerMatches: false,
+		noHoverMatches: false,
 	}),
 	false,
 );

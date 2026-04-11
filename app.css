@@ -1642,7 +1642,12 @@ input[type="range"] {
 	gap: 0.2rem;
 	padding: 0.36rem 0.5rem;
 	flex-wrap: nowrap;
+	width: 100%;
+	max-width: 100%;
 	overflow-x: auto;
+	overflow-y: hidden;
+	justify-content: flex-start;
+	scrollbar-width: thin;
 }
 
 .viewport-splat-edit-popover {
@@ -1668,7 +1673,8 @@ input[type="range"] {
 	display: inline-flex;
 	align-items: center;
 	gap: 0.2rem;
-	flex-shrink: 0;
+	flex: 0 0 auto;
+	min-width: max-content;
 }
 
 .viewport-splat-edit-toolbar__separator {
@@ -1685,7 +1691,7 @@ input[type="range"] {
 	letter-spacing: 0.04em;
 	white-space: nowrap;
 	padding: 0 0.2rem;
-	flex-shrink: 0;
+	flex: 0 0 auto;
 }
 
 .viewport-splat-edit-brush-preview {
@@ -1782,6 +1788,7 @@ input[type="range"] {
 	padding: 0.32rem 0.52rem;
 	cursor: pointer;
 	white-space: nowrap;
+	flex: 0 0 auto;
 	transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
 }
 
@@ -3437,6 +3444,12 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 		top: auto;
 		bottom: 0.75rem;
 		left: 50%;
+	}
+}
+
+@media (max-width: 960px) and (hover: hover), (max-width: 960px) and (pointer: fine) {
+	.viewport-shell--inspector-collapsed {
+		margin-right: calc(var(--workbench-rail-width) + var(--workbench-gap));
 	}
 }
 
