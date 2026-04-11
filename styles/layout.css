@@ -6,16 +6,16 @@
 
 .workbench-shell {
 	position: absolute;
-	inset: 0.625rem;
+	inset: 0;
 	z-index: 5;
 	display: grid;
-	grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
-	gap: 0.625rem;
+	grid-template-columns: minmax(0, 1fr) var(--workbench-panel-width);
+	gap: var(--workbench-gap);
 	pointer-events: none;
 }
 
 .workbench-shell--inspector-rail {
-	grid-template-columns: minmax(0, 1fr) auto;
+	grid-template-columns: minmax(0, 1fr) var(--workbench-rail-width);
 }
 
 .workbench-column {
@@ -27,8 +27,8 @@
 
 .workbench-column--left {
 	position: absolute;
-	left: 0;
-	top: 0;
+	left: 0.625rem;
+	top: 0.625rem;
 	z-index: 12;
 	align-items: flex-start;
 	pointer-events: none;
@@ -36,6 +36,7 @@
 
 .workbench-column--right {
 	grid-column: 2;
+	width: var(--workbench-panel-width);
 }
 
 .workbench-column--right.workbench-column--right-collapsed {
@@ -43,10 +44,11 @@
 	right: 0;
 	top: 0;
 	z-index: 11;
-	width: auto;
+	width: var(--workbench-rail-width);
 	flex-direction: row-reverse;
 	align-items: flex-start;
 	gap: 0.55rem;
+	overflow: visible;
 	pointer-events: none;
 }
 
@@ -102,11 +104,13 @@
 .workbench-card--inspector {
 	padding: 0.55rem;
 	overflow: visible;
+	width: 100%;
 }
 
 .workbench-card--inspector-rail {
 	flex: 0 0 auto;
 	align-items: center;
+	width: var(--workbench-rail-width);
 	padding: 0.45rem;
 	overflow: visible;
 	border-radius: 22px;

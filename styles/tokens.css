@@ -13,6 +13,9 @@
 	--radius: 18px;
 	--frame-stroke-width: 2px;
 	--frame-hit-area: 12px;
-	--panel-width: min(380px, 100vw);
+	--workbench-gap: 0.625rem;
+	--workbench-panel-width: min(360px, calc(100vw - 1.25rem));
+	--workbench-rail-width: calc(2.35rem + 0.9rem);
+	--panel-width: var(--workbench-panel-width);
 	color-scheme: dark;
 }

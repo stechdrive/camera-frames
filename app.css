@@ -1547,7 +1547,12 @@ input[type="range"] {
 	min-width: 0;
 	min-height: 0;
 	height: 100%;
+	margin-right: calc(var(--workbench-panel-width) + var(--workbench-gap));
 	overflow: hidden;
+}
+
+.viewport-shell--inspector-collapsed {
+	margin-right: calc(var(--workbench-rail-width) + var(--workbench-gap));
 }
 
 .viewport-project-status {
@@ -1570,14 +1575,6 @@ input[type="range"] {
 	font: 600 0.72rem / 1 "Avenir Next", "Segoe UI", sans-serif;
 	letter-spacing: 0.04em;
 	line-height: 1;
-}
-
-.viewport-shell--inspector-open .viewport-project-status {
-	right: calc(var(--panel-width) + 1rem);
-}
-
-.viewport-shell--inspector-collapsed .viewport-project-status {
-	right: 4.6rem;
 }
 
 .viewport-project-status__name {
@@ -1877,22 +1874,6 @@ body[data-interaction-mode="roll"] .viewport-axis-gizmo {
 	pointer-events: none;
 	transform: translateZ(0);
 	transition: opacity 120ms ease;
-}
-
-.viewport-shell--inspector-open .viewport-axis-gizmo {
-	right: calc(var(--panel-width) + 1rem);
-}
-
-.viewport-shell--inspector-collapsed .viewport-axis-gizmo {
-	right: 4.6rem;
-}
-
-.viewport-shell--inspector-open .viewport-splat-edit-toolbar {
-	right: calc(var(--panel-width) + 1rem);
-}
-
-.viewport-shell--inspector-collapsed .viewport-splat-edit-toolbar {
-	right: 4.6rem;
 }
 
 .viewport-axis-gizmo.is-hidden {
@@ -3356,6 +3337,11 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 }
 
 @media (max-width: 960px) {
+	.viewport-shell,
+	.viewport-shell--inspector-collapsed {
+		margin-right: 0;
+	}
+
 	.workbench-shell {
 		inset: 0.75rem;
 		display: flex;
