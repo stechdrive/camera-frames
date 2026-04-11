@@ -19,6 +19,16 @@ function isFiniteVector3Like(value) {
 	);
 }
 
+function isFiniteQuaternionLike(value) {
+	return (
+		value &&
+		Number.isFinite(value.x) &&
+		Number.isFinite(value.y) &&
+		Number.isFinite(value.z) &&
+		Number.isFinite(value.w)
+	);
+}
+
 function createLineLayer(name, color, opacity, lineWidth) {
 	const geometry = new LineSegmentsGeometry();
 	const material = new LineMaterial({
@@ -39,20 +49,26 @@ function createLineLayer(name, color, opacity, lineWidth) {
 	return lines;
 }
 
-function buildBoxSegments(min, max) {
+function buildBoxSegments(center, size, rotation) {
 	const segments = [];
-	const x0 = min.x;
-	const y0 = min.y;
-	const z0 = min.z;
-	const x1 = max.x;
-	const y1 = max.y;
-	const z1 = max.z;
+	const halfSize = size.clone().multiplyScalar(0.5);
+	const transform = new THREE.Matrix4().compose(
+		center.clone(),
+		rotation.clone(),
+		new THREE.Vector3(1, 1, 1),
+	);
 	const pushSegment = (ax, ay, az, bx, by, bz) => {
 		segments.push([
-			new THREE.Vector3(ax, ay, az),
-			new THREE.Vector3(bx, by, bz),
+			new THREE.Vector3(ax, ay, az).applyMatrix4(transform),
+			new THREE.Vector3(bx, by, bz).applyMatrix4(transform),
 		]);
 	};
+	const x0 = -halfSize.x;
+	const y0 = -halfSize.y;
+	const z0 = -halfSize.z;
+	const x1 = halfSize.x;
+	const y1 = halfSize.y;
+	const z1 = halfSize.z;
 
 	pushSegment(x0, y0, z0, x1, y0, z0);
 	pushSegment(x0, y1, z0, x1, y1, z0);
@@ -101,9 +117,7 @@ export function createSplatEditSceneHelper() {
 
 	const currentCenter = new THREE.Vector3();
 	const currentSize = new THREE.Vector3(1, 1, 1);
-	const currentMin = new THREE.Vector3(-0.5, -0.5, -0.5);
-	const currentMax = new THREE.Vector3(0.5, 0.5, 0.5);
-	const tempHalfSize = new THREE.Vector3();
+	const currentRotation = new THREE.Quaternion();
 	const tempMidpoint = new THREE.Vector3();
 	const tempCameraSpaceCenter = new THREE.Vector3();
 	const tempCameraSpaceMidpoint = new THREE.Vector3();
@@ -248,7 +262,12 @@ export function createSplatEditSceneHelper() {
 	);
 	group.add(backLines, baseLines, midLines, frontLines);
 
-	function sync({ visible = false, center = null, size = null } = {}) {
+	function sync({
+		visible = false,
+		center = null,
+		size = null,
+		rotation = null,
+	} = {}) {
 		if (
 			!visible ||
 			!isFiniteVector3Like(center) ||
@@ -267,10 +286,26 @@ export function createSplatEditSceneHelper() {
 			Math.max(Number(size.y) || 0, 0.001),
 			Math.max(Number(size.z) || 0, 0.001),
 		);
-		tempHalfSize.copy(currentSize).multiplyScalar(0.5);
-		currentMin.copy(currentCenter).sub(tempHalfSize);
-		currentMax.copy(currentCenter).add(tempHalfSize);
-		segmentDefinitions = buildBoxSegments(currentMin, currentMax);
+		if (isFiniteQuaternionLike(rotation)) {
+			currentRotation.set(
+				Number(rotation.x) || 0,
+				Number(rotation.y) || 0,
+				Number(rotation.z) || 0,
+				Number(rotation.w) || 1,
+			);
+		} else {
+			currentRotation.identity();
+		}
+		if (currentRotation.lengthSq() < 1e-8) {
+			currentRotation.identity();
+		} else {
+			currentRotation.normalize();
+		}
+		segmentDefinitions = buildBoxSegments(
+			currentCenter,
+			currentSize,
+			currentRotation,
+		);
 		flatPositions = [];
 		for (const [startPoint, endPoint] of segmentDefinitions) {
 			flatPositions.push(

@@ -35,12 +35,36 @@ function toPlainPoint(vector) {
 	};
 }
 
+function toPlainQuaternion(quaternion) {
+	return {
+		x: quaternion.x,
+		y: quaternion.y,
+		z: quaternion.z,
+		w: quaternion.w,
+	};
+}
+
 function toVector3(point, fallback = 0) {
 	return new THREE.Vector3(
 		Number(point?.x ?? fallback),
 		Number(point?.y ?? fallback),
 		Number(point?.z ?? fallback),
 	);
+}
+
+function toQuaternion(value) {
+	const quaternion = new THREE.Quaternion(
+		Number(value?.x ?? 0),
+		Number(value?.y ?? 0),
+		Number(value?.z ?? 0),
+		Number(value?.w ?? 1),
+	);
+	if (quaternion.lengthSq() < 1e-8) {
+		quaternion.identity();
+	} else {
+		quaternion.normalize();
+	}
+	return quaternion;
 }
 
 function clampBoxAxisSize(value) {
@@ -167,7 +191,6 @@ export function createPerSplatEditController({
 	const tempVector = new THREE.Vector3();
 	const tempVector2 = new THREE.Vector3();
 	const tempWorldPoint = new THREE.Vector3();
-	const tempHalfSize = new THREE.Vector3();
 	const tempBox = new THREE.Box3();
 	const tempTransformMatrix = new THREE.Matrix4();
 	const tempTransformPivotMatrix = new THREE.Matrix4();
@@ -183,6 +206,11 @@ export function createPerSplatEditController({
 	const tempBrushQueryEnd = new THREE.Vector3();
 	const tempBrushBoundsSize = new THREE.Vector3();
 	const tempBrushQueryBounds = new THREE.Box3();
+	const tempBoxLocalPoint = new THREE.Vector3();
+	const tempBoxCorner = new THREE.Vector3();
+	const tempBoxDeltaRotation = new THREE.Quaternion();
+	const tempBoxWorldRotation = new THREE.Quaternion();
+	const tempBoxCross = new THREE.Vector3();
 	let lastBrushRayDepth = 0;
 	const brushDepthPlane = new THREE.Plane();
 	const tempPlaneHitPoint = new THREE.Vector3();
@@ -894,6 +922,9 @@ export function createPerSplatEditController({
 				y: clampBoxAxisSize(store.splatEdit.boxSize.value?.y),
 				z: clampBoxAxisSize(store.splatEdit.boxSize.value?.z),
 			},
+			boxRotation: {
+				...toPlainQuaternion(getSplatEditBoxRotation()),
+			},
 			hudPosition: {
 				x: Number.isFinite(store.splatEdit.hudPosition.value?.x)
 					? Number(store.splatEdit.hudPosition.value.x)
@@ -933,6 +964,7 @@ export function createPerSplatEditController({
 			store.splatEdit.boxPlaced.value = false;
 			store.splatEdit.boxCenter.value = { x: 0, y: 0, z: 0 };
 			store.splatEdit.boxSize.value = { x: 1, y: 1, z: 1 };
+			store.splatEdit.boxRotation.value = { x: 0, y: 0, z: 0, w: 1 };
 			store.splatEdit.hudPosition.value = { x: null, y: null };
 			store.splatEdit.lastOperation.value = { mode: "", hitCount: 0 };
 			syncSelectionCount();
@@ -970,6 +1002,9 @@ export function createPerSplatEditController({
 			y: clampBoxAxisSize(snapshot.boxSize?.y),
 			z: clampBoxAxisSize(snapshot.boxSize?.z),
 		};
+		store.splatEdit.boxRotation.value = toPlainQuaternion(
+			toQuaternion(snapshot.boxRotation),
+		);
 		store.splatEdit.hudPosition.value = {
 			x: Number.isFinite(snapshot.hudPosition?.x)
 				? Number(snapshot.hudPosition.x)
@@ -1167,18 +1202,61 @@ export function createPerSplatEditController({
 		);
 	}
 
-	function getSplatEditBoxBounds() {
+	function getSplatEditBoxRotation() {
+		return toQuaternion(store.splatEdit.boxRotation.value);
+	}
+
+	function getSplatEditBoxBasisWorld(rotation = getSplatEditBoxRotation()) {
+		return {
+			x: WORLD_AXES.x.clone().applyQuaternion(rotation).normalize(),
+			y: WORLD_AXES.y.clone().applyQuaternion(rotation).normalize(),
+			z: WORLD_AXES.z.clone().applyQuaternion(rotation).normalize(),
+		};
+	}
+
+	function getSplatEditBoxVolume() {
 		if (!store.splatEdit.boxPlaced.value) {
 			return null;
 		}
 		const center = getSplatEditBoxCenter();
 		const size = getSplatEditBoxSize();
-		tempHalfSize.copy(size).multiplyScalar(0.5);
-		return tempBox.copy(
-			new THREE.Box3(
-				center.clone().sub(tempHalfSize),
-				center.clone().add(tempHalfSize),
-			),
+		const rotation = getSplatEditBoxRotation();
+		const inverseRotation = rotation.clone().invert();
+		const halfSize = size.clone().multiplyScalar(0.5);
+		const bounds = tempBox.makeEmpty();
+		for (const xSign of [-1, 1]) {
+			for (const ySign of [-1, 1]) {
+				for (const zSign of [-1, 1]) {
+					tempBoxCorner
+						.set(halfSize.x * xSign, halfSize.y * ySign, halfSize.z * zSign)
+						.applyQuaternion(rotation)
+						.add(center);
+					bounds.expandByPoint(tempBoxCorner);
+				}
+			}
+		}
+		return {
+			center,
+			size,
+			halfSize,
+			rotation,
+			inverseRotation,
+			bounds: bounds.clone(),
+		};
+	}
+
+	function pointInSplatEditBox(point, boxVolume) {
+		if (!boxVolume) {
+			return false;
+		}
+		tempBoxLocalPoint
+			.copy(point)
+			.sub(boxVolume.center)
+			.applyQuaternion(boxVolume.inverseRotation);
+		return (
+			Math.abs(tempBoxLocalPoint.x) <= boxVolume.halfSize.x + 1e-5 &&
+			Math.abs(tempBoxLocalPoint.y) <= boxVolume.halfSize.y + 1e-5 &&
+			Math.abs(tempBoxLocalPoint.z) <= boxVolume.halfSize.z + 1e-5
 		);
 	}
 
@@ -1820,6 +1898,7 @@ export function createPerSplatEditController({
 			y: DEFAULT_BOX_SIZE,
 			z: DEFAULT_BOX_SIZE,
 		};
+		store.splatEdit.boxRotation.value = { x: 0, y: 0, z: 0, w: 1 };
 		syncSceneHelper();
 		updateUi?.();
 		return true;
@@ -1829,6 +1908,7 @@ export function createPerSplatEditController({
 		let helperVisible = false;
 		let helperCenter = null;
 		let helperSize = null;
+		let helperRotation = null;
 		if (
 			isSplatEditModeActive() &&
 			store.splatEdit.tool.value === "box" &&
@@ -1838,11 +1918,13 @@ export function createPerSplatEditController({
 			helperVisible = true;
 			helperCenter = getSplatEditBoxCenter();
 			helperSize = getSplatEditBoxSize();
+			helperRotation = getSplatEditBoxRotation();
 		}
 		sceneHelper.sync({
 			visible: helperVisible,
 			center: helperCenter,
 			size: helperSize,
+			rotation: helperRotation,
 		});
 	}
 
@@ -1933,7 +2015,7 @@ export function createPerSplatEditController({
 		return scopeBox;
 	}
 
-	function computeSplatSelectionDebugInfo(asset, selectionBox) {
+	function computeSplatSelectionDebugInfo(asset, selectionVolume) {
 		const splatMesh = asset?.disposeTarget;
 		if (!asset?.object || typeof splatMesh?.forEachSplat !== "function") {
 			return null;
@@ -1962,7 +2044,7 @@ export function createPerSplatEditController({
 					},
 				});
 			}
-			if (selectionBox.containsPoint(tempWorldPoint)) {
+			if (pointInSplatEditBox(tempWorldPoint, selectionVolume)) {
 				hitSplats += 1;
 			}
 			totalSplats += 1;
@@ -1973,15 +2055,33 @@ export function createPerSplatEditController({
 			totalSplats,
 			hitSplats,
 			selectionBox: {
-				min: {
-					x: selectionBox.min.x,
-					y: selectionBox.min.y,
-					z: selectionBox.min.z,
+				center: {
+					x: selectionVolume.center.x,
+					y: selectionVolume.center.y,
+					z: selectionVolume.center.z,
 				},
-				max: {
-					x: selectionBox.max.x,
-					y: selectionBox.max.y,
-					z: selectionBox.max.z,
+				size: {
+					x: selectionVolume.size.x,
+					y: selectionVolume.size.y,
+					z: selectionVolume.size.z,
+				},
+				rotation: {
+					x: selectionVolume.rotation.x,
+					y: selectionVolume.rotation.y,
+					z: selectionVolume.rotation.z,
+					w: selectionVolume.rotation.w,
+				},
+				bounds: {
+					min: {
+						x: selectionVolume.bounds.min.x,
+						y: selectionVolume.bounds.min.y,
+						z: selectionVolume.bounds.min.z,
+					},
+					max: {
+						x: selectionVolume.bounds.max.x,
+						y: selectionVolume.bounds.max.y,
+						z: selectionVolume.bounds.max.z,
+					},
 				},
 			},
 			worldBounds:
@@ -2003,13 +2103,17 @@ export function createPerSplatEditController({
 		};
 	}
 
-	function reportSelectionDebugIfEmpty(selectionBox, changedCount, subtract) {
+	function reportSelectionDebugIfEmpty(
+		selectionVolume,
+		changedCount,
+		subtract,
+	) {
 		if (!isDevRuntime || changedCount > 0) {
 			return;
 		}
 		const scopeAssets = getSplatEditScopeAssets();
 		const details = scopeAssets
-			.map((asset) => computeSplatSelectionDebugInfo(asset, selectionBox))
+			.map((asset) => computeSplatSelectionDebugInfo(asset, selectionVolume))
 			.filter(Boolean);
 		const sceneAssets = getSceneSplatAssets().map((asset) => ({
 			assetId: getAssetIdKey(asset.id),
@@ -2039,6 +2143,7 @@ export function createPerSplatEditController({
 			y: clampBoxAxisSize(nextSize.y),
 			z: clampBoxAxisSize(nextSize.z),
 		};
+		store.splatEdit.boxRotation.value = { x: 0, y: 0, z: 0, w: 1 };
 		syncSceneHelper();
 		updateUi?.();
 		return true;
@@ -2141,8 +2246,8 @@ export function createPerSplatEditController({
 	}
 
 	function applySplatEditBoxSelection({ subtract = false } = {}) {
-		const selectionBox = getSplatEditBoxBounds();
-		if (!selectionBox) {
+		const selectionVolume = getSplatEditBoxVolume();
+		if (!selectionVolume) {
 			return 0;
 		}
 		let changedCount = 0;
@@ -2164,7 +2269,7 @@ export function createPerSplatEditController({
 			splatMesh.forEachSplat((index, center) => {
 				tempWorldPoint.copy(center);
 				tempWorldPoint.applyMatrix4(worldMatrix);
-				if (!selectionBox.containsPoint(tempWorldPoint)) {
+				if (!pointInSplatEditBox(tempWorldPoint, selectionVolume)) {
 					return;
 				}
 				if (subtract) {
@@ -2193,7 +2298,7 @@ export function createPerSplatEditController({
 		syncSelectionHighlight();
 		syncSceneHelper();
 		updateUi?.();
-		reportSelectionDebugIfEmpty(selectionBox, changedCount, subtract);
+		reportSelectionDebugIfEmpty(selectionVolume, changedCount, subtract);
 		setStatus?.(
 			t(
 				subtract
@@ -2811,6 +2916,7 @@ export function createPerSplatEditController({
 		store.splatEdit.boxPlaced.value = false;
 		store.splatEdit.boxCenter.value = { x: 0, y: 0, z: 0 };
 		store.splatEdit.boxSize.value = { x: 1, y: 1, z: 1 };
+		store.splatEdit.boxRotation.value = { x: 0, y: 0, z: 0, w: 1 };
 		store.splatEdit.lastOperation.value = {
 			mode: "",
 			hitCount: 0,
@@ -2914,17 +3020,14 @@ export function createPerSplatEditController({
 			if (!store.splatEdit.boxPlaced.value) {
 				return null;
 			}
+			const boxRotation = getSplatEditBoxRotation();
 			return {
 				pivotWorld: getSplatEditBoxCenter(),
-				basisWorld: {
-					x: WORLD_AXES.x.clone(),
-					y: WORLD_AXES.y.clone(),
-					z: WORLD_AXES.z.clone(),
-				},
+				basisWorld: getSplatEditBoxBasisWorld(boxRotation),
 				pivotMode: true,
 				showMoveAxes: true,
 				showMovePlanes: true,
-				showRotate: false,
+				showRotate: true,
 				showScale: false,
 			};
 		}
@@ -3123,10 +3226,11 @@ export function createPerSplatEditController({
 			viewportRect,
 		);
 		const anchorWorld = config.pivotWorld.clone();
+		const basisWorld = config.basisWorld ?? getSplatEditBoxBasisWorld();
 
 		if (MOVE_AXIS_HANDLE_NAMES.includes(handleName)) {
 			const axisKey = handleName.split("-")[1];
-			const axisWorld = WORLD_AXES[axisKey];
+			const axisWorld = basisWorld[axisKey]?.clone?.() ?? WORLD_AXES[axisKey];
 			const planeNormal = buildAxisPlaneNormal(
 				axisWorld,
 				camera,
@@ -3162,10 +3266,10 @@ export function createPerSplatEditController({
 		if (MOVE_PLANE_HANDLE_NAMES.includes(handleName)) {
 			const planeAxes =
 				handleName === "move-xy"
-					? [WORLD_AXES.x, WORLD_AXES.y]
+					? [basisWorld.x, basisWorld.y]
 					: handleName === "move-yz"
-						? [WORLD_AXES.y, WORLD_AXES.z]
-						: [WORLD_AXES.z, WORLD_AXES.x];
+						? [basisWorld.y, basisWorld.z]
+						: [basisWorld.z, basisWorld.x];
 			const planeNormal = new THREE.Vector3()
 				.crossVectors(planeAxes[0], planeAxes[1])
 				.normalize();
@@ -3187,6 +3291,36 @@ export function createPerSplatEditController({
 				anchorWorld,
 				planeNormal: planeNormal.clone(),
 				planePoint: planePoint.clone(),
+			};
+			return true;
+		}
+
+		if (ROTATE_AXIS_HANDLE_NAMES.includes(handleName)) {
+			const axisKey = handleName.split("-")[1];
+			const axisWorld = basisWorld[axisKey]?.clone?.() ?? WORLD_AXES[axisKey];
+			dragPlane.setFromNormalAndCoplanarPoint(axisWorld, anchorWorld);
+			const planePoint = pointerRay.intersectPlane(
+				dragPlane,
+				new THREE.Vector3(),
+			);
+			if (!planePoint) {
+				return false;
+			}
+			const startVector = planePoint.sub(anchorWorld).normalize();
+			if (startVector.lengthSq() < 1e-6) {
+				return false;
+			}
+			event.preventDefault();
+			event.stopPropagation();
+			event.stopImmediatePropagation?.();
+			activeBoxDrag = {
+				pointerId: event.pointerId,
+				mode: "rotate",
+				handleName,
+				anchorWorld,
+				axisWorld: axisWorld.clone(),
+				startVector: startVector.clone(),
+				startRotation: getSplatEditBoxRotation(),
 			};
 			return true;
 		}
@@ -3313,6 +3447,39 @@ export function createPerSplatEditController({
 			camera,
 			viewportRect,
 		);
+		if (activeBoxDrag.mode === "rotate") {
+			dragPlane.setFromNormalAndCoplanarPoint(
+				activeBoxDrag.axisWorld,
+				activeBoxDrag.anchorWorld,
+			);
+			const hitPoint = pointerRay.intersectPlane(dragPlane, dragHitPoint);
+			if (!hitPoint) {
+				return true;
+			}
+			dragDelta.copy(hitPoint).sub(activeBoxDrag.anchorWorld).normalize();
+			if (dragDelta.lengthSq() < 1e-6) {
+				return true;
+			}
+			const signedAngle = Math.atan2(
+				tempBoxCross
+					.crossVectors(activeBoxDrag.startVector, dragDelta)
+					.dot(activeBoxDrag.axisWorld),
+				activeBoxDrag.startVector.dot(dragDelta),
+			);
+			tempBoxDeltaRotation.setFromAxisAngle(
+				activeBoxDrag.axisWorld,
+				signedAngle,
+			);
+			tempBoxWorldRotation
+				.copy(tempBoxDeltaRotation)
+				.multiply(activeBoxDrag.startRotation);
+			store.splatEdit.boxRotation.value =
+				toPlainQuaternion(tempBoxWorldRotation);
+			syncSceneHelper();
+			updateUi?.();
+			return true;
+		}
+
 		dragPlane.setFromNormalAndCoplanarPoint(
 			activeBoxDrag.planeNormal,
 			activeBoxDrag.anchorWorld,

@@ -96,6 +96,15 @@ function toPlainPoint(vector) {
 	};
 }
 
+function toPlainQuaternion(quaternion) {
+	return {
+		x: quaternion.x,
+		y: quaternion.y,
+		z: quaternion.z,
+		w: quaternion.w,
+	};
+}
+
 function createPointerEvent({
 	pointerId = 1,
 	clientX = 0,
@@ -746,6 +755,48 @@ async function createPackedSplatAsset({ id, label, centers }) {
 	const harness = createHarness();
 	harness.store.sceneAssets.value = [
 		createSplatAsset({
+			id: "splat-rotated-box",
+			centers: [
+				new THREE.Vector3(0.6, 0.6, 0),
+				new THREE.Vector3(1, 0, 0),
+				new THREE.Vector3(0, 0.8, 0),
+			],
+			centerBounds: new THREE.Box3(
+				new THREE.Vector3(-1.5, -1.5, -0.5),
+				new THREE.Vector3(1.5, 1.5, 0.5),
+			),
+		}),
+	];
+	harness.store.selectedSceneAssetIds.value = ["splat-rotated-box"];
+
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	harness.controller.setSplatEditBoxCenterAxis("x", 0);
+	harness.controller.setSplatEditBoxCenterAxis("y", 0);
+	harness.controller.setSplatEditBoxCenterAxis("z", 0);
+	harness.controller.setSplatEditBoxSizeAxis("x", 2);
+	harness.controller.setSplatEditBoxSizeAxis("y", 1);
+	harness.controller.setSplatEditBoxSizeAxis("z", 1);
+	harness.store.splatEdit.boxRotation.value = toPlainQuaternion(
+		new THREE.Quaternion().setFromAxisAngle(
+			new THREE.Vector3(0, 0, 1),
+			Math.PI * 0.25,
+		),
+	);
+
+	assert.equal(
+		harness.controller.applySplatEditBoxSelection({ subtract: false }),
+		1,
+	);
+	assert.equal(harness.store.splatEdit.selectionCount.value, 1);
+}
+
+{
+	const harness = createHarness();
+	harness.store.sceneAssets.value = [
+		createSplatAsset({
 			id: "splat-1",
 			centers: [
 				new THREE.Vector3(0, 0, -0.05),
@@ -1346,12 +1397,20 @@ async function createPackedSplatAsset({ id, label, centers }) {
 	harness.store.splatEdit.hudPosition.value = { x: 123, y: 456 };
 	harness.controller.setSplatEditBoxCenterAxis("x", 1.25);
 	harness.controller.setSplatEditBoxSizeAxis("x", 2.5);
+	harness.controller.setSplatEditBoxSizeAxis("z", 2);
+	harness.store.splatEdit.boxRotation.value = toPlainQuaternion(
+		new THREE.Quaternion().setFromAxisAngle(
+			new THREE.Vector3(0, 1, 0),
+			Math.PI * 0.1,
+		),
+	);
 	harness.controller.applySplatEditBoxSelection({ subtract: false });
 
 	const snapshot = harness.controller.captureEditState();
 	harness.controller.clearSplatSelection();
 	harness.store.splatEdit.scopeAssetIds.value = [];
 	harness.store.splatEdit.hudPosition.value = { x: null, y: null };
+	harness.store.splatEdit.boxRotation.value = { x: 0, y: 0, z: 0, w: 1 };
 
 	assert.equal(harness.controller.restoreEditState(snapshot), true);
 	assert.deepEqual(harness.store.splatEdit.scopeAssetIds.value, ["splat-1"]);
@@ -1360,6 +1419,21 @@ async function createPackedSplatAsset({ id, label, centers }) {
 		x: 123,
 		y: 456,
 	});
+	assert.ok(
+		new THREE.Quaternion(
+			harness.store.splatEdit.boxRotation.value.x,
+			harness.store.splatEdit.boxRotation.value.y,
+			harness.store.splatEdit.boxRotation.value.z,
+			harness.store.splatEdit.boxRotation.value.w,
+		).angleTo(
+			new THREE.Quaternion(
+				snapshot.boxRotation.x,
+				snapshot.boxRotation.y,
+				snapshot.boxRotation.z,
+				snapshot.boxRotation.w,
+			),
+		) < 1e-5,
+	);
 }
 
 {
@@ -1543,6 +1617,81 @@ async function createPackedSplatAsset({ id, label, centers }) {
 	);
 	assert.ok(
 		Math.abs(asset.disposeTarget.packedSplats.getSplat(1).center.x - 1) > 0.1,
+	);
+}
+
+{
+	const harness = createHarness();
+	const viewportRect = { left: 0, top: 0, width: 1000, height: 1000 };
+	harness.store.sceneAssets.value = [
+		createSplatAsset({
+			id: "splat-box-gizmo",
+			centers: [new THREE.Vector3(0, 0, 0)],
+			centerBounds: new THREE.Box3(
+				new THREE.Vector3(-1, -1, -1),
+				new THREE.Vector3(1, 1, 1),
+			),
+		}),
+	];
+	harness.store.selectedSceneAssetIds.value = ["splat-box-gizmo"];
+
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	harness.controller.setSplatEditBoxCenterAxis("x", 0);
+	harness.controller.setSplatEditBoxCenterAxis("y", 0);
+	harness.controller.setSplatEditBoxCenterAxis("z", 0);
+	const gizmoConfig = harness.controller.getViewportGizmoConfig();
+	assert.equal(gizmoConfig?.showRotate, true);
+	assert.ok(gizmoConfig?.basisWorld?.x);
+	assert.equal(
+		harness.controller.startViewportGizmoDrag("rotate-z", {
+			camera: harness.activeCamera,
+			viewportRect,
+			config: gizmoConfig,
+			event: createPointerEvent({
+				pointerId: 23,
+				...worldToClientPoint({
+					camera: harness.activeCamera,
+					viewportRect,
+					worldPoint: new THREE.Vector3(1, 0, 0),
+				}),
+			}),
+		}),
+		true,
+	);
+	const rotateEvent = createPointerEvent({
+		pointerId: 23,
+		...worldToClientPoint({
+			camera: harness.activeCamera,
+			viewportRect,
+			worldPoint: new THREE.Vector3(0, 1, 0),
+		}),
+	});
+	assert.equal(
+		harness.controller.handleViewportGizmoDragMove(rotateEvent, {
+			camera: harness.activeCamera,
+			viewportRect,
+		}),
+		true,
+	);
+	assert.ok(
+		new THREE.Quaternion(
+			harness.store.splatEdit.boxRotation.value.x,
+			harness.store.splatEdit.boxRotation.value.y,
+			harness.store.splatEdit.boxRotation.value.z,
+			harness.store.splatEdit.boxRotation.value.w,
+		).angleTo(
+			new THREE.Quaternion().setFromAxisAngle(
+				new THREE.Vector3(0, 0, 1),
+				Math.PI * 0.5,
+			),
+		) < 5e-3,
+	);
+	assert.equal(
+		harness.controller.handleViewportGizmoDragEnd(rotateEvent),
+		true,
 	);
 }
 

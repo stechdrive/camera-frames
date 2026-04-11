@@ -116,6 +116,7 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	const splatEditBoxPlaced = signal(false);
 	const splatEditBoxCenter = signal({ x: 0, y: 0, z: 0 });
 	const splatEditBoxSize = signal({ x: 1, y: 1, z: 1 });
+	const splatEditBoxRotation = signal({ x: 0, y: 0, z: 0, w: 1 });
 	const splatEditHudPosition = signal({ x: null, y: null });
 	const splatEditLastOperation = signal({
 		mode: "",
@@ -405,6 +406,7 @@ export function createCameraFramesStore(runtimeInfo = null) {
 			boxPlaced: splatEditBoxPlaced,
 			boxCenter: splatEditBoxCenter,
 			boxSize: splatEditBoxSize,
+			boxRotation: splatEditBoxRotation,
 			hudPosition: splatEditHudPosition,
 			lastOperation: splatEditLastOperation,
 		},
