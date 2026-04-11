@@ -74,6 +74,10 @@ export function createControllerRuntimeResources({
 		moveInertia: 0.01,
 		rotateInertia: 0.01,
 		reverseSlide: true,
+		pressMoveDelayMs: Number.MAX_SAFE_INTEGER,
+		pressMoveSpeed: 0,
+		doublePressMoveSpeed: 0,
+		triplePressMoveSpeed: 0,
 	});
 	pointerControls.pointerRollScale = 0.0;
 

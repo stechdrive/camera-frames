@@ -512,6 +512,8 @@ const MESSAGES = {
 			packageFieldCompressSplats: "3DGS を SOG 圧縮で保存",
 			packageFieldCompressSplatsDisabled:
 				"3DGS を SOG 圧縮で保存 (WebGPU 必須)",
+			packageFieldCompressSplatsWorkerUnavailable:
+				"3DGS を SOG 圧縮で保存 (この環境では利用不可)",
 			packageFieldSogShBands: "SOG の SH バンド",
 			packageFieldSogIterations: "SOG 圧縮 iterations",
 			packageSogShBands: {
@@ -723,6 +725,8 @@ const MESSAGES = {
 				"パッケージの保存先を取得できませんでした。",
 			sogCompressionRequiresWebGpu:
 				"この環境では WebGPU が使えないため、SOG 圧縮保存は利用できません。",
+			sogCompressionWorkerUnavailable:
+				"SOG 圧縮 worker を開始できませんでした。SOG 圧縮をオフにして再度保存してください。",
 			projectPackageOverwriteUnavailable:
 				"上書き保存できるパッケージファイルがありません。",
 			previewContext: "プレビュー用の 2D context を取得できませんでした。",
@@ -1234,6 +1238,8 @@ const MESSAGES = {
 			packageFieldCompressSplats: "Compress 3DGS to SOG",
 			packageFieldCompressSplatsDisabled:
 				"Compress 3DGS to SOG (WebGPU required)",
+			packageFieldCompressSplatsWorkerUnavailable:
+				"Compress 3DGS to SOG (unavailable in this environment)",
 			packageFieldSogShBands: "SOG SH Bands",
 			packageFieldSogIterations: "SOG Compression Iterations",
 			packageSogShBands: {
@@ -1447,6 +1453,8 @@ const MESSAGES = {
 				"Could not get a destination for package save.",
 			sogCompressionRequiresWebGpu:
 				"SOG compression save requires WebGPU in this environment.",
+			sogCompressionWorkerUnavailable:
+				"Could not start the SOG compression worker in this environment. Save again with SOG compression turned off.",
 			projectPackageOverwriteUnavailable:
 				"There is no project package available to overwrite.",
 			previewContext: "Could not get the 2D context for output preview.",

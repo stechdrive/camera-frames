@@ -22,8 +22,29 @@ function t(key, values = {}) {
 			return "Project loaded";
 		case "status.workingStateRestored":
 			return `Working state restored: ${values.name ?? ""}`;
+		case "overlay.packageFieldCompressSplatsWorkerUnavailable":
+			return "Compress 3DGS to SOG (unavailable in this environment)";
+		case "error.sogCompressionWorkerUnavailable":
+			return "Could not start the SOG compression worker in this environment. Save again with SOG compression turned off.";
 		default:
 			return key;
+	}
+}
+
+async function withNavigator(value, callback) {
+	const descriptor = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+	Object.defineProperty(globalThis, "navigator", {
+		configurable: true,
+		value,
+	});
+	try {
+		return await callback();
+	} finally {
+		if (descriptor) {
+			Object.defineProperty(globalThis, "navigator", descriptor);
+		} else {
+			delete globalThis.navigator;
+		}
 	}
 }
 
@@ -91,6 +112,9 @@ function createHarness(overrides = {}) {
 			statusEvents.push(status);
 		},
 		t,
+		prewarmSogCompressionWorkerImpl:
+			overrides.prewarmSogCompressionWorkerImpl,
+		supportsSogCompressionImpl: overrides.supportsSogCompressionImpl,
 	});
 
 	return {
@@ -236,6 +260,43 @@ function createHarness(overrides = {}) {
 	assert.equal(harness.resetProjectWorkspaceCalls.length, 1);
 	assert.equal(harness.store.overlay.value, null);
 }
+
+await withNavigator({ gpu: {} }, async () => {
+	const harness = createHarness({
+		prewarmSogCompressionWorkerImpl: async () => {
+			throw new Error("boom");
+		},
+	});
+	await harness.projectController.exportProject();
+	const compressField = harness.store.overlay.value?.fields?.find(
+		(field) => field.id === "compressSplatsToSog",
+	);
+	assert.equal(compressField?.value, false);
+	assert.equal(compressField?.disabled, true);
+	assert.equal(
+		compressField?.label,
+		"Compress 3DGS to SOG (unavailable in this environment)",
+	);
+});
+
+await withNavigator({ gpu: {} }, async () => {
+	const harness = createHarness({
+		prewarmSogCompressionWorkerImpl: async () => {
+			throw new Error("boom");
+		},
+	});
+	await harness.projectController.exportProject();
+	await harness.store.overlay.value.onSubmit({
+		compressSplatsToSog: true,
+		sogMaxShBands: "2",
+		sogIterations: "10",
+	});
+	assert.equal(harness.store.overlay.value?.kind, "error");
+	assert.match(
+		harness.store.overlay.value?.detail ?? "",
+		/SOG compression worker/,
+	);
+});
 
 {
 	const originalShowSaveFilePicker = globalThis.showSaveFilePicker;

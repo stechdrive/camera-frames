@@ -112,6 +112,13 @@ class FakeGLTFLoader {}
 	);
 	assert.equal(resources.fpsMovement.options.moveSpeed, 4);
 	assert.equal(resources.pointerControls.options.canvas.id, "canvas");
+	assert.equal(
+		resources.pointerControls.options.pressMoveDelayMs,
+		Number.MAX_SAFE_INTEGER,
+	);
+	assert.equal(resources.pointerControls.options.pressMoveSpeed, 0);
+	assert.equal(resources.pointerControls.options.doublePressMoveSpeed, 0);
+	assert.equal(resources.pointerControls.options.triplePressMoveSpeed, 0);
 	assert.equal(resources.pointerControls.pointerRollScale, 0);
 	assert.ok(resources.loader instanceof FakeGLTFLoader);
 	assert.equal(resources.shotCameraRegistry.size, 0);

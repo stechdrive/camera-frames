@@ -141,6 +141,64 @@ import {
 			width: 2,
 			height: 2,
 			exportSettings: {
+				exportGridLayerMode: "bottom",
+				exportModelLayers: false,
+				exportSplatLayers: false,
+			},
+			referenceImageLayers: [
+				{
+					id: "ref-back-bottom",
+					name: "Back Bottom",
+					group: REFERENCE_IMAGE_GROUP_BACK,
+					order: 0,
+					opacity: 1,
+					canvas: { id: "ref-back-bottom" },
+					bounds: { left: 0, top: 0 },
+				},
+				{
+					id: "ref-back-top",
+					name: "Back Top",
+					group: REFERENCE_IMAGE_GROUP_BACK,
+					order: 1,
+					opacity: 1,
+					canvas: { id: "ref-back-top" },
+					bounds: { left: 0, top: 0 },
+				},
+			],
+			passes: [
+				createExportPass({
+					id: "beauty",
+					layers: [
+						createPixelLayer({
+							name: "Render",
+							pixels: new Uint8Array(16),
+							width: 2,
+							height: 2,
+						}),
+					],
+				}),
+			],
+		},
+		[],
+		{
+			createCanvasFromPixels: () => ({ id: "render-only" }),
+			createFrameMaskLayerDocument: () => null,
+			renderExportPassToCanvas: () => ({ id: "pass" }),
+		},
+	);
+
+	assert.deepEqual(
+		document.layers[0].children.map((layer) => layer.name),
+		["Back Bottom", "Back Top"],
+	);
+}
+
+{
+	const document = buildPsdExportDocument(
+		{
+			width: 2,
+			height: 2,
+			exportSettings: {
 				exportGridLayerMode: "top",
 				exportModelLayers: false,
 				exportSplatLayers: false,

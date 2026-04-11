@@ -4,6 +4,7 @@ import { getPsdReferenceImageGroupLayers } from "../src/engine/reference-image-e
 import {
 	REFERENCE_IMAGE_GROUP_BACK,
 	REFERENCE_IMAGE_GROUP_FRONT,
+	getReferenceImageDisplayItems,
 } from "../src/reference-image-model.js";
 
 {
@@ -34,11 +35,20 @@ import {
 		layers,
 		REFERENCE_IMAGE_GROUP_FRONT,
 	);
+	const frontDisplayLayers = getReferenceImageDisplayItems(
+		layers,
+		REFERENCE_IMAGE_GROUP_FRONT,
+	);
 
 	assert.deepEqual(
 		frontLayers.map((layer) => layer.id),
+		["bottom", "middle", "top"],
+	);
+	assert.deepEqual(
+		frontDisplayLayers.map((layer) => layer.id),
 		["top", "middle", "bottom"],
 	);
+	assert.equal(frontLayers[0].id, frontDisplayLayers.at(-1)?.id);
 
 	const backLayers = getPsdReferenceImageGroupLayers(
 		layers,

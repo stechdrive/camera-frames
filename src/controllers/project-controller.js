@@ -50,6 +50,10 @@ function supportsSogCompression() {
 	return Boolean(globalThis.navigator?.gpu);
 }
 
+function createSogCompressionUnavailableError(t) {
+	return new Error(t("error.sogCompressionWorkerUnavailable"));
+}
+
 function getProjectPickerTypes() {
 	return [
 		{
@@ -365,6 +369,8 @@ export function createProjectController({
 	updateUi,
 	setStatus,
 	t,
+	prewarmSogCompressionWorkerImpl = prewarmSogCompressionWorker,
+	supportsSogCompressionImpl = supportsSogCompression,
 }) {
 	let projectFileHandle = null;
 	let currentProjectId = "";
@@ -386,6 +392,46 @@ export function createProjectController({
 
 	function clearOverlay() {
 		store.overlay.value = null;
+	}
+
+	async function resolveSogCompressionAvailability({ logFailure = false } = {}) {
+		if (!supportsSogCompressionImpl()) {
+			return {
+				available: false,
+				reason: "webgpu-unavailable",
+				error: null,
+			};
+		}
+		try {
+			await prewarmSogCompressionWorkerImpl();
+			return {
+				available: true,
+				reason: "ready",
+				error: null,
+			};
+		} catch (error) {
+			if (logFailure) {
+				console.warn(
+					"[CAMERA_FRAMES] SOG worker warmup failed while checking package save availability.",
+					error,
+				);
+			}
+			return {
+				available: false,
+				reason: "worker-unavailable",
+				error,
+			};
+		}
+	}
+
+	function getCompressSplatsFieldLabel(sogCompressionAvailability) {
+		if (sogCompressionAvailability.available) {
+			return t("overlay.packageFieldCompressSplats");
+		}
+		if (sogCompressionAvailability.reason === "worker-unavailable") {
+			return t("overlay.packageFieldCompressSplatsWorkerUnavailable");
+		}
+		return t("overlay.packageFieldCompressSplatsDisabled");
 	}
 
 	function syncProjectPresentation(projectSnapshot = captureProjectState()) {
@@ -934,9 +980,6 @@ export function createProjectController({
 		const progressStartedAt = Date.now();
 		flushDirtySplatSources?.();
 		const compressSplatsToSog = values.compressSplatsToSog === true;
-		if (compressSplatsToSog && !supportsSogCompression()) {
-			throw new Error(t("error.sogCompressionRequiresWebGpu"));
-		}
 		const sogMaxShBands = Number.parseInt(values.sogMaxShBands ?? "", 10);
 		const sogIterations = Number.parseInt(values.sogIterations ?? "", 10);
 		preferredPackageSaveOptions = {
@@ -958,6 +1001,17 @@ export function createProjectController({
 			currentProjectName || getProjectBaseName(buildProjectFilename());
 		const suggestedName = getSuggestedPackageFilename();
 		try {
+			if (compressSplatsToSog) {
+				const sogCompressionAvailability =
+					await resolveSogCompressionAvailability({
+						logFailure: true,
+					});
+				if (!sogCompressionAvailability.available) {
+					throw sogCompressionAvailability.reason === "webgpu-unavailable"
+						? new Error(t("error.sogCompressionRequiresWebGpu"))
+						: createSogCompressionUnavailableError(t);
+				}
+			}
 			const resolvedSaveTarget =
 				saveTarget ??
 				(await resolvePackageSaveTarget(suggestedName, {
@@ -1044,19 +1098,13 @@ export function createProjectController({
 
 	async function exportProject() {
 		const showOverwriteActions = Boolean(projectFileHandle);
-		const suggestedName = getSuggestedPackageFilename();
-		const canCompressSplatsToSog = supportsSogCompression();
+		const sogCompressionAvailability = await resolveSogCompressionAvailability({
+			logFailure: true,
+		});
+		const canCompressSplatsToSog = sogCompressionAvailability.available;
 		const compressSplatsDefault = canCompressSplatsToSog
 			? preferredPackageSaveOptions.compressSplatsToSog
 			: false;
-		if (canCompressSplatsToSog) {
-			void prewarmSogCompressionWorker().catch((error) => {
-				console.warn(
-					"[CAMERA_FRAMES] SOG worker warmup failed while opening package save.",
-					error,
-				);
-			});
-		}
 		setOverlay({
 			kind: "confirm",
 			title: t("overlay.packageSaveTitle"),
@@ -1069,9 +1117,7 @@ export function createProjectController({
 				{
 					id: "compressSplatsToSog",
 					type: "checkbox",
-					label: canCompressSplatsToSog
-						? t("overlay.packageFieldCompressSplats")
-						: t("overlay.packageFieldCompressSplatsDisabled"),
+					label: getCompressSplatsFieldLabel(sogCompressionAvailability),
 					value: compressSplatsDefault,
 					disabled: !canCompressSplatsToSog,
 				},
