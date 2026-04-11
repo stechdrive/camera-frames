@@ -936,7 +936,10 @@ export function createInteractionController({
 		const historyLabel = event.shiftKey ? "viewport.pose" : "viewport.zoom";
 		beginHistoryTransaction?.(historyLabel);
 		const handled = event.shiftKey
-			? offsetViewportOrthographicDepth?.(event.deltaY, { fine })
+			? offsetViewportOrthographicDepth?.(event.deltaY, {
+					fine,
+					deltaMode: event.deltaMode,
+				})
 			: zoomViewportOrthographic?.(event.deltaY, { fine });
 		if (handled) {
 			commitHistoryTransaction?.(historyLabel);

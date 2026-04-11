@@ -63,6 +63,7 @@ function createHarness() {
 		store,
 		controller,
 		viewportPerspectiveCamera,
+		viewportOrthographicCamera,
 		setSceneRaycastTargets(nextTargets: THREE.Object3D[]) {
 			sceneRaycastTargets = nextTargets;
 		},
@@ -77,6 +78,147 @@ function createCenterPlane(depth: number) {
 	mesh.position.set(0, 0, -depth);
 	mesh.updateMatrixWorld(true);
 	return mesh;
+}
+
+{
+	const harness = createHarness();
+	harness.setSceneRaycastTargets([createCenterPlane(10)]);
+	harness.controller.alignViewportToOrthographicView("posX");
+	const projectedReferencePoint = new THREE.Vector3(0, 0, -10).project(
+		harness.viewportOrthographicCamera,
+	);
+	assert.deepEqual(
+		[
+			roundComponent(projectedReferencePoint.x),
+			roundComponent(projectedReferencePoint.y),
+		],
+		[0, 0],
+	);
+	assert.equal(roundComponent(harness.store.viewportOrthoDistance.value), 10);
+	assert.deepEqual(harness.store.viewportOrthoFocus.value, {
+		x: 0,
+		y: 0,
+		z: -10,
+	});
+}
+
+{
+	const harness = createHarness();
+	harness.store.viewportOrthoSize.value = 500;
+	harness.store.viewportOrthoDistance.value = 2000;
+	harness.viewportPerspectiveCamera.lookAt(new THREE.Vector3(0, 0, 1));
+	harness.viewportPerspectiveCamera.updateMatrixWorld(true);
+	harness.controller.alignViewportToOrthographicView("posX");
+	assert.equal(roundComponent(harness.store.viewportOrthoDistance.value), 8);
+	assert.equal(roundComponent(harness.store.viewportOrthoSize.value), 4.6188);
+	assert.deepEqual(harness.store.viewportOrthoFocus.value, {
+		x: 0,
+		y: 0,
+		z: -8,
+	});
+}
+
+{
+	const harness = createHarness();
+	harness.viewportPerspectiveCamera.lookAt(new THREE.Vector3(0, 0, 1));
+	harness.viewportPerspectiveCamera.updateMatrixWorld(true);
+	harness.controller.rememberViewportReferencePoint(
+		new THREE.Vector3(500, 40, -700),
+	);
+	harness.controller.alignViewportToOrthographicView("posX");
+	assert.deepEqual(harness.store.viewportOrthoFocus.value, {
+		x: 0,
+		y: 0,
+		z: -8,
+	});
+}
+
+{
+	const harness = createHarness();
+	harness.viewportPerspectiveCamera.position.set(2, 3, 4);
+	harness.viewportPerspectiveCamera.lookAt(new THREE.Vector3(-1, 1, -7));
+	harness.viewportPerspectiveCamera.updateMatrixWorld(true);
+	const originalPose = {
+		position: harness.viewportPerspectiveCamera.position
+			.toArray()
+			.map(roundComponent),
+		quaternion: harness.viewportPerspectiveCamera.quaternion
+			.toArray()
+			.map(roundComponent),
+	};
+	harness.controller.alignViewportToOrthographicView("posX");
+	harness.controller.setViewportProjectionMode("perspective");
+	assert.deepEqual(
+		harness.viewportPerspectiveCamera.position.toArray().map(roundComponent),
+		originalPose.position,
+	);
+	assert.deepEqual(
+		harness.viewportPerspectiveCamera.quaternion.toArray().map(roundComponent),
+		originalPose.quaternion,
+	);
+}
+
+{
+	const harness = createHarness();
+	harness.setSceneRaycastTargets([createCenterPlane(10)]);
+	harness.controller.alignViewportToOrthographicView("posX");
+	harness.controller.setViewportProjectionMode("perspective");
+	harness.controller.alignViewportToOrthographicView("posY");
+	const projectedReferencePoint = new THREE.Vector3(0, 0, -10).project(
+		harness.viewportOrthographicCamera,
+	);
+	assert.deepEqual(
+		[
+			roundComponent(projectedReferencePoint.x),
+			roundComponent(projectedReferencePoint.y),
+		],
+		[0, 0],
+	);
+	assert.equal(roundComponent(harness.store.viewportOrthoSize.value), 5.7735);
+}
+
+{
+	const harness = createHarness();
+	harness.viewportPerspectiveCamera.position.set(2, 3, 4);
+	harness.viewportPerspectiveCamera.lookAt(new THREE.Vector3(-1, 1, -7));
+	harness.viewportPerspectiveCamera.updateMatrixWorld(true);
+	harness.controller.alignViewportToOrthographicView("posX");
+	harness.controller.alignViewportToOrthographicView("posY");
+	harness.controller.setViewportProjectionMode("perspective");
+	const forward = harness.viewportPerspectiveCamera
+		.getWorldDirection(new THREE.Vector3())
+		.toArray()
+		.map(roundComponent);
+	assert.deepEqual(forward, [0, -1, 0]);
+}
+
+{
+	const harness = createHarness();
+	harness.controller.alignViewportToOrthographicView("posX");
+	harness.store.viewportOrthoSize.value = 500;
+	harness.store.viewportOrthoDistance.value = 10;
+	harness.controller.offsetViewportOrthographicDepth(100);
+	assert.equal(roundComponent(harness.store.viewportOrthoDistance.value), 10.3);
+	harness.controller.offsetViewportOrthographicDepth(100, { fine: true });
+	assert.equal(
+		roundComponent(harness.store.viewportOrthoDistance.value),
+		10.38,
+	);
+}
+
+{
+	const harness = createHarness();
+	harness.setSceneRaycastTargets([createCenterPlane(10)]);
+	harness.controller.alignViewportToOrthographicView("posX");
+	harness.controller.ensurePerspectiveForViewportRotation();
+	assert.deepEqual(
+		harness.viewportPerspectiveCamera.position.toArray().map(roundComponent),
+		harness.viewportOrthographicCamera.position.toArray().map(roundComponent),
+	);
+	assert.deepEqual(
+		harness.viewportPerspectiveCamera.quaternion.toArray().map(roundComponent),
+		harness.viewportOrthographicCamera.quaternion.toArray().map(roundComponent),
+	);
 }
 
 {

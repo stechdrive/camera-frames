@@ -8,10 +8,11 @@ import {
 	VIEWPORT_PROJECTION_PERSPECTIVE,
 	cloneViewportOrthoState,
 	configureViewportOrthographicCamera,
-	deriveViewportOrthoEntryStateFromCamera,
 	deriveViewportOrthoSizeFromPerspective,
 	getViewportOrthoOppositeView,
 	getViewportOrthoPreviewGridPlane,
+	getViewportOrthoSideVector,
+	getViewportOrthoUpVector,
 	getViewportOrthoViewDefinition,
 	getViewportOrthoViewForAxis,
 } from "../engine/viewport-orthographic.js";
@@ -20,6 +21,18 @@ const MIN_VIEWPORT_ORTHO_SIZE = 0.02;
 const MAX_VIEWPORT_ORTHO_SIZE = 1000000;
 const MIN_VIEWPORT_ORTHO_DISTANCE = 0.05;
 const TRANSIENT_VIEWPORT_REFERENCE_TTL_MS = 1500;
+const VIEWPORT_REFERENCE_POINT_DISTANCE_RADIUS_FACTOR = 8;
+const VIEWPORT_ORTHO_ENTRY_FALLBACK_DISTANCE_RADIUS_FACTOR = 4;
+const VIEWPORT_ORTHO_ENTRY_MAX_DISTANCE_RADIUS_FACTOR = 16;
+const VIEWPORT_ORTHO_DEPTH_STEP_FACTOR = 0.1;
+const VIEWPORT_ORTHO_DEPTH_FINE_STEP_FACTOR = 0.025;
+const VIEWPORT_ORTHO_DEPTH_MIN_STEP = 0.02;
+const VIEWPORT_ORTHO_DEPTH_FINE_MIN_STEP = 0.005;
+const VIEWPORT_ORTHO_DEPTH_MAX_STEP_RADIUS_FACTOR = 0.15;
+const VIEWPORT_ORTHO_DEPTH_FINE_MAX_STEP_RADIUS_FACTOR = 0.04;
+const VIEWPORT_WHEEL_DELTA_LINE_PX = 16;
+const VIEWPORT_WHEEL_DELTA_PAGE_PX = 800;
+const VIEWPORT_WHEEL_DELTA_NOTCH_PX = 100;
 
 function cloneOptionalVector3(value = null) {
 	return {
@@ -41,6 +54,55 @@ function cloneFiniteVector3(value = null) {
 	return new THREE.Vector3(Number(value.x), Number(value.y), Number(value.z));
 }
 
+function cloneOptionalQuaternion(value = null) {
+	return {
+		x: Number(value?.x ?? 0),
+		y: Number(value?.y ?? 0),
+		z: Number(value?.z ?? 0),
+		w: Number(value?.w ?? 1),
+	};
+}
+
+function cloneFiniteQuaternion(value = null) {
+	if (
+		!value ||
+		!Number.isFinite(value.x) ||
+		!Number.isFinite(value.y) ||
+		!Number.isFinite(value.z) ||
+		!Number.isFinite(value.w)
+	) {
+		return null;
+	}
+	return new THREE.Quaternion(
+		Number(value.x),
+		Number(value.y),
+		Number(value.z),
+		Number(value.w),
+	);
+}
+
+function approximatelyEqual(a, b, epsilon = 1e-6) {
+	return Math.abs(Number(a) - Number(b)) <= epsilon;
+}
+
+function areViewportOrthoStatesEquivalent(a = null, b = null) {
+	if (!a || !b) {
+		return false;
+	}
+	return (
+		a.viewId === b.viewId &&
+		approximatelyEqual(a.size, b.size) &&
+		approximatelyEqual(a.distance, b.distance) &&
+		approximatelyEqual(a.focus?.x, b.focus?.x) &&
+		approximatelyEqual(a.focus?.y, b.focus?.y) &&
+		approximatelyEqual(a.focus?.z, b.focus?.z)
+	);
+}
+
+function clampWithMinimum(value, minimumValue) {
+	return Math.max(Number(value) || 0, Number(minimumValue) || 0);
+}
+
 export function createViewportProjectionController({
 	store,
 	viewportShell,
@@ -59,6 +121,8 @@ export function createViewportProjectionController({
 	let lastViewportReferencePoint = null;
 	let transientViewportReferencePoint = null;
 	let transientViewportReferenceExpiresAt = 0;
+	let savedViewportPerspectivePose = null;
+	let savedViewportOrthoEntryState = null;
 
 	function getViewportAspect() {
 		const { width, height } = getViewportSize();
@@ -115,6 +179,84 @@ export function createViewportProjectionController({
 			center,
 			radius,
 		};
+	}
+
+	function getViewportReferenceDistanceLimit() {
+		const { radius } = getSceneFramingState();
+		return Math.max(
+			radius * VIEWPORT_REFERENCE_POINT_DISTANCE_RADIUS_FACTOR,
+			DEFAULT_VIEWPORT_ORTHO_DISTANCE * 2,
+		);
+	}
+
+	function isViewportReferencePointReasonable(point) {
+		const candidate = cloneFiniteVector3(point);
+		if (!candidate) {
+			return false;
+		}
+		const { center } = getSceneFramingState();
+		return candidate.distanceTo(center) <= getViewportReferenceDistanceLimit();
+	}
+
+	function getViewportOrthoEntryDistanceRange() {
+		const { radius } = getSceneFramingState();
+		const fallbackDistance = Math.max(
+			radius * VIEWPORT_ORTHO_ENTRY_FALLBACK_DISTANCE_RADIUS_FACTOR,
+			DEFAULT_VIEWPORT_ORTHO_DISTANCE,
+		);
+		return {
+			fallbackDistance,
+			maxDistance: Math.max(
+				radius * VIEWPORT_ORTHO_ENTRY_MAX_DISTANCE_RADIUS_FACTOR,
+				fallbackDistance,
+			),
+		};
+	}
+
+	function clampViewportOrthoEntryDepth(depth) {
+		const { fallbackDistance, maxDistance } =
+			getViewportOrthoEntryDistanceRange();
+		if (!(depth > 1e-4)) {
+			return fallbackDistance;
+		}
+		return THREE.MathUtils.clamp(
+			depth,
+			MIN_VIEWPORT_ORTHO_DISTANCE,
+			maxDistance,
+		);
+	}
+
+	function normalizeViewportWheelDeltaToNotches(deltaY, deltaMode = 0) {
+		let pixels = Number(deltaY);
+		if (!Number.isFinite(pixels)) {
+			return 0;
+		}
+		if (Number(deltaMode) === 1) {
+			pixels *= VIEWPORT_WHEEL_DELTA_LINE_PX;
+		} else if (Number(deltaMode) === 2) {
+			pixels *= VIEWPORT_WHEEL_DELTA_PAGE_PX;
+		}
+		return pixels / VIEWPORT_WHEEL_DELTA_NOTCH_PX;
+	}
+
+	function getViewportOrthographicDepthStep(state, { fine = false } = {}) {
+		const { radius } = getSceneFramingState();
+		const baseStep =
+			(Number(state?.size) || DEFAULT_VIEWPORT_ORTHO_SIZE) *
+			(fine
+				? VIEWPORT_ORTHO_DEPTH_FINE_STEP_FACTOR
+				: VIEWPORT_ORTHO_DEPTH_STEP_FACTOR);
+		const minimumStep = fine
+			? VIEWPORT_ORTHO_DEPTH_FINE_MIN_STEP
+			: VIEWPORT_ORTHO_DEPTH_MIN_STEP;
+		const maximumStep = Math.max(
+			radius *
+				(fine
+					? VIEWPORT_ORTHO_DEPTH_FINE_MAX_STEP_RADIUS_FACTOR
+					: VIEWPORT_ORTHO_DEPTH_MAX_STEP_RADIUS_FACTOR),
+			fine ? 0.025 : 0.1,
+		);
+		return THREE.MathUtils.clamp(baseStep, minimumStep, maximumStep);
 	}
 
 	function syncPerspectiveViewportProjection() {
@@ -183,6 +325,44 @@ export function createViewportProjectionController({
 		return Boolean(lastViewportReferencePoint);
 	}
 
+	function captureViewportPerspectivePose() {
+		if (!viewportPerspectiveCamera) {
+			return null;
+		}
+		return {
+			position: cloneOptionalVector3(viewportPerspectiveCamera.position),
+			quaternion: cloneOptionalQuaternion(viewportPerspectiveCamera.quaternion),
+			up: cloneOptionalVector3(viewportPerspectiveCamera.up),
+		};
+	}
+
+	function rememberViewportPerspectivePose() {
+		savedViewportPerspectivePose = captureViewportPerspectivePose();
+		return Boolean(savedViewportPerspectivePose);
+	}
+
+	function restoreViewportPerspectivePose(snapshot = null) {
+		if (!viewportPerspectiveCamera) {
+			return false;
+		}
+		const position = cloneFiniteVector3(snapshot?.position);
+		const quaternion = cloneFiniteQuaternion(snapshot?.quaternion);
+		const up = cloneFiniteVector3(snapshot?.up);
+		if (!position || !quaternion || !up) {
+			return false;
+		}
+		viewportPerspectiveCamera.position.copy(position);
+		viewportPerspectiveCamera.quaternion.copy(quaternion).normalize();
+		viewportPerspectiveCamera.up.copy(up).normalize();
+		viewportPerspectiveCamera.updateMatrixWorld(true);
+		return true;
+	}
+
+	function rememberViewportOrthoEntryState(state) {
+		savedViewportOrthoEntryState = cloneViewportOrthoState(state);
+		return savedViewportOrthoEntryState;
+	}
+
 	function clearViewportTransientReferencePoint() {
 		transientViewportReferencePoint = null;
 		transientViewportReferenceExpiresAt = 0;
@@ -237,24 +417,27 @@ export function createViewportProjectionController({
 		}
 
 		const transientReferencePoint = getViewportTransientReferencePoint();
-		if (transientReferencePoint) {
+		if (isViewportReferencePointReasonable(transientReferencePoint)) {
 			clearViewportTransientReferencePoint();
 			return transientReferencePoint;
 		}
 
-		return lastViewportReferencePoint?.clone?.() ?? null;
+		if (isViewportReferencePointReasonable(lastViewportReferencePoint)) {
+			return lastViewportReferencePoint.clone();
+		}
+		return null;
 	}
 
-	function deriveViewportOrthoEntrySize(currentState, referencePoint = null) {
+	function resolveViewportEntryDepth(currentState, referencePoint = null) {
 		const camera = viewportPerspectiveCamera;
 		if (!camera?.isPerspectiveCamera) {
-			return Math.max(
-				Number(currentState?.size) || 0,
-				DEFAULT_VIEWPORT_ORTHO_SIZE,
+			return clampWithMinimum(
+				Number(currentState?.distance) || 0,
+				DEFAULT_VIEWPORT_ORTHO_DISTANCE,
 			);
 		}
 
-		const { center, radius } = getSceneFramingState();
+		const { center } = getSceneFramingState();
 		camera.getWorldPosition(referenceCameraPosition);
 		camera.getWorldDirection(referenceCameraForward).normalize();
 
@@ -271,15 +454,26 @@ export function createViewportProjectionController({
 				.sub(referenceCameraPosition)
 				.dot(referenceCameraForward);
 		}
-		if (!(depth > 1e-4)) {
-			depth = Math.max(
-				referenceCameraPosition.distanceTo(center),
-				radius * 2,
-				Number(currentState?.distance) || 0,
-				DEFAULT_VIEWPORT_ORTHO_DISTANCE,
+		return clampViewportOrthoEntryDepth(depth);
+	}
+
+	function resolveViewportEntryFocusPoint(currentState, referencePoint = null) {
+		const nextReferencePoint = cloneFiniteVector3(referencePoint);
+		if (nextReferencePoint) {
+			return nextReferencePoint;
+		}
+		return getSceneFramingState().center.clone();
+	}
+
+	function deriveViewportOrthoEntrySize(currentState, referencePoint = null) {
+		const camera = viewportPerspectiveCamera;
+		if (!camera?.isPerspectiveCamera) {
+			return Math.max(
+				Number(currentState?.size) || 0,
+				DEFAULT_VIEWPORT_ORTHO_SIZE,
 			);
 		}
-
+		const depth = resolveViewportEntryDepth(currentState, referencePoint);
 		return deriveViewportOrthoSizeFromPerspective({
 			depth,
 			verticalFovDegrees: camera.fov,
@@ -287,7 +481,55 @@ export function createViewportProjectionController({
 		});
 	}
 
-	function setViewportProjectionMode(mode, { copyActivePose = true } = {}) {
+	function applyPerspectivePoseFromOrthographicState() {
+		if (!viewportPerspectiveCamera) {
+			return false;
+		}
+		const state = getViewportOrthoState();
+		const focus = cloneFiniteVector3(state.focus);
+		if (!focus) {
+			return false;
+		}
+		const aspect = getViewportAspect();
+		const verticalFovDegrees = horizontalToVerticalFovDegrees(
+			store.viewportBaseFovX.value,
+			aspect,
+		);
+		const tangent = Math.tan(
+			THREE.MathUtils.degToRad(
+				THREE.MathUtils.clamp(verticalFovDegrees, 1e-3, 179.999) * 0.5,
+			),
+		);
+		if (!(tangent > 1e-6)) {
+			return false;
+		}
+		const side = getViewportOrthoSideVector(
+			state.viewId,
+			new THREE.Vector3(),
+		).normalize();
+		const up = getViewportOrthoUpVector(
+			state.viewId,
+			new THREE.Vector3(),
+		).normalize();
+		const depth = Math.max(
+			MIN_VIEWPORT_ORTHO_DISTANCE,
+			(Number(state.size) || DEFAULT_VIEWPORT_ORTHO_SIZE) / tangent,
+		);
+		viewportPerspectiveCamera.position.copy(focus).addScaledVector(side, depth);
+		viewportPerspectiveCamera.up.copy(up);
+		viewportPerspectiveCamera.lookAt(focus);
+		viewportPerspectiveCamera.updateMatrixWorld(true);
+		return true;
+	}
+
+	function setViewportProjectionMode(
+		mode,
+		{
+			copyActivePose = true,
+			restoreSavedPerspective = copyActivePose,
+			matchOrthographicFraming = copyActivePose,
+		} = {},
+	) {
 		const nextMode =
 			mode === VIEWPORT_PROJECTION_ORTHOGRAPHIC
 				? VIEWPORT_PROJECTION_ORTHOGRAPHIC
@@ -297,24 +539,55 @@ export function createViewportProjectionController({
 			return false;
 		}
 
+		const previousMode = store.viewportProjectionMode.value;
+		if (
+			nextMode === VIEWPORT_PROJECTION_ORTHOGRAPHIC &&
+			previousMode === VIEWPORT_PROJECTION_PERSPECTIVE
+		) {
+			rememberViewportPerspectivePose();
+			savedViewportOrthoEntryState = null;
+		}
+
 		if (
 			nextMode === VIEWPORT_PROJECTION_PERSPECTIVE &&
-			copyActivePose &&
-			viewportOrthographicCamera
+			previousMode === VIEWPORT_PROJECTION_ORTHOGRAPHIC
 		) {
-			viewportPerspectiveCamera.position.copy(
-				viewportOrthographicCamera.position,
-			);
-			viewportPerspectiveCamera.quaternion.copy(
-				viewportOrthographicCamera.quaternion,
-			);
-			viewportPerspectiveCamera.up.copy(viewportOrthographicCamera.up);
-			viewportPerspectiveCamera.updateMatrixWorld(true);
+			const shouldRestoreSavedPerspective =
+				restoreSavedPerspective &&
+				areViewportOrthoStatesEquivalent(
+					getViewportOrthoState(),
+					savedViewportOrthoEntryState,
+				);
+			const restoredPerspective =
+				shouldRestoreSavedPerspective &&
+				restoreViewportPerspectivePose(savedViewportPerspectivePose);
+			const matchedOrthographicFraming =
+				!restoredPerspective &&
+				matchOrthographicFraming &&
+				applyPerspectivePoseFromOrthographicState();
+			if (
+				!restoredPerspective &&
+				!matchedOrthographicFraming &&
+				copyActivePose &&
+				viewportOrthographicCamera
+			) {
+				viewportPerspectiveCamera.position.copy(
+					viewportOrthographicCamera.position,
+				);
+				viewportPerspectiveCamera.quaternion.copy(
+					viewportOrthographicCamera.quaternion,
+				);
+				viewportPerspectiveCamera.up.copy(viewportOrthographicCamera.up);
+				viewportPerspectiveCamera.updateMatrixWorld(true);
+			}
 		}
 
 		store.viewportProjectionMode.value = nextMode;
 		if (nextMode === VIEWPORT_PROJECTION_ORTHOGRAPHIC) {
 			ensureOrthoStateInitialized();
+			if (!savedViewportOrthoEntryState) {
+				rememberViewportOrthoEntryState(getViewportOrthoState());
+			}
 		}
 		syncActiveViewportProjection();
 		return true;
@@ -326,36 +599,47 @@ export function createViewportProjectionController({
 	) {
 		const resolvedViewId = getViewportOrthoViewDefinition(viewId).id;
 		const currentState = ensureOrthoStateInitialized();
+		const wasOrthographic = isViewportOrthographic();
 		const shouldToggle =
 			toggleOppositeOnRepeat &&
-			isViewportOrthographic() &&
+			wasOrthographic &&
 			currentState.viewId === resolvedViewId;
 		const nextViewId = shouldToggle
 			? getViewportOrthoOppositeView(resolvedViewId)
 			: resolvedViewId;
-		const referencePoint = isViewportOrthographic()
-			? null
-			: resolveViewportEntryReferencePoint();
-		const entryState = isViewportOrthographic()
-			? currentState
-			: {
-					...currentState,
-					size: deriveViewportOrthoEntrySize(currentState, referencePoint),
-				};
-		const nextState = isViewportOrthographic()
+		const nextState = wasOrthographic
 			? {
-					...entryState,
+					...currentState,
 					viewId: nextViewId,
 				}
-			: deriveViewportOrthoEntryStateFromCamera({
-					currentState: entryState,
-					viewId: nextViewId,
-					cameraPosition: viewportPerspectiveCamera?.position ?? null,
-				});
+			: (() => {
+					const referencePoint = resolveViewportEntryReferencePoint();
+					const focusPoint = resolveViewportEntryFocusPoint(
+						currentState,
+						referencePoint,
+					);
+					const distance = resolveViewportEntryDepth(
+						currentState,
+						referencePoint ?? focusPoint,
+					);
+					return {
+						...currentState,
+						viewId: nextViewId,
+						size: deriveViewportOrthoEntrySize(
+							currentState,
+							referencePoint ?? focusPoint,
+						),
+						distance,
+						focus: cloneOptionalVector3(focusPoint),
+					};
+				})();
 		setViewportProjectionMode(VIEWPORT_PROJECTION_ORTHOGRAPHIC, {
 			copyActivePose: false,
 		});
-		setViewportOrthoState(nextState);
+		const normalizedState = setViewportOrthoState(nextState);
+		if (!wasOrthographic) {
+			rememberViewportOrthoEntryState(normalizedState);
+		}
 		syncActiveViewportProjection();
 		return true;
 	}
@@ -390,6 +674,8 @@ export function createViewportProjectionController({
 		}
 		return setViewportProjectionMode(VIEWPORT_PROJECTION_PERSPECTIVE, {
 			copyActivePose: true,
+			restoreSavedPerspective: false,
+			matchOrthographicFraming: false,
 		});
 	}
 
@@ -454,14 +740,25 @@ export function createViewportProjectionController({
 		return true;
 	}
 
-	function offsetViewportOrthographicDepth(deltaY, { fine = false } = {}) {
+	function offsetViewportOrthographicDepth(
+		deltaY,
+		{ fine = false, deltaMode = 0 } = {},
+	) {
 		if (!isViewportOrthographic() || !Number.isFinite(deltaY)) {
 			return false;
 		}
 		const state = getViewportOrthoState();
+		const wheelNotches = normalizeViewportWheelDeltaToNotches(
+			deltaY,
+			deltaMode,
+		);
+		if (Math.abs(wheelNotches) < 1e-6) {
+			return false;
+		}
+		const depthStep = getViewportOrthographicDepthStep(state, { fine });
 		const nextDistance = Math.max(
 			MIN_VIEWPORT_ORTHO_DISTANCE,
-			state.distance + Number(deltaY) * state.size * (fine ? 0.002 : 0.006),
+			state.distance + wheelNotches * depthStep,
 		);
 		setViewportOrthoState({
 			...state,
