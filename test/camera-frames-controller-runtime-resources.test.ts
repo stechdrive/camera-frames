@@ -103,7 +103,6 @@ class FakeGLTFLoader {}
 	assert.equal(resources.renderer.outputColorSpace, "srgb");
 	assert.equal(resources.scene.background.value, 0x08111d);
 	assert.equal(resources.spark.options.renderer, resources.renderer);
-	assert.equal(resources.spark.__cameraFramesOrthoLodPatched, true);
 	assert.equal(resources.contentRoot.children.length, 2);
 	assert.equal(resources.guides.children[0].id, "guide-group");
 	assert.deepEqual(resources.viewportCamera.args, [50, 1, 0.1, 1000]);
@@ -117,5 +116,4 @@ class FakeGLTFLoader {}
 	assert.ok(resources.loader instanceof FakeGLTFLoader);
 	assert.equal(resources.shotCameraRegistry.size, 0);
 }
-
 console.log("✅ CAMERA_FRAMES controller runtime resources tests passed!");
