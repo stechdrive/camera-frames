@@ -74,6 +74,8 @@ export function createControllerApi({
 			perSplatEditController?.setSplatEditBoxCenterAxis?.(...args),
 		setSplatEditBoxSizeAxis: (...args) =>
 			perSplatEditController?.setSplatEditBoxSizeAxis?.(...args),
+		setSplatEditBoxRotationAxis: (...args) =>
+			perSplatEditController?.setSplatEditBoxRotationAxis?.(...args),
 		scaleSplatEditBoxUniform: (...args) =>
 			perSplatEditController?.scaleSplatEditBoxUniform?.(...args),
 		fitSplatEditBoxToScope: (...args) =>

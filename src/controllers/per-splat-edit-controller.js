@@ -412,9 +412,18 @@ export function createPerSplatEditController({
 			legacyState: asset?.source?.legacyState ?? null,
 			resource: asset?.source?.resource ?? null,
 		});
+		asset.capturePackedSplatSourceInEditState = true;
 		updateSplatAssetBoundsHints(asset);
 		invalidateBrushSpatialIndex(asset);
 		return true;
+	}
+
+	function markSelectedSplatAssetsForHistorySourceCapture(entries = []) {
+		for (const entry of entries) {
+			if (entry?.asset?.kind === "splat") {
+				entry.asset.capturePackedSplatSourceInEditState = true;
+			}
+		}
 	}
 
 	function createDerivedPackedSplatSource(
@@ -952,7 +961,7 @@ export function createPerSplatEditController({
 
 	function restoreEditState(snapshot = null) {
 		selectedSplatsByAssetId.clear();
-		activeBrushStroke = null;
+		clearActiveBrushStroke();
 		clearBrushPreview({ syncUi: false });
 		if (!snapshot || typeof snapshot !== "object") {
 			store.splatEdit.tool.value = "box";
@@ -1057,6 +1066,22 @@ export function createPerSplatEditController({
 		const hasHistoryTransaction = beginHistoryTransaction?.(label) === true;
 		try {
 			const result = await applyChange();
+			if (hasHistoryTransaction) {
+				commitHistoryTransaction?.(label);
+			}
+			return result;
+		} catch (error) {
+			if (hasHistoryTransaction) {
+				cancelHistoryTransaction?.();
+			}
+			throw error;
+		}
+	}
+
+	function runSynchronousHistoryTransaction(label, applyChange) {
+		const hasHistoryTransaction = beginHistoryTransaction?.(label) === true;
+		try {
+			const result = applyChange();
 			if (hasHistoryTransaction) {
 				commitHistoryTransaction?.(label);
 			}
@@ -1860,48 +1885,53 @@ export function createPerSplatEditController({
 	}
 
 	function placeSplatEditBoxAtClientPoint({ clientX, clientY } = {}) {
-		const camera =
-			state.mode === "camera"
-				? (getActiveCameraViewCamera?.() ?? getActiveCamera?.() ?? null)
-				: (getActiveCamera?.() ?? null);
-		const viewportRect = getViewportRect();
-		let nextCenter = null;
+		return runSynchronousHistoryTransaction("splat-edit.box-place", () => {
+			const camera =
+				state.mode === "camera"
+					? (getActiveCameraViewCamera?.() ?? getActiveCamera?.() ?? null)
+					: (getActiveCamera?.() ?? null);
+			const viewportRect = getViewportRect();
+			let nextCenter = null;
 
-		if (camera && viewportRect) {
-			const pointerRay = updatePointerRay(
-				raycaster,
-				pointerNdc,
-				{
-					clientX,
-					clientY,
-				},
-				camera,
-				viewportRect,
-			);
-			const raycastTargets =
-				getAssetController?.()?.getSceneRaycastTargets?.() ?? [];
-			if (raycastTargets.length > 0) {
-				const intersections = raycaster.intersectObjects(raycastTargets, true);
-				nextCenter = intersections[0]?.point?.clone?.() ?? null;
+			if (camera && viewportRect) {
+				const pointerRay = updatePointerRay(
+					raycaster,
+					pointerNdc,
+					{
+						clientX,
+						clientY,
+					},
+					camera,
+					viewportRect,
+				);
+				const raycastTargets =
+					getAssetController?.()?.getSceneRaycastTargets?.() ?? [];
+				if (raycastTargets.length > 0) {
+					const intersections = raycaster.intersectObjects(
+						raycastTargets,
+						true,
+					);
+					nextCenter = intersections[0]?.point?.clone?.() ?? null;
+				}
+				nextCenter ??= pointerRay.at(DEFAULT_BOX_SIZE, new THREE.Vector3());
 			}
-			nextCenter ??= pointerRay.at(DEFAULT_BOX_SIZE, new THREE.Vector3());
-		}
 
-		if (!nextCenter) {
-			nextCenter = new THREE.Vector3();
-		}
+			if (!nextCenter) {
+				nextCenter = new THREE.Vector3();
+			}
 
-		store.splatEdit.boxPlaced.value = true;
-		store.splatEdit.boxCenter.value = toPlainPoint(nextCenter);
-		store.splatEdit.boxSize.value = {
-			x: DEFAULT_BOX_SIZE,
-			y: DEFAULT_BOX_SIZE,
-			z: DEFAULT_BOX_SIZE,
-		};
-		store.splatEdit.boxRotation.value = { x: 0, y: 0, z: 0, w: 1 };
-		syncSceneHelper();
-		updateUi?.();
-		return true;
+			store.splatEdit.boxPlaced.value = true;
+			store.splatEdit.boxCenter.value = toPlainPoint(nextCenter);
+			store.splatEdit.boxSize.value = {
+				x: DEFAULT_BOX_SIZE,
+				y: DEFAULT_BOX_SIZE,
+				z: DEFAULT_BOX_SIZE,
+			};
+			store.splatEdit.boxRotation.value = { x: 0, y: 0, z: 0, w: 1 };
+			syncSceneHelper();
+			updateUi?.();
+			return true;
+		});
 	}
 
 	function syncSceneHelper() {
@@ -2130,23 +2160,25 @@ export function createPerSplatEditController({
 	}
 
 	function fitSplatEditBoxToScope() {
-		const scopeBounds = getPreciseScopeCenterBounds() ?? getScopeBounds();
-		if (!scopeBounds) {
-			return false;
-		}
-		const nextCenter = scopeBounds.getCenter(new THREE.Vector3());
-		const nextSize = scopeBounds.getSize(new THREE.Vector3());
-		store.splatEdit.boxPlaced.value = true;
-		store.splatEdit.boxCenter.value = toPlainPoint(nextCenter);
-		store.splatEdit.boxSize.value = {
-			x: clampBoxAxisSize(nextSize.x),
-			y: clampBoxAxisSize(nextSize.y),
-			z: clampBoxAxisSize(nextSize.z),
-		};
-		store.splatEdit.boxRotation.value = { x: 0, y: 0, z: 0, w: 1 };
-		syncSceneHelper();
-		updateUi?.();
-		return true;
+		return runSynchronousHistoryTransaction("splat-edit.box-fit", () => {
+			const scopeBounds = getPreciseScopeCenterBounds() ?? getScopeBounds();
+			if (!scopeBounds) {
+				return false;
+			}
+			const nextCenter = scopeBounds.getCenter(new THREE.Vector3());
+			const nextSize = scopeBounds.getSize(new THREE.Vector3());
+			store.splatEdit.boxPlaced.value = true;
+			store.splatEdit.boxCenter.value = toPlainPoint(nextCenter);
+			store.splatEdit.boxSize.value = {
+				x: clampBoxAxisSize(nextSize.x),
+				y: clampBoxAxisSize(nextSize.y),
+				z: clampBoxAxisSize(nextSize.z),
+			};
+			store.splatEdit.boxRotation.value = { x: 0, y: 0, z: 0, w: 1 };
+			syncSceneHelper();
+			updateUi?.();
+			return true;
+		});
 	}
 
 	function isSplatEditModeAvailable() {
@@ -2174,14 +2206,24 @@ export function createPerSplatEditController({
 					? "transform"
 					: "box";
 		if (previousTool === "box" && resolvedTool === "box") {
+			if (activeBoxDrag?.historyStarted) {
+				cancelHistoryTransaction?.();
+			}
+			activeBoxDrag = null;
 			store.splatEdit.boxPlaced.value = false;
 			syncSceneHelper();
 			updateUi?.();
 			return store.splatEdit.tool.value;
 		}
 		store.splatEdit.tool.value = resolvedTool;
+		if (previousTool === "box" && resolvedTool !== "box") {
+			if (activeBoxDrag?.historyStarted) {
+				cancelHistoryTransaction?.();
+			}
+			activeBoxDrag = null;
+		}
 		if (previousTool === "brush" && store.splatEdit.tool.value !== "brush") {
-			activeBrushStroke = null;
+			clearActiveBrushStroke({ commitHistory: true });
 			clearBrushPreview({ syncUi: false });
 			flushPendingSelectionHighlightSync();
 		}
@@ -2251,16 +2293,18 @@ export function createPerSplatEditController({
 		if (!Number.isFinite(scaleFactor) || scaleFactor <= 0) {
 			return false;
 		}
-		store.splatEdit.boxPlaced.value = true;
-		const currentSize = getSplatEditBoxSize();
-		store.splatEdit.boxSize.value = {
-			x: clampBoxAxisSize(currentSize.x * scaleFactor),
-			y: clampBoxAxisSize(currentSize.y * scaleFactor),
-			z: clampBoxAxisSize(currentSize.z * scaleFactor),
-		};
-		syncSceneHelper();
-		updateUi?.();
-		return true;
+		return runSynchronousHistoryTransaction("splat-edit.box-scale", () => {
+			store.splatEdit.boxPlaced.value = true;
+			const currentSize = getSplatEditBoxSize();
+			store.splatEdit.boxSize.value = {
+				x: clampBoxAxisSize(currentSize.x * scaleFactor),
+				y: clampBoxAxisSize(currentSize.y * scaleFactor),
+				z: clampBoxAxisSize(currentSize.z * scaleFactor),
+			};
+			syncSceneHelper();
+			updateUi?.();
+			return true;
+		});
 	}
 
 	function applySplatEditBoxSelection({ subtract = false } = {}) {
@@ -2547,23 +2591,65 @@ export function createPerSplatEditController({
 			}
 			return 0;
 		}
-		return applySplatEditBrushHit(brushHit, {
-			subtract,
-			syncUi,
-			announce,
-		});
+		const hasHistoryTransaction =
+			beginHistoryTransaction?.("splat-edit.brush") === true;
+		try {
+			const changedCount = applySplatEditBrushHit(brushHit, {
+				subtract,
+				syncUi,
+				announce,
+			});
+			if (hasHistoryTransaction) {
+				if (changedCount > 0) {
+					commitHistoryTransaction?.("splat-edit.brush");
+				} else {
+					cancelHistoryTransaction?.();
+				}
+			}
+			return changedCount;
+		} catch (error) {
+			if (hasHistoryTransaction) {
+				cancelHistoryTransaction?.();
+			}
+			throw error;
+		}
 	}
 
-	function updateActiveBrushStrokeStatus() {
-		if (!activeBrushStroke) {
+	function commitActiveBrushStrokeHistory() {
+		if (!activeBrushStroke?.historyStarted) {
 			return false;
 		}
-		store.splatEdit.lastOperation.value = {
-			mode: activeBrushStroke.subtract ? "subtract" : "add",
-			hitCount: activeBrushStroke.changedCount,
-		};
-		updateUi?.();
+		if ((activeBrushStroke.changedCount ?? 0) <= 0) {
+			cancelHistoryTransaction?.();
+			return false;
+		}
+		return commitHistoryTransaction?.("splat-edit.brush") === true;
+	}
+
+	function cancelActiveBrushStrokeHistory() {
+		if (!activeBrushStroke?.historyStarted) {
+			return false;
+		}
+		cancelHistoryTransaction?.();
 		return true;
+	}
+
+	function clearActiveBrushStroke({ commitHistory = false } = {}) {
+		if (!activeBrushStroke) {
+			return null;
+		}
+		const stroke = activeBrushStroke;
+		if (commitHistory) {
+			commitActiveBrushStrokeHistory();
+		} else {
+			cancelActiveBrushStrokeHistory();
+		}
+		activeBrushStroke = null;
+		return stroke;
+	}
+
+	function startBrushStrokeHistory() {
+		return beginHistoryTransaction?.("splat-edit.brush") === true;
 	}
 
 	function startSplatEditBrushStroke(event) {
@@ -2595,6 +2681,7 @@ export function createPerSplatEditController({
 				Number(store.splatEdit.brushPreview.value?.radiusPx) > 0
 					? Number(store.splatEdit.brushPreview.value.radiusPx)
 					: 18,
+			historyStarted: startBrushStrokeHistory(),
 		};
 		activeBrushStroke.changedCount += applySplatEditBrushHit(brushHit, {
 			subtract,
@@ -2606,6 +2693,18 @@ export function createPerSplatEditController({
 			painting: true,
 		});
 		updateActiveBrushStrokeStatus();
+		return true;
+	}
+
+	function updateActiveBrushStrokeStatus() {
+		if (!activeBrushStroke) {
+			return false;
+		}
+		store.splatEdit.lastOperation.value = {
+			mode: activeBrushStroke.subtract ? "subtract" : "add",
+			hitCount: activeBrushStroke.changedCount,
+		};
+		updateUi?.();
 		return true;
 	}
 
@@ -2672,8 +2771,7 @@ export function createPerSplatEditController({
 		) {
 			return false;
 		}
-		const stroke = activeBrushStroke;
-		activeBrushStroke = null;
+		const stroke = clearActiveBrushStroke({ commitHistory: true });
 		flushPendingSelectionHighlightSync();
 		if (
 			cancel !== true &&
@@ -2911,8 +3009,11 @@ export function createPerSplatEditController({
 		if (!isSplatEditModeActive()) {
 			return false;
 		}
+		if (activeBoxDrag?.historyStarted) {
+			cancelHistoryTransaction?.();
+		}
 		activeBoxDrag = null;
-		activeBrushStroke = null;
+		clearActiveBrushStroke({ commitHistory: true });
 		clearBrushPreview({ syncUi: false });
 		if (activeTransformDrag?.historyStarted) {
 			cancelHistoryTransaction?.();
@@ -2927,7 +3028,7 @@ export function createPerSplatEditController({
 
 	function resetForSceneChange() {
 		clearSplatSelection();
-		activeBrushStroke = null;
+		clearActiveBrushStroke();
 		clearBrushPreview({ syncUi: false });
 		store.splatEdit.scopeAssetIds.value = [];
 		store.splatEdit.rememberedScopeAssetIds.value = [];
@@ -2941,6 +3042,9 @@ export function createPerSplatEditController({
 		};
 		if (store.viewportToolMode.value === "splat-edit") {
 			store.viewportToolMode.value = "none";
+		}
+		if (activeBoxDrag?.historyStarted) {
+			cancelHistoryTransaction?.();
 		}
 		activeBoxDrag = null;
 		if (activeTransformDrag?.historyStarted) {
@@ -2965,8 +3069,11 @@ export function createPerSplatEditController({
 			if (store.viewportToolMode.value === "splat-edit") {
 				store.viewportToolMode.value = "none";
 			}
+			if (activeBoxDrag?.historyStarted) {
+				cancelHistoryTransaction?.();
+			}
 			activeBoxDrag = null;
-			activeBrushStroke = null;
+			clearActiveBrushStroke({ commitHistory: true });
 			if (activeTransformDrag?.historyStarted) {
 				cancelHistoryTransaction?.();
 			}
@@ -3089,6 +3196,7 @@ export function createPerSplatEditController({
 			if (selection.entries.length === 0 || !selection.selectionBounds) {
 				return false;
 			}
+			markSelectedSplatAssetsForHistorySourceCapture(selection.entries);
 
 			const pointerRay = updatePointerRay(
 				raycaster,
@@ -3277,6 +3385,8 @@ export function createPerSplatEditController({
 				axisWorld: axisWorld.clone(),
 				planeNormal: planeNormal.clone(),
 				planePoint: planePoint.clone(),
+				historyStarted:
+					beginHistoryTransaction?.("splat-edit.box-transform") === true,
 			};
 			return true;
 		}
@@ -3309,6 +3419,8 @@ export function createPerSplatEditController({
 				anchorWorld,
 				planeNormal: planeNormal.clone(),
 				planePoint: planePoint.clone(),
+				historyStarted:
+					beginHistoryTransaction?.("splat-edit.box-transform") === true,
 			};
 			return true;
 		}
@@ -3339,6 +3451,8 @@ export function createPerSplatEditController({
 				axisWorld: axisWorld.clone(),
 				startVector: startVector.clone(),
 				startRotation: getSplatEditBoxRotation(),
+				historyStarted:
+					beginHistoryTransaction?.("splat-edit.box-transform") === true,
 			};
 			return true;
 		}
@@ -3569,12 +3683,16 @@ export function createPerSplatEditController({
 		) {
 			return false;
 		}
+		const completedDrag = activeBoxDrag;
 		activeBoxDrag = null;
+		if (completedDrag.historyStarted) {
+			commitHistoryTransaction?.("splat-edit.box-transform");
+		}
 		return true;
 	}
 
 	function dispose() {
-		activeBrushStroke = null;
+		clearActiveBrushStroke();
 		clearBrushPreview({ syncUi: false });
 		clearActiveTransformPreview({ syncUi: false });
 		clearSelectionHighlight();

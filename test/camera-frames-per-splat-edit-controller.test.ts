@@ -706,6 +706,10 @@ async function createPackedSplatAsset({ id, label, centers }) {
 		y: 1,
 		z: 1,
 	});
+	assert.deepEqual(harness.historyCalls, [
+		["begin", "splat-edit.box-place"],
+		["commit", "splat-edit.box-place"],
+	]);
 }
 
 {
@@ -831,6 +835,56 @@ async function createPackedSplatAsset({ id, label, centers }) {
 	const harness = createHarness();
 	harness.store.sceneAssets.value = [
 		createSplatAsset({
+			id: "splat-fit-history",
+			centers: [new THREE.Vector3(-1, 0, 0), new THREE.Vector3(1, 0, 0)],
+			centerBounds: new THREE.Box3(
+				new THREE.Vector3(-1, -0.5, -0.5),
+				new THREE.Vector3(1, 0.5, 0.5),
+			),
+		}),
+	];
+	harness.store.selectedSceneAssetIds.value = ["splat-fit-history"];
+
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	assert.equal(harness.controller.fitSplatEditBoxToScope(), true);
+	assert.deepEqual(harness.historyCalls, [
+		["begin", "splat-edit.box-fit"],
+		["commit", "splat-edit.box-fit"],
+	]);
+}
+
+{
+	const harness = createHarness();
+	harness.store.sceneAssets.value = [
+		createSplatAsset({
+			id: "splat-scale-history",
+			centers: [new THREE.Vector3(0, 0, 0)],
+			centerBounds: new THREE.Box3(
+				new THREE.Vector3(-0.5, -0.5, -0.5),
+				new THREE.Vector3(0.5, 0.5, 0.5),
+			),
+		}),
+	];
+	harness.store.selectedSceneAssetIds.value = ["splat-scale-history"];
+
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	assert.equal(harness.controller.scaleSplatEditBoxUniform(1.1), true);
+	assert.deepEqual(harness.historyCalls, [
+		["begin", "splat-edit.box-scale"],
+		["commit", "splat-edit.box-scale"],
+	]);
+}
+
+{
+	const harness = createHarness();
+	harness.store.sceneAssets.value = [
+		createSplatAsset({
 			id: "splat-1",
 			centers: [
 				new THREE.Vector3(0, 0, -0.05),
@@ -865,6 +919,10 @@ async function createPackedSplatAsset({ id, label, centers }) {
 	);
 	assert.equal(harness.store.splatEdit.selectionCount.value, 2);
 	assert.deepEqual(harness.calls.at(-1), ["status", "added:2"]);
+	assert.deepEqual(harness.historyCalls, [
+		["begin", "splat-edit.brush"],
+		["commit", "splat-edit.brush"],
+	]);
 }
 
 {
@@ -917,6 +975,10 @@ async function createPackedSplatAsset({ id, label, centers }) {
 	assert.equal(harness.store.splatEdit.brushPreview.value.visible, true);
 	assert.equal(harness.store.splatEdit.brushPreview.value.painting, false);
 	assert.deepEqual(harness.calls.at(-1), ["status", "added:2"]);
+	assert.deepEqual(harness.historyCalls, [
+		["begin", "splat-edit.brush"],
+		["commit", "splat-edit.brush"],
+	]);
 }
 
 {
@@ -1622,6 +1684,7 @@ async function createPackedSplatAsset({ id, label, centers }) {
 		}),
 		true,
 	);
+	assert.equal(asset.capturePackedSplatSourceInEditState, true);
 	const previewMoveEvent = createPointerEvent({
 		pointerId: 9,
 		clientX: 550,
@@ -1727,6 +1790,10 @@ async function createPackedSplatAsset({ id, label, centers }) {
 		harness.controller.handleViewportGizmoDragEnd(rotateEvent),
 		true,
 	);
+	assert.deepEqual(harness.historyCalls, [
+		["begin", "splat-edit.box-transform"],
+		["commit", "splat-edit.box-transform"],
+	]);
 }
 
 // Brush selects splats via fallback depth when raycast misses

@@ -19,6 +19,77 @@ export function createSceneAssetStatePersistence({
 	applyProjectAssetState,
 	loadSources,
 }) {
+	function cloneSerializable(value) {
+		if (value == null) {
+			return value;
+		}
+		if (typeof structuredClone === "function") {
+			return structuredClone(value);
+		}
+		return JSON.parse(JSON.stringify(value));
+	}
+
+	function clonePackedSplatEditSource(source) {
+		if (!isProjectFilePackedSplatSource(source)) {
+			return null;
+		}
+		return cloneSerializable(source);
+	}
+
+	function shouldCapturePackedSplatEditSource(asset) {
+		return (
+			asset?.capturePackedSplatSourceInEditState === true &&
+			isProjectFilePackedSplatSource(asset?.source)
+		);
+	}
+
+	function syncPackedSplatBoundsHints(asset) {
+		const splatMesh = asset?.disposeTarget;
+		if (!splatMesh || typeof splatMesh.getBoundingBox !== "function") {
+			return false;
+		}
+		const localBoundsHint =
+			splatMesh.getBoundingBox(false)?.clone?.() ??
+			splatMesh.getBoundingBox()?.clone?.() ??
+			null;
+		const localCenterBoundsHint =
+			splatMesh.getBoundingBox(true)?.clone?.() ??
+			localBoundsHint?.clone?.() ??
+			null;
+		asset.localBoundsHint = localBoundsHint;
+		asset.localCenterBoundsHint = localCenterBoundsHint;
+		return true;
+	}
+
+	function restorePackedSplatEditSource(asset, sourceSnapshot) {
+		const nextSource = clonePackedSplatEditSource(sourceSnapshot);
+		if (!asset || !nextSource) {
+			return false;
+		}
+		const packedSplats = asset.disposeTarget?.packedSplats;
+		if (typeof packedSplats?.reinitialize !== "function") {
+			return false;
+		}
+		packedSplats.reinitialize({
+			packedArray: nextSource.packedArray,
+			numSplats: nextSource.numSplats,
+			extra: nextSource.extra ?? {},
+			splatEncoding: nextSource.splatEncoding ?? null,
+			lod: packedSplats.lod,
+			nonLod: packedSplats.nonLod,
+		});
+		packedSplats.disposeLodSplats?.();
+		packedSplats.needsUpdate = true;
+		asset.disposeTarget.numSplats =
+			packedSplats.getNumSplats?.() ?? packedSplats.numSplats ?? 0;
+		asset.disposeTarget.updateGenerator?.();
+		asset.disposeTarget.updateVersion?.();
+		asset.source = nextSource;
+		asset.capturePackedSplatSourceInEditState = true;
+		syncPackedSplatBoundsHints(asset);
+		return true;
+	}
+
 	function getSceneAssetSourceKey(asset) {
 		return getProjectSourceStableKey(asset?.source);
 	}
@@ -61,6 +132,9 @@ export function createSceneAssetStatePersistence({
 					y: asset.object.position.y,
 					z: asset.object.position.z,
 				},
+				sourceSnapshot: shouldCapturePackedSplatEditSource(asset)
+					? clonePackedSplatEditSource(asset.source)
+					: null,
 				rotationDegrees: {
 					x: THREE.MathUtils.radToDeg(asset.object.rotation.x),
 					y: THREE.MathUtils.radToDeg(asset.object.rotation.y),
@@ -150,6 +224,13 @@ export function createSceneAssetStatePersistence({
 			);
 			applyAssetWorldScale(asset);
 			asset.object.updateMatrixWorld(true);
+			if (item.sourceSnapshot != null) {
+				if (!restorePackedSplatEditSource(asset, item.sourceSnapshot)) {
+					return false;
+				}
+			} else {
+				asset.capturePackedSplatSourceInEditState = false;
+			}
 		}
 
 		const restoredSelectedIds = Array.isArray(snapshot.selectedSceneAssetIds)

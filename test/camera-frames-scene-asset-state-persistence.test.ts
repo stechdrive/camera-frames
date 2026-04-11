@@ -61,6 +61,68 @@ function createAsset(id, kind, label, source = null) {
 	};
 }
 
+function createPackedSplatAsset(id, label, source) {
+	const asset = createAsset(id, "splat", label, source);
+	let packedArray =
+		source?.packedArray instanceof Uint32Array
+			? new Uint32Array(source.packedArray)
+			: new Uint32Array();
+	let numSplats = Number.isFinite(source?.numSplats)
+		? Number(source.numSplats)
+		: 0;
+	const disposeTarget = {
+		packedSplats: {
+			packedArray,
+			numSplats,
+			lod: true,
+			nonLod: false,
+			needsUpdate: false,
+			reinitialize(options = {}) {
+				packedArray =
+					options.packedArray instanceof Uint32Array
+						? new Uint32Array(options.packedArray)
+						: new Uint32Array();
+				numSplats = Number.isFinite(options.numSplats)
+					? Number(options.numSplats)
+					: packedArray.length / 4;
+				this.packedArray = packedArray;
+				this.numSplats = numSplats;
+				this.extra = options.extra ?? {};
+				this.splatEncoding = options.splatEncoding ?? null;
+			},
+			getNumSplats() {
+				return numSplats;
+			},
+			disposeLodSplatsCalled: 0,
+			disposeLodSplats() {
+				this.disposeLodSplatsCalled += 1;
+			},
+		},
+		numSplats,
+		updateGeneratorCalls: 0,
+		updateGenerator() {
+			this.updateGeneratorCalls += 1;
+		},
+		updateVersionCalls: 0,
+		updateVersion() {
+			this.updateVersionCalls += 1;
+		},
+		getBoundingBox(centersOnly = false) {
+			return centersOnly
+				? new THREE.Box3(
+						new THREE.Vector3(-0.5, -0.5, -0.5),
+						new THREE.Vector3(0.5, 0.5, 0.5),
+					)
+				: new THREE.Box3(
+						new THREE.Vector3(-1, -1, -1),
+						new THREE.Vector3(1, 1, 1),
+					);
+		},
+	};
+	asset.disposeTarget = disposeTarget;
+	return asset;
+}
+
 function createHarness() {
 	const sceneState = {
 		assets: [],
@@ -219,6 +281,30 @@ function createHarness() {
 }
 
 {
+	const { sceneState, statePersistence } = createHarness();
+	const packedSource = {
+		kind: "packed-splat",
+		fileName: "edited.rawsplat",
+		packedArray: new Uint32Array([1, 2, 3, 4]),
+		numSplats: 1,
+		extra: { lodTree: new Uint32Array([7, 8, 9]) },
+		splatEncoding: { mode: "test" },
+		resource: { type: "raw-packed-splat", packedArray: { sha256: "abc" } },
+	};
+	const asset = createPackedSplatAsset(1, "Edited", packedSource);
+	asset.capturePackedSplatSourceInEditState = true;
+	sceneState.assets.push(asset);
+
+	const snapshot = statePersistence.captureSceneAssetEditState();
+
+	assert.deepEqual(
+		Array.from(snapshot.assets[0].sourceSnapshot.packedArray),
+		[1, 2, 3, 4],
+	);
+	assert.notEqual(snapshot.assets[0].sourceSnapshot, packedSource);
+}
+
+{
 	const { sceneState, store, detachedSceneAssets, calls, statePersistence } =
 		createHarness();
 	const assetA = createAsset(1, "model", "A");
@@ -264,6 +350,62 @@ function createHarness() {
 	assert.ok(Math.abs(assetB.object.rotation.y - Math.PI / 2) < 1e-9);
 	assert.equal(assetB.maskGroup, "mask-a");
 	assert.equal(assetB.workingPivotLocal.x, 1);
+}
+
+{
+	const { sceneState, statePersistence } = createHarness();
+	const asset = createPackedSplatAsset(1, "Edited", {
+		kind: "packed-splat",
+		fileName: "edited.rawsplat",
+		packedArray: new Uint32Array([1, 2, 3, 4]),
+		numSplats: 1,
+		extra: { lodTree: new Uint32Array([5, 6, 7]) },
+		splatEncoding: { mode: "before" },
+	});
+	asset.capturePackedSplatSourceInEditState = true;
+	sceneState.assets.push(asset);
+
+	const restored = statePersistence.restoreSceneAssetEditState({
+		selectedSceneAssetIds: [],
+		selectedSceneAssetId: null,
+		assets: [
+			{
+				id: 1,
+				kind: "splat",
+				worldScale: 1,
+				unitMode: "meters",
+				exportRole: "beauty",
+				maskGroup: "",
+				workingPivotLocal: null,
+				baseScale: { x: 1, y: 1, z: 1 },
+				contentTransform: captureObjectLocalTransformState(asset.contentObject),
+				visible: true,
+				position: { x: 0, y: 0, z: 0 },
+				rotationDegrees: { x: 0, y: 0, z: 0 },
+				sourceSnapshot: {
+					kind: "packed-splat",
+					fileName: "restored.rawsplat",
+					packedArray: new Uint32Array([9, 10, 11, 12]),
+					numSplats: 1,
+					extra: { lodTree: new Uint32Array([1, 2, 3]) },
+					splatEncoding: { mode: "after" },
+				},
+			},
+		],
+	});
+
+	assert.equal(restored, true);
+	assert.deepEqual(Array.from(asset.source.packedArray), [9, 10, 11, 12]);
+	assert.deepEqual(
+		Array.from(asset.disposeTarget.packedSplats.packedArray),
+		[9, 10, 11, 12],
+	);
+	assert.equal(asset.disposeTarget.updateGeneratorCalls, 1);
+	assert.equal(asset.disposeTarget.updateVersionCalls, 1);
+	assert.equal(asset.disposeTarget.packedSplats.disposeLodSplatsCalled, 1);
+	assert.equal(asset.capturePackedSplatSourceInEditState, true);
+	assert.ok(asset.localBoundsHint?.isBox3);
+	assert.ok(asset.localCenterBoundsHint?.isBox3);
 }
 
 {

@@ -5,6 +5,40 @@ function cloneSerializable(value) {
 	return JSON.parse(JSON.stringify(value));
 }
 
+function hashBinaryView(view) {
+	const bytes =
+		view instanceof Uint8Array
+			? view
+			: new Uint8Array(view.buffer, view.byteOffset, view.byteLength);
+	let hashA = 0x811c9dc5;
+	let hashB = 0x9e3779b9;
+	for (let index = 0; index < bytes.length; index += 1) {
+		const value = bytes[index];
+		hashA = Math.imul(hashA ^ value, 0x01000193);
+		hashB = Math.imul(hashB ^ (value + (index & 0xff)), 0x85ebca6b);
+	}
+	return `${(hashA >>> 0).toString(16)}:${(hashB >>> 0).toString(16)}`;
+}
+
+function buildSnapshotKeySummary(value) {
+	if (value instanceof ArrayBuffer) {
+		const bytes = new Uint8Array(value);
+		return {
+			__binary: "ArrayBuffer",
+			byteLength: bytes.byteLength,
+			hash: hashBinaryView(bytes),
+		};
+	}
+	if (ArrayBuffer.isView(value)) {
+		return {
+			__binary: value.constructor?.name ?? "ArrayBufferView",
+			byteLength: value.byteLength,
+			hash: hashBinaryView(value),
+		};
+	}
+	return value;
+}
+
 export function createHistoryController({
 	store,
 	captureWorkspaceState,
@@ -26,7 +60,9 @@ export function createHistoryController({
 	}
 
 	function getSnapshotKey(snapshot) {
-		return JSON.stringify(snapshot);
+		return JSON.stringify(snapshot, (_key, value) =>
+			buildSnapshotKeySummary(value),
+		);
 	}
 
 	function clearHistory() {

@@ -82,4 +82,25 @@ function createHarness() {
 	assert.equal(harness.historyController.undoHistory(), false);
 }
 
+{
+	const harness = createHarness();
+	const largeBefore = new Uint32Array(300_000);
+	largeBefore[150_000] = 1;
+	harness.setState({
+		...harness.getState(),
+		splats: largeBefore,
+	});
+	harness.historyController.beginHistoryTransaction("large-binary");
+	const largeAfter = new Uint32Array(largeBefore);
+	largeAfter[150_000] = 2;
+	harness.setState({
+		...harness.getState(),
+		splats: largeAfter,
+	});
+	assert.equal(harness.historyController.commitHistoryTransaction(), true);
+	assert.equal(harness.store.history.canUndo.value, true);
+	assert.equal(harness.historyController.undoHistory(), true);
+	assert.equal(harness.getState().splats[150_000], 1);
+}
+
 console.log("✅ CAMERA_FRAMES history controller tests passed!");
