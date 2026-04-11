@@ -5,6 +5,9 @@ import {
 	BASE_RENDER_BOX,
 	DEFAULT_CAMERA_NEAR,
 	VIEWPORT_PIXEL_RATIO,
+	WORKBENCH_GAP_PX,
+	WORKBENCH_PANEL_MAX_WIDTH_PX,
+	WORKBENCH_RAIL_WIDTH_PX,
 	WORKBENCH_SAFE_GUTTER_PX,
 	WORKBENCH_STACK_BREAKPOINT_PX,
 } from "../constants.js";
@@ -55,6 +58,58 @@ export function computeWorkbenchLayoutState({
 		safeTop: 0,
 		safeBottom: viewportHeight,
 		safeHeight: viewportHeight,
+	};
+}
+
+export function computeWorkbenchAutoCollapseState({
+	containerWidth,
+	containerHeight,
+	exportWidth,
+	exportHeight,
+	phoneLikeTouchViewport = false,
+}) {
+	const stableContainerWidth = Math.max(1, Number(containerWidth) || 0);
+	const stableContainerHeight = Math.max(1, Number(containerHeight) || 0);
+	const panelWidth = Math.min(
+		WORKBENCH_PANEL_MAX_WIDTH_PX,
+		Math.max(0, stableContainerWidth - WORKBENCH_GAP_PX * 2),
+	);
+	const expandedViewportWidth =
+		stableContainerWidth <= WORKBENCH_STACK_BREAKPOINT_PX
+			? stableContainerWidth
+			: Math.max(1, stableContainerWidth - panelWidth - WORKBENCH_GAP_PX);
+	const collapsedViewportWidth =
+		stableContainerWidth <= WORKBENCH_STACK_BREAKPOINT_PX
+			? stableContainerWidth
+			: Math.max(
+					1,
+					stableContainerWidth - WORKBENCH_RAIL_WIDTH_PX - WORKBENCH_GAP_PX,
+				);
+	const expandedFitScale = Math.min(
+		expandedViewportWidth / Math.max(exportWidth, 1),
+		stableContainerHeight / Math.max(exportHeight, 1),
+	);
+	const collapsedFitScale = Math.min(
+		collapsedViewportWidth / Math.max(exportWidth, 1),
+		stableContainerHeight / Math.max(exportHeight, 1),
+	);
+	const expandedSafeZoom = clampViewZoom(
+		(expandedFitScale / Math.max(collapsedFitScale, 1e-6)) *
+			AUTO_VIEW_ZOOM_MARGIN,
+	);
+	const expandedStackedLayout =
+		expandedViewportWidth <= WORKBENCH_STACK_BREAKPOINT_PX;
+
+	return {
+		panelWidth,
+		expandedViewportWidth,
+		collapsedViewportWidth,
+		expandedStackedLayout,
+		expandedSafeZoom,
+		shouldAutoCollapse:
+			phoneLikeTouchViewport ||
+			expandedStackedLayout ||
+			expandedSafeZoom < AUTO_WORKBENCH_MIN_SAFE_ZOOM,
 	};
 }
 
@@ -171,6 +226,17 @@ export function createOutputFrameController({
 		};
 	}
 
+	function getWorkbenchContainerSize() {
+		const containerElement = viewportShell.parentElement;
+		return {
+			width: Math.max(containerElement?.clientWidth ?? viewportShell.clientWidth, 1),
+			height: Math.max(
+				containerElement?.clientHeight ?? viewportShell.clientHeight,
+				1,
+			),
+		};
+	}
+
 	function getWorkbenchLayoutState() {
 		const viewportWidth = Math.max(viewportShell.clientWidth, 1);
 		const viewportHeight = Math.max(viewportShell.clientHeight, 1);
@@ -202,33 +268,27 @@ export function createOutputFrameController({
 
 	function resolveAutoLayout(documentState) {
 		const exportSize = getOutputSizeState(documentState);
+		const { width: containerWidth, height: containerHeight } =
+			getWorkbenchContainerSize();
+		const phoneLikeTouchViewport = isPhoneLikeTouchViewport(containerWidth);
+		const autoCollapseState = computeWorkbenchAutoCollapseState({
+			containerWidth,
+			containerHeight,
+			exportWidth: exportSize.width,
+			exportHeight: exportSize.height,
+			phoneLikeTouchViewport,
+		});
 		const {
 			viewportWidth,
 			viewportHeight,
-			stackedLayout,
 			safeWidth,
-			safeLeft,
-			safeRight,
-			safeTop,
-			safeBottom,
 			safeHeight,
 		} = getWorkbenchLayoutState();
 		const fitScale = Math.min(
 			viewportWidth / exportSize.width,
 			viewportHeight / exportSize.height,
 		);
-		const safeFitScale = Math.min(
-			safeWidth / exportSize.width,
-			safeHeight / exportSize.height,
-		);
-		const expandedSafeZoom = clampViewZoom(
-			(safeFitScale / Math.max(fitScale, 1e-6)) * AUTO_VIEW_ZOOM_MARGIN,
-		);
-		const phoneLikeTouchViewport = isPhoneLikeTouchViewport(viewportWidth);
-		const shouldAutoCollapse =
-			phoneLikeTouchViewport ||
-			stackedLayout ||
-			expandedSafeZoom < AUTO_WORKBENCH_MIN_SAFE_ZOOM;
+		const shouldAutoCollapse = autoCollapseState.shouldAutoCollapse;
 
 		if (store.workbenchAutoCollapsed.value !== shouldAutoCollapse) {
 			store.workbenchAutoCollapsed.value = shouldAutoCollapse;

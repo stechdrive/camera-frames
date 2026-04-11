@@ -95,6 +95,152 @@
 	cursor: grabbing;
 }
 
+.workbench-shell.workbench-shell--compact-desktop {
+	inset: 0;
+	display: grid;
+	gap: var(--workbench-gap);
+}
+
+.workbench-shell--compact-desktop .workbench-column--left {
+	position: absolute;
+	left: 0.625rem;
+	top: 0.625rem;
+	bottom: auto;
+	z-index: 12;
+	transform: none;
+	width: auto;
+	align-items: flex-start;
+	pointer-events: none;
+}
+
+.workbench-shell--compact-desktop .workbench-column--right {
+	position: absolute;
+	right: 0;
+	top: 0;
+	width: min(var(--workbench-panel-width), calc(100vw - 5rem));
+	max-height: 100%;
+	align-items: flex-end;
+	overflow: visible;
+	pointer-events: none;
+	z-index: 11;
+}
+
+.workbench-shell--compact-desktop .workbench-column--right > * {
+	pointer-events: auto;
+}
+
+.workbench-shell--compact-desktop .workbench-card--tool-rail {
+	width: 3.55rem;
+	padding: 0.45rem;
+	border-radius: 22px;
+	cursor: grab;
+}
+
+.workbench-shell--compact-desktop .workbench-card--tool-rail.is-dragging {
+	cursor: grabbing;
+}
+
+.workbench-shell--compact-desktop .workbench-tool-rail {
+	flex-direction: column;
+	flex-wrap: nowrap;
+	align-items: center;
+	gap: 0.45rem;
+	width: 100%;
+	overflow: visible;
+}
+
+.workbench-shell--compact-desktop .workbench-tool-rail__group {
+	flex-direction: column;
+	width: 100%;
+}
+
+.workbench-shell--compact-desktop .workbench-tool-rail__segmented {
+	width: 100%;
+	min-width: 0;
+}
+
+.workbench-shell--compact-desktop .workbench-tool-rail__segmented--vertical {
+	flex-direction: column;
+	width: 100%;
+}
+
+.workbench-shell--compact-desktop
+	.workbench-tool-rail__segmented--vertical
+	.workbench-tool-rail__segment {
+	flex: 0 0 auto;
+	width: 100%;
+}
+
+.workbench-shell--compact-desktop .workbench-tool-rail__divider {
+	width: 100%;
+	height: 1px;
+	background: linear-gradient(
+		90deg,
+		rgba(255, 255, 255, 0) 0%,
+		rgba(255, 255, 255, 0.16) 25%,
+		rgba(255, 255, 255, 0.16) 75%,
+		rgba(255, 255, 255, 0) 100%
+	);
+}
+
+.workbench-shell--compact-desktop .workbench-tool-rail__button,
+.workbench-shell--compact-desktop .workbench-tool-rail .workbench-menu__trigger {
+	width: 2.35rem;
+	min-width: 2.35rem;
+	height: 2.35rem;
+	min-height: 2.35rem;
+	border-radius: 12px;
+}
+
+.workbench-shell--compact-desktop
+	.workbench-tool-rail__button
+	.workbench-icon,
+.workbench-shell--compact-desktop
+	.workbench-tool-rail
+	.workbench-menu__trigger
+	.workbench-icon,
+.workbench-shell--compact-desktop .workbench-tool-rail__control .workbench-icon {
+	width: auto;
+	height: auto;
+}
+
+.workbench-shell--compact-desktop .workbench-tool-rail__segment svg {
+	width: 1rem;
+	height: 1rem;
+}
+
+.workbench-shell--compact-desktop
+	.workbench-column--right.workbench-column--right-collapsed {
+	position: absolute;
+	right: 0;
+	top: 0;
+	width: var(--workbench-rail-width);
+	flex-direction: column;
+	align-items: flex-end;
+	gap: 0.55rem;
+	overflow: visible;
+	pointer-events: none;
+}
+
+.workbench-shell--compact-desktop
+	.workbench-column--right.workbench-column--right-collapsed
+	> * {
+	pointer-events: auto;
+}
+
+.workbench-shell--compact-desktop .workbench-card--inspector-peek {
+	position: absolute;
+	top: calc(100% + 0.55rem);
+	right: 0;
+	width: min(360px, calc(100vw - 5rem));
+	max-height: min(70vh, calc(100vh - 7rem));
+	z-index: 12;
+}
+
+.workbench-shell--compact-desktop .workbench-card--inspector {
+	max-height: min(84vh, calc(100vh - 1.25rem));
+}
+
 .workbench-card--scene,
 .workbench-card--inspector {
 	flex: 1 1 auto;

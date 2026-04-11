@@ -2,7 +2,10 @@ import { html } from "htm/preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import { getAnchorOptions } from "../i18n.js";
 import { WorkbenchIcon } from "./workbench-icons.js";
-import { shouldUseMobileWorkbenchLayout } from "./workbench-layout-mode.js";
+import {
+	shouldUseCompactDesktopWorkbenchLayout,
+	shouldUseMobileWorkbenchLayout,
+} from "./workbench-layout-mode.js";
 import { HeaderMenu, IconButton } from "./workbench-primitives.js";
 import {
 	ExportSection,
@@ -87,6 +90,8 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 	const [collapsedInspectorSectionIds, setCollapsedInspectorSectionIds] =
 		useState([]);
 	const [isMobileWorkbench, setIsMobileWorkbench] = useState(false);
+	const [isCompactDesktopWorkbench, setIsCompactDesktopWorkbench] =
+		useState(false);
 	const [draggedAssetId, setDraggedAssetId] = useState(null);
 	const [dragHoverState, setDragHoverState] = useState(null);
 	const [toolRailPosition, setToolRailPosition] = useState({ x: 0, y: 0 });
@@ -337,7 +342,11 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 		return () => {
 			window.removeEventListener("resize", syncWithinBounds);
 		};
-	}, [isMobileWorkbench, refs, workbenchCollapsed]);
+	}, [
+		isMobileWorkbench,
+		refs,
+		workbenchCollapsed,
+	]);
 
 	useEffect(() => {
 		if (
@@ -348,11 +357,19 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 		}
 
 		const widthQuery = window.matchMedia("(max-width: 1180px)");
+		const coarsePointerQuery = window.matchMedia("(pointer: coarse)");
+		const noHoverQuery = window.matchMedia("(hover: none)");
 		const syncMobileWorkbench = () => {
+			const nextArgs = {
+				widthMatches: widthQuery.matches,
+				coarsePointerMatches: coarsePointerQuery.matches,
+				noHoverMatches: noHoverQuery.matches,
+			};
 			setIsMobileWorkbench(
-				shouldUseMobileWorkbenchLayout({
-					widthMatches: widthQuery.matches,
-				}),
+				shouldUseMobileWorkbenchLayout(nextArgs),
+			);
+			setIsCompactDesktopWorkbench(
+				shouldUseCompactDesktopWorkbenchLayout(nextArgs),
 			);
 		};
 
@@ -366,7 +383,11 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 			return () => query.removeListener(listener);
 		};
 
-		const cleanups = [addChangeListener(widthQuery, syncMobileWorkbench)];
+		const cleanups = [
+			addChangeListener(widthQuery, syncMobileWorkbench),
+			addChangeListener(coarsePointerQuery, syncMobileWorkbench),
+			addChangeListener(noHoverQuery, syncMobileWorkbench),
+		];
 		return () => {
 			for (const cleanup of cleanups) {
 				cleanup();
@@ -794,9 +815,11 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 					html`
 						<div
 							class="workbench-mobile-drawer-wrap"
-							ref=${refs?.workbenchRightColumnRef}
 						>
-							<section class="workbench-card workbench-card--inspector workbench-card--mobile-drawer">
+							<section
+								class="workbench-card workbench-card--inspector workbench-card--mobile-drawer"
+								ref=${refs?.workbenchRightColumnRef}
+							>
 								<div class="workbench-inspector-header">
 									<${InspectorTabs}
 										activeTab=${activeInspectorTab}
@@ -825,11 +848,15 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 
 	return html`
 		<div
-			class=${
-				workbenchCollapsed
-					? "workbench-shell workbench-shell--inspector-rail"
-					: "workbench-shell"
-			}
+			class=${[
+				"workbench-shell",
+				workbenchCollapsed ? "workbench-shell--inspector-rail" : "",
+				isCompactDesktopWorkbench
+					? "workbench-shell--compact-desktop"
+					: "",
+			]
+				.filter(Boolean)
+				.join(" ")}
 			ref=${refs?.workbenchShellRef}
 		>
 			<div
@@ -842,11 +869,13 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 			>
 				<section
 					ref=${toolRailRef}
-					class=${
-						toolRailDragging
-							? "workbench-card workbench-card--tool-rail is-dragging"
-							: "workbench-card workbench-card--tool-rail"
-					}
+					class=${[
+						"workbench-card",
+						"workbench-card--tool-rail",
+						toolRailDragging ? "is-dragging" : "",
+					]
+						.filter(Boolean)
+						.join(" ")}
 					onPointerDown=${handleToolRailPointerDown}
 					onPointerMove=${handleToolRailPointerMove}
 					onPointerUp=${finishToolRailDrag}
