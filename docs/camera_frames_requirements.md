@@ -1,0 +1,348 @@
+# CAMERA_FRAMES 実装要件 / 保守基点
+
+最終更新: 2026-04-12
+
+## 0. この文書の役割
+
+この文書は、この repo の現行実装を基準に、
+CAMERA_FRAMES の共有 contract を Git 管理するための基点です。
+
+- 正本は常に `src/`, `test/`, `package.json`
+- `docs/` は共有される仕様・保守契約
+- `.local/` は Git 管理しない補助メモ
+- 旧 `CAMERA_FRAMES` / `supersplat-cameraframes` 側の資料は履歴参照であり、この repo の仕様を上書きしない
+
+判断に迷った時の優先順:
+
+1. `src/`, `test/`, `package.json`
+2. この文書
+3. `docs/CameraFramesFeatures.md`
+4. `docs/legacy-ssproj-compatibility.md`
+5. `.local/` の補助資料
+6. 外部 repo / 過去資料
+
+## 1. 現在の基準
+
+- app version は `0.9.3`
+- portable project format は `camera-frames-project` version `3`
+- この repo は「新機能を大量に増やす段階」より、「既存 contract を壊さず hardening する段階」に入っている
+- 優先順位は次を基本にする
+  - bug fix
+  - preview / export correctness
+  - save / open / persistence safety
+  - performance / large-project hardening
+  - Spark preview 追従耐性のための構造整備
+
+## 2. プロダクト定義と不変条件
+
+- CAMERA_FRAMES は汎用 viewer ではなく、shot layout と export のための専用アプリである
+- 価値の中心は `shot camera + output frame + FRAME + reference image + export` の一貫運用にある
+- `Viewport` と `Camera View` は別の authoring context として扱う
+- `Output Frame` は単なる DOM 枠ではなく、preview / export の投影契約そのものとして扱う
+- shot camera の custom frustum により、指定した anchor / center を基準に構図を維持できることを core contract として扱う
+- output frame の width / height 調整は、指定 anchor の構図を壊さずに領域だけを変更できることを core contract として扱う
+- reference image は current output frame の一時見た目に直結で保存するのではなく、preset の `baseRenderBox` を基準に保持し、output frame 変更時も紙面基準の位置関係を保つことを core contract として扱う
+- `preview / export consistency` を最優先で守る
+- save は local resume 用の `working save` と portable な `.ssproj` package save を分ける
+- per-splat の raw selection は runtime-only、編集結果の splat source は persistent として扱う
+- 旧 CAMERA_FRAMES にあった `.sscam` は現 repo の baseline ではない
+
+## 3. 現在のアプリ形状
+
+- 起動の composition root は `src/controller.js`
+- bootstrap は `src/main.js`
+- 現行 UI は single-pane 前提で運用する
+- `WORKSPACE_LAYOUT_QUAD` 定数は残っているが、現行の product baseline には含めない
+- 主要 UI 面:
+  - `src/ui/viewport-shell.js`: viewport, HUD, overlay, direct manipulation
+  - `src/ui/side-panel.js`: left rail, inspector, file / export 導線
+  - `src/ui/app-overlay.js`: confirm / progress / error overlay
+
+## 4. Open / Import の契約
+
+- `Open...` は scene asset / reference image / `.ssproj` の統合入口
+- 単独の `.ssproj` を開いた時は project open として扱う
+- それ以外の複数ファイル選択は、scene asset import と reference image import に振り分ける
+- local file picker で受ける形式:
+  - scene asset / project: `.ply`, `.spz`, `.splat`, `.ksplat`, `.zip`, `.sog`, `.rad`, `.glb`, `.gltf`, `.ssproj`
+  - reference image: `.png`, `.jpg`, `.jpeg`, `.webp`, `.psd`
+- drag and drop でも同じ振り分けを使う
+- remote URL 欄は `http://` / `https://` の URL 群を読み込める
+- startup `?load=` は確認付きで読み込めるが、`https` のみ許可し、localhost / private host は拒否する
+- legacy `document.json` ベース package は fallback import path で読める
+
+補足:
+
+- reference image の PSD import は 1 枚の PSD を複数 layer item に展開する
+- legacy package から import するのは splat / model 系 asset が中心で、`refs/` の画像類は現 baseline の import asset には含めない
+
+## 5. Save / Project Lifecycle の契約
+
+- `Ctrl+S`
+  - `projectId` と `packageFingerprint` があり、working save storage が使える時は IndexedDB の working save を更新する
+  - それ以外は `.ssproj` package save に fallback する
+- `Ctrl+Shift+S`
+  - portable `.ssproj` package save
+- `.ssproj` を開いた時は `projectId + packageRevision + packageFingerprint` が一致する working save があれば自動復元する
+- project status の UI 表示は viewport HUD の `name / * / PKG`
+  - `*` は working save dirty
+  - `PKG` は portable package dirty
+- working save record には次を含める
+  - workspace
+  - shot cameras
+  - editor resume state
+  - scene asset working state
+  - scene selection
+  - reference image document
+- `.ssproj` package には次を含める
+  - workspace
+  - shot cameras
+  - scene assets
+  - lighting
+  - reference image assets / presets / per-shot binding
+  - project identity (`projectId`, `packageRevision`, `resources`)
+
+## 6. Scene / Camera / Reference Image の契約
+
+### 6.1 Scene assets
+
+scene asset は `splat` と `model` を同じ scene で扱う。
+
+各 asset が持つ主な保存 state:
+
+- `id`, `kind`, `label`
+- `transform`
+- `contentTransform`
+- `baseScale`, `worldScale`, `unitMode`
+- `visible`
+- `exportRole`
+- `maskGroup`
+- `workingPivotLocal`
+- `legacyState`
+
+補足:
+
+- `exportRole` は現状 `beauty` / `omit`
+- scene asset order は working save / `.ssproj` の両方で保持する
+- per-splat edit の結果は splat source 側へ反映され、package save にも乗る
+
+### 6.2 Shot camera
+
+shot camera は複数持てる。保存される主な state:
+
+- `pose`
+- `lens.baseFovX`
+- `clipping`
+- `outputFrame`
+- `exportSettings`
+- `frames`
+- `activeFrameId`
+- `frameMask`
+- `navigation.rollLock`
+- `referenceImages`
+
+既定値の基準:
+
+- shot camera 初期数は 1
+- 初期 camera 名は `Camera 1`
+- clipping 初期値は `mode=auto`, `near=0.1`, `far=1000`
+- export 初期値は `exportName=cf-%cam`, `exportFormat=psd`
+- grid は初期 ON
+- PSD の model layer / splat layer は初期 ON
+
+### 6.3 Output Frame
+
+- base render box は `1754 x 1240`
+- base frame は `1536 x 864`
+- `FRAME` 最大数は `20`
+- output frame の width / height scale は base size 未満に縮めない
+- export output は 1 辺 `16000px` を超えないよう clamp する
+- camera view zoom は `20%` から `200%`
+- anchor は 3x3 の preset を持つ
+- centered off-axis framing を維持するため、frustum は anchor / center / scale を反映して再計算する
+- output frame resize では anchor 側の frustum 上の固定点を維持し、領域変更だけを行う
+- `FRAME` の center / anchor も render box 変更時に新しい紙面へ remap される
+
+### 6.4 Reference images
+
+reference image document は次を持つ:
+
+- `assets`
+- `presets`
+- `activePresetId`
+
+shot camera 側は次を持つ:
+
+- `presetId`
+- `overridesByPresetId`
+  - `activeItemId`
+  - `renderBoxCorrection`
+  - item override map
+
+reference image の基準:
+
+- default preset は `(blank)`
+- 画像形式は `.png`, `.jpg`, `.jpeg`, `.webp`, `.psd`
+- item は `front` / `back` group を持つ
+- item は `previewVisible` と `exportEnabled` を別 state で持つ
+- per-shot override で name / group / order / visibility / export / opacity / scale / rotation / offset / anchor を上書きできる
+- preset は import / 作成時点の `baseRenderBox` を保持する
+- preview / transform / export では `baseRenderBox`, current output frame size, output frame anchor, `renderBoxCorrection` を使って effective offset を再計算する
+- つまり下絵は「今の紙サイズに焼き付いた絶対位置」ではなく、「元の紙面基準の位置」を保ちながら current output frame へ投影される
+- output frame の anchor や size を変えても、下絵は広がった / 縮んだ紙面上の対応位置へ置き直される
+- export run には runtime-only の `Include Reference Images` トグルがあり、既定値は ON
+
+## 7. Interaction / Tool の契約
+
+主な tool / mode:
+
+- navigate
+- zoom
+- select
+- transform
+- pivot
+- reference image edit
+- measurement
+- per-splat edit
+
+interaction の基準:
+
+- keyboard shortcut と pointer routing の集中点は `src/interactions/input-router.js`
+- `Ctrl+N`, `Ctrl+O`, `Ctrl+S`, `Ctrl+Shift+S`, undo / redo を持つ
+- viewport pie menu を持つ
+- middle click で pie menu を開く
+- orthographic は viewport-only
+- orthographic 操作中でも click-like gesture の時は元の投影状態へ戻す
+- direct manipulation は transaction 単位で undo/redo にまとめる
+
+per-splat edit の current contract:
+
+- entry は tool rail と `Shift+E`
+- 現行 tool / action
+  - `Box`
+  - `Brush`
+  - `Transform`
+  - `Delete`
+  - `Separate`
+  - `Duplicate`
+  - `Select All`
+  - `Invert`
+  - `Clear`
+
+## 8. Export の契約
+
+- export target は `current` / `all` / `selected`
+- export format は `png` / `psd`
+- selected export は shot camera checkbox で選び、実行順は workspace 上の shot camera 順に従う
+- export は shot camera ごとの `exportSettings` を使う
+
+shot camera ごとの export settings:
+
+- `exportName`
+- `exportFormat`
+- `exportGridOverlay`
+- `exportGridLayerMode`
+- `exportModelLayers`
+- `exportSplatLayers`
+
+export のルール:
+
+- `exportModelLayers`, `exportSplatLayers` は PSD 時のみ有効
+- `exportSplatLayers` は `exportModelLayers` が有効な時だけ有効
+- guide layer mode は `bottom` / `overlay`
+- reference image の export 参加条件は `exportEnabled` と export session toggle の両方
+
+PNG export:
+
+- beauty result を出力する
+- guide overlay を重ねられる
+- reference images を合成できる
+
+PSD export:
+
+- back reference images
+- guide
+- render
+- splat layers
+- model layers
+- eye-level
+- front reference images
+- frame overlay
+- frame mask layer
+
+補足:
+
+- PSD の reference image は back / front を別 group で出す
+- frame mask は PSD の hidden layer として持てる
+- export pipeline は `src/controllers/export/` に分割済み
+
+## 9. Legacy 互換と baseline 外
+
+現行 repo で互換 path を持つもの:
+
+- legacy `document.json` ベース `.ssproj` の fallback import
+- legacy project package 内の splat / model 抽出
+- old CAMERA_FRAMES render box / frame state から current shot camera document への変換
+
+互換の詳細は [legacy-ssproj-compatibility.md](./legacy-ssproj-compatibility.md) を参照。
+
+現 baseline に含めないもの:
+
+- `.sscam`
+- generic viewer 方向の UI
+- WebGPU 起動を前提にした運用
+- streaming LoD
+- `unified-culling=true` を既定前提にした性能議論
+- `WORKSPACE_LAYOUT_QUAD` の productized workflow
+
+## 10. ドキュメント更新ルール
+
+次を変えたら、この文書と `docs/CameraFramesFeatures.md` を同じ変更で更新する:
+
+- user-visible workflow
+- save / open / persistence boundary
+- `.ssproj` schema / versioning
+- export contract
+- reference image contract
+- tool / shortcut / mode の意味
+- preview / export consistency の前提
+
+内部構造だけの整理で user-visible contract が変わらない場合は、まず `test/` と `.local/` を優先してよい。
+
+## 11. Cross-check Files
+
+- bootstrap / composition: `src/main.js`, `src/controller.js`
+- project schema: `src/project-document.js`, `src/project-file.js`
+- working save: `src/project-working-state.js`, `src/controllers/project-controller.js`
+- import routing: `src/app/file-open-routing.js`, `src/controllers/scene-assets/import-runtime.js`
+- shot camera / output frame / FRAME: `src/workspace-model.js`, `src/controllers/camera-controller.js`, `src/controllers/output-frame-controller.js`, `src/controllers/frame-controller.js`
+- projection: `src/engine/projection.js`, `src/controllers/projection-controller.js`, `src/controllers/viewport-projection-controller.js`
+- reference image: `src/reference-image-model.js`, `src/controllers/reference-image/`, `src/controllers/reference-image-render-controller.js`
+- export: `src/controllers/export/`, `src/engine/export-pass-plan.js`, `src/engine/frame-mask-export.js`
+- per-splat edit: `src/controllers/per-splat-edit-controller.js`
+- input / shortcut: `src/interactions/input-router.js`
+
+## 12. Verification Baseline
+
+変更時の最低確認:
+
+- 全体:
+  - `npm run build`
+  - `npm test`
+- project / save:
+  - `test/camera-frames-project-controller.test.ts`
+  - `test/camera-frames-project-file.test.ts`
+  - `test/camera-frames-project-document.test.ts`
+- projection / output frame / frame:
+  - `test/camera-frames-projection.test.ts`
+  - `test/camera-frames-output-frame-controller.test.ts`
+  - `test/camera-frames-frame-controller.test.ts`
+  - `test/camera-frames-frame-mask-export.test.ts`
+- reference image:
+  - `test/camera-frames-reference-image-*.test.ts`
+  - `test/reference-image-controller*.test.ts`
+- export:
+  - `test/camera-frames-export-*.test.ts`
+  - `test/camera-frames-psd-export.test.ts`
+- per-splat:
+  - `test/camera-frames-per-splat-edit-controller.test.ts`
