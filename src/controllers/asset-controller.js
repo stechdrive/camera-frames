@@ -1,5 +1,6 @@
 import { PackedSplats, unpackSplats } from "@sparkjsdev/spark";
 import * as THREE from "three";
+import { enableSparkSplatMeshWorldToView } from "../engine/spark-integration/spark-splat-mesh-adapter.js";
 import { applyLegacyAssetState } from "../importers/legacy-ssproj.js";
 import {
 	createProjectFileEmbeddedFileSource,
@@ -495,7 +496,7 @@ export function createAssetController({
 				fileName,
 				lod: true,
 			});
-			mesh.enableWorldToView = true;
+			enableSparkSplatMeshWorldToView(mesh);
 			await mesh.initialized;
 			const asset = createSplatContainer({
 				mesh,

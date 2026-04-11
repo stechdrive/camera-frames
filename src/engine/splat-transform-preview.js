@@ -1,5 +1,6 @@
 import { SplatMesh } from "@sparkjsdev/spark";
 import * as THREE from "three";
+import { enableSparkSplatMeshWorldToView } from "./spark-integration/spark-splat-mesh-adapter.js";
 
 const DEFAULT_PREVIEW_HIGHLIGHT = new THREE.Color(0.36, 0.95, 0.55);
 const DEFAULT_PREVIEW_MIX = 0.68;
@@ -113,7 +114,7 @@ export function createSplatTransformPreviewController({
 			fileName: `${tint ? "selected" : "remainder"}-${entry.assetIdKey}.rawsplat`,
 			lod: true,
 		});
-		previewMesh.enableWorldToView = true;
+		enableSparkSplatMeshWorldToView(previewMesh);
 		return previewMesh.initialized.then(() => {
 			if (
 				generation !== nextGeneration ||

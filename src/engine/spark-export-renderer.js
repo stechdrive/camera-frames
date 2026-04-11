@@ -1,4 +1,9 @@
 import * as THREE from "three";
+import {
+	assignSparkExportBufferState,
+	captureSparkExportBufferOutputs,
+	captureSparkExportBufferState,
+} from "./spark-integration/spark-export-buffer-state.js";
 
 export const DEFAULT_EXPORT_SUPER_XY = 1;
 
@@ -52,14 +57,7 @@ export function createSparkExportRendererManager({ sourceSpark }) {
 	}
 
 	function captureBufferState() {
-		return {
-			target: sourceSpark.target,
-			backTarget: sourceSpark.backTarget,
-			superXY: sourceSpark.superXY,
-			superPixels: sourceSpark.superPixels,
-			targetPixels: sourceSpark.targetPixels,
-			encodeLinear: sourceSpark.encodeLinear,
-		};
+		return captureSparkExportBufferState(sourceSpark);
 	}
 
 	function assignExportTarget({
@@ -68,17 +66,20 @@ export function createSparkExportRendererManager({ sourceSpark }) {
 		superXY = DEFAULT_EXPORT_SUPER_XY,
 	}) {
 		ensureExportTarget({ width, height, superXY });
-		sourceSpark.target = exportTarget;
-		sourceSpark.backTarget = undefined;
-		sourceSpark.superXY = superXY;
-		sourceSpark.superPixels = exportSuperPixels;
-		sourceSpark.targetPixels = exportTargetPixels;
-		sourceSpark.encodeLinear = true;
+		assignSparkExportBufferState(sourceSpark, {
+			target: exportTarget,
+			backTarget: undefined,
+			superXY,
+			superPixels: exportSuperPixels,
+			targetPixels: exportTargetPixels,
+			encodeLinear: true,
+		});
 	}
 
 	function syncExportBuffersFromSpark() {
-		exportSuperPixels = sourceSpark.superPixels ?? null;
-		exportTargetPixels = sourceSpark.targetPixels ?? null;
+		const nextBuffers = captureSparkExportBufferOutputs(sourceSpark);
+		exportSuperPixels = nextBuffers.superPixels;
+		exportTargetPixels = nextBuffers.targetPixels;
 	}
 
 	function clearExportTarget({
@@ -114,12 +115,7 @@ export function createSparkExportRendererManager({ sourceSpark }) {
 
 	function restoreBufferState(previousState) {
 		syncExportBuffersFromSpark();
-		sourceSpark.target = previousState.target;
-		sourceSpark.backTarget = previousState.backTarget;
-		sourceSpark.superXY = previousState.superXY;
-		sourceSpark.superPixels = previousState.superPixels;
-		sourceSpark.targetPixels = previousState.targetPixels;
-		sourceSpark.encodeLinear = previousState.encodeLinear;
+		assignSparkExportBufferState(sourceSpark, previousState);
 	}
 
 	async function withExportTarget(config, callback) {

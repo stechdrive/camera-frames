@@ -1,6 +1,13 @@
 import * as THREE from "three";
 import { debugSplatHistory } from "../../debug/splat-history-debug.js";
 import {
+	disposeSparkPackedSplatsLod,
+	refreshSparkPackedSplatMesh,
+	reinitializeSparkPackedSplats,
+	resetSparkPackedSplatsRuntimeResources,
+	restoreSparkPackedSplatsInPlace,
+} from "../../engine/spark-integration/spark-packed-splats-adapter.js";
+import {
 	createProjectFilePackedSplatSource,
 	toUint32Array,
 } from "../../project-document.js";
@@ -192,80 +199,6 @@ export function createSceneAssetStatePersistence({
 		return true;
 	}
 
-	function resetPackedSplatRuntimeResources(
-		packedSplats,
-		{ packedArray = null, extra = {}, splatEncoding = null } = {},
-	) {
-		if (!packedSplats || typeof packedSplats !== "object") {
-			return false;
-		}
-		packedSplats.source?.dispose?.();
-		packedSplats.target?.dispose?.();
-		packedSplats.source = null;
-		packedSplats.target = null;
-		packedSplats.packedArray =
-			packedArray instanceof Uint32Array
-				? packedArray
-				: packedSplats.packedArray;
-		packedSplats.extra = extra;
-		packedSplats.splatEncoding = splatEncoding;
-		packedSplats.needsUpdate = true;
-		return true;
-	}
-
-	function restorePackedSplatRuntimeSourceInPlace(
-		packedSplats,
-		{
-			packedArray = null,
-			extra = {},
-			splatEncoding = null,
-			numSplats = 0,
-		} = {},
-	) {
-		if (
-			!(packedArray instanceof Uint32Array) ||
-			!(packedSplats?.packedArray instanceof Uint32Array) ||
-			packedSplats.packedArray.length !== packedArray.length
-		) {
-			return false;
-		}
-		packedSplats.packedArray.set(packedArray);
-		const currentExtra =
-			packedSplats.extra && typeof packedSplats.extra === "object"
-				? { ...packedSplats.extra }
-				: {};
-		for (const key of ["lodTree", "sh1", "sh2", "sh3"]) {
-			const nextArray = extra?.[key];
-			const currentArray = currentExtra[key];
-			if (!(nextArray instanceof Uint32Array)) {
-				delete currentExtra[key];
-				continue;
-			}
-			if (
-				currentArray instanceof Uint32Array &&
-				currentArray.length === nextArray.length
-			) {
-				currentArray.set(nextArray);
-				currentExtra[key] = currentArray;
-				continue;
-			}
-			currentExtra[key] = new Uint32Array(nextArray);
-		}
-		if (extra?.radMeta && typeof extra.radMeta === "object") {
-			currentExtra.radMeta = JSON.parse(JSON.stringify(extra.radMeta));
-		} else {
-			currentExtra.radMeta = undefined;
-		}
-		packedSplats.extra = currentExtra;
-		packedSplats.splatEncoding = splatEncoding;
-		packedSplats.numSplats =
-			Number.isFinite(numSplats) && numSplats >= 0
-				? Math.floor(numSplats)
-				: packedSplats.numSplats;
-		packedSplats.needsUpdate = true;
-		return true;
-	}
-
 	function restorePackedSplatEditSource(asset, sourceSnapshot) {
 		const nextSource = normalizePackedSplatEditSource(sourceSnapshot);
 		if (!asset || !nextSource) {
@@ -280,7 +213,7 @@ export function createSceneAssetStatePersistence({
 		const nextEncoding = nextSource.splatEncoding ?? null;
 		const previousNumSplats =
 			packedSplats.getNumSplats?.() ?? packedSplats.numSplats ?? null;
-		const restoredInPlace = restorePackedSplatRuntimeSourceInPlace(
+		const restoredInPlace = restoreSparkPackedSplatsInPlace(
 			packedSplats,
 			{
 				packedArray: nextPackedArray,
@@ -290,29 +223,22 @@ export function createSceneAssetStatePersistence({
 			},
 		);
 		if (!restoredInPlace) {
-			packedSplats.reinitialize({
+			reinitializeSparkPackedSplats(packedSplats, {
 				packedArray: nextPackedArray,
 				numSplats: nextSource.numSplats,
 				extra: nextExtra,
 				splatEncoding: nextEncoding,
-				lod: packedSplats.lod,
-				nonLod: packedSplats.nonLod,
 			});
-			resetPackedSplatRuntimeResources(packedSplats, {
+			resetSparkPackedSplatsRuntimeResources(packedSplats, {
 				packedArray: nextPackedArray,
 				extra: nextExtra,
 				splatEncoding: nextEncoding,
 			});
 		}
-		packedSplats.disposeLodSplats?.();
-		packedSplats.needsUpdate = true;
-		asset.disposeTarget.numSplats =
-			packedSplats.getNumSplats?.() ?? packedSplats.numSplats ?? 0;
-		asset.disposeTarget.lastSplats = null;
-		asset.disposeTarget.splats = packedSplats;
-		asset.disposeTarget.generatorDirty = true;
-		asset.disposeTarget.updateGenerator?.();
-		asset.disposeTarget.updateVersion?.();
+		disposeSparkPackedSplatsLod(packedSplats);
+		refreshSparkPackedSplatMesh(asset.disposeTarget, packedSplats, {
+			updateVersion: true,
+		});
 		asset.source = nextSource;
 		asset.capturePackedSplatSourceInEditState = false;
 		asset.persistentSourceDirty = false;

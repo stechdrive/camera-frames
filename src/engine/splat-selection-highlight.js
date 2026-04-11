@@ -1,4 +1,10 @@
 import { RgbaArray } from "@sparkjsdev/spark";
+import {
+	getSparkSplatMeshColorBufferArray,
+	getSparkSplatMeshCount,
+	restoreSparkSplatMeshColorBuffer,
+	setSparkSplatMeshColorBuffer,
+} from "./spark-integration/spark-splat-mesh-adapter.js";
 
 const DEFAULT_HIGHLIGHT_RGBA = {
 	r: 92,
@@ -12,12 +18,7 @@ function clampByte(value) {
 }
 
 function getSplatCount(splatMesh) {
-	return (
-		splatMesh?.splats?.getNumSplats?.() ??
-		splatMesh?.packedSplats?.getNumSplats?.() ??
-		splatMesh?.extSplats?.getNumSplats?.() ??
-		0
-	);
+	return getSparkSplatMeshCount(splatMesh);
 }
 
 function buildBaseRgbaArray(splatMesh, count) {
@@ -38,7 +39,7 @@ function buildBaseRgbaArray(splatMesh, count) {
 }
 
 function copyBaseRgbaArray(splatMesh, count) {
-	const existingArray = splatMesh?.splatRgba?.array;
+	const existingArray = getSparkSplatMeshColorBufferArray(splatMesh);
 	if (
 		existingArray instanceof Uint8Array &&
 		existingArray.length >= count * 4
@@ -95,8 +96,7 @@ export function createSplatSelectionHighlightController({
 			return;
 		}
 		if (entry.mesh) {
-			entry.mesh.splatRgba = entry.previousSplatRgba ?? null;
-			entry.mesh.updateGenerator?.();
+			restoreSparkSplatMeshColorBuffer(entry.mesh, entry.previousSplatRgba);
 		}
 		entry.rgbaArray?.dispose?.();
 	}
@@ -131,12 +131,10 @@ export function createSplatSelectionHighlightController({
 			mesh: splatMesh,
 			baseArray,
 			rgbaArray,
-			previousSplatRgba: splatMesh.splatRgba ?? null,
+			previousSplatRgba: setSparkSplatMeshColorBuffer(splatMesh, rgbaArray),
 			highlightedIndices: new Set(),
 			hiddenIndices: new Set(),
 		};
-		splatMesh.splatRgba = rgbaArray;
-		splatMesh.updateGenerator?.();
 		entriesByAssetId.set(assetIdKey, entry);
 		return entry;
 	}
@@ -185,7 +183,7 @@ export function createSplatSelectionHighlightController({
 		if (changed) {
 			entry.rgbaArray.needsUpdate = true;
 			entry.rgbaArray.getTexture?.();
-			entry.mesh?.updateGenerator?.();
+			setSparkSplatMeshColorBuffer(entry.mesh, entry.rgbaArray);
 		}
 	}
 

@@ -930,10 +930,15 @@ input[type="range"] {
 	line-height: 1.45;
 	white-space: pre-wrap;
 	word-break: break-word;
+	user-select: text;
+	-webkit-user-select: text;
+	cursor: text;
 }
 
 .overlay-card__details {
 	margin-top: 12px;
+	user-select: text;
+	-webkit-user-select: text;
 }
 
 .overlay-card__details summary {
