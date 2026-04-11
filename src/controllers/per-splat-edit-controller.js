@@ -2229,6 +2229,24 @@ export function createPerSplatEditController({
 		return true;
 	}
 
+	function setSplatEditBoxRotationAxis(axisKey, nextValue) {
+		if (!["x", "y", "z"].includes(axisKey) || !Number.isFinite(nextValue)) {
+			return false;
+		}
+		store.splatEdit.boxPlaced.value = true;
+		const nextEuler = new THREE.Euler().setFromQuaternion(
+			getSplatEditBoxRotation(),
+			"XYZ",
+		);
+		nextEuler[axisKey] = THREE.MathUtils.degToRad(Number(nextValue));
+		store.splatEdit.boxRotation.value = toPlainQuaternion(
+			new THREE.Quaternion().setFromEuler(nextEuler),
+		);
+		syncSceneHelper();
+		updateUi?.();
+		return true;
+	}
+
 	function scaleSplatEditBoxUniform(scaleFactor) {
 		if (!Number.isFinite(scaleFactor) || scaleFactor <= 0) {
 			return false;
@@ -3580,6 +3598,7 @@ export function createPerSplatEditController({
 		setSplatEditBrushDepth,
 		setSplatEditBoxCenterAxis,
 		setSplatEditBoxSizeAxis,
+		setSplatEditBoxRotationAxis,
 		scaleSplatEditBoxUniform,
 		placeSplatEditBoxAtViewCenter,
 		fitSplatEditBoxToScope,

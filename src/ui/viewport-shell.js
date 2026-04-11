@@ -1,5 +1,6 @@
 import { html } from "htm/preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
+import * as THREE from "three";
 import { getBuildVersionLabel } from "../build-info.js";
 import { BASE_FRAME, VIEWPORT_PIXEL_RATIO } from "../constants.js";
 import { drawFrameMaskToContext } from "../engine/frame-mask-export.js";
@@ -232,6 +233,7 @@ export function ViewportShell({ store, controller, refs, t }) {
 	const splatEditBoxPlaced = store.splatEdit.boxPlaced.value;
 	const splatEditBoxCenter = store.splatEdit.boxCenter.value;
 	const splatEditBoxSize = store.splatEdit.boxSize.value;
+	const splatEditBoxRotation = store.splatEdit.boxRotation.value;
 	const splatEditHudPosition = store.splatEdit.hudPosition.value;
 	const splatEditLastOperation = store.splatEdit.lastOperation.value;
 	const frames = store.frames.documents.value;
@@ -416,6 +418,12 @@ export function ViewportShell({ store, controller, refs, t }) {
 			controller()?.setSplatEditBoxSizeAxis?.(axisKey, numericValue);
 		}
 	};
+	const handleSplatEditBoxRotationInput = (axisKey, nextValue) => {
+		const numericValue = Number(nextValue);
+		if (Number.isFinite(numericValue)) {
+			controller()?.setSplatEditBoxRotationAxis?.(axisKey, numericValue);
+		}
+	};
 	const handleSplatEditBrushSizeInput = (nextValue) => {
 		const numericValue = Number(nextValue);
 		if (Number.isFinite(numericValue)) {
@@ -553,6 +561,20 @@ export function ViewportShell({ store, controller, refs, t }) {
 			className: "viewport-gizmo__handle--scale",
 		},
 	];
+	const splatEditBoxRotationEuler = new THREE.Euler().setFromQuaternion(
+		new THREE.Quaternion(
+			Number(splatEditBoxRotation?.x ?? 0),
+			Number(splatEditBoxRotation?.y ?? 0),
+			Number(splatEditBoxRotation?.z ?? 0),
+			Number(splatEditBoxRotation?.w ?? 1),
+		),
+		"XYZ",
+	);
+	const splatEditBoxRotationDegrees = {
+		x: THREE.MathUtils.radToDeg(splatEditBoxRotationEuler.x),
+		y: THREE.MathUtils.radToDeg(splatEditBoxRotationEuler.y),
+		z: THREE.MathUtils.radToDeg(splatEditBoxRotationEuler.z),
+	};
 
 	return html`
 		<main
@@ -630,6 +652,12 @@ export function ViewportShell({ store, controller, refs, t }) {
 										${renderSplatEditField({ label: t("field.positionX"), value: splatEditBoxSize?.x ?? 1, min: "0.01", historyLabel: "splat-edit.box-size.x", onScrubValue: (v) => handleSplatEditBoxSizeInput("x", v), onCommitValue: (v) => handleSplatEditBoxSizeInput("x", v) })}
 										${renderSplatEditField({ label: t("field.positionY"), value: splatEditBoxSize?.y ?? 1, min: "0.01", historyLabel: "splat-edit.box-size.y", onScrubValue: (v) => handleSplatEditBoxSizeInput("y", v), onCommitValue: (v) => handleSplatEditBoxSizeInput("y", v) })}
 										${renderSplatEditField({ label: t("field.positionZ"), value: splatEditBoxSize?.z ?? 1, min: "0.01", historyLabel: "splat-edit.box-size.z", onScrubValue: (v) => handleSplatEditBoxSizeInput("z", v), onCommitValue: (v) => handleSplatEditBoxSizeInput("z", v) })}
+									</div>
+									<span class="viewport-splat-edit-toolbar__detail-label">${t("field.assetRotation")}</span>
+									<div class="viewport-splat-edit-toolbar__detail-grid">
+										${renderSplatEditField({ label: t("field.positionX"), value: splatEditBoxRotationDegrees.x, step: "1", historyLabel: "splat-edit.box-rotation.x", onScrubValue: (v) => handleSplatEditBoxRotationInput("x", v), onCommitValue: (v) => handleSplatEditBoxRotationInput("x", v) })}
+										${renderSplatEditField({ label: t("field.positionY"), value: splatEditBoxRotationDegrees.y, step: "1", historyLabel: "splat-edit.box-rotation.y", onScrubValue: (v) => handleSplatEditBoxRotationInput("y", v), onCommitValue: (v) => handleSplatEditBoxRotationInput("y", v) })}
+										${renderSplatEditField({ label: t("field.positionZ"), value: splatEditBoxRotationDegrees.z, step: "1", historyLabel: "splat-edit.box-rotation.z", onScrubValue: (v) => handleSplatEditBoxRotationInput("z", v), onCommitValue: (v) => handleSplatEditBoxRotationInput("z", v) })}
 									</div>
 									<button type="button" class="viewport-splat-edit-toolbar__btn" onClick=${() => controller()?.applySplatEditBoxSelection?.({ subtract: false })}>${t("status.splatEditAdd")}</button>
 									<button type="button" class="viewport-splat-edit-toolbar__btn" onClick=${() => controller()?.applySplatEditBoxSelection?.({ subtract: true })}>${t("status.splatEditSubtract")}</button>

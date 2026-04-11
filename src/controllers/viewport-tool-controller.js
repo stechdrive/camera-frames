@@ -522,21 +522,18 @@ export function createViewportToolController({
 			const screenDirection = screenDirections[axisKey];
 			if (!screenDirection || !showMoveAxes) {
 				setHandleVisible(moveHandleName, false);
-				setRingVisible(rotateHandleName, "front", false);
-				setRingVisible(rotateHandleName, "back", false);
-				continue;
+			} else {
+				const angleDegrees = THREE.MathUtils.radToDeg(
+					Math.atan2(screenDirection.y, screenDirection.x),
+				);
+				setHandleAngle(moveHandleName, angleDegrees);
+				setHandlePosition(
+					moveHandleName,
+					projectedPivot.x + screenDirection.x * HANDLE_OFFSETS.move,
+					projectedPivot.y + screenDirection.y * HANDLE_OFFSETS.move,
+				);
+				setHandleVisible(moveHandleName, true);
 			}
-
-			const angleDegrees = THREE.MathUtils.radToDeg(
-				Math.atan2(screenDirection.y, screenDirection.x),
-			);
-			setHandleAngle(moveHandleName, angleDegrees);
-			setHandlePosition(
-				moveHandleName,
-				projectedPivot.x + screenDirection.x * HANDLE_OFFSETS.move,
-				projectedPivot.y + screenDirection.y * HANDLE_OFFSETS.move,
-			);
-			setHandleVisible(moveHandleName, true);
 
 			const tangentU = ringBasisMap[axisKey][0];
 			const tangentV = ringBasisMap[axisKey][1];

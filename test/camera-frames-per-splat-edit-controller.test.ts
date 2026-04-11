@@ -755,6 +755,40 @@ async function createPackedSplatAsset({ id, label, centers }) {
 	const harness = createHarness();
 	harness.store.sceneAssets.value = [
 		createSplatAsset({
+			id: "splat-rotation-input",
+			centers: [new THREE.Vector3(0, 0, 0)],
+			centerBounds: new THREE.Box3(
+				new THREE.Vector3(-0.5, -0.5, -0.5),
+				new THREE.Vector3(0.5, 0.5, 0.5),
+			),
+		}),
+	];
+	harness.store.selectedSceneAssetIds.value = ["splat-rotation-input"];
+
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	assert.equal(harness.controller.setSplatEditBoxRotationAxis("z", 90), true);
+	assert.ok(
+		new THREE.Quaternion(
+			harness.store.splatEdit.boxRotation.value.x,
+			harness.store.splatEdit.boxRotation.value.y,
+			harness.store.splatEdit.boxRotation.value.z,
+			harness.store.splatEdit.boxRotation.value.w,
+		).angleTo(
+			new THREE.Quaternion().setFromAxisAngle(
+				new THREE.Vector3(0, 0, 1),
+				Math.PI * 0.5,
+			),
+		) < 1e-6,
+	);
+}
+
+{
+	const harness = createHarness();
+	harness.store.sceneAssets.value = [
+		createSplatAsset({
 			id: "splat-rotated-box",
 			centers: [
 				new THREE.Vector3(0.6, 0.6, 0),
