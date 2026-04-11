@@ -1,5 +1,6 @@
 import { fromHalf } from "@sparkjsdev/spark";
 import * as THREE from "three";
+import { debugSplatHistory } from "../debug/splat-history-debug.js";
 import { createSplatEditSceneHelper } from "../engine/splat-edit-scene-helper.js";
 import { createSplatTransformPreviewController } from "../engine/splat-transform-preview.js";
 import { createProjectFilePackedSplatSource } from "../project-document.js";
@@ -330,9 +331,12 @@ export function createPerSplatEditController({
 		if (!snapshot) {
 			return null;
 		}
+		const { source: _source, ...snapshotWithoutSource } = snapshot;
 		return {
-			...snapshot,
-			label: String(label ?? snapshot.label ?? asset?.label ?? "3DGS"),
+			...snapshotWithoutSource,
+			label: String(
+				label ?? snapshotWithoutSource.label ?? asset?.label ?? "3DGS",
+			),
 		};
 	}
 
@@ -412,18 +416,81 @@ export function createPerSplatEditController({
 			legacyState: asset?.source?.legacyState ?? null,
 			resource: asset?.source?.resource ?? null,
 		});
-		asset.capturePackedSplatSourceInEditState = true;
+		asset.persistentSourceDirty = false;
 		updateSplatAssetBoundsHints(asset);
 		invalidateBrushSpatialIndex(asset);
 		return true;
 	}
 
-	function markSelectedSplatAssetsForHistorySourceCapture(entries = []) {
-		for (const entry of entries) {
-			if (entry?.asset?.kind === "splat") {
-				entry.asset.capturePackedSplatSourceInEditState = true;
+	function markSplatAssetPersistentSourceDirty(asset) {
+		if (asset?.kind !== "splat") {
+			return false;
+		}
+		asset.persistentSourceDirty = true;
+		return true;
+	}
+
+	function flushDirtySplatAssetPersistentSources() {
+		let flushed = false;
+		for (const asset of getSceneSplatAssets()) {
+			if (asset?.persistentSourceDirty !== true) {
+				continue;
+			}
+			flushed = syncSplatAssetPersistentSource(asset) || flushed;
+		}
+		return flushed;
+	}
+
+	function markSplatAssetsForHistorySourceCapture(
+		items = [],
+		capturedAssets = [],
+	) {
+		const trackedAssets = Array.isArray(capturedAssets) ? capturedAssets : [];
+		const seenAssets = new Set(trackedAssets);
+		for (const item of items) {
+			const asset =
+				item?.asset?.kind === "splat"
+					? item.asset
+					: item?.kind === "splat"
+						? item
+						: null;
+			if (!asset || !getSplatPackedSource(asset) || asset?.source == null) {
+				continue;
+			}
+			if (seenAssets.has(asset)) {
+				continue;
+			}
+			seenAssets.add(asset);
+			if (asset.capturePackedSplatSourceInEditState !== true) {
+				asset.capturePackedSplatSourceInEditState = true;
+				trackedAssets.push(asset);
 			}
 		}
+		return trackedAssets;
+	}
+
+	function releaseSplatAssetsForHistorySourceCapture(capturedAssets = []) {
+		for (const asset of capturedAssets) {
+			if (asset?.kind === "splat") {
+				asset.capturePackedSplatSourceInEditState = false;
+			}
+		}
+		return true;
+	}
+
+	function beginSplatSourceHistoryTransaction(label, items = [], options = {}) {
+		const historyCaptureAssets = markSplatAssetsForHistorySourceCapture(
+			items,
+			[],
+		);
+		const historyStarted = beginHistoryTransaction?.(label, options) === true;
+		if (!historyStarted) {
+			releaseSplatAssetsForHistorySourceCapture(historyCaptureAssets);
+		}
+		return {
+			historyStarted,
+			historyCaptureAssets: historyStarted ? historyCaptureAssets : [],
+		};
 	}
 
 	function createDerivedPackedSplatSource(
@@ -961,6 +1028,7 @@ export function createPerSplatEditController({
 
 	function restoreEditState(snapshot = null) {
 		selectedSplatsByAssetId.clear();
+		clearActiveTransformPreview({ syncUi: false });
 		clearActiveBrushStroke();
 		clearBrushPreview({ syncUi: false });
 		if (!snapshot || typeof snapshot !== "object") {
@@ -1078,6 +1146,20 @@ export function createPerSplatEditController({
 		}
 	}
 
+	async function runSplatSourceHistoryTransaction(label, items, applyChange) {
+		const historyCaptureAssets = markSplatAssetsForHistorySourceCapture(
+			items,
+			[],
+		);
+		try {
+			return await runHistoryTransaction(label, () =>
+				applyChange(historyCaptureAssets),
+			);
+		} finally {
+			releaseSplatAssetsForHistorySourceCapture(historyCaptureAssets);
+		}
+	}
+
 	function runSynchronousHistoryTransaction(label, applyChange) {
 		const hasHistoryTransaction = beginHistoryTransaction?.(label) === true;
 		try {
@@ -1091,6 +1173,29 @@ export function createPerSplatEditController({
 				cancelHistoryTransaction?.();
 			}
 			throw error;
+		}
+	}
+
+	function finalizeSplatTransformDragHistory(drag, { commit = false } = {}) {
+		if (!drag) {
+			return false;
+		}
+		try {
+			if (drag.historyStarted) {
+				debugSplatHistory(commit ? "commit-transform" : "cancel-transform", {
+					mode: drag.mode,
+					assets: drag.entries?.map?.((entry) => entry.asset?.id ?? null) ?? [],
+				});
+				if (commit) {
+					return commitHistoryTransaction?.("splat-edit.transform") === true;
+				}
+				cancelHistoryTransaction?.();
+			}
+			return false;
+		} finally {
+			releaseSplatAssetsForHistorySourceCapture(
+				drag.historyCaptureAssets ?? [],
+			);
 		}
 	}
 
@@ -1581,15 +1686,35 @@ export function createPerSplatEditController({
 			clearActiveTransformPreview();
 			return false;
 		}
+		const previewState = activeTransformPreview ?? {};
+		const worldTranslation = previewState.worldTranslation;
+		const worldRotation = previewState.worldRotation;
+		const uniformScale = previewState.uniformScale;
+		const hasTranslation =
+			worldTranslation?.isVector3 === true &&
+			worldTranslation.lengthSq() > 1e-12;
+		const hasRotation =
+			worldRotation?.isQuaternion === true &&
+			(Math.abs(worldRotation.x) > 1e-6 ||
+				Math.abs(worldRotation.y) > 1e-6 ||
+				Math.abs(worldRotation.z) > 1e-6 ||
+				Math.abs(worldRotation.w - 1) > 1e-6);
+		const hasScale =
+			Number.isFinite(uniformScale) && Math.abs(uniformScale - 1) > 1e-6;
+		if (!hasTranslation && !hasRotation && !hasScale) {
+			clearActiveTransformPreview();
+			return false;
+		}
 		const t0 = performance.now();
-		if (!applySelectedSplatTransform(entries, activeTransformPreview ?? {})) {
+		if (!applySelectedSplatTransform(entries, previewState)) {
 			clearActiveTransformPreview();
 			return false;
 		}
 		const t1 = performance.now();
 		let changed = false;
 		for (const entry of entries) {
-			changed = syncSplatAssetPersistentSource(entry.asset) || changed;
+			changed = markSplatAssetPersistentSourceDirty(entry.asset) || changed;
+			invalidateBrushSpatialIndex(entry.asset);
 		}
 		const t2 = performance.now();
 		clearActiveTransformPreview({ syncUi: false });
@@ -1597,9 +1722,13 @@ export function createPerSplatEditController({
 		syncSceneHelper();
 		updateUi?.();
 		const t3 = performance.now();
-		console.debug(
-			`[splat-transform] finalize: apply=${(t1 - t0).toFixed(1)}ms persist=${(t2 - t1).toFixed(1)}ms sync=${(t3 - t2).toFixed(1)}ms total=${(t3 - t0).toFixed(1)}ms`,
-		);
+		debugSplatHistory("finalize-transform", {
+			selectedAssets: entries.map((entry) => entry.asset?.id ?? null),
+			applyMs: Number((t1 - t0).toFixed(1)),
+			persistMs: Number((t2 - t1).toFixed(1)),
+			syncMs: Number((t3 - t2).toFixed(1)),
+			totalMs: Number((t3 - t0).toFixed(1)),
+		});
 		return changed;
 	}
 
@@ -2810,45 +2939,54 @@ export function createPerSplatEditController({
 		if (!assetController) {
 			return false;
 		}
-		return runHistoryTransaction("splat-edit.delete", async () => {
-			let deletedCount = 0;
-			for (const operation of operations) {
-				invalidateBrushSpatialIndex(operation.assetIdKey);
-				if (operation.remainingIndices.length > 0) {
-					const remainderSource = createDerivedPackedSplatSource(
-						operation.asset,
-						operation.remainingIndices,
-						{
-							label: operation.asset.label,
-							fileName:
-								operation.asset?.source?.fileName ??
-								buildDerivedSplatFileName(operation.asset, "remainder"),
-						},
-					);
-					if (remainderSource) {
-						await assetController.replaceSplatAssetFromSource?.(
-							operation.asset.id,
-							remainderSource,
+		return runSplatSourceHistoryTransaction(
+			"splat-edit.delete",
+			operations.map((operation) => operation.asset),
+			async (historyCaptureAssets) => {
+				let deletedCount = 0;
+				for (const operation of operations) {
+					invalidateBrushSpatialIndex(operation.assetIdKey);
+					if (operation.remainingIndices.length > 0) {
+						const remainderSource = createDerivedPackedSplatSource(
+							operation.asset,
+							operation.remainingIndices,
+							{
+								label: operation.asset.label,
+								fileName:
+									operation.asset?.source?.fileName ??
+									buildDerivedSplatFileName(operation.asset, "remainder"),
+							},
 						);
+						if (remainderSource) {
+							const replacementAsset =
+								await assetController.replaceSplatAssetFromSource?.(
+									operation.asset.id,
+									remainderSource,
+								);
+							markSplatAssetsForHistorySourceCapture(
+								[replacementAsset],
+								historyCaptureAssets,
+							);
+						}
+					} else {
+						assetController.removeSceneAssets?.([operation.asset.id]);
 					}
-				} else {
-					assetController.removeSceneAssets?.([operation.asset.id]);
+					selectedSplatsByAssetId.delete(operation.assetIdKey);
+					deletedCount += operation.selectedIndices.length;
 				}
-				selectedSplatsByAssetId.delete(operation.assetIdKey);
-				deletedCount += operation.selectedIndices.length;
-			}
-			store.splatEdit.lastOperation.value = {
-				mode: "delete",
-				hitCount: deletedCount,
-			};
-			syncSelectionCount();
-			syncSelectionHighlight();
-			syncScopeToSceneSelection();
-			syncSceneHelper();
-			updateUi?.();
-			setStatus?.(t("status.splatEditDeleted", { count: deletedCount }));
-			return deletedCount;
-		});
+				store.splatEdit.lastOperation.value = {
+					mode: "delete",
+					hitCount: deletedCount,
+				};
+				syncSelectionCount();
+				syncSelectionHighlight();
+				syncScopeToSceneSelection();
+				syncSceneHelper();
+				updateUi?.();
+				setStatus?.(t("status.splatEditDeleted", { count: deletedCount }));
+				return deletedCount;
+			},
+		);
 	}
 
 	async function separateSelectedSplats() {
@@ -2861,81 +2999,97 @@ export function createPerSplatEditController({
 		if (!assetController) {
 			return false;
 		}
-		return runHistoryTransaction("splat-edit.separate", async () => {
-			const createdAssets = [];
-			let separatedCount = 0;
-			for (const operation of operations) {
-				invalidateBrushSpatialIndex(operation.assetIdKey);
-				const currentAssets = assetController.getSceneAssets?.() ?? [];
-				const sourceIndex = currentAssets.findIndex(
-					(asset) => String(asset.id) === String(operation.asset.id),
-				);
-				const splitLabel = buildUniqueSplitLabel(operation.asset.label);
-				const selectedSource = createDerivedPackedSplatSource(
-					operation.asset,
-					operation.selectedIndices,
-					{
-						label: splitLabel,
-						fileName: buildDerivedSplatFileName(operation.asset, "split"),
-					},
-				);
-				const createdAsset = selectedSource
-					? await assetController.createSplatAssetFromSource?.(selectedSource, {
-							insertIndex: sourceIndex >= 0 ? sourceIndex + 1 : null,
-						})
-					: null;
-				if (createdAsset) {
-					createdAssets.push(createdAsset);
-				}
-				if (operation.remainingIndices.length > 0) {
-					const remainderSource = createDerivedPackedSplatSource(
+		return runSplatSourceHistoryTransaction(
+			"splat-edit.separate",
+			operations.map((operation) => operation.asset),
+			async (historyCaptureAssets) => {
+				const createdAssets = [];
+				let separatedCount = 0;
+				for (const operation of operations) {
+					invalidateBrushSpatialIndex(operation.assetIdKey);
+					const currentAssets = assetController.getSceneAssets?.() ?? [];
+					const sourceIndex = currentAssets.findIndex(
+						(asset) => String(asset.id) === String(operation.asset.id),
+					);
+					const splitLabel = buildUniqueSplitLabel(operation.asset.label);
+					const selectedSource = createDerivedPackedSplatSource(
 						operation.asset,
-						operation.remainingIndices,
+						operation.selectedIndices,
 						{
-							label: operation.asset.label,
-							fileName:
-								operation.asset?.source?.fileName ??
-								buildDerivedSplatFileName(operation.asset, "remainder"),
+							label: splitLabel,
+							fileName: buildDerivedSplatFileName(operation.asset, "split"),
 						},
 					);
-					if (remainderSource) {
-						await assetController.replaceSplatAssetFromSource?.(
-							operation.asset.id,
-							remainderSource,
+					const createdAsset = selectedSource
+						? await assetController.createSplatAssetFromSource?.(
+								selectedSource,
+								{
+									insertIndex: sourceIndex >= 0 ? sourceIndex + 1 : null,
+								},
+							)
+						: null;
+					if (createdAsset) {
+						createdAssets.push(createdAsset);
+						markSplatAssetsForHistorySourceCapture(
+							[createdAsset],
+							historyCaptureAssets,
 						);
 					}
-				} else {
-					assetController.removeSceneAssets?.([operation.asset.id]);
+					if (operation.remainingIndices.length > 0) {
+						const remainderSource = createDerivedPackedSplatSource(
+							operation.asset,
+							operation.remainingIndices,
+							{
+								label: operation.asset.label,
+								fileName:
+									operation.asset?.source?.fileName ??
+									buildDerivedSplatFileName(operation.asset, "remainder"),
+							},
+						);
+						if (remainderSource) {
+							const replacementAsset =
+								await assetController.replaceSplatAssetFromSource?.(
+									operation.asset.id,
+									remainderSource,
+								);
+							markSplatAssetsForHistorySourceCapture(
+								[replacementAsset],
+								historyCaptureAssets,
+							);
+						}
+					} else {
+						assetController.removeSceneAssets?.([operation.asset.id]);
+					}
+					selectedSplatsByAssetId.delete(operation.assetIdKey);
+					separatedCount += operation.selectedIndices.length;
 				}
-				selectedSplatsByAssetId.delete(operation.assetIdKey);
-				separatedCount += operation.selectedIndices.length;
-			}
-			if (createdAssets.length > 0) {
-				assetController.clearSceneAssetSelection?.();
-				const [firstAsset, ...restAssets] = createdAssets;
-				assetController.selectSceneAsset?.(firstAsset.id);
-				for (const asset of restAssets) {
-					assetController.selectSceneAsset?.(asset.id, { additive: true });
+				if (createdAssets.length > 0) {
+					assetController.clearSceneAssetSelection?.();
+					const [firstAsset, ...restAssets] = createdAssets;
+					assetController.selectSceneAsset?.(firstAsset.id);
+					for (const asset of restAssets) {
+						assetController.selectSceneAsset?.(asset.id, { additive: true });
+					}
 				}
-			}
-			store.splatEdit.lastOperation.value = {
-				mode: "separate",
-				hitCount: separatedCount,
-			};
-			syncScopeToSceneSelection();
-			selectAllSplatsForAssets(createdAssets);
-			syncSelectionCount();
-			syncSelectionHighlight();
-			syncSceneHelper();
-			updateUi?.();
-			setStatus?.(
-				t("status.splatEditSeparated", {
-					count: separatedCount,
-					assets: createdAssets.length,
-				}),
-			);
-			return createdAssets.length;
-		});
+				store.splatEdit.lastOperation.value = {
+					mode: "separate",
+					hitCount: separatedCount,
+				};
+				syncScopeToSceneSelection();
+				selectAllSplatsForAssets(createdAssets);
+				syncSelectionCount();
+				syncSelectionHighlight();
+				syncSceneHelper();
+				updateUi?.();
+				setStatus?.(
+					t("status.splatEditSeparated", {
+						count: separatedCount,
+						assets: createdAssets.length,
+					}),
+				);
+				return createdAssets.length;
+			},
+		);
 	}
 
 	async function duplicateSelectedSplats() {
@@ -2948,61 +3102,74 @@ export function createPerSplatEditController({
 		if (!assetController) {
 			return false;
 		}
-		return runHistoryTransaction("splat-edit.duplicate", async () => {
-			const createdAssets = [];
-			let duplicatedCount = 0;
-			for (const operation of operations) {
-				const currentAssets = assetController.getSceneAssets?.() ?? [];
-				const sourceIndex = currentAssets.findIndex(
-					(asset) => String(asset.id) === String(operation.asset.id),
-				);
-				const duplicateLabel = buildUniqueDuplicateLabel(operation.asset.label);
-				const selectedSource = createDerivedPackedSplatSource(
-					operation.asset,
-					operation.selectedIndices,
-					{
-						label: duplicateLabel,
-						fileName: buildDerivedSplatFileName(operation.asset, "copy"),
-					},
-				);
-				const createdAsset = selectedSource
-					? await assetController.createSplatAssetFromSource?.(selectedSource, {
-							insertIndex: sourceIndex >= 0 ? sourceIndex + 1 : null,
-						})
-					: null;
-				if (createdAsset) {
-					createdAssets.push(createdAsset);
+		return runSplatSourceHistoryTransaction(
+			"splat-edit.duplicate",
+			[],
+			async (historyCaptureAssets) => {
+				const createdAssets = [];
+				let duplicatedCount = 0;
+				for (const operation of operations) {
+					const currentAssets = assetController.getSceneAssets?.() ?? [];
+					const sourceIndex = currentAssets.findIndex(
+						(asset) => String(asset.id) === String(operation.asset.id),
+					);
+					const duplicateLabel = buildUniqueDuplicateLabel(
+						operation.asset.label,
+					);
+					const selectedSource = createDerivedPackedSplatSource(
+						operation.asset,
+						operation.selectedIndices,
+						{
+							label: duplicateLabel,
+							fileName: buildDerivedSplatFileName(operation.asset, "copy"),
+						},
+					);
+					const createdAsset = selectedSource
+						? await assetController.createSplatAssetFromSource?.(
+								selectedSource,
+								{
+									insertIndex: sourceIndex >= 0 ? sourceIndex + 1 : null,
+								},
+							)
+						: null;
+					if (createdAsset) {
+						createdAssets.push(createdAsset);
+						markSplatAssetsForHistorySourceCapture(
+							[createdAsset],
+							historyCaptureAssets,
+						);
+					}
+					duplicatedCount += operation.selectedIndices.length;
 				}
-				duplicatedCount += operation.selectedIndices.length;
-			}
-			if (createdAssets.length > 0) {
-				assetController.clearSceneAssetSelection?.();
-				const [firstAsset, ...restAssets] = createdAssets;
-				assetController.selectSceneAsset?.(firstAsset.id);
-				for (const asset of restAssets) {
-					assetController.selectSceneAsset?.(asset.id, {
-						additive: true,
-					});
+				if (createdAssets.length > 0) {
+					assetController.clearSceneAssetSelection?.();
+					const [firstAsset, ...restAssets] = createdAssets;
+					assetController.selectSceneAsset?.(firstAsset.id);
+					for (const asset of restAssets) {
+						assetController.selectSceneAsset?.(asset.id, {
+							additive: true,
+						});
+					}
 				}
-			}
-			store.splatEdit.lastOperation.value = {
-				mode: "duplicate",
-				hitCount: duplicatedCount,
-			};
-			syncScopeToSceneSelection();
-			selectAllSplatsForAssets(createdAssets);
-			syncSelectionCount();
-			syncSelectionHighlight();
-			syncSceneHelper();
-			updateUi?.();
-			setStatus?.(
-				t("status.splatEditDuplicated", {
-					count: duplicatedCount,
-					assets: createdAssets.length,
-				}),
-			);
-			return createdAssets.length;
-		});
+				store.splatEdit.lastOperation.value = {
+					mode: "duplicate",
+					hitCount: duplicatedCount,
+				};
+				syncScopeToSceneSelection();
+				selectAllSplatsForAssets(createdAssets);
+				syncSelectionCount();
+				syncSelectionHighlight();
+				syncSceneHelper();
+				updateUi?.();
+				setStatus?.(
+					t("status.splatEditDuplicated", {
+						count: duplicatedCount,
+						assets: createdAssets.length,
+					}),
+				);
+				return createdAssets.length;
+			},
+		);
 	}
 
 	function handleToolModeDeactivated() {
@@ -3015,9 +3182,7 @@ export function createPerSplatEditController({
 		activeBoxDrag = null;
 		clearActiveBrushStroke({ commitHistory: true });
 		clearBrushPreview({ syncUi: false });
-		if (activeTransformDrag?.historyStarted) {
-			cancelHistoryTransaction?.();
-		}
+		finalizeSplatTransformDragHistory(activeTransformDrag);
 		activeTransformDrag = null;
 		clearActiveTransformPreview({ syncUi: false });
 		syncSceneHelper();
@@ -3047,9 +3212,7 @@ export function createPerSplatEditController({
 			cancelHistoryTransaction?.();
 		}
 		activeBoxDrag = null;
-		if (activeTransformDrag?.historyStarted) {
-			cancelHistoryTransaction?.();
-		}
+		finalizeSplatTransformDragHistory(activeTransformDrag);
 		activeTransformDrag = null;
 		clearActiveTransformPreview({ syncUi: false });
 		syncSceneHelper();
@@ -3074,9 +3237,7 @@ export function createPerSplatEditController({
 			}
 			activeBoxDrag = null;
 			clearActiveBrushStroke({ commitHistory: true });
-			if (activeTransformDrag?.historyStarted) {
-				cancelHistoryTransaction?.();
-			}
+			finalizeSplatTransformDragHistory(activeTransformDrag);
 			activeTransformDrag = null;
 			clearBrushPreview({ syncUi: false });
 			clearActiveTransformPreview({ syncUi: false });
@@ -3196,7 +3357,6 @@ export function createPerSplatEditController({
 			if (selection.entries.length === 0 || !selection.selectionBounds) {
 				return false;
 			}
-			markSelectedSplatAssetsForHistorySourceCapture(selection.entries);
 
 			const pointerRay = updatePointerRay(
 				raycaster,
@@ -3237,6 +3397,11 @@ export function createPerSplatEditController({
 				event.preventDefault();
 				event.stopPropagation();
 				event.stopImmediatePropagation?.();
+				const historyState = beginSplatSourceHistoryTransaction(
+					"splat-edit.transform",
+					selection.entries,
+					{ skipSnapshotDiff: true },
+				);
 				activeTransformDrag = {
 					pointerId: event.pointerId,
 					mode: "move-axis",
@@ -3246,8 +3411,8 @@ export function createPerSplatEditController({
 					planePoint: planePoint.clone(),
 					entries: selection.entries,
 					preview: previewState,
-					historyStarted:
-						beginHistoryTransaction?.("splat-edit.transform") === true,
+					historyStarted: historyState.historyStarted,
+					historyCaptureAssets: historyState.historyCaptureAssets,
 				};
 				return true;
 			}
@@ -3273,6 +3438,11 @@ export function createPerSplatEditController({
 				event.preventDefault();
 				event.stopPropagation();
 				event.stopImmediatePropagation?.();
+				const historyState = beginSplatSourceHistoryTransaction(
+					"splat-edit.transform",
+					selection.entries,
+					{ skipSnapshotDiff: true },
+				);
 				activeTransformDrag = {
 					pointerId: event.pointerId,
 					mode: "move-plane",
@@ -3281,8 +3451,8 @@ export function createPerSplatEditController({
 					planePoint: planePoint.clone(),
 					entries: selection.entries,
 					preview: previewState,
-					historyStarted:
-						beginHistoryTransaction?.("splat-edit.transform") === true,
+					historyStarted: historyState.historyStarted,
+					historyCaptureAssets: historyState.historyCaptureAssets,
 				};
 				return true;
 			}
@@ -3305,6 +3475,11 @@ export function createPerSplatEditController({
 				event.preventDefault();
 				event.stopPropagation();
 				event.stopImmediatePropagation?.();
+				const historyState = beginSplatSourceHistoryTransaction(
+					"splat-edit.transform",
+					selection.entries,
+					{ skipSnapshotDiff: true },
+				);
 				activeTransformDrag = {
 					pointerId: event.pointerId,
 					mode: "rotate",
@@ -3313,8 +3488,8 @@ export function createPerSplatEditController({
 					startVector: startVector.clone(),
 					entries: selection.entries,
 					preview: previewState,
-					historyStarted:
-						beginHistoryTransaction?.("splat-edit.transform") === true,
+					historyStarted: historyState.historyStarted,
+					historyCaptureAssets: historyState.historyCaptureAssets,
 				};
 				return true;
 			}
@@ -3323,6 +3498,11 @@ export function createPerSplatEditController({
 				event.preventDefault();
 				event.stopPropagation();
 				event.stopImmediatePropagation?.();
+				const historyState = beginSplatSourceHistoryTransaction(
+					"splat-edit.transform",
+					selection.entries,
+					{ skipSnapshotDiff: true },
+				);
 				activeTransformDrag = {
 					pointerId: event.pointerId,
 					mode: "scale-uniform",
@@ -3331,8 +3511,8 @@ export function createPerSplatEditController({
 					startClientY: event.clientY,
 					entries: selection.entries,
 					preview: previewState,
-					historyStarted:
-						beginHistoryTransaction?.("splat-edit.transform") === true,
+					historyStarted: historyState.historyStarted,
+					historyCaptureAssets: historyState.historyCaptureAssets,
 				};
 				return true;
 			}
@@ -3650,7 +3830,7 @@ export function createPerSplatEditController({
 		) {
 			const completedDrag = activeTransformDrag;
 			activeTransformDrag = null;
-			finalizeSelectedSplatTransform(completedDrag.entries);
+			const changed = finalizeSelectedSplatTransform(completedDrag.entries);
 			store.splatEdit.lastOperation.value = {
 				mode:
 					completedDrag.mode === "rotate"
@@ -3660,19 +3840,19 @@ export function createPerSplatEditController({
 							: "transform-move",
 				hitCount: store.splatEdit.selectionCount.value,
 			};
-			if (completedDrag.historyStarted) {
-				commitHistoryTransaction?.("splat-edit.transform");
+			finalizeSplatTransformDragHistory(completedDrag, { commit: changed });
+			if (changed) {
+				setStatus?.(
+					t(
+						completedDrag.mode === "rotate"
+							? "status.splatEditTransformedRotate"
+							: completedDrag.mode === "scale-uniform"
+								? "status.splatEditTransformedScale"
+								: "status.splatEditTransformedMove",
+						{ count: store.splatEdit.selectionCount.value },
+					),
+				);
 			}
-			setStatus?.(
-				t(
-					completedDrag.mode === "rotate"
-						? "status.splatEditTransformedRotate"
-						: completedDrag.mode === "scale-uniform"
-							? "status.splatEditTransformedScale"
-							: "status.splatEditTransformedMove",
-					{ count: store.splatEdit.selectionCount.value },
-				),
-			);
 			return true;
 		}
 
@@ -3694,6 +3874,8 @@ export function createPerSplatEditController({
 	function dispose() {
 		clearActiveBrushStroke();
 		clearBrushPreview({ syncUi: false });
+		finalizeSplatTransformDragHistory(activeTransformDrag);
+		activeTransformDrag = null;
 		clearActiveTransformPreview({ syncUi: false });
 		clearSelectionHighlight();
 		clearBrushSpatialIndices();
@@ -3785,6 +3967,7 @@ export function createPerSplatEditController({
 		startViewportGizmoDrag,
 		handleViewportGizmoDragMove,
 		handleViewportGizmoDragEnd,
+		flushDirtySplatAssetPersistentSources,
 		syncSceneHelperForCamera,
 		handleToolModeDeactivated,
 		resetForSceneChange,

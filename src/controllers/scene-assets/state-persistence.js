@@ -1,4 +1,9 @@
 import * as THREE from "three";
+import { debugSplatHistory } from "../../debug/splat-history-debug.js";
+import {
+	createProjectFilePackedSplatSource,
+	toUint32Array,
+} from "../../project-document.js";
 
 export function createSceneAssetStatePersistence({
 	sceneState,
@@ -19,27 +24,153 @@ export function createSceneAssetStatePersistence({
 	applyProjectAssetState,
 	loadSources,
 }) {
-	function cloneSerializable(value) {
-		if (value == null) {
-			return value;
+	function sanitizePackedSplatProjectAssetState(projectAssetState) {
+		if (!projectAssetState || typeof projectAssetState !== "object") {
+			return null;
 		}
-		if (typeof structuredClone === "function") {
-			return structuredClone(value);
+		const { source: _source, ...snapshotWithoutSource } = projectAssetState;
+		try {
+			return JSON.parse(JSON.stringify(snapshotWithoutSource));
+		} catch {
+			return {
+				id: snapshotWithoutSource.id ?? null,
+				kind: snapshotWithoutSource.kind ?? "splat",
+				label: snapshotWithoutSource.label ?? "",
+				transform: snapshotWithoutSource.transform ?? null,
+				contentTransform: snapshotWithoutSource.contentTransform ?? null,
+				baseScale: snapshotWithoutSource.baseScale ?? null,
+				worldScale: snapshotWithoutSource.worldScale ?? 1,
+				unitMode: snapshotWithoutSource.unitMode ?? "scene-default",
+				visible: snapshotWithoutSource.visible !== false,
+				exportRole:
+					snapshotWithoutSource.exportRole === "omit" ? "omit" : "beauty",
+				maskGroup: snapshotWithoutSource.maskGroup ?? "",
+				workingPivotLocal: snapshotWithoutSource.workingPivotLocal ?? null,
+				legacyState: snapshotWithoutSource.legacyState ?? null,
+				order: snapshotWithoutSource.order ?? 0,
+			};
 		}
-		return JSON.parse(JSON.stringify(value));
 	}
 
-	function clonePackedSplatEditSource(source) {
+	function sanitizeJsonCompatibleValue(value) {
+		if (value === null || value === undefined) {
+			return null;
+		}
+		if (
+			typeof value === "string" ||
+			typeof value === "number" ||
+			typeof value === "boolean"
+		) {
+			return value;
+		}
+		if (Array.isArray(value)) {
+			return value
+				.map((entry) => sanitizeJsonCompatibleValue(entry))
+				.filter((entry) => entry !== undefined);
+		}
+		if (typeof value !== "object") {
+			return undefined;
+		}
+		try {
+			return JSON.parse(JSON.stringify(value));
+		} catch {
+			const sanitized = {};
+			for (const [key, entry] of Object.entries(value)) {
+				const nextValue = sanitizeJsonCompatibleValue(entry);
+				if (nextValue !== undefined) {
+					sanitized[key] = nextValue;
+				}
+			}
+			return sanitized;
+		}
+	}
+
+	function sanitizePackedSplatExtra(extra) {
+		if (!extra || typeof extra !== "object") {
+			return {};
+		}
+		const sanitized = {};
+		for (const key of ["lodTree", "sh1", "sh2", "sh3"]) {
+			const value = toUint32Array(extra[key]);
+			if (value.length > 0) {
+				sanitized[key] = value;
+			}
+		}
+		const radMeta = sanitizeJsonCompatibleValue(extra.radMeta);
+		if (radMeta && typeof radMeta === "object") {
+			sanitized.radMeta = radMeta;
+		}
+		return sanitized;
+	}
+
+	function normalizePackedSplatEditSource(source) {
 		if (!isProjectFilePackedSplatSource(source)) {
 			return null;
 		}
-		return cloneSerializable(source);
+		return createProjectFilePackedSplatSource({
+			fileName: source.fileName,
+			inputBytes: source.inputBytes ?? new Uint8Array(),
+			extraFiles: source.extraFiles ?? {},
+			fileType: source.fileType ?? null,
+			packedArray: source.packedArray ?? new Uint32Array(),
+			numSplats: source.numSplats ?? 0,
+			extra: sanitizePackedSplatExtra(source.extra),
+			splatEncoding: sanitizeJsonCompatibleValue(source.splatEncoding),
+			projectAssetState: sanitizePackedSplatProjectAssetState(
+				source.projectAssetState,
+			),
+			legacyState: sanitizeJsonCompatibleValue(source.legacyState),
+			resource: sanitizeJsonCompatibleValue(source.resource),
+		});
+	}
+
+	function capturePackedSplatEditSource(asset) {
+		const packedSplats = asset?.disposeTarget?.packedSplats;
+		if (packedSplats) {
+			return createProjectFilePackedSplatSource({
+				fileName:
+					asset?.source?.fileName ?? `${asset?.label ?? "edited"}.rawsplat`,
+				inputBytes: asset?.source?.inputBytes ?? new Uint8Array(),
+				extraFiles: asset?.source?.extraFiles ?? {},
+				fileType: asset?.source?.fileType ?? null,
+				packedArray: packedSplats.packedArray ?? new Uint32Array(),
+				numSplats: packedSplats.getNumSplats?.() ?? packedSplats.numSplats ?? 0,
+				extra: sanitizePackedSplatExtra(packedSplats.extra),
+				splatEncoding: sanitizeJsonCompatibleValue(packedSplats.splatEncoding),
+				projectAssetState: sanitizePackedSplatProjectAssetState(
+					asset?.source?.projectAssetState,
+				),
+				legacyState: sanitizeJsonCompatibleValue(asset?.source?.legacyState),
+				resource: sanitizeJsonCompatibleValue(asset?.source?.resource),
+				skipClone: true,
+			});
+		}
+		if (!isProjectFilePackedSplatSource(asset?.source)) {
+			return null;
+		}
+		return createProjectFilePackedSplatSource({
+			fileName: asset.source.fileName,
+			inputBytes: asset.source.inputBytes ?? new Uint8Array(),
+			extraFiles: asset.source.extraFiles ?? {},
+			fileType: asset.source.fileType ?? null,
+			packedArray: asset.source.packedArray ?? new Uint32Array(),
+			numSplats: asset.source.numSplats ?? 0,
+			extra: sanitizePackedSplatExtra(asset.source.extra),
+			splatEncoding: sanitizeJsonCompatibleValue(asset.source.splatEncoding),
+			projectAssetState: sanitizePackedSplatProjectAssetState(
+				asset.source.projectAssetState,
+			),
+			legacyState: sanitizeJsonCompatibleValue(asset.source.legacyState),
+			resource: sanitizeJsonCompatibleValue(asset.source.resource),
+			skipClone: true,
+		});
 	}
 
 	function shouldCapturePackedSplatEditSource(asset) {
 		return (
 			asset?.capturePackedSplatSourceInEditState === true &&
-			isProjectFilePackedSplatSource(asset?.source)
+			(isProjectFilePackedSplatSource(asset?.source) ||
+				asset?.disposeTarget?.packedSplats != null)
 		);
 	}
 
@@ -61,8 +192,82 @@ export function createSceneAssetStatePersistence({
 		return true;
 	}
 
+	function resetPackedSplatRuntimeResources(
+		packedSplats,
+		{ packedArray = null, extra = {}, splatEncoding = null } = {},
+	) {
+		if (!packedSplats || typeof packedSplats !== "object") {
+			return false;
+		}
+		packedSplats.source?.dispose?.();
+		packedSplats.target?.dispose?.();
+		packedSplats.source = null;
+		packedSplats.target = null;
+		packedSplats.packedArray =
+			packedArray instanceof Uint32Array
+				? packedArray
+				: packedSplats.packedArray;
+		packedSplats.extra = extra;
+		packedSplats.splatEncoding = splatEncoding;
+		packedSplats.needsUpdate = true;
+		return true;
+	}
+
+	function restorePackedSplatRuntimeSourceInPlace(
+		packedSplats,
+		{
+			packedArray = null,
+			extra = {},
+			splatEncoding = null,
+			numSplats = 0,
+		} = {},
+	) {
+		if (
+			!(packedArray instanceof Uint32Array) ||
+			!(packedSplats?.packedArray instanceof Uint32Array) ||
+			packedSplats.packedArray.length !== packedArray.length
+		) {
+			return false;
+		}
+		packedSplats.packedArray.set(packedArray);
+		const currentExtra =
+			packedSplats.extra && typeof packedSplats.extra === "object"
+				? { ...packedSplats.extra }
+				: {};
+		for (const key of ["lodTree", "sh1", "sh2", "sh3"]) {
+			const nextArray = extra?.[key];
+			const currentArray = currentExtra[key];
+			if (!(nextArray instanceof Uint32Array)) {
+				delete currentExtra[key];
+				continue;
+			}
+			if (
+				currentArray instanceof Uint32Array &&
+				currentArray.length === nextArray.length
+			) {
+				currentArray.set(nextArray);
+				currentExtra[key] = currentArray;
+				continue;
+			}
+			currentExtra[key] = new Uint32Array(nextArray);
+		}
+		if (extra?.radMeta && typeof extra.radMeta === "object") {
+			currentExtra.radMeta = JSON.parse(JSON.stringify(extra.radMeta));
+		} else {
+			currentExtra.radMeta = undefined;
+		}
+		packedSplats.extra = currentExtra;
+		packedSplats.splatEncoding = splatEncoding;
+		packedSplats.numSplats =
+			Number.isFinite(numSplats) && numSplats >= 0
+				? Math.floor(numSplats)
+				: packedSplats.numSplats;
+		packedSplats.needsUpdate = true;
+		return true;
+	}
+
 	function restorePackedSplatEditSource(asset, sourceSnapshot) {
-		const nextSource = clonePackedSplatEditSource(sourceSnapshot);
+		const nextSource = normalizePackedSplatEditSource(sourceSnapshot);
 		if (!asset || !nextSource) {
 			return false;
 		}
@@ -70,23 +275,68 @@ export function createSceneAssetStatePersistence({
 		if (typeof packedSplats?.reinitialize !== "function") {
 			return false;
 		}
-		packedSplats.reinitialize({
-			packedArray: nextSource.packedArray,
-			numSplats: nextSource.numSplats,
-			extra: nextSource.extra ?? {},
-			splatEncoding: nextSource.splatEncoding ?? null,
-			lod: packedSplats.lod,
-			nonLod: packedSplats.nonLod,
-		});
+		const nextPackedArray = nextSource.packedArray;
+		const nextExtra = nextSource.extra ?? {};
+		const nextEncoding = nextSource.splatEncoding ?? null;
+		const previousNumSplats =
+			packedSplats.getNumSplats?.() ?? packedSplats.numSplats ?? null;
+		const restoredInPlace = restorePackedSplatRuntimeSourceInPlace(
+			packedSplats,
+			{
+				packedArray: nextPackedArray,
+				numSplats: nextSource.numSplats,
+				extra: nextExtra,
+				splatEncoding: nextEncoding,
+			},
+		);
+		if (!restoredInPlace) {
+			packedSplats.reinitialize({
+				packedArray: nextPackedArray,
+				numSplats: nextSource.numSplats,
+				extra: nextExtra,
+				splatEncoding: nextEncoding,
+				lod: packedSplats.lod,
+				nonLod: packedSplats.nonLod,
+			});
+			resetPackedSplatRuntimeResources(packedSplats, {
+				packedArray: nextPackedArray,
+				extra: nextExtra,
+				splatEncoding: nextEncoding,
+			});
+		}
 		packedSplats.disposeLodSplats?.();
 		packedSplats.needsUpdate = true;
 		asset.disposeTarget.numSplats =
 			packedSplats.getNumSplats?.() ?? packedSplats.numSplats ?? 0;
+		asset.disposeTarget.lastSplats = null;
+		asset.disposeTarget.splats = packedSplats;
+		asset.disposeTarget.generatorDirty = true;
 		asset.disposeTarget.updateGenerator?.();
 		asset.disposeTarget.updateVersion?.();
 		asset.source = nextSource;
-		asset.capturePackedSplatSourceInEditState = true;
+		asset.capturePackedSplatSourceInEditState = false;
+		asset.persistentSourceDirty = false;
 		syncPackedSplatBoundsHints(asset);
+		debugSplatHistory("restore-packed-source", {
+			assetId: asset.id,
+			beforeNumSplats: previousNumSplats,
+			afterNumSplats:
+				packedSplats.getNumSplats?.() ?? packedSplats.numSplats ?? null,
+			snapshotNumSplats: nextSource.numSplats ?? null,
+			packedArrayType: nextSource.packedArray?.constructor?.name ?? null,
+			lodTreeType: nextSource.extra?.lodTree?.constructor?.name ?? null,
+			sh1Type: nextSource.extra?.sh1?.constructor?.name ?? null,
+			sh2Type: nextSource.extra?.sh2?.constructor?.name ?? null,
+			sh3Type: nextSource.extra?.sh3?.constructor?.name ?? null,
+			runtimePackedArrayType:
+				packedSplats.packedArray?.constructor?.name ?? null,
+			runtimeLodTreeType:
+				packedSplats.extra?.lodTree?.constructor?.name ?? null,
+			runtimeSh1Type: packedSplats.extra?.sh1?.constructor?.name ?? null,
+			runtimeSh2Type: packedSplats.extra?.sh2?.constructor?.name ?? null,
+			runtimeSh3Type: packedSplats.extra?.sh3?.constructor?.name ?? null,
+			restoredInPlace,
+		});
 		return true;
 	}
 
@@ -133,7 +383,7 @@ export function createSceneAssetStatePersistence({
 					z: asset.object.position.z,
 				},
 				sourceSnapshot: shouldCapturePackedSplatEditSource(asset)
-					? clonePackedSplatEditSource(asset.source)
+					? capturePackedSplatEditSource(asset)
 					: null,
 				rotationDegrees: {
 					x: THREE.MathUtils.radToDeg(asset.object.rotation.x),
@@ -230,6 +480,7 @@ export function createSceneAssetStatePersistence({
 				}
 			} else {
 				asset.capturePackedSplatSourceInEditState = false;
+				asset.persistentSourceDirty = false;
 			}
 		}
 
@@ -309,7 +560,8 @@ export function createSceneAssetStatePersistence({
 				isProjectFileEmbeddedFileSource(item.source) ||
 				isProjectFilePackedSplatSource(item.source)
 			) {
-				item.source.projectAssetState = item;
+				item.source.projectAssetState =
+					sanitizePackedSplatProjectAssetState(item);
 			}
 			missingSources.push(item.source);
 		}

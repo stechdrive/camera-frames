@@ -358,6 +358,7 @@ export function createProjectController({
 	applyWorkingEditorState = () => {},
 	clearProjectSidecars = () => {},
 	resetProjectWorkspace = () => {},
+	flushDirtySplatSources = () => false,
 	buildProjectFilename = () => getDefaultProjectFilename(),
 	captureProjectState,
 	clearHistory,
@@ -815,6 +816,7 @@ export function createProjectController({
 	}
 
 	async function saveWorkingState() {
+		flushDirtySplatSources?.();
 		const projectSnapshot = captureProjectState();
 		const canUseWorkingSaveDirectly =
 			supportsWorkingProjectStateStorage() &&
@@ -930,6 +932,7 @@ export function createProjectController({
 		{ saveMode = "auto", saveTarget = null } = {},
 	) {
 		const progressStartedAt = Date.now();
+		flushDirtySplatSources?.();
 		const compressSplatsToSog = values.compressSplatsToSog === true;
 		if (compressSplatsToSog && !supportsSogCompression()) {
 			throw new Error(t("error.sogCompressionRequiresWebGpu"));

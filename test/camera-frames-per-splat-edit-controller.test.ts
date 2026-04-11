@@ -2,8 +2,15 @@ import assert from "node:assert/strict";
 import { PackedSplats, SplatMesh } from "@sparkjsdev/spark";
 import * as THREE from "three";
 import { createPerSplatEditControllerBindings } from "../src/app/per-splat-edit-controller-bindings.js";
+import { createHistoryController } from "../src/controllers/history-controller.js";
 import { createPerSplatEditController } from "../src/controllers/per-splat-edit-controller.js";
-import { createProjectFilePackedSplatSource } from "../src/project-document.js";
+import { createSceneAssetStatePersistence } from "../src/controllers/scene-assets/state-persistence.js";
+import {
+	createProjectFileEmbeddedFileSource,
+	createProjectFilePackedSplatSource,
+	isProjectFileEmbeddedFileSource,
+	isProjectFilePackedSplatSource,
+} from "../src/project-document.js";
 import { createCameraFramesStore } from "../src/store.js";
 
 function createRectElement({
@@ -124,12 +131,158 @@ function createPointerEvent({
 	};
 }
 
+function captureObjectLocalTransformState(object) {
+	if (!object) {
+		return null;
+	}
+	return {
+		position: {
+			x: object.position.x,
+			y: object.position.y,
+			z: object.position.z,
+		},
+		quaternion: {
+			x: object.quaternion.x,
+			y: object.quaternion.y,
+			z: object.quaternion.z,
+			w: object.quaternion.w,
+		},
+		scale: {
+			x: object.scale.x,
+			y: object.scale.y,
+			z: object.scale.z,
+		},
+	};
+}
+
+function applyObjectLocalTransformState(object, state) {
+	if (!object || !state) {
+		return;
+	}
+	object.position.set(state.position.x, state.position.y, state.position.z);
+	object.quaternion.set(
+		state.quaternion.x,
+		state.quaternion.y,
+		state.quaternion.z,
+		state.quaternion.w,
+	);
+	object.scale.set(state.scale.x, state.scale.y, state.scale.z);
+	object.updateMatrixWorld(true);
+}
+
+function ensureSceneStateAssetShape(asset) {
+	if (!asset.baseScale?.isVector3) {
+		asset.baseScale = new THREE.Vector3(1, 1, 1);
+	}
+	if (!Number.isFinite(asset.worldScale)) {
+		asset.worldScale = 1;
+	}
+	if (!asset.unitMode) {
+		asset.unitMode = "meters";
+	}
+	if (!asset.exportRole) {
+		asset.exportRole = "beauty";
+	}
+	if (typeof asset.maskGroup !== "string") {
+		asset.maskGroup = "";
+	}
+	if (!("workingPivotLocal" in asset)) {
+		asset.workingPivotLocal = null;
+	}
+	return asset;
+}
+
+function createHarnessWithRealHistory(options = {}) {
+	let historyController = null;
+	const historyFacade = {
+		beginHistoryTransaction: (...args) =>
+			historyController?.beginHistoryTransaction?.(...args),
+		commitHistoryTransaction: (...args) =>
+			historyController?.commitHistoryTransaction?.(...args),
+		cancelHistoryTransaction: (...args) =>
+			historyController?.cancelHistoryTransaction?.(...args),
+	};
+	const harness = createHarness({
+		...options,
+		historyController: historyFacade,
+	});
+	const detachedSceneAssets = new Map();
+	const sceneState = {
+		get assets() {
+			return harness.store.sceneAssets.value;
+		},
+		set assets(nextValue) {
+			harness.store.sceneAssets.value = nextValue;
+		},
+	};
+	const statePersistence = createSceneAssetStatePersistence({
+		sceneState,
+		store: harness.store,
+		detachedSceneAssets,
+		getProjectSourceStableKey: (source) => source?.stableKey ?? null,
+		isProjectFileEmbeddedFileSource,
+		isProjectFilePackedSplatSource,
+		captureObjectLocalTransformState,
+		applyObjectLocalTransformState,
+		clampAssetWorldScale: (value) => Math.max(0.01, Number(value) || 1),
+		clampAssetTransformValue: (value, fallback = 0) => {
+			const nextValue = Number(value);
+			return Number.isFinite(nextValue) ? nextValue : fallback;
+		},
+		normalizeWorkingPivotLocal: (value) =>
+			value
+				? new THREE.Vector3(
+						Number(value.x ?? 0),
+						Number(value.y ?? 0),
+						Number(value.z ?? 0),
+					)
+				: null,
+		applyAssetWorldScale: (asset) => {
+			asset.object.scale.copy(asset.baseScale).multiplyScalar(asset.worldScale);
+			asset.object.updateMatrixWorld(true);
+		},
+		restoreSceneAsset: (asset) => {
+			detachedSceneAssets.delete(asset.id);
+		},
+		detachSceneAsset: (asset) => {
+			detachedSceneAssets.set(asset.id, asset);
+		},
+		captureProjectSceneState: () => [],
+		applyProjectAssetState: () => {},
+		loadSources: async () => {},
+	});
+	const controller = harness.controller;
+	historyController = createHistoryController({
+		store: harness.store,
+		captureWorkspaceState: () => ({
+			sceneAssets: statePersistence.captureSceneAssetEditState(),
+			splatEdit: controller.captureEditState(),
+		}),
+		restoreWorkspaceState: (snapshot) => {
+			if (!statePersistence.restoreSceneAssetEditState(snapshot.sceneAssets)) {
+				return false;
+			}
+			return controller.restoreEditState(snapshot.splatEdit);
+		},
+		updateUi: () => {},
+	});
+	return {
+		...harness,
+		statePersistence,
+		historyController,
+		ensureAsset(asset) {
+			return ensureSceneStateAssetShape(asset);
+		},
+	};
+}
+
 function createHarness({
 	mode = "viewport",
 	camera = null,
 	cameraViewCamera = null,
 	viewportRect = { left: 0, top: 0, width: 1000, height: 1000 },
 	renderBoxRect = null,
+	historyController = null,
 } = {}) {
 	const store = createCameraFramesStore();
 	const calls = [];
@@ -243,6 +396,19 @@ function createHarness({
 		},
 	};
 	const historyCalls = [];
+	const resolvedHistoryController = historyController ?? {
+		beginHistoryTransaction: (label) => {
+			historyCalls.push(["begin", label]);
+			return true;
+		},
+		commitHistoryTransaction: (label) => {
+			historyCalls.push(["commit", label]);
+			return true;
+		},
+		cancelHistoryTransaction: () => {
+			historyCalls.push(["cancel"]);
+		},
+	};
 	const bindings = createPerSplatEditControllerBindings({
 		store,
 		state: { mode },
@@ -282,24 +448,13 @@ function createHarness({
 				calls.push(["navigate-mode", options]),
 			syncControlsToMode: () => calls.push(["sync-controls"]),
 		}),
-		getHistoryController: () => ({
-			beginHistoryTransaction: (label) => {
-				historyCalls.push(["begin", label]);
-				return true;
-			},
-			commitHistoryTransaction: (label) => {
-				historyCalls.push(["commit", label]);
-				return true;
-			},
-			cancelHistoryTransaction: () => {
-				historyCalls.push(["cancel"]);
-			},
-		}),
+		getHistoryController: () => resolvedHistoryController,
 	});
 	return {
 		store,
 		calls,
 		historyCalls,
+		historyController: resolvedHistoryController,
 		guides,
 		selectionHighlightCalls,
 		activeCamera,
@@ -1446,6 +1601,181 @@ async function createPackedSplatAsset({ id, label, centers }) {
 }
 
 {
+	const historyCalls = [];
+	let commitReplacementFlag = false;
+	const harness = createHarness({
+		historyController: {
+			beginHistoryTransaction: (label) => {
+				historyCalls.push(["begin", label]);
+				return true;
+			},
+			commitHistoryTransaction: (label) => {
+				historyCalls.push(["commit", label]);
+				commitReplacementFlag =
+					harness.store.sceneAssets.value[0]
+						?.capturePackedSplatSourceInEditState === true;
+				return true;
+			},
+			cancelHistoryTransaction: () => {
+				historyCalls.push(["cancel"]);
+			},
+		},
+	});
+	const asset = await createPackedSplatAsset({
+		id: "splat-delete-history",
+		label: "Terrain",
+		centers: [
+			new THREE.Vector3(0, 0, 0),
+			new THREE.Vector3(0.5, 0, 0),
+			new THREE.Vector3(2, 0, 0),
+		],
+	});
+	harness.store.sceneAssets.value = [asset];
+	harness.store.selectedSceneAssetIds.value = [asset.id];
+	harness.store.selectedSceneAssetId.value = asset.id;
+
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	harness.controller.setSplatEditBoxCenterAxis("x", 0.25);
+	harness.controller.setSplatEditBoxCenterAxis("z", 0);
+	harness.controller.setSplatEditBoxSizeAxis("x", 1.5);
+	assert.equal(
+		harness.controller.applySplatEditBoxSelection({ subtract: false }),
+		2,
+	);
+	assert.equal(await harness.controller.deleteSelectedSplats(), 2);
+	assert.equal(commitReplacementFlag, true);
+	assert.equal(
+		harness.store.sceneAssets.value[0].capturePackedSplatSourceInEditState,
+		false,
+	);
+	assert.deepEqual(historyCalls, [
+		["begin", "splat-edit.delete"],
+		["commit", "splat-edit.delete"],
+	]);
+}
+
+{
+	const historyCalls = [];
+	let commitFlags = null;
+	const harness = createHarness({
+		historyController: {
+			beginHistoryTransaction: (label) => {
+				historyCalls.push(["begin", label]);
+				return true;
+			},
+			commitHistoryTransaction: (label) => {
+				historyCalls.push(["commit", label]);
+				commitFlags = harness.store.sceneAssets.value.map(
+					(asset) => asset.capturePackedSplatSourceInEditState === true,
+				);
+				return true;
+			},
+			cancelHistoryTransaction: () => {
+				historyCalls.push(["cancel"]);
+			},
+		},
+	});
+	const asset = await createPackedSplatAsset({
+		id: "splat-separate-history",
+		label: "Facade",
+		centers: [
+			new THREE.Vector3(0, 0, 0),
+			new THREE.Vector3(0.5, 0, 0),
+			new THREE.Vector3(2, 0, 0),
+		],
+	});
+	harness.store.sceneAssets.value = [asset];
+	harness.store.selectedSceneAssetIds.value = [asset.id];
+	harness.store.selectedSceneAssetId.value = asset.id;
+
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	harness.controller.setSplatEditBoxCenterAxis("x", 0.25);
+	harness.controller.setSplatEditBoxCenterAxis("z", 0);
+	harness.controller.setSplatEditBoxSizeAxis("x", 1.5);
+	assert.equal(
+		harness.controller.applySplatEditBoxSelection({ subtract: false }),
+		2,
+	);
+	assert.equal(await harness.controller.separateSelectedSplats(), 1);
+	assert.deepEqual(commitFlags, [true, true]);
+	assert.deepEqual(
+		harness.store.sceneAssets.value.map(
+			(asset) => asset.capturePackedSplatSourceInEditState === true,
+		),
+		[false, false],
+	);
+	assert.deepEqual(historyCalls, [
+		["begin", "splat-edit.separate"],
+		["commit", "splat-edit.separate"],
+	]);
+}
+
+{
+	const historyCalls = [];
+	let commitFlags = null;
+	const harness = createHarness({
+		historyController: {
+			beginHistoryTransaction: (label) => {
+				historyCalls.push(["begin", label]);
+				return true;
+			},
+			commitHistoryTransaction: (label) => {
+				historyCalls.push(["commit", label]);
+				commitFlags = harness.store.sceneAssets.value.map(
+					(asset) => asset.capturePackedSplatSourceInEditState === true,
+				);
+				return true;
+			},
+			cancelHistoryTransaction: () => {
+				historyCalls.push(["cancel"]);
+			},
+		},
+	});
+	const asset = await createPackedSplatAsset({
+		id: "splat-duplicate-history",
+		label: "Facade",
+		centers: [
+			new THREE.Vector3(0, 0, 0),
+			new THREE.Vector3(0.5, 0, 0),
+			new THREE.Vector3(2, 0, 0),
+		],
+	});
+	harness.store.sceneAssets.value = [asset];
+	harness.store.selectedSceneAssetIds.value = [asset.id];
+	harness.store.selectedSceneAssetId.value = asset.id;
+
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	harness.controller.setSplatEditBoxCenterAxis("x", 0.25);
+	harness.controller.setSplatEditBoxCenterAxis("z", 0);
+	harness.controller.setSplatEditBoxSizeAxis("x", 1.5);
+	assert.equal(
+		harness.controller.applySplatEditBoxSelection({ subtract: false }),
+		2,
+	);
+	assert.equal(await harness.controller.duplicateSelectedSplats(), 1);
+	assert.deepEqual(commitFlags, [false, true]);
+	assert.deepEqual(
+		harness.store.sceneAssets.value.map(
+			(asset) => asset.capturePackedSplatSourceInEditState === true,
+		),
+		[false, false],
+	);
+	assert.deepEqual(historyCalls, [
+		["begin", "splat-edit.duplicate"],
+		["commit", "splat-edit.duplicate"],
+	]);
+}
+
+{
 	const harness = createHarness();
 	harness.store.sceneAssets.value = [
 		createSplatAsset({
@@ -1566,6 +1896,12 @@ async function createPackedSplatAsset({ id, label, centers }) {
 	const movedSecondX = asset.disposeTarget.packedSplats.getSplat(1).center.x;
 	assert.ok(Math.abs(movedFirstX - 0.8) < 5e-4);
 	assert.ok(Math.abs(movedSecondX - 1.2) < 5e-4);
+	assert.equal(asset.persistentSourceDirty, true);
+	assert.equal(
+		harness.controller.flushDirtySplatAssetPersistentSources(),
+		true,
+	);
+	assert.equal(asset.persistentSourceDirty, false);
 	assert.ok(asset.source.packedArray instanceof Uint32Array);
 }
 
@@ -1704,10 +2040,10 @@ async function createPackedSplatAsset({ id, label, centers }) {
 	assert.ok(
 		Math.abs(asset.disposeTarget.packedSplats.getSplat(1).center.x - 1) < 5e-4,
 	);
-	assert.equal(
-		harness.controller.handleViewportGizmoDragEnd(previewMoveEvent),
-		true,
-	);
+	const previewEnded =
+		harness.controller.handleViewportGizmoDragEnd(previewMoveEvent);
+	assert.equal(previewEnded, true);
+	assert.equal(asset.capturePackedSplatSourceInEditState, false);
 	assert.equal(asset.object.visible, true);
 	assert.ok(
 		Math.abs(asset.disposeTarget.packedSplats.getSplat(0).center.x + 1) > 0.1,
@@ -1715,6 +2051,241 @@ async function createPackedSplatAsset({ id, label, centers }) {
 	assert.ok(
 		Math.abs(asset.disposeTarget.packedSplats.getSplat(1).center.x - 1) > 0.1,
 	);
+}
+
+{
+	const historyCalls = [];
+	let beginOptions = null;
+	const harness = createHarness({
+		historyController: {
+			beginHistoryTransaction: (label, options) => {
+				historyCalls.push(["begin", label]);
+				beginOptions = options ?? null;
+				return true;
+			},
+			commitHistoryTransaction: (label) => {
+				historyCalls.push(["commit", label]);
+				return true;
+			},
+			cancelHistoryTransaction: () => {
+				historyCalls.push(["cancel"]);
+			},
+		},
+	});
+	const asset = await createPackedSplatAsset({
+		id: "splat-transform-noop",
+		label: "Transform Noop",
+		centers: [new THREE.Vector3(-1, 0, 0), new THREE.Vector3(1, 0, 0)],
+	});
+	const viewportRect = { left: 0, top: 0, width: 1000, height: 1000 };
+	harness.store.sceneAssets.value = [asset];
+	harness.store.selectedSceneAssetIds.value = [asset.id];
+	harness.store.selectedSceneAssetId.value = asset.id;
+
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	harness.controller.fitSplatEditBoxToScope();
+	assert.equal(
+		harness.controller.applySplatEditBoxSelection({ subtract: false }),
+		2,
+	);
+	assert.equal(harness.controller.setSplatEditTool("transform"), "transform");
+	historyCalls.length = 0;
+	const gizmoConfig = harness.controller.getViewportGizmoConfig();
+	const startEvent = createPointerEvent({
+		pointerId: 31,
+		...worldToClientPoint({
+			camera: harness.activeCamera,
+			viewportRect,
+			worldPoint: new THREE.Vector3(1, 0, 0),
+		}),
+	});
+	assert.equal(
+		harness.controller.startViewportGizmoDrag("move-x", {
+			camera: harness.activeCamera,
+			viewportRect,
+			config: gizmoConfig,
+			event: startEvent,
+		}),
+		true,
+	);
+	assert.deepEqual(beginOptions, { skipSnapshotDiff: true });
+	const noopEnded = harness.controller.handleViewportGizmoDragEnd(startEvent);
+	assert.equal(noopEnded, true);
+	assert.deepEqual(historyCalls, [
+		["begin", "splat-edit.transform"],
+		["cancel"],
+	]);
+	assert.equal(asset.persistentSourceDirty, undefined);
+}
+
+{
+	const harness = createHarnessWithRealHistory();
+	const asset = harness.ensureAsset(
+		await createPackedSplatAsset({
+			id: "splat-transform-history",
+			label: "History Target",
+			centers: [new THREE.Vector3(-1, 0, 0), new THREE.Vector3(1, 0, 0)],
+		}),
+	);
+	const viewportRect = { left: 0, top: 0, width: 1000, height: 1000 };
+	harness.store.sceneAssets.value = [asset];
+	harness.store.selectedSceneAssetIds.value = [asset.id];
+	harness.store.selectedSceneAssetId.value = asset.id;
+
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	harness.controller.fitSplatEditBoxToScope();
+	assert.equal(
+		harness.controller.applySplatEditBoxSelection({ subtract: false }),
+		2,
+	);
+	assert.equal(harness.controller.setSplatEditTool("transform"), "transform");
+	const gizmoConfig = harness.controller.getViewportGizmoConfig();
+	const startEvent = createPointerEvent({
+		pointerId: 14,
+		...worldToClientPoint({
+			camera: harness.activeCamera,
+			viewportRect,
+			worldPoint: new THREE.Vector3(1, 0, 0),
+		}),
+	});
+	assert.equal(
+		harness.controller.startViewportGizmoDrag("move-x", {
+			camera: harness.activeCamera,
+			viewportRect,
+			config: gizmoConfig,
+			event: startEvent,
+		}),
+		true,
+	);
+	const dragEvent = createPointerEvent({
+		pointerId: 14,
+		...worldToClientPoint({
+			camera: harness.activeCamera,
+			viewportRect,
+			worldPoint: new THREE.Vector3(2, 0, 0),
+		}),
+	});
+	assert.equal(
+		harness.controller.handleViewportGizmoDragMove(dragEvent, {
+			camera: harness.activeCamera,
+			viewportRect,
+		}),
+		true,
+	);
+	assert.equal(harness.controller.handleViewportGizmoDragEnd(dragEvent), true);
+
+	const movedLeftX = asset.disposeTarget.packedSplats.getSplat(0).center.x;
+	const movedRightX = asset.disposeTarget.packedSplats.getSplat(1).center.x;
+	assert.ok(movedLeftX > -0.6);
+	assert.ok(movedRightX > 1.4);
+
+	const undoTransformHistory = harness.historyController.undoHistory();
+	assert.equal(undoTransformHistory, true);
+	assert.ok(
+		Math.abs(asset.disposeTarget.packedSplats.getSplat(0).center.x + 1) < 5e-4,
+	);
+	assert.ok(
+		Math.abs(asset.disposeTarget.packedSplats.getSplat(1).center.x - 1) < 5e-4,
+	);
+	assert.equal(harness.store.splatEdit.tool.value, "transform");
+	assert.equal(harness.store.splatEdit.selectionCount.value, 2);
+
+	const redoTransformHistory = harness.historyController.redoHistory();
+	assert.equal(redoTransformHistory, true);
+	assert.ok(
+		Math.abs(
+			asset.disposeTarget.packedSplats.getSplat(0).center.x - movedLeftX,
+		) < 5e-4,
+	);
+	assert.ok(
+		Math.abs(
+			asset.disposeTarget.packedSplats.getSplat(1).center.x - movedRightX,
+		) < 5e-4,
+	);
+}
+
+{
+	const harness = createHarnessWithRealHistory();
+	const asset = harness.ensureAsset(
+		await createPackedSplatAsset({
+			id: "splat-transform-history-embedded",
+			label: "Embedded Target",
+			centers: [new THREE.Vector3(-1, 0, 0), new THREE.Vector3(1, 0, 0)],
+		}),
+	);
+	asset.source = createProjectFileEmbeddedFileSource({
+		kind: "splat",
+		file: new File([new Uint8Array([1, 2, 3])], "embedded-source.splat"),
+		fileName: "embedded-source.splat",
+	});
+	const viewportRect = { left: 0, top: 0, width: 1000, height: 1000 };
+	harness.store.sceneAssets.value = [asset];
+	harness.store.selectedSceneAssetIds.value = [asset.id];
+	harness.store.selectedSceneAssetId.value = asset.id;
+
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	harness.controller.fitSplatEditBoxToScope();
+	assert.equal(
+		harness.controller.applySplatEditBoxSelection({ subtract: false }),
+		2,
+	);
+	assert.equal(harness.controller.setSplatEditTool("transform"), "transform");
+	const gizmoConfig = harness.controller.getViewportGizmoConfig();
+	const startEvent = createPointerEvent({
+		pointerId: 15,
+		...worldToClientPoint({
+			camera: harness.activeCamera,
+			viewportRect,
+			worldPoint: new THREE.Vector3(1, 0, 0),
+		}),
+	});
+	assert.equal(
+		harness.controller.startViewportGizmoDrag("move-x", {
+			camera: harness.activeCamera,
+			viewportRect,
+			config: gizmoConfig,
+			event: startEvent,
+		}),
+		true,
+	);
+	const dragEvent = createPointerEvent({
+		pointerId: 15,
+		...worldToClientPoint({
+			camera: harness.activeCamera,
+			viewportRect,
+			worldPoint: new THREE.Vector3(2, 0, 0),
+		}),
+	});
+	assert.equal(
+		harness.controller.handleViewportGizmoDragMove(dragEvent, {
+			camera: harness.activeCamera,
+			viewportRect,
+		}),
+		true,
+	);
+	assert.equal(harness.controller.handleViewportGizmoDragEnd(dragEvent), true);
+
+	const undoEmbeddedHistory = harness.historyController.undoHistory();
+	assert.equal(undoEmbeddedHistory, true);
+	assert.ok(
+		Math.abs(asset.disposeTarget.packedSplats.getSplat(0).center.x + 1) < 5e-4,
+	);
+	assert.ok(
+		Math.abs(asset.disposeTarget.packedSplats.getSplat(1).center.x - 1) < 5e-4,
+	);
+	const redoEmbeddedHistory = harness.historyController.redoHistory();
+	assert.equal(redoEmbeddedHistory, true);
+	assert.ok(asset.disposeTarget.packedSplats.getSplat(0).center.x > -0.6);
+	assert.ok(asset.disposeTarget.packedSplats.getSplat(1).center.x > 1.4);
 }
 
 {
@@ -1786,10 +2357,9 @@ async function createPackedSplatAsset({ id, label, centers }) {
 			),
 		) < 5e-3,
 	);
-	assert.equal(
-		harness.controller.handleViewportGizmoDragEnd(rotateEvent),
-		true,
-	);
+	const boxRotateEnded =
+		harness.controller.handleViewportGizmoDragEnd(rotateEvent);
+	assert.equal(boxRotateEnded, true);
 	assert.deepEqual(harness.historyCalls, [
 		["begin", "splat-edit.box-transform"],
 		["commit", "splat-edit.box-transform"],
@@ -1855,12 +2425,10 @@ async function createPackedSplatAsset({ id, label, centers }) {
 		createPointerEvent({ pointerId: 20, clientX: 500, clientY: 500 }),
 	);
 	assert.equal(started, true, "brush stroke should start with fallback depth");
-	assert.equal(
-		harness.controller.finishSplatEditBrushStroke(
-			createPointerEvent({ pointerId: 20, clientX: 510, clientY: 500 }),
-		),
-		true,
+	const finishedBrushStroke = harness.controller.finishSplatEditBrushStroke(
+		createPointerEvent({ pointerId: 20, clientX: 510, clientY: 500 }),
 	);
+	assert.equal(finishedBrushStroke, true);
 }
 
 // Brush stroke syncs highlight immediately during drag
@@ -1881,30 +2449,28 @@ async function createPackedSplatAsset({ id, label, centers }) {
 	assert.equal(harness.controller.setSplatEditBrushSize(200), true);
 	harness.selectionHighlightCalls.length = 0;
 
-	assert.equal(
+	const startedImmediateHighlight =
 		harness.controller.startSplatEditBrushStroke(
 			createPointerEvent({
 				pointerId: 21,
 				clientX: 460,
 				clientY: 500,
 			}),
-		),
-		true,
-	);
+		);
+	assert.equal(startedImmediateHighlight, true);
 	const syncCountAfterStart = harness.selectionHighlightCalls.filter(
 		(entry) => entry[0] === "sync",
 	).length;
 	assert.ok(syncCountAfterStart >= 1, "highlight should sync on stroke start");
-	assert.equal(
+	const finishedImmediateHighlight =
 		harness.controller.finishSplatEditBrushStroke(
 			createPointerEvent({
 				pointerId: 21,
 				clientX: 540,
 				clientY: 500,
 			}),
-		),
-		true,
-	);
+		);
+	assert.equal(finishedImmediateHighlight, true);
 }
 
 {

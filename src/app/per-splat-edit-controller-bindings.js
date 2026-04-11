@@ -39,10 +39,10 @@ export function createPerSplatEditControllerBindings({
 			getInteractionController?.()?.applyNavigateInteractionMode?.(options),
 		syncControlsToMode: () =>
 			getInteractionController?.()?.syncControlsToMode?.(),
-		beginHistoryTransaction: (label) =>
-			getHistoryController?.()?.beginHistoryTransaction?.(label),
-		commitHistoryTransaction: (label) =>
-			getHistoryController?.()?.commitHistoryTransaction?.(label),
+		beginHistoryTransaction: (...args) =>
+			getHistoryController?.()?.beginHistoryTransaction?.(...args),
+		commitHistoryTransaction: (...args) =>
+			getHistoryController?.()?.commitHistoryTransaction?.(...args),
 		cancelHistoryTransaction: () =>
 			getHistoryController?.()?.cancelHistoryTransaction?.(),
 	};

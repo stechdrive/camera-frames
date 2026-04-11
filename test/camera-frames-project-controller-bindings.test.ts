@@ -62,6 +62,7 @@ import { createProjectControllerBindings } from "../src/app/project-controller-b
 	assert.equal(calls[8], "reset-lighting");
 	assert.equal(calls[9], "clear-scene");
 
+	assert.equal(bindings.flushDirtySplatSources(), false);
 	assert.equal(bindings.buildProjectFilename(), "project.ssproj");
 	assert.deepEqual(bindings.captureProjectState(), { project: true });
 	bindings.clearHistory();

@@ -44,6 +44,9 @@ export function createProjectControllerBindings({
 			lightingController?.resetLighting?.();
 			assetController.clearScene();
 		},
+		flushDirtySplatSources: () =>
+			perSplatEditController?.flushDirtySplatAssetPersistentSources?.() ??
+			false,
 		buildProjectFilename,
 		captureProjectState,
 		clearHistory: () => historyController?.clearHistory(),

@@ -305,6 +305,81 @@ function createHarness() {
 }
 
 {
+	const { sceneState, statePersistence } = createHarness();
+	const packedSource = {
+		kind: "packed-splat",
+		fileName: "edited.rawsplat",
+		packedArray: new Uint32Array([1, 2, 3, 4]),
+		numSplats: 1,
+		extra: {
+			lodTree: new Uint32Array([7, 8, 9]),
+			radMeta: {
+				mode: "test",
+				update() {
+					return null;
+				},
+			},
+		},
+		splatEncoding: {
+			mode: "test",
+			update() {
+				return null;
+			},
+		},
+		projectAssetState: {
+			id: "asset-1",
+			kind: "splat",
+			label: "Edited",
+			source: {
+				update() {
+					return null;
+				},
+			},
+		},
+		legacyState: {
+			path: "edited.rawsplat",
+			update() {
+				return null;
+			},
+		},
+		resource: {
+			type: "raw-packed-splat",
+			path: "assets/edited.rawsplat",
+			update() {
+				return null;
+			},
+		},
+	};
+	const asset = createPackedSplatAsset(1, "Edited", packedSource);
+	asset.capturePackedSplatSourceInEditState = true;
+	sceneState.assets.push(asset);
+
+	const snapshot = statePersistence.captureSceneAssetEditState();
+
+	assert.equal(
+		"source" in snapshot.assets[0].sourceSnapshot.projectAssetState,
+		false,
+	);
+	assert.equal(
+		"update" in (snapshot.assets[0].sourceSnapshot.splatEncoding ?? {}),
+		false,
+	);
+	assert.equal(
+		"update" in (snapshot.assets[0].sourceSnapshot.resource ?? {}),
+		false,
+	);
+	assert.equal(
+		"update" in (snapshot.assets[0].sourceSnapshot.legacyState ?? {}),
+		false,
+	);
+	assert.equal(
+		"update" in (snapshot.assets[0].sourceSnapshot.extra?.radMeta ?? {}),
+		false,
+	);
+	assert.doesNotThrow(() => structuredClone(snapshot));
+}
+
+{
 	const { sceneState, store, detachedSceneAssets, calls, statePersistence } =
 		createHarness();
 	const assetA = createAsset(1, "model", "A");
@@ -364,6 +439,14 @@ function createHarness() {
 	});
 	asset.capturePackedSplatSourceInEditState = true;
 	sceneState.assets.push(asset);
+	asset.disposeTarget.packedSplats.reinitialize({
+		packedArray: new Uint32Array([1, 2, 3, 4]),
+		numSplats: 1,
+		extra: { lodTree: new Uint32Array([5, 6, 7]) },
+		splatEncoding: { mode: "before" },
+	});
+	const previousPackedArrayRef = asset.disposeTarget.packedSplats.packedArray;
+	const previousLodTreeRef = asset.disposeTarget.packedSplats.extra.lodTree;
 
 	const restored = statePersistence.restoreSceneAssetEditState({
 		selectedSceneAssetIds: [],
@@ -400,12 +483,86 @@ function createHarness() {
 		Array.from(asset.disposeTarget.packedSplats.packedArray),
 		[9, 10, 11, 12],
 	);
+	assert.equal(
+		asset.disposeTarget.packedSplats.packedArray,
+		previousPackedArrayRef,
+	);
+	assert.equal(
+		asset.disposeTarget.packedSplats.extra.lodTree,
+		previousLodTreeRef,
+	);
 	assert.equal(asset.disposeTarget.updateGeneratorCalls, 1);
 	assert.equal(asset.disposeTarget.updateVersionCalls, 1);
 	assert.equal(asset.disposeTarget.packedSplats.disposeLodSplatsCalled, 1);
-	assert.equal(asset.capturePackedSplatSourceInEditState, true);
+	assert.equal(asset.capturePackedSplatSourceInEditState, false);
 	assert.ok(asset.localBoundsHint?.isBox3);
 	assert.ok(asset.localCenterBoundsHint?.isBox3);
+}
+
+{
+	const { sceneState, statePersistence } = createHarness();
+	const asset = createPackedSplatAsset(1, "Edited", {
+		kind: "packed-splat",
+		fileName: "edited.rawsplat",
+		packedArray: new Uint32Array([1, 2, 3, 4]),
+		numSplats: 1,
+		extra: { lodTree: new Uint32Array([5, 6, 7]) },
+		splatEncoding: { mode: "before" },
+	});
+	sceneState.assets.push(asset);
+	const restoredPackedWords = new Uint32Array([13, 14, 15, 16]);
+	const restoredLodTreeWords = new Uint32Array([21, 22, 23]);
+
+	const restored = statePersistence.restoreSceneAssetEditState({
+		selectedSceneAssetIds: [],
+		selectedSceneAssetId: null,
+		assets: [
+			{
+				id: 1,
+				kind: "splat",
+				worldScale: 1,
+				unitMode: "meters",
+				exportRole: "beauty",
+				maskGroup: "",
+				workingPivotLocal: null,
+				baseScale: { x: 1, y: 1, z: 1 },
+				contentTransform: captureObjectLocalTransformState(asset.contentObject),
+				visible: true,
+				position: { x: 0, y: 0, z: 0 },
+				rotationDegrees: { x: 0, y: 0, z: 0 },
+				sourceSnapshot: {
+					kind: "packed-splat",
+					fileName: "restored.rawsplat",
+					packedArray: new Uint8Array(restoredPackedWords.buffer.slice(0)),
+					numSplats: 1,
+					extra: {
+						lodTree: new Uint8Array(restoredLodTreeWords.buffer.slice(0)),
+					},
+					splatEncoding: { mode: "after" },
+				},
+			},
+		],
+	});
+
+	assert.equal(restored, true);
+	assert.equal(asset.source.packedArray instanceof Uint32Array, true);
+	assert.equal(
+		asset.disposeTarget.packedSplats.packedArray instanceof Uint32Array,
+		true,
+	);
+	assert.equal(asset.source.extra.lodTree instanceof Uint32Array, true);
+	assert.equal(
+		asset.disposeTarget.packedSplats.extra.lodTree instanceof Uint32Array,
+		true,
+	);
+	assert.deepEqual(
+		Array.from(asset.disposeTarget.packedSplats.packedArray),
+		Array.from(restoredPackedWords),
+	);
+	assert.deepEqual(
+		Array.from(asset.disposeTarget.packedSplats.extra.lodTree),
+		Array.from(restoredLodTreeWords),
+	);
 }
 
 {

@@ -1,6 +1,112 @@
+import { debugSplatHistory } from "../debug/splat-history-debug.js";
+
+function findFirstNonCloneablePath(value, path = "$", seen = new WeakSet()) {
+	if (value === null || value === undefined) {
+		return null;
+	}
+	if (
+		typeof value === "string" ||
+		typeof value === "number" ||
+		typeof value === "boolean" ||
+		typeof value === "bigint"
+	) {
+		return null;
+	}
+	if (typeof value === "function") {
+		return path;
+	}
+	if (typeof value !== "object") {
+		return null;
+	}
+	if (
+		value instanceof Date ||
+		value instanceof RegExp ||
+		value instanceof Blob ||
+		value instanceof File ||
+		value instanceof ArrayBuffer ||
+		ArrayBuffer.isView(value)
+	) {
+		return null;
+	}
+	if (seen.has(value)) {
+		return null;
+	}
+	seen.add(value);
+	if (Array.isArray(value)) {
+		for (let index = 0; index < value.length; index += 1) {
+			const nextPath = findFirstNonCloneablePath(
+				value[index],
+				`${path}[${index}]`,
+				seen,
+			);
+			if (nextPath) {
+				return nextPath;
+			}
+		}
+		return null;
+	}
+	if (value instanceof Map) {
+		let index = 0;
+		for (const [entryKey, entryValue] of value.entries()) {
+			const keyPath = findFirstNonCloneablePath(
+				entryKey,
+				`${path}.<mapKey:${index}>`,
+				seen,
+			);
+			if (keyPath) {
+				return keyPath;
+			}
+			const valuePath = findFirstNonCloneablePath(
+				entryValue,
+				`${path}.<mapValue:${index}>`,
+				seen,
+			);
+			if (valuePath) {
+				return valuePath;
+			}
+			index += 1;
+		}
+		return null;
+	}
+	if (value instanceof Set) {
+		let index = 0;
+		for (const entryValue of value.values()) {
+			const nextPath = findFirstNonCloneablePath(
+				entryValue,
+				`${path}.<set:${index}>`,
+				seen,
+			);
+			if (nextPath) {
+				return nextPath;
+			}
+			index += 1;
+		}
+		return null;
+	}
+	for (const [entryKey, entryValue] of Object.entries(value)) {
+		const nextPath = findFirstNonCloneablePath(
+			entryValue,
+			`${path}.${entryKey}`,
+			seen,
+		);
+		if (nextPath) {
+			return nextPath;
+		}
+	}
+	return null;
+}
+
 function cloneSerializable(value) {
 	if (typeof structuredClone === "function") {
-		return structuredClone(value);
+		try {
+			return structuredClone(value);
+		} catch (error) {
+			const suspectPath = findFirstNonCloneablePath(value);
+			if (suspectPath) {
+				console.error("[history] non-cloneable snapshot path", suspectPath);
+			}
+			throw error;
+		}
 	}
 	return JSON.parse(JSON.stringify(value));
 }
@@ -39,6 +145,46 @@ function buildSnapshotKeySummary(value) {
 	return value;
 }
 
+function isSplatHistoryLabel(label) {
+	return typeof label === "string" && label.startsWith("splat-edit.");
+}
+
+function summarizeSplatHistorySnapshot(snapshot) {
+	if (!snapshot || typeof snapshot !== "object") {
+		return null;
+	}
+	const assetSummaries = Array.isArray(snapshot.sceneAssets?.assets)
+		? snapshot.sceneAssets.assets
+				.filter((asset) => asset?.kind === "splat")
+				.map((asset) => ({
+					id: asset.id,
+					numSplats:
+						asset.sourceSnapshot?.numSplats ?? asset.source?.numSplats ?? null,
+					hasSourceSnapshot: asset.sourceSnapshot != null,
+				}))
+		: [];
+	const selectedSplats = Array.isArray(
+		snapshot.splatEdit?.selectedSplatsByAssetId,
+	)
+		? snapshot.splatEdit.selectedSplatsByAssetId.map((entry) => ({
+				assetId: entry.assetId,
+				count: Array.isArray(entry.indices) ? entry.indices.length : 0,
+			}))
+		: [];
+	return {
+		splatAssets: assetSummaries,
+		splatEdit: snapshot.splatEdit
+			? {
+					tool: snapshot.splatEdit.tool ?? null,
+					boxPlaced: snapshot.splatEdit.boxPlaced === true,
+					scopeAssetIds: [...(snapshot.splatEdit.scopeAssetIds ?? [])],
+					selectedSplats,
+					lastOperation: snapshot.splatEdit.lastOperation ?? null,
+				}
+			: null,
+	};
+}
+
 export function createHistoryController({
 	store,
 	captureWorkspaceState,
@@ -72,16 +218,36 @@ export function createHistoryController({
 		syncAvailability();
 	}
 
-	function pushUndoEntry(label, beforeSnapshot, beforeKey) {
+	function pushUndoEntry(
+		label,
+		beforeSnapshot,
+		beforeKey,
+		{ skipSnapshotDiff = false } = {},
+	) {
 		const afterSnapshot = captureSnapshot();
-		if (getSnapshotKey(afterSnapshot) === beforeKey) {
-			return false;
+		if (!skipSnapshotDiff) {
+			const afterKey = getSnapshotKey(afterSnapshot);
+			if (afterKey === beforeKey) {
+				if (isSplatHistoryLabel(label)) {
+					debugSplatHistory("skip-noop", {
+						label,
+					});
+				}
+				return false;
+			}
 		}
-
 		undoStack.push({
 			label,
-			snapshot: beforeSnapshot,
+			undoSnapshot: beforeSnapshot,
+			redoSnapshot: afterSnapshot,
 		});
+		if (isSplatHistoryLabel(label)) {
+			debugSplatHistory("push", {
+				label,
+				undo: summarizeSplatHistorySnapshot(beforeSnapshot),
+				redo: summarizeSplatHistorySnapshot(afterSnapshot),
+			});
+		}
 		if (undoStack.length > 100) {
 			undoStack.shift();
 		}
@@ -106,21 +272,36 @@ export function createHistoryController({
 		return pushUndoEntry(label, beforeSnapshot, beforeKey);
 	}
 
-	function beginHistoryTransaction(label) {
+	function beginHistoryTransaction(label, options = {}) {
 		if (isRestoring || activeTransaction) {
 			return false;
 		}
 
 		const beforeSnapshot = captureSnapshot();
+		const skipSnapshotDiff = options?.skipSnapshotDiff === true;
+		if (isSplatHistoryLabel(label)) {
+			debugSplatHistory("begin", {
+				label,
+				before: summarizeSplatHistorySnapshot(beforeSnapshot),
+			});
+		}
 		activeTransaction = {
 			label,
 			beforeSnapshot,
-			beforeKey: getSnapshotKey(beforeSnapshot),
+			beforeKey: skipSnapshotDiff ? null : getSnapshotKey(beforeSnapshot),
+			skipSnapshotDiff,
 		};
 		return true;
 	}
 
-	function commitHistoryTransaction(label = activeTransaction?.label) {
+	function commitHistoryTransaction(
+		label = activeTransaction?.label,
+		options = activeTransaction
+			? {
+					skipSnapshotDiff: activeTransaction.skipSnapshotDiff === true,
+				}
+			: undefined,
+	) {
 		if (!activeTransaction) {
 			return false;
 		}
@@ -131,6 +312,7 @@ export function createHistoryController({
 			label,
 			transaction.beforeSnapshot,
 			transaction.beforeKey,
+			options,
 		);
 	}
 
@@ -168,15 +350,17 @@ export function createHistoryController({
 		}
 
 		const entry = undoStack.pop();
-		const currentSnapshot = captureSnapshot();
-		const restored = restoreSnapshot(entry.snapshot);
+		if (isSplatHistoryLabel(entry.label)) {
+			debugSplatHistory("undo", {
+				label: entry.label,
+				target: summarizeSplatHistorySnapshot(entry.undoSnapshot),
+			});
+		}
+		const restored = restoreSnapshot(entry.undoSnapshot);
 		if (!restored) {
 			return false;
 		}
-		redoStack.push({
-			label: entry.label,
-			snapshot: currentSnapshot,
-		});
+		redoStack.push(entry);
 		syncAvailability();
 		return true;
 	}
@@ -195,15 +379,17 @@ export function createHistoryController({
 		}
 
 		const entry = redoStack.pop();
-		const currentSnapshot = captureSnapshot();
-		const restored = restoreSnapshot(entry.snapshot);
+		if (isSplatHistoryLabel(entry.label)) {
+			debugSplatHistory("redo", {
+				label: entry.label,
+				target: summarizeSplatHistorySnapshot(entry.redoSnapshot),
+			});
+		}
+		const restored = restoreSnapshot(entry.redoSnapshot);
 		if (!restored) {
 			return false;
 		}
-		undoStack.push({
-			label: entry.label,
-			snapshot: currentSnapshot,
-		});
+		undoStack.push(entry);
 		syncAvailability();
 		return true;
 	}
