@@ -38,6 +38,7 @@ CAMERA_FRAMES の共有 contract を Git 管理するための基点です。
 - CAMERA_FRAMES は汎用 viewer ではなく、shot layout と export のための専用アプリである
 - 価値の中心は `shot camera + output frame + FRAME + reference image + export` の一貫運用にある
 - `Viewport` と `Camera View` は別の authoring context として扱う
+- shot camera は project に保存される camera object、viewport camera は editor 上の作業 camera として分離して扱う
 - `Output Frame` は単なる DOM 枠ではなく、preview / export の投影契約そのものとして扱う
 - shot camera の custom frustum により、指定した anchor / center を基準に構図を維持できることを core contract として扱う
 - output frame の width / height 調整は、指定 anchor の構図を壊さずに領域だけを変更できることを core contract として扱う
@@ -53,6 +54,7 @@ CAMERA_FRAMES の共有 contract を Git 管理するための基点です。
 - bootstrap は `src/main.js`
 - 現行 UI は single-pane 前提で運用する
 - `WORKSPACE_LAYOUT_QUAD` 定数は残っているが、現行の product baseline には含めない
+- 将来 split view / multi-pane を導入する余地は残すが、現行 contract には pane ごとの個別 camera 割当てや viewport state 保存を含めない
 - 主要 UI 面:
   - `src/ui/viewport-shell.js`: viewport, HUD, overlay, direct manipulation
   - `src/ui/side-panel.js`: left rail, inspector, file / export 導線
@@ -156,6 +158,20 @@ shot camera は複数持てる。保存される主な state:
 - `frameMask`
 - `navigation.rollLock`
 - `referenceImages`
+
+shot camera の責務:
+
+- shot camera は単なる pose preset ではなく、DCC の個別 camera object に相当する保存単位として扱う
+- shot camera は custom frustum を前提にした shot layout camera であり、anchor / center を基準に構図維持することを core contract とする
+- custom frustum / output frame / export / reference image binding は shot camera 側の責務として保存する
+- current camera view では active shot camera を使う
+
+viewport camera との分離:
+
+- viewport camera は shot camera document とは別の editor-only camera として扱う
+- viewport は `perspective` と `orthographic` を切り替えられるが、orthographic は viewport-only であり shot camera document にはしない
+- 現行 baseline では viewport state は workspace 全体で 1 系統だけ持ち、pane ごとの個別 viewport pose / projection persistence はまだ contract に含めない
+- 将来 split view / multi-pane を導入する場合も、pane ごとに shot camera を割り当てること、または pane ごとに viewport 用の perspective / orthographic state を持つことを妨げないよう、shot camera と viewport camera の概念を混同しない
 
 既定値の基準:
 

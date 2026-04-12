@@ -50,6 +50,8 @@
 ### 2.4 Shot cameras
 
 - 複数 shot camera を持てる
+- shot camera は保存対象の camera object で、DCC の個別 camera object に相当する
+- shot camera は custom frustum を使う shot layout camera で、anchor / center を基準に構図維持できる
 - shot camera ごとに pose / lens / clipping / output frame / export settings / frames / frame mask / reference binding を持てる
 - shot camera ごとに export name を持てる
 - roll lock を持てる
@@ -85,7 +87,12 @@
 ### 2.7 Viewport / Interaction
 
 - `Viewport` と `Camera View` を分離して使う
+- viewport は editor 用の作業 camera 文脈で、shot camera とは別 object として扱う
+- viewport では `perspective` と `orthographic` を切り替える
 - viewport-only orthographic を持つ
+- orthographic は viewport-only で、shot camera へ昇格しない
+- current baseline は single-pane であり、pane ごとの個別 camera 割当てや viewport state 保存は未提供
+- ただし将来 split view を入れる余地は残し、shot camera と viewport camera を同一概念へ潰さない
 - main tool:
   - navigate
   - zoom
@@ -139,6 +146,7 @@ PSD export の主な構成:
 - `.sscam` は現 repo の機能ではない
 - save の主軸は `working save + .ssproj`
 - Viewport と Camera View は統合しない
+- shot camera と viewport camera は将来の multi-pane 拡張を塞がないよう別概念のまま保つ
 - current baseline は Spark 2.0 上の現行実装であり、旧 `camera-frames` branch の stable 契約をそのまま移植したものではない
 - `exportSplatLayers` の既定値や reference image model は旧文書より現 repo 実装を優先する
 - ただし旧 `.ssproj` の読込み互換は migration contract として維持する。詳細は [legacy-ssproj-compatibility.md](./legacy-ssproj-compatibility.md)
