@@ -39,6 +39,8 @@ export function createReferenceImageImportRuntime({
 	beginHistoryTransaction = () => false,
 	commitHistoryTransaction = () => false,
 	cancelHistoryTransaction = () => {},
+	decodeReferenceImageBlobImpl = decodeReferenceImageBlob,
+	extractReferenceImagePsdLayersImpl = extractReferenceImagePsdLayers,
 }) {
 	function shouldExpectPreviewLayers({ expectedVisibleItems = 0 } = {}) {
 		return (
@@ -140,7 +142,10 @@ export function createReferenceImageImportRuntime({
 
 	async function importStandardReferenceImage(file, documentState, preset) {
 		const normalizedFileName = normalizeReferenceImageFileName(file.name);
-		const decoded = await decodeReferenceImageBlob(file, normalizedFileName);
+		const decoded = await decodeReferenceImageBlobImpl(
+			file,
+			normalizedFileName,
+		);
 		const sourceFile = new File([file], normalizedFileName, {
 			type: file.type || getProjectMediaTypeFromFileName(normalizedFileName),
 		});
@@ -154,7 +159,7 @@ export function createReferenceImageImportRuntime({
 	}
 
 	async function importPsdReferenceImage(file, documentState, preset) {
-		const layers = await extractReferenceImagePsdLayers(file, file.name);
+		const layers = await extractReferenceImagePsdLayersImpl(file, file.name);
 		const existingGroupCount = preset.items.filter(
 			(entry) => entry.group === REFERENCE_IMAGE_GROUP_FRONT,
 		).length;

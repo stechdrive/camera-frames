@@ -126,6 +126,22 @@ scene asset は `splat` と `model` を同じ scene で扱う。
 - scene asset order は working save / `.ssproj` の両方で保持する
 - per-splat edit の結果は splat source 側へ反映され、package save にも乗る
 
+順序と追加の不変条件:
+
+- scene asset の canonical order は `sceneState.assets` の配列順とする
+- scene manager の section 順は `model` → `splat` → それ以外の kind の encounter 順とする
+- 各 section 内の表示順は canonical order を同一 kind で filter した順と一致させる
+- scene manager の並び替えは kind をまたがず、同一 kind 内の相対順だけを変更する
+- user add/import で既存 scene に scene asset を追加した時は、新規 asset を各 kind section の先頭側へ寄せる
+- replace import / project open / working restore では、保存済み canonical order を優先し、追加直後の先頭寄せを行わない
+
+責務の基準:
+
+- canonical kind section 順と within-kind reorder: `src/engine/scene-asset-order.js`
+- scene manager / compact browser での表示順反映: `src/ui/workbench-scene-sections.js`, `src/ui/workbench-browser-sections.js`
+- scene asset import 時の新規 item 優先化: `src/controllers/scene-assets/import-runtime.js`, `src/controllers/asset-controller.js`
+- scene asset order の保存 / 復元: `src/controllers/scene-assets/project-state.js`, `src/controllers/scene-assets/state-persistence.js`
+
 ### 6.2 Shot camera
 
 shot camera は複数持てる。保存される主な state:
@@ -191,6 +207,25 @@ reference image の基準:
 - つまり下絵は「今の紙サイズに焼き付いた絶対位置」ではなく、「元の紙面基準の位置」を保ちながら current output frame へ投影される
 - output frame の anchor や size を変えても、下絵は広がった / 縮んだ紙面上の対応位置へ置き直される
 - export run には runtime-only の `Include Reference Images` トグルがあり、既定値は ON
+
+並び順・表示順・読込みの不変条件:
+
+- reference image item の canonical order は group ごとの bottom-to-top stack order であり、`order` の昇順を基準にする
+- canonical order は preview 合成、transform、persistence、PSD export の基準として扱う
+- manager UI の表示順は canonical order を reverse した display order とし、stored order と display order を混同しない
+- workbench / browser の list UI は display order を使うが、保存時の `group` / `order` 契約は変えない
+- current baseline の通常画像 import は `front` group の末尾に append する
+- PSD import は leaf layer を individual item に展開し、`front` group に import 順で append し、layer visibility を `previewVisible` / `exportEnabled` の初期値へ反映したうえで group ごとに `order` を normalize する
+- manager からの reorder は display order 上で操作し、保存時には canonical order に戻して `order` を振り直す
+
+責務の基準:
+
+- canonical order / display order helper: `src/reference-image-model.js`
+- PSD export 用の canonical order 利用: `src/engine/reference-image-export-order.js`
+- import, PSD layer 展開, order normalize: `src/controllers/reference-image/import-runtime.js`, `src/controllers/reference-image/document-helpers.js`
+- display order と stored order の橋渡しをする reorder 操作: `src/controllers/reference-image/list-operations.js`
+- resolved item を UI 用 state に投影する境界: `src/controllers/reference-image/ui-state-sync.js`
+- workbench / compact browser での表示: `src/ui/workbench-reference-sections.js`, `src/ui/workbench-browser-sections.js`
 
 ## 7. Interaction / Tool の契約
 
@@ -276,6 +311,28 @@ PSD export:
 - frame mask は PSD の hidden layer として持てる
 - export pipeline は `src/controllers/export/` に分割済み
 
+PSD layer 順の詳細契約:
+
+- PSD layer の並びは bottom-to-top で次を基準にする
+- optional `Background`
+- back reference images
+- guide (`Grid`) when guide layer mode is `bottom`
+- `Render`
+- splat layers
+- model layers
+- guide (`Grid`) when guide layer mode is `overlay`
+- `Eye Level`
+- front reference images
+- frame overlay
+- optional debug groups
+- hidden `Frame Mask`
+
+補足:
+
+- reference image の PSD 出力は manager display order ではなく canonical order を使い、group は `back` → `front`、group 内は `order` 昇順とする
+- model / splat PSD layer は current scene asset order を kind ごとに解釈した結果に従う。内部実装で一時的な reverse を使ってもよいが、最終 PSD の積み順結果は変えない
+- PSD 出力では `scene manager の section 順` と `PSD 上の layer group 順` を別概念として扱う。現 baseline の PSD は `splat layers` が `model layers` より先に来る
+
 ## 9. Legacy 互換と baseline 外
 
 現行 repo で互換 path を持つもの:
@@ -309,16 +366,29 @@ PSD export:
 
 内部構造だけの整理で user-visible contract が変わらない場合は、まず `test/` と `.local/` を優先してよい。
 
+ファイル分割 / リファクター時の運用ルール:
+
+- scene asset order, reference image order, PSD layer order は user-visible contract として扱い、ファイル移動や helper 抽出だけで意味を変えない
+- `canonical order`, `manager display order`, `export order` は別概念として維持し、同一の sort helper を流用して意味を混線させない
+- import 時の追加規則は `add/import` と `open/restore/replace` で分けて維持する
+- UI 層は独自 sort を持たず、順序の意味づけは model / controller / export assembler 側で一元化する
+- file split を行う場合でも、「順序の定義」「UI での表示変換」「import 時の挿入規則」「persistence」「PSD 組み立て」の責務を分離したまま保つ
+- 将来ファイル名が変わっても、この文書に書かれた責務単位が追跡できるよう、同等の cross-check file を更新する
+
 ## 11. Cross-check Files
 
 - bootstrap / composition: `src/main.js`, `src/controller.js`
 - project schema: `src/project-document.js`, `src/project-file.js`
 - working save: `src/project-working-state.js`, `src/controllers/project-controller.js`
 - import routing: `src/app/file-open-routing.js`, `src/controllers/scene-assets/import-runtime.js`
+- scene asset ordering / scene manager display: `src/engine/scene-asset-order.js`, `src/controllers/scene-assets/selection-order.js`, `src/ui/workbench-scene-sections.js`, `src/ui/workbench-browser-sections.js`
+- scene asset import prioritization / order persistence: `src/controllers/scene-assets/import-runtime.js`, `src/controllers/asset-controller.js`, `src/controllers/scene-assets/project-state.js`, `src/controllers/scene-assets/state-persistence.js`
 - shot camera / output frame / FRAME: `src/workspace-model.js`, `src/controllers/camera-controller.js`, `src/controllers/output-frame-controller.js`, `src/controllers/frame-controller.js`
 - projection: `src/engine/projection.js`, `src/controllers/projection-controller.js`, `src/controllers/viewport-projection-controller.js`
 - reference image: `src/reference-image-model.js`, `src/controllers/reference-image/`, `src/controllers/reference-image-render-controller.js`
+- reference image ordering / import / UI sync: `src/reference-image-model.js`, `src/engine/reference-image-export-order.js`, `src/controllers/reference-image/import-runtime.js`, `src/controllers/reference-image/document-helpers.js`, `src/controllers/reference-image/list-operations.js`, `src/controllers/reference-image/ui-state-sync.js`, `src/ui/workbench-reference-sections.js`, `src/ui/workbench-browser-sections.js`
 - export: `src/controllers/export/`, `src/engine/export-pass-plan.js`, `src/engine/frame-mask-export.js`
+- PSD layer assembly / reference image export ordering: `src/controllers/export/reference-images.js`, `src/controllers/export/layer-documents.js`, `src/controllers/export/psd-document.js`
 - per-splat edit: `src/controllers/per-splat-edit-controller.js`
 - input / shortcut: `src/interactions/input-router.js`
 

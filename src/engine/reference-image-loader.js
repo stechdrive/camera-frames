@@ -139,6 +139,24 @@ export async function decodeReferenceImageCanvas(
 	};
 }
 
+export function getPsdLeafLayersInStackOrder(children = []) {
+	const layers = [];
+	const walk = (entries = []) => {
+		for (const layer of entries) {
+			const nestedChildren = Array.isArray(layer?.children)
+				? layer.children
+				: [];
+			if (nestedChildren.length > 0) {
+				walk(nestedChildren);
+				continue;
+			}
+			layers.push(layer);
+		}
+	};
+	walk(children);
+	return layers;
+}
+
 export async function extractReferenceImagePsdLayers(
 	blob,
 	filename,
@@ -159,20 +177,9 @@ export async function extractReferenceImagePsdLayers(
 		throw new Error("Invalid PSD dimensions.");
 	}
 
-	const layers = [];
-	const walk = (children = []) => {
-		for (const layer of children) {
-			const nestedChildren = Array.isArray(layer?.children)
-				? layer.children
-				: [];
-			if (nestedChildren.length > 0) {
-				walk(nestedChildren);
-				continue;
-			}
-			layers.push(layer);
-		}
-	};
-	walk(Array.isArray(psd?.children) ? psd.children : []);
+	const layers = getPsdLeafLayersInStackOrder(
+		Array.isArray(psd?.children) ? psd.children : [],
+	);
 
 	const documentCenter = { x: width * 0.5, y: height * 0.5 };
 	const entries = [];
