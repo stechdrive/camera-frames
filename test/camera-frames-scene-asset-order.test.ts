@@ -3,6 +3,7 @@ import {
 	groupSceneAssetsByKind,
 	moveSceneAssetBlockWithinKind,
 	moveSceneAssetWithinKind,
+	prioritizeSceneAssetsWithinKinds,
 } from "../src/engine/scene-asset-order.js";
 
 const assets = [
@@ -54,6 +55,32 @@ const movedBlockToEnd = moveSceneAssetBlockWithinKind(blockAssets, [2, 3], 999);
 assert.deepEqual(
 	movedBlockToEnd.map((asset) => asset.id),
 	[1, 4, 5, 2, 3],
+);
+
+const prioritizedAssets = [
+	{ id: 1, kind: "splat", label: "Splat A" },
+	{ id: 2, kind: "model", label: "Model A" },
+	{ id: 3, kind: "splat", label: "Splat B" },
+	{ id: 4, kind: "model", label: "Model B" },
+	{ id: 5, kind: "splat", label: "Splat C" },
+];
+
+const prioritizedWithinKinds = prioritizeSceneAssetsWithinKinds(
+	prioritizedAssets,
+	[5, 4],
+);
+assert.deepEqual(
+	prioritizedWithinKinds.map((asset) => asset.id),
+	[5, 4, 1, 2, 3],
+);
+
+const prioritizedMixedWithinKinds = prioritizeSceneAssetsWithinKinds(
+	prioritizedAssets,
+	[3, 1, 4],
+);
+assert.deepEqual(
+	prioritizedMixedWithinKinds.map((asset) => asset.id),
+	[3, 4, 1, 2, 5],
 );
 
 console.log("✅ CAMERA_FRAMES scene asset order tests passed!");

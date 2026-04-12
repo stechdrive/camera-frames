@@ -67,6 +67,7 @@ export function createAssetImportRuntime({
 	placeAllCamerasAtHome,
 	updateCameraSummary,
 	updateUi,
+	prioritizeImportedSceneAssets = () => {},
 	beginHistoryTransaction = () => false,
 	commitHistoryTransaction = () => false,
 	cancelHistoryTransaction = () => {},
@@ -232,7 +233,11 @@ export function createAssetImportRuntime({
 	async function loadSources(
 		sources,
 		replace = false,
-		{ onProgress = null, resetHistory = true } = {},
+		{
+			onProgress = null,
+			resetHistory = true,
+			prioritizeNewAssets = false,
+		} = {},
 	) {
 		if (!sources.length) {
 			return;
@@ -260,6 +265,7 @@ export function createAssetImportRuntime({
 		let running = 0;
 		let nextIndex = 0;
 		const total = expandedSources.length;
+		const loadedAssets = new Array(total).fill(null);
 
 		await new Promise((resolve, reject) => {
 			function kick() {
@@ -276,7 +282,8 @@ export function createAssetImportRuntime({
 						}),
 					);
 					loadSource(source).then(
-						() => {
+						(asset) => {
+							loadedAssets[index] = asset ?? null;
 							loaded += 1;
 							running -= 1;
 							if (loaded === total) {
@@ -295,6 +302,10 @@ export function createAssetImportRuntime({
 				kick();
 			}
 		});
+
+		if (prioritizeNewAssets && !replace && hadAssetsBeforeLoad) {
+			prioritizeImportedSceneAssets(loadedAssets.filter(Boolean));
+		}
 
 		onProgress?.("apply", t("overlay.importDetailApply"));
 		const importedProjectState =
@@ -342,6 +353,7 @@ export function createAssetImportRuntime({
 				await loadSources(sources, replace, {
 					onProgress: (step, detail) => showImportProgress(step, detail),
 					resetHistory: false,
+					prioritizeNewAssets: !replace,
 				});
 				if (hasHistoryTransaction) {
 					commitHistoryTransaction?.(historyLabel);

@@ -1,5 +1,6 @@
 import { PackedSplats, unpackSplats } from "@sparkjsdev/spark";
 import * as THREE from "three";
+import { prioritizeSceneAssetsWithinKinds } from "../engine/scene-asset-order.js";
 import { enableSparkSplatMeshWorldToView } from "../engine/spark-integration/spark-splat-mesh-adapter.js";
 import { applyLegacyAssetState } from "../importers/legacy-ssproj.js";
 import {
@@ -590,8 +591,7 @@ export function createAssetController({
 	}
 
 	async function loadSplatFromSource(source) {
-		const asset = await loadSplatAssetFromSource(source);
-		return asset?.object ?? null;
+		return await loadSplatAssetFromSource(source);
 	}
 
 	async function createSplatAssetFromSource(
@@ -727,11 +727,27 @@ export function createAssetController({
 				source: persistentSource,
 			});
 			applyProjectAssetState(asset, projectAssetState);
-			return object;
+			return asset;
 		} finally {
 			if (needsRevoke) {
 				URL.revokeObjectURL(url);
 			}
+		}
+	}
+
+	function prioritizeImportedSceneAssets(importedAssets = []) {
+		const prioritizedAssetIds = importedAssets
+			.map((asset) => asset?.id)
+			.filter((assetId) => assetId !== null && assetId !== undefined);
+		if (prioritizedAssetIds.length === 0) {
+			return;
+		}
+		const nextSceneAssets = prioritizeSceneAssetsWithinKinds(
+			sceneState.assets,
+			prioritizedAssetIds,
+		);
+		if (nextSceneAssets !== sceneState.assets) {
+			sceneState.assets = nextSceneAssets;
 		}
 	}
 
@@ -774,6 +790,7 @@ export function createAssetController({
 		placeAllCamerasAtHome,
 		updateCameraSummary,
 		updateUi,
+		prioritizeImportedSceneAssets,
 		beginHistoryTransaction,
 		commitHistoryTransaction,
 		cancelHistoryTransaction,

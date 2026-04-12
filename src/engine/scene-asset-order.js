@@ -112,3 +112,65 @@ export function moveSceneAssetWithinKind(sceneAssets, assetId, nextKindIndex) {
 		clampedKindIndex,
 	);
 }
+
+export function prioritizeSceneAssetsWithinKinds(
+	sceneAssets,
+	prioritizedAssetIds = [],
+) {
+	if (!Array.isArray(sceneAssets) || sceneAssets.length === 0) {
+		return sceneAssets;
+	}
+
+	const prioritizedIdsByKind = new Map();
+	for (const assetId of prioritizedAssetIds) {
+		const asset = sceneAssets.find((candidate) => candidate.id === assetId);
+		if (!asset) {
+			continue;
+		}
+		const kindIds = prioritizedIdsByKind.get(asset.kind) ?? [];
+		if (!kindIds.includes(asset.id)) {
+			kindIds.push(asset.id);
+			prioritizedIdsByKind.set(asset.kind, kindIds);
+		}
+	}
+
+	if (prioritizedIdsByKind.size === 0) {
+		return sceneAssets;
+	}
+
+	const prioritizedIdSet = new Set([...prioritizedIdsByKind.values()].flat());
+	const reorderedAssetsByKind = new Map();
+	for (const [kind, kindIds] of prioritizedIdsByKind.entries()) {
+		const kindAssets = sceneAssets.filter((asset) => asset.kind === kind);
+		const prioritizedAssets = kindIds
+			.map((assetId) =>
+				kindAssets.find((candidate) => candidate.id === assetId),
+			)
+			.filter(Boolean);
+		if (prioritizedAssets.length === 0) {
+			continue;
+		}
+		const remainingAssets = kindAssets.filter(
+			(asset) => !prioritizedIdSet.has(asset.id),
+		);
+		reorderedAssetsByKind.set(kind, [...prioritizedAssets, ...remainingAssets]);
+	}
+
+	let changed = false;
+	const nextKindIndexByKind = new Map();
+	const nextSceneAssets = sceneAssets.map((asset) => {
+		const reorderedAssets = reorderedAssetsByKind.get(asset.kind);
+		if (!reorderedAssets) {
+			return asset;
+		}
+		const nextKindIndex = nextKindIndexByKind.get(asset.kind) ?? 0;
+		const nextAsset = reorderedAssets[nextKindIndex] ?? asset;
+		nextKindIndexByKind.set(asset.kind, nextKindIndex + 1);
+		if (nextAsset !== asset) {
+			changed = true;
+		}
+		return nextAsset;
+	});
+
+	return changed ? nextSceneAssets : sceneAssets;
+}

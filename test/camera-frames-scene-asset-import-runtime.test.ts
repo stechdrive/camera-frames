@@ -40,6 +40,7 @@ function createHarness(overrides = {}) {
 		openProjectSources: [],
 		loadedSplats: [],
 		loadedModels: [],
+		prioritizedAssets: [],
 		beginHistory: [],
 		commitHistory: [],
 		cancelHistory: [],
@@ -86,9 +87,23 @@ function createHarness(overrides = {}) {
 			typeof value === "string" ? value : (value.name ?? "asset"),
 		loadSplatFromSource: async (source) => {
 			calls.loadedSplats.push(source);
+			return {
+				id:
+					typeof source === "string"
+						? source
+						: (source.fileName ?? source.name),
+				kind: "splat",
+			};
 		},
 		loadModelFromSource: async (source) => {
 			calls.loadedModels.push(source);
+			return {
+				id:
+					typeof source === "string"
+						? source
+						: (source.fileName ?? source.name),
+				kind: "model",
+			};
 		},
 		getSceneAssetCount: () => overrides.sceneAssetCount ?? 0,
 		clearScene: () => {
@@ -109,6 +124,9 @@ function createHarness(overrides = {}) {
 		},
 		updateUi: () => {
 			calls.updateUi += 1;
+		},
+		prioritizeImportedSceneAssets: (assets) => {
+			calls.prioritizedAssets.push(assets);
 		},
 		beginHistoryTransaction: (label) => {
 			calls.beginHistory.push(label);
@@ -142,6 +160,7 @@ function createHarness(overrides = {}) {
 	assert.deepEqual(calls.cancelHistory, []);
 	assert.equal(calls.clearHistory, 0);
 	assert.equal(calls.placeAllCamerasAtHome, 1);
+	assert.deepEqual(calls.prioritizedAssets, []);
 	assert.equal(calls.updateUi, 1);
 	assert.equal(store.overlay.value, null);
 }
@@ -167,6 +186,22 @@ function createHarness(overrides = {}) {
 	assert.equal(imported, undefined);
 	assert.deepEqual(calls.loadedSplats, [packedProjectSource]);
 	assert.equal(calls.loadedModels.length, 0);
+}
+
+{
+	const { runtime, calls } = createHarness({
+		sceneAssetCount: 2,
+	});
+	const glb = new File([new Uint8Array([1])], "model.glb");
+	const ply = new File([new Uint8Array([1])], "cloud.ply");
+	await runtime.loadSources([glb, ply], false, {
+		prioritizeNewAssets: true,
+	});
+	assert.equal(calls.prioritizedAssets.length, 1);
+	assert.deepEqual(
+		calls.prioritizedAssets[0].map((asset) => asset.id),
+		["model.glb", "cloud.ply"],
+	);
 }
 
 {
