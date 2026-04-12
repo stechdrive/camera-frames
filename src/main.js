@@ -59,6 +59,10 @@ function CameraFramesApp({ runtimeInfo }) {
 			store,
 		);
 
+		if (import.meta.env.DEV) {
+			globalThis.__CF_TEST__ = { store, controller: controllerRef.current };
+		}
+
 		return () => {
 			controllerRef.current?.dispose?.();
 			controllerRef.current = null;
