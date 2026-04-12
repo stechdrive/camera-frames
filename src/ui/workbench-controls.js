@@ -5,6 +5,7 @@ import {
 	getBaseHorizontalFovDegreesForStandardFrameHorizontalEquivalentMm,
 	snapStandardFrameHorizontalEquivalentMm,
 } from "../engine/camera-lens.js";
+import { isDraftInputCompositionActive } from "./draft-input-events.js";
 import { formatNumericDraftDisplayValue } from "./numeric-draft-format.js";
 import { WorkbenchIcon } from "./workbench-icons.js";
 
@@ -1028,6 +1029,8 @@ export function TextDraftInput({
 	const formattedValue = String(value ?? "");
 	const [draftValue, setDraftValue] = useState(formattedValue);
 	const [isEditing, setIsEditing] = useState(false);
+	const compositionActiveRef = useRef(false);
+	const suppressNextBlurCommitRef = useRef(false);
 
 	useEffect(() => {
 		if (!isEditing) {
@@ -1083,27 +1086,50 @@ export function TextDraftInput({
 				setIsEditing(true);
 				setDraftValue(event.currentTarget.value);
 			}}
+			onCompositionStart=${(event) => {
+				stopUiEvent(event);
+				compositionActiveRef.current = true;
+				setIsEditing(true);
+			}}
+			onCompositionEnd=${(event) => {
+				stopUiEvent(event);
+				compositionActiveRef.current = false;
+				setIsEditing(true);
+				setDraftValue(String(event.currentTarget.value ?? formattedValue));
+			}}
 			onBlur=${(event) => {
+				compositionActiveRef.current = false;
+				if (suppressNextBlurCommitRef.current) {
+					suppressNextBlurCommitRef.current = false;
+					setIsEditing(false);
+					return;
+				}
 				commitDraft(event.currentTarget.value);
 			}}
-			onChange=${(event) => {
-				commitDraft(event.currentTarget.value);
-			}}
+			onChange=${stopUiEvent}
 			onClick=${stopUiEvent}
 			onWheel=${stopUiWheelEvent}
 			onKeyDown=${(event) => {
 				if (isHistoryShortcutEvent(event)) {
 					return;
 				}
+				if (
+					isDraftInputCompositionActive(event, compositionActiveRef.current)
+				) {
+					stopUiEvent(event);
+					return;
+				}
 				stopUiEvent(event);
 				if (event.key === "Enter") {
 					event.preventDefault();
+					suppressNextBlurCommitRef.current = true;
 					commitDraft(event.currentTarget.value);
 					event.currentTarget.blur();
 					return;
 				}
 				if (event.key === "Escape") {
 					event.preventDefault();
+					suppressNextBlurCommitRef.current = true;
 					resetDraft();
 					event.currentTarget.blur();
 				}

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { isDraftInputCompositionActive } from "../src/ui/draft-input-events.js";
 import { formatNumericDraftDisplayValue } from "../src/ui/numeric-draft-format.js";
 
 assert.equal(
@@ -41,5 +42,31 @@ assert.equal(
 	}),
 	"18.8mm",
 );
+
+assert.equal(
+	isDraftInputCompositionActive({
+		isComposing: true,
+	}),
+	true,
+);
+
+assert.equal(
+	isDraftInputCompositionActive({
+		nativeEvent: {
+			isComposing: true,
+		},
+	}),
+	true,
+);
+
+assert.equal(
+	isDraftInputCompositionActive({
+		keyCode: 229,
+	}),
+	true,
+);
+
+assert.equal(isDraftInputCompositionActive({}, true), true);
+assert.equal(isDraftInputCompositionActive({}, false), false);
 
 console.log("✅ CAMERA_FRAMES workbench controls tests passed!");
