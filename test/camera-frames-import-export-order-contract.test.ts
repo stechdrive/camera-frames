@@ -110,6 +110,12 @@ function buildSceneAsset(id, kind, label) {
 	);
 
 	let referenceImageDocument = createDefaultReferenceImageDocument();
+	const importShotCameraDocument = {
+		referenceImages: {
+			presetId: "reference-preset-blank",
+			overridesByPresetId: {},
+		},
+	};
 	const referenceRuntime = createReferenceImageImportRuntime({
 		store: {
 			mode: { value: "camera" },
@@ -124,7 +130,7 @@ function buildSceneAsset(id, kind, label) {
 		setStatus: () => {},
 		updateUi: () => {},
 		ensureCameraMode: () => {},
-		getActiveShotCameraDocument: () => null,
+		getActiveShotCameraDocument: () => importShotCameraDocument,
 		getOutputSizeState: () => ({ width: 1000, height: 500 }),
 		getDocument: () => referenceImageDocument,
 		setDocument: (nextDocument) => {
@@ -132,7 +138,9 @@ function buildSceneAsset(id, kind, label) {
 		},
 		syncUiState: () => {},
 		setSelectionState: () => {},
-		ensureActiveShotPresetBinding: () => {},
+		ensureActiveShotPresetBinding: (presetId) => {
+			importShotCameraDocument.referenceImages.presetId = presetId;
+		},
 		beginHistoryTransaction: () => true,
 		commitHistoryTransaction: () => true,
 		cancelHistoryTransaction: () => {},
@@ -168,11 +176,14 @@ function buildSceneAsset(id, kind, label) {
 			type: "image/vnd.adobe.photoshop",
 		}),
 	]);
+	const importedReferencePreset =
+		referenceImageDocument.presets.find(
+			(preset) => preset.id === referenceImageDocument.activePresetId,
+		) ?? referenceImageDocument.presets[0];
 	assert.deepEqual(
-		getReferenceImageDisplayItems(
-			referenceImageDocument.presets[0].items,
-			"front",
-		).map((item) => item.name),
+		getReferenceImageDisplayItems(importedReferencePreset.items, "front").map(
+			(item) => item.name,
+		),
 		["Ref Top", "Ref Bottom"],
 	);
 

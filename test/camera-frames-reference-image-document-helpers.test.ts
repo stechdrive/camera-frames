@@ -85,4 +85,20 @@ assert.equal(sanitizeReferenceImagePresetName(""), "Reference");
 	);
 }
 
+{
+	const documentState = createDefaultReferenceImageDocument();
+
+	const preset = ensureWritableReferenceImageImportPreset(
+		documentState,
+		null,
+		"board.png",
+	);
+
+	assert.notEqual(preset.id, REFERENCE_IMAGE_DEFAULT_PRESET_ID);
+	assert.equal(preset.name, "board");
+	assert.equal(documentState.presets[0].id, REFERENCE_IMAGE_DEFAULT_PRESET_ID);
+	assert.equal(documentState.presets[0].items.length, 0);
+	assert.equal(documentState.activePresetId, preset.id);
+}
+
 console.log("✅ CAMERA_FRAMES reference image document helper tests passed!");

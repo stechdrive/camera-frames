@@ -69,6 +69,9 @@
 
 - reference image preset を持てる
 - default preset は `(blank)`
+- `(blank)` は「下絵セット未使用」を表す空 preset として扱う
+- 新規 camera や下絵未使用 camera は実質的に `(blank)` を使う
+- `(blank)` 選択中に import した時は新しい preset を作ってそこへ読み込み、blank 自体は汚さない
 - active shot camera ごとに preset binding を持てる
 - per-shot override を持てる
 - item は `front` / `back` group を持つ

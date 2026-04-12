@@ -200,17 +200,19 @@ export function ensureWritableReferenceImageImportPreset(
 	}
 
 	if (!shotCameraDocument) {
-		const fallbackPreset =
+		const activePreset =
 			findMutablePresetInDocument(
 				documentState,
 				documentState.activePresetId,
-			) ??
-			findMutablePresetInDocument(
-				documentState,
-				REFERENCE_IMAGE_DEFAULT_PRESET_ID,
-			) ??
-			documentState?.presets?.[0] ??
-			null;
+			) ?? null;
+		if (activePreset && activePreset.id !== REFERENCE_IMAGE_DEFAULT_PRESET_ID) {
+			documentState.activePresetId = activePreset.id;
+			return activePreset;
+		}
+		const fallbackPreset =
+			(documentState?.presets ?? []).find(
+				(preset) => preset.id !== REFERENCE_IMAGE_DEFAULT_PRESET_ID,
+			) ?? null;
 		if (fallbackPreset) {
 			documentState.activePresetId = fallbackPreset.id;
 			return fallbackPreset;

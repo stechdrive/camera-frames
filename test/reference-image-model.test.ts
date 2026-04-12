@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import {
+	REFERENCE_IMAGE_DEFAULT_PRESET_ID,
 	cloneReferenceImageDocument,
+	createDefaultReferenceImageDocument,
 	createReferenceImageAsset,
 	createReferenceImageCameraPresetOverride,
 	createReferenceImageItem,
@@ -9,6 +11,7 @@ import {
 	getReferenceImageCompositeItems,
 	getReferenceImageDisplayItems,
 	getReferenceImageOrderForImportIndex,
+	getShotReferenceImagePresetId,
 } from "../src/reference-image-model.js";
 
 assert.equal(getReferenceImageOrderForImportIndex(0, 0), 0);
@@ -100,6 +103,11 @@ assert.equal(getReferenceImageOrderForImportIndex(1, 4), 5);
 	const shotState = createShotCameraReferenceImagesState(null);
 	assert.equal(shotState.presetId, null);
 	assert.deepEqual(shotState.overridesByPresetId, {});
+	const documentState = createDefaultReferenceImageDocument();
+	assert.equal(
+		getShotReferenceImagePresetId(documentState, shotState),
+		REFERENCE_IMAGE_DEFAULT_PRESET_ID,
+	);
 }
 
 {

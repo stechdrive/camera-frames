@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { createReferenceImageImportRuntime } from "../src/controllers/reference-image/import-runtime.js";
 import {
+	REFERENCE_IMAGE_DEFAULT_PRESET_ID,
 	createDefaultReferenceImageDocument,
 	createReferenceImageAsset,
 	createReferenceImageItem,
+	createReferenceImagePreset,
 	getReferenceImageCompositeItems,
 	getReferenceImageDisplayItems,
 } from "../src/reference-image-model.js";
@@ -54,6 +56,7 @@ function createSourceMeta(filename) {
 function createImportHarness({
 	documentState = createDefaultReferenceImageDocument(),
 	extractedLayers = [],
+	shotCameraDocument = null,
 } = {}) {
 	const store = {
 		mode: { value: "camera" },
@@ -75,7 +78,7 @@ function createImportHarness({
 		setStatus: (value) => statuses.push(value),
 		updateUi: () => {},
 		ensureCameraMode: () => {},
-		getActiveShotCameraDocument: () => null,
+		getActiveShotCameraDocument: () => shotCameraDocument,
 		getOutputSizeState: () => ({ width: 1000, height: 500 }),
 		getDocument: () => currentDocument,
 		setDocument: (nextDocument) => {
@@ -187,6 +190,12 @@ function createImportHarness({
 
 {
 	const documentState = createDefaultReferenceImageDocument();
+	const preset = createReferenceImagePreset({
+		id: "preset-existing",
+		name: "Existing Preset",
+	});
+	documentState.presets.push(preset);
+	documentState.activePresetId = preset.id;
 	const existingAsset = createReferenceImageAsset({
 		id: "asset-existing",
 		label: "Existing",
@@ -198,7 +207,7 @@ function createImportHarness({
 		sourceMeta: createSourceMeta("existing.png"),
 	});
 	documentState.assets.push(existingAsset);
-	documentState.presets[0].items.push(
+	preset.items.push(
 		createReferenceImageItem({
 			id: "item-existing",
 			assetId: existingAsset.id,
@@ -206,14 +215,24 @@ function createImportHarness({
 			order: 0,
 		}),
 	);
-	const harness = createImportHarness({ documentState });
+	const harness = createImportHarness({
+		documentState,
+		shotCameraDocument: {
+			referenceImages: {
+				presetId: preset.id,
+				overridesByPresetId: {},
+			},
+		},
+	});
 	const imported = await harness.runtime.importReferenceImageFiles([
 		new File([new Uint8Array([2])], "new-board.png", {
 			type: "image/png",
 		}),
 	]);
 	assert.equal(imported, true);
-	const items = harness.getDocument().presets[0].items;
+	const items =
+		harness.getDocument().presets.find((entry) => entry.id === preset.id)
+			?.items ?? [];
 	assert.deepEqual(
 		getReferenceImageCompositeItems(items, "front").map((item) => item.name),
 		["Existing", "new-board"],
@@ -228,7 +247,46 @@ function createImportHarness({
 }
 
 {
+	const documentState = createDefaultReferenceImageDocument();
+	const shotCameraDocument = {
+		referenceImages: {
+			presetId: REFERENCE_IMAGE_DEFAULT_PRESET_ID,
+			overridesByPresetId: {},
+		},
+	};
 	const harness = createImportHarness({
+		documentState,
+		shotCameraDocument,
+	});
+	const imported = await harness.runtime.importReferenceImageFiles([
+		new File([new Uint8Array([2])], "camera-board.png", {
+			type: "image/png",
+		}),
+	]);
+	assert.equal(imported, true);
+	assert.equal(
+		harness.getDocument().presets[0].id,
+		REFERENCE_IMAGE_DEFAULT_PRESET_ID,
+	);
+	assert.equal(harness.getDocument().presets[0].items.length, 0);
+	assert.equal(harness.getDocument().presets.length, 2);
+	const importedPreset = harness
+		.getDocument()
+		.presets.find((preset) => preset.id !== REFERENCE_IMAGE_DEFAULT_PRESET_ID);
+	assert.equal(importedPreset?.items.length, 1);
+	assert.equal(harness.boundPresetIds.at(-1), importedPreset?.id);
+}
+
+{
+	const documentState = createDefaultReferenceImageDocument();
+	const preset = createReferenceImagePreset({
+		id: "preset-psd",
+		name: "PSD Preset",
+	});
+	documentState.presets.push(preset);
+	documentState.activePresetId = preset.id;
+	const harness = createImportHarness({
+		documentState,
 		extractedLayers: [
 			{
 				name: "Bottom",
@@ -251,6 +309,12 @@ function createImportHarness({
 				},
 			},
 		],
+		shotCameraDocument: {
+			referenceImages: {
+				presetId: preset.id,
+				overridesByPresetId: {},
+			},
+		},
 	});
 	const imported = await harness.runtime.importReferenceImageFiles([
 		new File([new Uint8Array([3])], "board.psd", {
@@ -258,7 +322,9 @@ function createImportHarness({
 		}),
 	]);
 	assert.equal(imported, true);
-	const items = harness.getDocument().presets[0].items;
+	const items =
+		harness.getDocument().presets.find((entry) => entry.id === preset.id)
+			?.items ?? [];
 	assert.deepEqual(
 		getReferenceImageCompositeItems(items, "front").map((item) => item.name),
 		["Bottom", "Top"],

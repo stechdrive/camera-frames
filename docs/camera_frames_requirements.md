@@ -198,6 +198,11 @@ shot camera 側は次を持つ:
 reference image の基準:
 
 - default preset は `(blank)`
+- `(blank)` は「下絵セット未使用」を表す sentinel preset として扱う
+- `(blank)` は item を持たない空 preset として運用し、下絵 import / add の書き込み先にしない
+- shot camera は `referenceImages.presetId = null` の unbound 状態を取りうるが、解決時は `(blank)` を使っているのと同義に扱う
+- つまり新規 shot camera や「下絵を使わない camera」は、実質的に `(blank)` を選んでいる状態として扱う
+- 下絵 import は active shot camera の文脈で扱い、現在の camera が `(blank)` なら新しい named preset を作ってそちらへ import し、その camera を新 preset へ bind する
 - 画像形式は `.png`, `.jpg`, `.jpeg`, `.webp`, `.psd`
 - item は `front` / `back` group を持つ
 - item は `previewVisible` と `exportEnabled` を別 state で持つ
@@ -221,6 +226,8 @@ reference image の基準:
 責務の基準:
 
 - canonical order / display order helper: `src/reference-image-model.js`
+- `(blank)` preset の sentinel 意味と shot camera 側の unbound state: `src/reference-image-model.js`, `src/workspace-model.js`
+- import 先 preset の選定と `(blank)` 回避: `src/controllers/reference-image/document-helpers.js`, `src/controllers/reference-image/import-runtime.js`, `src/controllers/reference-image/camera-bindings.js`
 - PSD export 用の canonical order 利用: `src/engine/reference-image-export-order.js`
 - import, PSD layer 展開, order normalize: `src/controllers/reference-image/import-runtime.js`, `src/controllers/reference-image/document-helpers.js`
 - display order と stored order の橋渡しをする reorder 操作: `src/controllers/reference-image/list-operations.js`
