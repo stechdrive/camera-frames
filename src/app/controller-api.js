@@ -189,6 +189,7 @@ export function createControllerApi({
 			assetController.offsetSelectedSceneAssetsRotationDegrees,
 		setAssetVisibility: assetController.setAssetVisibility,
 		setAssetLabel: assetController.setAssetLabel,
+		duplicateSelectedSceneAssets: assetController.duplicateSelectedSceneAssets,
 		deleteSelectedSceneAssets: assetController.deleteSelectedSceneAssets,
 		setSelectedSceneAssetsVisibility:
 			assetController.setSelectedSceneAssetsVisibility,

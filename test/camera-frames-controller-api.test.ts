@@ -118,6 +118,7 @@ const api = createControllerApi({
 		offsetSelectedSceneAssetsRotationDegrees: () => {},
 		setAssetVisibility: () => {},
 		setAssetLabel: () => {},
+		duplicateSelectedSceneAssets: () => "duplicate-assets",
 		deleteSelectedSceneAssets: () => {},
 		setSelectedSceneAssetsVisibility: () => {},
 		applyAssetTransform: () => {},
@@ -240,6 +241,7 @@ assert.equal(api.copyViewportToShotCamera(), "copy-v2s");
 assert.equal(api.copyShotCameraToViewport(), "copy-s2v");
 assert.equal(api.resetActiveView(), "reset");
 assert.equal(api.downloadOutput(), "download-output");
+assert.equal(api.duplicateSelectedSceneAssets(), "duplicate-assets");
 assert.equal(api.beginHistoryTransaction("x"), "x");
 
 api.dispose();

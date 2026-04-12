@@ -9,6 +9,7 @@ import {
 	getProjectSourceStableKey,
 	isProjectFileEmbeddedFileSource,
 	isProjectFilePackedSplatSource,
+	sanitizeProjectAssetLabel,
 } from "../project-document.js";
 import {
 	isProjectPackageFileSource,
@@ -126,6 +127,102 @@ function findLegacyModelCompensationTarget(root) {
 		current = child;
 	}
 
+	return null;
+}
+
+export function buildUniqueSceneAssetDuplicateLabel(
+	baseLabel,
+	sceneAssets = [],
+) {
+	const existingLabels = new Set(
+		(sceneAssets ?? [])
+			.map((asset) => String(asset?.label ?? "").trim())
+			.filter(Boolean),
+	);
+	const normalizedBaseLabel = sanitizeProjectAssetLabel(baseLabel, "Asset");
+	const base = `${normalizedBaseLabel} Copy`;
+	if (!existingLabels.has(base)) {
+		return base;
+	}
+	let index = 2;
+	while (existingLabels.has(`${base} ${index}`)) {
+		index += 1;
+	}
+	return `${base} ${index}`;
+}
+
+function createDuplicateProjectAssetState(projectAssetState, duplicateLabel) {
+	const normalizedLabel = sanitizeProjectAssetLabel(
+		duplicateLabel,
+		"Asset Copy",
+	);
+	if (!projectAssetState || typeof projectAssetState !== "object") {
+		return {
+			label: normalizedLabel,
+		};
+	}
+	return {
+		...projectAssetState,
+		id: null,
+		label: normalizedLabel,
+	};
+}
+
+export function createDuplicateSceneAssetSource(
+	asset,
+	projectAssetState = null,
+) {
+	const source = asset?.source ?? null;
+	const legacyState =
+		source?.legacyState ?? projectAssetState?.legacyState ?? null;
+	if (asset?.kind === "splat") {
+		const packedSplats = asset?.disposeTarget?.packedSplats ?? null;
+		if (packedSplats) {
+			return createProjectFilePackedSplatSource({
+				fileName:
+					source?.fileName ??
+					`${projectAssetState?.label ?? asset?.label ?? "3DGS"}.rawsplat`,
+				inputBytes: source?.inputBytes ?? new Uint8Array(),
+				extraFiles: source?.extraFiles ?? {},
+				fileType: source?.fileType ?? null,
+				packedArray: packedSplats.packedArray ?? new Uint32Array(),
+				numSplats: packedSplats.getNumSplats?.() ?? packedSplats.numSplats ?? 0,
+				extra: packedSplats.extra ?? {},
+				splatEncoding: packedSplats.splatEncoding ?? null,
+				projectAssetState,
+				legacyState,
+				resource: source?.resource ?? null,
+			});
+		}
+		if (isProjectFilePackedSplatSource(source)) {
+			return createProjectFilePackedSplatSource({
+				fileName: source.fileName,
+				inputBytes: source.inputBytes,
+				extraFiles: source.extraFiles,
+				fileType: source.fileType,
+				packedArray: source.packedArray,
+				numSplats: source.numSplats,
+				extra: source.extra,
+				splatEncoding: source.splatEncoding,
+				projectAssetState,
+				legacyState,
+				resource: source.resource ?? null,
+			});
+		}
+	}
+	if (
+		isProjectFileEmbeddedFileSource(source) ||
+		isProjectPackageFileSource(source)
+	) {
+		return createProjectFileEmbeddedFileSource({
+			kind: asset?.kind,
+			file: source.file,
+			fileName: source.fileName,
+			projectAssetState,
+			legacyState,
+			resource: source.resource ?? null,
+		});
+	}
 	return null;
 }
 
@@ -380,6 +477,29 @@ export function createAssetController({
 				(asset) => String(asset.id) === String(assetId),
 			) ?? null
 		);
+	}
+
+	function applySelectedSceneAssets(
+		selectedAssetIds = [],
+		activeAssetId = null,
+	) {
+		const normalizedSelectedIds = Array.from(
+			new Set(
+				(selectedAssetIds ?? []).filter((assetId) =>
+					Boolean(getSceneAsset(assetId)),
+				),
+			),
+		);
+		const nextActiveAssetId = normalizedSelectedIds.includes(activeAssetId)
+			? activeAssetId
+			: (normalizedSelectedIds.at(-1) ?? null);
+		sceneAssetSelectionAnchorId = nextActiveAssetId;
+		store.selectedSceneAssetIds.value = normalizedSelectedIds;
+		store.selectedSceneAssetId.value = nextActiveAssetId;
+		onSceneAssetSelectionChanged?.({
+			selectedAssetIds: [...normalizedSelectedIds],
+			activeAssetId: nextActiveAssetId,
+		});
 	}
 
 	function createSplatContainer({
@@ -665,7 +785,7 @@ export function createAssetController({
 		return true;
 	}
 
-	async function loadModelFromSource(source) {
+	async function loadModelFromSource(source, { insertIndex = null } = {}) {
 		let url = source;
 		let needsRevoke = false;
 		const displayName = getDisplayName(source);
@@ -727,6 +847,9 @@ export function createAssetController({
 				source: persistentSource,
 			});
 			applyProjectAssetState(asset, projectAssetState);
+			if (Number.isFinite(insertIndex)) {
+				moveRegisteredAssetToIndex(asset, insertIndex);
+			}
 			return asset;
 		} finally {
 			if (needsRevoke) {
@@ -753,6 +876,105 @@ export function createAssetController({
 
 	function openFiles() {
 		assetInput.click();
+	}
+
+	async function duplicateSelectedSceneAssets(assetIds = null) {
+		const selectedIdSet = new Set(
+			(Array.isArray(assetIds)
+				? assetIds
+				: (store.selectedSceneAssetIds.value ?? [])
+			).filter((assetId) => Number.isFinite(assetId)),
+		);
+		const sourceAssets = sceneState.assets.filter(
+			(asset) =>
+				selectedIdSet.has(asset.id) &&
+				(asset.kind === "model" || asset.kind === "splat"),
+		);
+		if (sourceAssets.length === 0) {
+			return 0;
+		}
+		const previousSelectionIds = [...(store.selectedSceneAssetIds.value ?? [])];
+		const previousActiveSelectionId = store.selectedSceneAssetId.value ?? null;
+		const previousSelectionAnchorId = sceneAssetSelectionAnchorId;
+		const historyLabel = "asset.duplicate";
+		const hasHistoryTransaction =
+			beginHistoryTransaction?.(historyLabel) === true;
+		const createdAssets = [];
+		try {
+			for (const asset of sourceAssets) {
+				const projectAssetState = getCapturedProjectAssetState(asset.id);
+				const duplicateLabel = buildUniqueSceneAssetDuplicateLabel(
+					asset.label,
+					sceneState.assets,
+				);
+				const duplicateSource = createDuplicateSceneAssetSource(
+					asset,
+					createDuplicateProjectAssetState(projectAssetState, duplicateLabel),
+				);
+				if (!duplicateSource) {
+					continue;
+				}
+				const sourceIndex = sceneState.assets.findIndex(
+					(candidate) => candidate.id === asset.id,
+				);
+				const createdAsset =
+					asset.kind === "splat"
+						? await loadSplatAssetFromSource(duplicateSource, {
+								insertIndex: sourceIndex >= 0 ? sourceIndex + 1 : null,
+							})
+						: await loadModelFromSource(duplicateSource, {
+								insertIndex: sourceIndex >= 0 ? sourceIndex + 1 : null,
+							});
+				if (createdAsset) {
+					createdAssets.push(createdAsset);
+				}
+			}
+			if (createdAssets.length === 0) {
+				if (hasHistoryTransaction) {
+					cancelHistoryTransaction?.();
+				}
+				return 0;
+			}
+			applySelectedSceneAssets(
+				createdAssets.map((asset) => asset.id),
+				createdAssets.at(-1)?.id ?? null,
+			);
+			updateCameraSummary();
+			updateUi();
+			if (hasHistoryTransaction) {
+				commitHistoryTransaction?.(historyLabel);
+			}
+			setStatus(
+				createdAssets.length === 1
+					? t("status.duplicatedSceneAsset", {
+							name: createdAssets[0].label,
+						})
+					: t("status.duplicatedSceneAssets", {
+							count: createdAssets.length,
+						}),
+			);
+			return createdAssets.length;
+		} catch (error) {
+			if (hasHistoryTransaction) {
+				cancelHistoryTransaction?.();
+			}
+			const createdAssetIds = new Set(createdAssets.map((asset) => asset.id));
+			if (createdAssetIds.size > 0) {
+				sceneState.assets = sceneState.assets.filter(
+					(asset) => !createdAssetIds.has(asset.id),
+				);
+				for (const asset of createdAssets) {
+					disposeSceneAsset(asset);
+				}
+			}
+			sceneAssetSelectionAnchorId = previousSelectionAnchorId;
+			applySelectedSceneAssets(previousSelectionIds, previousActiveSelectionId);
+			updateCameraSummary();
+			updateUi();
+			console.error(error);
+			setStatus(error?.message ?? String(error));
+			return 0;
+		}
 	}
 
 	const {
@@ -866,6 +1088,7 @@ export function createAssetController({
 		offsetSelectedSceneAssetsRotationDegrees,
 		setAssetVisibility,
 		setAssetLabel,
+		duplicateSelectedSceneAssets,
 		deleteSelectedSceneAssets,
 		setSelectedSceneAssetsVisibility,
 		applyAssetTransform,

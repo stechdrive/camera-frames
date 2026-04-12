@@ -16,16 +16,40 @@ import {
 
 function renderSceneManagerSummaryActions({
 	controller,
+	sceneAssets,
 	store,
 	summaryActions,
 	t,
 }) {
-	const canDeleteSelectedSceneAssets =
-		store.selectedSceneAssetIds.value.length > 0;
-	if (!canDeleteSelectedSceneAssets && !summaryActions) {
+	const selectedSceneAssetIds = new Set(
+		store.selectedSceneAssetIds.value ?? [],
+	);
+	const canDuplicateSelectedSceneAssets = (sceneAssets ?? []).some(
+		(asset) =>
+			selectedSceneAssetIds.has(asset.id) &&
+			(asset.kind === "model" || asset.kind === "splat"),
+	);
+	const canDeleteSelectedSceneAssets = selectedSceneAssetIds.size > 0;
+	if (
+		!canDuplicateSelectedSceneAssets &&
+		!canDeleteSelectedSceneAssets &&
+		!summaryActions
+	) {
 		return null;
 	}
 	return html`
+		${
+			canDuplicateSelectedSceneAssets &&
+			html`
+				<${IconButton}
+					icon="duplicate"
+					label=${t("action.duplicateSelectedSceneAssets")}
+					disabled=${!canDuplicateSelectedSceneAssets}
+					compact=${true}
+					onClick=${() => void controller()?.duplicateSelectedSceneAssets?.()}
+				/>
+			`
+		}
 		${
 			canDeleteSelectedSceneAssets &&
 			html`
@@ -58,6 +82,7 @@ export function SceneWorkspaceSection({
 }) {
 	const resolvedSummaryActions = renderSceneManagerSummaryActions({
 		controller,
+		sceneAssets,
 		store,
 		summaryActions,
 		t,
@@ -108,6 +133,7 @@ export function SceneSection({
 }) {
 	const resolvedSummaryActions = renderSceneManagerSummaryActions({
 		controller,
+		sceneAssets,
 		store,
 		summaryActions,
 		t,
