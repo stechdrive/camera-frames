@@ -106,6 +106,7 @@ function SplatEditBrushPreview({ store, viewportShellRef }) {
 
 function FrameMaskCanvas({ store, refs }) {
 	const canvasRef = useRef(null);
+	const drawMaskCanvasRef = useRef(() => {});
 	const mode = store.mode.value;
 	const frames = store.frames.documents.value;
 	const frameMaskMode = store.frames.maskMode.value;
@@ -126,7 +127,7 @@ function FrameMaskCanvas({ store, refs }) {
 				? frames.filter((frame) => rememberedMaskFrameIds.has(frame.id))
 				: [];
 
-	useLayoutEffect(() => {
+	const drawMaskCanvas = () => {
 		const canvas = canvasRef.current;
 		const shellElement =
 			refs.viewportShellRef?.current ?? refs.viewportShellRef ?? null;
@@ -185,15 +186,55 @@ function FrameMaskCanvas({ store, refs }) {
 			fillStyle: `rgba(3, 6, 11, ${frameMaskOpacity})`,
 		});
 		context.setTransform(1, 0, 0, 1, 0, 0);
-	}, [
-		frameMaskOpacity,
-		maskedFrames,
-		mode,
-		refs.renderBoxRef,
-		refs.viewportShellRef,
-		exportWidth,
-		exportHeight,
-	]);
+	};
+	drawMaskCanvasRef.current = drawMaskCanvas;
+
+	useLayoutEffect(() => {
+		drawMaskCanvas();
+	});
+
+	useLayoutEffect(() => {
+		const shellElement =
+			refs.viewportShellRef?.current ?? refs.viewportShellRef ?? null;
+		const renderBoxNode =
+			refs.renderBoxRef?.current ?? refs.renderBoxRef ?? null;
+		if (
+			!(shellElement instanceof HTMLElement) &&
+			!(renderBoxNode instanceof HTMLElement)
+		) {
+			return;
+		}
+		let redrawFrameId = 0;
+		const redraw = () => {
+			if (redrawFrameId) {
+				return;
+			}
+			redrawFrameId = window.requestAnimationFrame(() => {
+				redrawFrameId = 0;
+				drawMaskCanvasRef.current?.();
+			});
+		};
+		const resizeObserver =
+			typeof ResizeObserver === "function"
+				? new ResizeObserver(() => {
+						redraw();
+					})
+				: null;
+		if (shellElement instanceof HTMLElement) {
+			resizeObserver?.observe(shellElement);
+		}
+		if (renderBoxNode instanceof HTMLElement) {
+			resizeObserver?.observe(renderBoxNode);
+		}
+		window.addEventListener("resize", redraw);
+		return () => {
+			if (redrawFrameId) {
+				window.cancelAnimationFrame(redrawFrameId);
+			}
+			window.removeEventListener("resize", redraw);
+			resizeObserver?.disconnect();
+		};
+	}, [refs.renderBoxRef, refs.viewportShellRef]);
 
 	if (mode !== "camera" || frameMaskOpacity <= 0 || maskedFrames.length === 0) {
 		return null;
