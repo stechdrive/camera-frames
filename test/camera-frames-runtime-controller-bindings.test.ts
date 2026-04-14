@@ -106,6 +106,10 @@ import { createRuntimeControllerBindings } from "../src/app/runtime-controller-b
 				calls.push(["frame-anchor-move", ...args]),
 			handleFrameAnchorDragEnd: (...args) =>
 				calls.push(["frame-anchor-end", ...args]),
+			handleFrameTrajectoryHandleDragMove: (...args) =>
+				calls.push(["frame-trajectory-move", ...args]),
+			handleFrameTrajectoryHandleDragEnd: (...args) =>
+				calls.push(["frame-trajectory-end", ...args]),
 		},
 		viewportToolController: {
 			handleViewportTransformDragMove: (...args) =>
@@ -198,6 +202,10 @@ import { createRuntimeControllerBindings } from "../src/app/runtime-controller-b
 	assert.equal(bindings.getShotCameraRollLock(), true);
 	assert.equal(bindings.beginHistoryTransaction("x"), "begin:x");
 	assert.equal(bindings.commitHistoryTransaction("x"), "commit:x");
+	bindings.handleFrameTrajectoryHandleDragMove("move");
+	bindings.handleFrameTrajectoryHandleDragEnd("end");
+	assert.deepEqual(calls.at(-2), ["frame-trajectory-move", "move"]);
+	assert.deepEqual(calls.at(-1), ["frame-trajectory-end", "end"]);
 
 	bindings.suspendProjectPresentationSync(true);
 	assert.equal(suspended, true);
