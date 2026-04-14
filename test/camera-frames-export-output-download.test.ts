@@ -90,7 +90,14 @@ import {
 {
 	let capturedDownload = null;
 	const result = downloadPsdFromSnapshot(
-		{ id: "camera-2" },
+		{
+			id: "camera-2",
+			frameMask: {
+				shape: "trajectory",
+				trajectoryMode: "spline",
+				trajectoryExportSource: "center",
+			},
+		},
 		{ id: "snapshot-2" },
 		3,
 		{
@@ -108,6 +115,11 @@ import {
 				assert.deepEqual(frames, [{ id: "frame-b" }]);
 				assert.equal(typeof options.drawFramesToContext, "function");
 				assert.equal(options.previewContextError, "error.previewContext");
+				assert.deepEqual(options.frameMaskSettings, {
+					shape: "trajectory",
+					trajectoryMode: "spline",
+					trajectoryExportSource: "center",
+				});
 				return { id: "bundle-2" };
 			},
 			buildPsdExportDocument(bundle, frames) {

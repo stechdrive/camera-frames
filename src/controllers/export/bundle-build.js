@@ -62,6 +62,7 @@ export function buildSnapshotExportBundle(
 		height,
 		pixels,
 		exportSettings = null,
+		frameMaskSettings = null,
 		sceneAssets = [],
 		readiness = null,
 		maskPasses: renderedMaskPasses = [],
@@ -314,6 +315,7 @@ export function buildSnapshotExportBundle(
 	return {
 		...bundle,
 		exportSettings,
+		frameMaskSettings,
 		psdBasePixels,
 		backgroundCanvas,
 		gridGuidePixels,

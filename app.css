@@ -3447,7 +3447,8 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	}
 }
 
-@media (max-width: 960px) and (hover: hover), (max-width: 960px) and (pointer: fine) {
+@media (max-width: 960px) and (hover: hover),
+	(max-width: 960px) and (pointer: fine) {
 	.viewport-shell--inspector-collapsed {
 		margin-right: calc(var(--workbench-rail-width) + var(--workbench-gap));
 	}
@@ -4230,6 +4231,17 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	margin-left: auto;
 }
 
+.frame-mask-toolbar__settings {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
+	gap: 0.55rem 0.75rem;
+	width: 100%;
+}
+
+.frame-mask-toolbar__settings .button-row {
+	align-self: end;
+}
+
 .asset-card__header {
 	display: flex;
 	align-items: flex-start;
@@ -4329,7 +4341,9 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 .frame-layer--noninteractive .frame-item__rotation-zone,
 .frame-layer--noninteractive .frame-item__anchor,
 .frame-layer--noninteractive .frame-item__label,
-.frame-layer--noninteractive .frame-item__label-delete {
+.frame-layer--noninteractive .frame-item__label-delete,
+.frame-layer--noninteractive .frame-trajectory-layer__node,
+.frame-layer--noninteractive .frame-trajectory-layer__handle {
 	pointer-events: none !important;
 }
 
@@ -4339,6 +4353,64 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	left: 0;
 	display: block;
 	pointer-events: none;
+}
+
+.frame-trajectory-layer {
+	position: absolute;
+	inset: 0;
+	z-index: 4;
+	pointer-events: none;
+}
+
+.frame-trajectory-layer__svg {
+	display: block;
+	width: 100%;
+	height: 100%;
+	overflow: visible;
+}
+
+.frame-trajectory-layer__path {
+	fill: none;
+	stroke: rgba(255, 121, 88, 0.72);
+	stroke-width: 3px;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+}
+
+.frame-trajectory-layer__path--editing {
+	stroke: rgba(255, 170, 120, 0.92);
+	stroke-width: 4px;
+}
+
+.frame-trajectory-layer__handle-guide {
+	stroke: rgba(255, 215, 188, 0.44);
+	stroke-width: 2px;
+	stroke-dasharray: 10 8;
+}
+
+.frame-trajectory-layer__node,
+.frame-trajectory-layer__handle {
+	pointer-events: auto;
+	stroke: rgba(9, 16, 25, 0.86);
+	stroke-width: 2px;
+	cursor: move;
+}
+
+.frame-trajectory-layer__node {
+	fill: rgba(255, 121, 88, 0.78);
+}
+
+.frame-trajectory-layer__node--selected {
+	fill: rgba(255, 151, 112, 0.92);
+}
+
+.frame-trajectory-layer__node--active {
+	fill: rgba(255, 225, 190, 0.98);
+}
+
+.frame-trajectory-layer__handle {
+	fill: rgba(255, 235, 220, 0.96);
+	cursor: grab;
 }
 
 .frame-item {

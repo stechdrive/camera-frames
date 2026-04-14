@@ -87,4 +87,31 @@ function createHarness() {
 	assert.equal(harness.getStatusMessage(), `${duplicated.name} duplicated`);
 }
 
+{
+	const harness = createHarness();
+	const sourceFrame = harness.getShotCameraDocument().frames[0];
+	harness.controller.setFrameTrajectoryHandlePoint(sourceFrame.id, "out", {
+		x: 0.66,
+		y: 0.42,
+	});
+
+	harness.controller.duplicateActiveFrame();
+
+	const duplicated = harness
+		.getShotCameraDocument()
+		.frames.find((frame) => frame.id === getFrameDocumentId(2));
+	assert.ok(duplicated);
+	assert.deepEqual(
+		harness.getShotCameraDocument().frameMask.trajectory.handlesByFrameId,
+		{
+			[sourceFrame.id]: {
+				out: { x: 0.66, y: 0.42 },
+			},
+			[duplicated.id]: {
+				out: { x: 0.66, y: 0.42 },
+			},
+		},
+	);
+}
+
 console.log("✅ CAMERA_FRAMES frame controller tests passed!");

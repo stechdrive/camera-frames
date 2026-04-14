@@ -152,9 +152,30 @@ export function FramesSection({
 }) {
 	const frameMaskMode = store.frames.maskMode.value;
 	const frameMaskOpacityPct = store.frames.maskOpacityPct.value;
+	const frameMaskShape = store.frames.maskShape.value;
+	const frameTrajectoryMode = store.frames.trajectoryMode.value;
+	const frameTrajectoryExportSource = store.frames.trajectoryExportSource.value;
+	const trajectoryEditMode = store.frames.trajectoryEditMode.value;
 	const rememberedMaskFrameIds = store.frames.maskSelectedIds.value ?? [];
 	const hasFrames = frameDocuments.length > 0;
 	const hasSelectedFrames = rememberedMaskFrameIds.length > 0;
+	const hasTrajectoryPath = frameDocuments.length > 1;
+	const frameMaskShapeOptions = [
+		{ value: "bounds", label: t("frameMaskShape.bounds") },
+		{ value: "trajectory", label: t("frameMaskShape.trajectory") },
+	];
+	const trajectoryModeOptions = [
+		{ value: "line", label: t("frameTrajectoryMode.line") },
+		{ value: "spline", label: t("frameTrajectoryMode.spline") },
+	];
+	const trajectoryExportSourceOptions = [
+		{ value: "none", label: t("trajectorySource.none") },
+		{ value: "center", label: t("trajectorySource.center") },
+		{ value: "top-left", label: t("trajectorySource.topLeft") },
+		{ value: "top-right", label: t("trajectorySource.topRight") },
+		{ value: "bottom-right", label: t("trajectorySource.bottomRight") },
+		{ value: "bottom-left", label: t("trajectorySource.bottomLeft") },
+	];
 
 	return html`
 		<${DisclosureBlock}
@@ -220,6 +241,70 @@ export function FramesSection({
 								</div>
 							</div>
 						</label>
+					</div>
+					<div class="frame-mask-toolbar__settings">
+						<label class="field">
+							<span>${t("field.frameMaskShape")}</span>
+							<select
+								value=${frameMaskShape}
+								...${INTERACTIVE_FIELD_PROPS}
+								onChange=${(event) =>
+									controller()?.setFrameMaskShape?.(event.currentTarget.value)}
+							>
+								${frameMaskShapeOptions.map(
+									(option) => html`
+										<option value=${option.value}>${option.label}</option>
+									`,
+								)}
+							</select>
+						</label>
+						<label class="field">
+							<span>${t("field.frameTrajectoryMode")}</span>
+							<select
+								value=${frameTrajectoryMode}
+								disabled=${!hasFrames}
+								...${INTERACTIVE_FIELD_PROPS}
+								onChange=${(event) =>
+									controller()?.setFrameTrajectoryMode?.(
+										event.currentTarget.value,
+									)}
+							>
+								${trajectoryModeOptions.map(
+									(option) => html`
+										<option value=${option.value}>${option.label}</option>
+									`,
+								)}
+							</select>
+						</label>
+						<label class="field">
+							<span>${t("field.frameTrajectoryExportSource")}</span>
+							<select
+								value=${frameTrajectoryExportSource}
+								disabled=${!hasTrajectoryPath}
+								...${INTERACTIVE_FIELD_PROPS}
+								onChange=${(event) =>
+									controller()?.setFrameTrajectoryExportSource?.(
+										event.currentTarget.value,
+									)}
+							>
+								${trajectoryExportSourceOptions.map(
+									(option) => html`
+										<option value=${option.value}>${option.label}</option>
+									`,
+								)}
+							</select>
+						</label>
+						<div class="button-row button-row--compact">
+							<${IconButton}
+								id="toggle-frame-trajectory-edit"
+								icon="cursor"
+								label=${t("action.toggleFrameTrajectoryEdit")}
+								active=${trajectoryEditMode}
+								compact=${true}
+								disabled=${!hasFrames}
+								onClick=${() => controller()?.toggleFrameTrajectoryEditMode?.()}
+							/>
+						</div>
 					</div>
 				`
 			}

@@ -124,6 +124,8 @@ export function bindInputRouter({
 	handleFrameRotateEnd,
 	handleFrameAnchorDragMove,
 	handleFrameAnchorDragEnd,
+	handleFrameTrajectoryHandleDragMove = () => {},
+	handleFrameTrajectoryHandleDragEnd = () => {},
 	handleViewportTransformDragMove,
 	handleViewportTransformDragEnd,
 	pickViewportAssetAtPointer,
@@ -1094,6 +1096,9 @@ export function bindInputRouter({
 	listen(window, "pointermove", handleFrameAnchorDragMove);
 	listen(window, "pointerup", handleFrameAnchorDragEnd);
 	listen(window, "pointercancel", handleFrameAnchorDragEnd);
+	listen(window, "pointermove", handleFrameTrajectoryHandleDragMove);
+	listen(window, "pointerup", handleFrameTrajectoryHandleDragEnd);
+	listen(window, "pointercancel", handleFrameTrajectoryHandleDragEnd);
 	listen(window, "pointermove", handleViewportTransformDragMove);
 	listen(window, "pointerup", handleViewportTransformDragEnd);
 	listen(window, "pointercancel", handleViewportTransformDragEnd);

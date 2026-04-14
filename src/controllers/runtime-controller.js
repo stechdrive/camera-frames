@@ -373,6 +373,8 @@ export function createRuntimeController({
 			handleFrameRotateEnd,
 			handleFrameAnchorDragMove,
 			handleFrameAnchorDragEnd,
+			handleFrameTrajectoryHandleDragMove,
+			handleFrameTrajectoryHandleDragEnd,
 			handleViewportTransformDragMove,
 			handleViewportTransformDragEnd,
 			pickViewportAssetAtPointer,

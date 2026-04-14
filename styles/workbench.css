@@ -559,6 +559,21 @@
 	text-align: right;
 }
 
+.workbench-tool-rail__popover-select {
+	width: 100%;
+	min-width: 0;
+	padding: 0.45rem 0.55rem;
+	border: 1px solid var(--line);
+	border-radius: 10px;
+	background: var(--bg);
+	color: var(--text);
+	font: 600 0.82rem / 1.2 "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+}
+
+.workbench-tool-rail__popover-select:disabled {
+	opacity: 0.45;
+}
+
 .workbench-tool-rail__popover-summary {
 	margin: 0;
 	color: var(--text-dim);

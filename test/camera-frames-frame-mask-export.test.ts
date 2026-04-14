@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
 	buildFrameMaskPolygon,
+	createFrameTrajectoryPsdLayerDocument,
 	drawFrameMaskToContext,
 } from "../src/engine/frame-mask-export.js";
 
@@ -92,6 +93,40 @@ import {
 	assert.ok(Math.abs(polygon[1].x - polygon[2].x) < 1e-6);
 }
 
+assert.equal(
+	buildFrameMaskPolygon(
+		[
+			{
+				id: "frame-a",
+				x: 0.2,
+				y: 0.4,
+				scale: 0.2,
+				rotation: 0,
+			},
+			{
+				id: "frame-b",
+				x: 0.75,
+				y: 0.55,
+				scale: 0.28,
+				rotation: 35,
+			},
+		],
+		400,
+		200,
+		400,
+		200,
+		0,
+		0,
+		{
+			frameMaskSettings: {
+				shape: "trajectory",
+				trajectoryMode: "spline",
+			},
+		},
+	),
+	null,
+);
+
 {
 	let clearRectCount = 0;
 	let fillRectCount = 0;
@@ -146,6 +181,147 @@ import {
 	assert.equal(fillCount, 1);
 	assert.equal(compositeOperation, "source-over");
 	assert.equal(polygon.length, 4);
+}
+
+{
+	let fillRectCount = 0;
+	let beginPathCount = 0;
+	let fillCount = 0;
+	const context = {
+		clearRect() {},
+		fillRect() {
+			fillRectCount += 1;
+		},
+		beginPath() {
+			beginPathCount += 1;
+		},
+		moveTo() {},
+		lineTo() {},
+		closePath() {},
+		fill() {
+			fillCount += 1;
+		},
+		set fillStyle(_value) {},
+		set globalCompositeOperation(_value) {},
+	};
+
+	const polygon = drawFrameMaskToContext(
+		context,
+		[
+			{
+				id: "frame-a",
+				x: 0.2,
+				y: 0.4,
+				scale: 0.2,
+				rotation: 0,
+			},
+			{
+				id: "frame-b",
+				x: 0.75,
+				y: 0.55,
+				scale: 0.28,
+				rotation: 35,
+			},
+		],
+		{
+			canvasWidth: 400,
+			canvasHeight: 200,
+			frameMaskSettings: {
+				shape: "trajectory",
+				trajectoryMode: "spline",
+				trajectory: {
+					handlesByFrameId: {
+						"frame-a": {
+							out: { x: 0.42, y: 0.15 },
+						},
+						"frame-b": {
+							in: { x: 0.6, y: 0.7 },
+						},
+					},
+				},
+			},
+		},
+	);
+
+	assert.equal(fillRectCount, 1);
+	assert.equal(beginPathCount, 1);
+	assert.equal(fillCount, 1);
+	assert.equal(polygon, null);
+}
+
+{
+	let clearRectCount = 0;
+	let strokeCount = 0;
+	let beginPathCount = 0;
+	let recordedLineWidth = 0;
+	const mockContext = {
+		clearRect() {
+			clearRectCount += 1;
+		},
+		beginPath() {
+			beginPathCount += 1;
+		},
+		moveTo() {},
+		lineTo() {},
+		stroke() {
+			strokeCount += 1;
+		},
+		set strokeStyle(_value) {},
+		set lineWidth(value) {
+			recordedLineWidth = value;
+		},
+		set lineJoin(_value) {},
+		set lineCap(_value) {},
+	};
+	const mockCanvas = {
+		width: 0,
+		height: 0,
+		getContext(kind) {
+			return kind === "2d" ? mockContext : null;
+		},
+	};
+
+	const layer = createFrameTrajectoryPsdLayerDocument(
+		[
+			{
+				id: "frame-a",
+				x: 0.25,
+				y: 0.4,
+				scale: 0.2,
+				rotation: 0,
+			},
+			{
+				id: "frame-b",
+				x: 0.75,
+				y: 0.55,
+				scale: 0.25,
+				rotation: 20,
+			},
+		],
+		1536,
+		864,
+		{
+			trajectorySource: "center",
+			frameMaskSettings: {
+				trajectoryMode: "spline",
+			},
+			createCanvas(width, height) {
+				mockCanvas.width = width;
+				mockCanvas.height = height;
+				return mockCanvas;
+			},
+		},
+	);
+
+	assert.ok(layer);
+	assert.equal(layer.name, "Trajectory");
+	assert.equal(layer.canvas, mockCanvas);
+	assert.equal(mockCanvas.width, 1536);
+	assert.equal(mockCanvas.height, 864);
+	assert.equal(clearRectCount, 1);
+	assert.equal(beginPathCount, 1);
+	assert.equal(strokeCount, 1);
+	assert.equal(recordedLineWidth, 2);
 }
 
 console.log("✅ CAMERA_FRAMES frame mask export tests passed!");

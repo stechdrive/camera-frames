@@ -1,6 +1,13 @@
 import { ANCHORS, BASE_FRAME, FRAME_MAX_COUNT } from "../constants.js";
 import { getFrameOutlineSpec } from "../engine/frame-overlay.js";
 import {
+	FRAME_MASK_SHAPE_TRAJECTORY,
+	cloneFrameTrajectoryHandlesByFrameId,
+	normalizeFrameMaskShape,
+	normalizeFrameTrajectoryExportSource,
+	normalizeFrameTrajectoryMode,
+} from "../engine/frame-trajectory.js";
+import {
 	FRAME_MAX_SCALE,
 	FRAME_MIN_SCALE,
 	FRAME_RESIZE_HANDLES,
@@ -73,6 +80,7 @@ export function createFrameController({
 	let frameResizeState = null;
 	let frameRotateState = null;
 	let frameAnchorDragState = null;
+	let frameTrajectoryHandleDragState = null;
 
 	function setGlobalFrameCursor(cursorValue) {
 		if (typeof document === "undefined") {
@@ -583,6 +591,269 @@ export function createFrameController({
 		updateUi();
 	}
 
+	function getFrameMaskShape() {
+		return normalizeFrameMaskShape(
+			getActiveShotCameraDocument()?.frameMask?.shape,
+		);
+	}
+
+	function setFrameMaskShape(nextValue) {
+		const shape = normalizeFrameMaskShape(nextValue);
+		runHistoryAction?.("frame.mask-shape", () => {
+			updateActiveShotCameraDocument((documentState) => {
+				documentState.frameMask = {
+					...documentState.frameMask,
+					shape,
+				};
+				return documentState;
+			});
+		});
+		updateUi();
+	}
+
+	function getFrameTrajectoryMode() {
+		return normalizeFrameTrajectoryMode(
+			getActiveShotCameraDocument()?.frameMask?.trajectoryMode,
+		);
+	}
+
+	function setFrameTrajectoryMode(nextValue) {
+		const trajectoryMode = normalizeFrameTrajectoryMode(nextValue);
+		runHistoryAction?.("frame.trajectory-mode", () => {
+			updateActiveShotCameraDocument((documentState) => {
+				documentState.frameMask = {
+					...documentState.frameMask,
+					trajectoryMode,
+					shape: documentState.frameMask?.shape ?? FRAME_MASK_SHAPE_TRAJECTORY,
+				};
+				return documentState;
+			});
+		});
+		updateUi();
+	}
+
+	function getFrameTrajectoryExportSource() {
+		return normalizeFrameTrajectoryExportSource(
+			getActiveShotCameraDocument()?.frameMask?.trajectoryExportSource,
+		);
+	}
+
+	function setFrameTrajectoryExportSource(nextValue) {
+		const trajectoryExportSource =
+			normalizeFrameTrajectoryExportSource(nextValue);
+		runHistoryAction?.("frame.trajectory-export-source", () => {
+			updateActiveShotCameraDocument((documentState) => {
+				documentState.frameMask = {
+					...documentState.frameMask,
+					trajectoryExportSource,
+				};
+				return documentState;
+			});
+		});
+		updateUi();
+	}
+
+	function setFrameTrajectoryEditMode(nextValue) {
+		store.frames.trajectoryEditMode.value = Boolean(nextValue);
+		updateUi();
+	}
+
+	function toggleFrameTrajectoryEditMode() {
+		setFrameTrajectoryEditMode(!store.frames.trajectoryEditMode.value);
+	}
+
+	function getTrajectoryHandlesByFrameId(documentState) {
+		return cloneFrameTrajectoryHandlesByFrameId(
+			documentState?.frameMask?.trajectory?.handlesByFrameId,
+		);
+	}
+
+	function updateTrajectoryHandlesByFrameId(documentState, handlesByFrameId) {
+		documentState.frameMask = {
+			...documentState.frameMask,
+			trajectory: {
+				...(documentState.frameMask?.trajectory ?? {}),
+				handlesByFrameId,
+			},
+		};
+	}
+
+	function setFrameTrajectoryHandlePoint(frameId, handleKey, nextPoint) {
+		if (handleKey !== "in" && handleKey !== "out") {
+			return;
+		}
+		const frame = getFrameDocumentById(getActiveFrames(), frameId);
+		if (!frame) {
+			return;
+		}
+
+		const nextHandlePoint =
+			nextPoint && Number.isFinite(nextPoint.x) && Number.isFinite(nextPoint.y)
+				? {
+						x: nextPoint.x,
+						y: nextPoint.y,
+					}
+				: null;
+		updateActiveShotCameraDocument((documentState) => {
+			const handlesByFrameId = getTrajectoryHandlesByFrameId(documentState);
+			const frameHandles = {
+				...(handlesByFrameId[frameId] ?? {}),
+			};
+			if (nextHandlePoint) {
+				frameHandles[handleKey] = nextHandlePoint;
+			} else {
+				delete frameHandles[handleKey];
+			}
+			if (Object.keys(frameHandles).length > 0) {
+				handlesByFrameId[frameId] = frameHandles;
+			} else {
+				delete handlesByFrameId[frameId];
+			}
+			updateTrajectoryHandlesByFrameId(documentState, handlesByFrameId);
+			documentState.activeFrameId = frameId;
+			return documentState;
+		});
+	}
+
+	function clearFrameTrajectoryHandlePoint(frameId, handleKey) {
+		setFrameTrajectoryHandlePoint(frameId, handleKey, null);
+	}
+
+	function translateStoredFrameTrajectoryHandles(
+		documentState,
+		frameIds,
+		deltaX,
+		deltaY,
+	) {
+		if (!(Number.isFinite(deltaX) || Number.isFinite(deltaY))) {
+			return;
+		}
+		const frameIdSet = new Set(frameIds ?? []);
+		if (frameIdSet.size === 0) {
+			return;
+		}
+		const handlesByFrameId = getTrajectoryHandlesByFrameId(documentState);
+		let changed = false;
+		for (const frameId of frameIdSet) {
+			const frameHandles = handlesByFrameId[frameId];
+			if (!frameHandles) {
+				continue;
+			}
+			if (frameHandles.in) {
+				frameHandles.in = {
+					x: frameHandles.in.x + deltaX,
+					y: frameHandles.in.y + deltaY,
+				};
+				changed = true;
+			}
+			if (frameHandles.out) {
+				frameHandles.out = {
+					x: frameHandles.out.x + deltaX,
+					y: frameHandles.out.y + deltaY,
+				};
+				changed = true;
+			}
+		}
+		if (changed) {
+			updateTrajectoryHandlesByFrameId(documentState, handlesByFrameId);
+		}
+	}
+
+	function transformStoredFrameTrajectoryHandles(
+		documentState,
+		frameIds,
+		transformPoint,
+	) {
+		if (typeof transformPoint !== "function") {
+			return;
+		}
+		const frameIdSet = new Set(frameIds ?? []);
+		if (frameIdSet.size === 0) {
+			return;
+		}
+		const handlesByFrameId = getTrajectoryHandlesByFrameId(documentState);
+		let changed = false;
+		for (const frameId of frameIdSet) {
+			const frameHandles = handlesByFrameId[frameId];
+			if (!frameHandles) {
+				continue;
+			}
+			if (frameHandles.in) {
+				const nextPoint = transformPoint(frameHandles.in, frameId, "in");
+				if (nextPoint) {
+					frameHandles.in = nextPoint;
+					changed = true;
+				}
+			}
+			if (frameHandles.out) {
+				const nextPoint = transformPoint(frameHandles.out, frameId, "out");
+				if (nextPoint) {
+					frameHandles.out = nextPoint;
+					changed = true;
+				}
+			}
+		}
+		if (changed) {
+			updateTrajectoryHandlesByFrameId(documentState, handlesByFrameId);
+		}
+	}
+
+	function copyStoredFrameTrajectoryHandles(
+		documentState,
+		frameIdMappings = [],
+	) {
+		const handlesByFrameId = getTrajectoryHandlesByFrameId(documentState);
+		let changed = false;
+		for (const mapping of frameIdMappings) {
+			const sourceFrameId = mapping?.sourceFrameId;
+			const targetFrameId = mapping?.targetFrameId;
+			if (
+				typeof sourceFrameId !== "string" ||
+				typeof targetFrameId !== "string"
+			) {
+				continue;
+			}
+			const sourceHandles = handlesByFrameId[sourceFrameId];
+			if (!sourceHandles) {
+				continue;
+			}
+			handlesByFrameId[targetFrameId] = {
+				...(sourceHandles.in &&
+				Number.isFinite(sourceHandles.in.x) &&
+				Number.isFinite(sourceHandles.in.y)
+					? { in: { ...sourceHandles.in } }
+					: {}),
+				...(sourceHandles.out &&
+				Number.isFinite(sourceHandles.out.x) &&
+				Number.isFinite(sourceHandles.out.y)
+					? { out: { ...sourceHandles.out } }
+					: {}),
+			};
+			changed = true;
+		}
+		if (changed) {
+			updateTrajectoryHandlesByFrameId(documentState, handlesByFrameId);
+		}
+	}
+
+	function deleteStoredFrameTrajectoryHandles(documentState, frameIds) {
+		const frameIdSet = new Set(frameIds ?? []);
+		if (frameIdSet.size === 0) {
+			return;
+		}
+		const handlesByFrameId = getTrajectoryHandlesByFrameId(documentState);
+		let changed = false;
+		for (const frameId of frameIdSet) {
+			if (handlesByFrameId[frameId]) {
+				delete handlesByFrameId[frameId];
+				changed = true;
+			}
+		}
+		if (changed) {
+			updateTrajectoryHandlesByFrameId(documentState, handlesByFrameId);
+		}
+	}
+
 	function clearFrameDrag() {
 		frameDragState = null;
 		clearGlobalFrameCursor();
@@ -602,12 +873,17 @@ export function createFrameController({
 		frameAnchorDragState = null;
 	}
 
+	function clearFrameTrajectoryHandleDrag() {
+		frameTrajectoryHandleDragState = null;
+	}
+
 	function clearFrameInteraction() {
 		cancelHistoryTransaction();
 		clearFrameDrag();
 		clearFrameResize();
 		clearFrameRotate();
 		clearFrameAnchorDrag();
+		clearFrameTrajectoryHandleDrag();
 	}
 
 	function clearFrameSelection() {
@@ -728,6 +1004,12 @@ export function createFrameController({
 			updateActiveShotCameraDocument((documentState) => {
 				documentState.frames = [...documentState.frames, nextFrame];
 				documentState.activeFrameId = nextFrame.id;
+				copyStoredFrameTrajectoryHandles(documentState, [
+					{
+						sourceFrameId: activeFrame.id,
+						targetFrameId: nextFrame.id,
+					},
+				]);
 				return documentState;
 			});
 		});
@@ -786,6 +1068,13 @@ export function createFrameController({
 				documentState.frames = [...documentState.frames, ...duplicatedFrames];
 				documentState.activeFrameId =
 					duplicatedFrames[duplicatedFrames.length - 1]?.id ?? null;
+				copyStoredFrameTrajectoryHandles(
+					documentState,
+					duplicatedFrames.map((frame, index) => ({
+						sourceFrameId: sourceFrames[index]?.id,
+						targetFrameId: frame.id,
+					})),
+				);
 				return documentState;
 			});
 		});
@@ -885,6 +1174,7 @@ export function createFrameController({
 					...documentState.frameMask,
 					selectedIds: nextRememberedMaskSelectedIds,
 				};
+				deleteStoredFrameTrajectoryHandles(documentState, selectedFrameIds);
 				return documentState;
 			});
 		});
@@ -958,6 +1248,7 @@ export function createFrameController({
 					...documentState.frameMask,
 					selectedIds: nextRememberedMaskSelectedIds,
 				};
+				deleteStoredFrameTrajectoryHandles(documentState, [targetFrame.id]);
 				return documentState;
 			});
 		});
@@ -1148,6 +1439,12 @@ export function createFrameController({
 						},
 					);
 				}
+				translateStoredFrameTrajectoryHandles(
+					documentState,
+					selectionState.geometries.map((geometry) => geometry.frame.id),
+					deltaPxX / Math.max(selectionState.metrics.exportWidth, 1e-6),
+					deltaPxY / Math.max(selectionState.metrics.exportHeight, 1e-6),
+				);
 				return documentState;
 			});
 			return;
@@ -1175,6 +1472,12 @@ export function createFrameController({
 				},
 			);
 			documentState.activeFrameId = frame.id;
+			translateStoredFrameTrajectoryHandles(
+				documentState,
+				[frame.id],
+				deltaX,
+				deltaY,
+			);
 			return documentState;
 		});
 	}
@@ -1439,6 +1742,24 @@ export function createFrameController({
 						},
 					);
 				}
+				transformStoredFrameTrajectoryHandles(
+					documentState,
+					selectionState.geometries.map((geometry) => geometry.frame.id),
+					(point) => {
+						const pointPx = {
+							x: point.x * Math.max(selectionState.metrics.exportWidth, 1e-6),
+							y: point.y * Math.max(selectionState.metrics.exportHeight, 1e-6),
+						};
+						return {
+							x:
+								(pivot.x + (pointPx.x - pivot.x) * scaleRatio) /
+								Math.max(selectionState.metrics.exportWidth, 1e-6),
+							y:
+								(pivot.y + (pointPx.y - pivot.y) * scaleRatio) /
+								Math.max(selectionState.metrics.exportHeight, 1e-6),
+						};
+					},
+				);
 				return documentState;
 			});
 			return;
@@ -1504,6 +1825,27 @@ export function createFrameController({
 				);
 			}
 			documentState.activeFrameId = frame.id;
+			transformStoredFrameTrajectoryHandles(
+				documentState,
+				[frame.id],
+				(point) => {
+					const pointWorld = {
+						x:
+							frameResizeState.metrics.boxLeft +
+							point.x * frameResizeState.metrics.boxWidth,
+						y:
+							frameResizeState.metrics.boxTop +
+							point.y * frameResizeState.metrics.boxHeight,
+					};
+					return getFrameDocumentCenterFromWorld(
+						frameResizeState.anchorWorldX +
+							(pointWorld.x - frameResizeState.anchorWorldX) * scaleFactor,
+						frameResizeState.anchorWorldY +
+							(pointWorld.y - frameResizeState.anchorWorldY) * scaleFactor,
+						frameResizeState.metrics,
+					);
+				},
+			);
 			return documentState;
 		});
 	}
@@ -1680,6 +2022,29 @@ export function createFrameController({
 						},
 					);
 				}
+				transformStoredFrameTrajectoryHandles(
+					documentState,
+					selectionState.geometries.map((geometry) => geometry.frame.id),
+					(point) => {
+						const pointPx = {
+							x: point.x * Math.max(selectionState.metrics.exportWidth, 1e-6),
+							y: point.y * Math.max(selectionState.metrics.exportHeight, 1e-6),
+						};
+						const rotatedPoint = rotateVector(
+							pointPx.x - selectionState.pivot.x,
+							pointPx.y - selectionState.pivot.y,
+							deltaAngleRad,
+						);
+						return {
+							x:
+								(selectionState.pivot.x + rotatedPoint.x) /
+								Math.max(selectionState.metrics.exportWidth, 1e-6),
+							y:
+								(selectionState.pivot.y + rotatedPoint.y) /
+								Math.max(selectionState.metrics.exportHeight, 1e-6),
+						};
+					},
+				);
 				return documentState;
 			});
 			return;
@@ -1723,6 +2088,30 @@ export function createFrameController({
 				rotation: nextRotation,
 			});
 			documentState.activeFrameId = frame.id;
+			transformStoredFrameTrajectoryHandles(
+				documentState,
+				[frame.id],
+				(point) => {
+					const pointWorld = {
+						x:
+							frameRotateState.metrics.boxLeft +
+							point.x * frameRotateState.metrics.boxWidth,
+						y:
+							frameRotateState.metrics.boxTop +
+							point.y * frameRotateState.metrics.boxHeight,
+					};
+					const rotatedPointWorld = rotateVector(
+						pointWorld.x - frameRotateState.anchorWorldX,
+						pointWorld.y - frameRotateState.anchorWorldY,
+						deltaRadians,
+					);
+					return getFrameDocumentCenterFromWorld(
+						frameRotateState.anchorWorldX + rotatedPointWorld.x,
+						frameRotateState.anchorWorldY + rotatedPointWorld.y,
+						frameRotateState.metrics,
+					);
+				},
+			);
 			return documentState;
 		});
 	}
@@ -1900,6 +2289,72 @@ export function createFrameController({
 		}
 	}
 
+	function startFrameTrajectoryHandleDrag(frameId, handleKey, event) {
+		if (state.mode !== workspacePaneCamera || isZoomToolActive()) {
+			return false;
+		}
+		if (event.button !== 0) {
+			return false;
+		}
+		if (handleKey !== "in" && handleKey !== "out") {
+			return false;
+		}
+
+		const frame = getFrameDocumentById(getActiveFrames(), frameId);
+		if (!frame) {
+			return false;
+		}
+
+		event.preventDefault();
+		event.stopPropagation();
+		if (!isFrameSelected(frameId)) {
+			activateFrameSelection(frameId);
+			updateUi();
+		}
+
+		clearFrameInteraction();
+		frameTrajectoryHandleDragState = {
+			pointerId: event.pointerId,
+			frameId,
+			handleKey,
+			metrics: getOutputFrameMetrics(),
+		};
+		beginHistoryTransaction("frame.trajectory-handle");
+		return true;
+	}
+
+	function handleFrameTrajectoryHandleDragMove(event) {
+		if (
+			!frameTrajectoryHandleDragState ||
+			event.pointerId !== frameTrajectoryHandleDragState.pointerId
+		) {
+			return;
+		}
+
+		const nextPoint = getFrameDocumentCenterFromWorld(
+			event.clientX,
+			event.clientY,
+			frameTrajectoryHandleDragState.metrics,
+		);
+		setFrameTrajectoryHandlePoint(
+			frameTrajectoryHandleDragState.frameId,
+			frameTrajectoryHandleDragState.handleKey,
+			nextPoint,
+		);
+	}
+
+	function handleFrameTrajectoryHandleDragEnd(event) {
+		if (
+			!frameTrajectoryHandleDragState ||
+			event.pointerId !== frameTrajectoryHandleDragState.pointerId
+		) {
+			return;
+		}
+
+		clearFrameTrajectoryHandleDrag();
+		commitHistoryTransaction("frame.trajectory-handle");
+	}
+
 	return {
 		getActiveFrames,
 		getActiveFrameDocument,
@@ -1913,6 +2368,16 @@ export function createFrameController({
 		toggleFrameMaskMode,
 		togglePreferredFrameMaskMode,
 		setFrameMaskOpacity,
+		getFrameMaskShape,
+		setFrameMaskShape,
+		getFrameTrajectoryMode,
+		setFrameTrajectoryMode,
+		getFrameTrajectoryExportSource,
+		setFrameTrajectoryExportSource,
+		setFrameTrajectoryEditMode,
+		toggleFrameTrajectoryEditMode,
+		setFrameTrajectoryHandlePoint,
+		clearFrameTrajectoryHandlePoint,
 		syncFrameSelectionTransformState,
 		clearFrameDrag,
 		clearFrameInteraction,
@@ -1941,5 +2406,8 @@ export function createFrameController({
 		startSelectedFramesAnchorDrag,
 		handleFrameAnchorDragMove,
 		handleFrameAnchorDragEnd,
+		startFrameTrajectoryHandleDrag,
+		handleFrameTrajectoryHandleDragMove,
+		handleFrameTrajectoryHandleDragEnd,
 	};
 }

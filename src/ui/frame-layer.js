@@ -1,6 +1,13 @@
 import { html } from "htm/preact";
 import { BASE_FRAME } from "../constants.js";
 import {
+	FRAME_MASK_SHAPE_TRAJECTORY,
+	FRAME_TRAJECTORY_EXPORT_SOURCE_CENTER,
+	FRAME_TRAJECTORY_MODE_SPLINE,
+	getFrameTrajectoryHandlePointNormalized,
+	sampleFrameTrajectoryPoints,
+} from "../engine/frame-trajectory.js";
+import {
 	getFrameAnchorHandleKey,
 	getFrameAnchorLocalNormalized,
 } from "../engine/frame-transform.js";
@@ -48,6 +55,222 @@ function getSelectionAnchorHandleKey(anchor) {
 	return getFrameAnchorHandleKey(anchor);
 }
 
+function buildSvgPolylinePath(points = []) {
+	if (!Array.isArray(points) || points.length === 0) {
+		return "";
+	}
+	return points
+		.map(
+			(point, index) =>
+				`${index === 0 ? "M" : "L"} ${Number(point.x).toFixed(2)} ${Number(point.y).toFixed(2)}`,
+		)
+		.join(" ");
+}
+
+function FrameTrajectoryOverlay({
+	controller,
+	exportWidth,
+	exportHeight,
+	frames,
+	frameMaskShape,
+	trajectoryMode,
+	trajectoryHandlesByFrameId,
+	trajectoryEditMode,
+	activeFrameId,
+	selectedFrameIds,
+	interactionsEnabled,
+}) {
+	const showTrajectory =
+		frameMaskShape === FRAME_MASK_SHAPE_TRAJECTORY || trajectoryEditMode;
+	if (!showTrajectory || frames.length === 0) {
+		return null;
+	}
+
+	const frameMaskSettings = {
+		shape: frameMaskShape,
+		trajectoryMode,
+		trajectory: {
+			handlesByFrameId: trajectoryHandlesByFrameId,
+		},
+	};
+	const centerPoints = sampleFrameTrajectoryPoints(
+		frames,
+		frameMaskSettings,
+		exportWidth,
+		exportHeight,
+		{
+			source: FRAME_TRAJECTORY_EXPORT_SOURCE_CENTER,
+		},
+	);
+	const activeFrame =
+		frames.find((frame) => frame.id === activeFrameId) ??
+		frames[frames.length - 1] ??
+		null;
+	const activeFrameCenter = activeFrame
+		? {
+				x: activeFrame.x * exportWidth,
+				y: activeFrame.y * exportHeight,
+			}
+		: null;
+	const handleIn =
+		trajectoryEditMode &&
+		trajectoryMode === FRAME_TRAJECTORY_MODE_SPLINE &&
+		activeFrame
+			? getFrameTrajectoryHandlePointNormalized(
+					frames,
+					frameMaskSettings,
+					activeFrame.id,
+					"in",
+				)
+			: null;
+	const handleOut =
+		trajectoryEditMode &&
+		trajectoryMode === FRAME_TRAJECTORY_MODE_SPLINE &&
+		activeFrame
+			? getFrameTrajectoryHandlePointNormalized(
+					frames,
+					frameMaskSettings,
+					activeFrame.id,
+					"out",
+				)
+			: null;
+	const handleInPoint = handleIn
+		? {
+				x: handleIn.x * exportWidth,
+				y: handleIn.y * exportHeight,
+			}
+		: null;
+	const handleOutPoint = handleOut
+		? {
+				x: handleOut.x * exportWidth,
+				y: handleOut.y * exportHeight,
+			}
+		: null;
+
+	return html`
+		<div class="frame-trajectory-layer">
+			<svg
+				class="frame-trajectory-layer__svg"
+				viewBox=${`0 0 ${exportWidth} ${exportHeight}`}
+				preserveAspectRatio="none"
+			>
+				${
+					centerPoints.length >= 2 &&
+					html`
+						<path
+							class=${
+								trajectoryEditMode
+									? "frame-trajectory-layer__path frame-trajectory-layer__path--editing"
+									: "frame-trajectory-layer__path"
+							}
+							d=${buildSvgPolylinePath(centerPoints)}
+						></path>
+					`
+				}
+				${
+					trajectoryEditMode &&
+					activeFrameCenter &&
+					handleInPoint &&
+					html`
+						<line
+							class="frame-trajectory-layer__handle-guide"
+							x1=${activeFrameCenter.x}
+							y1=${activeFrameCenter.y}
+							x2=${handleInPoint.x}
+							y2=${handleInPoint.y}
+						></line>
+					`
+				}
+				${
+					trajectoryEditMode &&
+					activeFrameCenter &&
+					handleOutPoint &&
+					html`
+						<line
+							class="frame-trajectory-layer__handle-guide"
+							x1=${activeFrameCenter.x}
+							y1=${activeFrameCenter.y}
+							x2=${handleOutPoint.x}
+							y2=${handleOutPoint.y}
+						></line>
+					`
+				}
+				${
+					trajectoryEditMode &&
+					frames.map((frame) => {
+						const selectedFrame = selectedFrameIds.has(frame.id);
+						return html`
+							<circle
+								class=${[
+									"frame-trajectory-layer__node",
+									selectedFrame ? "frame-trajectory-layer__node--selected" : "",
+									frame.id === activeFrameId
+										? "frame-trajectory-layer__node--active"
+										: "",
+								]
+									.filter(Boolean)
+									.join(" ")}
+								cx=${frame.x * exportWidth}
+								cy=${frame.y * exportHeight}
+								r="12"
+								onPointerDown=${
+									interactionsEnabled
+										? (event) => controller()?.startFrameDrag?.(frame.id, event)
+										: undefined
+								}
+							></circle>
+						`;
+					})
+				}
+				${
+					trajectoryEditMode &&
+					handleInPoint &&
+					html`
+						<circle
+							class="frame-trajectory-layer__handle"
+							cx=${handleInPoint.x}
+							cy=${handleInPoint.y}
+							r="9"
+							onPointerDown=${
+								interactionsEnabled
+									? (event) =>
+											controller()?.startFrameTrajectoryHandleDrag?.(
+												activeFrame.id,
+												"in",
+												event,
+											)
+									: undefined
+							}
+						></circle>
+					`
+				}
+				${
+					trajectoryEditMode &&
+					handleOutPoint &&
+					html`
+						<circle
+							class="frame-trajectory-layer__handle"
+							cx=${handleOutPoint.x}
+							cy=${handleOutPoint.y}
+							r="9"
+							onPointerDown=${
+								interactionsEnabled
+									? (event) =>
+											controller()?.startFrameTrajectoryHandleDrag?.(
+												activeFrame.id,
+												"out",
+												event,
+											)
+									: undefined
+							}
+						></circle>
+					`
+				}
+			</svg>
+		</div>
+	`;
+}
+
 export function FrameLayer({
 	store,
 	controller,
@@ -65,6 +288,11 @@ export function FrameLayer({
 	const multiFrameSelection = frameSelectionActive && selectedFrameIds.size > 1;
 	const selectedFrameCount = selectedFrameIds.size;
 	const selectionBoxLogical = store.frames.selectionBoxLogical.value;
+	const frameMaskShape = store.frames.maskShape.value;
+	const trajectoryMode = store.frames.trajectoryMode.value;
+	const trajectoryEditMode = store.frames.trajectoryEditMode.value;
+	const trajectoryHandlesByFrameId =
+		store.frames.trajectoryHandlesByFrameId.value ?? {};
 	const selectionAnchor =
 		store.frames.selectionAnchor.value &&
 		Number.isFinite(store.frames.selectionAnchor.value.x) &&
@@ -99,6 +327,24 @@ export function FrameLayer({
 						ref=${frameOverlayCanvasRef}
 						class="frame-layer__canvas"
 					></canvas>
+				`
+			}
+			${
+				!canvasOnly &&
+				html`
+					<${FrameTrajectoryOverlay}
+						controller=${controller}
+						exportWidth=${exportWidth}
+						exportHeight=${exportHeight}
+						frames=${store.frames.documents.value}
+						frameMaskShape=${frameMaskShape}
+						trajectoryMode=${trajectoryMode}
+						trajectoryHandlesByFrameId=${trajectoryHandlesByFrameId}
+						trajectoryEditMode=${trajectoryEditMode}
+						activeFrameId=${activeFrameId}
+						selectedFrameIds=${selectedFrameIds}
+						interactionsEnabled=${interactionsEnabled}
+					/>
 				`
 			}
 			${

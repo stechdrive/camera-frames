@@ -89,11 +89,16 @@ function ZoomToolPopover({ controller, mode, store, t }) {
 function MaskToolPopover({ controller, hasFrames, store, t }) {
 	const frameMaskMode = store.frames.maskMode.value;
 	const frameMaskOpacityPct = store.frames.maskOpacityPct.value;
+	const frameMaskShape = store.frames.maskShape.value;
+	const frameTrajectoryMode = store.frames.trajectoryMode.value;
+	const frameTrajectoryExportSource = store.frames.trajectoryExportSource.value;
+	const trajectoryEditMode = store.frames.trajectoryEditMode.value;
 	const rememberedMaskFrameIds = store.frames.maskSelectedIds.value ?? [];
 	const selectedFrameIds = store.frames.selectedIds.value ?? [];
 	const activeFrameId = store.frames.activeId.value;
 	const remainingCapacity = FRAME_MAX_COUNT - store.frames.count.value;
 	const hasSelectedFrames = rememberedMaskFrameIds.length > 0;
+	const hasTrajectoryPath = store.frames.count.value > 1;
 	const duplicateCount = Math.max(
 		selectedFrameIds.length,
 		activeFrameId ? 1 : 0,
@@ -102,6 +107,22 @@ function MaskToolPopover({ controller, hasFrames, store, t }) {
 	const canDuplicateFrames =
 		duplicateCount > 0 && remainingCapacity >= duplicateCount;
 	const canDeleteFrames = selectedFrameIds.length > 0 || Boolean(activeFrameId);
+	const frameMaskShapeOptions = [
+		{ value: "bounds", label: t("frameMaskShape.bounds") },
+		{ value: "trajectory", label: t("frameMaskShape.trajectory") },
+	];
+	const trajectoryModeOptions = [
+		{ value: "line", label: t("frameTrajectoryMode.line") },
+		{ value: "spline", label: t("frameTrajectoryMode.spline") },
+	];
+	const trajectoryExportSourceOptions = [
+		{ value: "none", label: t("trajectorySource.none") },
+		{ value: "center", label: t("trajectorySource.center") },
+		{ value: "top-left", label: t("trajectorySource.topLeft") },
+		{ value: "top-right", label: t("trajectorySource.topRight") },
+		{ value: "bottom-right", label: t("trajectorySource.bottomRight") },
+		{ value: "bottom-left", label: t("trajectorySource.bottomLeft") },
+	];
 
 	return html`
 		<div
@@ -228,6 +249,71 @@ function MaskToolPopover({ controller, hasFrames, store, t }) {
 					>
 				</div>
 			</label>
+			<label class="field workbench-tool-rail__popover-field">
+				<span>${t("field.frameMaskShape")}</span>
+				<div class="workbench-tool-rail__popover-value">
+					<select
+						class="workbench-tool-rail__popover-select"
+						value=${frameMaskShape}
+						onChange=${(event) =>
+							controller()?.setFrameMaskShape?.(event.currentTarget.value)}
+					>
+						${frameMaskShapeOptions.map(
+							(option) => html`
+								<option value=${option.value}>${option.label}</option>
+							`,
+						)}
+					</select>
+				</div>
+			</label>
+			<label class="field workbench-tool-rail__popover-field">
+				<span>${t("field.frameTrajectoryMode")}</span>
+				<div class="workbench-tool-rail__popover-value">
+					<select
+						class="workbench-tool-rail__popover-select"
+						value=${frameTrajectoryMode}
+						disabled=${!hasFrames}
+						onChange=${(event) =>
+							controller()?.setFrameTrajectoryMode?.(event.currentTarget.value)}
+					>
+						${trajectoryModeOptions.map(
+							(option) => html`
+								<option value=${option.value}>${option.label}</option>
+							`,
+						)}
+					</select>
+				</div>
+			</label>
+			<label class="field workbench-tool-rail__popover-field">
+				<span>${t("field.frameTrajectoryExportSource")}</span>
+				<div class="workbench-tool-rail__popover-value">
+					<select
+						class="workbench-tool-rail__popover-select"
+						value=${frameTrajectoryExportSource}
+						disabled=${!hasTrajectoryPath}
+						onChange=${(event) =>
+							controller()?.setFrameTrajectoryExportSource?.(
+								event.currentTarget.value,
+							)}
+					>
+						${trajectoryExportSourceOptions.map(
+							(option) => html`
+								<option value=${option.value}>${option.label}</option>
+							`,
+						)}
+					</select>
+				</div>
+			</label>
+			<div class="button-row button-row--compact workbench-tool-rail__popover-actions">
+				<${IconButton}
+					icon="cursor"
+					label=${t("action.toggleFrameTrajectoryEdit")}
+					active=${trajectoryEditMode}
+					compact=${true}
+					disabled=${!hasFrames}
+					onClick=${() => controller()?.toggleFrameTrajectoryEditMode?.()}
+				/>
+			</div>
 		</div>
 	`;
 }

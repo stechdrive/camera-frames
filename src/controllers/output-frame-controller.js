@@ -229,7 +229,10 @@ export function createOutputFrameController({
 	function getWorkbenchContainerSize() {
 		const containerElement = viewportShell.parentElement;
 		return {
-			width: Math.max(containerElement?.clientWidth ?? viewportShell.clientWidth, 1),
+			width: Math.max(
+				containerElement?.clientWidth ?? viewportShell.clientWidth,
+				1,
+			),
 			height: Math.max(
 				containerElement?.clientHeight ?? viewportShell.clientHeight,
 				1,
@@ -278,12 +281,8 @@ export function createOutputFrameController({
 			exportHeight: exportSize.height,
 			phoneLikeTouchViewport,
 		});
-		const {
-			viewportWidth,
-			viewportHeight,
-			safeWidth,
-			safeHeight,
-		} = getWorkbenchLayoutState();
+		const { viewportWidth, viewportHeight, safeWidth, safeHeight } =
+			getWorkbenchLayoutState();
 		const fitScale = Math.min(
 			viewportWidth / exportSize.width,
 			viewportHeight / exportSize.height,
@@ -1055,6 +1054,47 @@ export function createOutputFrameController({
 				y: frame.y,
 			});
 		}
+		const remappedTrajectoryHandlesByFrameId = {};
+		for (const [frameId, handles] of Object.entries(
+			documentState.frameMask?.trajectory?.handlesByFrameId ?? {},
+		)) {
+			const nextIn =
+				handles?.in &&
+				Number.isFinite(handles.in.x) &&
+				Number.isFinite(handles.in.y)
+					? remapPointBetweenRenderBoxes({
+							x: handles.in.x,
+							y: handles.in.y,
+							fromMetrics: currentMetrics,
+							toMetrics: nextMetrics,
+						})
+					: null;
+			const nextOut =
+				handles?.out &&
+				Number.isFinite(handles.out.x) &&
+				Number.isFinite(handles.out.y)
+					? remapPointBetweenRenderBoxes({
+							x: handles.out.x,
+							y: handles.out.y,
+							fromMetrics: currentMetrics,
+							toMetrics: nextMetrics,
+						})
+					: null;
+			if (!nextIn && !nextOut) {
+				continue;
+			}
+			remappedTrajectoryHandlesByFrameId[frameId] = {
+				...(nextIn ? { in: nextIn } : {}),
+				...(nextOut ? { out: nextOut } : {}),
+			};
+		}
+		documentState.frameMask = {
+			...documentState.frameMask,
+			trajectory: {
+				...(documentState.frameMask?.trajectory ?? {}),
+				handlesByFrameId: remappedTrajectoryHandlesByFrameId,
+			},
+		};
 	}
 
 	function setBoxWidthPercent(nextValue) {

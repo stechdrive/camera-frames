@@ -1,5 +1,16 @@
 import { getAllExportBundlePasses } from "../../engine/export-bundle.js";
-import { createAllFrameMaskPsdLayerDocument } from "../../engine/frame-mask-export.js";
+import {
+	createAllFrameMaskPsdLayerDocument,
+	createFrameTrajectoryPsdLayerDocument,
+} from "../../engine/frame-mask-export.js";
+import {
+	FRAME_TRAJECTORY_EXPORT_SOURCE_BOTTOM_LEFT,
+	FRAME_TRAJECTORY_EXPORT_SOURCE_BOTTOM_RIGHT,
+	FRAME_TRAJECTORY_EXPORT_SOURCE_CENTER,
+	FRAME_TRAJECTORY_EXPORT_SOURCE_NONE,
+	FRAME_TRAJECTORY_EXPORT_SOURCE_TOP_LEFT,
+	FRAME_TRAJECTORY_EXPORT_SOURCE_TOP_RIGHT,
+} from "../../engine/frame-trajectory.js";
 import { getPsdReferenceImageGroupLayers } from "../../engine/reference-image-export-order.js";
 import {
 	REFERENCE_IMAGE_GROUP_BACK,
@@ -39,6 +50,8 @@ export function buildPsdExportDocument(
 		exportDebugLayersEnabled = false,
 		createCanvasFromPixels,
 		createFrameMaskLayerDocument = createAllFrameMaskPsdLayerDocument,
+		createFrameTrajectoryLayerDocument = createFrameTrajectoryPsdLayerDocument,
+		createCanvas,
 		renderExportPassToCanvas,
 	} = {},
 ) {
@@ -120,23 +133,53 @@ export function buildPsdExportDocument(
 		REFERENCE_IMAGE_GROUP_FRONT,
 		groupLabel,
 	);
+	const trajectoryLayerNameBySource = {
+		[FRAME_TRAJECTORY_EXPORT_SOURCE_CENTER]: "Trajectory",
+		[FRAME_TRAJECTORY_EXPORT_SOURCE_TOP_LEFT]: "Trajectory Top Left",
+		[FRAME_TRAJECTORY_EXPORT_SOURCE_TOP_RIGHT]: "Trajectory Top Right",
+		[FRAME_TRAJECTORY_EXPORT_SOURCE_BOTTOM_RIGHT]: "Trajectory Bottom Right",
+		[FRAME_TRAJECTORY_EXPORT_SOURCE_BOTTOM_LEFT]: "Trajectory Bottom Left",
+	};
+	const trajectoryExportSource =
+		bundle.frameMaskSettings?.trajectoryExportSource ??
+		FRAME_TRAJECTORY_EXPORT_SOURCE_NONE;
+	const frameTrajectoryLayerDocument = createFrameTrajectoryLayerDocument(
+		frames,
+		bundle.width,
+		bundle.height,
+		{
+			name: trajectoryLayerNameBySource[trajectoryExportSource] ?? "Trajectory",
+			createCanvas,
+			frameMaskSettings: bundle.frameMaskSettings,
+			trajectorySource: trajectoryExportSource,
+		},
+	);
 	const frameOverlayLayerDocument = frameOverlayPass
 		? {
 				name: frameGroupLabel,
 				opened: false,
-				children: (frameOverlayPass.layers ?? []).map((layer) => ({
-					name: layer.name,
-					canvas: layer.canvas,
-					left: layer.left ?? 0,
-					top: layer.top ?? 0,
-					opacity: layer.opacity,
-				})),
+				children: [
+					...(frameOverlayPass.layers ?? []).map((layer) => ({
+						name: layer.name,
+						canvas: layer.canvas,
+						left: layer.left ?? 0,
+						top: layer.top ?? 0,
+						opacity: layer.opacity,
+					})),
+					...(frameTrajectoryLayerDocument
+						? [frameTrajectoryLayerDocument]
+						: []),
+				],
 			}
 		: null;
 	const frameMaskLayerDocument = createFrameMaskLayerDocument(
 		frames,
 		bundle.width,
 		bundle.height,
+		{
+			frameMaskSettings: bundle.frameMaskSettings,
+			createCanvas,
+		},
 	);
 	const orderedLayers = [];
 	if (backgroundLayerDocument) {

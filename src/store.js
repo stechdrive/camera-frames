@@ -217,6 +217,7 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	const frameSelectedIds = signal([]);
 	const frameSelectionAnchor = signal(null);
 	const frameSelectionBoxLogical = signal(null);
+	const frameTrajectoryEditMode = signal(false);
 	const historyCanUndo = signal(false);
 	const historyCanRedo = signal(false);
 	const frameDocuments = computed(() => activeShotCamera.value?.frames ?? []);
@@ -302,6 +303,18 @@ export function createCameraFramesStore(runtimeInfo = null) {
 		Number.isFinite(activeShotCamera.value?.frameMask?.opacityPct)
 			? activeShotCamera.value.frameMask.opacityPct
 			: 80,
+	);
+	const frameMaskShape = computed(
+		() => activeShotCamera.value?.frameMask?.shape ?? "bounds",
+	);
+	const frameTrajectoryMode = computed(
+		() => activeShotCamera.value?.frameMask?.trajectoryMode ?? "line",
+	);
+	const frameTrajectoryExportSource = computed(
+		() => activeShotCamera.value?.frameMask?.trajectoryExportSource ?? "none",
+	);
+	const frameTrajectoryHandlesByFrameId = computed(
+		() => activeShotCamera.value?.frameMask?.trajectory?.handlesByFrameId ?? {},
 	);
 	const exportWidth = computed(() =>
 		Math.max(64, Math.round(BASE_RENDER_BOX.width * widthScale.value)),
@@ -456,10 +469,15 @@ export function createCameraFramesStore(runtimeInfo = null) {
 			selectedIds: frameSelectedIds,
 			selectionAnchor: frameSelectionAnchor,
 			selectionBoxLogical: frameSelectionBoxLogical,
+			trajectoryEditMode: frameTrajectoryEditMode,
 			maskSelectedIds: frameMaskSelectedIds,
 			maskMode: frameMaskMode,
 			maskPreferredMode: frameMaskPreferredMode,
 			maskOpacityPct: frameMaskOpacityPct,
+			maskShape: frameMaskShape,
+			trajectoryMode: frameTrajectoryMode,
+			trajectoryExportSource: frameTrajectoryExportSource,
+			trajectoryHandlesByFrameId: frameTrajectoryHandlesByFrameId,
 		},
 		history: {
 			canUndo: historyCanUndo,

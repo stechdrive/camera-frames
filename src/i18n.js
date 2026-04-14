@@ -86,6 +86,9 @@ const MESSAGES = {
 			transformMode: "ツール",
 			activeFrame: "FRAME",
 			frameMaskOpacity: "マスク不透明度",
+			frameMaskShape: "マスク形状",
+			frameTrajectoryMode: "軌道補間",
+			frameTrajectoryExportSource: "PSD軌道レイヤー",
 			exportTarget: "書き出し対象",
 			exportPresetSelection: "選択カメラ",
 			referenceImageOpacity: "不透明度",
@@ -176,6 +179,22 @@ const MESSAGES = {
 		gridLayerMode: {
 			bottom: "最下層",
 			overlay: "アイレベルの下",
+		},
+		frameMaskShape: {
+			bounds: "外接矩形",
+			trajectory: "軌道スイープ",
+		},
+		frameTrajectoryMode: {
+			line: "直線",
+			spline: "スプライン",
+		},
+		trajectorySource: {
+			none: "なし",
+			center: "中心",
+			topLeft: "左上",
+			topRight: "右上",
+			bottomRight: "右下",
+			bottomLeft: "左下",
 		},
 		clipMode: {
 			auto: "自動",
@@ -269,6 +288,7 @@ const MESSAGES = {
 			renameFrame: "FRAME名を編集",
 			toggleSelectedFrameMask: "選択中マスク",
 			toggleAllFrameMask: "全体マスク",
+			toggleFrameTrajectoryEdit: "軌道編集",
 			enableFrameMask: "マスクを有効",
 			disableFrameMask: "マスクを無効",
 			fitOutputFrameToSafeArea: "表示をフィット",
@@ -808,6 +828,9 @@ const MESSAGES = {
 			transformMode: "Tool",
 			activeFrame: "FRAME",
 			frameMaskOpacity: "Mask Opacity",
+			frameMaskShape: "Mask Shape",
+			frameTrajectoryMode: "Trajectory",
+			frameTrajectoryExportSource: "PSD Trajectory Layer",
 			exportTarget: "Export Target",
 			exportPresetSelection: "Selected Cameras",
 			referenceImageOpacity: "Opacity",
@@ -899,6 +922,22 @@ const MESSAGES = {
 		gridLayerMode: {
 			bottom: "Bottom-most",
 			overlay: "Below Eye Level",
+		},
+		frameMaskShape: {
+			bounds: "Bounds",
+			trajectory: "Trajectory Sweep",
+		},
+		frameTrajectoryMode: {
+			line: "Line",
+			spline: "Spline",
+		},
+		trajectorySource: {
+			none: "None",
+			center: "Center",
+			topLeft: "Top Left",
+			topRight: "Top Right",
+			bottomRight: "Bottom Right",
+			bottomLeft: "Bottom Left",
 		},
 		clipMode: {
 			auto: "Auto",
@@ -993,6 +1032,7 @@ const MESSAGES = {
 			renameFrame: "Rename FRAME",
 			toggleSelectedFrameMask: "Selected Mask",
 			toggleAllFrameMask: "All Frames Mask",
+			toggleFrameTrajectoryEdit: "Edit Trajectory",
 			enableFrameMask: "Enable Mask",
 			disableFrameMask: "Disable Mask",
 			fitOutputFrameToSafeArea: "Fit View",

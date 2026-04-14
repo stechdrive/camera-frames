@@ -146,6 +146,13 @@ export function createControllerApi({
 		setFrameMaskMode: frameController.setFrameMaskMode,
 		toggleFrameMaskMode: frameController.toggleFrameMaskMode,
 		setFrameMaskOpacity: frameController.setFrameMaskOpacity,
+		setFrameMaskShape: frameController.setFrameMaskShape,
+		setFrameTrajectoryMode: frameController.setFrameTrajectoryMode,
+		setFrameTrajectoryExportSource:
+			frameController.setFrameTrajectoryExportSource,
+		setFrameTrajectoryEditMode: frameController.setFrameTrajectoryEditMode,
+		toggleFrameTrajectoryEditMode:
+			frameController.toggleFrameTrajectoryEditMode,
 		startFrameDrag: frameController.startFrameDrag,
 		startSelectedFramesDrag: frameController.startSelectedFramesDrag,
 		startFrameResize: frameController.startFrameResize,
@@ -155,6 +162,8 @@ export function createControllerApi({
 		startFrameAnchorDrag: frameController.startFrameAnchorDrag,
 		startSelectedFramesAnchorDrag:
 			frameController.startSelectedFramesAnchorDrag,
+		startFrameTrajectoryHandleDrag:
+			frameController.startFrameTrajectoryHandleDrag,
 		startOutputFramePan: outputFrameController.startOutputFramePan,
 		startOutputFrameResize: outputFrameController.startOutputFrameResize,
 		selectShotCamera: cameraController.selectShotCamera,

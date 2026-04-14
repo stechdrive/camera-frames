@@ -135,6 +135,7 @@ export function createExportDownloadFacade({
 					resolveSequenceIndex(documentState),
 					{
 						frames: documentState.frames ?? [],
+						frameMaskSettings: documentState.frameMask ?? null,
 						drawFramesToContext,
 						previewContextError,
 						buildFilename,
@@ -166,6 +167,7 @@ export function createExportDownloadFacade({
 					resolveSequenceIndex(documentState),
 					{
 						frames: documentState.frames ?? [],
+						frameMaskSettings: documentState.frameMask ?? null,
 						drawFramesToContext,
 						previewContextError,
 						buildFilename,
@@ -200,6 +202,7 @@ export function createExportDownloadFacade({
 					resolveSequenceIndex(documentState),
 					{
 						frames: documentState.frames ?? [],
+						frameMaskSettings: documentState.frameMask ?? null,
 						drawFramesToContext,
 						previewContextError,
 						buildFilename,

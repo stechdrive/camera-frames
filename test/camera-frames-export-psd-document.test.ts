@@ -19,6 +19,9 @@ import {
 			exportModelLayers: true,
 			exportSplatLayers: true,
 		},
+		frameMaskSettings: {
+			trajectoryExportSource: "center",
+		},
 		psdBasePixels: new Uint8Array(32),
 		referenceImageLayers: [
 			{
@@ -106,6 +109,7 @@ import {
 			exportDebugLayersEnabled: true,
 			createCanvasFromPixels: () => ({ id: "render-canvas" }),
 			createFrameMaskLayerDocument: () => ({ name: "Mask" }),
+			createFrameTrajectoryLayerDocument: () => ({ name: "Trajectory" }),
 			renderExportPassToCanvas: (_bundle, pass) => ({ id: `pass:${pass.id}` }),
 		},
 	);
@@ -133,6 +137,10 @@ import {
 	assert.equal(document.layers[1].children[0].name, "Back Ref");
 	assert.equal(document.layers[8].children[0].name, "Front Ref");
 	assert.equal(document.layers[9].children[0].left, 8);
+	assert.deepEqual(
+		document.layers[9].children.map((layer) => layer.name),
+		["FRAME A", "Trajectory"],
+	);
 }
 
 {

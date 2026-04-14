@@ -111,6 +111,10 @@ function FrameMaskCanvas({ store, refs }) {
 	const frames = store.frames.documents.value;
 	const frameMaskMode = store.frames.maskMode.value;
 	const frameMaskOpacityPct = store.frames.maskOpacityPct.value;
+	const frameMaskShape = store.frames.maskShape.value;
+	const frameTrajectoryMode = store.frames.trajectoryMode.value;
+	const frameTrajectoryHandlesByFrameId =
+		store.frames.trajectoryHandlesByFrameId.value ?? {};
 	const rememberedMaskFrameIds = new Set(
 		store.frames.maskSelectedIds.value ?? [],
 	);
@@ -184,6 +188,13 @@ function FrameMaskCanvas({ store, refs }) {
 			offsetX: renderBoxNode.offsetLeft,
 			offsetY: renderBoxNode.offsetTop,
 			fillStyle: `rgba(3, 6, 11, ${frameMaskOpacity})`,
+			frameMaskSettings: {
+				shape: frameMaskShape,
+				trajectoryMode: frameTrajectoryMode,
+				trajectory: {
+					handlesByFrameId: frameTrajectoryHandlesByFrameId,
+				},
+			},
 		});
 		context.setTransform(1, 0, 0, 1, 0, 0);
 	};

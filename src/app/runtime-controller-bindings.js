@@ -231,6 +231,10 @@ export function createRuntimeControllerBindings({
 		handleFrameRotateEnd: frameController.handleFrameRotateEnd,
 		handleFrameAnchorDragMove: frameController.handleFrameAnchorDragMove,
 		handleFrameAnchorDragEnd: frameController.handleFrameAnchorDragEnd,
+		handleFrameTrajectoryHandleDragMove:
+			frameController.handleFrameTrajectoryHandleDragMove,
+		handleFrameTrajectoryHandleDragEnd:
+			frameController.handleFrameTrajectoryHandleDragEnd,
 		handleViewportTransformDragMove:
 			viewportToolController.handleViewportTransformDragMove,
 		handleViewportTransformDragEnd:

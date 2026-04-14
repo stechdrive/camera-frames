@@ -26,6 +26,7 @@ export function downloadPngFromSnapshot(
 	sequenceIndex = null,
 	{
 		frames = [],
+		frameMaskSettings = documentState?.frameMask ?? null,
 		drawFramesToContext,
 		previewContextError = "error.previewContext",
 		buildFilename,
@@ -53,6 +54,7 @@ export function downloadPsdFromSnapshot(
 	sequenceIndex = null,
 	{
 		frames = [],
+		frameMaskSettings = documentState?.frameMask ?? null,
 		drawFramesToContext,
 		previewContextError = "error.previewContext",
 		buildFilename,
@@ -64,6 +66,7 @@ export function downloadPsdFromSnapshot(
 	const bundle = buildBundle(snapshot, frames, {
 		drawFramesToContext,
 		previewContextError,
+		frameMaskSettings,
 	});
 	const psdDocument = buildPsdExportDocument(bundle, frames);
 	const downloadState = {

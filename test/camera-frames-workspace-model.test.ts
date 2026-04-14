@@ -60,6 +60,10 @@ assert.equal(shotCameras[0].frameMask.mode, "off");
 assert.equal(shotCameras[0].frameMask.preferredMode, "all");
 assert.equal(shotCameras[0].frameMask.opacityPct, 80);
 assert.deepEqual(shotCameras[0].frameMask.selectedIds, ["frame-1"]);
+assert.equal(shotCameras[0].frameMask.shape, "bounds");
+assert.equal(shotCameras[0].frameMask.trajectoryMode, "line");
+assert.equal(shotCameras[0].frameMask.trajectoryExportSource, "none");
+assert.deepEqual(shotCameras[0].frameMask.trajectory.handlesByFrameId, {});
 assert.equal(shotCameras[0].navigation.rollLock, false);
 assert.equal(shotCameras[0].frames.length, 1);
 assert.equal(shotCameras[0].activeFrameId, "frame-1");
@@ -96,6 +100,13 @@ assert.equal(duplicatedShotCamera.frameMask.mode, "off");
 assert.equal(duplicatedShotCamera.frameMask.preferredMode, "all");
 assert.equal(duplicatedShotCamera.frameMask.opacityPct, 80);
 assert.deepEqual(duplicatedShotCamera.frameMask.selectedIds, ["frame-1"]);
+assert.equal(duplicatedShotCamera.frameMask.shape, "bounds");
+assert.equal(duplicatedShotCamera.frameMask.trajectoryMode, "line");
+assert.equal(duplicatedShotCamera.frameMask.trajectoryExportSource, "none");
+assert.deepEqual(
+	duplicatedShotCamera.frameMask.trajectory.handlesByFrameId,
+	{},
+);
 assert.equal(duplicatedShotCamera.navigation.rollLock, false);
 assert.notEqual(duplicatedShotCamera.outputFrame, shotCameras[0].outputFrame);
 assert.notEqual(
@@ -192,6 +203,16 @@ const multiFrameShotCamera = createShotCameraDocument({
 			mode: "off",
 			opacityPct: 80,
 			selectedIds: [],
+			shape: "trajectory",
+			trajectoryMode: "spline",
+			trajectoryExportSource: "center",
+			trajectory: {
+				handlesByFrameId: {
+					[getFrameDocumentId(1)]: {
+						out: { x: 0.6, y: 0.55 },
+					},
+				},
+			},
 		},
 		frames: [
 			{
@@ -210,5 +231,13 @@ assert.deepEqual(multiFrameShotCamera.frameMask.selectedIds, [
 	"frame-1",
 	"frame-2",
 ]);
+assert.equal(multiFrameShotCamera.frameMask.shape, "trajectory");
+assert.equal(multiFrameShotCamera.frameMask.trajectoryMode, "spline");
+assert.equal(multiFrameShotCamera.frameMask.trajectoryExportSource, "center");
+assert.deepEqual(multiFrameShotCamera.frameMask.trajectory.handlesByFrameId, {
+	[getFrameDocumentId(1)]: {
+		out: { x: 0.6, y: 0.55 },
+	},
+});
 
 console.log("✅ CAMERA_FRAMES workspace model tests passed!");

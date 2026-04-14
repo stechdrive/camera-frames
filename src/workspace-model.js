@@ -8,6 +8,16 @@ import {
 } from "./constants.js";
 import { DEFAULT_SHOT_CAMERA_BASE_FOVX } from "./engine/camera-lens.js";
 import {
+	FRAME_MASK_SHAPE_BOUNDS,
+	FRAME_TRAJECTORY_EXPORT_SOURCE_NONE,
+	FRAME_TRAJECTORY_MODE_LINE,
+	cloneFrameTrajectoryHandlesByFrameId,
+	normalizeFrameMaskShape,
+	normalizeFrameTrajectoryExportSource,
+	normalizeFrameTrajectoryMode,
+	sanitizeFrameTrajectoryHandlesByFrameId,
+} from "./engine/frame-trajectory.js";
+import {
 	cloneShotCameraReferenceImagesState,
 	createShotCameraReferenceImagesState,
 } from "./reference-image-model.js";
@@ -23,6 +33,10 @@ const DEFAULT_FRAME_Y = 0.5;
 const DEFAULT_FRAME_SCALE = 1;
 const DEFAULT_FRAME_MASK_OPACITY_PCT = 80;
 const DEFAULT_FRAME_MASK_PREFERRED_MODE = "all";
+const DEFAULT_FRAME_MASK_SHAPE = FRAME_MASK_SHAPE_BOUNDS;
+const DEFAULT_FRAME_TRAJECTORY_MODE = FRAME_TRAJECTORY_MODE_LINE;
+const DEFAULT_FRAME_TRAJECTORY_EXPORT_SOURCE =
+	FRAME_TRAJECTORY_EXPORT_SOURCE_NONE;
 
 export const WORKSPACE_PANE_CAMERA = "camera";
 export const WORKSPACE_PANE_VIEWPORT = "viewport";
@@ -259,6 +273,49 @@ export function createFrameDocument({ id, name, source } = {}) {
 	};
 }
 
+function createDefaultFrameMaskState(frames = []) {
+	return {
+		mode: "off",
+		preferredMode: DEFAULT_FRAME_MASK_PREFERRED_MODE,
+		opacityPct: DEFAULT_FRAME_MASK_OPACITY_PCT,
+		selectedIds: resolveFrameMaskSelectedIds(frames, []),
+		shape: DEFAULT_FRAME_MASK_SHAPE,
+		trajectoryMode: DEFAULT_FRAME_TRAJECTORY_MODE,
+		trajectoryExportSource: DEFAULT_FRAME_TRAJECTORY_EXPORT_SOURCE,
+		trajectory: {
+			handlesByFrameId: {},
+		},
+	};
+}
+
+function sanitizeFrameMaskState(frameMask, frames) {
+	return {
+		mode:
+			frameMask?.mode === "selected" || frameMask?.mode === "all"
+				? frameMask.mode
+				: "off",
+		preferredMode: resolveFrameMaskPreferredMode(
+			frameMask?.mode,
+			frameMask?.preferredMode,
+		),
+		opacityPct: Number.isFinite(frameMask?.opacityPct)
+			? Math.min(100, Math.max(0, Math.round(frameMask.opacityPct)))
+			: DEFAULT_FRAME_MASK_OPACITY_PCT,
+		selectedIds: resolveFrameMaskSelectedIds(frames, frameMask?.selectedIds),
+		shape: normalizeFrameMaskShape(frameMask?.shape),
+		trajectoryMode: normalizeFrameTrajectoryMode(frameMask?.trajectoryMode),
+		trajectoryExportSource: normalizeFrameTrajectoryExportSource(
+			frameMask?.trajectoryExportSource,
+		),
+		trajectory: {
+			handlesByFrameId: sanitizeFrameTrajectoryHandlesByFrameId(
+				frames,
+				frameMask?.trajectory?.handlesByFrameId,
+			),
+		},
+	};
+}
+
 export function createDefaultFrameDocuments() {
 	return [
 		createFrameDocument({
@@ -303,12 +360,6 @@ export function createShotCameraDocument({ id, name, source } = {}) {
 					exportModelLayers: true,
 					exportSplatLayers: true,
 				},
-				frameMask: {
-					mode: "off",
-					preferredMode: DEFAULT_FRAME_MASK_PREFERRED_MODE,
-					opacityPct: DEFAULT_FRAME_MASK_OPACITY_PCT,
-					selectedIds: [],
-				},
 				navigation: {
 					rollLock: false,
 				},
@@ -326,17 +377,15 @@ export function createShotCameraDocument({ id, name, source } = {}) {
 				source: frame,
 			}),
 		);
+	const defaultFrameMask = createDefaultFrameMaskState(frames);
 
 	return {
 		...baseDocument,
 		id: id ?? baseDocument.id ?? getShotCameraDocumentId(1),
 		name: name ?? baseDocument.name ?? "Camera 1",
 		frameMask: {
-			...baseDocument.frameMask,
-			selectedIds: resolveFrameMaskSelectedIds(
-				frames,
-				baseDocument.frameMask?.selectedIds,
-			),
+			...defaultFrameMask,
+			...sanitizeFrameMaskState(baseDocument.frameMask, frames),
 		},
 		frames,
 		activeFrameId: baseDocument.activeFrameId ?? frames[0]?.id ?? null,
@@ -395,6 +444,10 @@ export function cloneShotCameraDocument(documentState) {
 	const frames = (documentState.frames ?? [])
 		.slice(0, FRAME_MAX_COUNT)
 		.map(cloneFrameDocument);
+	const sanitizedFrameMask = sanitizeFrameMaskState(
+		documentState.frameMask,
+		frames,
+	);
 
 	return {
 		...documentState,
@@ -458,25 +511,13 @@ export function cloneShotCameraDocument(documentState) {
 				documentState.exportSettings?.exportSplatLayers ?? true,
 		},
 		frameMask: {
-			mode:
-				documentState.frameMask?.mode === "selected" ||
-				documentState.frameMask?.mode === "all"
-					? documentState.frameMask.mode
-					: "off",
-			preferredMode: resolveFrameMaskPreferredMode(
-				documentState.frameMask?.mode,
-				documentState.frameMask?.preferredMode,
-			),
-			opacityPct: Number.isFinite(documentState.frameMask?.opacityPct)
-				? Math.min(
-						100,
-						Math.max(0, Math.round(documentState.frameMask.opacityPct)),
-					)
-				: DEFAULT_FRAME_MASK_OPACITY_PCT,
-			selectedIds: resolveFrameMaskSelectedIds(
-				frames,
-				documentState.frameMask?.selectedIds,
-			),
+			...createDefaultFrameMaskState(frames),
+			...sanitizedFrameMask,
+			trajectory: {
+				handlesByFrameId: cloneFrameTrajectoryHandlesByFrameId(
+					sanitizedFrameMask.trajectory?.handlesByFrameId,
+				),
+			},
 		},
 		navigation: {
 			rollLock: Boolean(documentState.navigation?.rollLock),
