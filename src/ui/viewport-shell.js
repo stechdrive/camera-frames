@@ -3,7 +3,10 @@ import { useLayoutEffect, useRef } from "preact/hooks";
 import * as THREE from "three";
 import { getBuildVersionLabel } from "../build-info.js";
 import { BASE_FRAME, VIEWPORT_PIXEL_RATIO } from "../constants.js";
-import { drawFrameMaskToContext } from "../engine/frame-mask-export.js";
+import {
+	drawFrameMaskToContext,
+	resolveFrameMaskFrames,
+} from "../engine/frame-mask-export.js";
 import { getFrameAnchorHandleKey } from "../engine/frame-transform.js";
 import { getFrameResizeCursorCss } from "../engine/resize-cursor.js";
 import { getFrameRotateCursorCss } from "../engine/rotate-cursor.js";
@@ -115,21 +118,16 @@ function FrameMaskCanvas({ store, refs }) {
 	const frameTrajectoryMode = store.frames.trajectoryMode.value;
 	const frameTrajectoryHandlesByFrameId =
 		store.frames.trajectoryHandlesByFrameId.value ?? {};
-	const rememberedMaskFrameIds = new Set(
-		store.frames.maskSelectedIds.value ?? [],
-	);
 	const exportWidth = store.exportWidth.value;
 	const exportHeight = store.exportHeight.value;
 	const frameMaskOpacity = Math.min(
 		1,
 		Math.max(0, (Number(frameMaskOpacityPct) || 0) / 100),
 	);
-	const maskedFrames =
-		frameMaskMode === "all"
-			? frames
-			: frameMaskMode === "selected"
-				? frames.filter((frame) => rememberedMaskFrameIds.has(frame.id))
-				: [];
+	const maskedFrames = resolveFrameMaskFrames(frames, {
+		mode: frameMaskMode,
+		selectedIds: store.frames.maskSelectedIds.value ?? [],
+	});
 
 	const drawMaskCanvas = () => {
 		const canvas = canvasRef.current;

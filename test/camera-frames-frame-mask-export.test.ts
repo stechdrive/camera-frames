@@ -1,9 +1,40 @@
 import assert from "node:assert/strict";
 import {
 	buildFrameMaskPolygon,
+	createAllFrameMaskPsdLayerDocument,
 	createFrameTrajectoryPsdLayerDocument,
 	drawFrameMaskToContext,
+	resolveFrameMaskFrames,
 } from "../src/engine/frame-mask-export.js";
+
+{
+	assert.deepEqual(
+		resolveFrameMaskFrames(
+			[
+				{ id: "frame-a" },
+				{ id: "frame-b" },
+				{ id: "frame-c" },
+			],
+			{
+				mode: "selected",
+				selectedIds: ["frame-c", "frame-a"],
+			},
+		).map((frame) => frame.id),
+		["frame-a", "frame-c"],
+	);
+	assert.deepEqual(
+		resolveFrameMaskFrames(
+			[
+				{ id: "frame-a" },
+				{ id: "frame-b" },
+			],
+			{
+				mode: "off",
+			},
+		),
+		[],
+	);
+}
 
 {
 	const polygon = buildFrameMaskPolygon(
@@ -247,6 +278,29 @@ assert.equal(
 	assert.equal(beginPathCount, 1);
 	assert.equal(fillCount, 1);
 	assert.equal(polygon, null);
+}
+
+{
+	const layer = createAllFrameMaskPsdLayerDocument(
+		[
+			{
+				id: "frame-a",
+				x: 0.25,
+				y: 0.4,
+				scale: 0.2,
+				rotation: 0,
+			},
+		],
+		1536,
+		864,
+		{
+			frameMaskSettings: {
+				mode: "off",
+			},
+		},
+	);
+
+	assert.equal(layer, null);
 }
 
 {

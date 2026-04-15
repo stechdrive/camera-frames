@@ -9,6 +9,28 @@ import {
 	sampleFrameTrajectoryPoints,
 } from "./frame-trajectory.js";
 
+export function resolveFrameMaskFrames(frames, frameMaskSettings = null) {
+	if (!Array.isArray(frames) || frames.length === 0) {
+		return [];
+	}
+
+	const mode = frameMaskSettings?.mode;
+	if (mode === "off") {
+		return [];
+	}
+	if (mode === "selected") {
+		const selectedIds = Array.isArray(frameMaskSettings?.selectedIds)
+			? frameMaskSettings.selectedIds
+			: [];
+		const selectedIdSet = new Set(
+			(selectedIds.length > 0 ? selectedIds : frames.map((frame) => frame?.id))
+				.filter((frameId) => typeof frameId === "string" && frameId.length > 0),
+		);
+		return frames.filter((frame) => selectedIdSet.has(frame?.id));
+	}
+	return [...frames];
+}
+
 function rotatePoint(point, angleRadians) {
 	const cos = Math.cos(angleRadians);
 	const sin = Math.sin(angleRadians);
@@ -424,7 +446,8 @@ export function createAllFrameMaskPsdLayerDocument(
 		frameMaskSettings = null,
 	} = {},
 ) {
-	if (!Array.isArray(frames) || frames.length === 0) {
+	const maskedFrames = resolveFrameMaskFrames(frames, frameMaskSettings);
+	if (maskedFrames.length === 0) {
 		return null;
 	}
 
@@ -438,7 +461,7 @@ export function createAllFrameMaskPsdLayerDocument(
 					return nextCanvas;
 				})();
 	const context = canvas.getContext("2d");
-	drawFrameMaskToContext(context, frames, {
+	drawFrameMaskToContext(context, maskedFrames, {
 		canvasWidth: width,
 		canvasHeight: height,
 		fillStyle,

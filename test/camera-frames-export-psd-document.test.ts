@@ -11,6 +11,109 @@ import {
 } from "../src/reference-image-model.js";
 
 {
+	let capturedMaskFrames = null;
+	let capturedMaskOptions = null;
+	const document = buildPsdExportDocument(
+		{
+			width: 4,
+			height: 2,
+			exportSettings: {
+				exportGridLayerMode: "bottom",
+				exportModelLayers: false,
+				exportSplatLayers: false,
+			},
+			frameMaskSettings: {
+				mode: "selected",
+				selectedIds: ["frame-b"],
+				shape: "trajectory",
+				trajectoryMode: "spline",
+			},
+			passes: [
+				createExportPass({
+					id: "beauty",
+					layers: [
+						createPixelLayer({
+							name: "Render",
+							pixels: new Uint8Array(32),
+							width: 4,
+							height: 2,
+						}),
+					],
+				}),
+			],
+		},
+		[
+			{ id: "frame-a", x: 0.25, y: 0.5, scale: 1, rotation: 0 },
+			{ id: "frame-b", x: 0.75, y: 0.5, scale: 1, rotation: 0 },
+		],
+		{
+			createCanvasFromPixels: () => ({ id: "render" }),
+			createFrameMaskLayerDocument: (frames, _width, _height, options) => {
+				capturedMaskFrames = frames;
+				capturedMaskOptions = options;
+				return { name: "Mask" };
+			},
+			renderExportPassToCanvas: () => ({ id: "pass" }),
+		},
+	);
+
+	assert.equal(document.layers.at(-1)?.name, "Mask");
+	assert.deepEqual(
+		capturedMaskFrames?.map((frame) => frame.id),
+		["frame-b"],
+	);
+	assert.deepEqual(capturedMaskOptions?.frameMaskSettings, {
+		mode: "selected",
+		selectedIds: ["frame-b"],
+		shape: "trajectory",
+		trajectoryMode: "spline",
+	});
+}
+
+{
+	let createMaskLayerCallCount = 0;
+	const document = buildPsdExportDocument(
+		{
+			width: 4,
+			height: 2,
+			exportSettings: {
+				exportGridLayerMode: "bottom",
+				exportModelLayers: false,
+				exportSplatLayers: false,
+			},
+			frameMaskSettings: {
+				mode: "off",
+			},
+			passes: [
+				createExportPass({
+					id: "beauty",
+					layers: [
+						createPixelLayer({
+							name: "Render",
+							pixels: new Uint8Array(32),
+							width: 4,
+							height: 2,
+						}),
+					],
+				}),
+			],
+		},
+		[{ id: "frame-a", x: 0.5, y: 0.5, scale: 1, rotation: 0 }],
+		{
+			createCanvasFromPixels: () => ({ id: "render" }),
+			createFrameMaskLayerDocument: () => {
+				createMaskLayerCallCount += 1;
+				return { name: "Mask" };
+			},
+			renderExportPassToCanvas: () => ({ id: "pass" }),
+		},
+	);
+
+	assert.equal(createMaskLayerCallCount, 0);
+	assert.equal(document.layers.some((layer) => layer.name === "Mask"), false);
+}
+
+{
 	const bundle = {
 		width: 4,
 		height: 2,

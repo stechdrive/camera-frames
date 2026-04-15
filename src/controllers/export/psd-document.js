@@ -2,6 +2,7 @@ import { getAllExportBundlePasses } from "../../engine/export-bundle.js";
 import {
 	createAllFrameMaskPsdLayerDocument,
 	createFrameTrajectoryPsdLayerDocument,
+	resolveFrameMaskFrames,
 } from "../../engine/frame-mask-export.js";
 import {
 	FRAME_TRAJECTORY_EXPORT_SOURCE_BOTTOM_LEFT,
@@ -172,15 +173,14 @@ export function buildPsdExportDocument(
 				],
 			}
 		: null;
-	const frameMaskLayerDocument = createFrameMaskLayerDocument(
-		frames,
-		bundle.width,
-		bundle.height,
-		{
-			frameMaskSettings: bundle.frameMaskSettings,
-			createCanvas,
-		},
-	);
+	const maskedFrames = resolveFrameMaskFrames(frames, bundle.frameMaskSettings);
+	const frameMaskLayerDocument =
+		maskedFrames.length > 0
+			? createFrameMaskLayerDocument(maskedFrames, bundle.width, bundle.height, {
+					frameMaskSettings: bundle.frameMaskSettings,
+					createCanvas,
+				})
+			: null;
 	const orderedLayers = [];
 	if (backgroundLayerDocument) {
 		orderedLayers.push(backgroundLayerDocument);
