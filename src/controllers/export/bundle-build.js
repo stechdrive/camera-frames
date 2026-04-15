@@ -62,7 +62,7 @@ export function buildSnapshotExportBundle(
 		height,
 		pixels,
 		exportSettings = null,
-		frameMaskSettings = null,
+		frameMaskSettings: snapshotFrameMaskSettings = null,
 		sceneAssets = [],
 		readiness = null,
 		maskPasses: renderedMaskPasses = [],
@@ -81,8 +81,11 @@ export function buildSnapshotExportBundle(
 		drawFramesToContext,
 		previewContextError = "error.previewContext",
 		createCanvas = () => document.createElement("canvas"),
+		frameMaskSettings = null,
 	} = {},
 ) {
+	const resolvedFrameMaskSettings =
+		frameMaskSettings ?? snapshotFrameMaskSettings;
 	const passPlan = buildExportPassPlan(sceneAssets);
 	const renderedMaskPassesById = new Map(
 		renderedMaskPasses.map((maskPass) => [maskPass.id, maskPass]),
@@ -315,7 +318,7 @@ export function buildSnapshotExportBundle(
 	return {
 		...bundle,
 		exportSettings,
-		frameMaskSettings,
+		frameMaskSettings: resolvedFrameMaskSettings,
 		psdBasePixels,
 		backgroundCanvas,
 		gridGuidePixels,

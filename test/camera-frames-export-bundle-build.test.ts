@@ -119,6 +119,12 @@ import {
 		{
 			createCanvas,
 			drawFramesToContext() {},
+			frameMaskSettings: {
+				mode: "selected",
+				selectedIds: ["frame-a"],
+				shape: "trajectory",
+				trajectoryMode: "spline",
+			},
 		},
 	);
 
@@ -139,6 +145,12 @@ import {
 	assert.equal(bundle.passes.at(-1)?.metadata?.maskGroup, "hero");
 	assert.equal(bundle.passes[3]?.layers?.[0]?.metadata?.passId, "beauty");
 	assert.equal(bundle.passes[6]?.layers?.[0]?.metadata?.frameId, "frame-a");
+	assert.deepEqual(bundle.frameMaskSettings, {
+		mode: "selected",
+		selectedIds: ["frame-a"],
+		shape: "trajectory",
+		trajectoryMode: "spline",
+	});
 	assert.equal(bundle.referenceImageLayers.length, 2);
 	assert.equal(bundle.modelLayers.length, 1);
 	assert.equal(bundle.splatLayers.length, 1);
