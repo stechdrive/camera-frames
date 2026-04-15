@@ -4,6 +4,10 @@ export const FRAME_MASK_SHAPE_BOUNDS = "bounds";
 export const FRAME_MASK_SHAPE_TRAJECTORY = "trajectory";
 export const FRAME_TRAJECTORY_MODE_LINE = "line";
 export const FRAME_TRAJECTORY_MODE_SPLINE = "spline";
+export const FRAME_TRAJECTORY_NODE_MODE_AUTO = "auto";
+export const FRAME_TRAJECTORY_NODE_MODE_CORNER = "corner";
+export const FRAME_TRAJECTORY_NODE_MODE_MIRRORED = "mirrored";
+export const FRAME_TRAJECTORY_NODE_MODE_FREE = "free";
 export const FRAME_TRAJECTORY_EXPORT_SOURCE_NONE = "none";
 export const FRAME_TRAJECTORY_EXPORT_SOURCE_CENTER = "center";
 export const FRAME_TRAJECTORY_EXPORT_SOURCE_TOP_LEFT = "top-left";
@@ -85,6 +89,10 @@ function sanitizeHandlePoint(point) {
 	};
 }
 
+function sanitizeHandleVector(point) {
+	return sanitizeHandlePoint(point);
+}
+
 export function normalizeFrameMaskShape(value) {
 	return value === FRAME_MASK_SHAPE_TRAJECTORY
 		? FRAME_MASK_SHAPE_TRAJECTORY
@@ -97,6 +105,19 @@ export function normalizeFrameTrajectoryMode(value) {
 		: FRAME_TRAJECTORY_MODE_LINE;
 }
 
+export function normalizeFrameTrajectoryNodeMode(value) {
+	if (value === FRAME_TRAJECTORY_NODE_MODE_CORNER) {
+		return FRAME_TRAJECTORY_NODE_MODE_CORNER;
+	}
+	if (value === FRAME_TRAJECTORY_NODE_MODE_MIRRORED) {
+		return FRAME_TRAJECTORY_NODE_MODE_MIRRORED;
+	}
+	if (value === FRAME_TRAJECTORY_NODE_MODE_FREE) {
+		return FRAME_TRAJECTORY_NODE_MODE_FREE;
+	}
+	return FRAME_TRAJECTORY_NODE_MODE_AUTO;
+}
+
 export function normalizeFrameTrajectoryExportSource(value) {
 	if (
 		value === FRAME_TRAJECTORY_EXPORT_SOURCE_CENTER ||
@@ -107,26 +128,147 @@ export function normalizeFrameTrajectoryExportSource(value) {
 	return FRAME_TRAJECTORY_EXPORT_SOURCE_NONE;
 }
 
-export function cloneFrameTrajectoryHandlesByFrameId(handlesByFrameId = {}) {
-	const nextHandlesByFrameId = {};
-	for (const [frameId, handles] of Object.entries(handlesByFrameId ?? {})) {
+function cloneTrajectoryNode(node) {
+	const nextIn = clonePoint(node?.in ?? null);
+	const nextOut = clonePoint(node?.out ?? null);
+	const mode = normalizeFrameTrajectoryNodeMode(node?.mode);
+	if (mode === FRAME_TRAJECTORY_NODE_MODE_AUTO && !nextIn && !nextOut) {
+		return null;
+	}
+	return {
+		...(mode !== FRAME_TRAJECTORY_NODE_MODE_AUTO ? { mode } : {}),
+		...(nextIn ? { in: nextIn } : {}),
+		...(nextOut ? { out: nextOut } : {}),
+	};
+}
+
+export function cloneFrameTrajectoryNodesByFrameId(nodesByFrameId = {}) {
+	const nextNodesByFrameId = {};
+	for (const [frameId, node] of Object.entries(nodesByFrameId ?? {})) {
 		if (typeof frameId !== "string" || !frameId) {
 			continue;
 		}
-		const nextIn = clonePoint(handles?.in ?? null);
-		const nextOut = clonePoint(handles?.out ?? null);
-		if (!nextIn && !nextOut) {
+		const nextNode = cloneTrajectoryNode(node);
+		if (!nextNode) {
 			continue;
 		}
-		nextHandlesByFrameId[frameId] = {
+		nextNodesByFrameId[frameId] = nextNode;
+	}
+	return nextNodesByFrameId;
+}
+
+function getFrameCenterLogical(frame, logicalWidth, logicalHeight) {
+	const center = getFrameCenterNormalized(frame);
+	return {
+		x: center.x * logicalWidth,
+		y: center.y * logicalHeight,
+	};
+}
+
+function getDocumentVectorFromLogical(vector, logicalWidth, logicalHeight) {
+	return {
+		x: vector.x / Math.max(logicalWidth, 1e-6),
+		y: vector.y / Math.max(logicalHeight, 1e-6),
+	};
+}
+
+function getLogicalVectorFromDocument(vector, logicalWidth, logicalHeight) {
+	return {
+		x: vector.x * logicalWidth,
+		y: vector.y * logicalHeight,
+	};
+}
+
+function addPoints(a, b) {
+	return {
+		x: a.x + b.x,
+		y: a.y + b.y,
+	};
+}
+
+function subtractPoints(a, b) {
+	return {
+		x: a.x - b.x,
+		y: a.y - b.y,
+	};
+}
+
+function scalePoint(point, scalar) {
+	return {
+		x: point.x * scalar,
+		y: point.y * scalar,
+	};
+}
+
+function getPointLength(point) {
+	return Math.hypot(point.x, point.y);
+}
+
+function normalizePoint(point) {
+	const length = getPointLength(point);
+	if (length <= 1e-6) {
+		return null;
+	}
+	return {
+		x: point.x / length,
+		y: point.y / length,
+	};
+}
+
+function dotPoints(a, b) {
+	return a.x * b.x + a.y * b.y;
+}
+
+function sanitizeTrajectoryNode(node) {
+	if (!node || typeof node !== "object") {
+		return null;
+	}
+	const requestedMode = normalizeFrameTrajectoryNodeMode(node.mode);
+	const nextIn = sanitizeHandleVector(node.in);
+	const nextOut = sanitizeHandleVector(node.out);
+	const mode =
+		requestedMode === FRAME_TRAJECTORY_NODE_MODE_AUTO && (nextIn || nextOut)
+			? FRAME_TRAJECTORY_NODE_MODE_FREE
+			: requestedMode;
+
+	if (mode === FRAME_TRAJECTORY_NODE_MODE_AUTO && !nextIn && !nextOut) {
+		return null;
+	}
+
+	if (mode === FRAME_TRAJECTORY_NODE_MODE_MIRRORED) {
+		if (nextIn && !nextOut) {
+			return {
+				mode,
+				in: nextIn,
+				out: scalePoint(nextIn, -1),
+			};
+		}
+		if (!nextIn && nextOut) {
+			return {
+				mode,
+				in: scalePoint(nextOut, -1),
+				out: nextOut,
+			};
+		}
+	}
+
+	if (
+		mode === FRAME_TRAJECTORY_NODE_MODE_CORNER ||
+		mode === FRAME_TRAJECTORY_NODE_MODE_AUTO ||
+		nextIn ||
+		nextOut
+	) {
+		return {
+			...(mode !== FRAME_TRAJECTORY_NODE_MODE_AUTO ? { mode } : {}),
 			...(nextIn ? { in: nextIn } : {}),
 			...(nextOut ? { out: nextOut } : {}),
 		};
 	}
-	return nextHandlesByFrameId;
+
+	return null;
 }
 
-export function sanitizeFrameTrajectoryHandlesByFrameId(
+function migrateLegacyTrajectoryHandlesByFrameId(
 	frames = [],
 	handlesByFrameId = {},
 ) {
@@ -135,68 +277,250 @@ export function sanitizeFrameTrajectoryHandlesByFrameId(
 			.map((frame) => frame?.id)
 			.filter((frameId) => typeof frameId === "string" && frameId.length > 0),
 	);
-	const nextHandlesByFrameId = {};
+	const frameCenterById = new Map(
+		(frames ?? []).map((frame) => [frame.id, getFrameCenterNormalized(frame)]),
+	);
+	const nextNodesByFrameId = {};
 
 	for (const [frameId, handles] of Object.entries(handlesByFrameId ?? {})) {
 		if (!availableFrameIdSet.has(frameId)) {
 			continue;
 		}
-		const nextIn = sanitizeHandlePoint(handles?.in);
-		const nextOut = sanitizeHandlePoint(handles?.out);
-		if (!nextIn && !nextOut) {
+		const center = frameCenterById.get(frameId);
+		if (!center) {
 			continue;
 		}
-		nextHandlesByFrameId[frameId] = {
-			...(nextIn ? { in: nextIn } : {}),
-			...(nextOut ? { out: nextOut } : {}),
+		const nextIn = sanitizeHandlePoint(handles?.in);
+		const nextOut = sanitizeHandlePoint(handles?.out);
+		const node = sanitizeTrajectoryNode({
+			mode: FRAME_TRAJECTORY_NODE_MODE_FREE,
+			in: nextIn
+				? {
+						x: nextIn.x - center.x,
+						y: nextIn.y - center.y,
+					}
+				: null,
+			out: nextOut
+				? {
+						x: nextOut.x - center.x,
+						y: nextOut.y - center.y,
+					}
+				: null,
+		});
+		if (!node) {
+			continue;
+		}
+		nextNodesByFrameId[frameId] = node;
+	}
+
+	return nextNodesByFrameId;
+}
+
+export function sanitizeFrameTrajectoryNodesByFrameId(
+	frames = [],
+	trajectory = {},
+) {
+	const availableFrameIdSet = new Set(
+		(frames ?? [])
+			.map((frame) => frame?.id)
+			.filter((frameId) => typeof frameId === "string" && frameId.length > 0),
+	);
+	const nextNodesByFrameId = {};
+	const sourceNodesByFrameId =
+		trajectory?.nodesByFrameId && typeof trajectory.nodesByFrameId === "object"
+			? trajectory.nodesByFrameId
+			: migrateLegacyTrajectoryHandlesByFrameId(
+					frames,
+					trajectory?.handlesByFrameId,
+				);
+
+	for (const [frameId, node] of Object.entries(sourceNodesByFrameId ?? {})) {
+		if (!availableFrameIdSet.has(frameId)) {
+			continue;
+		}
+		const nextNode = sanitizeTrajectoryNode(node);
+		if (!nextNode) {
+			continue;
+		}
+		nextNodesByFrameId[frameId] = nextNode;
+	}
+
+	return nextNodesByFrameId;
+}
+
+function getStoredTrajectoryNode(frameMask, frameId) {
+	return sanitizeTrajectoryNode(
+		frameMask?.trajectory?.nodesByFrameId?.[frameId],
+	);
+}
+
+export function getFrameTrajectoryNodeMode(frameMask, frameId) {
+	return normalizeFrameTrajectoryNodeMode(
+		getStoredTrajectoryNode(frameMask, frameId)?.mode,
+	);
+}
+
+function getAutomaticTrajectoryHandleVectorsLogical(
+	frames,
+	frameIndex,
+	logicalWidth,
+	logicalHeight,
+) {
+	const current = getFrameCenterLogical(
+		frames[frameIndex],
+		logicalWidth,
+		logicalHeight,
+	);
+	if (frames.length <= 1) {
+		return {
+			in: { x: 0, y: 0 },
+			out: { x: 0, y: 0 },
 		};
 	}
 
-	return nextHandlesByFrameId;
-}
+	const previous =
+		frameIndex > 0
+			? getFrameCenterLogical(
+					frames[frameIndex - 1],
+					logicalWidth,
+					logicalHeight,
+				)
+			: null;
+	const next =
+		frameIndex < frames.length - 1
+			? getFrameCenterLogical(
+					frames[frameIndex + 1],
+					logicalWidth,
+					logicalHeight,
+				)
+			: null;
 
-function getStoredTrajectoryHandle(frameMask, frameId, handleKey) {
-	const point = frameMask?.trajectory?.handlesByFrameId?.[frameId]?.[handleKey];
-	return sanitizeHandlePoint(point);
-}
-
-function getAutomaticTrajectoryTangent(frames, frameIndex) {
-	const current = getFrameCenterNormalized(frames[frameIndex]);
-	if (frames.length <= 1) {
-		return { x: 0, y: 0 };
-	}
 	if (frameIndex <= 0) {
-		const next = getFrameCenterNormalized(
-			frames[Math.min(1, frames.length - 1)],
-		);
+		const nextOffset = next ? subtractPoints(next, current) : { x: 0, y: 0 };
 		return {
-			x: next.x - current.x,
-			y: next.y - current.y,
+			in: { x: 0, y: 0 },
+			out: scalePoint(nextOffset, 1 / 3),
 		};
 	}
 	if (frameIndex >= frames.length - 1) {
-		const previous = getFrameCenterNormalized(frames[frameIndex - 1]);
+		const previousOffset = previous
+			? subtractPoints(current, previous)
+			: { x: 0, y: 0 };
 		return {
-			x: current.x - previous.x,
-			y: current.y - previous.y,
+			in: scalePoint(previousOffset, -1 / 3),
+			out: { x: 0, y: 0 },
 		};
 	}
 
-	const previous = getFrameCenterNormalized(frames[frameIndex - 1]);
-	const next = getFrameCenterNormalized(frames[frameIndex + 1]);
+	const incomingOffset = previous
+		? subtractPoints(current, previous)
+		: { x: 0, y: 0 };
+	const outgoingOffset = next ? subtractPoints(next, current) : { x: 0, y: 0 };
+	const incomingLength = getPointLength(incomingOffset);
+	const outgoingLength = getPointLength(outgoingOffset);
+	const incomingDir = normalizePoint(incomingOffset);
+	const outgoingDir = normalizePoint(outgoingOffset);
+	if (!incomingDir || !outgoingDir) {
+		return {
+			in: incomingDir ? scalePoint(incomingOffset, -1 / 3) : { x: 0, y: 0 },
+			out: outgoingDir ? scalePoint(outgoingOffset, 1 / 3) : { x: 0, y: 0 },
+		};
+	}
+
+	const weightedDirection = normalizePoint({
+		x:
+			incomingDir.x * Math.sqrt(Math.max(incomingLength, 1e-6)) +
+			outgoingDir.x * Math.sqrt(Math.max(outgoingLength, 1e-6)),
+		y:
+			incomingDir.y * Math.sqrt(Math.max(incomingLength, 1e-6)) +
+			outgoingDir.y * Math.sqrt(Math.max(outgoingLength, 1e-6)),
+	});
+	const smoothDirection = weightedDirection ?? outgoingDir;
+	const angleScale = Math.max(
+		0,
+		Math.min(1, (1 + dotPoints(incomingDir, outgoingDir)) * 0.5),
+	);
+	const baseInLength = (incomingLength / 3) * angleScale;
+	const baseOutLength = (outgoingLength / 3) * angleScale;
 	return {
-		x: (next.x - previous.x) * 0.5,
-		y: (next.y - previous.y) * 0.5,
+		in: scalePoint(smoothDirection, -baseInLength),
+		out: scalePoint(smoothDirection, baseOutLength),
 	};
 }
 
-function getAutomaticTrajectoryHandle(frames, frameIndex, handleKey) {
+function getAutomaticTrajectoryHandleVectorNormalized(
+	frames,
+	frameIndex,
+	handleKey,
+	logicalWidth,
+	logicalHeight,
+) {
+	const vectors = getAutomaticTrajectoryHandleVectorsLogical(
+		frames,
+		frameIndex,
+		logicalWidth,
+		logicalHeight,
+	);
+	const vector = handleKey === "in" ? vectors.in : vectors.out;
+	return getDocumentVectorFromLogical(vector, logicalWidth, logicalHeight);
+}
+
+export function getFrameTrajectoryHandleVectorNormalized(
+	frames,
+	frameMask,
+	frameId,
+	handleKey,
+	logicalWidth = 1,
+	logicalHeight = 1,
+) {
+	const frameIndex = (frames ?? []).findIndex((frame) => frame?.id === frameId);
+	if (frameIndex < 0) {
+		return null;
+	}
+	const nodeMode = getFrameTrajectoryNodeMode(frameMask, frameId);
+	if (nodeMode === FRAME_TRAJECTORY_NODE_MODE_CORNER) {
+		return { x: 0, y: 0 };
+	}
+	const storedNode = getStoredTrajectoryNode(frameMask, frameId);
+	if (nodeMode === FRAME_TRAJECTORY_NODE_MODE_FREE) {
+		return clonePoint(storedNode?.[handleKey] ?? { x: 0, y: 0 });
+	}
+	if (nodeMode === FRAME_TRAJECTORY_NODE_MODE_MIRRORED) {
+		const directVector = clonePoint(storedNode?.[handleKey] ?? null);
+		if (directVector) {
+			return directVector;
+		}
+		const oppositeHandleKey = handleKey === "in" ? "out" : "in";
+		const mirroredVector = clonePoint(storedNode?.[oppositeHandleKey] ?? null);
+		return mirroredVector ? scalePoint(mirroredVector, -1) : { x: 0, y: 0 };
+	}
+	return getAutomaticTrajectoryHandleVectorNormalized(
+		frames,
+		frameIndex,
+		handleKey,
+		logicalWidth,
+		logicalHeight,
+	);
+}
+
+function getAutomaticTrajectoryHandle(
+	frames,
+	frameIndex,
+	handleKey,
+	logicalWidth,
+	logicalHeight,
+) {
 	const center = getFrameCenterNormalized(frames[frameIndex]);
-	const tangent = getAutomaticTrajectoryTangent(frames, frameIndex);
-	const sign = handleKey === "in" ? -1 : 1;
+	const tangent = getAutomaticTrajectoryHandleVectorNormalized(
+		frames,
+		frameIndex,
+		handleKey,
+		logicalWidth,
+		logicalHeight,
+	);
 	return {
-		x: center.x + tangent.x * sign * (1 / 3),
-		y: center.y + tangent.y * sign * (1 / 3),
+		x: center.x + tangent.x,
+		y: center.y + tangent.y,
 	};
 }
 
@@ -205,21 +529,40 @@ export function getFrameTrajectoryHandlePointNormalized(
 	frameMask,
 	frameId,
 	handleKey,
+	logicalWidth = 1,
+	logicalHeight = 1,
 ) {
 	const frameIndex = (frames ?? []).findIndex((frame) => frame?.id === frameId);
 	if (frameIndex < 0) {
 		return null;
 	}
-	return (
-		getStoredTrajectoryHandle(frameMask, frameId, handleKey) ??
-		getAutomaticTrajectoryHandle(frames, frameIndex, handleKey)
+	const center = getFrameCenterNormalized(frames[frameIndex]);
+	const vector = getFrameTrajectoryHandleVectorNormalized(
+		frames,
+		frameMask,
+		frameId,
+		handleKey,
+		logicalWidth,
+		logicalHeight,
 	);
+	if (!vector) {
+		return getAutomaticTrajectoryHandle(
+			frames,
+			frameIndex,
+			handleKey,
+			logicalWidth,
+			logicalHeight,
+		);
+	}
+	return addPoints(center, vector);
 }
 
 function getCenterTrajectorySegmentControlPoints(
 	frames,
 	frameMask,
 	segmentIndex,
+	logicalWidth,
+	logicalHeight,
 ) {
 	const startFrame = frames[segmentIndex];
 	const endFrame = frames[segmentIndex + 1];
@@ -234,12 +577,16 @@ function getCenterTrajectorySegmentControlPoints(
 			frameMask,
 			startFrame.id,
 			"out",
+			logicalWidth,
+			logicalHeight,
 		),
 		p2: getFrameTrajectoryHandlePointNormalized(
 			frames,
 			frameMask,
 			endFrame.id,
 			"in",
+			logicalWidth,
+			logicalHeight,
 		),
 		p3: getFrameCenterNormalized(endFrame),
 	};
@@ -273,6 +620,8 @@ export function evaluateFrameCenterTrajectoryPointNormalized(
 	frameMask,
 	segmentIndex,
 	t,
+	logicalWidth = 1,
+	logicalHeight = 1,
 ) {
 	const startFrame = frames[segmentIndex];
 	const endFrame = frames[segmentIndex + 1];
@@ -288,6 +637,8 @@ export function evaluateFrameCenterTrajectoryPointNormalized(
 			frames,
 			frameMask,
 			segmentIndex,
+			logicalWidth,
+			logicalHeight,
 		);
 		if (controlPoints) {
 			return evaluateCubicBezierPoint(
@@ -434,6 +785,8 @@ export function sampleFrameMotionGeometries(
 				frameMask,
 				segmentIndex,
 				t,
+				logicalWidth,
+				logicalHeight,
 			);
 			if (!centerNormalized) {
 				continue;

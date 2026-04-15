@@ -154,12 +154,17 @@ export function FramesSection({
 	const frameMaskOpacityPct = store.frames.maskOpacityPct.value;
 	const frameMaskShape = store.frames.maskShape.value;
 	const frameTrajectoryMode = store.frames.trajectoryMode.value;
+	const activeTrajectoryNodeMode = store.frames.trajectoryNodeMode.value;
 	const frameTrajectoryExportSource = store.frames.trajectoryExportSource.value;
 	const trajectoryEditMode = store.frames.trajectoryEditMode.value;
 	const rememberedMaskFrameIds = store.frames.maskSelectedIds.value ?? [];
 	const hasFrames = frameDocuments.length > 0;
 	const hasSelectedFrames = rememberedMaskFrameIds.length > 0;
 	const hasTrajectoryPath = frameDocuments.length > 1;
+	const hasEditableTrajectoryNode =
+		hasTrajectoryPath &&
+		frameTrajectoryMode === "spline" &&
+		Boolean(activeFrameId);
 	const frameMaskShapeOptions = [
 		{ value: "bounds", label: t("frameMaskShape.bounds") },
 		{ value: "trajectory", label: t("frameMaskShape.trajectory") },
@@ -167,6 +172,12 @@ export function FramesSection({
 	const trajectoryModeOptions = [
 		{ value: "line", label: t("frameTrajectoryMode.line") },
 		{ value: "spline", label: t("frameTrajectoryMode.spline") },
+	];
+	const trajectoryNodeModeOptions = [
+		{ value: "auto", label: t("frameTrajectoryNodeMode.auto") },
+		{ value: "corner", label: t("frameTrajectoryNodeMode.corner") },
+		{ value: "mirrored", label: t("frameTrajectoryNodeMode.mirrored") },
+		{ value: "free", label: t("frameTrajectoryNodeMode.free") },
 	];
 	const trajectoryExportSourceOptions = [
 		{ value: "none", label: t("trajectorySource.none") },
@@ -276,6 +287,29 @@ export function FramesSection({
 								)}
 							</select>
 						</label>
+						${
+							hasEditableTrajectoryNode &&
+							html`
+								<label class="field">
+									<span>${t("field.frameTrajectoryNodeMode")}</span>
+									<select
+										value=${activeTrajectoryNodeMode}
+										...${INTERACTIVE_FIELD_PROPS}
+										onChange=${(event) =>
+											controller()?.setFrameTrajectoryNodeMode?.(
+												activeFrameId,
+												event.currentTarget.value,
+											)}
+									>
+										${trajectoryNodeModeOptions.map(
+											(option) => html`
+												<option value=${option.value}>${option.label}</option>
+											`,
+										)}
+									</select>
+								</label>
+							`
+						}
 						<label class="field">
 							<span>${t("field.frameTrajectoryExportSource")}</span>
 							<select
@@ -303,6 +337,17 @@ export function FramesSection({
 								compact=${true}
 								disabled=${!hasFrames}
 								onClick=${() => controller()?.toggleFrameTrajectoryEditMode?.()}
+							/>
+							<${IconButton}
+								icon="reset"
+								label=${t("action.resetFrameTrajectoryNodeAuto")}
+								compact=${true}
+								disabled=${!hasEditableTrajectoryNode || activeTrajectoryNodeMode === "auto"}
+								onClick=${() =>
+									controller()?.setFrameTrajectoryNodeMode?.(
+										activeFrameId,
+										"auto",
+									)}
 							/>
 						</div>
 					</div>

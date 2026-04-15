@@ -2,10 +2,17 @@ import { ANCHORS, BASE_FRAME, FRAME_MAX_COUNT } from "../constants.js";
 import { getFrameOutlineSpec } from "../engine/frame-overlay.js";
 import {
 	FRAME_MASK_SHAPE_TRAJECTORY,
-	cloneFrameTrajectoryHandlesByFrameId,
+	FRAME_TRAJECTORY_NODE_MODE_AUTO,
+	FRAME_TRAJECTORY_NODE_MODE_CORNER,
+	FRAME_TRAJECTORY_NODE_MODE_FREE,
+	FRAME_TRAJECTORY_NODE_MODE_MIRRORED,
+	cloneFrameTrajectoryNodesByFrameId,
+	getFrameTrajectoryHandleVectorNormalized,
+	getFrameTrajectoryNodeMode,
 	normalizeFrameMaskShape,
 	normalizeFrameTrajectoryExportSource,
 	normalizeFrameTrajectoryMode,
+	normalizeFrameTrajectoryNodeMode,
 } from "../engine/frame-trajectory.js";
 import {
 	FRAME_MAX_SCALE,
@@ -662,20 +669,125 @@ export function createFrameController({
 		setFrameTrajectoryEditMode(!store.frames.trajectoryEditMode.value);
 	}
 
-	function getTrajectoryHandlesByFrameId(documentState) {
-		return cloneFrameTrajectoryHandlesByFrameId(
-			documentState?.frameMask?.trajectory?.handlesByFrameId,
+	function getTrajectoryLogicalSize(metrics = getOutputFrameMetrics()) {
+		return {
+			logicalWidth: Math.max(metrics?.exportWidth ?? 1, 1e-6),
+			logicalHeight: Math.max(metrics?.exportHeight ?? 1, 1e-6),
+		};
+	}
+
+	function invertTrajectoryVector(vector) {
+		return vector && Number.isFinite(vector.x) && Number.isFinite(vector.y)
+			? {
+					x: -vector.x,
+					y: -vector.y,
+				}
+			: null;
+	}
+
+	function getTrajectoryNodesByFrameId(documentState) {
+		return cloneFrameTrajectoryNodesByFrameId(
+			documentState?.frameMask?.trajectory?.nodesByFrameId,
 		);
 	}
 
-	function updateTrajectoryHandlesByFrameId(documentState, handlesByFrameId) {
+	function updateTrajectoryNodesByFrameId(documentState, nodesByFrameId) {
 		documentState.frameMask = {
 			...documentState.frameMask,
 			trajectory: {
 				...(documentState.frameMask?.trajectory ?? {}),
-				handlesByFrameId,
+				nodesByFrameId,
 			},
 		};
+	}
+
+	function getFrameTrajectoryHandleVector(
+		documentState,
+		frameId,
+		handleKey,
+		nodesByFrameId = null,
+	) {
+		const { logicalWidth, logicalHeight } = getTrajectoryLogicalSize();
+		const frameMaskState =
+			nodesByFrameId === null
+				? documentState.frameMask
+				: {
+						...documentState.frameMask,
+						trajectory: {
+							...(documentState.frameMask?.trajectory ?? {}),
+							nodesByFrameId,
+						},
+					};
+		return (
+			getFrameTrajectoryHandleVectorNormalized(
+				documentState.frames,
+				frameMaskState,
+				frameId,
+				handleKey,
+				logicalWidth,
+				logicalHeight,
+			) ?? { x: 0, y: 0 }
+		);
+	}
+
+	function setFrameTrajectoryNodeMode(frameId, nextValue) {
+		const frame = getFrameDocumentById(getActiveFrames(), frameId);
+		if (!frame) {
+			return;
+		}
+		const nodeMode = normalizeFrameTrajectoryNodeMode(nextValue);
+		runHistoryAction?.("frame.trajectory-node-mode", () => {
+			updateActiveShotCameraDocument((documentState) => {
+				const nodesByFrameId = getTrajectoryNodesByFrameId(documentState);
+				if (nodeMode === FRAME_TRAJECTORY_NODE_MODE_AUTO) {
+					delete nodesByFrameId[frameId];
+				} else if (nodeMode === FRAME_TRAJECTORY_NODE_MODE_CORNER) {
+					nodesByFrameId[frameId] = {
+						mode: FRAME_TRAJECTORY_NODE_MODE_CORNER,
+					};
+				} else {
+					const effectiveIn = getFrameTrajectoryHandleVector(
+						documentState,
+						frameId,
+						"in",
+						nodesByFrameId,
+					);
+					const effectiveOut = getFrameTrajectoryHandleVector(
+						documentState,
+						frameId,
+						"out",
+						nodesByFrameId,
+					);
+					if (nodeMode === FRAME_TRAJECTORY_NODE_MODE_MIRRORED) {
+						const baseVector = (nodesByFrameId[frameId]?.out &&
+						Number.isFinite(nodesByFrameId[frameId].out.x) &&
+						Number.isFinite(nodesByFrameId[frameId].out.y)
+							? { ...nodesByFrameId[frameId].out }
+							: effectiveOut && (effectiveOut.x !== 0 || effectiveOut.y !== 0)
+								? effectiveOut
+								: invertTrajectoryVector(effectiveIn)) ?? {
+							x: 0,
+							y: 0,
+						};
+						nodesByFrameId[frameId] = {
+							mode: FRAME_TRAJECTORY_NODE_MODE_MIRRORED,
+							in: invertTrajectoryVector(baseVector),
+							out: baseVector,
+						};
+					} else {
+						nodesByFrameId[frameId] = {
+							mode: FRAME_TRAJECTORY_NODE_MODE_FREE,
+							in: effectiveIn,
+							out: effectiveOut,
+						};
+					}
+				}
+				updateTrajectoryNodesByFrameId(documentState, nodesByFrameId);
+				documentState.activeFrameId = frameId;
+				return documentState;
+			});
+		});
+		updateUi();
 	}
 
 	function setFrameTrajectoryHandlePoint(frameId, handleKey, nextPoint) {
@@ -695,73 +807,83 @@ export function createFrameController({
 					}
 				: null;
 		updateActiveShotCameraDocument((documentState) => {
-			const handlesByFrameId = getTrajectoryHandlesByFrameId(documentState);
-			const frameHandles = {
-				...(handlesByFrameId[frameId] ?? {}),
+			const documentFrame = getFrameDocumentById(documentState.frames, frameId);
+			if (!documentFrame) {
+				return documentState;
+			}
+			const nodesByFrameId = getTrajectoryNodesByFrameId(documentState);
+			if (!nextHandlePoint) {
+				delete nodesByFrameId[frameId];
+				updateTrajectoryNodesByFrameId(documentState, nodesByFrameId);
+				documentState.activeFrameId = frameId;
+				return documentState;
+			}
+
+			const currentNodeMode = getFrameTrajectoryNodeMode(
+				{
+					trajectory: {
+						nodesByFrameId,
+					},
+				},
+				frameId,
+			);
+			const resolvedNodeMode =
+				currentNodeMode === FRAME_TRAJECTORY_NODE_MODE_FREE
+					? FRAME_TRAJECTORY_NODE_MODE_FREE
+					: FRAME_TRAJECTORY_NODE_MODE_MIRRORED;
+			const nextVector = {
+				x: nextHandlePoint.x - documentFrame.x,
+				y: nextHandlePoint.y - documentFrame.y,
 			};
-			if (nextHandlePoint) {
-				frameHandles[handleKey] = nextHandlePoint;
+			if (resolvedNodeMode === FRAME_TRAJECTORY_NODE_MODE_MIRRORED) {
+				nodesByFrameId[frameId] = {
+					mode: FRAME_TRAJECTORY_NODE_MODE_MIRRORED,
+					...(handleKey === "in"
+						? {
+								in: nextVector,
+								out: invertTrajectoryVector(nextVector),
+							}
+						: {
+								in: invertTrajectoryVector(nextVector),
+								out: nextVector,
+							}),
+				};
 			} else {
-				delete frameHandles[handleKey];
+				const effectiveIn = getFrameTrajectoryHandleVector(
+					documentState,
+					frameId,
+					"in",
+					nodesByFrameId,
+				);
+				const effectiveOut = getFrameTrajectoryHandleVector(
+					documentState,
+					frameId,
+					"out",
+					nodesByFrameId,
+				);
+				nodesByFrameId[frameId] = {
+					mode: FRAME_TRAJECTORY_NODE_MODE_FREE,
+					in: handleKey === "in" ? nextVector : effectiveIn,
+					out: handleKey === "out" ? nextVector : effectiveOut,
+				};
 			}
-			if (Object.keys(frameHandles).length > 0) {
-				handlesByFrameId[frameId] = frameHandles;
-			} else {
-				delete handlesByFrameId[frameId];
-			}
-			updateTrajectoryHandlesByFrameId(documentState, handlesByFrameId);
+			updateTrajectoryNodesByFrameId(documentState, nodesByFrameId);
 			documentState.activeFrameId = frameId;
 			return documentState;
 		});
 	}
 
 	function clearFrameTrajectoryHandlePoint(frameId, handleKey) {
-		setFrameTrajectoryHandlePoint(frameId, handleKey, null);
-	}
-
-	function translateStoredFrameTrajectoryHandles(
-		documentState,
-		frameIds,
-		deltaX,
-		deltaY,
-	) {
-		if (!(Number.isFinite(deltaX) || Number.isFinite(deltaY))) {
+		if (handleKey !== "in" && handleKey !== "out") {
 			return;
 		}
-		const frameIdSet = new Set(frameIds ?? []);
-		if (frameIdSet.size === 0) {
-			return;
-		}
-		const handlesByFrameId = getTrajectoryHandlesByFrameId(documentState);
-		let changed = false;
-		for (const frameId of frameIdSet) {
-			const frameHandles = handlesByFrameId[frameId];
-			if (!frameHandles) {
-				continue;
-			}
-			if (frameHandles.in) {
-				frameHandles.in = {
-					x: frameHandles.in.x + deltaX,
-					y: frameHandles.in.y + deltaY,
-				};
-				changed = true;
-			}
-			if (frameHandles.out) {
-				frameHandles.out = {
-					x: frameHandles.out.x + deltaX,
-					y: frameHandles.out.y + deltaY,
-				};
-				changed = true;
-			}
-		}
-		if (changed) {
-			updateTrajectoryHandlesByFrameId(documentState, handlesByFrameId);
-		}
+		setFrameTrajectoryNodeMode(frameId, FRAME_TRAJECTORY_NODE_MODE_AUTO);
 	}
 
-	function transformStoredFrameTrajectoryHandles(
+	function transformStoredFrameTrajectoryNodes(
 		documentState,
 		frameIds,
+		previousCentersByFrameId,
 		transformPoint,
 	) {
 		if (typeof transformPoint !== "function") {
@@ -771,38 +893,56 @@ export function createFrameController({
 		if (frameIdSet.size === 0) {
 			return;
 		}
-		const handlesByFrameId = getTrajectoryHandlesByFrameId(documentState);
+		const nodesByFrameId = getTrajectoryNodesByFrameId(documentState);
 		let changed = false;
 		for (const frameId of frameIdSet) {
-			const frameHandles = handlesByFrameId[frameId];
-			if (!frameHandles) {
+			const frameNode = nodesByFrameId[frameId];
+			if (!frameNode) {
 				continue;
 			}
-			if (frameHandles.in) {
-				const nextPoint = transformPoint(frameHandles.in, frameId, "in");
-				if (nextPoint) {
-					frameHandles.in = nextPoint;
-					changed = true;
-				}
+			const previousCenter = previousCentersByFrameId?.get?.(frameId) ?? null;
+			const nextFrame = getFrameDocumentById(documentState.frames, frameId);
+			if (!previousCenter || !nextFrame) {
+				continue;
 			}
-			if (frameHandles.out) {
-				const nextPoint = transformPoint(frameHandles.out, frameId, "out");
-				if (nextPoint) {
-					frameHandles.out = nextPoint;
-					changed = true;
+			const nextCenter = {
+				x: nextFrame.x,
+				y: nextFrame.y,
+			};
+			for (const handleKey of ["in", "out"]) {
+				const vector = frameNode[handleKey];
+				if (
+					!vector ||
+					!Number.isFinite(vector.x) ||
+					!Number.isFinite(vector.y)
+				) {
+					continue;
 				}
+				const nextPoint = transformPoint(
+					{
+						x: previousCenter.x + vector.x,
+						y: previousCenter.y + vector.y,
+					},
+					frameId,
+					handleKey,
+				);
+				if (!nextPoint) {
+					continue;
+				}
+				frameNode[handleKey] = {
+					x: nextPoint.x - nextCenter.x,
+					y: nextPoint.y - nextCenter.y,
+				};
+				changed = true;
 			}
 		}
 		if (changed) {
-			updateTrajectoryHandlesByFrameId(documentState, handlesByFrameId);
+			updateTrajectoryNodesByFrameId(documentState, nodesByFrameId);
 		}
 	}
 
-	function copyStoredFrameTrajectoryHandles(
-		documentState,
-		frameIdMappings = [],
-	) {
-		const handlesByFrameId = getTrajectoryHandlesByFrameId(documentState);
+	function copyStoredFrameTrajectoryNodes(documentState, frameIdMappings = []) {
+		const nodesByFrameId = getTrajectoryNodesByFrameId(documentState);
 		let changed = false;
 		for (const mapping of frameIdMappings) {
 			const sourceFrameId = mapping?.sourceFrameId;
@@ -813,44 +953,45 @@ export function createFrameController({
 			) {
 				continue;
 			}
-			const sourceHandles = handlesByFrameId[sourceFrameId];
-			if (!sourceHandles) {
+			const sourceNode = nodesByFrameId[sourceFrameId];
+			if (!sourceNode) {
 				continue;
 			}
-			handlesByFrameId[targetFrameId] = {
-				...(sourceHandles.in &&
-				Number.isFinite(sourceHandles.in.x) &&
-				Number.isFinite(sourceHandles.in.y)
-					? { in: { ...sourceHandles.in } }
+			nodesByFrameId[targetFrameId] = {
+				...(sourceNode.mode ? { mode: sourceNode.mode } : {}),
+				...(sourceNode.in &&
+				Number.isFinite(sourceNode.in.x) &&
+				Number.isFinite(sourceNode.in.y)
+					? { in: { ...sourceNode.in } }
 					: {}),
-				...(sourceHandles.out &&
-				Number.isFinite(sourceHandles.out.x) &&
-				Number.isFinite(sourceHandles.out.y)
-					? { out: { ...sourceHandles.out } }
+				...(sourceNode.out &&
+				Number.isFinite(sourceNode.out.x) &&
+				Number.isFinite(sourceNode.out.y)
+					? { out: { ...sourceNode.out } }
 					: {}),
 			};
 			changed = true;
 		}
 		if (changed) {
-			updateTrajectoryHandlesByFrameId(documentState, handlesByFrameId);
+			updateTrajectoryNodesByFrameId(documentState, nodesByFrameId);
 		}
 	}
 
-	function deleteStoredFrameTrajectoryHandles(documentState, frameIds) {
+	function deleteStoredFrameTrajectoryNodes(documentState, frameIds) {
 		const frameIdSet = new Set(frameIds ?? []);
 		if (frameIdSet.size === 0) {
 			return;
 		}
-		const handlesByFrameId = getTrajectoryHandlesByFrameId(documentState);
+		const nodesByFrameId = getTrajectoryNodesByFrameId(documentState);
 		let changed = false;
 		for (const frameId of frameIdSet) {
-			if (handlesByFrameId[frameId]) {
-				delete handlesByFrameId[frameId];
+			if (nodesByFrameId[frameId]) {
+				delete nodesByFrameId[frameId];
 				changed = true;
 			}
 		}
 		if (changed) {
-			updateTrajectoryHandlesByFrameId(documentState, handlesByFrameId);
+			updateTrajectoryNodesByFrameId(documentState, nodesByFrameId);
 		}
 	}
 
@@ -1004,7 +1145,7 @@ export function createFrameController({
 			updateActiveShotCameraDocument((documentState) => {
 				documentState.frames = [...documentState.frames, nextFrame];
 				documentState.activeFrameId = nextFrame.id;
-				copyStoredFrameTrajectoryHandles(documentState, [
+				copyStoredFrameTrajectoryNodes(documentState, [
 					{
 						sourceFrameId: activeFrame.id,
 						targetFrameId: nextFrame.id,
@@ -1068,7 +1209,7 @@ export function createFrameController({
 				documentState.frames = [...documentState.frames, ...duplicatedFrames];
 				documentState.activeFrameId =
 					duplicatedFrames[duplicatedFrames.length - 1]?.id ?? null;
-				copyStoredFrameTrajectoryHandles(
+				copyStoredFrameTrajectoryNodes(
 					documentState,
 					duplicatedFrames.map((frame, index) => ({
 						sourceFrameId: sourceFrames[index]?.id,
@@ -1174,7 +1315,7 @@ export function createFrameController({
 					...documentState.frameMask,
 					selectedIds: nextRememberedMaskSelectedIds,
 				};
-				deleteStoredFrameTrajectoryHandles(documentState, selectedFrameIds);
+				deleteStoredFrameTrajectoryNodes(documentState, selectedFrameIds);
 				return documentState;
 			});
 		});
@@ -1248,7 +1389,7 @@ export function createFrameController({
 					...documentState.frameMask,
 					selectedIds: nextRememberedMaskSelectedIds,
 				};
-				deleteStoredFrameTrajectoryHandles(documentState, [targetFrame.id]);
+				deleteStoredFrameTrajectoryNodes(documentState, [targetFrame.id]);
 				return documentState;
 			});
 		});
@@ -1439,12 +1580,6 @@ export function createFrameController({
 						},
 					);
 				}
-				translateStoredFrameTrajectoryHandles(
-					documentState,
-					selectionState.geometries.map((geometry) => geometry.frame.id),
-					deltaPxX / Math.max(selectionState.metrics.exportWidth, 1e-6),
-					deltaPxY / Math.max(selectionState.metrics.exportHeight, 1e-6),
-				);
 				return documentState;
 			});
 			return;
@@ -1472,12 +1607,6 @@ export function createFrameController({
 				},
 			);
 			documentState.activeFrameId = frame.id;
-			translateStoredFrameTrajectoryHandles(
-				documentState,
-				[frame.id],
-				deltaX,
-				deltaY,
-			);
 			return documentState;
 		});
 	}
@@ -1742,9 +1871,22 @@ export function createFrameController({
 						},
 					);
 				}
-				transformStoredFrameTrajectoryHandles(
+				transformStoredFrameTrajectoryNodes(
 					documentState,
 					selectionState.geometries.map((geometry) => geometry.frame.id),
+					new Map(
+						selectionState.geometries.map((geometry) => [
+							geometry.frame.id,
+							{
+								x:
+									geometry.centerPoint.x /
+									Math.max(selectionState.metrics.exportWidth, 1e-6),
+								y:
+									geometry.centerPoint.y /
+									Math.max(selectionState.metrics.exportHeight, 1e-6),
+							},
+						]),
+					),
 					(point) => {
 						const pointPx = {
 							x: point.x * Math.max(selectionState.metrics.exportWidth, 1e-6),
@@ -1825,27 +1967,6 @@ export function createFrameController({
 				);
 			}
 			documentState.activeFrameId = frame.id;
-			transformStoredFrameTrajectoryHandles(
-				documentState,
-				[frame.id],
-				(point) => {
-					const pointWorld = {
-						x:
-							frameResizeState.metrics.boxLeft +
-							point.x * frameResizeState.metrics.boxWidth,
-						y:
-							frameResizeState.metrics.boxTop +
-							point.y * frameResizeState.metrics.boxHeight,
-					};
-					return getFrameDocumentCenterFromWorld(
-						frameResizeState.anchorWorldX +
-							(pointWorld.x - frameResizeState.anchorWorldX) * scaleFactor,
-						frameResizeState.anchorWorldY +
-							(pointWorld.y - frameResizeState.anchorWorldY) * scaleFactor,
-						frameResizeState.metrics,
-					);
-				},
-			);
 			return documentState;
 		});
 	}
@@ -2022,9 +2143,22 @@ export function createFrameController({
 						},
 					);
 				}
-				transformStoredFrameTrajectoryHandles(
+				transformStoredFrameTrajectoryNodes(
 					documentState,
 					selectionState.geometries.map((geometry) => geometry.frame.id),
+					new Map(
+						selectionState.geometries.map((geometry) => [
+							geometry.frame.id,
+							{
+								x:
+									geometry.centerPoint.x /
+									Math.max(selectionState.metrics.exportWidth, 1e-6),
+								y:
+									geometry.centerPoint.y /
+									Math.max(selectionState.metrics.exportHeight, 1e-6),
+							},
+						]),
+					),
 					(point) => {
 						const pointPx = {
 							x: point.x * Math.max(selectionState.metrics.exportWidth, 1e-6),
@@ -2088,30 +2222,6 @@ export function createFrameController({
 				rotation: nextRotation,
 			});
 			documentState.activeFrameId = frame.id;
-			transformStoredFrameTrajectoryHandles(
-				documentState,
-				[frame.id],
-				(point) => {
-					const pointWorld = {
-						x:
-							frameRotateState.metrics.boxLeft +
-							point.x * frameRotateState.metrics.boxWidth,
-						y:
-							frameRotateState.metrics.boxTop +
-							point.y * frameRotateState.metrics.boxHeight,
-					};
-					const rotatedPointWorld = rotateVector(
-						pointWorld.x - frameRotateState.anchorWorldX,
-						pointWorld.y - frameRotateState.anchorWorldY,
-						deltaRadians,
-					);
-					return getFrameDocumentCenterFromWorld(
-						frameRotateState.anchorWorldX + rotatedPointWorld.x,
-						frameRotateState.anchorWorldY + rotatedPointWorld.y,
-						frameRotateState.metrics,
-					);
-				},
-			);
 			return documentState;
 		});
 	}
@@ -2372,6 +2482,7 @@ export function createFrameController({
 		setFrameMaskShape,
 		getFrameTrajectoryMode,
 		setFrameTrajectoryMode,
+		setFrameTrajectoryNodeMode,
 		getFrameTrajectoryExportSource,
 		setFrameTrajectoryExportSource,
 		setFrameTrajectoryEditMode,

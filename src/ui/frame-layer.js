@@ -5,6 +5,7 @@ import {
 	FRAME_TRAJECTORY_EXPORT_SOURCE_CENTER,
 	FRAME_TRAJECTORY_MODE_SPLINE,
 	getFrameTrajectoryHandlePointNormalized,
+	getFrameTrajectoryNodeMode,
 	sampleFrameTrajectoryPoints,
 } from "../engine/frame-trajectory.js";
 import {
@@ -74,8 +75,9 @@ function FrameTrajectoryOverlay({
 	frames,
 	frameMaskShape,
 	trajectoryMode,
-	trajectoryHandlesByFrameId,
+	trajectoryNodesByFrameId,
 	trajectoryEditMode,
+	activeTrajectoryNodeMode,
 	activeFrameId,
 	selectedFrameIds,
 	interactionsEnabled,
@@ -90,7 +92,7 @@ function FrameTrajectoryOverlay({
 		shape: frameMaskShape,
 		trajectoryMode,
 		trajectory: {
-			handlesByFrameId: trajectoryHandlesByFrameId,
+			nodesByFrameId: trajectoryNodesByFrameId,
 		},
 	};
 	const centerPoints = sampleFrameTrajectoryPoints(
@@ -112,28 +114,31 @@ function FrameTrajectoryOverlay({
 				y: activeFrame.y * exportHeight,
 			}
 		: null;
-	const handleIn =
+	const showTrajectoryHandles =
 		trajectoryEditMode &&
 		trajectoryMode === FRAME_TRAJECTORY_MODE_SPLINE &&
-		activeFrame
-			? getFrameTrajectoryHandlePointNormalized(
-					frames,
-					frameMaskSettings,
-					activeFrame.id,
-					"in",
-				)
-			: null;
-	const handleOut =
-		trajectoryEditMode &&
-		trajectoryMode === FRAME_TRAJECTORY_MODE_SPLINE &&
-		activeFrame
-			? getFrameTrajectoryHandlePointNormalized(
-					frames,
-					frameMaskSettings,
-					activeFrame.id,
-					"out",
-				)
-			: null;
+		activeFrame &&
+		activeTrajectoryNodeMode !== "corner";
+	const handleIn = showTrajectoryHandles
+		? getFrameTrajectoryHandlePointNormalized(
+				frames,
+				frameMaskSettings,
+				activeFrame.id,
+				"in",
+				exportWidth,
+				exportHeight,
+			)
+		: null;
+	const handleOut = showTrajectoryHandles
+		? getFrameTrajectoryHandlePointNormalized(
+				frames,
+				frameMaskSettings,
+				activeFrame.id,
+				"out",
+				exportWidth,
+				exportHeight,
+			)
+		: null;
 	const handleInPoint = handleIn
 		? {
 				x: handleIn.x * exportWidth,
@@ -146,6 +151,24 @@ function FrameTrajectoryOverlay({
 				y: handleOut.y * exportHeight,
 			}
 		: null;
+	const visibleHandleInPoint =
+		handleInPoint &&
+		activeFrameCenter &&
+		Math.hypot(
+			handleInPoint.x - activeFrameCenter.x,
+			handleInPoint.y - activeFrameCenter.y,
+		) > 1
+			? handleInPoint
+			: null;
+	const visibleHandleOutPoint =
+		handleOutPoint &&
+		activeFrameCenter &&
+		Math.hypot(
+			handleOutPoint.x - activeFrameCenter.x,
+			handleOutPoint.y - activeFrameCenter.y,
+		) > 1
+			? handleOutPoint
+			: null;
 
 	return html`
 		<div class="frame-trajectory-layer">
@@ -170,28 +193,28 @@ function FrameTrajectoryOverlay({
 				${
 					trajectoryEditMode &&
 					activeFrameCenter &&
-					handleInPoint &&
+					visibleHandleInPoint &&
 					html`
 						<line
 							class="frame-trajectory-layer__handle-guide"
 							x1=${activeFrameCenter.x}
 							y1=${activeFrameCenter.y}
-							x2=${handleInPoint.x}
-							y2=${handleInPoint.y}
+							x2=${visibleHandleInPoint.x}
+							y2=${visibleHandleInPoint.y}
 						></line>
 					`
 				}
 				${
 					trajectoryEditMode &&
 					activeFrameCenter &&
-					handleOutPoint &&
+					visibleHandleOutPoint &&
 					html`
 						<line
 							class="frame-trajectory-layer__handle-guide"
 							x1=${activeFrameCenter.x}
 							y1=${activeFrameCenter.y}
-							x2=${handleOutPoint.x}
-							y2=${handleOutPoint.y}
+							x2=${visibleHandleOutPoint.x}
+							y2=${visibleHandleOutPoint.y}
 						></line>
 					`
 				}
@@ -224,12 +247,12 @@ function FrameTrajectoryOverlay({
 				}
 				${
 					trajectoryEditMode &&
-					handleInPoint &&
+					visibleHandleInPoint &&
 					html`
 						<circle
 							class="frame-trajectory-layer__handle"
-							cx=${handleInPoint.x}
-							cy=${handleInPoint.y}
+							cx=${visibleHandleInPoint.x}
+							cy=${visibleHandleInPoint.y}
 							r="9"
 							onPointerDown=${
 								interactionsEnabled
@@ -246,12 +269,12 @@ function FrameTrajectoryOverlay({
 				}
 				${
 					trajectoryEditMode &&
-					handleOutPoint &&
+					visibleHandleOutPoint &&
 					html`
 						<circle
 							class="frame-trajectory-layer__handle"
-							cx=${handleOutPoint.x}
-							cy=${handleOutPoint.y}
+							cx=${visibleHandleOutPoint.x}
+							cy=${visibleHandleOutPoint.y}
 							r="9"
 							onPointerDown=${
 								interactionsEnabled
@@ -291,8 +314,18 @@ export function FrameLayer({
 	const frameMaskShape = store.frames.maskShape.value;
 	const trajectoryMode = store.frames.trajectoryMode.value;
 	const trajectoryEditMode = store.frames.trajectoryEditMode.value;
-	const trajectoryHandlesByFrameId =
-		store.frames.trajectoryHandlesByFrameId.value ?? {};
+	const trajectoryNodesByFrameId =
+		store.frames.trajectoryNodesByFrameId.value ?? {};
+	const activeTrajectoryNodeMode =
+		store.frames.trajectoryNodeMode.value ??
+		getFrameTrajectoryNodeMode(
+			{
+				trajectory: {
+					nodesByFrameId: trajectoryNodesByFrameId,
+				},
+			},
+			activeFrameId,
+		);
 	const selectionAnchor =
 		store.frames.selectionAnchor.value &&
 		Number.isFinite(store.frames.selectionAnchor.value.x) &&
@@ -339,8 +372,9 @@ export function FrameLayer({
 						frames=${store.frames.documents.value}
 						frameMaskShape=${frameMaskShape}
 						trajectoryMode=${trajectoryMode}
-						trajectoryHandlesByFrameId=${trajectoryHandlesByFrameId}
+						trajectoryNodesByFrameId=${trajectoryNodesByFrameId}
 						trajectoryEditMode=${trajectoryEditMode}
+						activeTrajectoryNodeMode=${activeTrajectoryNodeMode}
 						activeFrameId=${activeFrameId}
 						selectedFrameIds=${selectedFrameIds}
 						interactionsEnabled=${interactionsEnabled}

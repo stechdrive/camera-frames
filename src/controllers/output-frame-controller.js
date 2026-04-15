@@ -1054,45 +1054,67 @@ export function createOutputFrameController({
 				y: frame.y,
 			});
 		}
-		const remappedTrajectoryHandlesByFrameId = {};
-		for (const [frameId, handles] of Object.entries(
-			documentState.frameMask?.trajectory?.handlesByFrameId ?? {},
+		const remappedTrajectoryNodesByFrameId = {};
+		for (const [frameId, node] of Object.entries(
+			documentState.frameMask?.trajectory?.nodesByFrameId ?? {},
 		)) {
+			const previousCenter = frameCenters.get(frameId);
+			const nextFrame =
+				(documentState.frames ?? []).find((frame) => frame.id === frameId) ??
+				null;
+			if (!previousCenter || !nextFrame) {
+				continue;
+			}
+			const nextCenter = {
+				x: nextFrame.x,
+				y: nextFrame.y,
+			};
 			const nextIn =
-				handles?.in &&
-				Number.isFinite(handles.in.x) &&
-				Number.isFinite(handles.in.y)
+				node?.in && Number.isFinite(node.in.x) && Number.isFinite(node.in.y)
 					? remapPointBetweenRenderBoxes({
-							x: handles.in.x,
-							y: handles.in.y,
+							x: previousCenter.x + node.in.x,
+							y: previousCenter.y + node.in.y,
 							fromMetrics: currentMetrics,
 							toMetrics: nextMetrics,
 						})
 					: null;
 			const nextOut =
-				handles?.out &&
-				Number.isFinite(handles.out.x) &&
-				Number.isFinite(handles.out.y)
+				node?.out && Number.isFinite(node.out.x) && Number.isFinite(node.out.y)
 					? remapPointBetweenRenderBoxes({
-							x: handles.out.x,
-							y: handles.out.y,
+							x: previousCenter.x + node.out.x,
+							y: previousCenter.y + node.out.y,
 							fromMetrics: currentMetrics,
 							toMetrics: nextMetrics,
 						})
 					: null;
-			if (!nextIn && !nextOut) {
+			if (!nextIn && !nextOut && !node?.mode) {
 				continue;
 			}
-			remappedTrajectoryHandlesByFrameId[frameId] = {
-				...(nextIn ? { in: nextIn } : {}),
-				...(nextOut ? { out: nextOut } : {}),
+			remappedTrajectoryNodesByFrameId[frameId] = {
+				...(node?.mode ? { mode: node.mode } : {}),
+				...(nextIn
+					? {
+							in: {
+								x: nextIn.x - nextCenter.x,
+								y: nextIn.y - nextCenter.y,
+							},
+						}
+					: {}),
+				...(nextOut
+					? {
+							out: {
+								x: nextOut.x - nextCenter.x,
+								y: nextOut.y - nextCenter.y,
+							},
+						}
+					: {}),
 			};
 		}
 		documentState.frameMask = {
 			...documentState.frameMask,
 			trajectory: {
 				...(documentState.frameMask?.trajectory ?? {}),
-				handlesByFrameId: remappedTrajectoryHandlesByFrameId,
+				nodesByFrameId: remappedTrajectoryNodesByFrameId,
 			},
 		};
 	}

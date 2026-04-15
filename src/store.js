@@ -12,6 +12,7 @@ import {
 	getStandardFrameHorizontalEquivalentMm,
 	getStandardFrameHorizontalFovDegrees,
 } from "./engine/camera-lens.js";
+import { getFrameTrajectoryNodeMode } from "./engine/frame-trajectory.js";
 import {
 	DEFAULT_VIEWPORT_ORTHO_DISTANCE,
 	DEFAULT_VIEWPORT_ORTHO_FOCUS,
@@ -313,8 +314,14 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	const frameTrajectoryExportSource = computed(
 		() => activeShotCamera.value?.frameMask?.trajectoryExportSource ?? "none",
 	);
-	const frameTrajectoryHandlesByFrameId = computed(
-		() => activeShotCamera.value?.frameMask?.trajectory?.handlesByFrameId ?? {},
+	const frameTrajectoryNodesByFrameId = computed(
+		() => activeShotCamera.value?.frameMask?.trajectory?.nodesByFrameId ?? {},
+	);
+	const frameTrajectoryNodeMode = computed(() =>
+		getFrameTrajectoryNodeMode(
+			activeShotCamera.value?.frameMask,
+			activeFrame.value?.id,
+		),
 	);
 	const exportWidth = computed(() =>
 		Math.max(64, Math.round(BASE_RENDER_BOX.width * widthScale.value)),
@@ -477,7 +484,8 @@ export function createCameraFramesStore(runtimeInfo = null) {
 			maskShape: frameMaskShape,
 			trajectoryMode: frameTrajectoryMode,
 			trajectoryExportSource: frameTrajectoryExportSource,
-			trajectoryHandlesByFrameId: frameTrajectoryHandlesByFrameId,
+			trajectoryNodeMode: frameTrajectoryNodeMode,
+			trajectoryNodesByFrameId: frameTrajectoryNodesByFrameId,
 		},
 		history: {
 			canUndo: historyCanUndo,

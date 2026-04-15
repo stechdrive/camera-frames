@@ -116,8 +116,8 @@ function FrameMaskCanvas({ store, refs }) {
 	const frameMaskOpacityPct = store.frames.maskOpacityPct.value;
 	const frameMaskShape = store.frames.maskShape.value;
 	const frameTrajectoryMode = store.frames.trajectoryMode.value;
-	const frameTrajectoryHandlesByFrameId =
-		store.frames.trajectoryHandlesByFrameId.value ?? {};
+	const frameTrajectoryNodesByFrameId =
+		store.frames.trajectoryNodesByFrameId.value ?? {};
 	const exportWidth = store.exportWidth.value;
 	const exportHeight = store.exportHeight.value;
 	const frameMaskOpacity = Math.min(
@@ -190,7 +190,7 @@ function FrameMaskCanvas({ store, refs }) {
 				shape: frameMaskShape,
 				trajectoryMode: frameTrajectoryMode,
 				trajectory: {
-					handlesByFrameId: frameTrajectoryHandlesByFrameId,
+					nodesByFrameId: frameTrajectoryNodesByFrameId,
 				},
 			},
 		});

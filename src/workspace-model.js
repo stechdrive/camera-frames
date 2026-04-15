@@ -11,11 +11,11 @@ import {
 	FRAME_MASK_SHAPE_BOUNDS,
 	FRAME_TRAJECTORY_EXPORT_SOURCE_NONE,
 	FRAME_TRAJECTORY_MODE_LINE,
-	cloneFrameTrajectoryHandlesByFrameId,
+	cloneFrameTrajectoryNodesByFrameId,
 	normalizeFrameMaskShape,
 	normalizeFrameTrajectoryExportSource,
 	normalizeFrameTrajectoryMode,
-	sanitizeFrameTrajectoryHandlesByFrameId,
+	sanitizeFrameTrajectoryNodesByFrameId,
 } from "./engine/frame-trajectory.js";
 import {
 	cloneShotCameraReferenceImagesState,
@@ -283,7 +283,7 @@ function createDefaultFrameMaskState(frames = []) {
 		trajectoryMode: DEFAULT_FRAME_TRAJECTORY_MODE,
 		trajectoryExportSource: DEFAULT_FRAME_TRAJECTORY_EXPORT_SOURCE,
 		trajectory: {
-			handlesByFrameId: {},
+			nodesByFrameId: {},
 		},
 	};
 }
@@ -308,9 +308,9 @@ function sanitizeFrameMaskState(frameMask, frames) {
 			frameMask?.trajectoryExportSource,
 		),
 		trajectory: {
-			handlesByFrameId: sanitizeFrameTrajectoryHandlesByFrameId(
+			nodesByFrameId: sanitizeFrameTrajectoryNodesByFrameId(
 				frames,
-				frameMask?.trajectory?.handlesByFrameId,
+				frameMask?.trajectory,
 			),
 		},
 	};
@@ -514,8 +514,8 @@ export function cloneShotCameraDocument(documentState) {
 			...createDefaultFrameMaskState(frames),
 			...sanitizedFrameMask,
 			trajectory: {
-				handlesByFrameId: cloneFrameTrajectoryHandlesByFrameId(
-					sanitizedFrameMask.trajectory?.handlesByFrameId,
+				nodesByFrameId: cloneFrameTrajectoryNodesByFrameId(
+					sanitizedFrameMask.trajectory?.nodesByFrameId,
 				),
 			},
 		},

@@ -102,13 +102,17 @@ function createHarness() {
 		.frames.find((frame) => frame.id === getFrameDocumentId(2));
 	assert.ok(duplicated);
 	assert.deepEqual(
-		harness.getShotCameraDocument().frameMask.trajectory.handlesByFrameId,
+		harness.getShotCameraDocument().frameMask.trajectory.nodesByFrameId,
 		{
 			[sourceFrame.id]: {
-				out: { x: 0.66, y: 0.42 },
+				mode: "mirrored",
+				in: { x: -0.16000000000000003, y: 0.08000000000000002 },
+				out: { x: 0.16000000000000003, y: -0.08000000000000002 },
 			},
 			[duplicated.id]: {
-				out: { x: 0.66, y: 0.42 },
+				mode: "mirrored",
+				in: { x: -0.16000000000000003, y: 0.08000000000000002 },
+				out: { x: 0.16000000000000003, y: -0.08000000000000002 },
 			},
 		},
 	);

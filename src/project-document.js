@@ -1,5 +1,5 @@
 import { DEFAULT_SHOT_CAMERA_BASE_FOVX } from "./engine/camera-lens.js";
-import { cloneFrameTrajectoryHandlesByFrameId } from "./engine/frame-trajectory.js";
+import { cloneFrameTrajectoryNodesByFrameId } from "./engine/frame-trajectory.js";
 import {
 	cloneViewportOrthoState,
 	normalizeViewportProjectionMode,
@@ -249,8 +249,8 @@ export function sanitizeShotCameraDocument(
 			trajectoryExportSource:
 				normalized.frameMask?.trajectoryExportSource ?? "none",
 			trajectory: {
-				handlesByFrameId: cloneFrameTrajectoryHandlesByFrameId(
-					normalized.frameMask?.trajectory?.handlesByFrameId,
+				nodesByFrameId: cloneFrameTrajectoryNodesByFrameId(
+					normalized.frameMask?.trajectory?.nodesByFrameId,
 				),
 			},
 		},

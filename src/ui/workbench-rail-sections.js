@@ -91,6 +91,7 @@ function MaskToolPopover({ controller, hasFrames, store, t }) {
 	const frameMaskOpacityPct = store.frames.maskOpacityPct.value;
 	const frameMaskShape = store.frames.maskShape.value;
 	const frameTrajectoryMode = store.frames.trajectoryMode.value;
+	const activeTrajectoryNodeMode = store.frames.trajectoryNodeMode.value;
 	const frameTrajectoryExportSource = store.frames.trajectoryExportSource.value;
 	const trajectoryEditMode = store.frames.trajectoryEditMode.value;
 	const rememberedMaskFrameIds = store.frames.maskSelectedIds.value ?? [];
@@ -99,6 +100,10 @@ function MaskToolPopover({ controller, hasFrames, store, t }) {
 	const remainingCapacity = FRAME_MAX_COUNT - store.frames.count.value;
 	const hasSelectedFrames = rememberedMaskFrameIds.length > 0;
 	const hasTrajectoryPath = store.frames.count.value > 1;
+	const hasEditableTrajectoryNode =
+		hasTrajectoryPath &&
+		frameTrajectoryMode === "spline" &&
+		Boolean(activeFrameId);
 	const duplicateCount = Math.max(
 		selectedFrameIds.length,
 		activeFrameId ? 1 : 0,
@@ -114,6 +119,12 @@ function MaskToolPopover({ controller, hasFrames, store, t }) {
 	const trajectoryModeOptions = [
 		{ value: "line", label: t("frameTrajectoryMode.line") },
 		{ value: "spline", label: t("frameTrajectoryMode.spline") },
+	];
+	const trajectoryNodeModeOptions = [
+		{ value: "auto", label: t("frameTrajectoryNodeMode.auto") },
+		{ value: "corner", label: t("frameTrajectoryNodeMode.corner") },
+		{ value: "mirrored", label: t("frameTrajectoryNodeMode.mirrored") },
+		{ value: "free", label: t("frameTrajectoryNodeMode.free") },
 	];
 	const trajectoryExportSourceOptions = [
 		{ value: "none", label: t("trajectorySource.none") },
@@ -284,6 +295,31 @@ function MaskToolPopover({ controller, hasFrames, store, t }) {
 					</select>
 				</div>
 			</label>
+			${
+				hasEditableTrajectoryNode &&
+				html`
+					<label class="field workbench-tool-rail__popover-field">
+						<span>${t("field.frameTrajectoryNodeMode")}</span>
+						<div class="workbench-tool-rail__popover-value">
+							<select
+								class="workbench-tool-rail__popover-select"
+								value=${activeTrajectoryNodeMode}
+								onChange=${(event) =>
+									controller()?.setFrameTrajectoryNodeMode?.(
+										activeFrameId,
+										event.currentTarget.value,
+									)}
+							>
+								${trajectoryNodeModeOptions.map(
+									(option) => html`
+										<option value=${option.value}>${option.label}</option>
+									`,
+								)}
+							</select>
+						</div>
+					</label>
+				`
+			}
 			<label class="field workbench-tool-rail__popover-field">
 				<span>${t("field.frameTrajectoryExportSource")}</span>
 				<div class="workbench-tool-rail__popover-value">
@@ -312,6 +348,14 @@ function MaskToolPopover({ controller, hasFrames, store, t }) {
 					compact=${true}
 					disabled=${!hasFrames}
 					onClick=${() => controller()?.toggleFrameTrajectoryEditMode?.()}
+				/>
+				<${IconButton}
+					icon="reset"
+					label=${t("action.resetFrameTrajectoryNodeAuto")}
+					compact=${true}
+					disabled=${!hasEditableTrajectoryNode || activeTrajectoryNodeMode === "auto"}
+					onClick=${() =>
+						controller()?.setFrameTrajectoryNodeMode?.(activeFrameId, "auto")}
 				/>
 			</div>
 		</div>

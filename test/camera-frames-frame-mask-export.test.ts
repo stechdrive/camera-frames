@@ -7,34 +7,22 @@ import {
 	resolveFrameMaskFrames,
 } from "../src/engine/frame-mask-export.js";
 
-{
-	assert.deepEqual(
-		resolveFrameMaskFrames(
-			[
-				{ id: "frame-a" },
-				{ id: "frame-b" },
-				{ id: "frame-c" },
-			],
-			{
-				mode: "selected",
-				selectedIds: ["frame-c", "frame-a"],
-			},
-		).map((frame) => frame.id),
-		["frame-a", "frame-c"],
-	);
-	assert.deepEqual(
-		resolveFrameMaskFrames(
-			[
-				{ id: "frame-a" },
-				{ id: "frame-b" },
-			],
-			{
-				mode: "off",
-			},
-		),
-		[],
-	);
-}
+assert.deepEqual(
+	resolveFrameMaskFrames(
+		[{ id: "frame-a" }, { id: "frame-b" }, { id: "frame-c" }],
+		{
+			mode: "selected",
+			selectedIds: ["frame-c", "frame-a"],
+		},
+	).map((frame) => frame.id),
+	["frame-a", "frame-c"],
+);
+assert.deepEqual(
+	resolveFrameMaskFrames([{ id: "frame-a" }, { id: "frame-b" }], {
+		mode: "off",
+	}),
+	[],
+);
 
 {
 	const polygon = buildFrameMaskPolygon(
@@ -261,12 +249,14 @@ assert.equal(
 				shape: "trajectory",
 				trajectoryMode: "spline",
 				trajectory: {
-					handlesByFrameId: {
+					nodesByFrameId: {
 						"frame-a": {
-							out: { x: 0.42, y: 0.15 },
+							mode: "free",
+							out: { x: 0.22, y: -0.25 },
 						},
 						"frame-b": {
-							in: { x: 0.6, y: 0.7 },
+							mode: "free",
+							in: { x: -0.15, y: 0.15 },
 						},
 					},
 				},

@@ -63,7 +63,7 @@ assert.deepEqual(shotCameras[0].frameMask.selectedIds, ["frame-1"]);
 assert.equal(shotCameras[0].frameMask.shape, "bounds");
 assert.equal(shotCameras[0].frameMask.trajectoryMode, "line");
 assert.equal(shotCameras[0].frameMask.trajectoryExportSource, "none");
-assert.deepEqual(shotCameras[0].frameMask.trajectory.handlesByFrameId, {});
+assert.deepEqual(shotCameras[0].frameMask.trajectory.nodesByFrameId, {});
 assert.equal(shotCameras[0].navigation.rollLock, false);
 assert.equal(shotCameras[0].frames.length, 1);
 assert.equal(shotCameras[0].activeFrameId, "frame-1");
@@ -103,10 +103,7 @@ assert.deepEqual(duplicatedShotCamera.frameMask.selectedIds, ["frame-1"]);
 assert.equal(duplicatedShotCamera.frameMask.shape, "bounds");
 assert.equal(duplicatedShotCamera.frameMask.trajectoryMode, "line");
 assert.equal(duplicatedShotCamera.frameMask.trajectoryExportSource, "none");
-assert.deepEqual(
-	duplicatedShotCamera.frameMask.trajectory.handlesByFrameId,
-	{},
-);
+assert.deepEqual(duplicatedShotCamera.frameMask.trajectory.nodesByFrameId, {});
 assert.equal(duplicatedShotCamera.navigation.rollLock, false);
 assert.notEqual(duplicatedShotCamera.outputFrame, shotCameras[0].outputFrame);
 assert.notEqual(
@@ -234,9 +231,10 @@ assert.deepEqual(multiFrameShotCamera.frameMask.selectedIds, [
 assert.equal(multiFrameShotCamera.frameMask.shape, "trajectory");
 assert.equal(multiFrameShotCamera.frameMask.trajectoryMode, "spline");
 assert.equal(multiFrameShotCamera.frameMask.trajectoryExportSource, "center");
-assert.deepEqual(multiFrameShotCamera.frameMask.trajectory.handlesByFrameId, {
+assert.deepEqual(multiFrameShotCamera.frameMask.trajectory.nodesByFrameId, {
 	[getFrameDocumentId(1)]: {
-		out: { x: 0.6, y: 0.55 },
+		mode: "free",
+		out: { x: 0.09999999999999998, y: 0.050000000000000044 },
 	},
 });
 
