@@ -169,6 +169,12 @@ function FrameTrajectoryOverlay({
 		) > 1
 			? handleOutPoint
 			: null;
+	const startFrameTrajectoryHandleDrag = (handleKey, event) =>
+		controller()?.startFrameTrajectoryHandleDrag?.(
+			activeFrame.id,
+			handleKey,
+			event,
+		);
 
 	return html`
 		<div class="frame-trajectory-layer">
@@ -225,6 +231,25 @@ function FrameTrajectoryOverlay({
 						return html`
 							<circle
 								class=${[
+									"frame-trajectory-layer__node-hit",
+									selectedFrame ? "frame-trajectory-layer__node-hit--selected" : "",
+									frame.id === activeFrameId
+										? "frame-trajectory-layer__node-hit--active"
+										: "",
+								]
+									.filter(Boolean)
+									.join(" ")}
+								cx=${frame.x * exportWidth}
+								cy=${frame.y * exportHeight}
+								r="14"
+								onPointerDown=${
+									interactionsEnabled
+										? (event) => controller()?.startFrameDrag?.(frame.id, event)
+										: undefined
+								}
+							></circle>
+							<circle
+								class=${[
 									"frame-trajectory-layer__node",
 									selectedFrame ? "frame-trajectory-layer__node--selected" : "",
 									frame.id === activeFrameId
@@ -250,18 +275,24 @@ function FrameTrajectoryOverlay({
 					visibleHandleInPoint &&
 					html`
 						<circle
+							class="frame-trajectory-layer__handle-hit"
+							cx=${visibleHandleInPoint.x}
+							cy=${visibleHandleInPoint.y}
+							r="12"
+							onPointerDown=${
+								interactionsEnabled
+									? (event) => startFrameTrajectoryHandleDrag("in", event)
+									: undefined
+							}
+						></circle>
+						<circle
 							class="frame-trajectory-layer__handle"
 							cx=${visibleHandleInPoint.x}
 							cy=${visibleHandleInPoint.y}
 							r="9"
 							onPointerDown=${
 								interactionsEnabled
-									? (event) =>
-											controller()?.startFrameTrajectoryHandleDrag?.(
-												activeFrame.id,
-												"in",
-												event,
-											)
+									? (event) => startFrameTrajectoryHandleDrag("in", event)
 									: undefined
 							}
 						></circle>
@@ -272,18 +303,24 @@ function FrameTrajectoryOverlay({
 					visibleHandleOutPoint &&
 					html`
 						<circle
+							class="frame-trajectory-layer__handle-hit"
+							cx=${visibleHandleOutPoint.x}
+							cy=${visibleHandleOutPoint.y}
+							r="12"
+							onPointerDown=${
+								interactionsEnabled
+									? (event) => startFrameTrajectoryHandleDrag("out", event)
+									: undefined
+							}
+						></circle>
+						<circle
 							class="frame-trajectory-layer__handle"
 							cx=${visibleHandleOutPoint.x}
 							cy=${visibleHandleOutPoint.y}
 							r="9"
 							onPointerDown=${
 								interactionsEnabled
-									? (event) =>
-											controller()?.startFrameTrajectoryHandleDrag?.(
-												activeFrame.id,
-												"out",
-												event,
-											)
+									? (event) => startFrameTrajectoryHandleDrag("out", event)
 									: undefined
 							}
 						></circle>

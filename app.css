@@ -4231,6 +4231,15 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	margin-left: auto;
 }
 
+.frame-mask-toolbar__opacity .field--inline-compact__value {
+	width: auto;
+	min-width: 5.8rem;
+}
+
+.frame-mask-toolbar__opacity .numeric-unit {
+	grid-template-columns: minmax(0, 1fr) auto;
+}
+
 .frame-mask-toolbar__settings {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
@@ -4342,7 +4351,9 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 .frame-layer--noninteractive .frame-item__anchor,
 .frame-layer--noninteractive .frame-item__label,
 .frame-layer--noninteractive .frame-item__label-delete,
+.frame-layer--noninteractive .frame-trajectory-layer__node-hit,
 .frame-layer--noninteractive .frame-trajectory-layer__node,
+.frame-layer--noninteractive .frame-trajectory-layer__handle-hit,
 .frame-layer--noninteractive .frame-trajectory-layer__handle {
 	pointer-events: none !important;
 }
@@ -4358,7 +4369,7 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 .frame-trajectory-layer {
 	position: absolute;
 	inset: 0;
-	z-index: 4;
+	z-index: 8;
 	pointer-events: none;
 }
 
@@ -4386,6 +4397,21 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	stroke: rgba(255, 215, 188, 0.44);
 	stroke-width: 2px;
 	stroke-dasharray: 10 8;
+}
+
+.frame-trajectory-layer__node-hit,
+.frame-trajectory-layer__handle-hit {
+	pointer-events: auto;
+	fill: rgba(0, 0, 0, 0.001);
+	stroke: none;
+}
+
+.frame-trajectory-layer__node-hit {
+	cursor: move;
+}
+
+.frame-trajectory-layer__handle-hit {
+	cursor: grab;
 }
 
 .frame-trajectory-layer__node,
