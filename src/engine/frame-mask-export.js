@@ -23,8 +23,10 @@ export function resolveFrameMaskFrames(frames, frameMaskSettings = null) {
 			? frameMaskSettings.selectedIds
 			: [];
 		const selectedIdSet = new Set(
-			(selectedIds.length > 0 ? selectedIds : frames.map((frame) => frame?.id))
-				.filter((frameId) => typeof frameId === "string" && frameId.length > 0),
+			(selectedIds.length > 0
+				? selectedIds
+				: frames.map((frame) => frame?.id)
+			).filter((frameId) => typeof frameId === "string" && frameId.length > 0),
 		);
 		return frames.filter((frame) => selectedIdSet.has(frame?.id));
 	}
@@ -134,6 +136,15 @@ function appendPolygonPath(context, polygon) {
 	context.closePath();
 }
 
+function fillPolygon(context, polygon) {
+	if (!Array.isArray(polygon) || polygon.length < 3) {
+		return;
+	}
+	context.beginPath();
+	appendPolygonPath(context, polygon);
+	context.fill();
+}
+
 function projectLogicalPointToDrawSpace(
 	point,
 	drawSpaceWidth,
@@ -215,9 +226,8 @@ function drawTrajectoryFrameMaskToContext(
 	context.fillStyle = fillStyle;
 	context.fillRect(0, 0, canvasWidth, canvasHeight);
 	context.globalCompositeOperation = "destination-out";
-	context.beginPath();
 	for (const geometry of motionGeometries) {
-		appendPolygonPath(context, geometry.corners);
+		fillPolygon(context, geometry.corners);
 	}
 	for (
 		let geometryIndex = 1;
@@ -231,16 +241,16 @@ function drawTrajectoryFrameMaskToContext(
 			cornerIndex < previousCorners.length;
 			cornerIndex += 1
 		) {
-			appendPolygonPath(context, [
-				previousCorners[cornerIndex],
-				previousCorners[(cornerIndex + 1) % previousCorners.length],
-				nextCorners[(cornerIndex + 1) % nextCorners.length],
-				nextCorners[cornerIndex],
-			]);
+			const currentCorner = previousCorners[cornerIndex];
+			const nextCorner =
+				previousCorners[(cornerIndex + 1) % previousCorners.length];
+			const followingCorner =
+				nextCorners[(cornerIndex + 1) % nextCorners.length];
+			const bridgedCorner = nextCorners[cornerIndex];
+			fillPolygon(context, [currentCorner, nextCorner, followingCorner]);
+			fillPolygon(context, [currentCorner, followingCorner, bridgedCorner]);
 		}
 	}
-	context.fillStyle = "#000";
-	context.fill();
 	context.globalCompositeOperation = "source-over";
 	return null;
 }

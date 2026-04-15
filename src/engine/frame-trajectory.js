@@ -21,6 +21,7 @@ const FRAME_TRAJECTORY_CORNER_KEYS = new Set([
 	FRAME_TRAJECTORY_EXPORT_SOURCE_BOTTOM_RIGHT,
 	FRAME_TRAJECTORY_EXPORT_SOURCE_BOTTOM_LEFT,
 ]);
+const DEFAULT_FRAME_MOTION_MAX_SEGMENT_ERROR_PX = 0.35;
 
 function rotatePoint(x, y, angleRadians) {
 	const cos = Math.cos(angleRadians);
@@ -708,38 +709,175 @@ export function buildFrameRectangleGeometry(
 	};
 }
 
-function getSegmentSampleCount(
-	startFrame,
-	endFrame,
+function evaluateFrameMotionGeometryAt(
+	frames,
+	frameMask,
+	segmentIndex,
+	t,
 	logicalWidth,
 	logicalHeight,
-	baseSamplesPerSegment = 16,
 ) {
-	const startCenter = getFrameCenterNormalized(startFrame);
-	const endCenter = getFrameCenterNormalized(endFrame);
-	const distancePx = Math.hypot(
-		(endCenter.x - startCenter.x) * logicalWidth,
-		(endCenter.y - startCenter.y) * logicalHeight,
+	const startFrame = frames[segmentIndex];
+	const endFrame = frames[segmentIndex + 1];
+	if (!startFrame || !endFrame) {
+		return null;
+	}
+	if (t <= 0) {
+		return buildFrameRectangleGeometry(startFrame, logicalWidth, logicalHeight);
+	}
+	if (t >= 1) {
+		return buildFrameRectangleGeometry(endFrame, logicalWidth, logicalHeight);
+	}
+
+	const centerNormalized = evaluateFrameCenterTrajectoryPointNormalized(
+		frames,
+		frameMask,
+		segmentIndex,
+		t,
+		logicalWidth,
+		logicalHeight,
 	);
-	const rotationDelta = Math.abs(
-		normalizeRotationDegrees(
-			getFrameRotationDegrees(endFrame) - getFrameRotationDegrees(startFrame),
-		),
-	);
-	const scaleDelta = Math.abs(
-		getFrameScale(endFrame) - getFrameScale(startFrame),
-	);
-	return Math.max(
-		6,
-		Math.min(
-			96,
-			Math.ceil(
-				baseSamplesPerSegment +
-					distancePx / 180 +
-					rotationDelta / 18 +
-					scaleDelta * 8,
+	if (!centerNormalized) {
+		return null;
+	}
+	return buildFrameRectangleGeometry(
+		{
+			x: centerNormalized.x,
+			y: centerNormalized.y,
+			scale:
+				getFrameScale(startFrame) +
+				(getFrameScale(endFrame) - getFrameScale(startFrame)) * t,
+			rotation: interpolateAngleDegrees(
+				getFrameRotationDegrees(startFrame),
+				getFrameRotationDegrees(endFrame),
+				t,
 			),
-		),
+		},
+		logicalWidth,
+		logicalHeight,
+	);
+}
+
+function estimateFrameMotionSubdivisionError(
+	startGeometry,
+	midGeometry,
+	endGeometry,
+) {
+	if (!startGeometry || !midGeometry || !endGeometry) {
+		return 0;
+	}
+	const points = [
+		[
+			startGeometry.centerPoint,
+			midGeometry.centerPoint,
+			endGeometry.centerPoint,
+		],
+		...startGeometry.corners.map((point, index) => [
+			point,
+			midGeometry.corners[index],
+			endGeometry.corners[index],
+		]),
+	];
+
+	let maxError = 0;
+	for (const [startPoint, midPoint, endPoint] of points) {
+		if (
+			!startPoint ||
+			!midPoint ||
+			!endPoint ||
+			!Number.isFinite(startPoint.x) ||
+			!Number.isFinite(startPoint.y) ||
+			!Number.isFinite(midPoint.x) ||
+			!Number.isFinite(midPoint.y) ||
+			!Number.isFinite(endPoint.x) ||
+			!Number.isFinite(endPoint.y)
+		) {
+			continue;
+		}
+		const linearMidpoint = {
+			x: (startPoint.x + endPoint.x) * 0.5,
+			y: (startPoint.y + endPoint.y) * 0.5,
+		};
+		maxError = Math.max(
+			maxError,
+			Math.hypot(midPoint.x - linearMidpoint.x, midPoint.y - linearMidpoint.y),
+		);
+	}
+	return maxError;
+}
+
+function appendAdaptiveSegmentSamples(
+	samples,
+	frames,
+	frameMask,
+	segmentIndex,
+	startT,
+	endT,
+	startGeometry,
+	endGeometry,
+	logicalWidth,
+	logicalHeight,
+	maxErrorPx,
+	depth,
+	maxDepth,
+) {
+	if (!startGeometry || !endGeometry) {
+		return;
+	}
+
+	const midT = (startT + endT) * 0.5;
+	const midGeometry = evaluateFrameMotionGeometryAt(
+		frames,
+		frameMask,
+		segmentIndex,
+		midT,
+		logicalWidth,
+		logicalHeight,
+	);
+	const errorPx = estimateFrameMotionSubdivisionError(
+		startGeometry,
+		midGeometry,
+		endGeometry,
+	);
+	if (
+		!midGeometry ||
+		depth >= maxDepth ||
+		errorPx <= maxErrorPx ||
+		endT - startT <= 1 / 4096
+	) {
+		samples.push(endGeometry);
+		return;
+	}
+
+	appendAdaptiveSegmentSamples(
+		samples,
+		frames,
+		frameMask,
+		segmentIndex,
+		startT,
+		midT,
+		startGeometry,
+		midGeometry,
+		logicalWidth,
+		logicalHeight,
+		maxErrorPx,
+		depth + 1,
+		maxDepth,
+	);
+	appendAdaptiveSegmentSamples(
+		samples,
+		frames,
+		frameMask,
+		segmentIndex,
+		midT,
+		endT,
+		midGeometry,
+		endGeometry,
+		logicalWidth,
+		logicalHeight,
+		maxErrorPx,
+		depth + 1,
+		maxDepth,
 	);
 }
 
@@ -748,7 +886,10 @@ export function sampleFrameMotionGeometries(
 	frameMask,
 	logicalWidth,
 	logicalHeight,
-	{ baseSamplesPerSegment = 16 } = {},
+	{
+		maxSegmentErrorPx = DEFAULT_FRAME_MOTION_MAX_SEGMENT_ERROR_PX,
+		maxSubdivisionDepth = 8,
+	} = {},
 ) {
 	if (!Array.isArray(frames) || frames.length === 0) {
 		return [];
@@ -766,50 +907,43 @@ export function sampleFrameMotionGeometries(
 		segmentIndex < frames.length - 1;
 		segmentIndex += 1
 	) {
-		const startFrame = frames[segmentIndex];
-		const endFrame = frames[segmentIndex + 1];
-		const sampleCount = getSegmentSampleCount(
-			startFrame,
-			endFrame,
+		const startGeometry = evaluateFrameMotionGeometryAt(
+			frames,
+			frameMask,
+			segmentIndex,
+			0,
 			logicalWidth,
 			logicalHeight,
-			baseSamplesPerSegment,
 		);
-		for (let step = 0; step <= sampleCount; step += 1) {
-			if (segmentIndex > 0 && step === 0) {
-				continue;
-			}
-			const t = step / Math.max(sampleCount, 1);
-			const centerNormalized = evaluateFrameCenterTrajectoryPointNormalized(
-				frames,
-				frameMask,
-				segmentIndex,
-				t,
-				logicalWidth,
-				logicalHeight,
-			);
-			if (!centerNormalized) {
-				continue;
-			}
-			samples.push(
-				buildFrameRectangleGeometry(
-					{
-						x: centerNormalized.x,
-						y: centerNormalized.y,
-						scale:
-							getFrameScale(startFrame) +
-							(getFrameScale(endFrame) - getFrameScale(startFrame)) * t,
-						rotation: interpolateAngleDegrees(
-							getFrameRotationDegrees(startFrame),
-							getFrameRotationDegrees(endFrame),
-							t,
-						),
-					},
-					logicalWidth,
-					logicalHeight,
-				),
-			);
+		const endGeometry = evaluateFrameMotionGeometryAt(
+			frames,
+			frameMask,
+			segmentIndex,
+			1,
+			logicalWidth,
+			logicalHeight,
+		);
+		if (!startGeometry || !endGeometry) {
+			continue;
 		}
+		if (segmentIndex === 0) {
+			samples.push(startGeometry);
+		}
+		appendAdaptiveSegmentSamples(
+			samples,
+			frames,
+			frameMask,
+			segmentIndex,
+			0,
+			1,
+			startGeometry,
+			endGeometry,
+			logicalWidth,
+			logicalHeight,
+			maxSegmentErrorPx,
+			0,
+			maxSubdivisionDepth,
+		);
 	}
 	return samples;
 }
@@ -847,7 +981,9 @@ export function sampleFrameTrajectoryPoints(
 		frameMask,
 		logicalWidth,
 		logicalHeight,
-		{ baseSamplesPerSegment },
+		{
+			maxSegmentErrorPx: Math.max(0.25, 1 / Math.max(baseSamplesPerSegment, 1)),
+		},
 	)
 		.map((geometry) =>
 			getTrajectoryPointFromGeometry(geometry, normalizedSource),

@@ -265,8 +265,8 @@ assert.equal(
 	);
 
 	assert.equal(fillRectCount, 1);
-	assert.equal(beginPathCount, 1);
-	assert.equal(fillCount, 1);
+	assert.ok(beginPathCount > 2);
+	assert.ok(fillCount > 2);
 	assert.equal(polygon, null);
 }
 
