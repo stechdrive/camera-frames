@@ -546,7 +546,7 @@ export function bindInputRouter({
 			return;
 		}
 
-		if (target?.closest(".frame-item")) {
+		if (target?.closest(".frame-item, .frame-trajectory-layer")) {
 			return;
 		}
 		if (

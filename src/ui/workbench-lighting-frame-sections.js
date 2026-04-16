@@ -255,7 +255,14 @@ export function FramesSection({
 					</div>
 					<div class="frame-mask-toolbar__settings">
 						<label class="field">
-							<span>${t("field.frameMaskShape")}</span>
+							<span class="field-label-tooltip">
+								${t("field.frameMaskShape")}
+								<${TooltipBubble}
+									title=${t("field.frameMaskShape")}
+									description=${t("tooltip.frameMaskShapeField")}
+									placement="right"
+								/>
+							</span>
 							<select
 								value=${frameMaskShape}
 								...${INTERACTIVE_FIELD_PROPS}
@@ -270,7 +277,14 @@ export function FramesSection({
 							</select>
 						</label>
 						<label class="field">
-							<span>${t("field.frameTrajectoryMode")}</span>
+							<span class="field-label-tooltip">
+								${t("field.frameTrajectoryMode")}
+								<${TooltipBubble}
+									title=${t("field.frameTrajectoryMode")}
+									description=${t("tooltip.frameTrajectoryModeField")}
+									placement="right"
+								/>
+							</span>
 							<select
 								value=${frameTrajectoryMode}
 								disabled=${!hasFrames}
@@ -291,7 +305,14 @@ export function FramesSection({
 							hasEditableTrajectoryNode &&
 							html`
 								<label class="field">
-									<span>${t("field.frameTrajectoryNodeMode")}</span>
+									<span class="field-label-tooltip">
+										${t("field.frameTrajectoryNodeMode")}
+										<${TooltipBubble}
+											title=${t("field.frameTrajectoryNodeMode")}
+											description=${t("tooltip.frameTrajectoryNodeModeField")}
+											placement="right"
+										/>
+									</span>
 									<select
 										value=${activeTrajectoryNodeMode}
 										...${INTERACTIVE_FIELD_PROPS}
@@ -311,7 +332,14 @@ export function FramesSection({
 							`
 						}
 						<label class="field">
-							<span>${t("field.frameTrajectoryExportSource")}</span>
+							<span class="field-label-tooltip">
+								${t("field.frameTrajectoryExportSource")}
+								<${TooltipBubble}
+									title=${t("field.frameTrajectoryExportSource")}
+									description=${t("tooltip.frameTrajectoryExportSourceField")}
+									placement="right"
+								/>
+							</span>
 							<select
 								value=${frameTrajectoryExportSource}
 								disabled=${!hasTrajectoryPath}
@@ -337,6 +365,11 @@ export function FramesSection({
 								compact=${true}
 								disabled=${!hasFrames}
 								onClick=${() => controller()?.toggleFrameTrajectoryEditMode?.()}
+								tooltip=${{
+									title: t("action.toggleFrameTrajectoryEdit"),
+									description: t("tooltip.toggleFrameTrajectoryEdit"),
+									placement: "bottom",
+								}}
 							/>
 							<${IconButton}
 								icon="reset"
@@ -348,6 +381,11 @@ export function FramesSection({
 										activeFrameId,
 										"auto",
 									)}
+								tooltip=${{
+									title: t("action.resetFrameTrajectoryNodeAuto"),
+									description: t("tooltip.resetFrameTrajectoryNodeAuto"),
+									placement: "bottom",
+								}}
 							/>
 						</div>
 					</div>

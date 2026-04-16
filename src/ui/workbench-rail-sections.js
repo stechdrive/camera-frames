@@ -261,7 +261,14 @@ function MaskToolPopover({ controller, hasFrames, store, t }) {
 				</div>
 			</label>
 			<label class="field workbench-tool-rail__popover-field">
-				<span>${t("field.frameMaskShape")}</span>
+				<span class="field-label-tooltip">
+					${t("field.frameMaskShape")}
+					<${TooltipBubble}
+						title=${t("field.frameMaskShape")}
+						description=${t("tooltip.frameMaskShapeField")}
+						placement="right"
+					/>
+				</span>
 				<div class="workbench-tool-rail__popover-value">
 					<select
 						class="workbench-tool-rail__popover-select"
@@ -278,7 +285,14 @@ function MaskToolPopover({ controller, hasFrames, store, t }) {
 				</div>
 			</label>
 			<label class="field workbench-tool-rail__popover-field">
-				<span>${t("field.frameTrajectoryMode")}</span>
+				<span class="field-label-tooltip">
+					${t("field.frameTrajectoryMode")}
+					<${TooltipBubble}
+						title=${t("field.frameTrajectoryMode")}
+						description=${t("tooltip.frameTrajectoryModeField")}
+						placement="right"
+					/>
+				</span>
 				<div class="workbench-tool-rail__popover-value">
 					<select
 						class="workbench-tool-rail__popover-select"
@@ -299,7 +313,14 @@ function MaskToolPopover({ controller, hasFrames, store, t }) {
 				hasEditableTrajectoryNode &&
 				html`
 					<label class="field workbench-tool-rail__popover-field">
-						<span>${t("field.frameTrajectoryNodeMode")}</span>
+						<span class="field-label-tooltip">
+							${t("field.frameTrajectoryNodeMode")}
+							<${TooltipBubble}
+								title=${t("field.frameTrajectoryNodeMode")}
+								description=${t("tooltip.frameTrajectoryNodeModeField")}
+								placement="right"
+							/>
+						</span>
 						<div class="workbench-tool-rail__popover-value">
 							<select
 								class="workbench-tool-rail__popover-select"
@@ -321,7 +342,14 @@ function MaskToolPopover({ controller, hasFrames, store, t }) {
 				`
 			}
 			<label class="field workbench-tool-rail__popover-field">
-				<span>${t("field.frameTrajectoryExportSource")}</span>
+				<span class="field-label-tooltip">
+					${t("field.frameTrajectoryExportSource")}
+					<${TooltipBubble}
+						title=${t("field.frameTrajectoryExportSource")}
+						description=${t("tooltip.frameTrajectoryExportSourceField")}
+						placement="right"
+					/>
+				</span>
 				<div class="workbench-tool-rail__popover-value">
 					<select
 						class="workbench-tool-rail__popover-select"
@@ -348,6 +376,11 @@ function MaskToolPopover({ controller, hasFrames, store, t }) {
 					compact=${true}
 					disabled=${!hasFrames}
 					onClick=${() => controller()?.toggleFrameTrajectoryEditMode?.()}
+					tooltip=${{
+						title: t("action.toggleFrameTrajectoryEdit"),
+						description: t("tooltip.toggleFrameTrajectoryEdit"),
+						placement: "right",
+					}}
 				/>
 				<${IconButton}
 					icon="reset"
@@ -356,6 +389,11 @@ function MaskToolPopover({ controller, hasFrames, store, t }) {
 					disabled=${!hasEditableTrajectoryNode || activeTrajectoryNodeMode === "auto"}
 					onClick=${() =>
 						controller()?.setFrameTrajectoryNodeMode?.(activeFrameId, "auto")}
+					tooltip=${{
+						title: t("action.resetFrameTrajectoryNodeAuto"),
+						description: t("tooltip.resetFrameTrajectoryNodeAuto"),
+						placement: "right",
+					}}
 				/>
 			</div>
 		</div>
@@ -403,7 +441,14 @@ export function ToolRailSection({
 		}
 
 		const handlePointerDown = (event) => {
-			if (!maskToolSlotRef.current?.contains(event.target)) {
+			const target = event.target instanceof Element ? event.target : null;
+			if (
+				target?.closest(".frame-item, .frame-trajectory-layer") ||
+				maskToolSlotRef.current?.contains(target)
+			) {
+				return;
+			}
+			if (!maskToolSlotRef.current?.contains(target)) {
 				setMaskToolPopoverOpen(false);
 			}
 		};

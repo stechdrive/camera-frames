@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
 	buildFrameRectangleGeometry,
+	getFrameTrajectoryHandleVectorNormalized,
 	sampleFrameMotionGeometries,
 } from "../src/engine/frame-trajectory.js";
 
@@ -61,6 +62,59 @@ import {
 		lastGeometry.centerPoint,
 	);
 	assert.deepEqual(samples[samples.length - 1].corners, lastGeometry.corners);
+}
+
+{
+	const frames = [
+		{
+			id: "frame-a",
+			x: 0.2,
+			y: 0.2,
+		},
+		{
+			id: "frame-b",
+			x: 0.5,
+			y: 0.8,
+		},
+		{
+			id: "frame-c",
+			x: 0.8,
+			y: 0.2,
+		},
+	];
+	const frameMask = {
+		trajectory: {
+			nodesByFrameId: {
+				"frame-b": {
+					mode: "corner",
+				},
+			},
+		},
+	};
+
+	const handleIn = getFrameTrajectoryHandleVectorNormalized(
+		frames,
+		frameMask,
+		"frame-b",
+		"in",
+		1000,
+		1000,
+	);
+	const handleOut = getFrameTrajectoryHandleVectorNormalized(
+		frames,
+		frameMask,
+		"frame-b",
+		"out",
+		1000,
+		1000,
+	);
+
+	assert.ok(handleIn);
+	assert.ok(handleOut);
+	assert.ok(Math.abs(handleIn.x + 0.1) < 1e-9);
+	assert.ok(Math.abs(handleIn.y + 0.2) < 1e-9);
+	assert.ok(Math.abs(handleOut.x - 0.1) < 1e-9);
+	assert.ok(Math.abs(handleOut.y + 0.2) < 1e-9);
 }
 
 console.log("✅ CAMERA_FRAMES frame trajectory tests passed!");

@@ -830,7 +830,9 @@ export function createFrameController({
 			const resolvedNodeMode =
 				currentNodeMode === FRAME_TRAJECTORY_NODE_MODE_FREE
 					? FRAME_TRAJECTORY_NODE_MODE_FREE
-					: FRAME_TRAJECTORY_NODE_MODE_MIRRORED;
+					: currentNodeMode === FRAME_TRAJECTORY_NODE_MODE_CORNER
+						? FRAME_TRAJECTORY_NODE_MODE_FREE
+						: FRAME_TRAJECTORY_NODE_MODE_MIRRORED;
 			const nextVector = {
 				x: nextHandlePoint.x - documentFrame.x,
 				y: nextHandlePoint.y - documentFrame.y,
@@ -1074,6 +1076,34 @@ export function createFrameController({
 		}
 		syncFrameSelectionTransformState();
 		return selectedFrame;
+	}
+
+	function focusSelectedFrame(frameId) {
+		const frame = getFrameDocumentById(getActiveFrames(), frameId);
+		if (!frame) {
+			return null;
+		}
+
+		clearOutputFrameSelection();
+		clearFrameInteraction();
+		let focusedFrame = frame;
+		updateActiveShotCameraDocument((documentState) => {
+			const nextFrame = getFrameDocumentById(documentState.frames, frame.id);
+			if (!nextFrame) {
+				return documentState;
+			}
+
+			documentState.activeFrameId = nextFrame.id;
+			focusedFrame = nextFrame;
+			return documentState;
+		});
+		store.frames.selectionActive.value = true;
+		if (getSelectedFrameIds().length === 0) {
+			setSelectedFrameIds([focusedFrame.id]);
+			setFrameMaskSelectedIds([focusedFrame.id]);
+		}
+		syncFrameSelectionTransformState();
+		return focusedFrame;
 	}
 
 	function selectFrame(frameId, options = null) {
@@ -1431,7 +1461,12 @@ export function createFrameController({
 		event.stopPropagation();
 
 		let dragFrame = frame;
-		if (!isFrameSelected(frameId)) {
+		if (isFrameSelected(frameId)) {
+			if (getActiveFrameDocument()?.id !== frameId) {
+				dragFrame = focusSelectedFrame(frameId) ?? frame;
+				updateUi();
+			}
+		} else {
 			dragFrame = activateFrameSelection(frameId, event) ?? frame;
 			updateUi();
 			if (event.shiftKey || event.metaKey || event.ctrlKey) {
@@ -1637,7 +1672,12 @@ export function createFrameController({
 		event.preventDefault();
 		event.stopPropagation();
 
-		if (!isFrameSelected(frameId)) {
+		if (isFrameSelected(frameId)) {
+			if (getActiveFrameDocument()?.id !== frameId) {
+				focusSelectedFrame(frameId);
+				updateUi();
+			}
+		} else {
 			activateFrameSelection(frameId);
 			updateUi();
 			return;
@@ -1993,7 +2033,12 @@ export function createFrameController({
 		event.preventDefault();
 		event.stopPropagation();
 
-		if (!isFrameSelected(frameId)) {
+		if (isFrameSelected(frameId)) {
+			if (getActiveFrameDocument()?.id !== frameId) {
+				focusSelectedFrame(frameId);
+				updateUi();
+			}
+		} else {
 			activateFrameSelection(frameId);
 			updateUi();
 			return;
@@ -2248,7 +2293,12 @@ export function createFrameController({
 		event.preventDefault();
 		event.stopPropagation();
 
-		if (!isFrameSelected(frameId)) {
+		if (isFrameSelected(frameId)) {
+			if (getActiveFrameDocument()?.id !== frameId) {
+				focusSelectedFrame(frameId);
+				updateUi();
+			}
+		} else {
 			activateFrameSelection(frameId);
 			updateUi();
 			return;
@@ -2417,7 +2467,12 @@ export function createFrameController({
 
 		event.preventDefault();
 		event.stopPropagation();
-		if (!isFrameSelected(frameId)) {
+		if (isFrameSelected(frameId)) {
+			if (getActiveFrameDocument()?.id !== frameId) {
+				focusSelectedFrame(frameId);
+				updateUi();
+			}
+		} else {
 			activateFrameSelection(frameId);
 			updateUi();
 		}

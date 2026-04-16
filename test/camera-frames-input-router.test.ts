@@ -227,7 +227,7 @@ function createInputRouterHarness(overrides = {}) {
 		state: { mode: "viewport", interactionMode: "navigate" },
 		fpsMovement,
 		pointerControls,
-		isFrameSelectionActive: () => false,
+		isFrameSelectionActive: () => overrides.isFrameSelectionActive ?? false,
 		isReferenceImageSelectionActive: () =>
 			overrides.isReferenceImageSelectionActive ?? false,
 		clearFrameSelection: () => calls.push(["clear-frame-selection"]),
@@ -601,6 +601,35 @@ function createInputRouterHarness(overrides = {}) {
 		pointerdown({
 			button: 0,
 			target: harness.renderBoxTarget,
+			preventDefault() {},
+		});
+		assert.deepEqual(harness.calls, []);
+	} finally {
+		harness.restore();
+	}
+}
+
+{
+	const harness = createInputRouterHarness({
+		isFrameSelectionActive: () => true,
+	});
+	try {
+		const pointerdown = harness.listeners
+			.get(harness.viewportShell)
+			.get("pointerdown");
+		const trajectoryHandleTarget = new globalThis.Element();
+		trajectoryHandleTarget.closest = (selector: string) => {
+			if (selector.includes(".frame-trajectory-layer")) {
+				return {};
+			}
+			if (selector.includes("#render-box")) {
+				return {};
+			}
+			return null;
+		};
+		pointerdown({
+			button: 0,
+			target: trajectoryHandleTarget,
 			preventDefault() {},
 		});
 		assert.deepEqual(harness.calls, []);

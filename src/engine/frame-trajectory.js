@@ -449,6 +449,44 @@ function getAutomaticTrajectoryHandleVectorsLogical(
 	};
 }
 
+function getCornerTrajectoryHandleVectorsLogical(
+	frames,
+	frameIndex,
+	logicalWidth,
+	logicalHeight,
+) {
+	const current = getFrameCenterLogical(
+		frames[frameIndex],
+		logicalWidth,
+		logicalHeight,
+	);
+	const previous =
+		frameIndex > 0
+			? getFrameCenterLogical(
+					frames[frameIndex - 1],
+					logicalWidth,
+					logicalHeight,
+				)
+			: null;
+	const next =
+		frameIndex < frames.length - 1
+			? getFrameCenterLogical(
+					frames[frameIndex + 1],
+					logicalWidth,
+					logicalHeight,
+				)
+			: null;
+
+	const incomingOffset = previous
+		? subtractPoints(current, previous)
+		: { x: 0, y: 0 };
+	const outgoingOffset = next ? subtractPoints(next, current) : { x: 0, y: 0 };
+	return {
+		in: scalePoint(incomingOffset, -1 / 3),
+		out: scalePoint(outgoingOffset, 1 / 3),
+	};
+}
+
 function getAutomaticTrajectoryHandleVectorNormalized(
 	frames,
 	frameIndex,
@@ -480,7 +518,14 @@ export function getFrameTrajectoryHandleVectorNormalized(
 	}
 	const nodeMode = getFrameTrajectoryNodeMode(frameMask, frameId);
 	if (nodeMode === FRAME_TRAJECTORY_NODE_MODE_CORNER) {
-		return { x: 0, y: 0 };
+		const vectors = getCornerTrajectoryHandleVectorsLogical(
+			frames,
+			frameIndex,
+			logicalWidth,
+			logicalHeight,
+		);
+		const vector = handleKey === "in" ? vectors.in : vectors.out;
+		return getDocumentVectorFromLogical(vector, logicalWidth, logicalHeight);
 	}
 	const storedNode = getStoredTrajectoryNode(frameMask, frameId);
 	if (nodeMode === FRAME_TRAJECTORY_NODE_MODE_FREE) {

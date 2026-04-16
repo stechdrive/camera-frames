@@ -350,6 +350,18 @@ const MESSAGES = {
 				"選択中の FRAME 群を囲む範囲の外側を暗くします。もう一度押すと解除します。",
 			frameMaskAll:
 				"すべての FRAME を囲む範囲の外側を暗くします。もう一度押すと解除します。",
+			frameMaskShapeField:
+				"外接矩形で囲うか、FRAME の並びに沿って矩形が通過した範囲を使うかを選びます。",
+			frameTrajectoryModeField:
+				"FRAME の中心を結ぶ軌道を直線でつなぐか、スプラインで滑らかにつなぐかを選びます。",
+			frameTrajectoryNodeModeField:
+				"選択中ノードの曲がり方を切り替えます。自動は周囲から補間、コーナーは角、対称は両ハンドル連動、フリーは個別調整です。",
+			frameTrajectoryExportSourceField:
+				"PSD の FRAME グループへ書き出す軌道レイヤーの基準点です。中心か四隅のどれを軌道として使うかを選べます。",
+			toggleFrameTrajectoryEdit:
+				"ビューポート上に軌道ノードとハンドルを表示して編集します。FRAME の移動・回転・拡縮はそのまま併用できます。",
+			resetFrameTrajectoryNodeAuto:
+				"選択中ノードの手動ハンドルを捨てて、自動補間の形へ戻します。",
 			openQuickSection:
 				"この項目だけをクイックパネルで開きます。もう一度押すと閉じます。",
 			pinQuickSection: "この項目を右レールのショートカットに追加します。",
@@ -1105,6 +1117,18 @@ const MESSAGES = {
 				"Dim everything outside the bounding box of the selected FRAMEs. Press again to turn it off.",
 			frameMaskAll:
 				"Dim everything outside the bounding box covering all FRAMEs. Press again to turn it off.",
+			frameMaskShapeField:
+				"Choose whether the mask uses one combined bounding box or the swept area traced by the FRAME rectangles in order.",
+			frameTrajectoryModeField:
+				"Choose whether the trajectory connecting FRAME centers uses straight segments or an editable spline.",
+			frameTrajectoryNodeModeField:
+				"Choose how the selected spline node behaves. Auto derives handles, Corner makes a sharp turn, Mirrored links both handles, and Free edits them independently.",
+			frameTrajectoryExportSourceField:
+				"Choose which reference point is written as the PSD trajectory layer inside the FRAME group: center or one of the four corners.",
+			toggleFrameTrajectoryEdit:
+				"Show trajectory nodes and handles in the viewport for path editing while keeping normal FRAME transforms available.",
+			resetFrameTrajectoryNodeAuto:
+				"Discard manual handles on the selected node and return it to automatic smoothing.",
 			openQuickSection:
 				"Open only this section as a quick panel. Press again to close it.",
 			pinQuickSection: "Add this section to the right rail shortcuts.",

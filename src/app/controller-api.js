@@ -148,6 +148,7 @@ export function createControllerApi({
 		setFrameMaskOpacity: frameController.setFrameMaskOpacity,
 		setFrameMaskShape: frameController.setFrameMaskShape,
 		setFrameTrajectoryMode: frameController.setFrameTrajectoryMode,
+		setFrameTrajectoryNodeMode: frameController.setFrameTrajectoryNodeMode,
 		setFrameTrajectoryExportSource:
 			frameController.setFrameTrajectoryExportSource,
 		setFrameTrajectoryEditMode: frameController.setFrameTrajectoryEditMode,

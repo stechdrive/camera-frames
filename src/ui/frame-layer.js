@@ -68,6 +68,23 @@ function buildSvgPolylinePath(points = []) {
 		.join(" ");
 }
 
+function getDistanceBetweenPoints(a, b) {
+	if (!a || !b) {
+		return 0;
+	}
+	return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function mirrorPointAcrossCenter(point, center) {
+	if (!point || !center) {
+		return null;
+	}
+	return {
+		x: center.x - (point.x - center.x),
+		y: center.y - (point.y - center.y),
+	};
+}
+
 function FrameTrajectoryOverlay({
 	controller,
 	exportWidth,
@@ -108,6 +125,9 @@ function FrameTrajectoryOverlay({
 		frames.find((frame) => frame.id === activeFrameId) ??
 		frames[frames.length - 1] ??
 		null;
+	const activeFrameIndex = activeFrame
+		? frames.findIndex((frame) => frame.id === activeFrame.id)
+		: -1;
 	const activeFrameCenter = activeFrame
 		? {
 				x: activeFrame.x * exportWidth,
@@ -154,21 +174,37 @@ function FrameTrajectoryOverlay({
 	const visibleHandleInPoint =
 		handleInPoint &&
 		activeFrameCenter &&
-		Math.hypot(
-			handleInPoint.x - activeFrameCenter.x,
-			handleInPoint.y - activeFrameCenter.y,
-		) > 1
+		getDistanceBetweenPoints(handleInPoint, activeFrameCenter) > 1
 			? handleInPoint
 			: null;
 	const visibleHandleOutPoint =
 		handleOutPoint &&
 		activeFrameCenter &&
-		Math.hypot(
-			handleOutPoint.x - activeFrameCenter.x,
-			handleOutPoint.y - activeFrameCenter.y,
-		) > 1
+		getDistanceBetweenPoints(handleOutPoint, activeFrameCenter) > 1
 			? handleOutPoint
 			: null;
+	const showEndpointGhostHandle =
+		showTrajectoryHandles &&
+		activeTrajectoryNodeMode === "auto" &&
+		(activeFrameIndex === 0 || activeFrameIndex === frames.length - 1);
+	const ghostHandleInPoint =
+		showEndpointGhostHandle &&
+		!visibleHandleInPoint &&
+		visibleHandleOutPoint &&
+		activeFrameCenter
+			? mirrorPointAcrossCenter(visibleHandleOutPoint, activeFrameCenter)
+			: null;
+	const ghostHandleOutPoint =
+		showEndpointGhostHandle &&
+		!visibleHandleOutPoint &&
+		visibleHandleInPoint &&
+		activeFrameCenter
+			? mirrorPointAcrossCenter(visibleHandleInPoint, activeFrameCenter)
+			: null;
+	const renderHandleInPoint = visibleHandleInPoint ?? ghostHandleInPoint;
+	const renderHandleOutPoint = visibleHandleOutPoint ?? ghostHandleOutPoint;
+	const renderHandleInGhost = Boolean(ghostHandleInPoint);
+	const renderHandleOutGhost = Boolean(ghostHandleOutPoint);
 	const startFrameTrajectoryHandleDrag = (handleKey, event) =>
 		controller()?.startFrameTrajectoryHandleDrag?.(
 			activeFrame.id,
@@ -199,28 +235,44 @@ function FrameTrajectoryOverlay({
 				${
 					trajectoryEditMode &&
 					activeFrameCenter &&
-					visibleHandleInPoint &&
+					renderHandleInPoint &&
 					html`
 						<line
-							class="frame-trajectory-layer__handle-guide"
+							class=${[
+								"frame-trajectory-layer__handle-guide",
+								"frame-trajectory-layer__handle-guide--in",
+								renderHandleInGhost
+									? "frame-trajectory-layer__handle-guide--ghost"
+									: "",
+							]
+								.filter(Boolean)
+								.join(" ")}
 							x1=${activeFrameCenter.x}
 							y1=${activeFrameCenter.y}
-							x2=${visibleHandleInPoint.x}
-							y2=${visibleHandleInPoint.y}
+							x2=${renderHandleInPoint.x}
+							y2=${renderHandleInPoint.y}
 						></line>
 					`
 				}
 				${
 					trajectoryEditMode &&
 					activeFrameCenter &&
-					visibleHandleOutPoint &&
+					renderHandleOutPoint &&
 					html`
 						<line
-							class="frame-trajectory-layer__handle-guide"
+							class=${[
+								"frame-trajectory-layer__handle-guide",
+								"frame-trajectory-layer__handle-guide--out",
+								renderHandleOutGhost
+									? "frame-trajectory-layer__handle-guide--ghost"
+									: "",
+							]
+								.filter(Boolean)
+								.join(" ")}
 							x1=${activeFrameCenter.x}
 							y1=${activeFrameCenter.y}
-							x2=${visibleHandleOutPoint.x}
-							y2=${visibleHandleOutPoint.y}
+							x2=${renderHandleOutPoint.x}
+							y2=${renderHandleOutPoint.y}
 						></line>
 					`
 				}
@@ -232,7 +284,9 @@ function FrameTrajectoryOverlay({
 							<circle
 								class=${[
 									"frame-trajectory-layer__node-hit",
-									selectedFrame ? "frame-trajectory-layer__node-hit--selected" : "",
+									selectedFrame
+										? "frame-trajectory-layer__node-hit--selected"
+										: "",
 									frame.id === activeFrameId
 										? "frame-trajectory-layer__node-hit--active"
 										: "",
@@ -272,12 +326,26 @@ function FrameTrajectoryOverlay({
 				}
 				${
 					trajectoryEditMode &&
-					visibleHandleInPoint &&
+					renderHandleInPoint &&
 					html`
 						<circle
+							class=${[
+								"frame-trajectory-layer__handle-contrast",
+								"frame-trajectory-layer__handle-contrast--in",
+								renderHandleInGhost
+									? "frame-trajectory-layer__handle-contrast--ghost"
+									: "",
+							]
+								.filter(Boolean)
+								.join(" ")}
+							cx=${renderHandleInPoint.x}
+							cy=${renderHandleInPoint.y}
+							r="9"
+						></circle>
+						<circle
 							class="frame-trajectory-layer__handle-hit"
-							cx=${visibleHandleInPoint.x}
-							cy=${visibleHandleInPoint.y}
+							cx=${renderHandleInPoint.x}
+							cy=${renderHandleInPoint.y}
 							r="12"
 							onPointerDown=${
 								interactionsEnabled
@@ -286,26 +354,62 @@ function FrameTrajectoryOverlay({
 							}
 						></circle>
 						<circle
-							class="frame-trajectory-layer__handle"
-							cx=${visibleHandleInPoint.x}
-							cy=${visibleHandleInPoint.y}
+							class=${[
+								"frame-trajectory-layer__handle",
+								"frame-trajectory-layer__handle--in",
+								renderHandleInGhost
+									? "frame-trajectory-layer__handle--ghost"
+									: "",
+							]
+								.filter(Boolean)
+								.join(" ")}
+							cx=${renderHandleInPoint.x}
+							cy=${renderHandleInPoint.y}
 							r="9"
 							onPointerDown=${
 								interactionsEnabled
 									? (event) => startFrameTrajectoryHandleDrag("in", event)
 									: undefined
 							}
+						></circle>
+						<circle
+							class=${[
+								"frame-trajectory-layer__handle-core",
+								"frame-trajectory-layer__handle-core--in",
+								renderHandleInGhost
+									? "frame-trajectory-layer__handle-core--ghost"
+									: "",
+							]
+								.filter(Boolean)
+								.join(" ")}
+							cx=${renderHandleInPoint.x}
+							cy=${renderHandleInPoint.y}
+							r="2.25"
 						></circle>
 					`
 				}
 				${
 					trajectoryEditMode &&
-					visibleHandleOutPoint &&
+					renderHandleOutPoint &&
 					html`
 						<circle
+							class=${[
+								"frame-trajectory-layer__handle-contrast",
+								"frame-trajectory-layer__handle-contrast--out",
+								renderHandleOutGhost
+									? "frame-trajectory-layer__handle-contrast--ghost"
+									: "",
+							]
+								.filter(Boolean)
+								.join(" ")}
+							cx=${renderHandleOutPoint.x}
+							cy=${renderHandleOutPoint.y}
+							r="9"
+						></circle>
+						<circle
 							class="frame-trajectory-layer__handle-hit"
-							cx=${visibleHandleOutPoint.x}
-							cy=${visibleHandleOutPoint.y}
+							cx=${renderHandleOutPoint.x}
+							cy=${renderHandleOutPoint.y}
 							r="12"
 							onPointerDown=${
 								interactionsEnabled
@@ -314,15 +418,37 @@ function FrameTrajectoryOverlay({
 							}
 						></circle>
 						<circle
-							class="frame-trajectory-layer__handle"
-							cx=${visibleHandleOutPoint.x}
-							cy=${visibleHandleOutPoint.y}
+							class=${[
+								"frame-trajectory-layer__handle",
+								"frame-trajectory-layer__handle--out",
+								renderHandleOutGhost
+									? "frame-trajectory-layer__handle--ghost"
+									: "",
+							]
+								.filter(Boolean)
+								.join(" ")}
+							cx=${renderHandleOutPoint.x}
+							cy=${renderHandleOutPoint.y}
 							r="9"
 							onPointerDown=${
 								interactionsEnabled
 									? (event) => startFrameTrajectoryHandleDrag("out", event)
 									: undefined
 							}
+						></circle>
+						<circle
+							class=${[
+								"frame-trajectory-layer__handle-core",
+								"frame-trajectory-layer__handle-core--out",
+								renderHandleOutGhost
+									? "frame-trajectory-layer__handle-core--ghost"
+									: "",
+							]
+								.filter(Boolean)
+								.join(" ")}
+							cx=${renderHandleOutPoint.x}
+							cy=${renderHandleOutPoint.y}
+							r="2.25"
 						></circle>
 					`
 				}

@@ -7,6 +7,7 @@ let startedNewProject = false;
 let disposedRuntime = false;
 let disposedGuideOverlay = false;
 let disposedLighting = false;
+let frameTrajectoryNodeModeCall = null;
 
 const api = createControllerApi({
 	store: {},
@@ -55,6 +56,9 @@ const api = createControllerApi({
 		setFrameMaskMode: () => {},
 		toggleFrameMaskMode: () => {},
 		setFrameMaskOpacity: () => {},
+		setFrameTrajectoryNodeMode: (...args) => {
+			frameTrajectoryNodeModeCall = args;
+		},
 		startFrameDrag: () => {},
 		startSelectedFramesDrag: () => {},
 		startFrameResize: () => {},
@@ -243,6 +247,8 @@ assert.equal(api.resetActiveView(), "reset");
 assert.equal(api.downloadOutput(), "download-output");
 assert.equal(api.duplicateSelectedSceneAssets(), "duplicate-assets");
 assert.equal(api.beginHistoryTransaction("x"), "x");
+api.setFrameTrajectoryNodeMode("frame-1", "free");
+assert.deepEqual(frameTrajectoryNodeModeCall, ["frame-1", "free"]);
 
 api.dispose();
 assert.equal(disposedRuntime, true);
