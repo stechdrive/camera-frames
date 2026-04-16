@@ -174,6 +174,15 @@ viewport camera との分離:
 - 現行 baseline では viewport state は workspace 全体で 1 系統だけ持ち、pane ごとの個別 viewport pose / projection persistence はまだ contract に含めない
 - 将来 split view / multi-pane を導入する場合も、pane ごとに shot camera を割り当てること、または pane ごとに viewport 用の perspective / orthographic state を持つことを妨げないよう、shot camera と viewport camera の概念を混同しない
 
+viewport projection 切替の契約:
+
+- perspective ↔ orthographic の相互切替では、切替直前にユーザが viewport 中央付近に見ていた世界座標点 (viewport look pivot) を focus として保持する
+- P→O 進入時の pivot 解決順は `center raycast hit → 直近の orbit gesture pivot (transient) → 直前の pivot (last) → scene framing sphere と perspective forward ray の交点 → scene center`
+- pivot 決定後、ortho の `size = (pivot までの perspective 奥行) × tan(verticalFov/2)` として apparent scale を保存する。`distance` も同じ奥行を基準に設定する
+- O→P 復帰時は、ortho state が P→O 進入時のスナップショットと一致すれば保存済み perspective pose を復元する。一致しない場合は `perspective position = focus + orthoSide × (size / tan(verticalFov/2))` で apparent scale と画面中央が揃う位置へ再配置する
+- orthographic 中の軸切替 (ortho → ortho) では `viewId` のみ差し替え、`focus / size / distance` は保持する。ユーザが zoom-in した状態を scene-radius ベースの下限で押し上げない
+- ortho 中に viewport を左ドラッグして回転を開始する時も、perspective への復帰は scale-一致配置を使う。click-like ジェスチャの場合だけ進入前の projection snapshot へ戻す
+
 既定値の基準:
 
 - shot camera 初期数は 1

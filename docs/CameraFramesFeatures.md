@@ -100,6 +100,8 @@
 - orthographic は viewport-only で、shot camera へ昇格しない
 - current baseline は single-pane であり、pane ごとの個別 camera 割当てや viewport state 保存は未提供
 - ただし将来 split view を入れる余地は残し、shot camera と viewport camera を同一概念へ潰さない
+- perspective ↔ orthographic の切替は viewport look pivot (ユーザが画面中央に見ていた世界座標点) 基準で行い、apparent scale を保存する
+- orthographic 中の軸切替 (例: +X → +Y) では `viewId` のみ差し替え、`focus / size / distance` は保持する (zoom 状態を scene-radius ベースの下限で上書きしない)
 - main tool:
   - navigate
   - zoom

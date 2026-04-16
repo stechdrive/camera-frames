@@ -257,4 +257,93 @@ function createCenterPlane(depth: number) {
 	assert.equal(roundComponent(harness.store.viewportOrthoSize.value), 5.7735);
 }
 
+{
+	// ortho→ortho axis switch must preserve user-zoomed state (no scene-radius floor)
+	const harness = createHarness();
+	harness.setSceneRaycastTargets([createCenterPlane(10)]);
+	harness.controller.alignViewportToOrthographicView("posX");
+	// user zooms well below the radius*1.2 floor the old code used to enforce
+	harness.store.viewportOrthoSize.value = 0.5;
+	harness.store.viewportOrthoDistance.value = 1.2;
+	harness.controller.alignViewportToOrthographicView("posY");
+	assert.equal(roundComponent(harness.store.viewportOrthoSize.value), 0.5);
+	assert.equal(roundComponent(harness.store.viewportOrthoDistance.value), 1.2);
+	assert.deepEqual(harness.store.viewportOrthoFocus.value, {
+		x: 0,
+		y: 0,
+		z: -10,
+	});
+}
+
+{
+	// same invariant for toggleOrthographicAxis (opposite axis path)
+	const harness = createHarness();
+	harness.setSceneRaycastTargets([createCenterPlane(10)]);
+	harness.controller.alignViewportToOrthographicView("posX");
+	harness.store.viewportOrthoSize.value = 0.4;
+	harness.store.viewportOrthoDistance.value = 0.9;
+	harness.controller.toggleOrthographicAxis("x");
+	assert.equal(harness.store.viewportOrthoView.value, "negX");
+	assert.equal(roundComponent(harness.store.viewportOrthoSize.value), 0.4);
+	assert.equal(roundComponent(harness.store.viewportOrthoDistance.value), 0.9);
+}
+
+{
+	// P→O with no raycast target, no prior gesture, camera inside scene sphere:
+	// sphere-forward pivot fallback prevents snapping to the radius*4 scene-wide view.
+	// Without this fallback, distance would be clamped to max(radius*4, DEFAULT) = 8
+	// and size would be 8 * tan(30°) ≈ 4.6188 (scene-wide).
+	const harness = createHarness();
+	// no raycast targets; camera at origin looking -Z; scene center (0,0,-8), radius 2
+	harness.controller.alignViewportToOrthographicView("posX");
+	// sphere entry (tNear) depth = 6 → size = 6 * tan(30°) ≈ 3.4641
+	assert.equal(roundComponent(harness.store.viewportOrthoDistance.value), 6);
+	assert.equal(roundComponent(harness.store.viewportOrthoSize.value), 3.4641);
+	assert.deepEqual(harness.store.viewportOrthoFocus.value, {
+		x: 0,
+		y: 0,
+		z: -6,
+	});
+}
+
+{
+	// rotation gesture from ortho must land perspective at a scale-matched pose,
+	// not a raw copy of ortho distance. After P→O with raycast at depth 10,
+	// ortho.size=5.7735 ortho.distance=10. Scale-matched perspective depth
+	// = size / tan(fov/2) = 10, so perspective position = focus + side*10.
+	const harness = createHarness();
+	harness.setSceneRaycastTargets([createCenterPlane(10)]);
+	harness.controller.alignViewportToOrthographicView("posX");
+	harness.controller.ensurePerspectiveForViewportRotation();
+	// scale-matched position for posX side (+X): focus (0,0,-10) + (1,0,0)*10
+	assert.deepEqual(
+		harness.viewportPerspectiveCamera.position.toArray().map(roundComponent),
+		[10, 0, -10],
+	);
+	// forward = (focus - position).normalized = (-1, 0, 0)
+	const forward = harness.viewportPerspectiveCamera
+		.getWorldDirection(new THREE.Vector3())
+		.toArray()
+		.map(roundComponent);
+	assert.deepEqual(forward, [-1, 0, 0]);
+}
+
+{
+	// after user pans/zooms ortho off the original entry, a plain ortho→perspective
+	// toggle must reconstruct perspective so the ortho focus remains on-screen
+	// at matched apparent scale.
+	const harness = createHarness();
+	harness.setSceneRaycastTargets([createCenterPlane(10)]);
+	harness.controller.alignViewportToOrthographicView("posX");
+	// user shrinks ortho size (zooms in) — entry state no longer matches current
+	harness.store.viewportOrthoSize.value = 1;
+	harness.controller.setViewportProjectionMode("perspective");
+	// depth = size / tan(30°) = 1 / 0.5774 ≈ 1.7321
+	// position = focus (0,0,-10) + sideVector posX (1,0,0) * 1.7321
+	assert.deepEqual(
+		harness.viewportPerspectiveCamera.position.toArray().map(roundComponent),
+		[1.7321, 0, -10],
+	);
+}
+
 console.log("✅ CAMERA_FRAMES viewport projection controller tests passed!");

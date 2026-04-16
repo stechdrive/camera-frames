@@ -299,14 +299,16 @@ export function createViewportProjectionController({
 	function ensureOrthoStateInitialized() {
 		const currentState = getViewportOrthoState();
 		const { center, radius } = getSceneFramingState();
-		const nextSize = Math.max(
-			Number(currentState.size) || 0,
-			Math.max(radius * 1.2, DEFAULT_VIEWPORT_ORTHO_SIZE),
-		);
-		const nextDistance = Math.max(
-			Number(currentState.distance) || 0,
-			Math.max(radius * 4, DEFAULT_VIEWPORT_ORTHO_DISTANCE),
-		);
+		const hasValidSize =
+			Number.isFinite(currentState.size) && Number(currentState.size) > 0;
+		const hasValidDistance =
+			Number.isFinite(currentState.distance) && Number(currentState.distance) > 0;
+		const nextSize = hasValidSize
+			? Number(currentState.size)
+			: Math.max(radius * 1.2, DEFAULT_VIEWPORT_ORTHO_SIZE);
+		const nextDistance = hasValidDistance
+			? Number(currentState.distance)
+			: Math.max(radius * 4, DEFAULT_VIEWPORT_ORTHO_DISTANCE);
 		return setViewportOrthoState({
 			...currentState,
 			size: nextSize,
@@ -408,6 +410,36 @@ export function createViewportProjectionController({
 		return intersections[0]?.point?.clone?.() ?? null;
 	}
 
+	function pickPerspectiveSceneSphereForwardPivot() {
+		const camera = viewportPerspectiveCamera;
+		if (!camera?.isPerspectiveCamera) {
+			return null;
+		}
+		const { center, radius } = getSceneFramingState();
+		const safeRadius = Math.max(Number(radius) || 0, 1e-6);
+		const origin = camera.getWorldPosition(new THREE.Vector3());
+		const direction = camera.getWorldDirection(new THREE.Vector3()).normalize();
+		const originToCenter = origin.clone().sub(center);
+		const b = originToCenter.dot(direction);
+		const c = originToCenter.lengthSq() - safeRadius * safeRadius;
+		const discriminant = b * b - c;
+		if (discriminant < 0) {
+			return null;
+		}
+		const sqrtDiscriminant = Math.sqrt(discriminant);
+		const tNear = -b - sqrtDiscriminant;
+		const tFar = -b + sqrtDiscriminant;
+		let t;
+		if (tNear > 1e-4) {
+			t = tNear;
+		} else if (tFar > 1e-4) {
+			t = (Math.max(tNear, 0) + tFar) * 0.5;
+		} else {
+			return null;
+		}
+		return origin.addScaledVector(direction, t);
+	}
+
 	function resolveViewportEntryReferencePoint() {
 		const centerReferencePoint = pickViewportCenterReferencePoint();
 		if (centerReferencePoint) {
@@ -424,6 +456,11 @@ export function createViewportProjectionController({
 
 		if (isViewportReferencePointReasonable(lastViewportReferencePoint)) {
 			return lastViewportReferencePoint.clone();
+		}
+
+		const sphereReferencePoint = pickPerspectiveSceneSphereForwardPivot();
+		if (sphereReferencePoint) {
+			return sphereReferencePoint;
 		}
 		return null;
 	}
@@ -675,7 +712,7 @@ export function createViewportProjectionController({
 		return setViewportProjectionMode(VIEWPORT_PROJECTION_PERSPECTIVE, {
 			copyActivePose: true,
 			restoreSavedPerspective: false,
-			matchOrthographicFraming: false,
+			matchOrthographicFraming: true,
 		});
 	}
 
