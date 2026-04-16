@@ -45,9 +45,8 @@ export function resolveInitialLocale({
 const MESSAGES = {
 	ja: {
 		app: {
-			previewTag: "Spark 2.0 Preview",
-			panelCopy:
-				"Spark を基盤に CAMERA_FRAMES のワークフローを再構築するためのプロトタイプ。",
+			previewTag: "Spark 2.0",
+			panelCopy: "Spark 2.0 を基盤にした CAMERA_FRAMES のワークフロー。",
 		},
 		field: {
 			language: "Language",
@@ -812,9 +811,8 @@ const MESSAGES = {
 	},
 	en: {
 		app: {
-			previewTag: "Spark 2.0 Preview",
-			panelCopy:
-				"Prototype for rebuilding the CAMERA_FRAMES workflow on top of Spark.",
+			previewTag: "Spark 2.0",
+			panelCopy: "CAMERA_FRAMES workflow built on Spark 2.0.",
 		},
 		field: {
 			language: "Language",
