@@ -1,6 +1,6 @@
 # 旧 CAMERA_FRAMES `.ssproj` 読み込み互換
 
-最終更新: 2026-04-12
+最終更新: 2026-04-16
 
 ## 0. この文書の役割
 
@@ -119,6 +119,7 @@
 - old frame の `pos`, `scaleK` / `scalePct`, `rotationDeg`, `order`, `anchor` を current `FRAME` へ落とせること
 - name がなければ `id` や `FRAME A` 形式で補えること
 - old `selected` を current `activeFrameId` に移せること
+- old package に trajectory 情報がなければ current `frameMask` は default (`shape=bounds`, `trajectoryMode=line`, `trajectoryExportSource=none`, `trajectory.nodesByFrameId={}`) で補うこと
 
 ### 4.3 Camera / Pose の変換
 

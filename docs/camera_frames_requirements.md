@@ -1,6 +1,6 @@
 # CAMERA_FRAMES 実装要件 / 保守基点
 
-最終更新: 2026-04-12
+最終更新: 2026-04-16
 
 ## 0. この文書の役割
 
@@ -23,7 +23,7 @@ CAMERA_FRAMES の共有 contract を Git 管理するための基点です。
 
 ## 1. 現在の基準
 
-- app version は `0.9.5`
+- app version は `0.10.0`
 - portable project format は `camera-frames-project` version `3`
 - この repo は「新機能を大量に増やす段階」より、「既存 contract を壊さず hardening する段階」に入っている
 - 優先順位は次を基本にする
@@ -195,6 +195,24 @@ viewport camera との分離:
 - output frame resize では anchor 側の frustum 上の固定点を維持し、領域変更だけを行う
 - `FRAME` の center / anchor も render box 変更時に新しい紙面へ remap される
 
+FRAME / frame mask の基準:
+
+- `FRAME` は `frames[]` と `activeFrameId` で保持する
+- frame mask state は `mode`, `preferredMode`, `opacityPct`, `selectedIds`, `shape`, `trajectoryMode`, `trajectoryExportSource`, `trajectory.nodesByFrameId` を持つ
+- mask mode は `off` / `all` / `selected`
+- `selectedIds` は remember された mask 対象の frame id 集合として保存される
+- shape は `bounds` / `trajectory`
+- `bounds` は current frame 群の bounding mask を使う
+- `trajectory` は `FRAME` 順の center path に沿って sampled moving rectangle の sweep area を使う
+- trajectory の編集基準は各 `FRAME` の center であり、corner path を直接保存しない
+- trajectory mode は `line` / `spline`
+- spline node mode は `auto` / `corner` / `mirrored` / `free`
+- stored node handle は frame center 基準の相対 vector として `trajectory.nodesByFrameId[frameId].in/out` に保持する
+- `auto` node は handle を保存しない
+- legacy `trajectory.handlesByFrameId` を読んだ時は `trajectory.nodesByFrameId` の `free` node へ migrate する
+- `trajectoryEditMode` 自体は runtime-only UI state であり package-save に含めない
+- output frame resize では `FRAME` center / anchor だけでなく stored trajectory node vectors も remap する
+
 ### 6.4 Reference images
 
 reference image document は次を持つ:
@@ -325,13 +343,16 @@ PSD export:
 - model layers
 - eye-level
 - front reference images
-- frame overlay
-- frame mask layer
+- frame overlay (`Frames` group; optional trajectory layer)
+- hidden frame mask layer
 
 補足:
 
 - PSD の reference image は back / front を別 group で出す
 - frame mask は PSD の hidden layer として持てる
+- `trajectoryExportSource` は `none` / `center` / `top-left` / `top-right` / `bottom-right` / `bottom-left`
+- `Frames` group には frame overlay pass に加えて optional trajectory layer が入る
+- hidden `Frame Mask` は `frameMask.mode`, `selectedIds`, `shape` をそのまま使い、`trajectory` の時は viewport と同じ sweep area を rasterize する
 - export pipeline は `src/controllers/export/` に分割済み
 
 PSD layer 順の詳細契約:
@@ -406,7 +427,7 @@ PSD layer 順の詳細契約:
 - import routing: `src/app/file-open-routing.js`, `src/controllers/scene-assets/import-runtime.js`
 - scene asset ordering / scene manager display: `src/engine/scene-asset-order.js`, `src/controllers/scene-assets/selection-order.js`, `src/ui/workbench-scene-sections.js`, `src/ui/workbench-browser-sections.js`
 - scene asset import prioritization / order persistence: `src/controllers/scene-assets/import-runtime.js`, `src/controllers/asset-controller.js`, `src/controllers/scene-assets/project-state.js`, `src/controllers/scene-assets/state-persistence.js`
-- shot camera / output frame / FRAME: `src/workspace-model.js`, `src/controllers/camera-controller.js`, `src/controllers/output-frame-controller.js`, `src/controllers/frame-controller.js`
+- shot camera / output frame / FRAME: `src/workspace-model.js`, `src/controllers/camera-controller.js`, `src/controllers/output-frame-controller.js`, `src/controllers/frame-controller.js`, `src/engine/frame-trajectory.js`, `src/ui/frame-layer.js`
 - projection: `src/engine/projection.js`, `src/controllers/projection-controller.js`, `src/controllers/viewport-projection-controller.js`
 - reference image: `src/reference-image-model.js`, `src/controllers/reference-image/`, `src/controllers/reference-image-render-controller.js`
 - reference image ordering / import / UI sync: `src/reference-image-model.js`, `src/engine/reference-image-export-order.js`, `src/controllers/reference-image/import-runtime.js`, `src/controllers/reference-image/document-helpers.js`, `src/controllers/reference-image/list-operations.js`, `src/controllers/reference-image/ui-state-sync.js`, `src/ui/workbench-reference-sections.js`, `src/ui/workbench-browser-sections.js`
@@ -430,6 +451,7 @@ PSD layer 順の詳細契約:
   - `test/camera-frames-projection.test.ts`
   - `test/camera-frames-output-frame-controller.test.ts`
   - `test/camera-frames-frame-controller.test.ts`
+  - `test/camera-frames-frame-trajectory.test.ts`
   - `test/camera-frames-frame-mask-export.test.ts`
 - reference image:
   - `test/camera-frames-reference-image-*.test.ts`

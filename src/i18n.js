@@ -317,7 +317,7 @@ const MESSAGES = {
 			toolReference:
 				"下絵の選択と変形モードです。Shift+R で切り替えます。R は下絵表示の一時切替です。もう一度押すと解除します。",
 			toolSplatEdit:
-				"3DGS の per-splat 編集モードです。選択中の 3DGS asset を scope にして Box / Brush 編集へ入ります。Shift+E で切り替えます。",
+				"選択中の 3DGS をスプラット単位で編集します。直方体選択、ブラシ選択、変形をここから切り替えます。Shift+E で切り替えます。",
 			toolTransform:
 				"3D オブジェクトの変形モードです。もう一度押すと解除します。",
 			toolPivot:
@@ -623,20 +623,20 @@ const MESSAGES = {
 			measurementScaleApplied:
 				"測定値に合わせて選択中オブジェクトへ {scale}x のスケールを適用しました。",
 			splatEditEnabled:
-				"3DGS 編集モードを有効にしました。{count} 件の 3DGS asset を編集対象にします。",
+				"3DGS 編集モードを有効にしました。{count} 件の 3DGS を編集対象にします。",
 			splatEditDisabled: "3DGS 編集モードを終了しました。",
-			splatEditRequiresScope: "先に Scene で 3DGS asset を選択してください。",
+			splatEditRequiresScope: "先に Scene で 3DGS を選択してください。",
 			splatEditScopeSummary:
-				"対象 {scope} アセット / 選択 {selected} スプラット",
+				"対象 {scope} 件の 3DGS / 選択 {selected} 個のスプラット",
 			splatEditToolBox: "直方体",
 			splatEditToolBrush: "ブラシ",
 			splatEditToolTransform: "変形",
-			splatEditPlaceBoxHint: "ビューをクリックしてBoxを配置",
+			splatEditPlaceBoxHint: "ビューをクリックして直方体を配置",
 			splatEditBrushHint:
 				"ドラッグで追加。Alt+ドラッグで除外。Ctrl+ドラッグで視点回転。",
 			splatEditBrushMode: "深さモード",
 			splatEditBrushModeThrough: "貫通",
-			splatEditBrushModeDepth: "Depth",
+			splatEditBrushModeDepth: "奥行き",
 			splatEditBrushDepth: "奥行き",
 			splatEditCenter: "中心",
 			splatEditSize: "サイズ",
@@ -654,19 +654,24 @@ const MESSAGES = {
 			splatEditTransformRotate: "回転",
 			splatEditTransformScale: "均等スケール",
 			splatEditTransformHint: "ギズモで移動・回転・均等スケールを操作します。",
-			splatEditLastOperation: "直近: {mode} / {count} hit",
-			splatEditSelectionAdded: "{count} splat を選択範囲に追加しました。",
-			splatEditSelectionRemoved: "{count} splat を選択範囲から外しました。",
-			splatEditBrushHitMissing: "Brush のヒット点を取得できませんでした。",
-			splatEditSelectionMissing: "先に 3DGS の splat を選択してください。",
-			splatEditDeleted: "{count} splat を削除しました。",
-			splatEditSeparated: "{count} splat を {assets} asset に分離しました。",
-			splatEditDuplicated: "{count} splat を {assets} asset に複製しました。",
-			splatEditSelectAllDone: "{count} splat を全選択しました。",
-			splatEditInverted: "選択を反転しました（{count} splat）。",
-			splatEditTransformedMove: "{count} splat を移動しました。",
-			splatEditTransformedRotate: "{count} splat を回転しました。",
-			splatEditTransformedScale: "{count} splat を均等スケールしました。",
+			splatEditLastOperation: "直近: {mode} / {count} 個のスプラット",
+			splatEditSelectionAdded:
+				"{count} 個のスプラットを選択範囲に追加しました。",
+			splatEditSelectionRemoved:
+				"{count} 個のスプラットを選択範囲から外しました。",
+			splatEditBrushHitMissing: "ブラシの当たり位置を取得できませんでした。",
+			splatEditSelectionMissing: "先に 3DGS のスプラットを選択してください。",
+			splatEditDeleted: "{count} 個のスプラットを削除しました。",
+			splatEditSeparated:
+				"{count} 個のスプラットを {assets} 件の 3DGS に分離しました。",
+			splatEditDuplicated:
+				"{count} 個のスプラットを {assets} 件の 3DGS に複製しました。",
+			splatEditSelectAllDone: "{count} 個のスプラットを全選択しました。",
+			splatEditInverted: "選択を反転しました（{count} 個のスプラット）。",
+			splatEditTransformedMove: "{count} 個のスプラットを移動しました。",
+			splatEditTransformedRotate: "{count} 個のスプラットを回転しました。",
+			splatEditTransformedScale:
+				"{count} 個のスプラットを均等スケールしました。",
 			zoomToolUnavailable: "ズームツールはここでは使えません。",
 			lensToolEnabled:
 				"焦点距離調整。ドラッグで 35mm横幅換算を変更、Esc で解除。",
