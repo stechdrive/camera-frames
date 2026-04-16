@@ -717,8 +717,21 @@ export function ExportSection({
 			onToggle=${onToggle}
 			className="panel-disclosure--preview"
 		>
-			<label class="field">
-				<span>${t("field.exportTarget")}</span>
+			<div class="field">
+				<div class="field__label-row">
+					<label class="field__label-inline" for="export-target">
+						${t("field.exportTarget")}
+					</label>
+					<button
+						id="download-output"
+						type="button"
+						class="button button--primary button--compact field__label-action"
+						disabled=${exportBusy || exportSelectionMissing}
+						onClick=${() => controller()?.downloadOutput()}
+					>
+						${t("action.downloadOutput")}
+					</button>
+				</div>
 				<select
 					id="export-target"
 					value=${exportTarget}
@@ -730,7 +743,7 @@ export function ExportSection({
 					<option value="all">${t("exportTarget.all")}</option>
 					<option value="selected">${t("exportTarget.selected")}</option>
 				</select>
-			</label>
+			</div>
 			${
 				exportTarget === "selected" &&
 				html`
@@ -773,17 +786,6 @@ export function ExportSection({
 				/>
 				<span>${t("field.exportReferenceImages")}</span>
 			</label>
-			<div class="button-row">
-				<button
-					id="download-output"
-					type="button"
-					class="button button--primary"
-					disabled=${exportBusy || exportSelectionMissing}
-					onClick=${() => controller()?.downloadOutput()}
-				>
-					${t("action.downloadOutput")}
-				</button>
-			</div>
 		<//>
 	`;
 }
