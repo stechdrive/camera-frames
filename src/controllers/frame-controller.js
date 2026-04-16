@@ -2,10 +2,12 @@ import { ANCHORS, BASE_FRAME, FRAME_MAX_COUNT } from "../constants.js";
 import { getFrameOutlineSpec } from "../engine/frame-overlay.js";
 import {
 	FRAME_MASK_SHAPE_TRAJECTORY,
+	FRAME_TRAJECTORY_EXPORT_SOURCE_NONE,
 	FRAME_TRAJECTORY_NODE_MODE_AUTO,
 	FRAME_TRAJECTORY_NODE_MODE_CORNER,
 	FRAME_TRAJECTORY_NODE_MODE_FREE,
 	FRAME_TRAJECTORY_NODE_MODE_MIRRORED,
+	chooseBestFrameTrajectoryExportSource,
 	cloneFrameTrajectoryNodesByFrameId,
 	getFrameTrajectoryHandleVectorNormalized,
 	getFrameTrajectoryNodeMode,
@@ -144,6 +146,42 @@ export function createFrameController({
 
 	function hasReachedFrameLimit() {
 		return getActiveFrames().length >= FRAME_MAX_COUNT;
+	}
+
+	function promoteFrameMaskShapeForMultipleFrames(
+		documentState,
+		prevFrameCount,
+	) {
+		if (prevFrameCount >= 2) {
+			return;
+		}
+		if ((documentState.frames?.length ?? 0) < 2) {
+			return;
+		}
+		let nextFrameMask = documentState.frameMask;
+		const currentShape = normalizeFrameMaskShape(nextFrameMask?.shape);
+		if (currentShape !== FRAME_MASK_SHAPE_TRAJECTORY) {
+			nextFrameMask = {
+				...nextFrameMask,
+				shape: FRAME_MASK_SHAPE_TRAJECTORY,
+			};
+		}
+		const currentExportSource = normalizeFrameTrajectoryExportSource(
+			nextFrameMask?.trajectoryExportSource,
+		);
+		if (currentExportSource === FRAME_TRAJECTORY_EXPORT_SOURCE_NONE) {
+			const bestSource = chooseBestFrameTrajectoryExportSource(
+				documentState.frames,
+				nextFrameMask,
+			);
+			nextFrameMask = {
+				...nextFrameMask,
+				trajectoryExportSource: bestSource,
+			};
+		}
+		if (nextFrameMask !== documentState.frameMask) {
+			documentState.frameMask = nextFrameMask;
+		}
 	}
 
 	function resolveFrameAxis(value) {
@@ -1135,8 +1173,10 @@ export function createFrameController({
 		clearFrameInteraction();
 		runHistoryAction?.("frame.create", () => {
 			updateActiveShotCameraDocument((documentState) => {
+				const prevFrameCount = documentState.frames.length;
 				documentState.frames = [...documentState.frames, nextFrame];
 				documentState.activeFrameId = nextFrame.id;
+				promoteFrameMaskShapeForMultipleFrames(documentState, prevFrameCount);
 				return documentState;
 			});
 		});
@@ -1173,6 +1213,7 @@ export function createFrameController({
 		clearFrameInteraction();
 		runHistoryAction?.("frame.duplicate", () => {
 			updateActiveShotCameraDocument((documentState) => {
+				const prevFrameCount = documentState.frames.length;
 				documentState.frames = [...documentState.frames, nextFrame];
 				documentState.activeFrameId = nextFrame.id;
 				copyStoredFrameTrajectoryNodes(documentState, [
@@ -1181,6 +1222,7 @@ export function createFrameController({
 						targetFrameId: nextFrame.id,
 					},
 				]);
+				promoteFrameMaskShapeForMultipleFrames(documentState, prevFrameCount);
 				return documentState;
 			});
 		});
@@ -1236,6 +1278,7 @@ export function createFrameController({
 		clearFrameInteraction();
 		runHistoryAction?.("frame.duplicate", () => {
 			updateActiveShotCameraDocument((documentState) => {
+				const prevFrameCount = documentState.frames.length;
 				documentState.frames = [...documentState.frames, ...duplicatedFrames];
 				documentState.activeFrameId =
 					duplicatedFrames[duplicatedFrames.length - 1]?.id ?? null;
@@ -1246,6 +1289,7 @@ export function createFrameController({
 						targetFrameId: frame.id,
 					})),
 				);
+				promoteFrameMaskShapeForMultipleFrames(documentState, prevFrameCount);
 				return documentState;
 			});
 		});

@@ -23,7 +23,7 @@ CAMERA_FRAMES の共有 contract を Git 管理するための基点です。
 
 ## 1. 現在の基準
 
-- app version は `0.10.2`
+- app version は `0.11.0`
 - Spark dependency baseline は npm 公開版 `@sparkjsdev/spark@2.0.0`
 - portable project format は `camera-frames-project` version `3`
 - この repo は「新機能を大量に増やす段階」より、「既存 contract を壊さず hardening する段階」に入っている
@@ -214,6 +214,9 @@ FRAME / frame mask の基準:
 - shape は `bounds` / `trajectory`
 - `bounds` は current frame 群の bounding mask を使う
 - `trajectory` は `FRAME` 順の center path に沿って sampled moving rectangle の sweep area を使う
+- 新規 FRAME を追加して frame 数が 1 → 2 以上に遷移した瞬間、`shape` が `bounds` なら `trajectory` に自動昇格させる (既存 project の load では昇格しない)
+- 同じ 1 → 2 遷移時、`trajectoryExportSource` が `none` なら自動で基点を選ぶ。優先順は `top-left` → `top-right` → `bottom-right` → `bottom-left` で、全 FRAME の該当 corner が軌道スイープの外縁 (補間 motion geometry の corner 群の convex hull 境界) にあるものを選ぶ。どの corner も内部を通過してしまう場合は `center` にする
+- PSD 出力時、`trajectoryExportSource` が `none` 以外かつ frame が 2 以上なら、各 FRAME の基点位置に軌道線と直交する tick mark を打つ (preview overlay には出さない)
 - trajectory の編集基準は各 `FRAME` の center であり、corner path を直接保存しない
 - trajectory mode は `line` / `spline`
 - spline node mode は `auto` / `corner` / `mirrored` / `free`

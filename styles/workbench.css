@@ -528,7 +528,32 @@
 }
 
 .workbench-tool-rail__popover--mask {
-	min-width: 13rem;
+	min-width: 17.5rem;
+}
+
+.workbench-tool-rail__popover-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(6.8rem, 1fr));
+	gap: 0.4rem 0.45rem;
+	width: 100%;
+}
+
+.workbench-tool-rail__popover-mode-row {
+	display: flex;
+	align-items: flex-end;
+	gap: 0.45rem;
+	width: 100%;
+}
+
+.workbench-tool-rail__popover-mode-field {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.workbench-tool-rail__popover-mode-actions {
+	flex: 0 0 auto;
+	align-self: flex-end;
+	margin-top: 0;
 }
 
 .workbench-tool-rail__popover-field {

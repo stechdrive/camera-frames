@@ -3,11 +3,15 @@ import {
 	FRAME_MASK_SHAPE_TRAJECTORY,
 	FRAME_TRAJECTORY_EXPORT_SOURCE_CENTER,
 	FRAME_TRAJECTORY_EXPORT_SOURCE_NONE,
+	getFrameTrajectoryTickAnchors,
 	normalizeFrameMaskShape,
 	normalizeFrameTrajectoryExportSource,
 	sampleFrameMotionGeometries,
 	sampleFrameTrajectoryPoints,
 } from "./frame-trajectory.js";
+
+const FRAME_TRAJECTORY_TICK_MIN_LENGTH_PX = 8;
+const FRAME_TRAJECTORY_TICK_LENGTH_DIVISOR = 180;
 
 export function resolveFrameMaskFrames(frames, frameMaskSettings = null) {
 	if (!Array.isArray(frames) || frames.length === 0) {
@@ -440,7 +444,127 @@ export function drawFrameTrajectoryToContext(
 	context.lineJoin = "round";
 	context.lineCap = "round";
 	context.stroke();
+
+	drawFrameTrajectoryTickMarksToContext(context, frames, {
+		canvasWidth,
+		canvasHeight,
+		frameSpaceWidth,
+		frameSpaceHeight,
+		logicalSpaceWidth,
+		logicalSpaceHeight,
+		offsetX,
+		offsetY,
+		strokeStyle,
+		lineWidth,
+		frameMaskSettings,
+		trajectorySource: normalizedSource,
+	});
+
 	return points;
+}
+
+export function drawFrameTrajectoryTickMarksToContext(
+	context,
+	frames,
+	{
+		canvasWidth,
+		canvasHeight,
+		frameSpaceWidth = canvasWidth,
+		frameSpaceHeight = canvasHeight,
+		logicalSpaceWidth = frameSpaceWidth,
+		logicalSpaceHeight = frameSpaceHeight,
+		offsetX = 0,
+		offsetY = 0,
+		strokeStyle = "#ff674d",
+		lineWidth = 2,
+		frameMaskSettings = null,
+		trajectorySource = FRAME_TRAJECTORY_EXPORT_SOURCE_CENTER,
+	} = {},
+) {
+	if (!context) {
+		return [];
+	}
+	const normalizedSource =
+		normalizeFrameTrajectoryExportSource(trajectorySource);
+	if (
+		!Array.isArray(frames) ||
+		frames.length < 2 ||
+		normalizedSource === FRAME_TRAJECTORY_EXPORT_SOURCE_NONE
+	) {
+		return [];
+	}
+
+	const anchors = getFrameTrajectoryTickAnchors(
+		frames,
+		frameMaskSettings,
+		logicalSpaceWidth,
+		logicalSpaceHeight,
+		{ source: normalizedSource },
+	);
+	if (anchors.length === 0) {
+		return [];
+	}
+
+	const tickLength = Math.max(
+		FRAME_TRAJECTORY_TICK_MIN_LENGTH_PX,
+		Math.min(canvasWidth, canvasHeight) / FRAME_TRAJECTORY_TICK_LENGTH_DIVISOR,
+	);
+	const halfTick = tickLength * 0.5;
+	const drawnTicks = [];
+
+	context.save();
+	context.strokeStyle = strokeStyle;
+	context.lineWidth = lineWidth;
+	context.lineCap = "round";
+
+	for (const anchor of anchors) {
+		const pointDraw = projectLogicalPointToDrawSpace(
+			anchor.point,
+			frameSpaceWidth,
+			frameSpaceHeight,
+			logicalSpaceWidth,
+			logicalSpaceHeight,
+			offsetX,
+			offsetY,
+		);
+		const tangentTipLogical = {
+			x: anchor.point.x + anchor.tangent.x,
+			y: anchor.point.y + anchor.tangent.y,
+		};
+		const tangentTipDraw = projectLogicalPointToDrawSpace(
+			tangentTipLogical,
+			frameSpaceWidth,
+			frameSpaceHeight,
+			logicalSpaceWidth,
+			logicalSpaceHeight,
+			offsetX,
+			offsetY,
+		);
+		const dx = tangentTipDraw.x - pointDraw.x;
+		const dy = tangentTipDraw.y - pointDraw.y;
+		const length = Math.hypot(dx, dy);
+		if (!(length > 0)) {
+			continue;
+		}
+		const perpX = -dy / length;
+		const perpY = dx / length;
+		const start = {
+			x: pointDraw.x - perpX * halfTick,
+			y: pointDraw.y - perpY * halfTick,
+		};
+		const end = {
+			x: pointDraw.x + perpX * halfTick,
+			y: pointDraw.y + perpY * halfTick,
+		};
+		context.beginPath();
+		context.moveTo(start.x, start.y);
+		context.lineTo(end.x, end.y);
+		context.stroke();
+		drawnTicks.push({ frameId: anchor.frameId, start, end, center: pointDraw });
+	}
+
+	context.restore();
+	return drawnTicks;
 }
 
 export function createAllFrameMaskPsdLayerDocument(

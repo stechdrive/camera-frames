@@ -231,6 +231,32 @@ export function FramesSection({
 								}}
 							/>
 						</div>
+						<label class="field field--inline-compact frame-mask-toolbar__shape">
+							<span class="field-label-tooltip">
+								${t("field.frameMaskShape")}
+								<${TooltipBubble}
+									title=${t("field.frameMaskShape")}
+									description=${t("tooltip.frameMaskShapeField")}
+									placement="bottom"
+								/>
+							</span>
+							<div class="field--inline-compact__value">
+								<select
+									value=${frameMaskShape}
+									...${INTERACTIVE_FIELD_PROPS}
+									onChange=${(event) =>
+										controller()?.setFrameMaskShape?.(
+											event.currentTarget.value,
+										)}
+								>
+									${frameMaskShapeOptions.map(
+										(option) => html`
+											<option value=${option.value}>${option.label}</option>
+										`,
+									)}
+								</select>
+							</div>
+						</label>
 						<label class="field field--inline-compact frame-mask-toolbar__opacity">
 							<span>${t("field.frameMaskOpacity")}</span>
 							<div class="field--inline-compact__value">
@@ -253,36 +279,14 @@ export function FramesSection({
 							</div>
 						</label>
 					</div>
-					<div class="frame-mask-toolbar__settings">
-						<label class="field">
-							<span class="field-label-tooltip">
-								${t("field.frameMaskShape")}
-								<${TooltipBubble}
-									title=${t("field.frameMaskShape")}
-									description=${t("tooltip.frameMaskShapeField")}
-									placement="right"
-								/>
-							</span>
-							<select
-								value=${frameMaskShape}
-								...${INTERACTIVE_FIELD_PROPS}
-								onChange=${(event) =>
-									controller()?.setFrameMaskShape?.(event.currentTarget.value)}
-							>
-								${frameMaskShapeOptions.map(
-									(option) => html`
-										<option value=${option.value}>${option.label}</option>
-									`,
-								)}
-							</select>
-						</label>
-						<label class="field">
+					<div class="frame-mask-toolbar__mode-row">
+						<label class="field frame-mask-toolbar__mode-field">
 							<span class="field-label-tooltip">
 								${t("field.frameTrajectoryMode")}
 								<${TooltipBubble}
 									title=${t("field.frameTrajectoryMode")}
 									description=${t("tooltip.frameTrajectoryModeField")}
-									placement="right"
+									placement="bottom"
 								/>
 							</span>
 							<select
@@ -301,6 +305,40 @@ export function FramesSection({
 								)}
 							</select>
 						</label>
+						<div class="button-row button-row--compact frame-mask-toolbar__mode-actions">
+							<${IconButton}
+								id="toggle-frame-trajectory-edit"
+								icon="cursor"
+								label=${t("action.toggleFrameTrajectoryEdit")}
+								active=${trajectoryEditMode}
+								compact=${true}
+								disabled=${!hasFrames}
+								onClick=${() => controller()?.toggleFrameTrajectoryEditMode?.()}
+								tooltip=${{
+									title: t("action.toggleFrameTrajectoryEdit"),
+									description: t("tooltip.toggleFrameTrajectoryEdit"),
+									placement: "bottom",
+								}}
+							/>
+							<${IconButton}
+								icon="reset"
+								label=${t("action.resetFrameTrajectoryNodeAuto")}
+								compact=${true}
+								disabled=${!hasEditableTrajectoryNode || activeTrajectoryNodeMode === "auto"}
+								onClick=${() =>
+									controller()?.setFrameTrajectoryNodeMode?.(
+										activeFrameId,
+										"auto",
+									)}
+								tooltip=${{
+									title: t("action.resetFrameTrajectoryNodeAuto"),
+									description: t("tooltip.resetFrameTrajectoryNodeAuto"),
+									placement: "bottom",
+								}}
+							/>
+						</div>
+					</div>
+					<div class="frame-mask-toolbar__settings">
 						${
 							hasEditableTrajectoryNode &&
 							html`
@@ -356,38 +394,6 @@ export function FramesSection({
 								)}
 							</select>
 						</label>
-						<div class="button-row button-row--compact">
-							<${IconButton}
-								id="toggle-frame-trajectory-edit"
-								icon="cursor"
-								label=${t("action.toggleFrameTrajectoryEdit")}
-								active=${trajectoryEditMode}
-								compact=${true}
-								disabled=${!hasFrames}
-								onClick=${() => controller()?.toggleFrameTrajectoryEditMode?.()}
-								tooltip=${{
-									title: t("action.toggleFrameTrajectoryEdit"),
-									description: t("tooltip.toggleFrameTrajectoryEdit"),
-									placement: "bottom",
-								}}
-							/>
-							<${IconButton}
-								icon="reset"
-								label=${t("action.resetFrameTrajectoryNodeAuto")}
-								compact=${true}
-								disabled=${!hasEditableTrajectoryNode || activeTrajectoryNodeMode === "auto"}
-								onClick=${() =>
-									controller()?.setFrameTrajectoryNodeMode?.(
-										activeFrameId,
-										"auto",
-									)}
-								tooltip=${{
-									title: t("action.resetFrameTrajectoryNodeAuto"),
-									description: t("tooltip.resetFrameTrajectoryNodeAuto"),
-									placement: "bottom",
-								}}
-							/>
-						</div>
 					</div>
 				`
 			}

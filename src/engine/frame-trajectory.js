@@ -1035,3 +1035,258 @@ export function sampleFrameTrajectoryPoints(
 		)
 		.filter((point) => Number.isFinite(point?.x) && Number.isFinite(point?.y));
 }
+
+function computeFrameTrajectoryCenterTangent(
+	frames,
+	frameMask,
+	frameIndex,
+	logicalWidth,
+	logicalHeight,
+) {
+	const frame = frames[frameIndex];
+	if (!frame) {
+		return null;
+	}
+	const isSpline =
+		normalizeFrameTrajectoryMode(frameMask?.trajectoryMode) ===
+		FRAME_TRAJECTORY_MODE_SPLINE;
+	const centerNormalized = getFrameCenterNormalized(frame);
+	const centerLogical = {
+		x: centerNormalized.x * logicalWidth,
+		y: centerNormalized.y * logicalHeight,
+	};
+
+	let outTangent = null;
+	if (frameIndex < frames.length - 1) {
+		if (isSpline) {
+			const out = getFrameTrajectoryHandlePointNormalized(
+				frames,
+				frameMask,
+				frame.id,
+				"out",
+				logicalWidth,
+				logicalHeight,
+			);
+			if (out) {
+				outTangent = {
+					x: out.x * logicalWidth - centerLogical.x,
+					y: out.y * logicalHeight - centerLogical.y,
+				};
+			}
+		} else {
+			const nextCenter = getFrameCenterNormalized(frames[frameIndex + 1]);
+			outTangent = {
+				x: nextCenter.x * logicalWidth - centerLogical.x,
+				y: nextCenter.y * logicalHeight - centerLogical.y,
+			};
+		}
+	}
+
+	let inTangent = null;
+	if (frameIndex > 0) {
+		if (isSpline) {
+			const inPoint = getFrameTrajectoryHandlePointNormalized(
+				frames,
+				frameMask,
+				frame.id,
+				"in",
+				logicalWidth,
+				logicalHeight,
+			);
+			if (inPoint) {
+				inTangent = {
+					x: centerLogical.x - inPoint.x * logicalWidth,
+					y: centerLogical.y - inPoint.y * logicalHeight,
+				};
+			}
+		} else {
+			const prevCenter = getFrameCenterNormalized(frames[frameIndex - 1]);
+			inTangent = {
+				x: centerLogical.x - prevCenter.x * logicalWidth,
+				y: centerLogical.y - prevCenter.y * logicalHeight,
+			};
+		}
+	}
+
+	let tangent = null;
+	if (outTangent && inTangent) {
+		tangent = {
+			x: outTangent.x + inTangent.x,
+			y: outTangent.y + inTangent.y,
+		};
+	} else if (outTangent) {
+		tangent = outTangent;
+	} else if (inTangent) {
+		tangent = inTangent;
+	}
+	if (!tangent) {
+		return null;
+	}
+	const length = Math.hypot(tangent.x, tangent.y);
+	if (!(length > 0) || !Number.isFinite(length)) {
+		return null;
+	}
+	return { x: tangent.x / length, y: tangent.y / length };
+}
+
+function cross2d(o, a, b) {
+	return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+}
+
+function computeConvexHull2D(points) {
+	const filtered = points.filter(
+		(point) => Number.isFinite(point?.x) && Number.isFinite(point?.y),
+	);
+	if (filtered.length < 3) {
+		return filtered.slice();
+	}
+	const sorted = filtered.slice().sort((a, b) => {
+		if (a.x !== b.x) {
+			return a.x - b.x;
+		}
+		return a.y - b.y;
+	});
+	const lower = [];
+	for (const point of sorted) {
+		while (
+			lower.length >= 2 &&
+			cross2d(lower[lower.length - 2], lower[lower.length - 1], point) <= 0
+		) {
+			lower.pop();
+		}
+		lower.push(point);
+	}
+	const upper = [];
+	for (let index = sorted.length - 1; index >= 0; index -= 1) {
+		const point = sorted[index];
+		while (
+			upper.length >= 2 &&
+			cross2d(upper[upper.length - 2], upper[upper.length - 1], point) <= 0
+		) {
+			upper.pop();
+		}
+		upper.push(point);
+	}
+	lower.pop();
+	upper.pop();
+	return lower.concat(upper);
+}
+
+function isPointOnConvexHullBoundary(point, hull, epsilon) {
+	if (!Array.isArray(hull) || hull.length < 2) {
+		return false;
+	}
+	for (let index = 0; index < hull.length; index += 1) {
+		const a = hull[index];
+		const b = hull[(index + 1) % hull.length];
+		const abx = b.x - a.x;
+		const aby = b.y - a.y;
+		const apx = point.x - a.x;
+		const apy = point.y - a.y;
+		const abLen2 = abx * abx + aby * aby;
+		if (abLen2 <= 0) {
+			const dx = point.x - a.x;
+			const dy = point.y - a.y;
+			if (dx * dx + dy * dy <= epsilon * epsilon) {
+				return true;
+			}
+			continue;
+		}
+		const crossValue = abx * apy - aby * apx;
+		if (crossValue * crossValue > epsilon * epsilon * abLen2) {
+			continue;
+		}
+		const dot = abx * apx + aby * apy;
+		if (dot < -epsilon * Math.sqrt(abLen2)) {
+			continue;
+		}
+		if (dot > abLen2 + epsilon * Math.sqrt(abLen2)) {
+			continue;
+		}
+		return true;
+	}
+	return false;
+}
+
+const FRAME_TRAJECTORY_CORNER_SOURCE_PRIORITY = [
+	FRAME_TRAJECTORY_EXPORT_SOURCE_TOP_LEFT,
+	FRAME_TRAJECTORY_EXPORT_SOURCE_TOP_RIGHT,
+	FRAME_TRAJECTORY_EXPORT_SOURCE_BOTTOM_RIGHT,
+	FRAME_TRAJECTORY_EXPORT_SOURCE_BOTTOM_LEFT,
+];
+
+export function chooseBestFrameTrajectoryExportSource(frames, frameMask) {
+	if (!Array.isArray(frames) || frames.length < 2) {
+		return FRAME_TRAJECTORY_EXPORT_SOURCE_CENTER;
+	}
+	const geometries = sampleFrameMotionGeometries(frames, frameMask, 1, 1);
+	if (geometries.length === 0) {
+		return FRAME_TRAJECTORY_EXPORT_SOURCE_CENTER;
+	}
+	const allCorners = geometries.flatMap((geometry) => geometry.corners);
+	const hull = computeConvexHull2D(allCorners);
+	if (hull.length < 3) {
+		return FRAME_TRAJECTORY_EXPORT_SOURCE_CENTER;
+	}
+	const boundaryEpsilon = 1e-5;
+	for (const key of FRAME_TRAJECTORY_CORNER_SOURCE_PRIORITY) {
+		const cornerPoints = geometries
+			.map((geometry) => geometry.cornerPointsByKey[key])
+			.filter(
+				(point) => Number.isFinite(point?.x) && Number.isFinite(point?.y),
+			);
+		if (cornerPoints.length === 0) {
+			continue;
+		}
+		const allOnBoundary = cornerPoints.every((point) =>
+			isPointOnConvexHullBoundary(point, hull, boundaryEpsilon),
+		);
+		if (allOnBoundary) {
+			return key;
+		}
+	}
+	return FRAME_TRAJECTORY_EXPORT_SOURCE_CENTER;
+}
+
+export function getFrameTrajectoryTickAnchors(
+	frames,
+	frameMask,
+	logicalWidth,
+	logicalHeight,
+	{ source = FRAME_TRAJECTORY_EXPORT_SOURCE_CENTER } = {},
+) {
+	const normalizedSource = normalizeFrameTrajectoryExportSource(source);
+	if (
+		!Array.isArray(frames) ||
+		frames.length < 2 ||
+		normalizedSource === FRAME_TRAJECTORY_EXPORT_SOURCE_NONE
+	) {
+		return [];
+	}
+
+	const anchors = [];
+	for (let index = 0; index < frames.length; index += 1) {
+		const frame = frames[index];
+		const geometry = buildFrameRectangleGeometry(
+			frame,
+			logicalWidth,
+			logicalHeight,
+		);
+		const point = getTrajectoryPointFromGeometry(geometry, normalizedSource);
+		if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) {
+			continue;
+		}
+		const tangent = computeFrameTrajectoryCenterTangent(
+			frames,
+			frameMask,
+			index,
+			logicalWidth,
+			logicalHeight,
+		);
+		if (!tangent) {
+			continue;
+		}
+		anchors.push({ frameId: frame.id, point, tangent });
+	}
+	return anchors;
+}

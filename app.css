@@ -4227,6 +4227,11 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	transform: none;
 }
 
+.frame-mask-toolbar__shape .field--inline-compact__value {
+	width: auto;
+	min-width: 6.4rem;
+}
+
 .frame-mask-toolbar__opacity {
 	margin-left: auto;
 }
@@ -4238,6 +4243,23 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 
 .frame-mask-toolbar__opacity .numeric-unit {
 	grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.frame-mask-toolbar__mode-row {
+	display: flex;
+	align-items: flex-end;
+	gap: 0.55rem;
+	width: 100%;
+}
+
+.frame-mask-toolbar__mode-field {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.frame-mask-toolbar__mode-actions {
+	flex: 0 0 auto;
+	align-self: flex-end;
 }
 
 .frame-mask-toolbar__settings {

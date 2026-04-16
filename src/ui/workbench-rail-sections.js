@@ -235,166 +235,172 @@ function MaskToolPopover({ controller, hasFrames, store, t }) {
 					/>
 				</div>
 			</label>
-			<label class="field workbench-tool-rail__popover-field">
-				<span>${t("field.frameMaskOpacity")}</span>
-				<div class="workbench-tool-rail__popover-value">
-					<div class="workbench-tool-rail__popover-input">
-						<${NumericDraftInput}
-							id="tool-frame-mask-opacity"
-							inputMode="decimal"
-							min="0"
-							max="100"
-							step="1"
-							value=${Number(frameMaskOpacityPct).toFixed(0)}
-							controller=${controller}
-							disabled=${!hasFrames}
-							historyLabel="frame.mask-opacity"
-							onCommit=${(nextValue) =>
-								controller()?.setFrameMaskOpacity?.(nextValue)}
-						/>
-					</div>
-					<span
-						class="workbench-tool-rail__popover-suffix"
-						aria-label=${t("unit.percent")}
-						>%</span
-					>
-				</div>
-			</label>
-			<label class="field workbench-tool-rail__popover-field">
-				<span class="field-label-tooltip">
-					${t("field.frameMaskShape")}
-					<${TooltipBubble}
-						title=${t("field.frameMaskShape")}
-						description=${t("tooltip.frameMaskShapeField")}
-						placement="right"
-					/>
-				</span>
-				<div class="workbench-tool-rail__popover-value">
-					<select
-						class="workbench-tool-rail__popover-select"
-						value=${frameMaskShape}
-						onChange=${(event) =>
-							controller()?.setFrameMaskShape?.(event.currentTarget.value)}
-					>
-						${frameMaskShapeOptions.map(
-							(option) => html`
-								<option value=${option.value}>${option.label}</option>
-							`,
-						)}
-					</select>
-				</div>
-			</label>
-			<label class="field workbench-tool-rail__popover-field">
-				<span class="field-label-tooltip">
-					${t("field.frameTrajectoryMode")}
-					<${TooltipBubble}
-						title=${t("field.frameTrajectoryMode")}
-						description=${t("tooltip.frameTrajectoryModeField")}
-						placement="right"
-					/>
-				</span>
-				<div class="workbench-tool-rail__popover-value">
-					<select
-						class="workbench-tool-rail__popover-select"
-						value=${frameTrajectoryMode}
-						disabled=${!hasFrames}
-						onChange=${(event) =>
-							controller()?.setFrameTrajectoryMode?.(event.currentTarget.value)}
-					>
-						${trajectoryModeOptions.map(
-							(option) => html`
-								<option value=${option.value}>${option.label}</option>
-							`,
-						)}
-					</select>
-				</div>
-			</label>
-			${
-				hasEditableTrajectoryNode &&
-				html`
-					<label class="field workbench-tool-rail__popover-field">
-						<span class="field-label-tooltip">
-							${t("field.frameTrajectoryNodeMode")}
-							<${TooltipBubble}
-								title=${t("field.frameTrajectoryNodeMode")}
-								description=${t("tooltip.frameTrajectoryNodeModeField")}
-								placement="right"
+			<div class="workbench-tool-rail__popover-grid">
+				<label class="field workbench-tool-rail__popover-field">
+					<span>${t("field.frameMaskOpacity")}</span>
+					<div class="workbench-tool-rail__popover-value">
+						<div class="workbench-tool-rail__popover-input">
+							<${NumericDraftInput}
+								id="tool-frame-mask-opacity"
+								inputMode="decimal"
+								min="0"
+								max="100"
+								step="1"
+								value=${Number(frameMaskOpacityPct).toFixed(0)}
+								controller=${controller}
+								disabled=${!hasFrames}
+								historyLabel="frame.mask-opacity"
+								onCommit=${(nextValue) =>
+									controller()?.setFrameMaskOpacity?.(nextValue)}
 							/>
-						</span>
-						<div class="workbench-tool-rail__popover-value">
-							<select
-								class="workbench-tool-rail__popover-select"
-								value=${activeTrajectoryNodeMode}
-								onChange=${(event) =>
-									controller()?.setFrameTrajectoryNodeMode?.(
-										activeFrameId,
-										event.currentTarget.value,
-									)}
-							>
-								${trajectoryNodeModeOptions.map(
-									(option) => html`
-										<option value=${option.value}>${option.label}</option>
-									`,
-								)}
-							</select>
 						</div>
-					</label>
-				`
-			}
-			<label class="field workbench-tool-rail__popover-field">
-				<span class="field-label-tooltip">
-					${t("field.frameTrajectoryExportSource")}
-					<${TooltipBubble}
-						title=${t("field.frameTrajectoryExportSource")}
-						description=${t("tooltip.frameTrajectoryExportSourceField")}
-						placement="right"
-					/>
-				</span>
-				<div class="workbench-tool-rail__popover-value">
-					<select
-						class="workbench-tool-rail__popover-select"
-						value=${frameTrajectoryExportSource}
-						disabled=${!hasTrajectoryPath}
-						onChange=${(event) =>
-							controller()?.setFrameTrajectoryExportSource?.(
-								event.currentTarget.value,
+						<span
+							class="workbench-tool-rail__popover-suffix"
+							aria-label=${t("unit.percent")}
+							>%</span
+						>
+					</div>
+				</label>
+				<label class="field workbench-tool-rail__popover-field">
+					<span class="field-label-tooltip">
+						${t("field.frameMaskShape")}
+						<${TooltipBubble}
+							title=${t("field.frameMaskShape")}
+							description=${t("tooltip.frameMaskShapeField")}
+							placement="right"
+						/>
+					</span>
+					<div class="workbench-tool-rail__popover-value">
+						<select
+							class="workbench-tool-rail__popover-select"
+							value=${frameMaskShape}
+							onChange=${(event) =>
+								controller()?.setFrameMaskShape?.(event.currentTarget.value)}
+						>
+							${frameMaskShapeOptions.map(
+								(option) => html`
+									<option value=${option.value}>${option.label}</option>
+								`,
 							)}
-					>
-						${trajectoryExportSourceOptions.map(
-							(option) => html`
-								<option value=${option.value}>${option.label}</option>
-							`,
-						)}
-					</select>
+						</select>
+					</div>
+				</label>
+			</div>
+			<div class="workbench-tool-rail__popover-mode-row">
+				<label class="field workbench-tool-rail__popover-field workbench-tool-rail__popover-mode-field">
+					<span class="field-label-tooltip">
+						${t("field.frameTrajectoryMode")}
+						<${TooltipBubble}
+							title=${t("field.frameTrajectoryMode")}
+							description=${t("tooltip.frameTrajectoryModeField")}
+							placement="right"
+						/>
+					</span>
+					<div class="workbench-tool-rail__popover-value">
+						<select
+							class="workbench-tool-rail__popover-select"
+							value=${frameTrajectoryMode}
+							disabled=${!hasFrames}
+							onChange=${(event) =>
+								controller()?.setFrameTrajectoryMode?.(event.currentTarget.value)}
+						>
+							${trajectoryModeOptions.map(
+								(option) => html`
+									<option value=${option.value}>${option.label}</option>
+								`,
+							)}
+						</select>
+					</div>
+				</label>
+				<div class="button-row button-row--compact workbench-tool-rail__popover-actions workbench-tool-rail__popover-mode-actions">
+					<${IconButton}
+						icon="cursor"
+						label=${t("action.toggleFrameTrajectoryEdit")}
+						active=${trajectoryEditMode}
+						compact=${true}
+						disabled=${!hasFrames}
+						onClick=${() => controller()?.toggleFrameTrajectoryEditMode?.()}
+						tooltip=${{
+							title: t("action.toggleFrameTrajectoryEdit"),
+							description: t("tooltip.toggleFrameTrajectoryEdit"),
+							placement: "right",
+						}}
+					/>
+					<${IconButton}
+						icon="reset"
+						label=${t("action.resetFrameTrajectoryNodeAuto")}
+						compact=${true}
+						disabled=${!hasEditableTrajectoryNode || activeTrajectoryNodeMode === "auto"}
+						onClick=${() =>
+							controller()?.setFrameTrajectoryNodeMode?.(activeFrameId, "auto")}
+						tooltip=${{
+							title: t("action.resetFrameTrajectoryNodeAuto"),
+							description: t("tooltip.resetFrameTrajectoryNodeAuto"),
+							placement: "right",
+						}}
+					/>
 				</div>
-			</label>
-			<div class="button-row button-row--compact workbench-tool-rail__popover-actions">
-				<${IconButton}
-					icon="cursor"
-					label=${t("action.toggleFrameTrajectoryEdit")}
-					active=${trajectoryEditMode}
-					compact=${true}
-					disabled=${!hasFrames}
-					onClick=${() => controller()?.toggleFrameTrajectoryEditMode?.()}
-					tooltip=${{
-						title: t("action.toggleFrameTrajectoryEdit"),
-						description: t("tooltip.toggleFrameTrajectoryEdit"),
-						placement: "right",
-					}}
-				/>
-				<${IconButton}
-					icon="reset"
-					label=${t("action.resetFrameTrajectoryNodeAuto")}
-					compact=${true}
-					disabled=${!hasEditableTrajectoryNode || activeTrajectoryNodeMode === "auto"}
-					onClick=${() =>
-						controller()?.setFrameTrajectoryNodeMode?.(activeFrameId, "auto")}
-					tooltip=${{
-						title: t("action.resetFrameTrajectoryNodeAuto"),
-						description: t("tooltip.resetFrameTrajectoryNodeAuto"),
-						placement: "right",
-					}}
-				/>
+			</div>
+			<div class="workbench-tool-rail__popover-grid">
+				${
+					hasEditableTrajectoryNode &&
+					html`
+						<label class="field workbench-tool-rail__popover-field">
+							<span class="field-label-tooltip">
+								${t("field.frameTrajectoryNodeMode")}
+								<${TooltipBubble}
+									title=${t("field.frameTrajectoryNodeMode")}
+									description=${t("tooltip.frameTrajectoryNodeModeField")}
+									placement="right"
+								/>
+							</span>
+							<div class="workbench-tool-rail__popover-value">
+								<select
+									class="workbench-tool-rail__popover-select"
+									value=${activeTrajectoryNodeMode}
+									onChange=${(event) =>
+										controller()?.setFrameTrajectoryNodeMode?.(
+											activeFrameId,
+											event.currentTarget.value,
+										)}
+								>
+									${trajectoryNodeModeOptions.map(
+										(option) => html`
+											<option value=${option.value}>${option.label}</option>
+										`,
+									)}
+								</select>
+							</div>
+						</label>
+					`
+				}
+				<label class="field workbench-tool-rail__popover-field">
+					<span class="field-label-tooltip">
+						${t("field.frameTrajectoryExportSource")}
+						<${TooltipBubble}
+							title=${t("field.frameTrajectoryExportSource")}
+							description=${t("tooltip.frameTrajectoryExportSourceField")}
+							placement="right"
+						/>
+					</span>
+					<div class="workbench-tool-rail__popover-value">
+						<select
+							class="workbench-tool-rail__popover-select"
+							value=${frameTrajectoryExportSource}
+							disabled=${!hasTrajectoryPath}
+							onChange=${(event) =>
+								controller()?.setFrameTrajectoryExportSource?.(
+									event.currentTarget.value,
+								)}
+						>
+							${trajectoryExportSourceOptions.map(
+								(option) => html`
+									<option value=${option.value}>${option.label}</option>
+								`,
+							)}
+						</select>
+					</div>
+				</label>
 			</div>
 		</div>
 	`;

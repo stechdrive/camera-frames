@@ -310,6 +310,8 @@ assert.equal(
 		stroke() {
 			strokeCount += 1;
 		},
+		save() {},
+		restore() {},
 		set strokeStyle(_value) {},
 		set lineWidth(value) {
 			recordedLineWidth = value;
@@ -363,8 +365,9 @@ assert.equal(
 	assert.equal(mockCanvas.width, 1536);
 	assert.equal(mockCanvas.height, 864);
 	assert.equal(clearRectCount, 1);
-	assert.equal(beginPathCount, 1);
-	assert.equal(strokeCount, 1);
+	// 1 polyline + 2 ticks (one per FRAME anchor)
+	assert.equal(beginPathCount, 3);
+	assert.equal(strokeCount, 3);
 	assert.equal(recordedLineWidth, 2);
 }
 

@@ -10,7 +10,7 @@
 
 ## 1. 現在の baseline
 
-- app version: `0.10.2`
+- app version: `0.11.0`
 - project format: `camera-frames-project` version `3`
 - major feature set は概ね揃っている
 - 今の開発主眼は「既存機能を壊さず強くすること」
@@ -67,12 +67,15 @@
 - 軌道編集は `FRAME` center を結ぶ path を基準に行う
 - frame mask は `off` / `all` / `selected` と opacity を持つ
 - frame mask shape は `bounds` / `trajectory`
+- FRAME を追加して frame 数が 1→2 以上に遷移した瞬間、shape が `bounds` なら `trajectory` へ自動昇格する (load では昇格させない)
+- 同じ遷移時、`trajectoryExportSource` が `none` なら軌道スイープの外縁だけで描ける四隅を優先し (TL→TR→BR→BL)、該当なしなら `center` を自動設定する
 - `trajectory` mask は `FRAME` の順序に沿って sampled moving rectangle の sweep area を使う
 - trajectory mode は `line` / `spline`
 - spline node mode は `auto` / `corner` / `mirrored` / `free`
 - trajectory edit toggle と `Reset Node to Auto` を持つ
 - output frame resize 時は `FRAME` center / anchor に加えて stored trajectory node vectors も新しい紙面位置へ remap される
 - PSD trajectory layer は `none` / `center` / `top-left` / `top-right` / `bottom-right` / `bottom-left` を選べる
+- PSD trajectory layer が有効なとき、各 FRAME 基点に軌道線と直交する tick mark を同一レイヤーに描く
 
 ### 2.6 Reference images
 

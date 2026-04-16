@@ -98,6 +98,69 @@ function createHarness() {
 
 {
 	const harness = createHarness();
+	assert.equal(harness.getShotCameraDocument().frameMask.shape, "bounds");
+	assert.equal(
+		harness.getShotCameraDocument().frameMask.trajectoryExportSource,
+		"none",
+	);
+	harness.controller.createFrame();
+	assert.equal(harness.getShotCameraDocument().frames.length, 2);
+	assert.equal(
+		harness.getShotCameraDocument().frameMask.shape,
+		"trajectory",
+		"mask shape should promote to trajectory on 1->2 frame transition",
+	);
+	assert.notEqual(
+		harness.getShotCameraDocument().frameMask.trajectoryExportSource,
+		"none",
+		"trajectoryExportSource should be auto-chosen on 1->2 transition",
+	);
+}
+
+{
+	const harness = createHarness();
+	const doc = harness.getShotCameraDocument();
+	doc.frames[0].x = 0.2;
+	doc.frames[0].y = 0.5;
+	// Build next frame position via controller create (uses defaults), then move it.
+	harness.controller.createFrame();
+	const afterPromote =
+		harness.getShotCameraDocument().frameMask.trajectoryExportSource;
+	assert.notEqual(afterPromote, "none");
+	assert.ok(
+		["top-left", "top-right", "bottom-right", "bottom-left", "center"].includes(
+			afterPromote,
+		),
+	);
+}
+
+{
+	const harness = createHarness();
+	harness.controller.duplicateActiveFrame();
+	assert.equal(harness.getShotCameraDocument().frames.length, 2);
+	assert.equal(
+		harness.getShotCameraDocument().frameMask.shape,
+		"trajectory",
+		"mask shape should promote on duplicate reaching 2 frames",
+	);
+	harness.controller.setFrameMaskShape("bounds");
+	harness.controller.setFrameTrajectoryExportSource("none");
+	harness.controller.createFrame();
+	assert.equal(harness.getShotCameraDocument().frames.length, 3);
+	assert.equal(
+		harness.getShotCameraDocument().frameMask.shape,
+		"bounds",
+		"shape promotion should not fire again after frames already number 2+",
+	);
+	assert.equal(
+		harness.getShotCameraDocument().frameMask.trajectoryExportSource,
+		"none",
+		"trajectoryExportSource promotion should not fire again after frames number 2+",
+	);
+}
+
+{
+	const harness = createHarness();
 	const sourceFrame = harness.getShotCameraDocument().frames[0];
 	harness.controller.setFrameTrajectoryHandlePoint(sourceFrame.id, "out", {
 		x: 0.66,
