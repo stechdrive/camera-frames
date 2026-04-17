@@ -187,10 +187,66 @@ export function createSplatSelectionHighlightController({
 		}
 	}
 
+	function syncTouchedAssetSelection(
+		entry,
+		selectedIndices,
+		hiddenIndices,
+		touchedIndices,
+	) {
+		const nextSelectedIndices = selectedIndices ?? new Set();
+		const nextHiddenIndices = hiddenIndices ?? new Set();
+		let changed = false;
+		for (const index of touchedIndices) {
+			const isSelected = nextSelectedIndices.has(index);
+			const isHidden = isSelected && nextHiddenIndices.has(index);
+			const wasSelected = entry.highlightedIndices.has(index);
+			const wasHidden = entry.hiddenIndices.has(index);
+			if (isSelected === wasSelected && isHidden === wasHidden) {
+				continue;
+			}
+			if (!isSelected) {
+				if (wasSelected) {
+					restoreBaseColor(entry.rgbaArray.array, entry.baseArray, index);
+					entry.highlightedIndices.delete(index);
+				}
+				if (wasHidden) {
+					entry.hiddenIndices.delete(index);
+				}
+				changed = true;
+				continue;
+			}
+			if (isHidden) {
+				hideBaseColor(entry.rgbaArray.array, entry.baseArray, index);
+				entry.hiddenIndices.add(index);
+			} else {
+				setHighlightColor(
+					entry.rgbaArray.array,
+					entry.baseArray,
+					index,
+					highlightRgba,
+					highlightMix,
+				);
+				if (wasHidden) {
+					entry.hiddenIndices.delete(index);
+				}
+			}
+			if (!wasSelected) {
+				entry.highlightedIndices.add(index);
+			}
+			changed = true;
+		}
+		if (changed) {
+			entry.rgbaArray.needsUpdate = true;
+			entry.rgbaArray.getTexture?.();
+			setSparkSplatMeshColorBuffer(entry.mesh, entry.rgbaArray);
+		}
+	}
+
 	function sync({
 		scopeAssets = [],
 		selectedSplatsByAssetId = new Map(),
 		hiddenSelectedSplatsByAssetId = new Map(),
+		touchedByAssetId = null,
 	} = {}) {
 		const scopeAssetMap = new Map(
 			scopeAssets
@@ -211,13 +267,21 @@ export function createSplatSelectionHighlightController({
 			}
 			activeSelectedAssetIds.add(assetId);
 			const entry = ensureEntry(scopeAssetMap.get(assetId));
-			if (entry) {
-				syncAssetSelection(
+			if (!entry) {
+				continue;
+			}
+			const touched = touchedByAssetId?.get?.(assetId);
+			const hiddenIndices = hiddenSelectedSplatsByAssetId.get(assetId);
+			if (touched instanceof Set && touched.size > 0) {
+				syncTouchedAssetSelection(
 					entry,
 					selectedIndices,
-					hiddenSelectedSplatsByAssetId.get(assetId),
+					hiddenIndices,
+					touched,
 				);
+				continue;
 			}
+			syncAssetSelection(entry, selectedIndices, hiddenIndices);
 		}
 		for (const [assetId, entry] of entriesByAssetId.entries()) {
 			if (activeSelectedAssetIds.has(assetId)) {

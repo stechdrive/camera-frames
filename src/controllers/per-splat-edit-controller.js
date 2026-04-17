@@ -911,6 +911,7 @@ export function createPerSplatEditController({
 		nextSelection,
 		brushOptions,
 		subtract,
+		touched = null,
 	) {
 		const candidateIndices = getBrushIndexQueryCandidates(
 			indexEntry,
@@ -936,10 +937,12 @@ export function createPerSplatEditController({
 				if (subtract) {
 					if (nextSelection.delete(index)) {
 						changedCount += 1;
+						touched?.add(index);
 					}
 				} else {
 					nextSelection.add(index);
 					changedCount += 1;
+					touched?.add(index);
 				}
 			}
 			return changedCount;
@@ -962,10 +965,12 @@ export function createPerSplatEditController({
 			if (subtract) {
 				if (nextSelection.delete(index)) {
 					changedCount += 1;
+					touched?.add(index);
 				}
 			} else {
 				nextSelection.add(index);
 				changedCount += 1;
+				touched?.add(index);
 			}
 		}
 		return changedCount;
@@ -1047,6 +1052,7 @@ export function createPerSplatEditController({
 		boxVolume,
 		nextSelection,
 		subtract,
+		touched = null,
 	) {
 		const candidateIndices = getBoxIndexQueryCandidates(indexEntry, boxVolume);
 		if (!Array.isArray(candidateIndices)) {
@@ -1069,12 +1075,14 @@ export function createPerSplatEditController({
 			if (subtract) {
 				if (nextSelection.delete(index)) {
 					changedCount += 1;
+					touched?.add(index);
 				}
 			} else {
 				const sizeBefore = nextSelection.size;
 				nextSelection.add(index);
 				if (nextSelection.size !== sizeBefore) {
 					changedCount += 1;
+					touched?.add(index);
 				}
 			}
 		}
@@ -1093,7 +1101,7 @@ export function createPerSplatEditController({
 		store.splatEdit.selectionCount.value = totalCount;
 	}
 
-	function runSelectionHighlightSync() {
+	function runSelectionHighlightSync({ touchedByAssetId = null } = {}) {
 		const perfEnabled = isSplatPerfDebugEnabled();
 		const perfStart = perfEnabled ? performance.now() : 0;
 		selectionHighlightController?.sync?.({
@@ -1102,14 +1110,24 @@ export function createPerSplatEditController({
 			hiddenSelectedSplatsByAssetId:
 				transformPreviewController.getHiddenSelectedSplatsByAssetId?.() ??
 				new Map(),
+			touchedByAssetId,
 		});
 		if (perfEnabled) {
 			let trackedSelectionCount = 0;
 			for (const value of selectedSplatsByAssetId.values()) {
 				trackedSelectionCount += value?.size ?? 0;
 			}
+			let touchedCount = null;
+			if (touchedByAssetId instanceof Map) {
+				touchedCount = 0;
+				for (const set of touchedByAssetId.values()) {
+					touchedCount += set?.size ?? 0;
+				}
+			}
 			debugSplatPerf("highlight-sync", {
 				selectionCount: trackedSelectionCount,
+				touchedCount,
+				fastPath: touchedByAssetId instanceof Map,
 				elapsedMs: Number((performance.now() - perfStart).toFixed(2)),
 			});
 		}
@@ -1139,9 +1157,9 @@ export function createPerSplatEditController({
 		selectionHighlightController?.clear?.();
 	}
 
-	function syncSelectionHighlight() {
+	function syncSelectionHighlight(options = {}) {
 		cancelPendingSelectionHighlightSync();
-		runSelectionHighlightSync();
+		runSelectionHighlightSync(options);
 		return true;
 	}
 
@@ -2704,6 +2722,7 @@ export function createPerSplatEditController({
 		const perfStart = perfEnabled ? performance.now() : 0;
 		let perfSpatialAssets = 0;
 		let perfFallbackAssets = 0;
+		const touchedByAssetId = new Map();
 		let changedCount = 0;
 		for (const asset of getSplatEditScopeAssets()) {
 			const splatMesh = asset.disposeTarget;
@@ -2720,6 +2739,7 @@ export function createPerSplatEditController({
 			const nextSelection = new Set(
 				selectedSplatsByAssetId.get(assetIdKey) ?? [],
 			);
+			const touched = new Set();
 			const reusableIndex = findReusableBrushSpatialIndex(asset, worldMatrix);
 			const spatialChange = reusableIndex
 				? applyBoxSelectionToSpatialIndex(
@@ -2727,6 +2747,7 @@ export function createPerSplatEditController({
 						selectionVolume,
 						nextSelection,
 						subtract,
+						touched,
 					)
 				: null;
 			if (typeof spatialChange === "number") {
@@ -2747,6 +2768,7 @@ export function createPerSplatEditController({
 					if (subtract) {
 						if (nextSelection.delete(index)) {
 							changedCount += 1;
+							touched.add(index);
 						}
 						return;
 					}
@@ -2754,8 +2776,12 @@ export function createPerSplatEditController({
 					nextSelection.add(index);
 					if (nextSelection.size !== sizeBefore) {
 						changedCount += 1;
+						touched.add(index);
 					}
 				});
+			}
+			if (touched.size > 0) {
+				touchedByAssetId.set(assetIdKey, touched);
 			}
 			if (nextSelection.size > 0) {
 				selectedSplatsByAssetId.set(assetIdKey, nextSelection);
@@ -2768,7 +2794,9 @@ export function createPerSplatEditController({
 			mode: subtract ? "subtract" : "add",
 			hitCount: changedCount,
 		};
-		syncSelectionHighlight();
+		syncSelectionHighlight(
+			touchedByAssetId.size > 0 ? { touchedByAssetId } : {},
+		);
 		syncSceneHelper();
 		updateUi?.();
 		reportSelectionDebugIfEmpty(selectionVolume, changedCount, subtract);
@@ -2843,6 +2871,7 @@ export function createPerSplatEditController({
 		const perfStart = perfEnabled ? performance.now() : 0;
 		let perfSpatialAssets = 0;
 		let perfFallbackAssets = 0;
+		const touchedByAssetId = new Map();
 		const brushSizePx = clampBrushSizePx(store.splatEdit.brushSize.value);
 		const camera = brushHit.camera;
 		const viewRect = brushHit.viewRect ?? getPrimaryViewRect();
@@ -2894,6 +2923,7 @@ export function createPerSplatEditController({
 			const assetIdKey = getAssetIdKey(asset.id);
 			const nextSelection =
 				selectedSplatsByAssetId.get(assetIdKey) ?? new Set();
+			const touched = new Set();
 			const brushIndex = ensureBrushSpatialIndex(asset);
 			if (brushIndex) {
 				if (perfEnabled) {
@@ -2904,6 +2934,7 @@ export function createPerSplatEditController({
 					nextSelection,
 					brushOptions,
 					subtract,
+					touched,
 				);
 			} else if (packedArray && numSplats > 0) {
 				if (perfEnabled) {
@@ -2933,10 +2964,12 @@ export function createPerSplatEditController({
 					if (subtract) {
 						if (nextSelection.delete(i)) {
 							changedCount += 1;
+							touched.add(i);
 						}
 					} else {
 						nextSelection.add(i);
 						changedCount += 1;
+						touched.add(i);
 					}
 				}
 			} else {
@@ -2966,12 +2999,17 @@ export function createPerSplatEditController({
 					if (subtract) {
 						if (nextSelection.delete(index)) {
 							changedCount += 1;
+							touched.add(index);
 						}
 					} else {
 						nextSelection.add(index);
 						changedCount += 1;
+						touched.add(index);
 					}
 				});
+			}
+			if (touched.size > 0) {
+				touchedByAssetId.set(assetIdKey, touched);
 			}
 			if (nextSelection.size > 0) {
 				selectedSplatsByAssetId.set(assetIdKey, nextSelection);
@@ -2981,7 +3019,7 @@ export function createPerSplatEditController({
 		}
 		if (changedCount > 0) {
 			syncSelectionCount();
-			syncSelectionHighlight();
+			syncSelectionHighlight({ touchedByAssetId });
 		}
 		store.splatEdit.lastOperation.value = {
 			mode: subtract ? "subtract" : "add",

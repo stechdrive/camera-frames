@@ -3005,4 +3005,168 @@ async function createPackedSplatAsset({ id, label, centers }) {
 	}
 }
 
+// ---------- Brush hit emits highlight-sync fast path (Phase 3) ----------
+{
+	const harness = createHarness();
+	const centers: THREE.Vector3[] = [];
+	for (let gx = -5; gx <= 5; gx += 1) {
+		for (let gy = -5; gy <= 5; gy += 1) {
+			for (let gz = 0; gz < 3; gz += 1) {
+				centers.push(new THREE.Vector3(gx * 0.1, gy * 0.1, gz * 0.1));
+			}
+		}
+	}
+	const asset = await createPackedSplatAsset({
+		id: "splat-phase3-brush",
+		label: "Phase 3 Brush",
+		centers,
+	});
+	asset.disposeTarget.raycast = function raycast(raycaster, intersections) {
+		const directionZ = raycaster.ray.direction.z;
+		if (Math.abs(directionZ) <= 1e-6) return;
+		const distance = -raycaster.ray.origin.z / directionZ;
+		if (distance < 0) return;
+		intersections.push({
+			distance,
+			point: raycaster.ray.at(distance, new THREE.Vector3()).clone(),
+			object: this,
+		});
+	};
+	harness.store.sceneAssets.value = [asset];
+	harness.store.selectedSceneAssetIds.value = [asset.id];
+	harness.store.selectedSceneAssetId.value = asset.id;
+
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	assert.equal(harness.controller.setSplatEditTool("brush"), "brush");
+
+	(
+		globalThis as { __CAMERA_FRAMES_DEBUG_SPLAT_PERF__?: boolean }
+	).__CAMERA_FRAMES_DEBUG_SPLAT_PERF__ = true;
+	const perfLog: { phase: string; details: unknown }[] = [];
+	const originalDebug = console.debug;
+	console.debug = (...args: unknown[]) => {
+		const [head, details] = args;
+		if (typeof head === "string" && head.startsWith("[splat-perf] ")) {
+			perfLog.push({
+				phase: head.slice("[splat-perf] ".length),
+				details,
+			});
+		}
+	};
+	try {
+		const clientPoint = worldToClientPoint({
+			camera: harness.activeCamera,
+			viewportRect: { left: 0, top: 0, width: 1000, height: 1000 },
+			worldPoint: new THREE.Vector3(0, 0, 0),
+		});
+		const changedCount =
+			harness.controller.applySplatEditBrushAtClientPoint(clientPoint);
+		assert.ok(changedCount > 0, "brush should select at least one splat");
+		const highlightSync = perfLog
+			.filter((entry) => entry.phase === "highlight-sync")
+			.at(-1) as
+			| {
+					details: {
+						fastPath: boolean;
+						touchedCount: number | null;
+						selectionCount: number;
+					};
+				}
+			| undefined;
+		assert.ok(highlightSync, "highlight-sync perf log should fire after brush");
+		assert.equal(
+			highlightSync?.details.fastPath,
+			true,
+			"brush hit should use the touched fast path",
+		);
+		assert.equal(
+			highlightSync?.details.touchedCount,
+			changedCount,
+			"touched count should equal brush changed count",
+		);
+		assert.equal(highlightSync?.details.selectionCount, changedCount);
+	} finally {
+		console.debug = originalDebug;
+		delete (
+			globalThis as { __CAMERA_FRAMES_DEBUG_SPLAT_PERF__?: boolean }
+		).__CAMERA_FRAMES_DEBUG_SPLAT_PERF__;
+	}
+}
+
+// ---------- Wholesale selection changes stay on slow path (Phase 3) ----------
+{
+	const harness = createHarness();
+	harness.store.sceneAssets.value = [
+		createSplatAsset({
+			id: "splat-phase3-slow",
+			centers: [
+				new THREE.Vector3(0, 0, 0),
+				new THREE.Vector3(0.5, 0, 0),
+				new THREE.Vector3(-0.5, 0, 0),
+			],
+			centerBounds: new THREE.Box3(
+				new THREE.Vector3(-1, -0.5, -0.5),
+				new THREE.Vector3(1, 0.5, 0.5),
+			),
+		}),
+	];
+	harness.store.selectedSceneAssetIds.value = ["splat-phase3-slow"];
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+
+	(
+		globalThis as { __CAMERA_FRAMES_DEBUG_SPLAT_PERF__?: boolean }
+	).__CAMERA_FRAMES_DEBUG_SPLAT_PERF__ = true;
+	const perfLog: { phase: string; details: unknown }[] = [];
+	const originalDebug = console.debug;
+	console.debug = (...args: unknown[]) => {
+		const [head, details] = args;
+		if (typeof head === "string" && head.startsWith("[splat-perf] ")) {
+			perfLog.push({
+				phase: head.slice("[splat-perf] ".length),
+				details,
+			});
+		}
+	};
+	try {
+		harness.controller.selectAllSplats();
+		const selectAllSync = perfLog
+			.filter((entry) => entry.phase === "highlight-sync")
+			.at(-1) as
+			| { details: { fastPath: boolean; touchedCount: number | null } }
+			| undefined;
+		assert.ok(selectAllSync, "selectAll should still emit highlight-sync");
+		assert.equal(
+			selectAllSync?.details.fastPath,
+			false,
+			"selectAll must take the slow path (touched hint not provided)",
+		);
+		assert.equal(selectAllSync?.details.touchedCount, null);
+
+		perfLog.length = 0;
+		harness.controller.invertSplatSelection();
+		const invertSync = perfLog
+			.filter((entry) => entry.phase === "highlight-sync")
+			.at(-1) as
+			| { details: { fastPath: boolean; touchedCount: number | null } }
+			| undefined;
+		assert.ok(invertSync, "invert should emit highlight-sync");
+		assert.equal(
+			invertSync?.details.fastPath,
+			false,
+			"invert must take the slow path",
+		);
+	} finally {
+		console.debug = originalDebug;
+		delete (
+			globalThis as { __CAMERA_FRAMES_DEBUG_SPLAT_PERF__?: boolean }
+		).__CAMERA_FRAMES_DEBUG_SPLAT_PERF__;
+	}
+}
+
 console.log("✅ CAMERA_FRAMES per-splat edit controller tests passed!");
