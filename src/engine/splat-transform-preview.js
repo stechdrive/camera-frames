@@ -187,10 +187,8 @@ export function createSplatTransformPreviewController(_options = {}) {
 			if (!mesh) {
 				continue;
 			}
-			const selectedIndices = entry.splats
-				.map((splat) => splat.index)
-				.filter((index) => Number.isInteger(index) && index >= 0);
-			if (selectedIndices.length === 0) {
+			const selectedIndices = entry.selectedIndices;
+			if (!selectedIndices || selectedIndices.length === 0) {
 				continue;
 			}
 			const { texture: maskTexture, width: maskWidth } =

@@ -1394,6 +1394,7 @@ export function createPerSplatEditController({
 		const entries = [];
 		const selectionBounds = new THREE.Box3();
 		let hasSelection = false;
+		const tempBoundsCenter = new THREE.Vector3();
 		for (const asset of getSplatEditScopeAssets()) {
 			const assetIdKey = getAssetIdKey(asset.id);
 			const selectedSet = selectedSplatsByAssetId.get(assetIdKey);
@@ -1402,13 +1403,13 @@ export function createPerSplatEditController({
 			if (
 				!selectedSet ||
 				selectedSet.size === 0 ||
-				typeof splatMesh?.forEachSplat !== "function" ||
+				typeof packedSplats?.getSplat !== "function" ||
 				typeof packedSplats?.setSplat !== "function"
 			) {
 				continue;
 			}
 			asset.object?.updateMatrixWorld?.(true);
-			splatMesh.updateMatrixWorld?.(true);
+			splatMesh?.updateMatrixWorld?.(true);
 			const worldMatrix = (
 				splatMesh?.matrixWorld ??
 				asset.contentObject?.matrixWorld ??
@@ -1422,39 +1423,30 @@ export function createPerSplatEditController({
 			worldMatrix.decompose(worldPosition, worldQuaternion, worldScale);
 			const inverseWorldQuaternion = worldQuaternion.clone().invert();
 			const totalCount = getSplatAssetTotalCount(asset);
-			const splats = [];
-			splatMesh.forEachSplat(
-				(index, center, scales, quaternion, opacity, color) => {
-					if (!selectedSet.has(index)) {
-						return;
-					}
-					const worldCenter = center.clone().applyMatrix4(worldMatrix);
-					if (!Number.isFinite(worldCenter.x)) {
-						return;
-					}
-					selectionBounds.expandByPoint(worldCenter);
-					hasSelection = true;
-					splats.push({
-						index,
-						center: center.clone(),
-						worldCenter,
-						scales: scales.clone(),
-						quaternion: quaternion.clone(),
-						opacity: Number(opacity ?? 1),
-						color:
-							typeof color?.clone === "function"
-								? color.clone()
-								: new THREE.Color(
-										Number(color?.r ?? 1),
-										Number(color?.g ?? 1),
-										Number(color?.b ?? 1),
-									),
-					});
-				},
-			);
-			if (splats.length === 0) {
+			const validIndices = [];
+			for (const index of selectedSet) {
+				if (Number.isInteger(index) && index >= 0 && index < totalCount) {
+					validIndices.push(index);
+				}
+			}
+			if (validIndices.length === 0) {
 				continue;
 			}
+			const selectedIndices = Uint32Array.from(validIndices);
+			let entryHasBounds = false;
+			for (let i = 0; i < selectedIndices.length; i += 1) {
+				const splat = packedSplats.getSplat(selectedIndices[i]);
+				tempBoundsCenter.copy(splat.center).applyMatrix4(worldMatrix);
+				if (!Number.isFinite(tempBoundsCenter.x)) {
+					continue;
+				}
+				selectionBounds.expandByPoint(tempBoundsCenter);
+				entryHasBounds = true;
+			}
+			if (!entryHasBounds) {
+				continue;
+			}
+			hasSelection = true;
 			entries.push({
 				asset,
 				assetIdKey,
@@ -1465,7 +1457,7 @@ export function createPerSplatEditController({
 				worldQuaternion,
 				inverseWorldQuaternion,
 				totalCount,
-				splats,
+				selectedIndices,
 			});
 		}
 		return {
@@ -1635,6 +1627,7 @@ export function createPerSplatEditController({
 			worldRotation instanceof THREE.Quaternion ? worldRotation : null;
 		const tempCenter = tempVector;
 		const tempScales = tempVector2;
+		const tempWorldCenter = tempWorldPoint;
 		const tempLocalDeltaQuat = new THREE.Quaternion();
 		const tempSplatQuat = new THREE.Quaternion();
 		const tempCombinedMatrix = tempTransformPivotMatrix;
@@ -1652,8 +1645,12 @@ export function createPerSplatEditController({
 					.normalize();
 				hasRotation = true;
 			}
-			for (const splat of entry.splats) {
-				tempCenter.copy(splat.worldCenter).applyMatrix4(tempCombinedMatrix);
+			const selectedIndices = entry.selectedIndices;
+			for (let i = 0; i < selectedIndices.length; i += 1) {
+				const index = selectedIndices[i];
+				const splat = entry.packedSplats.getSplat(index);
+				tempWorldCenter.copy(splat.center).applyMatrix4(entry.worldMatrix);
+				tempCenter.copy(tempWorldCenter).applyMatrix4(tempCombinedMatrix);
 				if (scaleFactor !== 1) {
 					tempScales.copy(splat.scales).multiplyScalar(scaleFactor);
 				}
@@ -1664,7 +1661,7 @@ export function createPerSplatEditController({
 						.normalize();
 				}
 				entry.packedSplats.setSplat(
-					splat.index,
+					index,
 					tempCenter,
 					scaleFactor === 1 ? splat.scales : tempScales,
 					hasRotation ? tempSplatQuat : splat.quaternion,
