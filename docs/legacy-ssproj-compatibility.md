@@ -120,6 +120,11 @@
 - name がなければ `id` や `FRAME A` 形式で補えること
 - old `selected` を current `activeFrameId` に移せること
 - old package に trajectory 情報がなければ current `frameMask` は default (`shape=bounds`, `trajectoryMode=line`, `trajectoryExportSource=none`, `trajectory.nodesByFrameId={}`) で補うこと
+- old package に `frameMask.trajectory.handlesByFrameId` (frame ごとに absolute handle 座標 `in` / `out` を持つ旧 shape) があれば、current の frame center 基準の相対 vector 形式 `frameMask.trajectory.nodesByFrameId[frameId] = { mode: "free", in?, out? }` に変換すること
+  - 絶対座標 `handle - frameCenter` で相対 vector 化する
+  - `nodesByFrameId` と `handlesByFrameId` が両方ある場合は現行 `nodesByFrameId` を優先し、legacy は参照しない
+  - frame に紐付かない orphan `handlesByFrameId[frameId]` は黙って drop する
+  - migration 後、該当 node の mode は `free` 固定とする (旧 state は auto/corner/mirrored を持たない前提)
 
 ### 4.3 Camera / Pose の変換
 
@@ -171,6 +176,7 @@
 | `frames[].scaleK` または `scalePct` | `frame.scale` | `scaleK` 優先 |
 | `frames[].rotationDeg` | `frame.rotation` | 度数のまま current document へ移す |
 | `frames[].selected` | `activeFrameId` | first frame fallback あり |
+| `frameMask.trajectory.handlesByFrameId[frameId].in/out` (absolute handle points) | `frameMask.trajectory.nodesByFrameId[frameId] = { mode: "free", in/out: vector }` | frame center 相対 vector へ変換。`nodesByFrameId` が併存するなら新 shape を優先し legacy 側は捨てる |
 | `mainCamera.transform.position + yaw/pitch/roll` | live shot camera transform | current quaternion に変換する |
 | `mainCameraPose` の orbit / fpv | fallback shot camera transform | preset が 1 件も作れない時の救済 path |
 
@@ -251,6 +257,7 @@ old package から展開した asset は、archive path だけ読めても足り
 - old yaw / pitch / roll から current quaternion への変換
 - `cameraPresets` がない時の `mainCameraPose` fallback
 - GLB 内 local transform による wrapper-child の二重変形
+- legacy `frameMask.trajectory.handlesByFrameId` (絶対座標) → current `frameMask.trajectory.nodesByFrameId` (frame center 相対 vector の `free` node) への migration
 
 ### 7.2 current repo が補正しないもの
 
@@ -319,6 +326,7 @@ old package から展開した asset は、archive path だけ読めても足り
 | shot camera 生成、renderBox 変換、frame 変換を触る | `camera-frames-legacy-ssproj.test.ts` |
 | legacy import 後の active shot / viewport 同期を触る | `camera-frames-project-state-bridge.test.ts` |
 | asset state への落とし込みや save/open round-trip を触る | `camera-frames-scene-asset-project-state.test.ts`, `camera-frames-project-file.test.ts` |
+| legacy `handlesByFrameId` → `nodesByFrameId` migration や trajectory node sanitize を触る | `camera-frames-frame-trajectory.test.ts` |
 | GLB wrapper-child 補正を触る | 既存 test だけでは薄い。専用 fixture test を追加する |
 
 ## 10. この文書をどこから参照するか
