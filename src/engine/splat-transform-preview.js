@@ -41,9 +41,9 @@ function createSelectionTransformModifier({
 		maskTexture,
 		`splatTransformMask_${key}`,
 	);
-	const widthLiteral = dyno.int(maskWidth);
-	const zeroInt = dyno.int(0);
-	const halfFloat = dyno.float(0.5);
+	const widthLiteral = dyno.dynoConst("int", maskWidth);
+	const zeroInt = dyno.dynoConst("int", 0);
+	const halfFloat = dyno.dynoConst("float", 0.5);
 	return dyno.dynoBlock(
 		{ gsplat: dyno.Gsplat },
 		{ gsplat: dyno.Gsplat },
@@ -145,6 +145,11 @@ export function createSplatTransformPreviewController(_options = {}) {
 		activePreview.scaleUniform.value = uniformScale;
 		activePreview.rotateUniform.value.copy(rotation);
 		activePreview.translateUniform.value.copy(tempTranslate);
+		for (const entry of activePreview.entries) {
+			if (entry.mesh) {
+				entry.mesh.needsUpdate = true;
+			}
+		}
 		return true;
 	}
 
