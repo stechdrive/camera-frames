@@ -615,27 +615,30 @@ export function createPerSplatEditController({
 		) {
 			return false;
 		}
+		const epsilon = 1e-6;
 		for (let index = 0; index < 16; index += 1) {
-			if (cachedElements[index] !== nextElements[index]) {
+			const cached = cachedElements[index];
+			const next = nextElements[index];
+			if (!Number.isFinite(cached) || !Number.isFinite(next)) {
+				return false;
+			}
+			const scale = Math.max(Math.abs(cached), Math.abs(next), 1);
+			if (Math.abs(cached - next) > epsilon * scale) {
 				return false;
 			}
 		}
 		return true;
 	}
 
-	function estimateBrushSpatialIndexCellSize(
-		worldBounds,
-		splatCount,
-		brushSize,
-	) {
+	function estimateBrushSpatialIndexCellSize(worldBounds, splatCount) {
 		if (!worldBounds || worldBounds.isEmpty()) {
-			return clampBrushSizePx(brushSize);
+			return Math.max(MIN_BRUSH_GRID_CELL_SIZE, 1);
 		}
 		const boundsSize = worldBounds.getSize(tempBrushBoundsSize);
 		const extents = [boundsSize.x, boundsSize.y, boundsSize.z].filter(
 			(axisLength) => Number.isFinite(axisLength) && axisLength > 1e-4,
 		);
-		let spacingEstimate = clampBrushSizePx(brushSize);
+		let spacingEstimate = Math.max(MIN_BRUSH_GRID_CELL_SIZE, 1);
 		if (extents.length > 0 && splatCount > 1) {
 			const measure = extents.reduce(
 				(product, axisLength) => product * axisLength,
@@ -652,10 +655,7 @@ export function createPerSplatEditController({
 		}
 		return Math.min(
 			MAX_BRUSH_GRID_CELL_SIZE,
-			Math.max(
-				MIN_BRUSH_GRID_CELL_SIZE,
-				Math.max(clampBrushSizePx(brushSize) * 0.75, spacingEstimate * 2),
-			),
+			Math.max(MIN_BRUSH_GRID_CELL_SIZE, spacingEstimate * 2),
 		);
 	}
 
@@ -663,7 +663,7 @@ export function createPerSplatEditController({
 		return `${Math.floor(x * inverseCellSize)},${Math.floor(y * inverseCellSize)},${Math.floor(z * inverseCellSize)}`;
 	}
 
-	function ensureBrushSpatialIndex(asset, brushSize) {
+	function ensureBrushSpatialIndex(asset) {
 		const splatMesh = asset?.disposeTarget;
 		if (!asset?.id || !splatMesh) {
 			return null;
@@ -682,7 +682,6 @@ export function createPerSplatEditController({
 			return null;
 		}
 		const assetIdKey = getAssetIdKey(asset.id);
-		const brushSizeHint = clampBrushSizePx(brushSize);
 		const existingEntry = brushSpatialIndexByAssetId.get(assetIdKey);
 		if (
 			existingEntry?.mesh === splatMesh &&
@@ -691,9 +690,7 @@ export function createPerSplatEditController({
 			matrixElementsMatch(
 				existingEntry.worldMatrixElements,
 				worldMatrix.elements,
-			) &&
-			brushSizeHint >= existingEntry.brushSizeHint * 0.5 &&
-			brushSizeHint <= existingEntry.brushSizeHint * 2
+			)
 		) {
 			return existingEntry;
 		}
@@ -740,11 +737,7 @@ export function createPerSplatEditController({
 			return null;
 		}
 
-		const cellSize = estimateBrushSpatialIndexCellSize(
-			worldBounds,
-			totalCount,
-			brushSizeHint,
-		);
+		const cellSize = estimateBrushSpatialIndexCellSize(worldBounds, totalCount);
 		const inverseCellSize = 1 / cellSize;
 		const cells = new Map();
 		for (let index = 0; index < totalCount; index += 1) {
@@ -767,7 +760,6 @@ export function createPerSplatEditController({
 			mesh: splatMesh,
 			packedArray,
 			totalCount,
-			brushSizeHint,
 			cellSize,
 			inverseCellSize,
 			worldBounds,
@@ -782,7 +774,6 @@ export function createPerSplatEditController({
 				totalCount,
 				cellCount: cells.size,
 				cellSize: Number(cellSize.toFixed(4)),
-				brushSizeHint: Number(brushSizeHint.toFixed(2)),
 				elapsedMs: Number((performance.now() - perfStart).toFixed(2)),
 			});
 		}
@@ -2903,7 +2894,7 @@ export function createPerSplatEditController({
 			const assetIdKey = getAssetIdKey(asset.id);
 			const nextSelection =
 				selectedSplatsByAssetId.get(assetIdKey) ?? new Set();
-			const brushIndex = ensureBrushSpatialIndex(asset, brushRadius * 2);
+			const brushIndex = ensureBrushSpatialIndex(asset);
 			if (brushIndex) {
 				if (perfEnabled) {
 					perfSpatialAssets += 1;

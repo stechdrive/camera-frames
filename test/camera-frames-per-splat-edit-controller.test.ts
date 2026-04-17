@@ -2765,6 +2765,180 @@ async function createPackedSplatAsset({ id, label, centers }) {
 	}
 }
 
+// ---------- Brush grid reuses across large brush-size swings (Phase 2) ----------
+{
+	const harness = createHarness();
+	const centers: THREE.Vector3[] = [];
+	for (let gx = -5; gx <= 5; gx += 1) {
+		for (let gy = -5; gy <= 5; gy += 1) {
+			for (let gz = 0; gz < 3; gz += 1) {
+				centers.push(new THREE.Vector3(gx * 0.1, gy * 0.1, gz * 0.1));
+			}
+		}
+	}
+	const asset = await createPackedSplatAsset({
+		id: "splat-brush-size-churn",
+		label: "Size Churn",
+		centers,
+	});
+	asset.disposeTarget.raycast = function raycast(raycaster, intersections) {
+		const directionZ = raycaster.ray.direction.z;
+		if (Math.abs(directionZ) <= 1e-6) return;
+		const distance = -raycaster.ray.origin.z / directionZ;
+		if (distance < 0) return;
+		intersections.push({
+			distance,
+			point: raycaster.ray.at(distance, new THREE.Vector3()).clone(),
+			object: this,
+		});
+	};
+	harness.store.sceneAssets.value = [asset];
+	harness.store.selectedSceneAssetIds.value = [asset.id];
+	harness.store.selectedSceneAssetId.value = asset.id;
+
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	assert.equal(harness.controller.setSplatEditTool("brush"), "brush");
+
+	(
+		globalThis as { __CAMERA_FRAMES_DEBUG_SPLAT_PERF__?: boolean }
+	).__CAMERA_FRAMES_DEBUG_SPLAT_PERF__ = true;
+	const perfLog: { phase: string; details: unknown }[] = [];
+	const originalDebug = console.debug;
+	console.debug = (...args: unknown[]) => {
+		const [head, details] = args;
+		if (typeof head === "string" && head.startsWith("[splat-perf] ")) {
+			perfLog.push({
+				phase: head.slice("[splat-perf] ".length),
+				details,
+			});
+		}
+	};
+	try {
+		const clientPoint = worldToClientPoint({
+			camera: harness.activeCamera,
+			viewportRect: { left: 0, top: 0, width: 1000, height: 1000 },
+			worldPoint: new THREE.Vector3(0, 0, 0),
+		});
+		harness.controller.setSplatEditBrushSize(40);
+		harness.controller.applySplatEditBrushAtClientPoint(clientPoint);
+		assert.equal(
+			perfLog.filter((entry) => entry.phase === "grid-init").length,
+			1,
+			"first brush hit should build grid once",
+		);
+
+		// Shrink brush to 1/5 — old code (×0.5 window) would re-init; Phase 2 must reuse.
+		perfLog.length = 0;
+		harness.controller.setSplatEditBrushSize(8);
+		harness.controller.applySplatEditBrushAtClientPoint(clientPoint);
+		assert.equal(
+			perfLog.filter((entry) => entry.phase === "grid-init").length,
+			0,
+			"shrinking brush by 5x should reuse grid (Phase 2 decouples cell size from brushSize)",
+		);
+
+		// Grow brush to 10x of original — old code (×2 window) would re-init; Phase 2 must reuse.
+		perfLog.length = 0;
+		harness.controller.setSplatEditBrushSize(400);
+		harness.controller.applySplatEditBrushAtClientPoint(clientPoint);
+		assert.equal(
+			perfLog.filter((entry) => entry.phase === "grid-init").length,
+			0,
+			"growing brush by 10x should reuse grid",
+		);
+	} finally {
+		console.debug = originalDebug;
+		delete (
+			globalThis as { __CAMERA_FRAMES_DEBUG_SPLAT_PERF__?: boolean }
+		).__CAMERA_FRAMES_DEBUG_SPLAT_PERF__;
+	}
+}
+
+// ---------- Brush grid tolerates tiny matrix drift (Phase 2) ----------
+{
+	const harness = createHarness();
+	const centers: THREE.Vector3[] = [];
+	for (let gx = -5; gx <= 5; gx += 1) {
+		for (let gy = -5; gy <= 5; gy += 1) {
+			for (let gz = 0; gz < 3; gz += 1) {
+				centers.push(new THREE.Vector3(gx * 0.1, gy * 0.1, gz * 0.1));
+			}
+		}
+	}
+	const asset = await createPackedSplatAsset({
+		id: "splat-matrix-epsilon",
+		label: "Matrix Epsilon",
+		centers,
+	});
+	asset.disposeTarget.raycast = function raycast(raycaster, intersections) {
+		const directionZ = raycaster.ray.direction.z;
+		if (Math.abs(directionZ) <= 1e-6) return;
+		const distance = -raycaster.ray.origin.z / directionZ;
+		if (distance < 0) return;
+		intersections.push({
+			distance,
+			point: raycaster.ray.at(distance, new THREE.Vector3()).clone(),
+			object: this,
+		});
+	};
+	harness.store.sceneAssets.value = [asset];
+	harness.store.selectedSceneAssetIds.value = [asset.id];
+	harness.store.selectedSceneAssetId.value = asset.id;
+
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	assert.equal(harness.controller.setSplatEditTool("brush"), "brush");
+
+	(
+		globalThis as { __CAMERA_FRAMES_DEBUG_SPLAT_PERF__?: boolean }
+	).__CAMERA_FRAMES_DEBUG_SPLAT_PERF__ = true;
+	const perfLog: { phase: string }[] = [];
+	const originalDebug = console.debug;
+	console.debug = (...args: unknown[]) => {
+		const [head] = args;
+		if (typeof head === "string" && head.startsWith("[splat-perf] ")) {
+			perfLog.push({ phase: head.slice("[splat-perf] ".length) });
+		}
+	};
+	try {
+		const clientPoint = worldToClientPoint({
+			camera: harness.activeCamera,
+			viewportRect: { left: 0, top: 0, width: 1000, height: 1000 },
+			worldPoint: new THREE.Vector3(0, 0, 0),
+		});
+		harness.controller.applySplatEditBrushAtClientPoint(clientPoint);
+		assert.equal(
+			perfLog.filter((e) => e.phase === "grid-init").length,
+			1,
+			"first brush hit should build the grid",
+		);
+
+		// Introduce a sub-epsilon drift in the mesh world matrix to mimic
+		// floating-point recomputation noise. Phase 2 matrix comparison is
+		// scaled-epsilon tolerant and must keep the cached grid.
+		asset.disposeTarget.updateMatrixWorld(true);
+		asset.disposeTarget.matrixWorld.elements[12] += 1e-9;
+
+		perfLog.length = 0;
+		harness.controller.applySplatEditBrushAtClientPoint(clientPoint);
+		assert.equal(
+			perfLog.filter((e) => e.phase === "grid-init").length,
+			0,
+			"sub-epsilon matrix drift should not invalidate the grid",
+		);
+	} finally {
+		console.debug = originalDebug;
+		delete (
+			globalThis as { __CAMERA_FRAMES_DEBUG_SPLAT_PERF__?: boolean }
+		).__CAMERA_FRAMES_DEBUG_SPLAT_PERF__;
+	}
+}
+
 // ---------- Box selection falls back when no grid exists (Phase 1) ----------
 {
 	const harness = createHarness();
