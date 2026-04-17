@@ -1863,6 +1863,95 @@ async function createPackedSplatAsset({ id, label, centers }) {
 }
 
 {
+	// Revision memoization: two captures without mutation share revision id
+	const harness = createHarness();
+	harness.store.sceneAssets.value = [
+		createSplatAsset({
+			id: "splat-rev",
+			centers: [new THREE.Vector3(0, 0, 0), new THREE.Vector3(0.5, 0, 0)],
+			centerBounds: new THREE.Box3(
+				new THREE.Vector3(-0.5, -0.5, -0.5),
+				new THREE.Vector3(0.5, 0.5, 0.5),
+			),
+		}),
+	];
+	harness.store.selectedSceneAssetIds.value = ["splat-rev"];
+	harness.store.viewportToolMode.value = "splat-edit";
+	harness.store.splatEdit.scopeAssetIds.value = ["splat-rev"];
+	harness.store.splatEdit.tool.value = "box";
+	harness.controller.setSplatEditBoxSizeAxis("x", 2);
+	harness.controller.setSplatEditBoxSizeAxis("y", 2);
+	harness.controller.setSplatEditBoxSizeAxis("z", 2);
+	harness.controller.applySplatEditBoxSelection({ subtract: false });
+
+	const firstCapture = harness.controller.captureEditState();
+	const secondCapture = harness.controller.captureEditState();
+	assert.equal(
+		firstCapture.selectionRevision,
+		secondCapture.selectionRevision,
+		"captures without mutation must share revision id",
+	);
+	assert.equal(typeof firstCapture.selectionRevision, "number");
+
+	harness.controller.clearSplatSelection();
+	const thirdCapture = harness.controller.captureEditState();
+	assert.notEqual(
+		firstCapture.selectionRevision,
+		thirdCapture.selectionRevision,
+		"mutation must bump revision id",
+	);
+
+	// Restore rolls current state back to the captured revision
+	assert.equal(harness.controller.restoreEditState(firstCapture), true);
+	assert.equal(harness.store.splatEdit.selectionCount.value, 2);
+	const fourthCapture = harness.controller.captureEditState();
+	assert.equal(
+		fourthCapture.selectionRevision,
+		firstCapture.selectionRevision,
+		"restore to existing revision should reuse its id",
+	);
+}
+
+{
+	// Retain/release ref count: release past the last pin evicts the revision
+	const harness = createHarness();
+	harness.store.sceneAssets.value = [
+		createSplatAsset({
+			id: "splat-ref",
+			centers: [new THREE.Vector3(0, 0, 0), new THREE.Vector3(0.5, 0, 0)],
+			centerBounds: new THREE.Box3(
+				new THREE.Vector3(-0.5, -0.5, -0.5),
+				new THREE.Vector3(0.5, 0.5, 0.5),
+			),
+		}),
+	];
+	harness.store.selectedSceneAssetIds.value = ["splat-ref"];
+	harness.store.viewportToolMode.value = "splat-edit";
+	harness.store.splatEdit.scopeAssetIds.value = ["splat-ref"];
+	harness.store.splatEdit.tool.value = "box";
+	harness.controller.setSplatEditBoxSizeAxis("x", 2);
+	harness.controller.setSplatEditBoxSizeAxis("y", 2);
+	harness.controller.setSplatEditBoxSizeAxis("z", 2);
+	harness.controller.applySplatEditBoxSelection({ subtract: false });
+
+	const captureA = harness.controller.captureEditState();
+	harness.controller.retainSelectionRevision(captureA.selectionRevision);
+	// Mutate to move "current" off of captureA's revision
+	harness.controller.clearSplatSelection();
+	const captureB = harness.controller.captureEditState();
+	assert.notEqual(captureA.selectionRevision, captureB.selectionRevision);
+
+	// Release captureA; restore should now fail to find the revision
+	harness.controller.releaseSelectionRevision(captureA.selectionRevision);
+	assert.equal(harness.controller.restoreEditState(captureA), true);
+	assert.equal(
+		harness.store.splatEdit.selectionCount.value,
+		0,
+		"released revision falls back to empty (no legacy indices in snapshot)",
+	);
+}
+
+{
 	const harness = createHarness();
 	const asset = await createPackedSplatAsset({
 		id: "splat-transform-move",

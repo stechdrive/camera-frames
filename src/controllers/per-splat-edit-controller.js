@@ -177,7 +177,52 @@ export function createPerSplatEditController({
 	const defaultBrushDepthMode =
 		store.splatEdit.brushDepthMode.value === "through" ? "through" : "depth";
 	const defaultBrushDepth = clampBrushDepth(store.splatEdit.brushDepth.value);
-	const selectedSplatsByAssetId = new Map();
+	const selectedSplatsInner = new Map();
+	let selectionDirty = true;
+	let currentSelectionRevisionId = 0;
+	let nextSelectionRevisionId = 1;
+	const selectionByRevision = new Map();
+	function markSelectionDirty() {
+		selectionDirty = true;
+	}
+	const selectedSplatsByAssetId = {
+		get size() {
+			return selectedSplatsInner.size;
+		},
+		get(key) {
+			return selectedSplatsInner.get(key);
+		},
+		has(key) {
+			return selectedSplatsInner.has(key);
+		},
+		set(key, value) {
+			markSelectionDirty();
+			return selectedSplatsInner.set(key, value);
+		},
+		delete(key) {
+			markSelectionDirty();
+			return selectedSplatsInner.delete(key);
+		},
+		clear() {
+			markSelectionDirty();
+			return selectedSplatsInner.clear();
+		},
+		entries() {
+			return selectedSplatsInner.entries();
+		},
+		keys() {
+			return selectedSplatsInner.keys();
+		},
+		values() {
+			return selectedSplatsInner.values();
+		},
+		forEach(callback, thisArg) {
+			return selectedSplatsInner.forEach(callback, thisArg);
+		},
+		[Symbol.iterator]() {
+			return selectedSplatsInner[Symbol.iterator]();
+		},
+	};
 	const brushSpatialIndexByAssetId = new Map();
 	const sceneHelper = createSplatEditSceneHelper();
 	const transformPreviewController = createSplatTransformPreviewController({
@@ -971,6 +1016,60 @@ export function createPerSplatEditController({
 		return true;
 	}
 
+	function buildFrozenSelection() {
+		return Object.freeze(
+			Array.from(selectedSplatsInner.entries()).map(([assetId, selectedSplats]) =>
+				Object.freeze({
+					assetId,
+					indices: Uint32Array.from(
+						[...selectedSplats]
+							.filter((index) => Number.isInteger(index) && index >= 0)
+							.sort((left, right) => left - right),
+					),
+				}),
+			),
+		);
+	}
+
+	function ensureSelectionRevisionCached() {
+		if (selectionDirty) {
+			currentSelectionRevisionId = nextSelectionRevisionId;
+			nextSelectionRevisionId += 1;
+			selectionDirty = false;
+		}
+		if (!selectionByRevision.has(currentSelectionRevisionId)) {
+			selectionByRevision.set(currentSelectionRevisionId, {
+				frozen: buildFrozenSelection(),
+				refCount: 0,
+			});
+		}
+		return currentSelectionRevisionId;
+	}
+
+	function retainSelectionRevision(revisionId) {
+		if (!Number.isInteger(revisionId)) {
+			return;
+		}
+		const entry = selectionByRevision.get(revisionId);
+		if (entry) {
+			entry.refCount += 1;
+		}
+	}
+
+	function releaseSelectionRevision(revisionId) {
+		if (!Number.isInteger(revisionId)) {
+			return;
+		}
+		const entry = selectionByRevision.get(revisionId);
+		if (!entry) {
+			return;
+		}
+		entry.refCount -= 1;
+		if (entry.refCount <= 0 && revisionId !== currentSelectionRevisionId) {
+			selectionByRevision.delete(revisionId);
+		}
+	}
+
 	function captureEditState() {
 		return {
 			tool:
@@ -1015,14 +1114,7 @@ export function createPerSplatEditController({
 					? Number(store.splatEdit.lastOperation.value.hitCount)
 					: 0,
 			},
-			selectedSplatsByAssetId: Array.from(
-				selectedSplatsByAssetId.entries(),
-			).map(([assetId, selectedSplats]) => ({
-				assetId,
-				indices: [...selectedSplats]
-					.filter((index) => Number.isInteger(index) && index >= 0)
-					.sort((left, right) => left - right),
-			})),
+			selectionRevision: ensureSelectionRevisionCached(),
 		};
 	}
 
@@ -1100,27 +1192,68 @@ export function createPerSplatEditController({
 		const validAssetIds = new Set(
 			getSceneSplatAssets().map((asset) => getAssetIdKey(asset.id)),
 		);
-		for (const entry of snapshot.selectedSplatsByAssetId ?? []) {
-			const assetIdKey = getAssetIdKey(entry?.assetId);
-			if (!validAssetIds.has(assetIdKey)) {
-				continue;
+		let restoredFromRevision = false;
+		const revisionId = snapshot?.selectionRevision;
+		if (
+			Number.isInteger(revisionId) &&
+			selectionByRevision.has(revisionId)
+		) {
+			const { frozen } = selectionByRevision.get(revisionId);
+			for (const item of frozen) {
+				const assetIdKey = getAssetIdKey(item.assetId);
+				if (!validAssetIds.has(assetIdKey)) {
+					continue;
+				}
+				const asset = getSceneSplatAssets().find(
+					(sceneAsset) => getAssetIdKey(sceneAsset.id) === assetIdKey,
+				);
+				if (!asset) {
+					continue;
+				}
+				const totalCount = getSplatAssetTotalCount(asset);
+				const selectedSet = new Set();
+				for (let i = 0; i < item.indices.length; i += 1) {
+					const index = item.indices[i];
+					if (
+						Number.isInteger(index) &&
+						index >= 0 &&
+						index < totalCount
+					) {
+						selectedSet.add(index);
+					}
+				}
+				if (selectedSet.size > 0) {
+					selectedSplatsInner.set(assetIdKey, selectedSet);
+				}
 			}
-			const asset = getSceneSplatAssets().find(
-				(sceneAsset) => getAssetIdKey(sceneAsset.id) === assetIdKey,
-			);
-			if (!asset) {
-				continue;
+			currentSelectionRevisionId = revisionId;
+			selectionDirty = false;
+			restoredFromRevision = true;
+		}
+		if (!restoredFromRevision) {
+			for (const entry of snapshot.selectedSplatsByAssetId ?? []) {
+				const assetIdKey = getAssetIdKey(entry?.assetId);
+				if (!validAssetIds.has(assetIdKey)) {
+					continue;
+				}
+				const asset = getSceneSplatAssets().find(
+					(sceneAsset) => getAssetIdKey(sceneAsset.id) === assetIdKey,
+				);
+				if (!asset) {
+					continue;
+				}
+				const totalCount = getSplatAssetTotalCount(asset);
+				const selectedSet = new Set(
+					(entry?.indices ?? []).filter(
+						(index) =>
+							Number.isInteger(index) && index >= 0 && index < totalCount,
+					),
+				);
+				if (selectedSet.size > 0) {
+					selectedSplatsInner.set(assetIdKey, selectedSet);
+				}
 			}
-			const totalCount = getSplatAssetTotalCount(asset);
-			const selectedSet = new Set(
-				(entry?.indices ?? []).filter(
-					(index) =>
-						Number.isInteger(index) && index >= 0 && index < totalCount,
-				),
-			);
-			if (selectedSet.size > 0) {
-				selectedSplatsByAssetId.set(assetIdKey, selectedSet);
-			}
+			markSelectionDirty();
 		}
 
 		syncSelectionCount();
@@ -3881,6 +4014,7 @@ export function createPerSplatEditController({
 		sceneHelper.clear();
 		guides?.remove?.(sceneHelper.group);
 		sceneHelper.dispose();
+		selectionByRevision.clear();
 	}
 
 	return {
@@ -3910,6 +4044,8 @@ export function createPerSplatEditController({
 		duplicateSelectedSplats,
 		captureEditState,
 		restoreEditState,
+		retainSelectionRevision,
+		releaseSelectionRevision,
 		clearSplatSelection,
 		selectAllSplats,
 		invertSplatSelection,

@@ -190,6 +190,8 @@ export function createHistoryController({
 	captureWorkspaceState,
 	restoreWorkspaceState,
 	updateUi,
+	onRetainSnapshot = null,
+	onReleaseSnapshot = null,
 }) {
 	const undoStack = [];
 	const redoStack = [];
@@ -201,8 +203,30 @@ export function createHistoryController({
 		store.history.canRedo.value = redoStack.length > 0;
 	}
 
+	function retainSnapshot(snapshot) {
+		if (typeof onRetainSnapshot === "function" && snapshot != null) {
+			onRetainSnapshot(snapshot);
+		}
+	}
+
+	function releaseSnapshot(snapshot) {
+		if (typeof onReleaseSnapshot === "function" && snapshot != null) {
+			onReleaseSnapshot(snapshot);
+		}
+	}
+
+	function releaseEntry(entry) {
+		if (!entry) {
+			return;
+		}
+		releaseSnapshot(entry.undoSnapshot);
+		releaseSnapshot(entry.redoSnapshot);
+	}
+
 	function captureSnapshot() {
-		return cloneSerializable(captureWorkspaceState());
+		const snapshot = cloneSerializable(captureWorkspaceState());
+		retainSnapshot(snapshot);
+		return snapshot;
 	}
 
 	function getSnapshotKey(snapshot) {
@@ -212,8 +236,17 @@ export function createHistoryController({
 	}
 
 	function clearHistory() {
+		for (const entry of undoStack) {
+			releaseEntry(entry);
+		}
 		undoStack.length = 0;
+		for (const entry of redoStack) {
+			releaseEntry(entry);
+		}
 		redoStack.length = 0;
+		if (activeTransaction) {
+			releaseSnapshot(activeTransaction.beforeSnapshot);
+		}
 		activeTransaction = null;
 		syncAvailability();
 	}
@@ -233,6 +266,8 @@ export function createHistoryController({
 						label,
 					});
 				}
+				releaseSnapshot(beforeSnapshot);
+				releaseSnapshot(afterSnapshot);
 				return false;
 			}
 		}
@@ -249,7 +284,11 @@ export function createHistoryController({
 			});
 		}
 		if (undoStack.length > 100) {
-			undoStack.shift();
+			const shifted = undoStack.shift();
+			releaseEntry(shifted);
+		}
+		for (const entry of redoStack) {
+			releaseEntry(entry);
 		}
 		redoStack.length = 0;
 		syncAvailability();
@@ -317,6 +356,9 @@ export function createHistoryController({
 	}
 
 	function cancelHistoryTransaction() {
+		if (activeTransaction) {
+			releaseSnapshot(activeTransaction.beforeSnapshot);
+		}
 		activeTransaction = null;
 	}
 

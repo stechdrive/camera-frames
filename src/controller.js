@@ -460,6 +460,14 @@ export function createCameraFramesController(elements, store) {
 			captureWorkspaceState,
 			restoreWorkspaceState,
 			updateUi: () => updateUi(),
+			onRetainSnapshot: (snapshot) => {
+				const revision = snapshot?.splatEdit?.selectionRevision;
+				perSplatEditController?.retainSelectionRevision?.(revision);
+			},
+			onReleaseSnapshot: (snapshot) => {
+				const revision = snapshot?.splatEdit?.selectionRevision;
+				perSplatEditController?.releaseSelectionRevision?.(revision);
+			},
 		}),
 	);
 

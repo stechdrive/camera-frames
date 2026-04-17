@@ -3,11 +3,15 @@ export function createHistoryControllerBindings({
 	captureWorkspaceState,
 	restoreWorkspaceState,
 	updateUi,
+	onRetainSnapshot = null,
+	onReleaseSnapshot = null,
 } = {}) {
 	return {
 		store,
 		captureWorkspaceState,
 		restoreWorkspaceState,
 		updateUi,
+		onRetainSnapshot,
+		onReleaseSnapshot,
 	};
 }
