@@ -16,6 +16,8 @@ function createHarness() {
 		name: "Camera 1",
 	});
 	let statusMessage = "";
+	const historyLabels: string[] = [];
+	const transactionEvents: Array<{ kind: string; label?: string }> = [];
 	const controller = createFrameController({
 		store,
 		state: {
@@ -54,13 +56,22 @@ function createHarness() {
 			boxLeft: 0,
 			boxTop: 0,
 		}),
-		runHistoryAction: (_label, applyChange) => {
+		runHistoryAction: (label, applyChange) => {
+			historyLabels.push(label);
 			applyChange?.();
 			return true;
 		},
-		beginHistoryTransaction: () => true,
-		commitHistoryTransaction: () => true,
-		cancelHistoryTransaction: () => {},
+		beginHistoryTransaction: (label) => {
+			transactionEvents.push({ kind: "begin", label });
+			return true;
+		},
+		commitHistoryTransaction: (label) => {
+			transactionEvents.push({ kind: "commit", label });
+			return true;
+		},
+		cancelHistoryTransaction: () => {
+			transactionEvents.push({ kind: "cancel" });
+		},
 	});
 
 	return {
@@ -68,6 +79,8 @@ function createHarness() {
 		controller,
 		getShotCameraDocument: () => shotCameraDocument,
 		getStatusMessage: () => statusMessage,
+		getHistoryLabels: () => historyLabels.slice(),
+		getTransactionEvents: () => transactionEvents.slice(),
 	};
 }
 
@@ -324,6 +337,192 @@ function createHarness() {
 	assert.ok(updatedNode.in.y < 0);
 	assert.equal(updatedNode.out.x, 0.4);
 	assert.equal(updatedNode.out.y, 0.09999999999999998);
+}
+
+{
+	// Deleting a frame must remove its trajectory node entry so that stored
+	// nodesByFrameId never retains orphans after a delete.
+	const harness = createHarness();
+	harness.controller.duplicateActiveFrame();
+	const firstFrameId = getFrameDocumentId(1);
+	const secondFrameId = getFrameDocumentId(2);
+
+	harness.controller.setFrameTrajectoryHandlePoint(firstFrameId, "out", {
+		x: 0.66,
+		y: 0.42,
+	});
+	harness.controller.setFrameTrajectoryHandlePoint(secondFrameId, "out", {
+		x: 0.82,
+		y: 0.31,
+	});
+	const nodesBeforeDelete = Object.keys(
+		harness.getShotCameraDocument().frameMask.trajectory.nodesByFrameId,
+	);
+	assert.deepEqual(nodesBeforeDelete.sort(), [firstFrameId, secondFrameId]);
+
+	harness.controller.deleteFrame(firstFrameId);
+
+	const nodesAfterDelete = Object.keys(
+		harness.getShotCameraDocument().frameMask.trajectory.nodesByFrameId,
+	);
+	assert.deepEqual(
+		nodesAfterDelete,
+		[secondFrameId],
+		"deleteFrame should drop the deleted frame's trajectory node",
+	);
+}
+
+{
+	// deleteSelectedFrames must also drop trajectory nodes for every
+	// selected frame in one batch.
+	const harness = createHarness();
+	harness.controller.duplicateActiveFrame();
+	harness.controller.duplicateActiveFrame();
+	const firstFrameId = getFrameDocumentId(1);
+	const secondFrameId = getFrameDocumentId(2);
+	const thirdFrameId = getFrameDocumentId(3);
+
+	for (const frameId of [firstFrameId, secondFrameId, thirdFrameId]) {
+		harness.controller.setFrameTrajectoryHandlePoint(frameId, "out", {
+			x: 0.6,
+			y: 0.4,
+		});
+	}
+
+	harness.controller.deleteSelectedFrames([firstFrameId, thirdFrameId]);
+
+	const remaining = Object.keys(
+		harness.getShotCameraDocument().frameMask.trajectory.nodesByFrameId,
+	);
+	assert.deepEqual(
+		remaining,
+		[secondFrameId],
+		"deleteSelectedFrames should drop all selected frames' trajectory nodes",
+	);
+}
+
+{
+	// Trajectory public mutations must route through runHistoryAction with
+	// a dedicated label so that undo/redo can scope the action.
+	const harness = createHarness();
+	harness.controller.createFrame();
+	const labelsBefore = harness.getHistoryLabels();
+	assert.ok(
+		labelsBefore.includes("frame.create"),
+		"createFrame should push 'frame.create' into history",
+	);
+
+	harness.controller.setFrameMaskShape("trajectory");
+	harness.controller.setFrameTrajectoryMode("spline");
+	harness.controller.setFrameTrajectoryExportSource("center");
+	harness.controller.setFrameTrajectoryNodeMode(
+		getFrameDocumentId(2),
+		"free",
+	);
+
+	const labels = harness.getHistoryLabels();
+	assert.ok(labels.includes("frame.mask-shape"));
+	assert.ok(labels.includes("frame.trajectory-mode"));
+	assert.ok(labels.includes("frame.trajectory-export-source"));
+	assert.ok(labels.includes("frame.trajectory-node-mode"));
+}
+
+{
+	// A trajectory handle drag must open a single history transaction and
+	// commit it on pointer up, batching all moves into one undo step.
+	const harness = createHarness();
+	harness.controller.duplicateActiveFrame();
+	const targetFrameId = getFrameDocumentId(2);
+	harness.controller.selectFrame(targetFrameId);
+
+	const pointerId = 42;
+	harness.controller.startFrameTrajectoryHandleDrag(targetFrameId, "out", {
+		button: 0,
+		pointerId,
+		clientX: 900,
+		clientY: 500,
+		preventDefault() {},
+		stopPropagation() {},
+	});
+
+	harness.controller.handleFrameTrajectoryHandleDragMove({
+		pointerId,
+		clientX: 920,
+		clientY: 460,
+	});
+	harness.controller.handleFrameTrajectoryHandleDragMove({
+		pointerId,
+		clientX: 960,
+		clientY: 400,
+	});
+	harness.controller.handleFrameTrajectoryHandleDragEnd({
+		pointerId,
+	});
+
+	const events = harness.getTransactionEvents();
+	const firstBegin = events.findIndex(
+		(event) => event.kind === "begin" && event.label === "frame.trajectory-handle",
+	);
+	const firstCommit = events.findIndex(
+		(event) => event.kind === "commit" && event.label === "frame.trajectory-handle",
+	);
+	assert.ok(
+		firstBegin >= 0,
+		"handle drag must begin a 'frame.trajectory-handle' transaction",
+	);
+	assert.ok(
+		firstCommit > firstBegin,
+		"handle drag must commit after begin, scoping all moves into one undo step",
+	);
+
+	const historyLabelsDuringDrag = harness.getHistoryLabels().filter(
+		(label) => label === "frame.trajectory-handle",
+	);
+	assert.equal(
+		historyLabelsDuringDrag.length,
+		0,
+		"handle drag moves must not push history entries outside the transaction",
+	);
+}
+
+{
+	// Starting a new trajectory drag while a stale transaction is open must
+	// cancel the previous transaction rather than nest.
+	const harness = createHarness();
+	harness.controller.duplicateActiveFrame();
+	const targetFrameId = getFrameDocumentId(2);
+	harness.controller.selectFrame(targetFrameId);
+
+	harness.controller.startFrameTrajectoryHandleDrag(targetFrameId, "out", {
+		button: 0,
+		pointerId: 1,
+		clientX: 900,
+		clientY: 500,
+		preventDefault() {},
+		stopPropagation() {},
+	});
+	// Simulate an interruption (no drag end fired). A second drag start must
+	// cancel the prior transaction before beginning a new one.
+	harness.controller.startFrameTrajectoryHandleDrag(targetFrameId, "in", {
+		button: 0,
+		pointerId: 2,
+		clientX: 400,
+		clientY: 300,
+		preventDefault() {},
+		stopPropagation() {},
+	});
+
+	const events = harness.getTransactionEvents();
+	const beginCount = events.filter(
+		(event) =>
+			event.kind === "begin" && event.label === "frame.trajectory-handle",
+	).length;
+	const cancelCount = events.filter((event) => event.kind === "cancel").length;
+	assert.equal(beginCount, 2, "each drag start must begin its own transaction");
+	assert.ok(
+		cancelCount >= 1,
+		"a second drag start must cancel the prior transaction",
+	);
 }
 
 console.log("✅ CAMERA_FRAMES frame controller tests passed!");

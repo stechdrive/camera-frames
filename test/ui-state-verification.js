@@ -180,6 +180,25 @@ function __cfVerifyState(expected) {
 		expected.activeFrameName,
 	);
 
+	// --- frame mask / trajectory ---
+	check("frames.maskMode", store.frames.maskMode.value, expected.maskMode);
+	check("frames.maskShape", store.frames.maskShape.value, expected.maskShape);
+	check(
+		"frames.trajectoryMode",
+		store.frames.trajectoryMode.value,
+		expected.trajectoryMode,
+	);
+	check(
+		"frames.trajectoryExportSource",
+		store.frames.trajectoryExportSource.value,
+		expected.trajectoryExportSource,
+	);
+	check(
+		"frames.trajectoryNodeCount",
+		Object.keys(store.frames.trajectoryNodesByFrameId.value ?? {}).length,
+		expected.trajectoryNodeCount,
+	);
+
 	return results;
 }
 
@@ -206,4 +225,10 @@ const __CF_EXPECTED = {
 	frameCount: 1,
 	activeFrameId: "frame-1",
 	activeFrameName: "FRAME A",
+	// --- frame mask / trajectory (shot-camera-1 has a single frame; defaults apply) ---
+	maskMode: "off",
+	maskShape: "bounds",
+	trajectoryMode: "line",
+	trajectoryExportSource: "none",
+	trajectoryNodeCount: 0,
 };

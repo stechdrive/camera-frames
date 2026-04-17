@@ -142,7 +142,18 @@ if (!hasTestData()) {
 						exportSettings: object;
 						frames: Array<{ id: string; name: string }>;
 						activeFrameId: string;
-						frameMask: object;
+						frameMask: {
+							mode: string;
+							preferredMode: string;
+							opacityPct: number;
+							selectedIds: string[];
+							shape: string;
+							trajectoryMode: string;
+							trajectoryExportSource: string;
+							trajectory: {
+								nodesByFrameId: Record<string, unknown>;
+							};
+						};
 					};
 					transform: {
 						position: { x: number; y: number; z: number };
@@ -166,6 +177,19 @@ if (!hasTestData()) {
 						name: f.name,
 					})),
 					activeFrameId: shot.document.activeFrameId,
+					frameMask: {
+						mode: shot.document.frameMask.mode,
+						preferredMode: shot.document.frameMask.preferredMode,
+						opacityPct: shot.document.frameMask.opacityPct,
+						selectedIds: shot.document.frameMask.selectedIds,
+						shape: shot.document.frameMask.shape,
+						trajectoryMode: shot.document.frameMask.trajectoryMode,
+						trajectoryExportSource:
+							shot.document.frameMask.trajectoryExportSource,
+						trajectoryNodeCount: Object.keys(
+							shot.document.frameMask.trajectory?.nodesByFrameId ?? {},
+						).length,
+					},
 					transform: {
 						position: serializeVector(shot.transform.position),
 						quaternion: serializeQuaternion(shot.transform.quaternion),
@@ -252,6 +276,21 @@ if (!hasTestData()) {
 					exportSettings: object;
 					frames: Array<{ id: string; name: string }>;
 					activeFrameId: string;
+					frameMask: {
+						mode: string;
+						preferredMode: string;
+						opacityPct: number;
+						selectedIds: string[];
+						shape: string;
+						trajectoryMode: string;
+						trajectoryExportSource: string;
+						trajectory: {
+							nodesByFrameId: Record<
+								string,
+								{ mode?: string; in?: { x: number; y: number }; out?: { x: number; y: number } }
+							>;
+						};
+					};
 					pose: {
 						position: { x: number; y: number; z: number };
 						quaternion: {
@@ -271,6 +310,31 @@ if (!hasTestData()) {
 					frameCount: cam.frames.length,
 					frames: cam.frames.map((f) => ({ id: f.id, name: f.name })),
 					activeFrameId: cam.activeFrameId,
+					frameMask: {
+						mode: cam.frameMask.mode,
+						preferredMode: cam.frameMask.preferredMode,
+						opacityPct: cam.frameMask.opacityPct,
+						selectedIds: cam.frameMask.selectedIds,
+						shape: cam.frameMask.shape,
+						trajectoryMode: cam.frameMask.trajectoryMode,
+						trajectoryExportSource: cam.frameMask.trajectoryExportSource,
+						trajectoryNodes: Object.fromEntries(
+							Object.entries(
+								cam.frameMask.trajectory?.nodesByFrameId ?? {},
+							).map(([frameId, node]) => [
+								frameId,
+								{
+									...(node.mode ? { mode: node.mode } : {}),
+									...(node.in
+										? { in: { x: round(node.in.x), y: round(node.in.y) } }
+										: {}),
+									...(node.out
+										? { out: { x: round(node.out.x), y: round(node.out.y) } }
+										: {}),
+								},
+							]),
+						),
+					},
 					pose: {
 						position: serializeVector(cam.pose.position),
 						quaternion: serializeQuaternion(cam.pose.quaternion),

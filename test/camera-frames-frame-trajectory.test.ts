@@ -5,6 +5,7 @@ import {
 	getFrameTrajectoryHandleVectorNormalized,
 	getFrameTrajectoryTickAnchors,
 	sampleFrameMotionGeometries,
+	sanitizeFrameTrajectoryNodesByFrameId,
 } from "../src/engine/frame-trajectory.js";
 
 {
@@ -233,6 +234,103 @@ import {
 		chooseBestFrameTrajectoryExportSource(frames, null),
 		"top-left",
 	);
+}
+
+{
+	// Legacy handlesByFrameId migration: absolute handle points
+	// must convert to frame-center-relative vectors under "free" mode.
+	const frames = [
+		{ id: "frame-a", x: 0.2, y: 0.5 },
+		{ id: "frame-b", x: 0.6, y: 0.4 },
+	];
+	const legacyTrajectory = {
+		handlesByFrameId: {
+			"frame-a": {
+				out: { x: 0.35, y: 0.55 },
+			},
+			"frame-b": {
+				in: { x: 0.45, y: 0.45 },
+				out: { x: 0.75, y: 0.3 },
+			},
+		},
+	};
+
+	const migrated = sanitizeFrameTrajectoryNodesByFrameId(
+		frames,
+		legacyTrajectory,
+	);
+
+	assert.equal(migrated["frame-a"].mode, "free");
+	assert.ok(Math.abs(migrated["frame-a"].out.x - 0.15) < 1e-9);
+	assert.ok(Math.abs(migrated["frame-a"].out.y - 0.05) < 1e-9);
+	assert.equal(migrated["frame-b"].mode, "free");
+	assert.ok(Math.abs(migrated["frame-b"].in.x - -0.15) < 1e-9);
+	assert.ok(Math.abs(migrated["frame-b"].in.y - 0.05) < 1e-9);
+	assert.ok(Math.abs(migrated["frame-b"].out.x - 0.15) < 1e-9);
+	assert.ok(Math.abs(migrated["frame-b"].out.y - -0.1) < 1e-9);
+}
+
+{
+	// sanitizeFrameTrajectoryNodesByFrameId drops orphan entries
+	// whose frameId is no longer present in frames[].
+	const frames = [{ id: "frame-a", x: 0.5, y: 0.5 }];
+	const trajectory = {
+		nodesByFrameId: {
+			"frame-a": { mode: "free", in: { x: -0.1, y: 0 }, out: { x: 0.1, y: 0 } },
+			"frame-ghost": {
+				mode: "free",
+				in: { x: 0.2, y: 0.2 },
+				out: { x: -0.2, y: -0.2 },
+			},
+		},
+	};
+
+	const sanitized = sanitizeFrameTrajectoryNodesByFrameId(frames, trajectory);
+
+	assert.ok(sanitized["frame-a"]);
+	assert.equal(sanitized["frame-ghost"], undefined);
+}
+
+{
+	// sanitizeFrameTrajectoryNodesByFrameId prefers nodesByFrameId
+	// over legacy handlesByFrameId when both are present.
+	const frames = [{ id: "frame-a", x: 0.3, y: 0.3 }];
+	const trajectory = {
+		nodesByFrameId: {
+			"frame-a": {
+				mode: "mirrored",
+				in: { x: -0.2, y: 0 },
+				out: { x: 0.2, y: 0 },
+			},
+		},
+		handlesByFrameId: {
+			"frame-a": { out: { x: 0.99, y: 0.99 } },
+		},
+	};
+
+	const sanitized = sanitizeFrameTrajectoryNodesByFrameId(frames, trajectory);
+
+	assert.equal(sanitized["frame-a"].mode, "mirrored");
+	assert.ok(Math.abs(sanitized["frame-a"].out.x - 0.2) < 1e-9);
+}
+
+{
+	// sanitizeFrameTrajectoryNodesByFrameId rejects NaN / non-finite vectors
+	// silently, returning an empty node rather than corrupt data.
+	const frames = [{ id: "frame-a", x: 0.5, y: 0.5 }];
+	const trajectory = {
+		nodesByFrameId: {
+			"frame-a": {
+				mode: "free",
+				in: { x: Number.NaN, y: 0 },
+				out: { x: 0.1, y: "bogus" },
+			},
+		},
+	};
+
+	const sanitized = sanitizeFrameTrajectoryNodesByFrameId(frames, trajectory);
+
+	assert.equal(sanitized["frame-a"], undefined);
 }
 
 console.log("✅ CAMERA_FRAMES frame trajectory tests passed!");
