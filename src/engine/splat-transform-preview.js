@@ -1,227 +1,235 @@
-import { SplatMesh } from "@sparkjsdev/spark";
+import { dyno } from "@sparkjsdev/spark";
 import * as THREE from "three";
-import { enableSparkSplatMeshWorldToView } from "./spark-integration/spark-splat-mesh-adapter.js";
 
-const DEFAULT_PREVIEW_HIGHLIGHT = new THREE.Color(0.36, 0.95, 0.55);
-const DEFAULT_PREVIEW_MIX = 0.68;
+const MASK_TEXTURE_WIDTH = 2048;
+const EMPTY_HIDDEN_MAP = new Map();
 
-function applyPreviewTint(packedSplats, highlightColor, highlightMix) {
-	const splatCount =
-		packedSplats?.getNumSplats?.() ?? packedSplats?.numSplats ?? 0;
-	if (splatCount <= 0) {
-		return;
+function buildSelectionMaskTexture(totalCount, selectedIndices) {
+	const count = Math.max(1, Number(totalCount) || 0);
+	const width = Math.min(MASK_TEXTURE_WIDTH, count);
+	const height = Math.max(1, Math.ceil(count / width));
+	const array = new Uint8Array(width * height);
+	for (const index of selectedIndices) {
+		if (Number.isInteger(index) && index >= 0 && index < count) {
+			array[index] = 255;
+		}
 	}
-	for (let index = 0; index < splatCount; index += 1) {
-		const splat = packedSplats.getSplat(index);
-		packedSplats.setSplat(
-			index,
-			splat.center,
-			splat.scales,
-			splat.quaternion,
-			splat.opacity,
-			splat.color.clone().lerp(highlightColor, highlightMix),
-		);
-	}
-	packedSplats.needsUpdate = true;
+	const texture = new THREE.DataTexture(
+		array,
+		width,
+		height,
+		THREE.RedFormat,
+		THREE.UnsignedByteType,
+	);
+	texture.internalFormat = "R8";
+	texture.magFilter = THREE.NearestFilter;
+	texture.minFilter = THREE.NearestFilter;
+	texture.generateMipmaps = false;
+	texture.needsUpdate = true;
+	return { texture, width };
 }
 
-export function createSplatTransformPreviewController({
-	guides,
-	highlightColor = DEFAULT_PREVIEW_HIGHLIGHT,
-	highlightMix = DEFAULT_PREVIEW_MIX,
-} = {}) {
-	const root = new THREE.Group();
-	root.name = "splat-transform-preview";
-	root.visible = false;
-	guides?.add?.(root);
-	const transformedRoot = new THREE.Group();
-	transformedRoot.name = "splat-transform-preview-transform";
-	transformedRoot.matrixAutoUpdate = false;
-	root.add(transformedRoot);
+function createSelectionTransformModifier({
+	maskTexture,
+	maskWidth,
+	scaleUniform,
+	rotateUniform,
+	translateUniform,
+	key,
+}) {
+	const maskSampler = dyno.dynoSampler2D(
+		maskTexture,
+		`splatTransformMask_${key}`,
+	);
+	const widthLiteral = dyno.int(maskWidth);
+	const zeroInt = dyno.int(0);
+	const halfFloat = dyno.float(0.5);
+	return dyno.dynoBlock(
+		{ gsplat: dyno.Gsplat },
+		{ gsplat: dyno.Gsplat },
+		({ gsplat }) => {
+			const original = dyno.splitGsplat(gsplat);
+			const index = original.outputs.index;
+			const coord = dyno.combine({
+				vectorType: "ivec2",
+				x: dyno.imod(index, widthLiteral),
+				y: dyno.div(index, widthLiteral),
+			});
+			const sampleVec = dyno.texelFetch(maskSampler, coord, zeroInt);
+			const sampleR = dyno.split(sampleVec).outputs.x;
+			const selected = dyno.greaterThan(sampleR, halfFloat);
+			const transformed = dyno.splitGsplat(
+				dyno.transformGsplat(gsplat, {
+					scale: scaleUniform,
+					rotate: rotateUniform,
+					translate: translateUniform,
+				}),
+			);
+			return {
+				gsplat: dyno.combineGsplat({
+					gsplat,
+					center: dyno.select(
+						selected,
+						transformed.outputs.center,
+						original.outputs.center,
+					),
+					scales: dyno.select(
+						selected,
+						transformed.outputs.scales,
+						original.outputs.scales,
+					),
+					quaternion: dyno.select(
+						selected,
+						transformed.outputs.quaternion,
+						original.outputs.quaternion,
+					),
+				}),
+			};
+		},
+	);
+}
 
-	const EMPTY_HIDDEN_MAP = new Map();
-	const tempMatrix = new THREE.Matrix4();
-	const tempPivotMatrix = new THREE.Matrix4();
-	const tempRotationMatrix = new THREE.Matrix4();
-	const tempScaleMatrix = new THREE.Matrix4();
-	const tempInversePivotMatrix = new THREE.Matrix4();
+function computeEffectiveTranslate(
+	previewState,
+	target = new THREE.Vector3(),
+	scratch = new THREE.Vector3(),
+) {
+	const translation = previewState?.worldTranslation ?? new THREE.Vector3();
+	const rotation =
+		previewState?.worldRotation instanceof THREE.Quaternion
+			? previewState.worldRotation
+			: new THREE.Quaternion();
+	const pivot = previewState?.pivotWorld ?? new THREE.Vector3();
+	const uniformScale =
+		Number.isFinite(previewState?.uniformScale) && previewState.uniformScale > 0
+			? Number(previewState.uniformScale)
+			: 1;
+	scratch.copy(pivot).multiplyScalar(uniformScale).applyQuaternion(rotation);
+	return target.copy(translation).add(pivot).sub(scratch);
+}
+
+export function createSplatTransformPreviewController(_options = {}) {
+	const tempTranslate = new THREE.Vector3();
+	const tempScratch = new THREE.Vector3();
 	let generation = 0;
 	let activePreview = null;
 
-	function composePreviewMatrix(previewState, target = new THREE.Matrix4()) {
-		const translation = previewState?.worldTranslation ?? new THREE.Vector3();
-		const rotation =
-			previewState?.worldRotation instanceof THREE.Quaternion
-				? previewState.worldRotation
-				: new THREE.Quaternion();
-		const pivot = previewState?.pivotWorld ?? new THREE.Vector3();
-		const uniformScale =
-			Number.isFinite(previewState?.uniformScale) &&
-			previewState.uniformScale > 0
-				? Number(previewState.uniformScale)
-				: 1;
-		target.makeTranslation(translation.x, translation.y, translation.z);
-		target.multiply(tempPivotMatrix.makeTranslation(pivot.x, pivot.y, pivot.z));
-		target.multiply(tempRotationMatrix.makeRotationFromQuaternion(rotation));
-		target.multiply(
-			tempScaleMatrix.makeScale(uniformScale, uniformScale, uniformScale),
-		);
-		target.multiply(
-			tempInversePivotMatrix.makeTranslation(-pivot.x, -pivot.y, -pivot.z),
-		);
-		return target;
-	}
-
-	function disposeActivePreview() {
+	function detachActivePreview() {
 		if (!activePreview) {
-			root.visible = false;
-			transformedRoot.visible = false;
 			return;
 		}
 		for (const entry of activePreview.entries) {
-			for (const node of entry.nodes) {
-				node.parent?.remove?.(node.assetRoot);
-				node.assetRoot?.remove?.(node.mesh);
-				node.mesh?.dispose?.();
-				node.packedSplats?.dispose?.();
+			if (entry.mesh) {
+				entry.mesh.worldModifiers = entry.previousWorldModifiers;
+				entry.mesh.updateGenerator?.();
 			}
+			entry.maskTexture?.dispose?.();
 		}
 		activePreview = null;
-		root.visible = false;
-		transformedRoot.visible = false;
-		while (transformedRoot.children.length > 0) {
-			transformedRoot.remove(transformedRoot.children[0]);
-		}
-	}
-
-	function createPreviewNode({
-		entry,
-		indices,
-		tint = false,
-		parent,
-		nextGeneration,
-		previewState,
-	}) {
-		if (!(indices instanceof Uint32Array) || indices.length === 0) {
-			return Promise.resolve(null);
-		}
-		const extractedSplats = entry.packedSplats.extractSplats(indices, false);
-		if (tint) {
-			applyPreviewTint(extractedSplats, highlightColor, highlightMix);
-		}
-		const previewMesh = new SplatMesh({
-			packedSplats: extractedSplats,
-			fileName: `${tint ? "selected" : "remainder"}-${entry.assetIdKey}.rawsplat`,
-			lod: true,
-		});
-		enableSparkSplatMeshWorldToView(previewMesh);
-		return previewMesh.initialized.then(() => {
-			if (
-				generation !== nextGeneration ||
-				activePreview?.previewState !== previewState
-			) {
-				previewMesh.dispose?.();
-				extractedSplats.dispose?.();
-				return null;
-			}
-			const assetRoot = new THREE.Group();
-			assetRoot.matrixAutoUpdate = false;
-			assetRoot.matrix.copy(entry.worldMatrix);
-			assetRoot.matrixWorldNeedsUpdate = true;
-			assetRoot.add(previewMesh);
-			assetRoot.updateMatrixWorld(true);
-			parent.add(assetRoot);
-			return {
-				assetRoot,
-				mesh: previewMesh,
-				packedSplats: extractedSplats,
-				parent,
-			};
-		});
-	}
-
-	async function start(previewState) {
-		disposeActivePreview();
-		const nextGeneration = generation + 1;
-		generation = nextGeneration;
-		if (!previewState || !Array.isArray(previewState.entries)) {
-			return null;
-		}
-
-		const preview = {
-			previewState,
-			entries: [],
-			hiddenSelectedSplatsByAssetId: new Map(),
-			ready: false,
-		};
-		activePreview = preview;
-
-		for (const entry of previewState.entries) {
-			const selectedIndices = new Uint32Array(
-				entry.splats.map((splat) => splat.index),
-			);
-			const previewEntry = {
-				nodes: [],
-			};
-			preview.entries.push(previewEntry);
-			const selectedNode = await createPreviewNode({
-				entry,
-				indices: selectedIndices,
-				tint: true,
-				parent: transformedRoot,
-				nextGeneration,
-				previewState,
-			});
-			if (selectedNode) {
-				previewEntry.nodes.push(selectedNode);
-			}
-			preview.hiddenSelectedSplatsByAssetId.set(
-				entry.assetIdKey,
-				new Set(entry.splats.map((splat) => splat.index)),
-			);
-		}
-
-		if (
-			generation !== nextGeneration ||
-			activePreview?.previewState !== previewState
-		) {
-			disposeActivePreview();
-			return null;
-		}
-
-		preview.ready = preview.entries.some((entry) => entry.nodes.length > 0);
-		updateTransform(previewState);
-		root.visible = preview.ready;
-		transformedRoot.visible = preview.ready;
-		return preview;
 	}
 
 	function updateTransform(previewState) {
 		if (!activePreview || activePreview.previewState !== previewState) {
 			return false;
 		}
-		transformedRoot.matrix.copy(composePreviewMatrix(previewState, tempMatrix));
-		transformedRoot.matrixWorldNeedsUpdate = true;
-		transformedRoot.updateMatrixWorld(true);
-		root.visible = activePreview.ready;
-		transformedRoot.visible = activePreview.ready;
+		const rotation =
+			previewState?.worldRotation instanceof THREE.Quaternion
+				? previewState.worldRotation
+				: new THREE.Quaternion();
+		const uniformScale =
+			Number.isFinite(previewState?.uniformScale) &&
+			previewState.uniformScale > 0
+				? Number(previewState.uniformScale)
+				: 1;
+		computeEffectiveTranslate(previewState, tempTranslate, tempScratch);
+		activePreview.scaleUniform.value = uniformScale;
+		activePreview.rotateUniform.value.copy(rotation);
+		activePreview.translateUniform.value.copy(tempTranslate);
 		return true;
+	}
+
+	async function start(previewState) {
+		detachActivePreview();
+		const nextGeneration = generation + 1;
+		generation = nextGeneration;
+		if (!previewState || !Array.isArray(previewState.entries)) {
+			return null;
+		}
+
+		const scaleUniform = dyno.dynoFloat(
+			1,
+			`splatTransformScale_${nextGeneration}`,
+		);
+		const rotateUniform = dyno.dynoVec4(
+			new THREE.Quaternion(),
+			`splatTransformRotate_${nextGeneration}`,
+		);
+		const translateUniform = dyno.dynoVec3(
+			new THREE.Vector3(),
+			`splatTransformTranslate_${nextGeneration}`,
+		);
+		const preview = {
+			previewState,
+			scaleUniform,
+			rotateUniform,
+			translateUniform,
+			entries: [],
+		};
+		activePreview = preview;
+
+		for (const entry of previewState.entries) {
+			const mesh = entry?.splatMesh ?? entry?.asset?.disposeTarget ?? null;
+			if (!mesh) {
+				continue;
+			}
+			const selectedIndices = entry.splats
+				.map((splat) => splat.index)
+				.filter((index) => Number.isInteger(index) && index >= 0);
+			if (selectedIndices.length === 0) {
+				continue;
+			}
+			const { texture: maskTexture, width: maskWidth } =
+				buildSelectionMaskTexture(entry.totalCount, selectedIndices);
+			const modifier = createSelectionTransformModifier({
+				maskTexture,
+				maskWidth,
+				scaleUniform,
+				rotateUniform,
+				translateUniform,
+				key: `${nextGeneration}_${entry.assetIdKey}`,
+			});
+			const previousWorldModifiers = Array.isArray(mesh.worldModifiers)
+				? [...mesh.worldModifiers]
+				: [];
+			mesh.worldModifiers = [...previousWorldModifiers, modifier];
+			mesh.updateGenerator?.();
+			preview.entries.push({
+				mesh,
+				maskTexture,
+				previousWorldModifiers,
+			});
+		}
+
+		if (generation !== nextGeneration) {
+			detachActivePreview();
+			return null;
+		}
+
+		updateTransform(previewState);
+		return preview;
 	}
 
 	function clear() {
 		generation += 1;
-		disposeActivePreview();
-	}
-
-	function getHiddenSelectedSplatsByAssetId() {
-		return activePreview?.ready
-			? activePreview.hiddenSelectedSplatsByAssetId
-			: EMPTY_HIDDEN_MAP;
+		detachActivePreview();
 	}
 
 	function dispose() {
 		clear();
-		guides?.remove?.(root);
+	}
+
+	function getHiddenSelectedSplatsByAssetId() {
+		return EMPTY_HIDDEN_MAP;
 	}
 
 	return {
