@@ -2631,4 +2631,204 @@ async function createPackedSplatAsset({ id, label, centers }) {
 	assert.equal(harness.store.splatEdit.selectionCount.value, 0);
 }
 
+// ---------- Box selection reuses brush spatial index (Phase 1) ----------
+{
+	const harness = createHarness();
+	const centers: THREE.Vector3[] = [];
+	for (let gx = -5; gx <= 5; gx += 1) {
+		for (let gy = -5; gy <= 5; gy += 1) {
+			for (let gz = 0; gz < 3; gz += 1) {
+				centers.push(new THREE.Vector3(gx * 0.1, gy * 0.1, gz * 0.1));
+			}
+		}
+	}
+	assert.ok(
+		centers.length >= 260,
+		"test setup requires > MIN_BRUSH_INDEX_SPLAT_COUNT splats",
+	);
+	const asset = await createPackedSplatAsset({
+		id: "splat-box-grid",
+		label: "Box Grid",
+		centers,
+	});
+	asset.disposeTarget.raycast = function raycast(raycaster, intersections) {
+		const directionZ = raycaster.ray.direction.z;
+		if (Math.abs(directionZ) <= 1e-6) {
+			return;
+		}
+		const distance = -raycaster.ray.origin.z / directionZ;
+		if (distance < 0) {
+			return;
+		}
+		intersections.push({
+			distance,
+			point: raycaster.ray.at(distance, new THREE.Vector3()).clone(),
+			object: this,
+		});
+	};
+	harness.store.sceneAssets.value = [asset];
+	harness.store.selectedSceneAssetIds.value = [asset.id];
+	harness.store.selectedSceneAssetId.value = asset.id;
+
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	assert.equal(harness.controller.setSplatEditTool("brush"), "brush");
+
+	(
+		globalThis as { __CAMERA_FRAMES_DEBUG_SPLAT_PERF__?: boolean }
+	).__CAMERA_FRAMES_DEBUG_SPLAT_PERF__ = true;
+	const perfLog: { phase: string; details: unknown }[] = [];
+	const originalDebug = console.debug;
+	console.debug = (...args: unknown[]) => {
+		const [head, details] = args;
+		if (typeof head === "string" && head.startsWith("[splat-perf] ")) {
+			perfLog.push({
+				phase: head.slice("[splat-perf] ".length),
+				details,
+			});
+		}
+	};
+	try {
+		const brushClient = worldToClientPoint({
+			camera: harness.activeCamera,
+			viewportRect: { left: 0, top: 0, width: 1000, height: 1000 },
+			worldPoint: new THREE.Vector3(0, 0, 0),
+		});
+		const firstBrushCount =
+			harness.controller.applySplatEditBrushAtClientPoint(brushClient);
+		assert.ok(
+			firstBrushCount > 0,
+			"brush should hit at least one splat to seed the grid",
+		);
+		const gridInitEvents = perfLog.filter((entry) => entry.phase === "grid-init");
+		assert.equal(
+			gridInitEvents.length,
+			1,
+			"first brush hit should build spatial grid once",
+		);
+		const firstBrushHit = perfLog
+			.filter((entry) => entry.phase === "brush-hit")
+			.at(-1) as { details: { spatialAssets: number } } | undefined;
+		assert.ok(firstBrushHit, "brush-hit perf log should fire");
+		assert.equal(firstBrushHit?.details.spatialAssets, 1);
+
+		perfLog.length = 0;
+		harness.controller.applySplatEditBrushAtClientPoint(brushClient);
+		assert.equal(
+			perfLog.filter((entry) => entry.phase === "grid-init").length,
+			0,
+			"repeated brush hit should reuse grid (no re-init)",
+		);
+
+		harness.controller.clearSplatSelection();
+		perfLog.length = 0;
+
+		assert.equal(harness.controller.setSplatEditTool("box"), "box");
+		harness.controller.setSplatEditBoxCenterAxis("x", 0);
+		harness.controller.setSplatEditBoxCenterAxis("y", 0);
+		harness.controller.setSplatEditBoxCenterAxis("z", 0.1);
+		harness.controller.setSplatEditBoxSizeAxis("x", 0.5);
+		harness.controller.setSplatEditBoxSizeAxis("y", 0.5);
+		harness.controller.setSplatEditBoxSizeAxis("z", 0.5);
+		harness.store.splatEdit.boxPlaced.value = true;
+
+		const boxGridCount = harness.controller.applySplatEditBoxSelection({
+			subtract: false,
+		});
+		assert.ok(boxGridCount > 0, "box should select some splats");
+		const boxGridEvent = perfLog
+			.filter((entry) => entry.phase === "box-scan")
+			.at(-1) as
+			| {
+					details: {
+						spatialAssets: number;
+						fallbackAssets: number;
+						changedCount: number;
+					};
+				}
+			| undefined;
+		assert.ok(boxGridEvent, "box-scan perf log should fire");
+		assert.equal(
+			boxGridEvent?.details.spatialAssets,
+			1,
+			"box selection should go through the spatial path when grid is warm",
+		);
+		assert.equal(boxGridEvent?.details.fallbackAssets, 0);
+		assert.equal(boxGridEvent?.details.changedCount, boxGridCount);
+	} finally {
+		console.debug = originalDebug;
+		delete (
+			globalThis as { __CAMERA_FRAMES_DEBUG_SPLAT_PERF__?: boolean }
+		).__CAMERA_FRAMES_DEBUG_SPLAT_PERF__;
+	}
+}
+
+// ---------- Box selection falls back when no grid exists (Phase 1) ----------
+{
+	const harness = createHarness();
+	harness.store.sceneAssets.value = [
+		createSplatAsset({
+			id: "splat-box-fallback",
+			centers: [new THREE.Vector3(0, 0, 0), new THREE.Vector3(0.2, 0, 0)],
+			centerBounds: new THREE.Box3(
+				new THREE.Vector3(-0.5, -0.5, -0.5),
+				new THREE.Vector3(0.5, 0.5, 0.5),
+			),
+		}),
+	];
+	harness.store.selectedSceneAssetIds.value = ["splat-box-fallback"];
+
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	harness.controller.setSplatEditBoxCenterAxis("x", 0);
+	harness.controller.setSplatEditBoxCenterAxis("y", 0);
+	harness.controller.setSplatEditBoxCenterAxis("z", 0);
+	harness.controller.setSplatEditBoxSizeAxis("x", 1);
+	harness.controller.setSplatEditBoxSizeAxis("y", 1);
+	harness.controller.setSplatEditBoxSizeAxis("z", 1);
+	harness.store.splatEdit.boxPlaced.value = true;
+
+	(
+		globalThis as { __CAMERA_FRAMES_DEBUG_SPLAT_PERF__?: boolean }
+	).__CAMERA_FRAMES_DEBUG_SPLAT_PERF__ = true;
+	const perfLog: { phase: string; details: unknown }[] = [];
+	const originalDebug = console.debug;
+	console.debug = (...args: unknown[]) => {
+		const [head, details] = args;
+		if (typeof head === "string" && head.startsWith("[splat-perf] ")) {
+			perfLog.push({
+				phase: head.slice("[splat-perf] ".length),
+				details,
+			});
+		}
+	};
+	try {
+		const changed = harness.controller.applySplatEditBoxSelection({
+			subtract: false,
+		});
+		assert.equal(changed, 2, "box should select both mock splats");
+		const boxEvent = perfLog
+			.filter((entry) => entry.phase === "box-scan")
+			.at(-1) as
+			| { details: { spatialAssets: number; fallbackAssets: number } }
+			| undefined;
+		assert.ok(boxEvent, "box-scan perf log should fire even on fallback path");
+		assert.equal(
+			boxEvent?.details.spatialAssets,
+			0,
+			"mock asset (<256 splats) must go through fallback path",
+		);
+		assert.equal(boxEvent?.details.fallbackAssets, 1);
+	} finally {
+		console.debug = originalDebug;
+		delete (
+			globalThis as { __CAMERA_FRAMES_DEBUG_SPLAT_PERF__?: boolean }
+		).__CAMERA_FRAMES_DEBUG_SPLAT_PERF__;
+	}
+}
+
 console.log("✅ CAMERA_FRAMES per-splat edit controller tests passed!");

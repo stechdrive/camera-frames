@@ -1,6 +1,10 @@
 import { fromHalf } from "@sparkjsdev/spark";
 import * as THREE from "three";
 import { debugSplatHistory } from "../debug/splat-history-debug.js";
+import {
+	debugSplatPerf,
+	isSplatPerfDebugEnabled,
+} from "../debug/splat-perf-debug.js";
 import { createSplatEditSceneHelper } from "../engine/splat-edit-scene-helper.js";
 import { createSplatTransformPreviewController } from "../engine/splat-transform-preview.js";
 import { createProjectFilePackedSplatSource } from "../project-document.js";
@@ -694,6 +698,8 @@ export function createPerSplatEditController({
 			return existingEntry;
 		}
 
+		const perfEnabled = isSplatPerfDebugEnabled();
+		const perfStart = perfEnabled ? performance.now() : 0;
 		const worldPoints = new Float32Array(totalCount * 3);
 		const worldBounds = new THREE.Box3();
 		let hasBounds = false;
@@ -770,6 +776,16 @@ export function createPerSplatEditController({
 			worldMatrixElements: Array.from(worldMatrix.elements),
 		};
 		brushSpatialIndexByAssetId.set(assetIdKey, nextEntry);
+		if (perfEnabled) {
+			debugSplatPerf("grid-init", {
+				assetId: asset.id ?? null,
+				totalCount,
+				cellCount: cells.size,
+				cellSize: Number(cellSize.toFixed(4)),
+				brushSizeHint: Number(brushSizeHint.toFixed(2)),
+				elapsedMs: Number((performance.now() - perfStart).toFixed(2)),
+			});
+		}
 		return nextEntry;
 	}
 
@@ -964,6 +980,116 @@ export function createPerSplatEditController({
 		return changedCount;
 	}
 
+	function findReusableBrushSpatialIndex(asset, worldMatrix) {
+		if (!asset?.id) {
+			return null;
+		}
+		const assetIdKey = getAssetIdKey(asset.id);
+		const existingEntry = brushSpatialIndexByAssetId.get(assetIdKey);
+		if (!existingEntry) {
+			return null;
+		}
+		const splatMesh = asset.disposeTarget;
+		if (existingEntry.mesh !== splatMesh) {
+			return null;
+		}
+		const packedArray = getSplatPackedSource(asset)?.packedArray ?? null;
+		if (existingEntry.packedArray !== packedArray) {
+			return null;
+		}
+		if (
+			!worldMatrix?.elements ||
+			!matrixElementsMatch(
+				existingEntry.worldMatrixElements,
+				worldMatrix.elements,
+			)
+		) {
+			return null;
+		}
+		return existingEntry;
+	}
+
+	function getBoxIndexQueryCandidates(indexEntry, boxVolume) {
+		const bounds = boxVolume?.bounds;
+		if (!bounds || bounds.isEmpty()) {
+			return null;
+		}
+		const { inverseCellSize } = indexEntry;
+		if (!Number.isFinite(inverseCellSize) || inverseCellSize <= 0) {
+			return null;
+		}
+		const minCellX = Math.floor(bounds.min.x * inverseCellSize);
+		const maxCellX = Math.floor(bounds.max.x * inverseCellSize);
+		const minCellY = Math.floor(bounds.min.y * inverseCellSize);
+		const maxCellY = Math.floor(bounds.max.y * inverseCellSize);
+		const minCellZ = Math.floor(bounds.min.z * inverseCellSize);
+		const maxCellZ = Math.floor(bounds.max.z * inverseCellSize);
+		const queryCellCount =
+			(maxCellX - minCellX + 1) *
+			(maxCellY - minCellY + 1) *
+			(maxCellZ - minCellZ + 1);
+		if (
+			!Number.isFinite(queryCellCount) ||
+			queryCellCount <= 0 ||
+			queryCellCount > MAX_BRUSH_GRID_QUERY_CELLS
+		) {
+			return null;
+		}
+		const candidateIndices = [];
+		for (let cellX = minCellX; cellX <= maxCellX; cellX += 1) {
+			for (let cellY = minCellY; cellY <= maxCellY; cellY += 1) {
+				for (let cellZ = minCellZ; cellZ <= maxCellZ; cellZ += 1) {
+					const cellIndices = indexEntry.cells.get(
+						`${cellX},${cellY},${cellZ}`,
+					);
+					if (cellIndices?.length) {
+						candidateIndices.push(...cellIndices);
+					}
+				}
+			}
+		}
+		return candidateIndices;
+	}
+
+	function applyBoxSelectionToSpatialIndex(
+		indexEntry,
+		boxVolume,
+		nextSelection,
+		subtract,
+	) {
+		const candidateIndices = getBoxIndexQueryCandidates(indexEntry, boxVolume);
+		if (!Array.isArray(candidateIndices)) {
+			return null;
+		}
+		let changedCount = 0;
+		for (const index of candidateIndices) {
+			if (!subtract && nextSelection.has(index)) {
+				continue;
+			}
+			const pointOffset = index * 3;
+			tempWorldPoint.set(
+				indexEntry.worldPoints[pointOffset],
+				indexEntry.worldPoints[pointOffset + 1],
+				indexEntry.worldPoints[pointOffset + 2],
+			);
+			if (!pointInSplatEditBox(tempWorldPoint, boxVolume)) {
+				continue;
+			}
+			if (subtract) {
+				if (nextSelection.delete(index)) {
+					changedCount += 1;
+				}
+			} else {
+				const sizeBefore = nextSelection.size;
+				nextSelection.add(index);
+				if (nextSelection.size !== sizeBefore) {
+					changedCount += 1;
+				}
+			}
+		}
+		return changedCount;
+	}
+
 	function syncSelectionCount() {
 		const scopeAssetIds = new Set(getSplatEditScopeAssetIds());
 		let totalCount = 0;
@@ -977,6 +1103,8 @@ export function createPerSplatEditController({
 	}
 
 	function runSelectionHighlightSync() {
+		const perfEnabled = isSplatPerfDebugEnabled();
+		const perfStart = perfEnabled ? performance.now() : 0;
 		selectionHighlightController?.sync?.({
 			scopeAssets: getSplatEditScopeAssets(),
 			selectedSplatsByAssetId,
@@ -984,6 +1112,16 @@ export function createPerSplatEditController({
 				transformPreviewController.getHiddenSelectedSplatsByAssetId?.() ??
 				new Map(),
 		});
+		if (perfEnabled) {
+			let trackedSelectionCount = 0;
+			for (const value of selectedSplatsByAssetId.values()) {
+				trackedSelectionCount += value?.size ?? 0;
+			}
+			debugSplatPerf("highlight-sync", {
+				selectionCount: trackedSelectionCount,
+				elapsedMs: Number((performance.now() - perfStart).toFixed(2)),
+			});
+		}
 	}
 
 	function cancelPendingSelectionHighlightSync() {
@@ -2571,6 +2709,10 @@ export function createPerSplatEditController({
 		if (!selectionVolume) {
 			return 0;
 		}
+		const perfEnabled = isSplatPerfDebugEnabled();
+		const perfStart = perfEnabled ? performance.now() : 0;
+		let perfSpatialAssets = 0;
+		let perfFallbackAssets = 0;
 		let changedCount = 0;
 		for (const asset of getSplatEditScopeAssets()) {
 			const splatMesh = asset.disposeTarget;
@@ -2587,24 +2729,43 @@ export function createPerSplatEditController({
 			const nextSelection = new Set(
 				selectedSplatsByAssetId.get(assetIdKey) ?? [],
 			);
-			splatMesh.forEachSplat((index, center) => {
-				tempWorldPoint.copy(center);
-				tempWorldPoint.applyMatrix4(worldMatrix);
-				if (!pointInSplatEditBox(tempWorldPoint, selectionVolume)) {
-					return;
+			const reusableIndex = findReusableBrushSpatialIndex(asset, worldMatrix);
+			const spatialChange = reusableIndex
+				? applyBoxSelectionToSpatialIndex(
+						reusableIndex,
+						selectionVolume,
+						nextSelection,
+						subtract,
+					)
+				: null;
+			if (typeof spatialChange === "number") {
+				changedCount += spatialChange;
+				if (perfEnabled) {
+					perfSpatialAssets += 1;
 				}
-				if (subtract) {
-					if (nextSelection.delete(index)) {
+			} else {
+				if (perfEnabled) {
+					perfFallbackAssets += 1;
+				}
+				splatMesh.forEachSplat((index, center) => {
+					tempWorldPoint.copy(center);
+					tempWorldPoint.applyMatrix4(worldMatrix);
+					if (!pointInSplatEditBox(tempWorldPoint, selectionVolume)) {
+						return;
+					}
+					if (subtract) {
+						if (nextSelection.delete(index)) {
+							changedCount += 1;
+						}
+						return;
+					}
+					const sizeBefore = nextSelection.size;
+					nextSelection.add(index);
+					if (nextSelection.size !== sizeBefore) {
 						changedCount += 1;
 					}
-					return;
-				}
-				const sizeBefore = nextSelection.size;
-				nextSelection.add(index);
-				if (nextSelection.size !== sizeBefore) {
-					changedCount += 1;
-				}
-			});
+				});
+			}
 			if (nextSelection.size > 0) {
 				selectedSplatsByAssetId.set(assetIdKey, nextSelection);
 			} else {
@@ -2628,6 +2789,15 @@ export function createPerSplatEditController({
 				{ count: changedCount },
 			),
 		);
+		if (perfEnabled) {
+			debugSplatPerf("box-scan", {
+				subtract,
+				changedCount,
+				spatialAssets: perfSpatialAssets,
+				fallbackAssets: perfFallbackAssets,
+				elapsedMs: Number((performance.now() - perfStart).toFixed(2)),
+			});
+		}
 		return changedCount;
 	}
 
@@ -2678,6 +2848,10 @@ export function createPerSplatEditController({
 			}
 			return 0;
 		}
+		const perfEnabled = isSplatPerfDebugEnabled();
+		const perfStart = perfEnabled ? performance.now() : 0;
+		let perfSpatialAssets = 0;
+		let perfFallbackAssets = 0;
 		const brushSizePx = clampBrushSizePx(store.splatEdit.brushSize.value);
 		const camera = brushHit.camera;
 		const viewRect = brushHit.viewRect ?? getPrimaryViewRect();
@@ -2731,6 +2905,9 @@ export function createPerSplatEditController({
 				selectedSplatsByAssetId.get(assetIdKey) ?? new Set();
 			const brushIndex = ensureBrushSpatialIndex(asset, brushRadius * 2);
 			if (brushIndex) {
+				if (perfEnabled) {
+					perfSpatialAssets += 1;
+				}
 				changedCount += applyBrushHitToSpatialIndex(
 					brushIndex,
 					nextSelection,
@@ -2738,6 +2915,9 @@ export function createPerSplatEditController({
 					subtract,
 				);
 			} else if (packedArray && numSplats > 0) {
+				if (perfEnabled) {
+					perfFallbackAssets += 1;
+				}
 				const worldMatrix = getSplatAssetWorldMatrix(asset);
 				const me = worldMatrix?.elements;
 				if (!me) {
@@ -2772,6 +2952,9 @@ export function createPerSplatEditController({
 				const worldMatrix = getSplatAssetWorldMatrix(asset);
 				if (!worldMatrix) {
 					continue;
+				}
+				if (perfEnabled) {
+					perfFallbackAssets += 1;
 				}
 				splatMesh.forEachSplat((index, center) => {
 					if (!subtract && nextSelection.has(index)) {
@@ -2825,6 +3008,15 @@ export function createPerSplatEditController({
 					{ count: changedCount },
 				),
 			);
+		}
+		if (perfEnabled) {
+			debugSplatPerf("brush-hit", {
+				subtract,
+				changedCount,
+				spatialAssets: perfSpatialAssets,
+				fallbackAssets: perfFallbackAssets,
+				elapsedMs: Number((performance.now() - perfStart).toFixed(2)),
+			});
 		}
 		return changedCount;
 	}
