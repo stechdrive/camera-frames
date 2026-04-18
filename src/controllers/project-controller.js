@@ -441,6 +441,7 @@ export function createProjectController({
 		await waitForOverlayFrame();
 		const packageFingerprint = await buildProjectFingerprint(
 			parsedProject.project,
+			{ assumeNormalized: true },
 		);
 		const projectIdentity = resolveProjectIdentity(
 			parsedProject.project,
@@ -535,8 +536,10 @@ export function createProjectController({
 				currentProjectId || normalizedProject.projectId || generateProjectId();
 			normalizedProject.projectId = projectId;
 			normalizedProject.packageRevision = 0;
-			const packageFingerprint =
-				await buildProjectFingerprint(normalizedProject);
+			const packageFingerprint = await buildProjectFingerprint(
+				normalizedProject,
+				{ assumeNormalized: true },
+			);
 			rememberProjectContext({
 				projectId,
 				packageRevision: 0,
