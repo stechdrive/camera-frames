@@ -115,7 +115,7 @@ export function createSplatEditContentMutations({
 						? await assetController.createSplatAssetFromSource?.(
 								selectedSource,
 								{
-									insertIndex: sourceIndex >= 0 ? sourceIndex + 1 : null,
+									insertIndex: sourceIndex >= 0 ? sourceIndex : null,
 								},
 							)
 						: null;
@@ -219,7 +219,7 @@ export function createSplatEditContentMutations({
 						? await assetController.createSplatAssetFromSource?.(
 								selectedSource,
 								{
-									insertIndex: sourceIndex >= 0 ? sourceIndex + 1 : null,
+									insertIndex: sourceIndex >= 0 ? sourceIndex : null,
 								},
 							)
 						: null;

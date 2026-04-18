@@ -1586,10 +1586,11 @@ async function createPackedSplatAsset({ id, label, centers }) {
 	);
 	assert.equal(await harness.controller.separateSelectedSplats(), 1);
 	assert.equal(harness.store.sceneAssets.value.length, 2);
-	assert.equal(harness.store.sceneAssets.value[0].id, "splat-separate");
-	assert.equal(harness.store.sceneAssets.value[0].source.numSplats, 1);
-	assert.equal(harness.store.sceneAssets.value[1].source.numSplats, 2);
-	assert.equal(harness.store.sceneAssets.value[1].label, "Facade Split");
+	assert.equal(harness.store.sceneAssets.value[0].id, "created-1");
+	assert.equal(harness.store.sceneAssets.value[0].source.numSplats, 2);
+	assert.equal(harness.store.sceneAssets.value[0].label, "Facade Split");
+	assert.equal(harness.store.sceneAssets.value[1].id, "splat-separate");
+	assert.equal(harness.store.sceneAssets.value[1].source.numSplats, 1);
 	assert.deepEqual(harness.store.selectedSceneAssetIds.value, ["created-1"]);
 	assert.equal(harness.store.splatEdit.selectionCount.value, 2);
 	assert.deepEqual(harness.historyCalls, [
@@ -1762,7 +1763,7 @@ async function createPackedSplatAsset({ id, label, centers }) {
 		2,
 	);
 	assert.equal(await harness.controller.duplicateSelectedSplats(), 1);
-	assert.deepEqual(commitFlags, [false, true]);
+	assert.deepEqual(commitFlags, [true, false]);
 	assert.deepEqual(
 		harness.store.sceneAssets.value.map(
 			(asset) => asset.capturePackedSplatSourceInEditState === true,
