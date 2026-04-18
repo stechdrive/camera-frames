@@ -27,8 +27,8 @@ last-updated: 2026-04-18
 |---|---|---|
 | `Ctrl+N` | 新規プロジェクトを作成 | 常時 |
 | `Ctrl+O` | ファイルを開く（ファイルダイアログ） | 常時 |
-| `Ctrl+S` | working save（IndexedDB へ保存） | 常時 |
-| `Ctrl+Shift+S` | package save（`.ssproj` としてダウンロード） | 常時 |
+| `Ctrl+S` | 作業保存（IndexedDB へ保存） | 常時 |
+| `Ctrl+Shift+S` | パッケージ保存（`.ssproj` としてダウンロード） | 常時 |
 
 詳しくは [ファイルを開く・保存する](03-open-save.md)。
 
@@ -44,42 +44,42 @@ last-updated: 2026-04-18
 
 | キー | 動作 | コンテキスト |
 |---|---|---|
-| `Ctrl+D` | 選択をクリア（Per-splat edit 中は splat 選択クリア） | 常時 |
-| `Ctrl+A` | 全 splat を選択 | Per-splat edit mode |
-| `Ctrl+I` | splat 選択を反転 | Per-splat edit mode |
+| `Ctrl+D` | 選択をクリア（スプラット編集 中は スプラット 選択クリア） | 常時 |
+| `Ctrl+A` | 全 スプラット を選択 | スプラット編集 mode |
+| `Ctrl+I` | スプラット 選択を反転 | スプラット編集 mode |
 | `Delete` / `Backspace` | 測定ポイント / シーンアセットを削除 | 選択あり |
 
-## ツール切替（Viewport / Camera mode）
+## ツール切替（ビューポート / カメラモード）
 
 | キー | 動作 | コンテキスト |
 |---|---|---|
-| `V` | Select ツールを切替 | Viewport / Camera mode |
-| `T` | Transform ツールを切替 | Viewport / Camera mode |
-| `Q` | Pivot 編集モードを切替 | Viewport / Camera mode |
-| `Z` | Zoom ツールを切替 | Viewport / Camera mode |
-| `M` | Measurement モードを切替 | Viewport / Camera mode |
-| `Shift+E` | Per-splat edit モードを切替 | Viewport / Camera mode |
-| `R` | Reference image プレビュー表示切替 | Viewport / Camera mode（reference あり） |
-| `Shift+R` | Reference image 編集モードを切替 | Viewport / Camera mode |
+| `V` | 選択ツールを切替 | ビューポート / カメラモード |
+| `T` | 変形ツールを切替 | ビューポート / カメラモード |
+| `Q` | Pivot 編集モードを切替 | ビューポート / カメラモード |
+| `Z` | ズームツールを切替 | ビューポート / カメラモード |
+| `M` | 測定モードを切替 | ビューポート / カメラモード |
+| `Shift+E` | スプラット編集 モードを切替 | ビューポート / カメラモード |
+| `R` | 下絵 プレビュー表示切替 | ビューポート / カメラモード（reference あり） |
+| `Shift+R` | 下絵 編集モードを切替 | ビューポート / カメラモード |
 
-詳しくは [Viewport とツール](08-viewport-tools.md) / [Per-splat edit](09-per-splat-edit.md)。
+詳しくは [ビューポート とツール](08-viewport-tools.md) / [スプラット編集](09-per-splat-edit.md)。
 
-## Frame / Mask（Camera mode）
+## Frame / Mask（カメラモード）
 
 | キー | 動作 | コンテキスト |
 |---|---|---|
-| `F` | Frame mask（all）を切替 | Camera mode |
-| `Shift+F` | Frame mask（selected）を切替 | Camera mode |
+| `F` | フレームマスク（all）を切替 | カメラモード |
+| `Shift+F` | フレームマスク（selected）を切替 | カメラモード |
 
-詳しくは [Output Frame と FRAME](06-output-frame-and-frames.md)。
+詳しくは [用紙 と フレーム](06-output-frame-and-frames.md)。
 
 ## モード終了 / Escape
 
 | キー | 動作 | コンテキスト |
 |---|---|---|
-| `Escape` | Pie menu を閉じる | Pie menu 展開中 |
-| `Escape` | Lens adjust モードを終了 | Lens 調整中 |
-| `Escape` | Roll adjust モードを終了 | Roll 調整中 |
+| `Escape` | パイメニュー を閉じる | パイメニュー 展開中 |
+| `Escape` | Lens adjust モードを終了 | レンズ調整中 |
+| `Escape` | Roll adjust モードを終了 | ロール調整中 |
 | `Escape` | Zoom tool を終了 | Zoom tool 操作中 |
 
 ## マウス操作と修飾キー
@@ -92,7 +92,7 @@ last-updated: 2026-04-18
 | `Ctrl +` 左ドラッグ または 右ドラッグ | ヒット点中心のアンカーオービット |
 | 右ボタンドラッグ | pan |
 | マウスホイール | dolly（前後移動） / orthographic では zoom |
-| 中ボタン（押し込み） | Pie menu を開く |
+| 中ボタン（押し込み） | パイメニュー を開く |
 
 ### 精度モディファイア（orbit / roll / lens / zoom）
 
@@ -102,7 +102,7 @@ last-updated: 2026-04-18
 | `Alt` | 中精度（orbit 0.035°/px など） |
 | `Alt + Shift` | 最低精度（orbit 0.015°/px など） |
 
-### Viewport orthographic ホイール
+### ビューポート orthographic ホイール
 
 | 修飾キー | 効果 |
 |---|---|
@@ -116,45 +116,45 @@ last-updated: 2026-04-18
 | なし | 単独選択に置き換え |
 | `Shift` / `Ctrl` / `Meta` | 加算選択（toggle） |
 
-### Per-splat edit brush
+### スプラット編集 brush
 
 | 修飾キー | 効果 |
 |---|---|
 | なし | 追加モード |
 | `Alt` | 削除（subtract）モード |
 
-### Splat edit brush 中のナビゲーション
+### スプラット edit brush 中のナビゲーション
 
 | 操作 | 効果 |
 |---|---|
 | 右ドラッグ `+ Shift` | pan |
 
-## Pie Menu アクション
+## パイメニュー アクション
 
-Pie menu（中ボタンドラッグ）で呼び出せるアクション一覧:
+パイメニュー（中ボタンドラッグ）で呼び出せるアクション一覧:
 
 | ラベル | 動作 | ショートカット代替 |
 |---|---|---|
-| **Select** | 選択ツール切替 | `V` |
-| **Reference** | Reference 編集ツール切替 | `Shift+R` |
-| **Show/Hide Refs** | Reference プレビュー切替 | `R` |
-| **Transform** | Transform ツール切替 | `T` |
-| **Pivot** | Pivot 編集ツール切替 | `Q` |
-| **Adjust Lens** | Lens 調整モード | — |
-| **New Frame** | FRAME を作成 | — |
-| **Toggle Frame Mask** | Frame mask 切替（all） | `F` |
-| **Camera/Viewport** | モード切替 | — |
-| **Clear Selection** | 選択をクリア | `Ctrl+D` |
+| **選択** | 選択ツール切替 | `V` |
+| **下絵編集** | Reference 編集ツール切替 | `Shift+R` |
+| **下絵表示切替** | Reference プレビュー切替 | `R` |
+| **変形** | 変形ツール切替 | `T` |
+| **ピボット** | Pivot 編集ツール切替 | `Q` |
+| **レンズ調整** | レンズ調整モード | — |
+| **新規フレーム** | フレーム を作成 | — |
+| **フレームマスク切替** | フレームマスク 切替（all） | `F` |
+| **カメラ/ビューポート** | モード切替 | — |
+| **選択クリア** | 選択をクリア | `Ctrl+D` |
 
 ## 補足操作
 
 - **数値フィールドのスクラブ** — 数値入力欄のラベル上で左右にドラッグすると値がスクラブ（連続変化）。`Shift` で低精度、`Alt` で微調整。
-- **Inspector のセクション折りたたみ** — セクション見出しをクリック。
-- **Inspector のピン留め** — 見出しの Pin ボタンで Peek パネルに切り替え。
+- **インスペクター のセクション折りたたみ** — セクション見出しをクリック。
+- **インスペクター のピン留め** — 見出しの Pin ボタンで Peek パネルに切り替え。
 
 ## 関連章
 
 - ファイル操作全般: [ファイルを開く・保存する](03-open-save.md)
-- Viewport の基本操作: [Viewport とツール](08-viewport-tools.md)
-- Per-splat edit 詳細: [Per-splat edit](09-per-splat-edit.md)
-- Frame / Mask: [Output Frame と FRAME](06-output-frame-and-frames.md)
+- ビューポート の基本操作: [ビューポート とツール](08-viewport-tools.md)
+- スプラット編集 詳細: [スプラット編集](09-per-splat-edit.md)
+- Frame / Mask: [用紙 と フレーム](06-output-frame-and-frames.md)
