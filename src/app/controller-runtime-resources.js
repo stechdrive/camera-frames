@@ -6,6 +6,7 @@ export function createControllerRuntimeResources({
 	defaultFpsMoveSpeed,
 	defaultPointerSlideSpeed,
 	defaultPointerScrollSpeed,
+	preserveDrawingBuffer = false,
 	WebGLRendererImpl,
 	SceneImpl,
 	ColorImpl,
@@ -23,6 +24,7 @@ export function createControllerRuntimeResources({
 		canvas: viewportCanvas,
 		antialias: false,
 		alpha: false,
+		preserveDrawingBuffer: Boolean(preserveDrawingBuffer),
 	});
 	renderer.setPixelRatio(viewportPixelRatio);
 	renderer.outputColorSpace = srgbColorSpace;

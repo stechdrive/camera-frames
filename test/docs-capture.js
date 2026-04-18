@@ -6,17 +6,29 @@
 // Scenarios intentionally avoid persisting state. The bridge resets
 // annotations / help modal / pie menu between runs by default.
 
-const CF_TEST_PROJECT_PATH = "/.local/cf-test/cf-test.ssproj";
+const CF_TEST_PROJECT_PATH = "/.local/cf-test/cf-test2.ssproj";
 
 async function loadBase(docs) {
 	await docs.loadProject(CF_TEST_PROJECT_PATH);
 }
 
-function activateInspectorTab(docs, tabId) {
-	const tab = document.querySelector(
-		`.workbench-tabs button[role="tab"][aria-label="${tabId}"], .workbench-tabs button[role="tab"][data-tab-id="${tabId}"]`,
+const INSPECTOR_TAB_INDEX = {
+	scene: 0,
+	camera: 1,
+	reference: 2,
+	export: 3,
+};
+
+function activateInspectorTab(_docs, tabId) {
+	const index = INSPECTOR_TAB_INDEX[tabId];
+	if (!Number.isInteger(index)) return;
+	const tabs = document.querySelectorAll(
+		'.workbench-tabs button[role="tab"]',
 	);
-	if (tab) tab.click();
+	const tab = tabs[index];
+	if (tab && tab.getAttribute("aria-selected") !== "true") {
+		tab.click();
+	}
 }
 
 export const scenarios = {

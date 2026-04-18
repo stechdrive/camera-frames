@@ -142,6 +142,7 @@ export function createCameraFramesController(elements, store) {
 		defaultFpsMoveSpeed: DEFAULT_FPS_MOVE_SPEED,
 		defaultPointerSlideSpeed: DEFAULT_POINTER_SLIDE_SPEED,
 		defaultPointerScrollSpeed: DEFAULT_POINTER_SCROLL_SPEED,
+		preserveDrawingBuffer: Boolean(import.meta.env?.DEV),
 		WebGLRendererImpl: THREE.WebGLRenderer,
 		SceneImpl: THREE.Scene,
 		ColorImpl: THREE.Color,
