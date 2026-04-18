@@ -19,10 +19,10 @@ related-files:
 screenshots:
   - id: output-frame-section
     alt: Output Frame セクション
-    scenario: cf-test-output-frame-section
+    scenario: output-frame-section
   - id: render-box-camera-mode
     alt: Camera mode の render box
-    scenario: cf-test-render-box
+    scenario: render-box-camera-mode
     annotations:
       - { n: 1, label: "リサイズハンドル（8 方向）" }
       - { n: 2, label: "パンエッジ（4 辺）" }
@@ -30,10 +30,10 @@ screenshots:
       - { n: 4, label: "meta ラベル" }
   - id: multiple-frames
     alt: 複数 FRAME 配置
-    scenario: cf-test-multiple-frames
+    scenario: multiple-frames
   - id: trajectory-spline
     alt: spline trajectory の編集
-    scenario: cf-test-trajectory-spline-edit
+    scenario: trajectory-spline
 shortcuts:
   - key: F
     action: Frame mask（all）を切替

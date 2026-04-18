@@ -17,13 +17,13 @@ related-files:
 screenshots:
   - id: open-menu
     alt: Tool Rail の File メニュー
-    scenario: cf-test-file-menu-open
+    scenario: open-menu
   - id: remote-url-input
     alt: Remote URL 入力欄
-    scenario: cf-test-remote-url-empty
+    scenario: remote-url-input
   - id: confirm-new-project
     alt: 未保存状態での新規プロジェクト確認ダイアログ
-    scenario: cf-test-new-project-confirm
+    scenario: confirm-new-project
 shortcuts:
   - key: Ctrl+N
     action: 新規プロジェクトを作成

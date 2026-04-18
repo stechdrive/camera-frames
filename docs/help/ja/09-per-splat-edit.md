@@ -12,7 +12,7 @@ related-files:
 screenshots:
   - id: per-splat-edit-toolbar
     alt: Per-splat edit toolbar
-    scenario: cf-test-per-splat-toolbar
+    scenario: per-splat-edit-toolbar
     annotations:
       - { n: 1, label: "Tool 選択" }
       - { n: 2, label: "選択操作" }
@@ -20,10 +20,10 @@ screenshots:
       - { n: 4, label: "選択数" }
   - id: per-splat-brush-preview
     alt: Brush preview（ring + depth bar）
-    scenario: cf-test-per-splat-brush
+    scenario: per-splat-brush-preview
   - id: per-splat-box-tool
     alt: Box tool 配置中
-    scenario: cf-test-per-splat-box
+    scenario: per-splat-box-tool
 shortcuts:
   - key: Shift+E
     action: Per-splat edit モード切替

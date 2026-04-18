@@ -1,10 +1,12 @@
 // Help screenshot capture scenarios.
-// Each scenario receives the dev-only `__CF_DOCS__` bridge and drives the app
-// into the state illustrated by the matching screenshot in
-// docs/help/ja/*.md (frontmatter.screenshots[].scenario).
+// Each key is the image id referenced by the chapter Markdown's
+// `![...](../assets/screenshots/ja/<id>.png)` links, and matches the
+// `screenshots[].id` / `screenshots[].scenario` field in the chapter
+// frontmatter. The capture pipeline saves with the key as filename.
 //
 // Scenarios intentionally avoid persisting state. The bridge resets
-// annotations / help modal / pie menu between runs by default.
+// annotations / help modal / pie menu / overlay between runs by default,
+// and loadProject auto-dismisses the "replace current project?" prompt.
 
 const CF_TEST_PROJECT_PATH = "/.local/cf-test/cf-test2.ssproj";
 
@@ -33,15 +35,15 @@ function activateInspectorTab(_docs, tabId) {
 
 export const scenarios = {
 	// --- Chapter 01: Getting started -------------------------------------
-	"startup-empty": async (docs) => {
+	"drop-hint": async (docs) => {
 		await docs.waitForReady();
 	},
-	"scene-loaded-cf-test": async (docs) => {
+	"first-scene-loaded": async (docs) => {
 		await loadBase(docs);
 	},
 
 	// --- Chapter 02: UI layout -------------------------------------------
-	"cf-test-loaded-default-layout": async (docs) => {
+	"app-layout-overview": async (docs) => {
 		await loadBase(docs);
 		docs.setAnnotations([
 			{ n: 1, selector: "#viewport", label: "Viewport" },
@@ -62,41 +64,41 @@ export const scenarios = {
 			},
 		]);
 	},
-	"cf-test-inspector-tabs": async (docs) => {
+	"inspector-tabs": async (docs) => {
 		await loadBase(docs);
 		activateInspectorTab(docs, "camera");
 	},
-	"cf-test-pie-menu-open": async (docs) => {
+	"pie-menu": async (docs) => {
 		await loadBase(docs);
 		docs.controller?.openViewportPieMenuAtCenter?.();
 		await docs.waitForReady();
 	},
-	"cf-test-splat-edit-active": async (docs) => {
+	"splat-edit-toolbar": async (docs) => {
 		await loadBase(docs);
 		docs.controller?.setSplatEditMode?.(true);
 		await docs.waitForReady();
 	},
 
 	// --- Chapter 03: Open / Save -----------------------------------------
-	"cf-test-file-menu-open": async (docs) => {
+	"open-menu": async (docs) => {
 		await loadBase(docs);
 		document
 			.querySelector(".workbench-menu__trigger")
 			?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 		await docs.waitForReady();
 	},
-	"cf-test-remote-url-empty": async (docs) => {
+	"remote-url-input": async (docs) => {
 		await loadBase(docs);
 		document.getElementById("header-url-input")?.focus();
 	},
-	"cf-test-new-project-confirm": async (docs) => {
+	"confirm-new-project": async (docs) => {
 		await loadBase(docs);
 		docs.controller?.startNewProject?.();
 		await docs.waitForReady();
 	},
 
 	// --- Chapter 05: Shot Camera -----------------------------------------
-	"cf-test-shot-manager": async (docs) => {
+	"shot-camera-manager": async (docs) => {
 		await loadBase(docs);
 		activateInspectorTab(docs, "camera");
 		docs.setAnnotations([
@@ -110,22 +112,22 @@ export const scenarios = {
 			},
 		]);
 	},
-	"cf-test-shot-properties": async (docs) => {
+	"shot-camera-properties": async (docs) => {
 		await loadBase(docs);
 		activateInspectorTab(docs, "camera");
 	},
-	"cf-test-camera-mode": async (docs) => {
+	"camera-mode-render-box": async (docs) => {
 		await loadBase(docs);
 		docs.controller?.setMode?.("camera");
 		await docs.waitForReady();
 	},
 
 	// --- Chapter 06: Output Frame / FRAME --------------------------------
-	"cf-test-output-frame-section": async (docs) => {
+	"output-frame-section": async (docs) => {
 		await loadBase(docs);
 		activateInspectorTab(docs, "camera");
 	},
-	"cf-test-render-box": async (docs) => {
+	"render-box-camera-mode": async (docs) => {
 		await loadBase(docs);
 		docs.controller?.setMode?.("camera");
 		await docs.waitForReady();
@@ -144,13 +146,13 @@ export const scenarios = {
 			{ n: 4, selector: "#render-box-meta", label: "meta ラベル" },
 		]);
 	},
-	"cf-test-multiple-frames": async (docs) => {
+	"multiple-frames": async (docs) => {
 		await loadBase(docs);
 		docs.controller?.setMode?.("camera");
 		docs.controller?.createFrame?.();
 		await docs.waitForReady();
 	},
-	"cf-test-trajectory-spline-edit": async (docs) => {
+	"trajectory-spline": async (docs) => {
 		await loadBase(docs);
 		docs.controller?.setMode?.("camera");
 		docs.controller?.createFrame?.();
@@ -160,47 +162,47 @@ export const scenarios = {
 	},
 
 	// --- Chapter 07: Reference images ------------------------------------
-	"cf-test-reference-presets": async (docs) => {
+	"reference-presets": async (docs) => {
 		await loadBase(docs);
 		activateInspectorTab(docs, "reference");
 	},
-	"cf-test-reference-manager": async (docs) => {
+	"reference-manager": async (docs) => {
 		await loadBase(docs);
 		activateInspectorTab(docs, "reference");
 	},
-	"cf-test-reference-edit-mode": async (docs) => {
+	"reference-edit-mode": async (docs) => {
 		await loadBase(docs);
 		docs.controller?.toggleViewportReferenceImageEditMode?.();
 		await docs.waitForReady();
 	},
 
 	// --- Chapter 08: Viewport tools --------------------------------------
-	"cf-test-tool-rail": async (docs) => {
+	"tool-rail": async (docs) => {
 		await loadBase(docs);
 	},
-	"cf-test-pie-menu-hover": async (docs) => {
+	"pie-menu-expanded": async (docs) => {
 		await loadBase(docs);
 		docs.controller?.openViewportPieMenuAtCenter?.();
 		await docs.waitForReady();
 	},
-	"cf-test-transform-gizmo": async (docs) => {
+	"transform-gizmo": async (docs) => {
 		await loadBase(docs);
 		docs.controller?.setViewportTransformMode?.(true);
 		await docs.waitForReady();
 	},
-	"cf-test-axis-gizmo": async (docs) => {
+	"axis-gizmo": async (docs) => {
 		await loadBase(docs);
 		docs.controller?.setViewportProjectionMode?.("orthographic");
 		await docs.waitForReady();
 	},
-	"cf-test-measurement": async (docs) => {
+	"measurement-overlay": async (docs) => {
 		await loadBase(docs);
 		docs.controller?.setMeasurementMode?.(true);
 		await docs.waitForReady();
 	},
 
 	// --- Chapter 09: Per-splat edit --------------------------------------
-	"cf-test-per-splat-toolbar": async (docs) => {
+	"per-splat-edit-toolbar": async (docs) => {
 		await loadBase(docs);
 		docs.controller?.setSplatEditMode?.(true);
 		await docs.waitForReady();
@@ -227,13 +229,13 @@ export const scenarios = {
 			},
 		]);
 	},
-	"cf-test-per-splat-brush": async (docs) => {
+	"per-splat-brush-preview": async (docs) => {
 		await loadBase(docs);
 		docs.controller?.setSplatEditMode?.(true);
 		docs.controller?.setSplatEditTool?.("brush");
 		await docs.waitForReady();
 	},
-	"cf-test-per-splat-box": async (docs) => {
+	"per-splat-box-tool": async (docs) => {
 		await loadBase(docs);
 		docs.controller?.setSplatEditMode?.(true);
 		docs.controller?.setSplatEditTool?.("box");
@@ -241,15 +243,15 @@ export const scenarios = {
 	},
 
 	// --- Chapter 10: Export ----------------------------------------------
-	"cf-test-export-output": async (docs) => {
+	"export-output-section": async (docs) => {
 		await loadBase(docs);
 		activateInspectorTab(docs, "export");
 	},
-	"cf-test-export-settings": async (docs) => {
+	"export-settings-section": async (docs) => {
 		await loadBase(docs);
 		activateInspectorTab(docs, "export");
 	},
-	"cf-test-export-progress": async (docs) => {
+	"export-progress": async (docs) => {
 		await loadBase(docs);
 		activateInspectorTab(docs, "export");
 		// Fire-and-forget to leave the progress overlay visible for capture.

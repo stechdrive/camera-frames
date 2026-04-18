@@ -18,19 +18,19 @@ related-files:
 screenshots:
   - id: tool-rail
     alt: Tool Rail の各ボタン
-    scenario: cf-test-tool-rail
+    scenario: tool-rail
   - id: pie-menu-expanded
     alt: Pie menu 展開中（中ボタン押下）
-    scenario: cf-test-pie-menu-hover
+    scenario: pie-menu-expanded
   - id: transform-gizmo
     alt: Transform gizmo 表示中
-    scenario: cf-test-transform-gizmo
+    scenario: transform-gizmo
   - id: axis-gizmo
     alt: Axis gizmo（orthographic 時）
-    scenario: cf-test-axis-gizmo
+    scenario: axis-gizmo
   - id: measurement-overlay
     alt: Measurement overlay
-    scenario: cf-test-measurement
+    scenario: measurement-overlay
 shortcuts:
   - key: V
     action: Select ツール切替

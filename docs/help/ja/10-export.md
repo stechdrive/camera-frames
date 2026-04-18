@@ -17,13 +17,13 @@ related-files:
 screenshots:
   - id: export-output-section
     alt: Export > Output セクション
-    scenario: cf-test-export-output
+    scenario: export-output-section
   - id: export-settings-section
     alt: Export Settings セクション
-    scenario: cf-test-export-settings
+    scenario: export-settings-section
   - id: export-progress
     alt: Export 実行中の progress overlay
-    scenario: cf-test-export-progress
+    scenario: export-progress
 last-updated: 2026-04-18
 ---
 

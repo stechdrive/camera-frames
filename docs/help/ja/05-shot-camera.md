@@ -17,7 +17,7 @@ related-files:
 screenshots:
   - id: shot-camera-manager
     alt: Shot Camera Manager セクション
-    scenario: cf-test-shot-manager
+    scenario: shot-camera-manager
     annotations:
       - { n: 1, label: "追加" }
       - { n: 2, label: "複製" }
@@ -25,10 +25,10 @@ screenshots:
       - { n: 4, label: "shot 一覧" }
   - id: shot-camera-properties
     alt: Shot Camera Properties セクション
-    scenario: cf-test-shot-properties
+    scenario: shot-camera-properties
   - id: camera-mode-render-box
     alt: Camera mode で render box が表示された状態
-    scenario: cf-test-camera-mode
+    scenario: camera-mode-render-box
 shortcuts:
   - key: Escape
     action: Lens / Roll adjust モードを終了

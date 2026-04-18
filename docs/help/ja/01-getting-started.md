@@ -10,10 +10,10 @@ related-files:
 screenshots:
   - id: drop-hint
     alt: 起動直後の画面（drop hint 表示）
-    scenario: startup-empty
+    scenario: drop-hint
   - id: first-scene-loaded
     alt: シーンを開いた直後の画面
-    scenario: scene-loaded-cf-test
+    scenario: first-scene-loaded
 last-updated: 2026-04-18
 ---
 

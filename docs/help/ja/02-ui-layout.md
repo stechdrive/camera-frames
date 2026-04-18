@@ -16,7 +16,7 @@ related-files:
 screenshots:
   - id: app-layout-overview
     alt: アプリ全体のレイアウト
-    scenario: cf-test-loaded-default-layout
+    scenario: app-layout-overview
     annotations:
       - { n: 1, label: "Viewport" }
       - { n: 2, label: "Tool Rail（ドラッグ可能）" }
@@ -24,13 +24,13 @@ screenshots:
       - { n: 4, label: "Project Status HUD" }
   - id: inspector-tabs
     alt: Inspector の 4 タブ
-    scenario: cf-test-inspector-tabs
+    scenario: inspector-tabs
   - id: pie-menu
     alt: Pie menu を開いた状態
-    scenario: cf-test-pie-menu-open
+    scenario: pie-menu
   - id: splat-edit-toolbar
     alt: Per-splat edit 時のツールバー
-    scenario: cf-test-splat-edit-active
+    scenario: splat-edit-toolbar
 last-updated: 2026-04-18
 ---
 

@@ -179,8 +179,9 @@ function resolveImageSrc(src, options) {
 	if (typeof src !== "string" || src === "") return "";
 	if (/^(https?:)?\/\//.test(src)) return src;
 	if (src.startsWith("/")) return src;
-	const baseAssets = options.assetsBaseUrl ?? "";
+	let baseAssets = options.assetsBaseUrl ?? "";
 	if (baseAssets && src.startsWith("../assets/")) {
+		if (!baseAssets.endsWith("/")) baseAssets += "/";
 		return baseAssets + src.slice("../assets/".length);
 	}
 	return src;

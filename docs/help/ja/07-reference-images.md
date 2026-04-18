@@ -16,13 +16,13 @@ related-files:
 screenshots:
   - id: reference-presets
     alt: Reference Presets セクション
-    scenario: cf-test-reference-presets
+    scenario: reference-presets
   - id: reference-manager
     alt: Reference Manager セクション（前後グループ）
-    scenario: cf-test-reference-manager
+    scenario: reference-manager
   - id: reference-edit-mode
     alt: Reference image 編集モード中の Viewport
-    scenario: cf-test-reference-edit-mode
+    scenario: reference-edit-mode
 shortcuts:
   - key: R
     action: Reference image プレビュー表示切替
