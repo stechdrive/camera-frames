@@ -92,6 +92,8 @@ export function ReferencePropertiesSection({
 		<${DisclosureBlock}
 			icon="image"
 			label=${t("section.referenceProperties")}
+			helpSectionId="reference-images"
+			onOpenHelp=${(id) => controller()?.openHelp?.({ sectionId: id })}
 			open=${open}
 			summaryActions=${summaryActions}
 			onToggle=${onToggle}
@@ -737,6 +739,8 @@ export function SelectedSceneAssetInspector({
 			<${DisclosureBlock}
 				icon="move"
 				label=${transformSectionTitle}
+				helpSectionId="scene-assets"
+				onOpenHelp=${(id) => controller()?.openHelp?.({ sectionId: id })}
 				open=${open}
 				summaryActions=${summaryActions}
 				onToggle=${onToggle}

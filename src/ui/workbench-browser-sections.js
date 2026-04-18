@@ -605,6 +605,8 @@ export function ReferencePresetSection({
 		<${DisclosureBlock}
 			icon="image"
 			label=${t("section.referencePresets")}
+			helpSectionId="reference-images"
+			onOpenHelp=${(id) => controller()?.openHelp?.({ sectionId: id })}
 			open=${open}
 			summaryActions=${summaryActions}
 			onToggle=${onToggle}
@@ -746,6 +748,8 @@ export function ReferenceManagerSection({
 		<${DisclosureBlock}
 			icon="reference-tool"
 			label=${t("section.referenceManager")}
+			helpSectionId="reference-images"
+			onOpenHelp=${(id) => controller()?.openHelp?.({ sectionId: id })}
 			open=${open}
 			summaryActions=${resolvedSummaryActions}
 			onToggle=${onToggle}
@@ -981,6 +985,8 @@ export function ShotCameraSection({
 		<${DisclosureBlock}
 			icon="camera"
 			label=${t("section.shotCameraManager")}
+			helpSectionId="shot-camera"
+			onOpenHelp=${(id) => controller()?.openHelp?.({ sectionId: id })}
 			open=${open}
 			summaryActions=${summaryActions}
 			onToggle=${onToggle}

@@ -41,6 +41,8 @@ export function LightingSection({
 		<${DisclosureBlock}
 			icon="light"
 			label=${t("section.lighting")}
+			helpSectionId="scene-assets"
+			onOpenHelp=${(id) => controller()?.openHelp?.({ sectionId: id })}
 			open=${open}
 			summaryActions=${summaryActions}
 			onToggle=${onToggle}
@@ -192,6 +194,8 @@ export function FramesSection({
 		<${DisclosureBlock}
 			icon="frame"
 			label=${`${t("section.frames")} · ${frameCount}/${FRAME_MAX_COUNT}`}
+			helpSectionId="output-frame-and-frames"
+			onOpenHelp=${(id) => controller()?.openHelp?.({ sectionId: id })}
 			open=${open}
 			summaryActions=${summaryActions}
 			onToggle=${onToggle}

@@ -380,6 +380,32 @@
 	font-style: italic;
 }
 
+.panel-disclosure__help {
+	background: transparent;
+	border: 1px solid transparent;
+	color: inherit;
+	opacity: 0.5;
+	cursor: pointer;
+	padding: 2px 4px;
+	border-radius: 3px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 auto;
+}
+
+.panel-disclosure__help:hover,
+.panel-disclosure__help:focus-visible {
+	opacity: 1;
+	background: rgba(255, 255, 255, 0.08);
+	outline: none;
+}
+
+.panel-disclosure__help .workbench-icon {
+	width: 12px;
+	height: 12px;
+}
+
 @media (max-width: 720px) {
 	.help-modal__body {
 		flex-direction: column;

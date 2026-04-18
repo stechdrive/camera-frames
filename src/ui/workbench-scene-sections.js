@@ -91,6 +91,8 @@ export function SceneWorkspaceSection({
 		<${DisclosureBlock}
 			icon="scene"
 			label=${t("section.sceneManager")}
+			helpSectionId="scene-assets"
+			onOpenHelp=${(id) => controller()?.openHelp?.({ sectionId: id })}
 			open=${open}
 			summaryActions=${resolvedSummaryActions}
 			onToggle=${onToggle}
@@ -185,6 +187,8 @@ export function SceneSection({
 		<${DisclosureBlock}
 			icon="scene"
 			label=${t("section.sceneManager")}
+			helpSectionId="scene-assets"
+			onOpenHelp=${(id) => controller()?.openHelp?.({ sectionId: id })}
 			open=${open}
 			summaryActions=${resolvedSummaryActions}
 			onToggle=${onToggle}
