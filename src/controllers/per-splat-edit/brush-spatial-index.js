@@ -1,4 +1,4 @@
-import { fromHalf } from "@sparkjsdev/spark";
+import { fromHalf } from "../../engine/spark-integration/spark-symbols.js";
 import * as THREE from "three";
 import {
 	debugSplatPerf,

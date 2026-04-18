@@ -1,4 +1,4 @@
-import { RgbaArray } from "@sparkjsdev/spark";
+import { RgbaArray } from "./spark-integration/spark-symbols.js";
 import {
 	getSparkSplatMeshColorBufferArray,
 	getSparkSplatMeshCount,

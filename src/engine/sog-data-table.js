@@ -1,4 +1,4 @@
-import { PlyReader, SpzReader } from "@sparkjsdev/spark";
+import { PlyReader, SpzReader } from "./spark-integration/spark-symbols.js";
 
 const BASE_SOG_COLUMN_NAMES = [
 	"x",

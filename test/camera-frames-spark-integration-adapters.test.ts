@@ -1,9 +1,61 @@
 import assert from "node:assert/strict";
+import * as SparkSymbols from "../src/engine/spark-integration/spark-symbols.js";
 import {
 	assignSparkExportBufferState,
 	captureSparkExportBufferOutputs,
 	captureSparkExportBufferState,
 } from "../src/engine/spark-integration/spark-export-buffer-state.js";
+
+{
+	// Contract: spark-symbols.js must re-export every Spark symbol consumed by
+	// the app so a Spark patch only requires auditing one file. Adding a new
+	// Spark import elsewhere is a regression — surface it here.
+	const REQUIRED_SYMBOLS = [
+		"FpsMovement",
+		"PointerControls",
+		"SparkRenderer",
+		"SplatMesh",
+		"flipPixels",
+		"PackedSplats",
+		"unpackSplats",
+		"fromHalf",
+		"PlyReader",
+		"SpzReader",
+		"RgbaArray",
+		"dyno",
+	];
+	for (const symbolName of REQUIRED_SYMBOLS) {
+		assert.ok(
+			SparkSymbols[symbolName] !== undefined,
+			`spark-symbols.js must re-export ${symbolName}`,
+		);
+	}
+	assert.equal(
+		typeof SparkSymbols.fromHalf,
+		"function",
+		"fromHalf should remain a function (data half-float decoder)",
+	);
+	assert.equal(
+		typeof SparkSymbols.flipPixels,
+		"function",
+		"flipPixels should remain a function (export pixel flipper)",
+	);
+	assert.equal(
+		typeof SparkSymbols.dyno,
+		"object",
+		"dyno should remain an object (dyno node namespace)",
+	);
+	assert.equal(
+		typeof SparkSymbols.FpsMovement,
+		"function",
+		"FpsMovement should remain a class/constructor",
+	);
+	assert.equal(
+		typeof SparkSymbols.SplatMesh,
+		"function",
+		"SplatMesh should remain a class/constructor",
+	);
+}
 import {
 	disposeSparkPackedSplatsLod,
 	refreshSparkPackedSplatMesh,

@@ -4,7 +4,7 @@ import {
 	SparkRenderer,
 	SplatMesh,
 	flipPixels,
-} from "@sparkjsdev/spark";
+} from "./engine/spark-integration/spark-symbols.js";
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { createAssetControllerBindings } from "./app/asset-controller-bindings.js";

@@ -1,4 +1,4 @@
-import { dyno } from "@sparkjsdev/spark";
+import { dyno } from "./spark-integration/spark-symbols.js";
 import * as THREE from "three";
 
 const MASK_TEXTURE_WIDTH = 2048;

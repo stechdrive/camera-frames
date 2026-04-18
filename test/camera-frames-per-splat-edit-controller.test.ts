@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { PackedSplats, SplatMesh } from "@sparkjsdev/spark";
+import { PackedSplats, SplatMesh } from "../src/engine/spark-integration/spark-symbols.js";
 import * as THREE from "three";
 import { createPerSplatEditControllerBindings } from "../src/app/per-splat-edit-controller-bindings.js";
 import { createHistoryController } from "../src/controllers/history-controller.js";

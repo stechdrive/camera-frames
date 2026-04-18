@@ -1,4 +1,4 @@
-import { PackedSplats, unpackSplats } from "@sparkjsdev/spark";
+import { PackedSplats, unpackSplats } from "../engine/spark-integration/spark-symbols.js";
 import * as THREE from "three";
 import { prioritizeSceneAssetsWithinKinds } from "../engine/scene-asset-order.js";
 import { enableSparkSplatMeshWorldToView } from "../engine/spark-integration/spark-splat-mesh-adapter.js";
