@@ -41,3 +41,26 @@ export interface Fixture {
 }
 
 export type FixtureRegistry = Record<string, Fixture>;
+
+export interface MockMethodCall {
+	method: string;
+	args: unknown[];
+}
+
+export interface MockControllerOptions {
+	/** When true, each invocation is logged via console.debug. */
+	log?: boolean;
+	/**
+	 * Override specific method implementations. Un-overridden methods
+	 * return undefined (no-op).
+	 */
+	methods?: Record<string, (...args: unknown[]) => unknown>;
+}
+
+export interface MockController {
+	/** Log of invocations, in call order. */
+	__calls: MockMethodCall[];
+	/** The method overrides map, or null if none. */
+	__methods: MockControllerOptions["methods"] | null;
+	[method: string]: unknown;
+}
