@@ -273,6 +273,113 @@
 	font-style: italic;
 }
 
+.help-modal__search {
+	flex: 1 1 auto;
+	margin: 0 12px;
+	max-width: 360px;
+}
+
+.help-modal__search-input {
+	width: 100%;
+	background: rgba(0, 0, 0, 0.3);
+	border: 1px solid var(--line, rgba(255, 255, 255, 0.12));
+	border-radius: 4px;
+	color: inherit;
+	padding: 6px 10px;
+	font: inherit;
+	font-size: 0.88rem;
+	line-height: 1.2;
+}
+
+.help-modal__search-input:focus {
+	outline: none;
+	border-color: rgba(120, 200, 255, 0.55);
+	background: rgba(0, 0, 0, 0.45);
+}
+
+.help-toc-empty {
+	color: rgba(255, 255, 255, 0.55);
+	font-style: italic;
+	padding: 8px 10px;
+	font-size: 0.85rem;
+}
+
+.help-search-results {
+	display: flex;
+	flex-direction: column;
+	gap: 1em;
+}
+
+.help-search-summary {
+	color: rgba(255, 255, 255, 0.6);
+	font-size: 0.85rem;
+	margin: 0 0 0.4em;
+}
+
+.help-search-summary code {
+	background: rgba(255, 255, 255, 0.08);
+	padding: 0 6px;
+	border-radius: 3px;
+}
+
+.help-search-result {
+	border: 1px solid var(--line, rgba(255, 255, 255, 0.12));
+	border-radius: var(--radius, 6px);
+	padding: 12px 14px;
+	background: rgba(255, 255, 255, 0.02);
+}
+
+.help-search-result__title {
+	margin: 0 0 0.4em;
+	font-size: 0.98rem;
+	font-weight: 600;
+}
+
+.help-search-result__link {
+	background: transparent;
+	border: none;
+	color: rgba(120, 200, 255, 0.95);
+	cursor: pointer;
+	padding: 0;
+	font: inherit;
+	font-weight: 600;
+	text-align: left;
+	text-decoration: underline;
+	text-decoration-color: rgba(120, 200, 255, 0.4);
+}
+
+.help-search-result__link:hover {
+	text-decoration-color: currentColor;
+}
+
+.help-search-result__hits {
+	list-style: none;
+	padding: 0;
+	margin: 0.3em 0 0;
+	display: flex;
+	flex-direction: column;
+	gap: 0.35em;
+	font-size: 0.85rem;
+	color: rgba(230, 234, 238, 0.82);
+	line-height: 1.5;
+}
+
+.help-search-hit--heading .help-search-snippet {
+	font-weight: 600;
+}
+
+.help-search-mark {
+	background: rgba(255, 220, 120, 0.35);
+	color: inherit;
+	padding: 0 2px;
+	border-radius: 2px;
+}
+
+.help-search-empty {
+	color: rgba(255, 255, 255, 0.6);
+	font-style: italic;
+}
+
 @media (max-width: 720px) {
 	.help-modal__body {
 		flex-direction: column;
