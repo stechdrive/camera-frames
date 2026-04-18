@@ -174,37 +174,40 @@ export async function readCameraFramesProject(
 			},
 		);
 
-		const assetEntries = await Promise.all(
-			assetExtractors.map((extract) => extract()),
+		const referenceImageExtractors = normalizedReferenceImages.assets.map(
+			(referenceAsset) => async () => {
+				const resourceId = referenceAsset.source?.resourceId;
+				const resource = project.resources?.[resourceId];
+				if (!resource) {
+					throw new Error(
+						`Missing project resource for reference image "${referenceAsset.label}".`,
+					);
+				}
+				if (resource.type !== "file") {
+					throw new Error(
+						`Unsupported project resource type "${resource.type}" for reference image "${referenceAsset.label}".`,
+					);
+				}
+				const blob = await reader.blob(resource.path);
+				return {
+					...referenceAsset,
+					source: createProjectFileEmbeddedFileSource({
+						kind: REFERENCE_IMAGE_ASSET_KIND,
+						file: new File([blob], resource.originalName, {
+							type: resource.mediaType || blob.type || undefined,
+						}),
+						fileName: resource.originalName,
+						resource: cloneFileResource(resource, REFERENCE_IMAGE_ASSET_KIND),
+					}),
+				};
+			},
 		);
 
-		const reconstructedReferenceImageAssets = [];
-		for (const referenceAsset of normalizedReferenceImages.assets) {
-			const resourceId = referenceAsset.source?.resourceId;
-			const resource = project.resources?.[resourceId];
-			if (!resource) {
-				throw new Error(
-					`Missing project resource for reference image "${referenceAsset.label}".`,
-				);
-			}
-			if (resource.type !== "file") {
-				throw new Error(
-					`Unsupported project resource type "${resource.type}" for reference image "${referenceAsset.label}".`,
-				);
-			}
-			const blob = await reader.blob(resource.path);
-			reconstructedReferenceImageAssets.push({
-				...referenceAsset,
-				source: createProjectFileEmbeddedFileSource({
-					kind: REFERENCE_IMAGE_ASSET_KIND,
-					file: new File([blob], resource.originalName, {
-						type: resource.mediaType || blob.type || undefined,
-					}),
-					fileName: resource.originalName,
-					resource: cloneFileResource(resource, REFERENCE_IMAGE_ASSET_KIND),
-				}),
-			});
-		}
+		const [assetEntries, reconstructedReferenceImageAssets] = await Promise.all([
+			Promise.all(assetExtractors.map((extract) => extract())),
+			Promise.all(referenceImageExtractors.map((extract) => extract())),
+		]);
+
 		project.scene.referenceImages = {
 			...normalizedReferenceImages,
 			assets: reconstructedReferenceImageAssets,
