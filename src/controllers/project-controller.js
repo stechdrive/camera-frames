@@ -404,20 +404,20 @@ export function createProjectController({
 		return true;
 	}
 
-	async function tryApplyCompatibleWorkingState(projectContext) {
+	async function probeCompatibleWorkingState(projectContext) {
 		if (
 			!supportsWorkingProjectStateStorage() ||
 			!projectContext.projectId ||
 			!projectContext.packageFingerprint
 		) {
-			return false;
+			return null;
 		}
 
 		const record = await readCameraFramesWorkingState(projectContext.projectId);
-		if (!isWorkingStateCompatible(record, projectContext)) {
-			return false;
-		}
+		return isWorkingStateCompatible(record, projectContext) ? record : null;
+	}
 
+	async function applyProbedWorkingState(record, projectContext) {
 		await applyWorkingStateRecord(record);
 		const restoredSnapshot = captureProjectState();
 		markCurrentProjectClean(restoredSnapshot);
@@ -427,6 +427,14 @@ export function createProjectController({
 				name: projectContext.projectName || "",
 			}),
 		);
+	}
+
+	async function tryApplyCompatibleWorkingState(projectContext) {
+		const record = await probeCompatibleWorkingState(projectContext);
+		if (!record) {
+			return false;
+		}
+		await applyProbedWorkingState(record, projectContext);
 		return true;
 	}
 
@@ -462,6 +470,14 @@ export function createProjectController({
 			parsedProject.project,
 			packageFingerprint,
 		);
+		const workingStateContext = {
+			projectId: projectIdentity.projectId,
+			packageRevision: projectIdentity.packageRevision,
+			packageFingerprint,
+			projectName,
+		};
+		const compatibleWorkingStateRecord =
+			await probeCompatibleWorkingState(workingStateContext);
 		try {
 			await applyOpenedProject(parsedProject, {
 				projectName,
@@ -469,6 +485,7 @@ export function createProjectController({
 				onAssetProgress: (step, detail = "") => {
 					setOverlay(buildImportProgressOverlay(t, step, detail));
 				},
+				skipApplyState: compatibleWorkingStateRecord !== null,
 			});
 			clearOverlay();
 			rememberProjectContext({
@@ -479,15 +496,16 @@ export function createProjectController({
 				fileHandle,
 			});
 			markCurrentPackageClean(parsedProject.project);
-			await tryApplyCompatibleWorkingState({
-				projectId: projectIdentity.projectId,
-				packageRevision: projectIdentity.packageRevision,
-				packageFingerprint,
-				projectName,
-			});
-			const finalSnapshot = captureProjectState();
-			markCurrentProjectClean(finalSnapshot);
-			syncProjectPresentation(finalSnapshot);
+			if (compatibleWorkingStateRecord) {
+				await applyProbedWorkingState(
+					compatibleWorkingStateRecord,
+					workingStateContext,
+				);
+			} else {
+				const finalSnapshot = captureProjectState();
+				markCurrentProjectClean(finalSnapshot);
+				syncProjectPresentation(finalSnapshot);
+			}
 		} catch (error) {
 			clearOverlay();
 			throw error;
@@ -564,15 +582,25 @@ export function createProjectController({
 				fileHandle,
 			});
 			markCurrentPackageClean(normalizedProject);
-			await tryApplyCompatibleWorkingState({
+			const legacyWorkingStateContext = {
 				projectId,
 				packageRevision: 0,
 				packageFingerprint,
 				projectName,
-			});
-			const finalSnapshot = captureProjectState();
-			markCurrentProjectClean(finalSnapshot);
-			syncProjectPresentation(finalSnapshot);
+			};
+			const legacyWorkingStateRecord = await probeCompatibleWorkingState(
+				legacyWorkingStateContext,
+			);
+			if (legacyWorkingStateRecord) {
+				await applyProbedWorkingState(
+					legacyWorkingStateRecord,
+					legacyWorkingStateContext,
+				);
+			} else {
+				const finalSnapshot = captureProjectState();
+				markCurrentProjectClean(finalSnapshot);
+				syncProjectPresentation(finalSnapshot);
+			}
 			setStatus(t("status.projectLoaded"));
 			return true;
 		}
