@@ -12,6 +12,7 @@ export function createProjectOpenApply({
 			projectName = "",
 			loadedStatus = t("status.projectLoaded"),
 			onAssetProgress = null,
+			skipApplyState = false,
 		} = {},
 	) {
 		const assetController = getAssetController?.();
@@ -26,8 +27,10 @@ export function createProjectOpenApply({
 			});
 		}
 		onAssetProgress?.("apply", t("overlay.importDetailApply", { projectName }));
-		applySavedProjectState?.(parsedProject.project);
-		getHistoryController?.()?.clearHistory?.();
+		if (!skipApplyState) {
+			applySavedProjectState?.(parsedProject.project);
+			getHistoryController?.()?.clearHistory?.();
+		}
 		setStatus?.(loadedStatus);
 		return true;
 	};

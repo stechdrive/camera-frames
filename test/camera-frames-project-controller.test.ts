@@ -237,6 +237,11 @@ function createHarness(overrides = {}) {
 	await harness.projectController.openProjectSource(projectFile);
 	assert.equal(harness.store.overlay.value, null);
 	assert.equal(harness.applyOpenedProjectCalls.length, 1);
+	assert.equal(
+		harness.applyOpenedProjectCalls[0]?.[1]?.skipApplyState,
+		false,
+		"applyOpenedProject should receive skipApplyState=false when no compatible working state exists",
+	);
 }
 
 {

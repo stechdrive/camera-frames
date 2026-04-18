@@ -280,8 +280,22 @@ export function createProjectController({
 		};
 	}
 
+	const dirtySignatureCache = new WeakMap();
+
 	function getProjectDirtySignature(projectSnapshot = captureProjectState()) {
-		return JSON.stringify(buildProjectDirtyPayload(projectSnapshot));
+		const canCache =
+			projectSnapshot !== null && typeof projectSnapshot === "object";
+		if (canCache) {
+			const cached = dirtySignatureCache.get(projectSnapshot);
+			if (cached !== undefined) {
+				return cached;
+			}
+		}
+		const signature = JSON.stringify(buildProjectDirtyPayload(projectSnapshot));
+		if (canCache) {
+			dirtySignatureCache.set(projectSnapshot, signature);
+		}
+		return signature;
 	}
 
 	function markCurrentProjectClean(projectSnapshot = captureProjectState()) {
@@ -390,28 +404,37 @@ export function createProjectController({
 		return true;
 	}
 
-	async function tryApplyCompatibleWorkingState(projectContext) {
+	async function probeCompatibleWorkingState(projectContext) {
 		if (
 			!supportsWorkingProjectStateStorage() ||
 			!projectContext.projectId ||
 			!projectContext.packageFingerprint
 		) {
-			return false;
+			return null;
 		}
 
 		const record = await readCameraFramesWorkingState(projectContext.projectId);
-		if (!isWorkingStateCompatible(record, projectContext)) {
-			return false;
-		}
+		return isWorkingStateCompatible(record, projectContext) ? record : null;
+	}
 
+	async function applyProbedWorkingState(record, projectContext) {
 		await applyWorkingStateRecord(record);
-		markCurrentProjectClean(captureProjectState());
-		syncProjectPresentation(captureProjectState());
+		const restoredSnapshot = captureProjectState();
+		markCurrentProjectClean(restoredSnapshot);
+		syncProjectPresentation(restoredSnapshot);
 		setStatus(
 			t("status.workingStateRestored", {
 				name: projectContext.projectName || "",
 			}),
 		);
+	}
+
+	async function tryApplyCompatibleWorkingState(projectContext) {
+		const record = await probeCompatibleWorkingState(projectContext);
+		if (!record) {
+			return false;
+		}
+		await applyProbedWorkingState(record, projectContext);
 		return true;
 	}
 
@@ -441,11 +464,20 @@ export function createProjectController({
 		await waitForOverlayFrame();
 		const packageFingerprint = await buildProjectFingerprint(
 			parsedProject.project,
+			{ assumeNormalized: true },
 		);
 		const projectIdentity = resolveProjectIdentity(
 			parsedProject.project,
 			packageFingerprint,
 		);
+		const workingStateContext = {
+			projectId: projectIdentity.projectId,
+			packageRevision: projectIdentity.packageRevision,
+			packageFingerprint,
+			projectName,
+		};
+		const compatibleWorkingStateRecord =
+			await probeCompatibleWorkingState(workingStateContext);
 		try {
 			await applyOpenedProject(parsedProject, {
 				projectName,
@@ -453,6 +485,7 @@ export function createProjectController({
 				onAssetProgress: (step, detail = "") => {
 					setOverlay(buildImportProgressOverlay(t, step, detail));
 				},
+				skipApplyState: compatibleWorkingStateRecord !== null,
 			});
 			clearOverlay();
 			rememberProjectContext({
@@ -463,14 +496,16 @@ export function createProjectController({
 				fileHandle,
 			});
 			markCurrentPackageClean(parsedProject.project);
-			await tryApplyCompatibleWorkingState({
-				projectId: projectIdentity.projectId,
-				packageRevision: projectIdentity.packageRevision,
-				packageFingerprint,
-				projectName,
-			});
-			markCurrentProjectClean(captureProjectState());
-			syncProjectPresentation(captureProjectState());
+			if (compatibleWorkingStateRecord) {
+				await applyProbedWorkingState(
+					compatibleWorkingStateRecord,
+					workingStateContext,
+				);
+			} else {
+				const finalSnapshot = captureProjectState();
+				markCurrentProjectClean(finalSnapshot);
+				syncProjectPresentation(finalSnapshot);
+			}
 		} catch (error) {
 			clearOverlay();
 			throw error;
@@ -535,8 +570,10 @@ export function createProjectController({
 				currentProjectId || normalizedProject.projectId || generateProjectId();
 			normalizedProject.projectId = projectId;
 			normalizedProject.packageRevision = 0;
-			const packageFingerprint =
-				await buildProjectFingerprint(normalizedProject);
+			const packageFingerprint = await buildProjectFingerprint(
+				normalizedProject,
+				{ assumeNormalized: true },
+			);
 			rememberProjectContext({
 				projectId,
 				packageRevision: 0,
@@ -545,14 +582,25 @@ export function createProjectController({
 				fileHandle,
 			});
 			markCurrentPackageClean(normalizedProject);
-			await tryApplyCompatibleWorkingState({
+			const legacyWorkingStateContext = {
 				projectId,
 				packageRevision: 0,
 				packageFingerprint,
 				projectName,
-			});
-			markCurrentProjectClean(captureProjectState());
-			syncProjectPresentation(captureProjectState());
+			};
+			const legacyWorkingStateRecord = await probeCompatibleWorkingState(
+				legacyWorkingStateContext,
+			);
+			if (legacyWorkingStateRecord) {
+				await applyProbedWorkingState(
+					legacyWorkingStateRecord,
+					legacyWorkingStateContext,
+				);
+			} else {
+				const finalSnapshot = captureProjectState();
+				markCurrentProjectClean(finalSnapshot);
+				syncProjectPresentation(finalSnapshot);
+			}
 			setStatus(t("status.projectLoaded"));
 			return true;
 		}

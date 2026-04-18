@@ -541,8 +541,10 @@ export function getProjectSourceStableKey(source) {
 	return getProjectResourceStableKey(getProjectSourceResource(source));
 }
 
-function buildProjectFingerprintPayload(project) {
-	const normalizedProject = normalizeProjectDocument(project);
+function buildProjectFingerprintPayload(project, { assumeNormalized = false } = {}) {
+	const normalizedProject = assumeNormalized
+		? project
+		: normalizeProjectDocument(project);
 	const resourceEntries = Object.entries(normalizedProject.resources ?? {})
 		.map(([resourceId, resource]) => ({
 			resourceId,
@@ -581,8 +583,8 @@ function buildProjectFingerprintPayload(project) {
 	};
 }
 
-export async function buildProjectFingerprint(project) {
-	const payload = buildProjectFingerprintPayload(project);
+export async function buildProjectFingerprint(project, options) {
+	const payload = buildProjectFingerprintPayload(project, options);
 	return sha256Hex(new TextEncoder().encode(JSON.stringify(payload)));
 }
 
