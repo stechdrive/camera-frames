@@ -19,7 +19,7 @@ user-visible な仕様変更が入るときは、該当章も同じ PR で更新
 
 1. 該当章の Markdown を編集
 2. frontmatter の `last-updated` を今日の日付に更新
-3. スクショが古くなったら `npm run docs:capture -- --section=<id>` で再撮影（Phase 3 以降）
+3. スクショが古くなったら [CAPTURE.md](CAPTURE.md) の手順で再撮影（`__CF_DOCS__.runScenario("<id>")` → preview_screenshot → 保存）
 4. アプリ内 Help モーダルで表示確認（`F1` で開く）
 5. `npm test` が通ることを確認
 
@@ -47,9 +47,11 @@ user-visible な仕様変更が入るときは、該当章も同じ PR で更新
 
 ## 関連コードの場所
 
-- アプリ内 Help モーダル: `src/ui/help/`（Phase 2 で実装）
-- 撮影ブリッジ: `src/main.js` の `__CF_DOCS__`（Phase 3 で実装）
-- 撮影スクリプト: `scripts/capture-docs.mjs` + `test/docs-capture.js`（Phase 3 で実装）
+- アプリ内 Help モーダル: `src/ui/help/`
+- 撮影ブリッジ: `src/main.js` + `src/ui/help/docs-bridge.js`（dev build のみ `__CF_DOCS__` として公開）
+- 撮影シナリオ: [`test/docs-capture.js`](../../test/docs-capture.js)
+- 撮影ワークフロー: [CAPTURE.md](CAPTURE.md)
+- アノテーションオーバーレイ: `src/ui/docs-annotation-overlay.js`
 - アイコン実体: `src/ui/workbench-icons.js`
 
 ## チェックリスト（PR 送る前）
