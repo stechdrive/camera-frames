@@ -280,8 +280,22 @@ export function createProjectController({
 		};
 	}
 
+	const dirtySignatureCache = new WeakMap();
+
 	function getProjectDirtySignature(projectSnapshot = captureProjectState()) {
-		return JSON.stringify(buildProjectDirtyPayload(projectSnapshot));
+		const canCache =
+			projectSnapshot !== null && typeof projectSnapshot === "object";
+		if (canCache) {
+			const cached = dirtySignatureCache.get(projectSnapshot);
+			if (cached !== undefined) {
+				return cached;
+			}
+		}
+		const signature = JSON.stringify(buildProjectDirtyPayload(projectSnapshot));
+		if (canCache) {
+			dirtySignatureCache.set(projectSnapshot, signature);
+		}
+		return signature;
 	}
 
 	function markCurrentProjectClean(projectSnapshot = captureProjectState()) {
@@ -405,8 +419,9 @@ export function createProjectController({
 		}
 
 		await applyWorkingStateRecord(record);
-		markCurrentProjectClean(captureProjectState());
-		syncProjectPresentation(captureProjectState());
+		const restoredSnapshot = captureProjectState();
+		markCurrentProjectClean(restoredSnapshot);
+		syncProjectPresentation(restoredSnapshot);
 		setStatus(
 			t("status.workingStateRestored", {
 				name: projectContext.projectName || "",
@@ -470,8 +485,9 @@ export function createProjectController({
 				packageFingerprint,
 				projectName,
 			});
-			markCurrentProjectClean(captureProjectState());
-			syncProjectPresentation(captureProjectState());
+			const finalSnapshot = captureProjectState();
+			markCurrentProjectClean(finalSnapshot);
+			syncProjectPresentation(finalSnapshot);
 		} catch (error) {
 			clearOverlay();
 			throw error;
@@ -554,8 +570,9 @@ export function createProjectController({
 				packageFingerprint,
 				projectName,
 			});
-			markCurrentProjectClean(captureProjectState());
-			syncProjectPresentation(captureProjectState());
+			const finalSnapshot = captureProjectState();
+			markCurrentProjectClean(finalSnapshot);
+			syncProjectPresentation(finalSnapshot);
 			setStatus(t("status.projectLoaded"));
 			return true;
 		}
