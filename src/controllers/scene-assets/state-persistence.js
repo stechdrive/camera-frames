@@ -10,7 +10,7 @@ import {
 import {
 	createProjectFilePackedSplatSource,
 	toUint32Array,
-} from "../../project-document.js";
+} from "../../project/document.js";
 
 export function createSceneAssetStatePersistence({
 	sceneState,

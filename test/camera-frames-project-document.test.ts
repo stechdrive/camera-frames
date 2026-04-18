@@ -3,7 +3,7 @@ import {
 	PROJECT_VERSION,
 	normalizeProjectDocument,
 	sanitizeProjectAssetLabel,
-} from "../src/project-document.js";
+} from "../src/project/document.js";
 
 assert.equal(
 	sanitizeProjectAssetLabel("  Layout\tModel\nA  ", "Asset 1"),

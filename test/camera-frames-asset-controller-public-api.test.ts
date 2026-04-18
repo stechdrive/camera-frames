@@ -3,7 +3,7 @@ import { SplatMesh } from "@sparkjsdev/spark";
 import * as THREE from "three";
 import { createAssetControllerBindings } from "../src/app/asset-controller-bindings.js";
 import { createAssetController } from "../src/controllers/asset-controller.js";
-import { createProjectFileEmbeddedFileSource } from "../src/project-document.js";
+import { createProjectFileEmbeddedFileSource } from "../src/project/document.js";
 import { createCameraFramesStore } from "../src/store.js";
 
 function createAssetControllerForPublicApiTest() {

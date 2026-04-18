@@ -94,7 +94,7 @@ import { getAnchorLabel } from "./i18n.js";
 import {
 	extractProjectPackageAssets,
 	isProjectPackageSource,
-} from "./project-package.js";
+} from "./project/package-legacy.js";
 import {
 	WORKSPACE_PANE_CAMERA,
 	WORKSPACE_PANE_VIEWPORT,

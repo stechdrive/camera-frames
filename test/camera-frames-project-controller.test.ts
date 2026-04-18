@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createProjectController } from "../src/controllers/project-controller.js";
 import { buildZipArchiveBytes } from "../src/project-archive.js";
-import { buildCameraFramesProjectArchive } from "../src/project-file.js";
+import { buildCameraFramesProjectArchive } from "../src/project/file/index.js";
 import { createDefaultReferenceImageDocument } from "../src/reference-image-model.js";
 
 function t(key, values = {}) {

@@ -10,11 +10,11 @@ import {
 	isProjectFileEmbeddedFileSource,
 	isProjectFilePackedSplatSource,
 	sanitizeProjectAssetLabel,
-} from "../project-document.js";
+} from "../project/document.js";
 import {
 	isProjectPackageFileSource,
 	isProjectPackagePackedSplatSource,
-} from "../project-package.js";
+} from "../project/package-legacy.js";
 import { createSceneAssetBoundsController } from "./scene-assets/bounds.js";
 import { createSceneAssetDocumentMutationsController } from "./scene-assets/document-mutations.js";
 import { createAssetImportRuntime } from "./scene-assets/import-runtime.js";

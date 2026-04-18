@@ -1,4 +1,4 @@
-import { sanitizeProjectAssetLabel } from "../../project-document.js";
+import { sanitizeProjectAssetLabel } from "../../project/document.js";
 
 const EMPTY_MASK_GROUP_LABEL = "—";
 

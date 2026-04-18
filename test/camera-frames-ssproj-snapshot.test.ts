@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { extractProjectPackageAssets } from "../src/project-package.js";
+import { extractProjectPackageAssets } from "../src/project/package-legacy.js";
 import { buildLegacyProjectImport } from "../src/importers/legacy-ssproj.js";
-import { readCameraFramesProject } from "../src/project-file.js";
+import { readCameraFramesProject } from "../src/project/file/index.js";
 
 /*
  * .ssproj snapshot test

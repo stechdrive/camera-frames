@@ -9,7 +9,7 @@ import {
 	isProjectPackageSource,
 	isSupportedProjectPackageAssetPath,
 	resolveProjectPackageAssetPaths,
-} from "../src/project-package.js";
+} from "../src/project/package-legacy.js";
 
 const textEncoder = new TextEncoder();
 

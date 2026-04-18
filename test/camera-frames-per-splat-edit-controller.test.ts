@@ -10,7 +10,7 @@ import {
 	createProjectFilePackedSplatSource,
 	isProjectFileEmbeddedFileSource,
 	isProjectFilePackedSplatSource,
-} from "../src/project-document.js";
+} from "../src/project/document.js";
 import { createCameraFramesStore } from "../src/store.js";
 
 function createRectElement({

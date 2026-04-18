@@ -1,4 +1,4 @@
-import { createProjectFilePackedSplatSource } from "../../project-document.js";
+import { createProjectFilePackedSplatSource } from "../../project/document.js";
 import {
 	DERIVED_SPLAT_FILE_EXTENSION,
 	clonePackedExtra,

@@ -5,7 +5,7 @@ import {
 import {
 	createProjectFileEmbeddedFileSource,
 	getProjectMediaTypeFromFileName,
-} from "../../project-document.js";
+} from "../../project/document.js";
 import {
 	REFERENCE_IMAGE_ASSET_KIND,
 	REFERENCE_IMAGE_GROUP_FRONT,

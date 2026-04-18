@@ -1,20 +1,20 @@
-import { DEFAULT_SHOT_CAMERA_BASE_FOVX } from "./engine/camera-lens.js";
-import { cloneFrameTrajectoryNodesByFrameId } from "./engine/frame-trajectory.js";
+import { DEFAULT_SHOT_CAMERA_BASE_FOVX } from "../engine/camera-lens.js";
+import { cloneFrameTrajectoryNodesByFrameId } from "../engine/frame-trajectory.js";
 import {
 	cloneViewportOrthoState,
 	normalizeViewportProjectionMode,
-} from "./engine/viewport-orthographic.js";
-import { normalizeLightingState } from "./lighting-model.js";
+} from "../engine/viewport-orthographic.js";
+import { normalizeLightingState } from "../lighting-model.js";
 import {
 	REFERENCE_IMAGE_ASSET_KIND,
 	createDefaultReferenceImageDocument,
 	normalizeReferenceImageDocument,
 	sanitizeShotCameraReferenceImagesState,
-} from "./reference-image-model.js";
+} from "../reference-image-model.js";
 import {
 	createDefaultShotCameraDocuments,
 	createShotCameraDocument,
-} from "./workspace-model.js";
+} from "../workspace-model.js";
 
 export const PROJECT_FORMAT = "camera-frames-project";
 export const PROJECT_VERSION = 3;

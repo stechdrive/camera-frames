@@ -2,11 +2,11 @@ import * as THREE from "three";
 import {
 	isProjectFileEmbeddedFileSource,
 	isProjectFilePackedSplatSource,
-} from "../../project-document.js";
+} from "../../project/document.js";
 import {
 	isProjectPackageFileSource,
 	isProjectPackagePackedSplatSource,
-} from "../../project-package.js";
+} from "../../project/package-legacy.js";
 
 const SPARK_SPLAT_CORRECTION_QUATERNION = new THREE.Quaternion(1, 0, 0, 0);
 

@@ -4,7 +4,7 @@ import {
 	applyLegacyCameraTransform,
 	buildLegacyProjectImport,
 } from "../importers/legacy-ssproj.js";
-import { getDefaultProjectFilename } from "../project-file.js";
+import { getDefaultProjectFilename } from "../project/file/index.js";
 import {
 	cloneShotCameraDocument,
 	createDefaultShotCameraDocuments,

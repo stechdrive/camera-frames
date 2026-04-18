@@ -2,8 +2,8 @@ import {
 	MODEL_EXTENSIONS,
 	PROJECT_PACKAGE_EXTENSION,
 	SPLAT_EXTENSIONS,
-} from "./constants.js";
-import { ZipReader } from "./project-archive.js";
+} from "../constants.js";
+import { ZipReader } from "../project-archive.js";
 
 const PROJECT_PACKAGE_PACKED_SPLAT_SOURCE = "project-package-packed-splat";
 const PROJECT_PACKAGE_FILE_SOURCE = "project-package-file";

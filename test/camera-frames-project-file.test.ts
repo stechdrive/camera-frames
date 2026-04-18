@@ -6,7 +6,7 @@ import {
 	isProjectFileEmbeddedFileSource,
 	isProjectFilePackedSplatSource,
 	readCameraFramesProject,
-} from "../src/project-file.js";
+} from "../src/project/file/index.js";
 import {
 	createDefaultReferenceImageDocument,
 	createReferenceImageAsset,

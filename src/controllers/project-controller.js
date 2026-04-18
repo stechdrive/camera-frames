@@ -4,354 +4,51 @@ import {
 	generateProjectId,
 	getProjectSourceStableKey,
 	normalizeProjectDocument,
-} from "../project-document.js";
+} from "../project/document.js";
 import {
 	getDefaultProjectFilename,
 	readCameraFramesProject,
 	writeCameraFramesProjectPackageToWritable,
-} from "../project-file.js";
-import { ZipReader } from "../project-package.js";
+} from "../project/file/index.js";
+import { ZipReader } from "../project/package-legacy.js";
 import {
 	cleanupCameraFramesWorkingState,
 	deleteCameraFramesWorkingState,
 	readCameraFramesWorkingState,
 	saveCameraFramesWorkingState,
 	supportsWorkingProjectStateStorage,
-} from "../project-working-state.js";
+} from "../project/working-state.js";
 import { getProjectStatusDisplay } from "../ui/project-status.js";
+import {
+	buildImportProgressDetail,
+	buildImportProgressOverlay,
+	buildPackageErrorOverlay,
+	buildPackageProgressDetail,
+	buildPackageProgressOverlay,
+	waitForOverlayFrame,
+} from "./project/overlays.js";
+import {
+	createSogCompressionUnavailableError,
+	ensureProjectFileName,
+	getProjectBaseName,
+	getProjectPickerTypes,
+	isLegacyCameraFramesProjectSource,
+	pickProjectSaveHandle,
+	supportsProjectFileSave,
+	supportsSogCompression,
+	writeProjectFileHandle,
+} from "./project/picker-options.js";
+import {
+	buildWorkingSaveRecord,
+	isQuotaExceededError,
+	isWorkingStateCompatible,
+	resolveProjectIdentity,
+} from "./project/working-save-record.js";
 
 const DEFAULT_SOG_MAX_SH_BANDS = 2;
 const DEFAULT_SOG_ITERATIONS = 10;
 const PACKAGE_SOG_ITERATION_OPTIONS = [4, 8, 10, 12, 16];
-const PROJECT_PICKER_MIME = "application/x-camera-frames-project";
 const WORKING_SAVE_NOTICE_STORAGE_KEY = "camera-frames.workingSaveNoticeSeen";
-
-function getProjectBaseName(value) {
-	const fileName = String(value ?? "").trim();
-	if (!fileName) {
-		return "";
-	}
-	return fileName.replace(/\.ssproj$/i, "");
-}
-
-function ensureProjectFileName(
-	value,
-	fallback = "camera-frames-project.ssproj",
-) {
-	const baseName = getProjectBaseName(value);
-	return baseName ? `${baseName}.ssproj` : fallback;
-}
-
-function supportsProjectFileSave() {
-	return typeof globalThis.showSaveFilePicker === "function";
-}
-
-function supportsSogCompression() {
-	return Boolean(globalThis.navigator?.gpu);
-}
-
-function createSogCompressionUnavailableError(t) {
-	return new Error(t("error.sogCompressionWorkerUnavailable"));
-}
-
-function getProjectPickerTypes() {
-	return [
-		{
-			description: "CAMERA_FRAMES Project",
-			accept: {
-				[PROJECT_PICKER_MIME]: [".ssproj"],
-			},
-		},
-	];
-}
-
-async function pickProjectSaveHandle(suggestedName) {
-	if (!supportsProjectFileSave()) {
-		return null;
-	}
-
-	return globalThis.showSaveFilePicker({
-		suggestedName,
-		types: getProjectPickerTypes(),
-	});
-}
-
-async function writeProjectFileHandle(fileHandle, bytes) {
-	const writable = await fileHandle.createWritable();
-	await writable.write(bytes);
-	await writable.close();
-}
-
-async function isLegacyCameraFramesProjectSource(source) {
-	try {
-		const reader = await ZipReader.from(source);
-		const archivePaths = reader
-			.listFilenames()
-			.map((path) => path.toLowerCase());
-		return (
-			!archivePaths.includes("manifest.json") &&
-			archivePaths.includes("document.json")
-		);
-	} catch {
-		return false;
-	}
-}
-
-function buildPackageProgressOverlay(
-	t,
-	phase,
-	detail = "",
-	{ startedAt = 0 } = {},
-) {
-	const steps = [
-		{
-			id: "collect-state",
-			label: t("overlay.packagePhaseCollect"),
-		},
-		{
-			id: "resolve-assets",
-			label: t("overlay.packagePhaseResolve"),
-		},
-		{
-			id: "compress-splats",
-			label: t("overlay.packagePhaseCompress"),
-		},
-		{
-			id: "write-package",
-			label: t("overlay.packagePhaseWrite"),
-		},
-	];
-	const phaseIndex = steps.findIndex((step) => step.id === phase);
-
-	return {
-		kind: "progress",
-		title: t("overlay.packageSaveTitle"),
-		message: t("overlay.packageSaveMessage"),
-		detail,
-		startedAt,
-		steps: steps.map((step, index) => ({
-			label: step.label,
-			status:
-				index < phaseIndex
-					? "done"
-					: index === phaseIndex
-						? "active"
-						: "pending",
-		})),
-	};
-}
-
-function buildImportProgressOverlay(t, step, detail = "") {
-	const steps = [
-		{ key: "verify", label: t("overlay.importPhaseVerify") },
-		{ key: "expand", label: t("overlay.importPhaseExpand") },
-		{ key: "load", label: t("overlay.importPhaseLoad") },
-		{ key: "apply", label: t("overlay.importPhaseApply") },
-	];
-	const activeIndex = steps.findIndex((entry) => entry.key === step);
-	return {
-		kind: "progress",
-		title: t("overlay.importTitle"),
-		message: t("overlay.importMessage"),
-		detail,
-		steps: steps.map((entry, index) => ({
-			label: entry.label,
-			status:
-				index < activeIndex
-					? "done"
-					: index === activeIndex
-						? "active"
-						: "pending",
-		})),
-	};
-}
-
-function buildImportProgressDetail(
-	t,
-	{ stage = "", index = 0, total = 0, assetLabel = "", fileLabel = "" } = {},
-) {
-	if (stage === "inspect-archive") {
-		return t("overlay.importDetailInspectProjectArchive");
-	}
-	if (stage === "read-manifest") {
-		return t("overlay.importDetailReadProjectManifest", {
-			file: fileLabel || PROJECT_MANIFEST_PATH,
-		});
-	}
-	if (stage === "read-project-document") {
-		return t("overlay.importDetailReadProjectDocument", {
-			file: fileLabel || PROJECT_DOCUMENT_PATH,
-		});
-	}
-	if (stage === "extract-project-asset") {
-		if (assetLabel && fileLabel && assetLabel !== fileLabel) {
-			return t("overlay.importDetailExpandProjectAssetWithFile", {
-				index,
-				count: total,
-				name: assetLabel,
-				file: fileLabel,
-			});
-		}
-		return t("overlay.importDetailExpandProjectAsset", {
-			index,
-			count: total,
-			name: assetLabel || fileLabel,
-		});
-	}
-	return "";
-}
-
-function buildPackageErrorOverlay(t, error) {
-	const detail = String(
-		error?.stack ??
-			error?.message ??
-			error ??
-			t("overlay.packageSaveErrorMessage"),
-	).trim();
-	return {
-		kind: "error",
-		title: t("overlay.packageSaveErrorTitle"),
-		message: t("overlay.packageSaveErrorMessage"),
-		detail,
-		detailLabel: t("overlay.errorDetails"),
-		actions: [
-			{
-				label: t("action.close"),
-				primary: true,
-				onClick: () => {},
-			},
-		],
-	};
-}
-
-async function waitForOverlayFrame() {
-	if (typeof globalThis.requestAnimationFrame === "function") {
-		await new Promise((resolve) => globalThis.requestAnimationFrame(resolve));
-		return;
-	}
-	await new Promise((resolve) => setTimeout(resolve, 0));
-}
-
-function buildPackageProgressDetail(
-	t,
-	{
-		phase,
-		stage = "",
-		index = 0,
-		total = 0,
-		assetLabel = "",
-		fileLabel = "",
-		message = "",
-		percent = null,
-	} = {},
-) {
-	const normalizedAssetLabel = String(assetLabel ?? "").trim();
-	const normalizedFileLabel = String(fileLabel ?? "").trim();
-	const assetDetail =
-		total && (normalizedAssetLabel || normalizedFileLabel)
-			? normalizedAssetLabel &&
-				normalizedFileLabel &&
-				normalizedAssetLabel !== normalizedFileLabel
-				? t("overlay.packageDetailAssetWithFile", {
-						index,
-						total,
-						name: normalizedAssetLabel,
-						file: normalizedFileLabel,
-					})
-				: t("overlay.packageDetailAsset", {
-						index,
-						total,
-						name: normalizedAssetLabel || normalizedFileLabel,
-					})
-			: "";
-	const stageKey =
-		phase === "compress-splats"
-			? `overlay.packageCompressStage.${stage}`
-			: phase === "write-package"
-				? `overlay.packageWriteStage.${stage}`
-				: `overlay.packageResolveStage.${stage}`;
-	const stageDetail = message
-		? percent == null
-			? message
-			: `${message} (${Math.max(0, Math.min(100, Math.round(percent)))}%)`
-		: stage
-			? t(stageKey)
-			: "";
-	const resolvedStageDetail = stageDetail !== stageKey ? stageDetail : "";
-	if (assetDetail && resolvedStageDetail) {
-		return `${assetDetail} · ${resolvedStageDetail}`;
-	}
-	return assetDetail || resolvedStageDetail;
-}
-
-function buildWorkingSaveRecord({
-	projectId,
-	projectName,
-	packageRevision,
-	packageFingerprint,
-	projectSnapshot,
-	workingSceneSnapshot,
-	workingEditorSnapshot = null,
-}) {
-	const normalizedProject = normalizeProjectDocument(projectSnapshot);
-	return {
-		projectId,
-		projectName,
-		packageRevision,
-		packageFingerprint,
-		snapshot: {
-			workspace: normalizedProject.workspace,
-			shotCameras: normalizedProject.shotCameras,
-			editorState: workingEditorSnapshot ?? null,
-			scene: {
-				assets: workingSceneSnapshot.assets,
-				selectedAssetKeys: workingSceneSnapshot.selectedAssetKeys,
-				activeAssetKey: workingSceneSnapshot.activeAssetKey,
-				referenceImages: normalizedProject.scene.referenceImages,
-			},
-		},
-	};
-}
-
-function resolveProjectIdentity(project, fallbackFingerprint = "") {
-	const normalizedProject = normalizeProjectDocument(project);
-	return {
-		projectId:
-			normalizedProject.projectId || fallbackFingerprint || generateProjectId(),
-		packageRevision: normalizedProject.packageRevision ?? 0,
-	};
-}
-
-function isWorkingStateCompatible(
-	record,
-	{ projectId, packageFingerprint, packageRevision },
-) {
-	if (!record || !projectId) {
-		return false;
-	}
-	if (record.projectId !== projectId) {
-		return false;
-	}
-	if (
-		record.packageFingerprint &&
-		packageFingerprint &&
-		record.packageFingerprint !== packageFingerprint
-	) {
-		return false;
-	}
-	return Number(record.packageRevision ?? 0) === Number(packageRevision ?? 0);
-}
-
-function isQuotaExceededError(error) {
-	const name = String(error?.name ?? "");
-	const message = String(error?.message ?? error ?? "");
-	return (
-		name === "QuotaExceededError" ||
-		name === "NS_ERROR_DOM_QUOTA_REACHED" ||
-		message.includes("QuotaExceededError") ||
-		message.includes("NS_ERROR_DOM_QUOTA_REACHED")
-	);
-}
 
 export function createProjectController({
 	store,

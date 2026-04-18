@@ -4,7 +4,7 @@ import { createSceneAssetProjectStateHelpers } from "../src/controllers/scene-as
 import {
 	createProjectFileEmbeddedFileSource,
 	createProjectFilePackedSplatSource,
-} from "../src/project-document.js";
+} from "../src/project/document.js";
 
 function captureObjectLocalTransformState(object) {
 	if (!object) {
