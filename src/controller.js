@@ -99,6 +99,7 @@ import {
 	WORKSPACE_PANE_CAMERA,
 	WORKSPACE_PANE_VIEWPORT,
 } from "./workspace-model.js";
+import { createHelpCommands } from "./ui/help/help-commands.js";
 
 export function createCameraFramesController(elements, store) {
 	const {
@@ -933,6 +934,7 @@ export function createCameraFramesController(elements, store) {
 
 	runtimeController.init();
 
+	const helpCommands = createHelpCommands({ store });
 	return createControllerApi({
 		store,
 		state,
@@ -983,5 +985,6 @@ export function createCameraFramesController(elements, store) {
 		getActiveShotCameraPoseState,
 		executeViewportPieAction,
 		toggleZoomTool,
+		helpCommands,
 	});
 }

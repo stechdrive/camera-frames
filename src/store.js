@@ -194,6 +194,11 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	const projectDirty = signal(false);
 	const projectPackageDirty = signal(true);
 	const overlay = signal(null);
+	const helpOpen = signal(false);
+	const helpSectionId = signal("getting-started");
+	const helpAnchor = signal(null);
+	const helpSearchQuery = signal("");
+	const helpLang = signal("ja");
 	const exportBusy = signal(false);
 	const exportStatusKey = signal("export.idle");
 	const exportSummary = signal(translate(initialLocale, "exportSummary.empty"));
@@ -534,6 +539,13 @@ export function createCameraFramesStore(runtimeInfo = null) {
 			packageDirty: projectPackageDirty,
 		},
 		overlay,
+		help: {
+			open: helpOpen,
+			sectionId: helpSectionId,
+			anchor: helpAnchor,
+			searchQuery: helpSearchQuery,
+			lang: helpLang,
+		},
 		exportBusy,
 		exportStatusKey,
 		exportStatusLabel,

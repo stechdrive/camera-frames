@@ -48,6 +48,7 @@ export function createControllerApi({
 	getActiveShotCameraPoseState,
 	executeViewportPieAction,
 	toggleZoomTool,
+	helpCommands = null,
 	disposeSceneResources,
 }) {
 	return {
@@ -336,6 +337,7 @@ export function createControllerApi({
 			historyController?.cancelHistoryTransaction(),
 		undoHistory: () => historyController?.undoHistory(),
 		redoHistory: () => historyController?.redoHistory(),
+		...(helpCommands || {}),
 		dispose() {
 			measurementController?.dispose?.();
 			perSplatEditController?.dispose?.();
