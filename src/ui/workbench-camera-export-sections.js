@@ -185,6 +185,8 @@ export function ShotCameraPropertiesSection({
 		<${DisclosureBlock}
 			icon="camera-property"
 			label=${t("section.shotCameraProperties")}
+			helpSectionId="shot-camera"
+			onOpenHelp=${(id) => controller()?.openHelp?.({ sectionId: id })}
 			open=${open}
 			summaryActions=${summaryActions}
 			onToggle=${onToggle}
@@ -473,6 +475,8 @@ export function ExportSettingsSection({
 		<${DisclosureBlock}
 			icon="export-tab"
 			label=${t("section.exportSettings")}
+			helpSectionId="export"
+			onOpenHelp=${(id) => controller()?.openHelp?.({ sectionId: id })}
 			open=${open}
 			summaryActions=${summaryActions}
 			onToggle=${onToggle}
@@ -612,6 +616,8 @@ export function OutputFrameSection({
 		<${DisclosureBlock}
 			icon="render-box"
 			label=${t("section.outputFrame")}
+			helpSectionId="output-frame-and-frames"
+			onOpenHelp=${(id) => controller()?.openHelp?.({ sectionId: id })}
 			open=${open}
 			summaryMeta=${html`<span id="export-size-pill" class="pill pill--dim">${exportSizeLabel}</span>`}
 			summaryActions=${summaryActions}
@@ -712,6 +718,8 @@ export function ExportSection({
 		<${DisclosureBlock}
 			icon="export-tab"
 			label=${t("section.export")}
+			helpSectionId="export"
+			onOpenHelp=${(id) => controller()?.openHelp?.({ sectionId: id })}
 			open=${open}
 			summaryActions=${summaryActions}
 			onToggle=${onToggle}

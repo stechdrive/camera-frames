@@ -2,6 +2,8 @@
 @import "./styles/base.css";
 @import "./styles/layout.css";
 @import "./styles/workbench.css";
+@import "./styles/help.css";
+@import "./styles/docs-annotation.css";
 
 .panel-section {
 	display: flex;

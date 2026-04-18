@@ -99,6 +99,7 @@ import {
 	WORKSPACE_PANE_CAMERA,
 	WORKSPACE_PANE_VIEWPORT,
 } from "./workspace-model.js";
+import { createHelpCommands } from "./ui/help/help-commands.js";
 
 export function createCameraFramesController(elements, store) {
 	const {
@@ -141,6 +142,7 @@ export function createCameraFramesController(elements, store) {
 		defaultFpsMoveSpeed: DEFAULT_FPS_MOVE_SPEED,
 		defaultPointerSlideSpeed: DEFAULT_POINTER_SLIDE_SPEED,
 		defaultPointerScrollSpeed: DEFAULT_POINTER_SCROLL_SPEED,
+		preserveDrawingBuffer: Boolean(import.meta.env?.DEV),
 		WebGLRendererImpl: THREE.WebGLRenderer,
 		SceneImpl: THREE.Scene,
 		ColorImpl: THREE.Color,
@@ -933,6 +935,7 @@ export function createCameraFramesController(elements, store) {
 
 	runtimeController.init();
 
+	const helpCommands = createHelpCommands({ store });
 	return createControllerApi({
 		store,
 		state,
@@ -983,5 +986,6 @@ export function createCameraFramesController(elements, store) {
 		getActiveShotCameraPoseState,
 		executeViewportPieAction,
 		toggleZoomTool,
+		helpCommands,
 	});
 }

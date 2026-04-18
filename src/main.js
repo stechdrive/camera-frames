@@ -10,6 +10,7 @@ import { createCameraFramesController } from "./controller.js";
 import { DEFAULT_LOCALE, translate } from "./i18n.js";
 import { createCameraFramesStore } from "./store.js";
 import { AppView } from "./ui/app-view.js";
+import { createDocsBridge } from "./ui/help/docs-bridge.js";
 
 function CameraFramesApp({ runtimeInfo }) {
 	const storeRef = useRef(null);
@@ -61,6 +62,10 @@ function CameraFramesApp({ runtimeInfo }) {
 
 		if (import.meta.env.DEV) {
 			globalThis.__CF_TEST__ = { store, controller: controllerRef.current };
+			globalThis.__CF_DOCS__ = createDocsBridge({
+				store,
+				getController: () => controllerRef.current,
+			});
 		}
 
 		return () => {

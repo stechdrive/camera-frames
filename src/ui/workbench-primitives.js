@@ -517,6 +517,8 @@ export function DisclosureBlock({
 	open = false,
 	summaryMeta = null,
 	summaryActions = null,
+	helpSectionId = null,
+	onOpenHelp = null,
 	onToggle = null,
 	className = "",
 }) {
@@ -539,6 +541,24 @@ export function DisclosureBlock({
 					<span>${label}</span>
 				</span>
 				<span class="panel-disclosure__summary-right">
+					${
+						helpSectionId &&
+						typeof onOpenHelp === "function" &&
+						html`
+							<button
+								type="button"
+								class="panel-disclosure__help"
+								aria-label="Help"
+								onClick=${(event) => {
+									event.preventDefault();
+									event.stopPropagation();
+									onOpenHelp(helpSectionId);
+								}}
+							>
+								<${WorkbenchIcon} name="help" size=${12} />
+							</button>
+						`
+					}
 					${
 						summaryMeta &&
 						html`<span class="panel-disclosure__summary-meta">${summaryMeta}</span>`

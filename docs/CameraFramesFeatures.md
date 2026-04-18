@@ -259,4 +259,41 @@ PSD export の主な構成:
 
 - PR / 変更時は、まず `docs/camera_frames_requirements.md` で contract を確認する
 - 変更が user-visible なら、この文書の該当機能欄と代表テストも更新する
+- user-visible UI（パネル・モーダル・ショートカット・export 設定など）を変えたら、対応する [docs/help/ja/](./help/ja/) の章も同じ PR で更新する（詳細は [help/UPDATING.md](./help/UPDATING.md) と [help/CAPTURE.md](./help/CAPTURE.md)）
 - `.local/` のメモ更新だけで済ませず、共有すべき仕様変更は `docs/` に昇格させる
+
+## 8. ユーザー向け資料（アプリ内ヘルプ）
+
+アプリの `F1` で開く Help モーダルと repo / GitHub Pages 公開用の正本は [docs/help/](./help/) 以下にある。章構成:
+
+| 章 | 主題 |
+|---|---|
+| [01 はじめに](./help/ja/01-getting-started.md) | アプリの目的、最初の 5 分 |
+| [02 画面構成](./help/ja/02-ui-layout.md) | Viewport / Tool Rail / Inspector / Overlay |
+| [03 ファイルを開く・保存する](./help/ja/03-open-save.md) | Import / working save / package save |
+| [04 シーンアセット](./help/ja/04-scene-assets.md) | splat / model 管理、Lighting、Transform |
+| [05 Shot Camera](./help/ja/05-shot-camera.md) | 構図カメラ、pose / lens / clipping / roll lock |
+| [06 Output Frame と FRAME](./help/ja/06-output-frame-and-frames.md) | 紙面 / anchor / FRAME / Trajectory / mask |
+| [07 リファレンス画像](./help/ja/07-reference-images.md) | preset / shot binding / 編集 |
+| [08 Viewport とツール](./help/ja/08-viewport-tools.md) | Navigate / Select / Transform / Pivot / Measurement / pie menu |
+| [09 Per-splat edit](./help/ja/09-per-splat-edit.md) | Shift+E、Box / Brush / Transform |
+| [10 Export](./help/ja/10-export.md) | target / format / PSD layers |
+| [11 キーボードショートカット一覧](./help/ja/11-shortcuts.md) | 全ショートカット |
+| [12 用語集とトラブルシューティング](./help/ja/12-glossary-troubleshooting.md) | glossary + FAQ |
+
+実装の配線:
+
+- Help モーダル本体 / Markdown renderer / 検索 / deep link: `src/ui/help/`
+- 各 Inspector パネルの `?` ボタン: `src/ui/workbench-primitives.js` の `DisclosureBlock`（`helpSectionId` / `onOpenHelp` props）
+- 撮影ブリッジ（dev のみ）: `src/main.js` + `src/ui/help/docs-bridge.js`（`globalThis.__CF_DOCS__`）
+- 撮影シナリオ: [`test/docs-capture.js`](../test/docs-capture.js)（キー = 画像 id）
+- 画像保存エンドポイント（dev のみ）: `vite.config.js` の `screenshotServePlugin`
+- アノテーションオーバーレイ: `src/ui/docs-annotation-overlay.js` + `store.docsAnnotations`
+- 撮影用ベースシーン: `.local/cf-test/cf-test2.ssproj`（gitignored、権利クリア済み）
+
+回帰観点:
+
+- 新パネルを足したら、どれかの章に `helpSectionId` で紐付ける
+- 新ショートカットを足したら `11-shortcuts.md` に追記する
+- UI 文言を変えたら、関連章の `last-updated` を当日の日付に更新する
+- 撮影し直した PNG は `docs/help/assets/screenshots/ja/` に保存される

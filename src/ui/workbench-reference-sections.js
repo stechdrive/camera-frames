@@ -60,6 +60,8 @@ export function ReferenceSection({
 		<${DisclosureBlock}
 			icon="image"
 			label=${t("section.referenceImages")}
+			helpSectionId="reference-images"
+			onOpenHelp=${(id) => controller()?.openHelp?.({ sectionId: id })}
 			open=${open}
 			summaryMeta=${html`<span class="pill pill--dim">${items.length}</span>`}
 			summaryActions=${summaryActions}
