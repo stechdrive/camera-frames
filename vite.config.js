@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { mkdirSync, readdirSync, writeFileSync } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 
@@ -273,6 +273,14 @@ export default defineConfig(({ command }) => {
 			screenshotServePlugin,
 			forceReloadPlugin,
 		],
+		build: {
+			rollupOptions: {
+				input: {
+					main: resolve(repoRoot, "index.html"),
+					docs: resolve(repoRoot, "docs.html"),
+				},
+			},
+		},
 		optimizeDeps: {
 			exclude: ["playcanvas", "@playcanvas/splat-transform"],
 		},
