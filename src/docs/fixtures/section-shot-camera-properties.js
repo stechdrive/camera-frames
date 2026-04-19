@@ -10,11 +10,9 @@ import { createMockStore } from "../mock/store.js";
 
 const STYLE = `
 .docs-section-host {
-	padding: 32px;
-	display: flex;
-	justify-content: center;
+	padding: 24px;
+	display: inline-block;
 	background: #08111d;
-	min-height: 100vh;
 	box-sizing: border-box;
 }
 .docs-section-host__card {
