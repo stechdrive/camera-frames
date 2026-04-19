@@ -1,8 +1,10 @@
 import { helloFixture } from "./hello.js";
+import { iconsAllFixture } from "./icons-all.js";
 
 /** @type {import("../types").FixtureRegistry} */
 export const FIXTURES = {
 	[helloFixture.id]: helloFixture,
+	[iconsAllFixture.id]: iconsAllFixture,
 };
 
 /**
@@ -17,4 +19,9 @@ export function getFixture(id) {
 /** @returns {string[]} */
 export function listFixtureIds() {
 	return Object.keys(FIXTURES);
+}
+
+/** @returns {import("../types").Fixture[]} */
+export function listFixtures() {
+	return Object.values(FIXTURES);
 }
