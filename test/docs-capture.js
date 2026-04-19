@@ -36,27 +36,6 @@ function activateInspectorTab(_docs, tabId) {
 export const scenarios = {
 	// --- Chapter 01: Getting started -------------------------------------
 	// --- Chapter 02: UI layout -------------------------------------------
-	"app-layout-overview": async (docs) => {
-		await loadBase(docs);
-		docs.setAnnotations([
-			{ n: 1, selector: "#viewport", label: "Viewport" },
-			{
-				n: 2,
-				selector: ".workbench-card--tool-rail",
-				label: "Tool Rail",
-			},
-			{
-				n: 3,
-				selector: ".workbench-card--inspector",
-				label: "Inspector",
-			},
-			{
-				n: 4,
-				selector: ".viewport-project-status",
-				label: "Project Status HUD",
-			},
-		]);
-	},
 
 	// --- Chapter 05: Shot Camera -----------------------------------------
 

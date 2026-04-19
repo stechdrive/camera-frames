@@ -5,6 +5,7 @@
 // plain Node loader, so node-run tests must never import this file.
 
 import { registerFixture } from "./index.js";
+import { appLayoutOverviewFixture } from "./app-layout-overview.js";
 import { axisGizmoFixture } from "./axis-gizmo.js";
 import { cameraModeRenderBoxFixture } from "./camera-mode-render-box.js";
 import { confirmNewProjectFixture } from "./confirm-new-project.js";
@@ -74,3 +75,4 @@ registerFixture(perSplatBoxToolFixture);
 registerFixture(perSplatEditToolbarFixture);
 registerFixture(trajectorySplineFixture);
 registerFixture(transformGizmoFixture);
+registerFixture(appLayoutOverviewFixture);
