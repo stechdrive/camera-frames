@@ -112,10 +112,6 @@ export const scenarios = {
 			},
 		]);
 	},
-	"shot-camera-properties": async (docs) => {
-		await loadBase(docs);
-		activateInspectorTab(docs, "camera");
-	},
 	"camera-mode-render-box": async (docs) => {
 		await loadBase(docs);
 		docs.controller?.setMode?.("camera");

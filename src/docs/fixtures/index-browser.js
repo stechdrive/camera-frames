@@ -6,7 +6,7 @@
 
 import { registerFixture } from "./index.js";
 import { sectionDisplayZoomFixture } from "./section-display-zoom.js";
-import { sectionShotCameraPropertiesFixture } from "./section-shot-camera-properties.js";
+import { shotCameraPropertiesFixture } from "./shot-camera-properties.js";
 
 registerFixture(sectionDisplayZoomFixture);
-registerFixture(sectionShotCameraPropertiesFixture);
+registerFixture(shotCameraPropertiesFixture);

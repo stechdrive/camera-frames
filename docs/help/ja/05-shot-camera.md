@@ -32,7 +32,7 @@ screenshots:
 shortcuts:
   - key: Escape
     action: Lens / Roll adjust モードを終了
-last-updated: 2026-04-18
+last-updated: 2026-04-19
 ---
 
 # ショットカメラ
