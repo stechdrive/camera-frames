@@ -108,9 +108,6 @@ export const scenarios = {
 	},
 
 	// --- Chapter 08: Viewport tools --------------------------------------
-	"tool-rail": async (docs) => {
-		await loadBase(docs);
-	},
 	"pie-menu-expanded": async (docs) => {
 		await loadBase(docs);
 		docs.controller?.openViewportPieMenuAtCenter?.();
@@ -119,11 +116,6 @@ export const scenarios = {
 	"transform-gizmo": async (docs) => {
 		await loadBase(docs);
 		docs.controller?.setViewportTransformMode?.(true);
-		await docs.waitForReady();
-	},
-	"axis-gizmo": async (docs) => {
-		await loadBase(docs);
-		docs.controller?.setViewportProjectionMode?.("orthographic");
 		await docs.waitForReady();
 	},
 	"measurement-overlay": async (docs) => {

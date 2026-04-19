@@ -46,7 +46,7 @@ shortcuts:
     action: Reference image 編集モード切替
   - key: R
     action: Reference image プレビュー切替
-last-updated: 2026-04-18
+last-updated: 2026-04-19
 ---
 
 # ビューポート とツール
@@ -284,6 +284,8 @@ gizmo のハンドルにホバーすると、
 - CSS でハイライト表示
 
 ## 14. ツールレール の挙動
+
+![ツールレール の各ボタン](../assets/screenshots/ja/tool-rail.png)
 
 ### 14.1 折りたたみ
 

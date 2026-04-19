@@ -5,6 +5,7 @@
 // plain Node loader, so node-run tests must never import this file.
 
 import { registerFixture } from "./index.js";
+import { axisGizmoFixture } from "./axis-gizmo.js";
 import { confirmNewProjectFixture } from "./confirm-new-project.js";
 import { dropHintFixture } from "./drop-hint.js";
 import { exportOutputSectionFixture } from "./export-output-section.js";
@@ -31,6 +32,7 @@ import {
 import { sectionDisplayZoomFixture } from "./section-display-zoom.js";
 import { shotCameraManagerFixture } from "./shot-camera-manager.js";
 import { shotCameraPropertiesFixture } from "./shot-camera-properties.js";
+import { toolRailFixture } from "./tool-rail.js";
 
 registerFixture(sectionDisplayZoomFixture);
 registerFixture(shotCameraPropertiesFixture);
@@ -41,6 +43,8 @@ registerFixture(exportOutputSectionFixture);
 registerFixture(exportProgressFixture);
 registerFixture(dropHintFixture);
 registerFixture(firstSceneLoadedFixture);
+registerFixture(axisGizmoFixture);
+registerFixture(toolRailFixture);
 registerFixture(referencePresetsFixture);
 registerFixture(referenceManagerFixture);
 registerFixture(confirmNewProjectFixture);
