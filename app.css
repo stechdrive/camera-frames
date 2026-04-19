@@ -4,6 +4,7 @@
 @import "./styles/workbench.css";
 @import "./styles/help.css";
 @import "./styles/docs-annotation.css";
+@import "./src/ui/settings/mobile-ui-scale-modal.css";
 
 .panel-section {
 	display: flex;
@@ -2134,9 +2135,9 @@ body[data-interaction-mode="roll"] .viewport-axis-gizmo {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	min-width: 5.4rem;
-	min-height: 5.4rem;
-	padding: 0.7rem 0.9rem;
+	min-width: calc(5.4rem * var(--cf-pie-scale, 1));
+	min-height: calc(5.4rem * var(--cf-pie-scale, 1));
+	padding: calc(0.7rem * var(--cf-pie-scale, 1)) calc(0.9rem * var(--cf-pie-scale, 1));
 	border-radius: 999px;
 	background: rgba(5, 15, 27, 0.96);
 	border: 1px solid rgba(255, 255, 255, 0.18);
@@ -2148,7 +2149,8 @@ body[data-interaction-mode="roll"] .viewport-axis-gizmo {
 
 .viewport-pie__center-label {
 	color: rgba(245, 247, 251, 0.94);
-	font: 700 0.64rem / 1.15 "Avenir Next", "Segoe UI", sans-serif;
+	font: 700 calc(0.64rem * var(--cf-pie-scale, 1)) / 1.15 "Avenir Next",
+		"Segoe UI", sans-serif;
 	letter-spacing: 0.08em;
 	text-transform: uppercase;
 	text-align: center;
@@ -2163,8 +2165,8 @@ body[data-interaction-mode="roll"] .viewport-axis-gizmo {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	width: 2.7rem;
-	height: 2.7rem;
+	width: calc(2.7rem * var(--cf-pie-scale, 1));
+	height: calc(2.7rem * var(--cf-pie-scale, 1));
 	border-radius: 999px;
 	background: rgba(7, 19, 33, 0.92);
 	border: 1px solid rgba(255, 255, 255, 0.18);
@@ -2219,27 +2221,9 @@ body[data-interaction-mode="roll"] .viewport-axis-gizmo {
 }
 
 .viewport-pie__item-icon .workbench-icon {
+	width: calc(18px * var(--cf-pie-scale, 1));
+	height: calc(18px * var(--cf-pie-scale, 1));
 	filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.55));
-}
-
-.viewport-pie--coarse .viewport-pie__center {
-	min-width: 6.6rem;
-	min-height: 6.6rem;
-	padding: 0.95rem 1.05rem;
-}
-
-.viewport-pie--coarse .viewport-pie__center-label {
-	font-size: 0.74rem;
-}
-
-.viewport-pie--coarse .viewport-pie__item {
-	width: 3.45rem;
-	height: 3.45rem;
-}
-
-.viewport-pie--coarse .viewport-pie__item-icon .workbench-icon {
-	width: 20px;
-	height: 20px;
 }
 
 .measurement-overlay {

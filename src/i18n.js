@@ -808,6 +808,25 @@ const MESSAGES = {
 			ja: "日本語",
 			en: "English",
 		},
+		mobileUiScale: {
+			title: "UI 倍率（モバイル）",
+			tooltip:
+				"モバイル表示時の UI 倍率を調整します。設定は自動的に保存されます。",
+			description:
+				"モバイル UI のボタン・テキスト・メニューをまとめて拡大縮小します。画面下部のボタンも動きます。",
+			currentLabel: "現在値",
+			sliderLabel: "UI 倍率",
+			autoRecommendation: "端末に合わせた推奨: {value}",
+			resetToAuto: "推奨値に戻す",
+			autoActiveBadge: "自動",
+			previewLabel: "プレビュー",
+			previewCopy:
+				"スライダーを動かすと、ここと画面下部のボタンが一緒にサイズを変えます。押しやすい大きさに合わせてください。",
+			previewPrimaryButton: "主ボタン",
+			previewSecondaryButton: "副ボタン",
+			previewFieldLabel: "入力欄",
+			previewFieldValue: "入力サンプル",
+		},
 	},
 	en: {
 		app: {
@@ -1577,6 +1596,25 @@ const MESSAGES = {
 		localeName: {
 			ja: "Japanese",
 			en: "English",
+		},
+		mobileUiScale: {
+			title: "UI Scale (Mobile)",
+			tooltip:
+				"Adjust the mobile UI scale. The value is saved automatically.",
+			description:
+				"Scale buttons, text, and menus across the mobile UI together. The bottom bar follows the slider live.",
+			currentLabel: "Current",
+			sliderLabel: "UI Scale",
+			autoRecommendation: "Recommended for this device: {value}",
+			resetToAuto: "Reset to recommended",
+			autoActiveBadge: "Auto",
+			previewLabel: "Preview",
+			previewCopy:
+				"Drag the slider — this panel and the bottom buttons resize together so you can pick a comfortable touch target.",
+			previewPrimaryButton: "Primary",
+			previewSecondaryButton: "Secondary",
+			previewFieldLabel: "Input",
+			previewFieldValue: "Sample input",
 		},
 	},
 };

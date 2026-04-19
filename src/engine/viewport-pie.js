@@ -3,7 +3,7 @@ const FULL_TURN = Math.PI * 2;
 export const VIEWPORT_PIE_RADIUS = 88;
 export const VIEWPORT_PIE_INNER_RADIUS = 28;
 export const VIEWPORT_PIE_OUTER_RADIUS = 126;
-const VIEWPORT_PIE_COARSE_SCALE = 1.28;
+export const VIEWPORT_PIE_COARSE_SCALE = 1.28;
 
 const VIEWPORT_PIE_ACTION_ORDER = Object.freeze([
 	"tool-select",
@@ -30,10 +30,15 @@ const VIEWPORT_PIE_LAYOUT = Object.freeze(
 	createViewportPieLayout(VIEWPORT_PIE_ACTION_ORDER),
 );
 
-export function getViewportPieMetrics({ coarse = false } = {}) {
-	const scale = coarse ? VIEWPORT_PIE_COARSE_SCALE : 1;
+export function getViewportPieMetrics({ coarse = false, uiScale = 1 } = {}) {
+	const uiMultiplier =
+		Number.isFinite(uiScale) && uiScale > 0 ? uiScale : 1;
+	const coarseMultiplier = coarse ? VIEWPORT_PIE_COARSE_SCALE : 1;
+	const scale = coarseMultiplier * uiMultiplier;
 	return {
 		coarse,
+		uiScale: uiMultiplier,
+		scale,
 		radius: VIEWPORT_PIE_RADIUS * scale,
 		innerRadius: VIEWPORT_PIE_INNER_RADIUS * scale,
 		outerRadius: VIEWPORT_PIE_OUTER_RADIUS * scale,
