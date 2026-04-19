@@ -11,6 +11,7 @@ import {
 	openMenuFixture,
 	remoteUrlInputFixture,
 } from "./file-menu.js";
+import { inspectorTabsFixture } from "./inspector-tabs.js";
 import { outputFrameSectionFixture } from "./output-frame-section.js";
 import {
 	referenceManagerFixture,
@@ -28,3 +29,4 @@ registerFixture(referenceManagerFixture);
 registerFixture(confirmNewProjectFixture);
 registerFixture(openMenuFixture);
 registerFixture(remoteUrlInputFixture);
+registerFixture(inspectorTabsFixture);
