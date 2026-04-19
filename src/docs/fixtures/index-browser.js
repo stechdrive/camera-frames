@@ -41,6 +41,8 @@ import { sectionDisplayZoomFixture } from "./section-display-zoom.js";
 import { shotCameraManagerFixture } from "./shot-camera-manager.js";
 import { shotCameraPropertiesFixture } from "./shot-camera-properties.js";
 import { toolRailFixture } from "./tool-rail.js";
+import { trajectorySplineFixture } from "./trajectory-spline.js";
+import { transformGizmoFixture } from "./transform-gizmo.js";
 
 registerFixture(sectionDisplayZoomFixture);
 registerFixture(shotCameraPropertiesFixture);
@@ -70,3 +72,5 @@ registerFixture(splatEditToolbarFixture);
 registerFixture(perSplatBrushPreviewFixture);
 registerFixture(perSplatBoxToolFixture);
 registerFixture(perSplatEditToolbarFixture);
+registerFixture(trajectorySplineFixture);
+registerFixture(transformGizmoFixture);
