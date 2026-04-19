@@ -1,8 +1,9 @@
 # Fixture-based Help Capture System — ロードマップ
 
-**状態**: 計画（未実装）
-**前段**: v0.13.0 で landed した現行 Help Capture 機構（`__CF_DOCS__` + `test/docs-capture.js` の命令的 scenario）の次世代設計
+**状態**: Phase I〜VI 実装完了（2026-04-19）
+**現在地**: 30 枚の chapter 画像すべてが fixture 駆動。旧 scenario パイプライン（`test/docs-capture.js`）と runtime annotation overlay は撤去済み。`npm test` に fixture registry 整合性チェックが組み込まれている
 **ゴール**: ヘルプ用スクリーンショットを**アプリのコード変更に耐える**形で生成できる、documentation / regression / design review まで守備範囲に入れた「Fixture」システム
+**次段**: Phase VIII（英語版撮影、`en/` 章追加 + `__CF_DOCS__.captureAllFixtures({ lang: "en" })`）。視覚リグレッション（pixelmatch ベースの PNG diff）は roadmap §6 に挙げてあるがまだ未着手
 
 ---
 
@@ -293,6 +294,7 @@ CI が無いリポジトリなので、`npm test` で落ちるようにする。
 | 日付 | 変更 |
 |---|---|
 | 2026-04-18 | 初版。v0.13.0 直後、現行 capture 機構の limitation を踏まえた fixture システムの設計提案 |
+| 2026-04-19 | Phase I〜VI 実装完了。30 枚の chapter 画像すべてが fixture 駆動に移行、旧 `test/docs-capture.js` + runtime annotation overlay は撤去、registry validation（chapter frontmatter ↔ fixture id 整合）を `npm test` に組込み。未解決事項（§8）の方針決定: typesafety = JSDoc + `.d.ts`, capture isolation = iframe multi-page, mock scene = backdrop PNG + real component overlay の hybrid、annotation DSL = `{ n, selector, label }` 最小形式 |
 
 ---
 
