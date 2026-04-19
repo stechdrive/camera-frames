@@ -13,6 +13,7 @@ import {
 } from "./file-menu.js";
 import { inspectorTabsFixture } from "./inspector-tabs.js";
 import { outputFrameSectionFixture } from "./output-frame-section.js";
+import { pieMenuFixture } from "./pie-menu.js";
 import {
 	referenceManagerFixture,
 	referencePresetsFixture,
@@ -30,3 +31,4 @@ registerFixture(confirmNewProjectFixture);
 registerFixture(openMenuFixture);
 registerFixture(remoteUrlInputFixture);
 registerFixture(inspectorTabsFixture);
+registerFixture(pieMenuFixture);
