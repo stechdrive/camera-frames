@@ -38,9 +38,13 @@ function DocsStage({ fixtureId, lang }) {
 			available=${listFixtureIds()}
 		/>`;
 	}
+	// inline-block so the capture pipeline's domToPng crops to the fixture's
+	// natural content size — a default block-level div would span the full
+	// iframe viewport and pad captures with dead space on the right and below.
 	return html`
 		<div
 			class="docs-stage"
+			style="display: inline-block; vertical-align: top;"
 			data-fixture-id=${fixtureId}
 			data-fixture-type=${fixture.type}
 			data-lang=${lang}
@@ -75,6 +79,11 @@ function mount() {
 	const lang = readParam("lang", DEFAULT_LANG);
 	globalThis.__DOCS_FIXTURE_READY = false;
 	globalThis.__DOCS_FIXTURE_ID = fixtureId;
+	// Expose the full id list for cross-frame introspection (the capture
+	// pipeline opens /docs.html in an iframe and reads this to know what
+	// to iterate). Populated after index-browser.js side-effect imports
+	// run at module top, so the list includes browser-only fixtures.
+	globalThis.__DOCS_FIXTURE_IDS = listFixtureIds();
 	render(
 		html`<${DocsStage} fixtureId=${fixtureId} lang=${lang} />`,
 		root,

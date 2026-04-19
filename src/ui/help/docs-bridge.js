@@ -8,6 +8,9 @@ import { domToPng } from "modern-screenshot";
 const SCENARIO_MODULE_PATH = "/test/docs-capture.js";
 const SCREENSHOT_ENDPOINT = "/__screenshot";
 const DEFAULT_CAPTURE_PIXEL_RATIO = 1;
+const DOCS_PAGE_PATH = "/docs.html";
+const DEFAULT_FIXTURE_CAPTURE_TIMEOUT_MS = 15000;
+const DEFAULT_IFRAME_POLL_MS = 32;
 
 export function createDocsBridge({ store, getController }) {
 	async function waitForReady({ frames = 8, delayMs = 0 } = {}) {
@@ -192,8 +195,7 @@ export function createDocsBridge({ store, getController }) {
 		}
 	}
 
-	async function saveScreenshot(name, { lang = "ja", pixelRatio } = {}) {
-		const dataUrl = await capturePng({ pixelRatio });
+	async function postScreenshotDataUrl(name, dataUrl, { lang = "ja" } = {}) {
 		const url = `${SCREENSHOT_ENDPOINT}?name=${encodeURIComponent(name)}&lang=${encodeURIComponent(lang)}`;
 		const response = await fetch(url, {
 			method: "POST",
@@ -209,10 +211,138 @@ export function createDocsBridge({ store, getController }) {
 		}
 		if (!response.ok || !payload?.ok) {
 			throw new Error(
-				`saveScreenshot(${name}) failed: ${payload?.error ?? response.statusText}`,
+				`postScreenshotDataUrl(${name}) failed: ${payload?.error ?? response.statusText}`,
 			);
 		}
 		return payload;
+	}
+
+	async function saveScreenshot(name, { lang = "ja", pixelRatio } = {}) {
+		const dataUrl = await capturePng({ pixelRatio });
+		return postScreenshotDataUrl(name, dataUrl, { lang });
+	}
+
+	// -- iframe-based fixture capture pipeline --
+
+	function createDocsIframe(search, { visible = true } = {}) {
+		const iframe = document.createElement("iframe");
+		iframe.src = `${DOCS_PAGE_PATH}${search ?? ""}`;
+		iframe.style.cssText = visible
+			? "position:fixed;left:0;top:0;width:100vw;height:100vh;border:0;z-index:2147483647;background:#08111d;"
+			: "position:fixed;left:-10000px;top:0;width:1px;height:1px;border:0;opacity:0;pointer-events:none;";
+		return iframe;
+	}
+
+	function waitForIframeLoaded(iframe) {
+		return new Promise((resolve, reject) => {
+			const cleanup = () => {
+				iframe.removeEventListener("load", onLoad);
+				iframe.removeEventListener("error", onError);
+			};
+			const onLoad = () => {
+				cleanup();
+				resolve();
+			};
+			const onError = () => {
+				cleanup();
+				reject(new Error(`waitForIframeLoaded: ${iframe.src} failed to load`));
+			};
+			iframe.addEventListener("load", onLoad);
+			iframe.addEventListener("error", onError);
+		});
+	}
+
+	async function waitForIframeProp(
+		iframe,
+		propName,
+		predicate,
+		{ timeoutMs = DEFAULT_FIXTURE_CAPTURE_TIMEOUT_MS, pollMs = DEFAULT_IFRAME_POLL_MS } = {},
+	) {
+		const start = Date.now();
+		while (Date.now() - start < timeoutMs) {
+			const value = iframe.contentWindow?.[propName];
+			if (predicate(value)) return value;
+			await new Promise((resolve) => setTimeout(resolve, pollMs));
+		}
+		throw new Error(
+			`waitForIframeProp(${propName}): condition not met within ${timeoutMs}ms`,
+		);
+	}
+
+	async function captureFixture(id, options = {}) {
+		const {
+			lang = "ja",
+			pixelRatio = DEFAULT_CAPTURE_PIXEL_RATIO,
+			timeoutMs = DEFAULT_FIXTURE_CAPTURE_TIMEOUT_MS,
+			settleMs = 0,
+		} = options;
+		if (typeof id !== "string" || id === "") {
+			throw new Error("captureFixture: id must be a non-empty string");
+		}
+		const search = `?fixture=${encodeURIComponent(id)}&lang=${encodeURIComponent(lang)}`;
+		const iframe = createDocsIframe(search, { visible: true });
+		document.body.appendChild(iframe);
+		try {
+			await waitForIframeLoaded(iframe);
+			await waitForIframeProp(
+				iframe,
+				"__DOCS_FIXTURE_READY",
+				(value) => value === true,
+				{ timeoutMs },
+			);
+			if (settleMs > 0) {
+				await new Promise((resolve) => setTimeout(resolve, settleMs));
+			}
+			const target = iframe.contentDocument?.querySelector(".docs-stage");
+			if (!target) {
+				throw new Error(
+					`captureFixture(${id}): .docs-stage not found — is the id registered?`,
+				);
+			}
+			const dataUrl = await domToPng(target, {
+				scale: pixelRatio,
+				backgroundColor: "#08111d",
+				font: false,
+			});
+			return await postScreenshotDataUrl(id, dataUrl, { lang });
+		} finally {
+			iframe.remove();
+		}
+	}
+
+	async function listFixtureIds({ timeoutMs = DEFAULT_FIXTURE_CAPTURE_TIMEOUT_MS } = {}) {
+		const iframe = createDocsIframe("", { visible: false });
+		document.body.appendChild(iframe);
+		try {
+			await waitForIframeLoaded(iframe);
+			const ids = await waitForIframeProp(
+				iframe,
+				"__DOCS_FIXTURE_IDS",
+				(value) => Array.isArray(value),
+				{ timeoutMs },
+			);
+			return ids.slice();
+		} finally {
+			iframe.remove();
+		}
+	}
+
+	async function captureAllFixtures(options = {}) {
+		const ids = await listFixtureIds({ timeoutMs: options.timeoutMs });
+		const results = [];
+		for (const id of ids) {
+			try {
+				const info = await captureFixture(id, options);
+				results.push({ id, ok: true, path: info.path, bytes: info.bytes });
+			} catch (error) {
+				results.push({
+					id,
+					ok: false,
+					error: error?.message ?? String(error),
+				});
+			}
+		}
+		return results;
 	}
 
 	async function captureScenario(name, options = {}) {
@@ -253,8 +383,12 @@ export function createDocsBridge({ store, getController }) {
 		listScenarios,
 		capturePng,
 		saveScreenshot,
+		postScreenshotDataUrl,
 		captureScenario,
 		captureAllScenarios,
+		captureFixture,
+		listFixtureIds,
+		captureAllFixtures,
 	};
 
 	return bridge;
