@@ -24,7 +24,7 @@ screenshots:
   - id: export-progress
     alt: 書き出し 実行中の progress overlay
     scenario: export-progress
-last-updated: 2026-04-18
+last-updated: 2026-04-19
 ---
 
 # 書き出し

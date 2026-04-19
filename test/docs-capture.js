@@ -239,10 +239,6 @@ export const scenarios = {
 		await loadBase(docs);
 		activateInspectorTab(docs, "export");
 	},
-	"export-settings-section": async (docs) => {
-		await loadBase(docs);
-		activateInspectorTab(docs, "export");
-	},
 	"export-progress": async (docs) => {
 		await loadBase(docs);
 		activateInspectorTab(docs, "export");

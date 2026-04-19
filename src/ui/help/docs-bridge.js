@@ -269,6 +269,37 @@ export function createDocsBridge({ store, getController }) {
 		);
 	}
 
+	// Preact sets form state via DOM properties (.checked, .value) but does not
+	// always mirror those onto HTML attributes. DOM-to-image libraries (and our
+	// modern-screenshot capture) serialise attributes, not live properties, so
+	// without this sync step captured PNGs show checkboxes as unchecked and
+	// <select> dropdowns as their first option regardless of the runtime state.
+	function syncFormStateToAttributes(root) {
+		if (!root?.querySelectorAll) return;
+		const inputs = root.querySelectorAll(
+			"input[type='checkbox'], input[type='radio']",
+		);
+		for (const input of inputs) {
+			if (input.checked) input.setAttribute("checked", "");
+			else input.removeAttribute("checked");
+		}
+		for (const input of root.querySelectorAll(
+			"input[type='text'], input[type='number'], input[type='range'], input:not([type])",
+		)) {
+			input.setAttribute("value", input.value ?? "");
+		}
+		for (const select of root.querySelectorAll("select")) {
+			const selectedValue = select.value;
+			for (const option of select.options) {
+				if (option.value === selectedValue) option.setAttribute("selected", "");
+				else option.removeAttribute("selected");
+			}
+		}
+		for (const textarea of root.querySelectorAll("textarea")) {
+			textarea.textContent = textarea.value ?? "";
+		}
+	}
+
 	async function captureFixture(id, options = {}) {
 		const {
 			lang = "ja",
@@ -299,6 +330,7 @@ export function createDocsBridge({ store, getController }) {
 					`captureFixture(${id}): .docs-stage not found — is the id registered?`,
 				);
 			}
+			syncFormStateToAttributes(target);
 			const dataUrl = await domToPng(target, {
 				scale: pixelRatio,
 				backgroundColor: "#08111d",
