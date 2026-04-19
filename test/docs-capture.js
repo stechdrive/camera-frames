@@ -91,11 +91,6 @@ export const scenarios = {
 		await loadBase(docs);
 		document.getElementById("header-url-input")?.focus();
 	},
-	"confirm-new-project": async (docs) => {
-		await loadBase(docs);
-		docs.controller?.startNewProject?.();
-		await docs.waitForReady();
-	},
 
 	// --- Chapter 05: Shot Camera -----------------------------------------
 	"shot-camera-manager": async (docs) => {

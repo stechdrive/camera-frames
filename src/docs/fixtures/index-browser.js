@@ -5,6 +5,7 @@
 // plain Node loader, so node-run tests must never import this file.
 
 import { registerFixture } from "./index.js";
+import { confirmNewProjectFixture } from "./confirm-new-project.js";
 import { exportSettingsSectionFixture } from "./export-settings-section.js";
 import { outputFrameSectionFixture } from "./output-frame-section.js";
 import {
@@ -20,3 +21,4 @@ registerFixture(outputFrameSectionFixture);
 registerFixture(exportSettingsSectionFixture);
 registerFixture(referencePresetsFixture);
 registerFixture(referenceManagerFixture);
+registerFixture(confirmNewProjectFixture);
