@@ -231,7 +231,7 @@ Enter による scale 適用は、次が全て満たされる時のみ有効:
 6. **レンズ調整**（{{icon:camera-dslr}}）
 7. **New Frame**（{{icon:frame-plus}}）
 8. **フレームマスク切替**（{{icon:mask}}）
-9. **カメラ/ビューポート**（{{icon:camera}} / {{icon:ビューポート}}）
+9. **カメラ/ビューポート**（{{icon:camera}} / {{icon:viewport}}）
 10. **Clear Selection**（{{icon:selection-clear}}）
 
 ### 10.3 有効化条件
