@@ -13,7 +13,9 @@ import { exportOutputSectionFixture } from "./export-output-section.js";
 import { exportProgressFixture } from "./export-progress.js";
 import { exportSettingsSectionFixture } from "./export-settings-section.js";
 import { firstSceneLoadedFixture } from "./first-scene-loaded.js";
+import { measurementOverlayFixture } from "./measurement-overlay.js";
 import { multipleFramesFixture } from "./multiple-frames.js";
+import { renderBoxCameraModeFixture } from "./render-box-camera-mode.js";
 import {
 	openMenuFixture,
 	remoteUrlInputFixture,
@@ -49,6 +51,8 @@ registerFixture(axisGizmoFixture);
 registerFixture(toolRailFixture);
 registerFixture(cameraModeRenderBoxFixture);
 registerFixture(multipleFramesFixture);
+registerFixture(renderBoxCameraModeFixture);
+registerFixture(measurementOverlayFixture);
 registerFixture(referencePresetsFixture);
 registerFixture(referenceManagerFixture);
 registerFixture(confirmNewProjectFixture);
