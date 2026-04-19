@@ -35,13 +35,6 @@ function activateInspectorTab(_docs, tabId) {
 
 export const scenarios = {
 	// --- Chapter 01: Getting started -------------------------------------
-	"drop-hint": async (docs) => {
-		await docs.waitForReady();
-	},
-	"first-scene-loaded": async (docs) => {
-		await loadBase(docs);
-	},
-
 	// --- Chapter 02: UI layout -------------------------------------------
 	"app-layout-overview": async (docs) => {
 		await loadBase(docs);

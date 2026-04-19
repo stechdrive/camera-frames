@@ -159,57 +159,92 @@ export default defineConfig(({ command }) => {
 		builtAt: new Date().toISOString(),
 	};
 
-	const screenshotServePlugin = {
-		name: "camera-frames-screenshot-serve",
-		configureServer(server) {
-			server.middlewares.use("/__screenshot", (request, response, next) => {
-				const requestPath = request.url?.split("?")[0] ?? "";
-				if (requestPath !== "/" && requestPath !== "") {
-					next();
-					return;
-				}
-				if (request.method !== "POST") {
-					response.statusCode = 405;
+	function createPngPostHandler({ resolveTargetPath }) {
+		return (request, response, next) => {
+			const requestPath = request.url?.split("?")[0] ?? "";
+			if (requestPath !== "/" && requestPath !== "") {
+				next();
+				return;
+			}
+			if (request.method !== "POST") {
+				response.statusCode = 405;
+				response.setHeader("Content-Type", "application/json");
+				response.end(JSON.stringify({ ok: false, error: "POST only" }));
+				return;
+			}
+			const url = new URL(request.url ?? "/", "http://localhost");
+			const rawName = (url.searchParams.get("name") ?? "").trim();
+			if (!/^[A-Za-z0-9_\-.]+$/.test(rawName) || rawName === "") {
+				response.statusCode = 400;
+				response.setHeader("Content-Type", "application/json");
+				response.end(JSON.stringify({ ok: false, error: "Invalid name" }));
+				return;
+			}
+			let targetPath;
+			try {
+				targetPath = resolveTargetPath(rawName, url);
+			} catch (error) {
+				response.statusCode = 400;
+				response.setHeader("Content-Type", "application/json");
+				response.end(
+					JSON.stringify({ ok: false, error: error.message ?? String(error) }),
+				);
+				return;
+			}
+			const chunks = [];
+			request.on("data", (chunk) => chunks.push(chunk));
+			request.on("error", (error) => {
+				response.statusCode = 500;
+				response.setHeader("Content-Type", "application/json");
+				response.end(
+					JSON.stringify({ ok: false, error: error.message ?? String(error) }),
+				);
+			});
+			request.on("end", () => {
+				try {
+					const body = Buffer.concat(chunks).toString("utf8");
+					const parsed = JSON.parse(body);
+					const dataUrl = typeof parsed.dataUrl === "string" ? parsed.dataUrl : "";
+					const prefix = "data:image/png;base64,";
+					if (!dataUrl.startsWith(prefix)) {
+						throw new Error("dataUrl must be data:image/png;base64,...");
+					}
+					const base64 = dataUrl.slice(prefix.length);
+					const buffer = Buffer.from(base64, "base64");
+					mkdirSync(dirname(targetPath), { recursive: true });
+					writeFileSync(targetPath, buffer);
+					response.statusCode = 200;
 					response.setHeader("Content-Type", "application/json");
-					response.end(JSON.stringify({ ok: false, error: "POST only" }));
-					return;
-				}
-				const url = new URL(request.url ?? "/", "http://localhost");
-				const rawName = (url.searchParams.get("name") ?? "").trim();
-				const rawLang = (url.searchParams.get("lang") ?? "ja").trim();
-				if (!/^[A-Za-z0-9_\-.]+$/.test(rawName) || rawName === "") {
+					response.end(
+						JSON.stringify({
+							ok: true,
+							bytes: buffer.length,
+							path: relative(repoRoot, targetPath).replace(/\\/g, "/"),
+						}),
+					);
+				} catch (error) {
 					response.statusCode = 400;
-					response.setHeader("Content-Type", "application/json");
-					response.end(JSON.stringify({ ok: false, error: "Invalid name" }));
-					return;
-				}
-				if (!/^[A-Za-z]{2,5}$/.test(rawLang)) {
-					response.statusCode = 400;
-					response.setHeader("Content-Type", "application/json");
-					response.end(JSON.stringify({ ok: false, error: "Invalid lang" }));
-					return;
-				}
-				const chunks = [];
-				request.on("data", (chunk) => chunks.push(chunk));
-				request.on("error", (error) => {
-					response.statusCode = 500;
 					response.setHeader("Content-Type", "application/json");
 					response.end(
 						JSON.stringify({ ok: false, error: error.message ?? String(error) }),
 					);
-				});
-				request.on("end", () => {
-					try {
-						const body = Buffer.concat(chunks).toString("utf8");
-						const parsed = JSON.parse(body);
-						const dataUrl = typeof parsed.dataUrl === "string" ? parsed.dataUrl : "";
-						const prefix = "data:image/png;base64,";
-						if (!dataUrl.startsWith(prefix)) {
-							throw new Error("dataUrl must be data:image/png;base64,...");
+				}
+			});
+		};
+	}
+
+	const screenshotServePlugin = {
+		name: "camera-frames-screenshot-serve",
+		configureServer(server) {
+			server.middlewares.use(
+				"/__screenshot",
+				createPngPostHandler({
+					resolveTargetPath: (rawName, url) => {
+						const rawLang = (url.searchParams.get("lang") ?? "ja").trim();
+						if (!/^[A-Za-z]{2,5}$/.test(rawLang)) {
+							throw new Error("Invalid lang");
 						}
-						const base64 = dataUrl.slice(prefix.length);
-						const buffer = Buffer.from(base64, "base64");
-						const targetPath = join(
+						return join(
 							repoRoot,
 							"docs",
 							"help",
@@ -218,26 +253,25 @@ export default defineConfig(({ command }) => {
 							rawLang,
 							`${rawName}.png`,
 						);
-						mkdirSync(dirname(targetPath), { recursive: true });
-						writeFileSync(targetPath, buffer);
-						response.statusCode = 200;
-						response.setHeader("Content-Type", "application/json");
-						response.end(
-							JSON.stringify({
-								ok: true,
-								bytes: buffer.length,
-								path: relative(repoRoot, targetPath).replace(/\\/g, "/"),
-							}),
-						);
-					} catch (error) {
-						response.statusCode = 400;
-						response.setHeader("Content-Type", "application/json");
-						response.end(
-							JSON.stringify({ ok: false, error: error.message ?? String(error) }),
-						);
-					}
-				});
-			});
+					},
+				}),
+			);
+			// Phase IV mock-scene backdrops — static PNGs captured from the
+			// real app that fixtures load as placeholder splat canvases.
+			server.middlewares.use(
+				"/__backdrop",
+				createPngPostHandler({
+					resolveTargetPath: (rawName) =>
+						join(
+							repoRoot,
+							"docs",
+							"help",
+							"assets",
+							"fixture-backdrops",
+							`${rawName}.png`,
+						),
+				}),
+			);
 		},
 	};
 
