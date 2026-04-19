@@ -15,7 +15,7 @@ import {
 	INSPECTOR_BROWSER_SCENE,
 } from "./workbench-section-ids.js";
 
-function ShotCameraManagerList({
+export function ShotCameraManagerList({
 	activeShotCamera,
 	controller,
 	shotCameras,
