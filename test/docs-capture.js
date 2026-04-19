@@ -61,23 +61,10 @@ export const scenarios = {
 	// --- Chapter 05: Shot Camera -----------------------------------------
 
 	// --- Chapter 06: Output Frame / FRAME --------------------------------
-	"trajectory-spline": async (docs) => {
-		await loadBase(docs);
-		docs.controller?.setMode?.("camera");
-		docs.controller?.createFrame?.();
-		docs.controller?.setFrameTrajectoryMode?.("spline");
-		docs.controller?.setFrameTrajectoryEditMode?.(true);
-		await docs.waitForReady();
-	},
 
 	// --- Chapter 07: Reference images ------------------------------------
 
 	// --- Chapter 08: Viewport tools --------------------------------------
-	"transform-gizmo": async (docs) => {
-		await loadBase(docs);
-		docs.controller?.setViewportTransformMode?.(true);
-		await docs.waitForReady();
-	},
 
 	// --- Chapter 09: Per-splat edit --------------------------------------
 	// --- Chapter 10: Export ----------------------------------------------

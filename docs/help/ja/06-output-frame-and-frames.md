@@ -238,6 +238,8 @@ spline モード時の各 フレーム のノードモード。
 
 この状態は runtime-only で、プロジェクトには保存されません。
 
+![spline trajectory の編集](../assets/screenshots/ja/trajectory-spline.png)
+
 ### 5.4 Handle Drag
 
 軌道 edit 中、各 フレーム の in handle / out handle をドラッグで動かせます。
