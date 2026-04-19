@@ -140,34 +140,6 @@ export const scenarios = {
 	},
 
 	// --- Chapter 09: Per-splat edit --------------------------------------
-	"per-splat-edit-toolbar": async (docs) => {
-		await loadBase(docs);
-		docs.controller?.setSplatEditMode?.(true);
-		await docs.waitForReady();
-		docs.setAnnotations([
-			{
-				n: 1,
-				selector: ".viewport-splat-edit-toolbar__group:nth-of-type(1)",
-				label: "Tool 選択",
-			},
-			{
-				n: 2,
-				selector: ".viewport-splat-edit-toolbar__group:nth-of-type(2)",
-				label: "選択操作",
-			},
-			{
-				n: 3,
-				selector: ".viewport-splat-edit-toolbar__group:nth-of-type(3)",
-				label: "編集アクション",
-			},
-			{
-				n: 4,
-				selector: ".viewport-splat-edit-toolbar__info",
-				label: "選択数",
-			},
-		]);
-	},
-
 	// --- Chapter 10: Export ----------------------------------------------
 };
 

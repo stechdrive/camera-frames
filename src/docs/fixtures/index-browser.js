@@ -19,6 +19,7 @@ import { pieMenuFixture } from "./pie-menu.js";
 import {
 	perSplatBoxToolFixture,
 	perSplatBrushPreviewFixture,
+	perSplatEditToolbarFixture,
 	splatEditToolbarFixture,
 } from "./splat-edit-toolbar.js";
 import {
@@ -46,3 +47,4 @@ registerFixture(pieMenuFixture);
 registerFixture(splatEditToolbarFixture);
 registerFixture(perSplatBrushPreviewFixture);
 registerFixture(perSplatBoxToolFixture);
+registerFixture(perSplatEditToolbarFixture);

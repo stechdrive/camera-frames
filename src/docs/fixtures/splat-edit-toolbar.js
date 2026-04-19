@@ -114,3 +114,52 @@ export const perSplatBoxToolFixture = {
 		return renderToolbarHost(store, lang);
 	},
 };
+
+/** @type {import("../types").Fixture} */
+export const perSplatEditToolbarFixture = {
+	id: "per-splat-edit-toolbar",
+	type: "overlay",
+	title: "Splat edit toolbar (annotated)",
+	// Each group sits at an odd nth-of-type because separators (also
+	// divs) are interleaved between them. The legacy scenario used
+	// nth-of-type(1/2/3) which silently mis-matched two of the three
+	// groups; corrected here to (1/3/5).
+	annotations: [
+		{
+			n: 1,
+			selector:
+				".viewport-splat-edit-toolbar__bar > .viewport-splat-edit-toolbar__group:nth-of-type(1)",
+			label: "Tool 選択",
+		},
+		{
+			n: 2,
+			selector:
+				".viewport-splat-edit-toolbar__bar > .viewport-splat-edit-toolbar__group:nth-of-type(3)",
+			label: "選択操作",
+		},
+		{
+			n: 3,
+			selector:
+				".viewport-splat-edit-toolbar__bar > .viewport-splat-edit-toolbar__group:nth-of-type(5)",
+			label: "編集アクション",
+		},
+		{
+			n: 4,
+			// Scope to the bar so the selector doesn't match the popover
+			// placeholder hint that also carries `.__info`.
+			selector:
+				".viewport-splat-edit-toolbar__bar > .viewport-splat-edit-toolbar__info",
+			label: "選択数",
+		},
+	],
+	mount: ({ lang }) => {
+		const store = createMockStore({
+			viewportToolMode: "splat-edit",
+			splatEdit: {
+				tool: "box",
+				selectionCount: 42,
+			},
+		});
+		return renderToolbarHost(store, lang);
+	},
+};
