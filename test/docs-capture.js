@@ -64,11 +64,6 @@ export const scenarios = {
 			},
 		]);
 	},
-	"pie-menu": async (docs) => {
-		await loadBase(docs);
-		docs.controller?.openViewportPieMenuAtCenter?.();
-		await docs.waitForReady();
-	},
 	"splat-edit-toolbar": async (docs) => {
 		await loadBase(docs);
 		docs.controller?.setSplatEditMode?.(true);
