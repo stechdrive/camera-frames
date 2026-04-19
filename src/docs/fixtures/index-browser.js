@@ -26,10 +26,12 @@ import {
 	referencePresetsFixture,
 } from "./reference-section.js";
 import { sectionDisplayZoomFixture } from "./section-display-zoom.js";
+import { shotCameraManagerFixture } from "./shot-camera-manager.js";
 import { shotCameraPropertiesFixture } from "./shot-camera-properties.js";
 
 registerFixture(sectionDisplayZoomFixture);
 registerFixture(shotCameraPropertiesFixture);
+registerFixture(shotCameraManagerFixture);
 registerFixture(outputFrameSectionFixture);
 registerFixture(exportSettingsSectionFixture);
 registerFixture(exportOutputSectionFixture);

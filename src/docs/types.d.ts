@@ -20,6 +20,20 @@ export interface FixtureSize {
 	height?: number | "auto";
 }
 
+export interface FixtureAnnotation {
+	/** 1-based sequence number rendered inside the badge. */
+	n: number;
+	/**
+	 * CSS selector resolved against the fixture's rendered DOM at the
+	 * root of `.docs-stage`. The selector's first match is centred in
+	 * its bounding rect; unresolved selectors render at the stage
+	 * top-left with a warning class so the issue is visible in capture.
+	 */
+	selector: string;
+	/** Short human-readable caption surfaced as title attribute. */
+	label?: string;
+}
+
 export interface Fixture {
 	/**
 	 * Unique id across the whole registry. Must match the corresponding
@@ -38,6 +52,12 @@ export interface Fixture {
 	mount: (context: FixtureMountContext) => unknown;
 	size?: FixtureSize;
 	background?: string;
+	/**
+	 * Numbered overlay annotations painted on top of the fixture's
+	 * rendered DOM before capture. Resolved after mount via
+	 * querySelector against `.docs-stage`.
+	 */
+	annotations?: FixtureAnnotation[];
 }
 
 export type FixtureRegistry = Record<string, Fixture>;

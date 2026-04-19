@@ -66,20 +66,6 @@ export const scenarios = {
 	},
 
 	// --- Chapter 05: Shot Camera -----------------------------------------
-	"shot-camera-manager": async (docs) => {
-		await loadBase(docs);
-		activateInspectorTab(docs, "camera");
-		docs.setAnnotations([
-			{ n: 1, selector: "#add-shot-camera", label: "追加" },
-			{ n: 2, selector: "#duplicate-shot-camera", label: "複製" },
-			{ n: 3, selector: "#delete-shot-camera", label: "削除" },
-			{
-				n: 4,
-				selector: ".shot-camera-manager-list",
-				label: "shot 一覧",
-			},
-		]);
-	},
 	"camera-mode-render-box": async (docs) => {
 		await loadBase(docs);
 		docs.controller?.setMode?.("camera");

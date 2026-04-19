@@ -3,6 +3,7 @@
 // See docs/help/FIXTURE_ROADMAP.md for the fixture system design.
 
 import { html, render } from "htm/preact";
+import { useEffect, useState } from "preact/hooks";
 import { getFixture, listFixtureIds } from "./fixtures/index.js";
 // Side-effect import: registers browser-only fixtures (e.g. wrappers around
 // real UI sections that depend on vite's import.meta.glob). Tests running
@@ -10,6 +11,44 @@ import { getFixture, listFixtureIds } from "./fixtures/index.js";
 import "./fixtures/index-browser.js";
 
 const DEFAULT_LANG = "ja";
+
+// Tiny inline CSS for annotation overlay inside the fixture stage. The
+// main app's docs-annotation.css uses `position: fixed` because the
+// overlay is painted on top of the whole viewport; fixtures need it
+// confined to `.docs-stage` so domToPng includes the badges in the
+// capture bounds.
+const ANNOTATION_CSS = `
+.docs-stage { position: relative; }
+.docs-stage > .docs-annotation-overlay {
+	position: absolute;
+	inset: 0;
+	z-index: 2000;
+	pointer-events: none;
+}
+.docs-stage > .docs-annotation-overlay > .docs-annotation {
+	position: absolute;
+	transform: translate(-50%, -50%);
+	background: rgba(255, 190, 70, 0.97);
+	color: #121417;
+	width: 26px;
+	height: 26px;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 0.82rem;
+	font-weight: 700;
+	line-height: 1;
+	box-shadow:
+		0 0 0 2px rgba(255, 255, 255, 0.95),
+		0 2px 6px rgba(0, 0, 0, 0.6);
+	font-variant-numeric: tabular-nums;
+}
+.docs-stage > .docs-annotation-overlay > .docs-annotation--missing {
+	background: rgba(255, 70, 70, 0.95);
+	color: #fff;
+}
+`;
 
 function MissingFixture({ fixtureId, available }) {
 	return html`
@@ -30,6 +69,73 @@ function MissingFixture({ fixtureId, available }) {
 	`;
 }
 
+function AnnotationLayer({ annotations }) {
+	const [resolved, setResolved] = useState([]);
+	useEffect(() => {
+		if (!Array.isArray(annotations) || annotations.length === 0) {
+			setResolved([]);
+			return;
+		}
+		const stage = document.querySelector(".docs-stage");
+		if (!stage) {
+			setResolved([]);
+			return;
+		}
+		const stageRect = stage.getBoundingClientRect();
+		const next = annotations.map((annotation) => {
+			const target = annotation.selector
+				? stage.querySelector(annotation.selector)
+				: null;
+			if (!target) {
+				return {
+					n: annotation.n,
+					label: annotation.label ?? "",
+					selector: annotation.selector ?? "",
+					x: 8,
+					y: 8,
+					missing: true,
+				};
+			}
+			const rect = target.getBoundingClientRect();
+			return {
+				n: annotation.n,
+				label: annotation.label ?? "",
+				selector: annotation.selector,
+				x: rect.left + rect.width / 2 - stageRect.left,
+				y: rect.top + rect.height / 2 - stageRect.top,
+				missing: false,
+			};
+		});
+		setResolved(next);
+	}, [annotations]);
+	if (resolved.length === 0) return null;
+	return html`
+		<div class="docs-annotation-overlay" aria-hidden="true">
+			${resolved.map(
+				(annotation) => html`
+					<span
+						key=${`${annotation.n}:${annotation.selector}`}
+						class=${
+							annotation.missing
+								? "docs-annotation docs-annotation--missing"
+								: "docs-annotation"
+						}
+						style=${{
+							left: `${annotation.x}px`,
+							top: `${annotation.y}px`,
+						}}
+						title=${annotation.missing
+							? `${annotation.label} (selector not found: ${annotation.selector})`
+							: annotation.label}
+					>
+						${annotation.n}
+					</span>
+				`,
+			)}
+		</div>
+	`;
+}
+
 function DocsStage({ fixtureId, lang }) {
 	const fixture = getFixture(fixtureId);
 	if (!fixture) {
@@ -38,6 +144,9 @@ function DocsStage({ fixtureId, lang }) {
 			available=${listFixtureIds()}
 		/>`;
 	}
+	const annotations = Array.isArray(fixture.annotations)
+		? fixture.annotations
+		: [];
 	// inline-block so the capture pipeline's domToPng crops to the fixture's
 	// natural content size — a default block-level div would span the full
 	// iframe viewport and pad captures with dead space on the right and below.
@@ -49,7 +158,9 @@ function DocsStage({ fixtureId, lang }) {
 			data-fixture-type=${fixture.type}
 			data-lang=${lang}
 		>
+			<style>${ANNOTATION_CSS}</style>
 			${fixture.mount({ lang })}
+			${annotations.length > 0 && html`<${AnnotationLayer} annotations=${annotations}/>`}
 		</div>
 	`;
 }
