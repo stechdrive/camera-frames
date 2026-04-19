@@ -32,71 +32,81 @@ const STYLE = `
 }
 `;
 
+function renderPieMenu({ lang, coarse = false }) {
+	const t = (key, params) => translate(lang, key, params);
+	const actions = buildViewportPieActions({
+		mode: "camera",
+		t,
+		viewportToolMode: "select",
+		viewportOrthographic: false,
+		referencePreviewSessionVisible: true,
+		hasReferenceImages: false,
+		frameMaskMode: "off",
+	});
+	const hovered = actions.find((action) => action.id === "tool-select") ?? null;
+	return html`
+		<div class="docs-pie-host">
+			<style>${STYLE}</style>
+			<div
+				class=${coarse ? "viewport-pie viewport-pie--coarse" : "viewport-pie"}
+				style=${{
+					left: `${PIE_CENTER_X}px`,
+					top: `${PIE_CENTER_Y}px`,
+				}}
+			>
+				<button type="button" class="viewport-pie__center">
+					<span class="viewport-pie__center-label">
+						${hovered?.label ?? t("action.quickMenu")}
+					</span>
+				</button>
+				${actions.map((action) => {
+					const offsetX = Math.cos(action.angle) * VIEWPORT_PIE_RADIUS;
+					const offsetY = Math.sin(action.angle) * VIEWPORT_PIE_RADIUS;
+					const classes = [
+						"viewport-pie__item",
+						action.id === hovered?.id || action.active
+							? "viewport-pie__item--active"
+							: "",
+						action.disabled ? "viewport-pie__item--disabled" : "",
+					]
+						.filter(Boolean)
+						.join(" ");
+					return html`
+						<button
+							key=${action.id}
+							type="button"
+							class=${classes}
+							style=${{
+								left: `${offsetX}px`,
+								top: `${offsetY}px`,
+							}}
+							disabled=${Boolean(action.disabled)}
+						>
+							<span class="viewport-pie__item-icon">
+								<${WorkbenchIcon} name=${action.icon} size=${18} />
+							</span>
+						</button>
+					`;
+				})}
+			</div>
+		</div>
+	`;
+}
+
 /** @type {import("../types").Fixture} */
 export const pieMenuFixture = {
 	id: "pie-menu",
 	type: "overlay",
 	title: "Viewport pie menu (open)",
-	mount: ({ lang }) => {
-		const t = (key, params) => translate(lang, key, params);
-		const actions = buildViewportPieActions({
-			mode: "camera",
-			t,
-			viewportToolMode: "select",
-			viewportOrthographic: false,
-			referencePreviewSessionVisible: true,
-			hasReferenceImages: false,
-			frameMaskMode: "off",
-		});
-		const hovered = actions.find((action) => action.id === "tool-select") ?? null;
-		return html`
-			<div class="docs-pie-host">
-				<style>${STYLE}</style>
-				<div
-					class="viewport-pie"
-					style=${{
-						left: `${PIE_CENTER_X}px`,
-						top: `${PIE_CENTER_Y}px`,
-					}}
-				>
-					<button type="button" class="viewport-pie__center">
-						<span class="viewport-pie__center-label">
-							${hovered?.label ?? t("action.quickMenu")}
-						</span>
-					</button>
-					${actions.map((action) => {
-						const offsetX = Math.cos(action.angle) * VIEWPORT_PIE_RADIUS;
-						const offsetY = Math.sin(action.angle) * VIEWPORT_PIE_RADIUS;
-						const classes = [
-							"viewport-pie__item",
-							action.id === hovered?.id || action.active
-								? "viewport-pie__item--active"
-								: "",
-							action.disabled ? "viewport-pie__item--disabled" : "",
-						]
-							.filter(Boolean)
-							.join(" ");
-						return html`
-							<button
-								key=${action.id}
-								type="button"
-								class=${classes}
-								style=${{
-									left: `${offsetX}px`,
-									top: `${offsetY}px`,
-								}}
-								disabled=${Boolean(action.disabled)}
-							>
-								<span class="viewport-pie__item-icon">
-									<${WorkbenchIcon} name=${action.icon} size=${18} />
-								</span>
-							</button>
-						`;
-					})}
-				</div>
-			</div>
-		`;
-	},
+	mount: ({ lang }) => renderPieMenu({ lang, coarse: false }),
+};
+
+/** @type {import("../types").Fixture} */
+export const pieMenuExpandedFixture = {
+	id: "pie-menu-expanded",
+	type: "overlay",
+	title: "Viewport pie menu (coarse / expanded)",
+	mount: ({ lang }) => renderPieMenu({ lang, coarse: true }),
 };
 
 // Constants referenced but kept next to STYLE for readability.
