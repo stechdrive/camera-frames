@@ -6,9 +6,11 @@
 
 import { registerFixture } from "./index.js";
 import { confirmNewProjectFixture } from "./confirm-new-project.js";
+import { dropHintFixture } from "./drop-hint.js";
 import { exportOutputSectionFixture } from "./export-output-section.js";
 import { exportProgressFixture } from "./export-progress.js";
 import { exportSettingsSectionFixture } from "./export-settings-section.js";
+import { firstSceneLoadedFixture } from "./first-scene-loaded.js";
 import {
 	openMenuFixture,
 	remoteUrlInputFixture,
@@ -37,6 +39,8 @@ registerFixture(outputFrameSectionFixture);
 registerFixture(exportSettingsSectionFixture);
 registerFixture(exportOutputSectionFixture);
 registerFixture(exportProgressFixture);
+registerFixture(dropHintFixture);
+registerFixture(firstSceneLoadedFixture);
 registerFixture(referencePresetsFixture);
 registerFixture(referenceManagerFixture);
 registerFixture(confirmNewProjectFixture);
