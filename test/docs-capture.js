@@ -59,11 +59,6 @@ export const scenarios = {
 	},
 
 	// --- Chapter 05: Shot Camera -----------------------------------------
-	"camera-mode-render-box": async (docs) => {
-		await loadBase(docs);
-		docs.controller?.setMode?.("camera");
-		await docs.waitForReady();
-	},
 
 	// --- Chapter 06: Output Frame / FRAME --------------------------------
 	"render-box-camera-mode": async (docs) => {
@@ -84,12 +79,6 @@ export const scenarios = {
 			{ n: 3, selector: "#anchor-dot", label: "anchor dot" },
 			{ n: 4, selector: "#render-box-meta", label: "meta ラベル" },
 		]);
-	},
-	"multiple-frames": async (docs) => {
-		await loadBase(docs);
-		docs.controller?.setMode?.("camera");
-		docs.controller?.createFrame?.();
-		await docs.waitForReady();
 	},
 	"trajectory-spline": async (docs) => {
 		await loadBase(docs);

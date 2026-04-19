@@ -6,12 +6,14 @@
 
 import { registerFixture } from "./index.js";
 import { axisGizmoFixture } from "./axis-gizmo.js";
+import { cameraModeRenderBoxFixture } from "./camera-mode-render-box.js";
 import { confirmNewProjectFixture } from "./confirm-new-project.js";
 import { dropHintFixture } from "./drop-hint.js";
 import { exportOutputSectionFixture } from "./export-output-section.js";
 import { exportProgressFixture } from "./export-progress.js";
 import { exportSettingsSectionFixture } from "./export-settings-section.js";
 import { firstSceneLoadedFixture } from "./first-scene-loaded.js";
+import { multipleFramesFixture } from "./multiple-frames.js";
 import {
 	openMenuFixture,
 	remoteUrlInputFixture,
@@ -45,6 +47,8 @@ registerFixture(dropHintFixture);
 registerFixture(firstSceneLoadedFixture);
 registerFixture(axisGizmoFixture);
 registerFixture(toolRailFixture);
+registerFixture(cameraModeRenderBoxFixture);
+registerFixture(multipleFramesFixture);
 registerFixture(referencePresetsFixture);
 registerFixture(referenceManagerFixture);
 registerFixture(confirmNewProjectFixture);
