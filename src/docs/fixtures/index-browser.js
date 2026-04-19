@@ -6,6 +6,8 @@
 
 import { registerFixture } from "./index.js";
 import { confirmNewProjectFixture } from "./confirm-new-project.js";
+import { exportOutputSectionFixture } from "./export-output-section.js";
+import { exportProgressFixture } from "./export-progress.js";
 import { exportSettingsSectionFixture } from "./export-settings-section.js";
 import {
 	openMenuFixture,
@@ -30,6 +32,8 @@ registerFixture(sectionDisplayZoomFixture);
 registerFixture(shotCameraPropertiesFixture);
 registerFixture(outputFrameSectionFixture);
 registerFixture(exportSettingsSectionFixture);
+registerFixture(exportOutputSectionFixture);
+registerFixture(exportProgressFixture);
 registerFixture(referencePresetsFixture);
 registerFixture(referenceManagerFixture);
 registerFixture(confirmNewProjectFixture);
