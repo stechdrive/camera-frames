@@ -22,13 +22,17 @@ import {
 } from "./file-menu.js";
 import { inspectorTabsFixture } from "./inspector-tabs.js";
 import { outputFrameSectionFixture } from "./output-frame-section.js";
-import { pieMenuFixture } from "./pie-menu.js";
+import {
+	pieMenuExpandedFixture,
+	pieMenuFixture,
+} from "./pie-menu.js";
 import {
 	perSplatBoxToolFixture,
 	perSplatBrushPreviewFixture,
 	perSplatEditToolbarFixture,
 	splatEditToolbarFixture,
 } from "./splat-edit-toolbar.js";
+import { referenceEditModeFixture } from "./reference-edit-mode.js";
 import {
 	referenceManagerFixture,
 	referencePresetsFixture,
@@ -60,6 +64,8 @@ registerFixture(openMenuFixture);
 registerFixture(remoteUrlInputFixture);
 registerFixture(inspectorTabsFixture);
 registerFixture(pieMenuFixture);
+registerFixture(pieMenuExpandedFixture);
+registerFixture(referenceEditModeFixture);
 registerFixture(splatEditToolbarFixture);
 registerFixture(perSplatBrushPreviewFixture);
 registerFixture(perSplatBoxToolFixture);

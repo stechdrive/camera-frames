@@ -71,18 +71,8 @@ export const scenarios = {
 	},
 
 	// --- Chapter 07: Reference images ------------------------------------
-	"reference-edit-mode": async (docs) => {
-		await loadBase(docs);
-		docs.controller?.toggleViewportReferenceImageEditMode?.();
-		await docs.waitForReady();
-	},
 
 	// --- Chapter 08: Viewport tools --------------------------------------
-	"pie-menu-expanded": async (docs) => {
-		await loadBase(docs);
-		docs.controller?.openViewportPieMenuAtCenter?.();
-		await docs.waitForReady();
-	},
 	"transform-gizmo": async (docs) => {
 		await loadBase(docs);
 		docs.controller?.setViewportTransformMode?.(true);
