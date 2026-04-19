@@ -64,12 +64,24 @@ function readParam(name, fallback) {
 }
 
 function signalReady(fixtureId) {
+	let done = false;
+	const finish = () => {
+		if (done) return;
+		done = true;
+		globalThis.__DOCS_FIXTURE_READY = true;
+		globalThis.__DOCS_FIXTURE_ID = fixtureId;
+	};
+	// Fast path: visible tabs get a ~32ms ready after two rAFs so layout
+	// and first paint have settled.
 	requestAnimationFrame(() => {
-		requestAnimationFrame(() => {
-			globalThis.__DOCS_FIXTURE_READY = true;
-			globalThis.__DOCS_FIXTURE_ID = fixtureId;
-		});
+		requestAnimationFrame(finish);
 	});
+	// Fallback: backgrounded / hidden tabs (e.g. Claude Preview running
+	// the browser off-screen) can throttle rAF down to 0 Hz, leaving the
+	// signal stuck forever. setTimeout remains callable under heavy
+	// throttling (clamped to ~1s in hidden tabs) and still gives capture
+	// pipelines a bounded wait.
+	setTimeout(finish, 100);
 }
 
 function mount() {
