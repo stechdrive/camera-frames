@@ -7,6 +7,10 @@
 import { registerFixture } from "./index.js";
 import { confirmNewProjectFixture } from "./confirm-new-project.js";
 import { exportSettingsSectionFixture } from "./export-settings-section.js";
+import {
+	openMenuFixture,
+	remoteUrlInputFixture,
+} from "./file-menu.js";
 import { outputFrameSectionFixture } from "./output-frame-section.js";
 import {
 	referenceManagerFixture,
@@ -22,3 +26,5 @@ registerFixture(exportSettingsSectionFixture);
 registerFixture(referencePresetsFixture);
 registerFixture(referenceManagerFixture);
 registerFixture(confirmNewProjectFixture);
+registerFixture(openMenuFixture);
+registerFixture(remoteUrlInputFixture);
