@@ -79,19 +79,6 @@ export const scenarios = {
 		await docs.waitForReady();
 	},
 
-	// --- Chapter 03: Open / Save -----------------------------------------
-	"open-menu": async (docs) => {
-		await loadBase(docs);
-		document
-			.querySelector(".workbench-menu__trigger")
-			?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-		await docs.waitForReady();
-	},
-	"remote-url-input": async (docs) => {
-		await loadBase(docs);
-		document.getElementById("header-url-input")?.focus();
-	},
-
 	// --- Chapter 05: Shot Camera -----------------------------------------
 	"shot-camera-manager": async (docs) => {
 		await loadBase(docs);

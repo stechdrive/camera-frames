@@ -53,6 +53,8 @@ CAMERA_FRAMES のファイル操作は、**Import**（scene asset / 下絵 / pro
 | **Remote URL** | ツールレール の URL 入力欄に `http://` / `https://` の URL を貼って Load |
 | **起動時 URL パラメータ** | ブラウザに `?load=<URL>` 付きでアクセス |
 
+![ツールレール の File メニュー](../assets/screenshots/ja/open-menu.png)
+
 ### 1.2 対応ファイル形式
 
 | カテゴリ | 拡張子 |
@@ -77,6 +79,8 @@ scene asset と 下絵 を混ぜても、それぞれ対応した routing に自
 ### 1.4 Remote URL から読み込む
 
 ツールレール の URL 入力欄で、複数 URL を一度に指定できます。
+
+![Remote URL 入力欄](../assets/screenshots/ja/remote-url-input.png)
 
 - **区切り文字** — 改行、カンマ、空白
 - **プロトコル制約** — `http://` または `https://` のみ（その他は除外）
