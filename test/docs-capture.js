@@ -61,25 +61,6 @@ export const scenarios = {
 	// --- Chapter 05: Shot Camera -----------------------------------------
 
 	// --- Chapter 06: Output Frame / FRAME --------------------------------
-	"render-box-camera-mode": async (docs) => {
-		await loadBase(docs);
-		docs.controller?.setMode?.("camera");
-		await docs.waitForReady();
-		docs.setAnnotations([
-			{
-				n: 1,
-				selector: ".render-box__resize-handle--top-right",
-				label: "リサイズハンドル",
-			},
-			{
-				n: 2,
-				selector: ".render-box__pan-edge--top",
-				label: "パンエッジ",
-			},
-			{ n: 3, selector: "#anchor-dot", label: "anchor dot" },
-			{ n: 4, selector: "#render-box-meta", label: "meta ラベル" },
-		]);
-	},
 	"trajectory-spline": async (docs) => {
 		await loadBase(docs);
 		docs.controller?.setMode?.("camera");
@@ -105,11 +86,6 @@ export const scenarios = {
 	"transform-gizmo": async (docs) => {
 		await loadBase(docs);
 		docs.controller?.setViewportTransformMode?.(true);
-		await docs.waitForReady();
-	},
-	"measurement-overlay": async (docs) => {
-		await loadBase(docs);
-		docs.controller?.setMeasurementMode?.(true);
 		await docs.waitForReady();
 	},
 
