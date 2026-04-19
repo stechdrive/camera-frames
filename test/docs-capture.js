@@ -64,10 +64,6 @@ export const scenarios = {
 			},
 		]);
 	},
-	"inspector-tabs": async (docs) => {
-		await loadBase(docs);
-		activateInspectorTab(docs, "camera");
-	},
 	"pie-menu": async (docs) => {
 		await loadBase(docs);
 		docs.controller?.openViewportPieMenuAtCenter?.();

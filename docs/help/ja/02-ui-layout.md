@@ -31,7 +31,7 @@ screenshots:
   - id: splat-edit-toolbar
     alt: スプラット edit 時のツールバー
     scenario: splat-edit-toolbar
-last-updated: 2026-04-18
+last-updated: 2026-04-19
 ---
 
 # 画面構成
