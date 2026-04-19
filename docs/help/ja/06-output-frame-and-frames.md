@@ -39,7 +39,7 @@ shortcuts:
     action: Frame mask（all）を切替
   - key: Shift+F
     action: Frame mask（selected）を切替
-last-updated: 2026-04-18
+last-updated: 2026-04-19
 ---
 
 # 用紙 と フレーム
