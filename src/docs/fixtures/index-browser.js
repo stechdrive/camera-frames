@@ -5,8 +5,12 @@
 // plain Node loader, so node-run tests must never import this file.
 
 import { registerFixture } from "./index.js";
+import { exportSettingsSectionFixture } from "./export-settings-section.js";
+import { outputFrameSectionFixture } from "./output-frame-section.js";
 import { sectionDisplayZoomFixture } from "./section-display-zoom.js";
 import { shotCameraPropertiesFixture } from "./shot-camera-properties.js";
 
 registerFixture(sectionDisplayZoomFixture);
 registerFixture(shotCameraPropertiesFixture);
+registerFixture(outputFrameSectionFixture);
+registerFixture(exportSettingsSectionFixture);

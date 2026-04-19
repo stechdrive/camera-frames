@@ -119,10 +119,6 @@ export const scenarios = {
 	},
 
 	// --- Chapter 06: Output Frame / FRAME --------------------------------
-	"output-frame-section": async (docs) => {
-		await loadBase(docs);
-		activateInspectorTab(docs, "camera");
-	},
 	"render-box-camera-mode": async (docs) => {
 		await loadBase(docs);
 		docs.controller?.setMode?.("camera");
@@ -240,10 +236,6 @@ export const scenarios = {
 
 	// --- Chapter 10: Export ----------------------------------------------
 	"export-output-section": async (docs) => {
-		await loadBase(docs);
-		activateInspectorTab(docs, "export");
-	},
-	"export-settings-section": async (docs) => {
 		await loadBase(docs);
 		activateInspectorTab(docs, "export");
 	},
