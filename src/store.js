@@ -3,8 +3,10 @@ import {
 	BASE_RENDER_BOX,
 	DEFAULT_CAMERA_FAR,
 	DEFAULT_CAMERA_NEAR,
+	MOBILE_UI_SCALE_DEFAULT,
 	SCENE_UNIT_BADGE,
 } from "./constants.js";
+import { resolveEffectiveMobileUiScale } from "./ui/mobile-ui-scale.js";
 import {
 	DEFAULT_SHOT_CAMERA_BASE_FOVX,
 	DEFAULT_VIEWPORT_CAMERA_BASE_FOVX,
@@ -133,12 +135,23 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	);
 
 	const remoteUrl = signal("");
+	const mobileUiActive = signal(false);
+	const mobileUiUserScale = signal(null);
+	const mobileUiAutoScale = signal(MOBILE_UI_SCALE_DEFAULT);
+	const mobileUiSettingsOpen = signal(false);
+	const mobileUiEffectiveScale = computed(() =>
+		resolveEffectiveMobileUiScale({
+			userScale: mobileUiUserScale.value,
+			autoScale: mobileUiAutoScale.value,
+		}),
+	);
 	const viewportPieMenu = signal({
 		open: false,
 		x: 0,
 		y: 0,
 		hoveredActionId: null,
 		coarse: false,
+		scale: 1,
 		radius: 88,
 		innerRadius: 28,
 		outerRadius: 126,
@@ -497,6 +510,13 @@ export function createCameraFramesStore(runtimeInfo = null) {
 			canRedo: historyCanRedo,
 		},
 		remoteUrl,
+		mobileUi: {
+			active: mobileUiActive,
+			userScale: mobileUiUserScale,
+			autoScale: mobileUiAutoScale,
+			effectiveScale: mobileUiEffectiveScale,
+			settingsOpen: mobileUiSettingsOpen,
+		},
 		sceneBadge,
 		sceneUnitBadge,
 		sceneSummary,

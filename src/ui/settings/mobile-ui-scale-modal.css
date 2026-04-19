@@ -1,0 +1,279 @@
+.mobile-ui-scale-modal {
+	position: fixed;
+	inset: 0;
+	z-index: 1001;
+	display: flex;
+	align-items: flex-end;
+	justify-content: center;
+	background: rgba(3, 7, 13, 0.55);
+	padding: calc(1rem * var(--cf-ui-scale, 1));
+	padding-bottom: calc(
+		env(safe-area-inset-bottom, 0px) + 1rem * var(--cf-ui-scale, 1)
+	);
+}
+
+.mobile-ui-scale-modal__card {
+	display: flex;
+	flex-direction: column;
+	width: min(
+		calc(26rem * var(--cf-ui-scale, 1)),
+		calc(100vw - 1.5rem)
+	);
+	max-height: calc(100vh - 2rem);
+	background: linear-gradient(
+		180deg,
+		var(--bg-elev-strong) 0%,
+		var(--bg-elev) 100%
+	);
+	border: 1px solid var(--line-strong);
+	border-radius: calc(22px * var(--cf-ui-scale, 1));
+	box-shadow: var(--shadow);
+	overflow: hidden;
+	color: var(--text);
+	font-size: calc(0.88rem * var(--cf-ui-scale, 1));
+}
+
+.mobile-ui-scale-modal__header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.8rem;
+	padding: calc(0.8rem * var(--cf-ui-scale, 1))
+		calc(1rem * var(--cf-ui-scale, 1));
+	border-bottom: 1px solid var(--line);
+}
+
+.mobile-ui-scale-modal__title {
+	margin: 0;
+	font-size: calc(1rem * var(--cf-ui-scale, 1));
+	font-weight: 600;
+	letter-spacing: 0.02em;
+}
+
+.mobile-ui-scale-modal__close {
+	appearance: none;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: calc(2.2rem * var(--cf-ui-scale, 1));
+	height: calc(2.2rem * var(--cf-ui-scale, 1));
+	border: 1px solid var(--line-strong);
+	border-radius: calc(12px * var(--cf-ui-scale, 1));
+	background: rgba(255, 255, 255, 0.04);
+	color: var(--text-dim);
+	cursor: pointer;
+}
+
+.mobile-ui-scale-modal__close:hover {
+	border-color: rgba(255, 255, 255, 0.34);
+	color: var(--text);
+}
+
+.mobile-ui-scale-modal__body {
+	display: flex;
+	flex-direction: column;
+	gap: calc(0.85rem * var(--cf-ui-scale, 1));
+	padding: calc(1rem * var(--cf-ui-scale, 1));
+	overflow-y: auto;
+	-webkit-overflow-scrolling: touch;
+}
+
+.mobile-ui-scale-modal__description {
+	margin: 0;
+	color: var(--text-dim);
+	font-size: calc(0.82rem * var(--cf-ui-scale, 1));
+	line-height: 1.45;
+}
+
+.mobile-ui-scale-modal__value-row {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 0.5rem;
+}
+
+.mobile-ui-scale-modal__value-label {
+	color: var(--text-dim);
+	font-size: calc(0.78rem * var(--cf-ui-scale, 1));
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
+
+.mobile-ui-scale-modal__value {
+	font: 700 calc(1.6rem * var(--cf-ui-scale, 1)) / 1 "IBM Plex Mono",
+		"SFMono-Regular", Consolas, monospace;
+	color: var(--text);
+}
+
+.mobile-ui-scale-modal__slider {
+	appearance: none;
+	width: 100%;
+	min-height: calc(2.2rem * var(--cf-ui-scale, 1));
+	background: transparent;
+	cursor: pointer;
+	accent-color: var(--accent);
+}
+
+.mobile-ui-scale-modal__slider-range {
+	display: flex;
+	justify-content: space-between;
+	color: var(--text-dim);
+	font: 600 calc(0.72rem * var(--cf-ui-scale, 1)) / 1 "IBM Plex Mono",
+		"SFMono-Regular", Consolas, monospace;
+	letter-spacing: 0.04em;
+}
+
+.mobile-ui-scale-modal__recommendation {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.6rem;
+	padding: calc(0.55rem * var(--cf-ui-scale, 1))
+		calc(0.75rem * var(--cf-ui-scale, 1));
+	background: rgba(137, 208, 255, 0.07);
+	border: 1px solid rgba(137, 208, 255, 0.22);
+	border-radius: calc(12px * var(--cf-ui-scale, 1));
+	color: var(--text-dim);
+	font-size: calc(0.78rem * var(--cf-ui-scale, 1));
+	line-height: 1.35;
+}
+
+.mobile-ui-scale-modal__reset {
+	appearance: none;
+	background: transparent;
+	border: none;
+	color: var(--accent-cool);
+	font: 600 calc(0.78rem * var(--cf-ui-scale, 1)) / 1 "Avenir Next",
+		"Segoe UI", sans-serif;
+	cursor: pointer;
+	padding: calc(0.25rem * var(--cf-ui-scale, 1))
+		calc(0.45rem * var(--cf-ui-scale, 1));
+	border-radius: calc(8px * var(--cf-ui-scale, 1));
+	text-decoration: underline;
+	text-underline-offset: 0.2em;
+}
+
+.mobile-ui-scale-modal__reset:hover {
+	color: var(--text);
+}
+
+.mobile-ui-scale-modal__auto-active {
+	color: var(--accent-cool);
+	font: 700 calc(0.7rem * var(--cf-ui-scale, 1)) / 1 "IBM Plex Mono",
+		"SFMono-Regular", Consolas, monospace;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+
+.mobile-ui-scale-modal__preview {
+	display: flex;
+	flex-direction: column;
+	gap: calc(0.6rem * var(--cf-ui-scale, 1));
+	padding: calc(0.9rem * var(--cf-ui-scale, 1));
+	border: 1px dashed var(--line-strong);
+	border-radius: calc(14px * var(--cf-ui-scale, 1));
+	background: rgba(255, 255, 255, 0.02);
+}
+
+.mobile-ui-scale-modal__preview-title {
+	margin: 0;
+	font-size: calc(0.82rem * var(--cf-ui-scale, 1));
+	font-weight: 600;
+	color: var(--text-dim);
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+
+.mobile-ui-scale-modal__preview-copy {
+	margin: 0;
+	color: var(--text);
+	font-size: calc(0.88rem * var(--cf-ui-scale, 1));
+	line-height: 1.4;
+}
+
+.mobile-ui-scale-modal__preview-row {
+	display: flex;
+	gap: calc(0.5rem * var(--cf-ui-scale, 1));
+	flex-wrap: wrap;
+}
+
+.mobile-ui-scale-modal__preview-button {
+	appearance: none;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-height: calc(2.45rem * var(--cf-ui-scale, 1));
+	padding: calc(0.55rem * var(--cf-ui-scale, 1))
+		calc(1rem * var(--cf-ui-scale, 1));
+	border: 1px solid var(--line-strong);
+	border-radius: calc(12px * var(--cf-ui-scale, 1));
+	background: rgba(255, 255, 255, 0.04);
+	color: var(--text);
+	font: 600 calc(0.86rem * var(--cf-ui-scale, 1)) / 1 "Avenir Next",
+		"Segoe UI", sans-serif;
+	cursor: pointer;
+}
+
+.mobile-ui-scale-modal__preview-button--primary {
+	background: linear-gradient(
+		180deg,
+		rgba(255, 103, 77, 0.85) 0%,
+		rgba(255, 103, 77, 0.65) 100%
+	);
+	border-color: rgba(255, 103, 77, 0.9);
+	color: #fff;
+}
+
+.mobile-ui-scale-modal__preview-field {
+	display: flex;
+	flex-direction: column;
+	gap: calc(0.3rem * var(--cf-ui-scale, 1));
+}
+
+.mobile-ui-scale-modal__preview-field > span {
+	color: var(--text-dim);
+	font-size: calc(0.72rem * var(--cf-ui-scale, 1));
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+
+.mobile-ui-scale-modal__preview-field input {
+	width: 100%;
+	min-height: calc(2.45rem * var(--cf-ui-scale, 1));
+	padding: calc(0.55rem * var(--cf-ui-scale, 1))
+		calc(0.7rem * var(--cf-ui-scale, 1));
+	border: 1px solid var(--line);
+	border-radius: calc(10px * var(--cf-ui-scale, 1));
+	background: rgba(2, 8, 16, 0.6);
+	color: var(--text);
+	font: 500 calc(0.86rem * var(--cf-ui-scale, 1)) / 1.2 "Consolas",
+		"Andale Mono", monospace;
+}
+
+.mobile-ui-scale-modal__footer {
+	display: flex;
+	justify-content: flex-end;
+	gap: 0.5rem;
+	padding: calc(0.75rem * var(--cf-ui-scale, 1))
+		calc(1rem * var(--cf-ui-scale, 1));
+	border-top: 1px solid var(--line);
+}
+
+.mobile-ui-scale-modal__done {
+	appearance: none;
+	min-height: calc(2.45rem * var(--cf-ui-scale, 1));
+	padding: calc(0.55rem * var(--cf-ui-scale, 1))
+		calc(1.15rem * var(--cf-ui-scale, 1));
+	border: 1px solid var(--line-strong);
+	border-radius: calc(14px * var(--cf-ui-scale, 1));
+	background: rgba(255, 255, 255, 0.06);
+	color: var(--text);
+	font: 600 calc(0.88rem * var(--cf-ui-scale, 1)) / 1 "Avenir Next",
+		"Segoe UI", sans-serif;
+	cursor: pointer;
+}
+
+.mobile-ui-scale-modal__done:hover {
+	border-color: rgba(255, 255, 255, 0.28);
+	background: rgba(255, 255, 255, 0.09);
+}

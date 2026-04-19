@@ -1,6 +1,10 @@
 import { html } from "htm/preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import { getAnchorOptions } from "../i18n.js";
+import {
+	computeAutoMobileUiScale,
+	readPersistedMobileUiUserScale,
+} from "./mobile-ui-scale.js";
 import { WorkbenchIcon } from "./workbench-icons.js";
 import {
 	shouldUseCompactDesktopWorkbenchLayout,
@@ -365,12 +369,18 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 				coarsePointerMatches: coarsePointerQuery.matches,
 				noHoverMatches: noHoverQuery.matches,
 			};
-			setIsMobileWorkbench(
-				shouldUseMobileWorkbenchLayout(nextArgs),
-			);
+			const nextMobile = shouldUseMobileWorkbenchLayout(nextArgs);
+			setIsMobileWorkbench(nextMobile);
 			setIsCompactDesktopWorkbench(
 				shouldUseCompactDesktopWorkbenchLayout(nextArgs),
 			);
+			store.mobileUi.active.value = nextMobile;
+			store.mobileUi.autoScale.value = computeAutoMobileUiScale({
+				viewportWidth:
+					window.innerWidth || document.documentElement?.clientWidth || 0,
+				screenWidth: window.screen?.width ?? 0,
+				coarsePointer: coarsePointerQuery.matches,
+			});
 		};
 
 		syncMobileWorkbench();
@@ -383,17 +393,59 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 			return () => query.removeListener(listener);
 		};
 
+		const handleResize = () => {
+			store.mobileUi.autoScale.value = computeAutoMobileUiScale({
+				viewportWidth:
+					window.innerWidth || document.documentElement?.clientWidth || 0,
+				screenWidth: window.screen?.width ?? 0,
+				coarsePointer: coarsePointerQuery.matches,
+			});
+		};
+		window.addEventListener("resize", handleResize);
+		window.addEventListener("orientationchange", handleResize);
+
 		const cleanups = [
 			addChangeListener(widthQuery, syncMobileWorkbench),
 			addChangeListener(coarsePointerQuery, syncMobileWorkbench),
 			addChangeListener(noHoverQuery, syncMobileWorkbench),
+			() => window.removeEventListener("resize", handleResize),
+			() => window.removeEventListener("orientationchange", handleResize),
 		];
 		return () => {
 			for (const cleanup of cleanups) {
 				cleanup();
 			}
 		};
-	}, []);
+	}, [store]);
+
+	useEffect(() => {
+		const persistedScale = readPersistedMobileUiUserScale();
+		if (persistedScale !== null) {
+			store.mobileUi.userScale.value = persistedScale;
+		}
+	}, [store]);
+
+	useEffect(() => {
+		if (typeof document === "undefined") {
+			return undefined;
+		}
+		const applyScale = () => {
+			const scale = store.mobileUi.effectiveScale.value;
+			const shellElement = refs?.workbenchShellRef?.current ?? null;
+			if (shellElement instanceof HTMLElement) {
+				shellElement.style.setProperty("--cf-ui-scale", String(scale));
+			}
+		};
+		applyScale();
+		const unsubscribe = store.mobileUi.effectiveScale.subscribe(applyScale);
+		return () => {
+			unsubscribe?.();
+			const shellElement = refs?.workbenchShellRef?.current ?? null;
+			if (shellElement instanceof HTMLElement) {
+				shellElement.style.removeProperty("--cf-ui-scale");
+			}
+		};
+	}, [refs, store]);
 
 	const handleToolRailPointerDown = (event) => {
 		if (isMobileWorkbench) {
@@ -777,6 +829,17 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 					/>
 				`,
 			)}
+			<${IconButton}
+				icon="settings"
+				label=${t("mobileUiScale.title")}
+				className="workbench-tool-rail__button"
+				tooltip=${{
+					title: t("mobileUiScale.title"),
+					description: t("mobileUiScale.tooltip"),
+					placement: "top",
+				}}
+				onClick=${() => controller()?.openMobileUiSettings?.()}
+			/>
 		</div>
 	`;
 

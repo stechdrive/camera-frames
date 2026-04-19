@@ -100,6 +100,7 @@ import {
 	WORKSPACE_PANE_VIEWPORT,
 } from "./workspace-model.js";
 import { createHelpCommands } from "./ui/help/help-commands.js";
+import { createMobileUiScaleCommands } from "./ui/settings/mobile-ui-scale-commands.js";
 
 export function createCameraFramesController(elements, store) {
 	const {
@@ -936,6 +937,7 @@ export function createCameraFramesController(elements, store) {
 	runtimeController.init();
 
 	const helpCommands = createHelpCommands({ store });
+	const mobileUiScaleCommands = createMobileUiScaleCommands({ store });
 	return createControllerApi({
 		store,
 		state,
@@ -987,5 +989,6 @@ export function createCameraFramesController(elements, store) {
 		executeViewportPieAction,
 		toggleZoomTool,
 		helpCommands,
+		mobileUiScaleCommands,
 	});
 }

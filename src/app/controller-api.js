@@ -49,6 +49,7 @@ export function createControllerApi({
 	executeViewportPieAction,
 	toggleZoomTool,
 	helpCommands = null,
+	mobileUiScaleCommands = null,
 	disposeSceneResources,
 }) {
 	return {
@@ -338,6 +339,7 @@ export function createControllerApi({
 		undoHistory: () => historyController?.undoHistory(),
 		redoHistory: () => historyController?.redoHistory(),
 		...(helpCommands || {}),
+		...(mobileUiScaleCommands || {}),
 		dispose() {
 			measurementController?.dispose?.();
 			perSplatEditController?.dispose?.();

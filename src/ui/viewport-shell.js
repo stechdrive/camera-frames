@@ -850,6 +850,7 @@ export function ViewportShell({ store, controller, refs, t }) {
 						style=${{
 							left: `${pieState.x}px`,
 							top: `${pieState.y}px`,
+							"--cf-pie-scale": String(pieState.scale ?? 1),
 						}}
 					>
 						<button

@@ -3,6 +3,7 @@ import { useEffect } from "preact/hooks";
 import { DEFAULT_LOCALE, translate } from "../i18n.js";
 import { AppOverlay } from "./app-overlay.js";
 import { HelpModal } from "./help/help-modal.js";
+import { MobileUiScaleModal } from "./settings/mobile-ui-scale-modal.js";
 import { SidePanel } from "./side-panel.js";
 import { ViewportShell } from "./viewport-shell.js";
 
@@ -57,6 +58,11 @@ export function AppView({ store, controller, refs }) {
 			/>
 			<${AppOverlay} overlay=${store.overlay.value} />
 			<${HelpModal} store=${store} controller=${controller} />
+			<${MobileUiScaleModal}
+				store=${store}
+				controller=${controller}
+				t=${t}
+			/>
 		</div>
 
 		<input

@@ -32,6 +32,12 @@ export const DEFAULT_GRID_DIVISIONS = 24;
 export const VIEWPORT_PIXEL_RATIO = 1;
 export const SCENE_UNIT_BADGE = "1u = 1m";
 
+export const MOBILE_UI_SCALE_MIN = 0.7;
+export const MOBILE_UI_SCALE_MAX = 2.0;
+export const MOBILE_UI_SCALE_STEP = 0.01;
+export const MOBILE_UI_SCALE_DEFAULT = 1.0;
+export const MOBILE_UI_SCALE_STORAGE_KEY = "camera-frames.mobileUiScale";
+
 export const SPLAT_EXTENSIONS = new Set([
 	"ply",
 	"spz",

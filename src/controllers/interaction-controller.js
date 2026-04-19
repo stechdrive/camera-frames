@@ -222,15 +222,17 @@ export function createInteractionController({
 	}
 
 	function closeViewportPieMenu({ silent = true } = {}) {
+		const metrics = getViewportPieMetrics();
 		setViewportPieMenu({
 			open: false,
 			x: 0,
 			y: 0,
 			hoveredActionId: null,
 			coarse: false,
-			radius: getViewportPieMetrics().radius,
-			innerRadius: getViewportPieMetrics().innerRadius,
-			outerRadius: getViewportPieMetrics().outerRadius,
+			scale: metrics.scale,
+			radius: metrics.radius,
+			innerRadius: metrics.innerRadius,
+			outerRadius: metrics.outerRadius,
 		});
 		if (state.interactionMode === INTERACTION_MODE_PIE) {
 			applyNavigateInteractionMode({ silent });
@@ -386,19 +388,31 @@ export function createInteractionController({
 		clearZoomToolDrag();
 	}
 
+	function getCurrentMobileUiScale() {
+		if (!store.mobileUi?.active?.peek?.()) {
+			return 1;
+		}
+		const scale = store.mobileUi?.effectiveScale?.peek?.();
+		return Number.isFinite(scale) && scale > 0 ? scale : 1;
+	}
+
 	function openViewportPieMenu(event, { force = false, coarse = false } = {}) {
 		if (!force && event.button !== 1) {
 			return false;
 		}
 
 		const viewportRect = viewportShell.getBoundingClientRect();
-		const metrics = getViewportPieMetrics({ coarse });
+		const metrics = getViewportPieMetrics({
+			coarse,
+			uiScale: getCurrentMobileUiScale(),
+		});
 		setViewportPieMenu({
 			open: true,
 			x: event.clientX - viewportRect.left,
 			y: event.clientY - viewportRect.top,
 			hoveredActionId: null,
 			coarse: metrics.coarse,
+			scale: metrics.scale,
 			radius: metrics.radius,
 			innerRadius: metrics.innerRadius,
 			outerRadius: metrics.outerRadius,

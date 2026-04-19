@@ -622,3 +622,55 @@
 	justify-content: flex-start;
 	flex-wrap: nowrap;
 }
+
+/*
+ * Mobile UI scale overrides — only apply when the mobile layout wrapper is
+ * present. On desktop `--cf-ui-scale` stays at its `:root` default of 1, so
+ * every `calc(... * var(--cf-ui-scale, 1))` below evaluates to the original
+ * desktop value.
+ */
+.workbench-shell--mobile .workbench-menu__item {
+	min-height: calc(2.12rem * var(--cf-ui-scale, 1));
+	padding: calc(0.46rem * var(--cf-ui-scale, 1))
+		calc(0.64rem * var(--cf-ui-scale, 1));
+	font-size: calc(0.84rem * var(--cf-ui-scale, 1));
+}
+
+.workbench-shell--mobile .workbench-menu__field input {
+	min-height: calc(2.45rem * var(--cf-ui-scale, 1));
+	padding: calc(0.65rem * var(--cf-ui-scale, 1))
+		calc(0.75rem * var(--cf-ui-scale, 1));
+	font-size: calc(0.86rem * var(--cf-ui-scale, 1));
+}
+
+.workbench-shell--mobile .workbench-menu__field label {
+	font-size: calc(0.72rem * var(--cf-ui-scale, 1));
+}
+
+.workbench-shell--mobile .workbench-inspector-toggle {
+	width: calc(2.1rem * var(--cf-ui-scale, 1));
+	height: calc(2.1rem * var(--cf-ui-scale, 1));
+}
+
+.workbench-shell--mobile .workbench-tool-rail__popover {
+	min-width: calc(10.25rem * var(--cf-ui-scale, 1));
+	padding: calc(0.65rem * var(--cf-ui-scale, 1));
+}
+
+.workbench-shell--mobile .workbench-tool-rail__popover--mask {
+	min-width: calc(17.5rem * var(--cf-ui-scale, 1));
+}
+
+.workbench-shell--mobile .workbench-menu__panel {
+	padding: calc(0.48rem * var(--cf-ui-scale, 1));
+	min-width: min(
+		calc(18.5rem * var(--cf-ui-scale, 1)),
+		calc(100vw - 2.5rem)
+	);
+}
+
+.workbench-shell--mobile .workbench-tool-rail__popover-select,
+.workbench-shell--mobile .workbench-tool-rail__popover-input input {
+	min-height: calc(2.2rem * var(--cf-ui-scale, 1));
+	font-size: calc(0.82rem * var(--cf-ui-scale, 1));
+}
