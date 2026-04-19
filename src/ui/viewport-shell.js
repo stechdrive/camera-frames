@@ -58,6 +58,206 @@ const REFERENCE_IMAGE_ROTATION_ZONES = [
 	"left",
 ];
 
+export function SplatEditToolbar({ store, controller, t }) {
+	const splatEditTool = store.splatEdit.tool.value;
+	const splatEditSelectionCount = store.splatEdit.selectionCount.value;
+	const splatEditBrushSize = store.splatEdit.brushSize.value;
+	const splatEditBrushDepthMode = store.splatEdit.brushDepthMode.value;
+	const splatEditBrushDepth = store.splatEdit.brushDepth.value;
+	const splatEditBoxPlaced = store.splatEdit.boxPlaced.value;
+	const splatEditBoxCenter = store.splatEdit.boxCenter.value;
+	const splatEditBoxSize = store.splatEdit.boxSize.value;
+	const splatEditBoxRotation = store.splatEdit.boxRotation.value;
+
+	const setSplatEditTool = (tool) => controller()?.setSplatEditTool?.(tool);
+	const setSplatEditBrushDepthMode = (nextMode) =>
+		controller()?.setSplatEditBrushDepthMode?.(nextMode);
+	const handleSplatEditBoxCenterInput = (axisKey, nextValue) => {
+		const numericValue = Number(nextValue);
+		if (Number.isFinite(numericValue)) {
+			controller()?.setSplatEditBoxCenterAxis?.(axisKey, numericValue);
+		}
+	};
+	const handleSplatEditBoxSizeInput = (axisKey, nextValue) => {
+		const numericValue = Number(nextValue);
+		if (Number.isFinite(numericValue)) {
+			controller()?.setSplatEditBoxSizeAxis?.(axisKey, numericValue);
+		}
+	};
+	const handleSplatEditBoxRotationInput = (axisKey, nextValue) => {
+		const numericValue = Number(nextValue);
+		if (Number.isFinite(numericValue)) {
+			controller()?.setSplatEditBoxRotationAxis?.(axisKey, numericValue);
+		}
+	};
+	const handleSplatEditBrushSizeInput = (nextValue) => {
+		const numericValue = Number(nextValue);
+		if (Number.isFinite(numericValue)) {
+			controller()?.setSplatEditBrushSize?.(numericValue);
+		}
+	};
+	const handleSplatEditBrushDepthInput = (nextValue) => {
+		const numericValue = Number(nextValue);
+		if (Number.isFinite(numericValue)) {
+			controller()?.setSplatEditBrushDepth?.(numericValue);
+		}
+	};
+	const formatSplatEditNumericValue = (numericValue) =>
+		Number(numericValue ?? 0).toFixed(2);
+	const renderSplatEditField = ({
+		label,
+		value,
+		step = "0.10",
+		min = undefined,
+		historyLabel,
+		onScrubValue,
+		onCommitValue,
+	}) => html`
+		<div class="viewport-splat-edit-toolbar__field camera-property-axis-field">
+			<span class="camera-property-axis-field__prefix">${label}</span>
+			<div class="camera-property-axis-field__input field">
+				<${NumericDraftInput}
+					inputMode="decimal"
+					min=${min}
+					step=${step}
+					value=${formatSplatEditNumericValue(value)}
+					controller=${controller}
+					historyLabel=${historyLabel}
+					formatDisplayValue=${formatSplatEditNumericValue}
+					scrubStartValue=${Number(value ?? 0)}
+					onScrubDelta=${(_deltaValue, nextValue) => onScrubValue(nextValue)}
+					onCommit=${(nextValue) => onCommitValue(nextValue)}
+				/>
+			</div>
+		</div>
+	`;
+
+	const splatEditBoxRotationEuler = new THREE.Euler().setFromQuaternion(
+		new THREE.Quaternion(
+			Number(splatEditBoxRotation?.x ?? 0),
+			Number(splatEditBoxRotation?.y ?? 0),
+			Number(splatEditBoxRotation?.z ?? 0),
+			Number(splatEditBoxRotation?.w ?? 1),
+		),
+	);
+	const splatEditBoxRotationDegrees = {
+		x: THREE.MathUtils.radToDeg(splatEditBoxRotationEuler.x),
+		y: THREE.MathUtils.radToDeg(splatEditBoxRotationEuler.y),
+		z: THREE.MathUtils.radToDeg(splatEditBoxRotationEuler.z),
+	};
+
+	return html`
+		<div class="viewport-splat-edit-toolbar">
+			${
+				splatEditTool === "brush" &&
+				html`
+				<div class="viewport-splat-edit-popover">
+					${renderSplatEditField({ label: "px", value: splatEditBrushSize ?? 30, step: "1", min: "4", historyLabel: "splat-edit.brush-size", onScrubValue: (v) => handleSplatEditBrushSizeInput(v), onCommitValue: (v) => handleSplatEditBrushSizeInput(v) })}
+					<button type="button" class=${`viewport-splat-edit-toolbar__btn${splatEditBrushDepthMode === "through" ? " viewport-splat-edit-toolbar__btn--active" : ""}`} onClick=${() => setSplatEditBrushDepthMode("through")}>
+						${t("status.splatEditBrushModeThrough")}
+					</button>
+					<button type="button" class=${`viewport-splat-edit-toolbar__btn${splatEditBrushDepthMode === "depth" ? " viewport-splat-edit-toolbar__btn--active" : ""}`} onClick=${() => setSplatEditBrushDepthMode("depth")}>
+						${t("status.splatEditBrushModeDepth")}
+					</button>
+					${
+						splatEditBrushDepthMode === "depth" &&
+						html`
+						${renderSplatEditField({ label: t("status.splatEditBrushModeDepth"), value: splatEditBrushDepth ?? 0.2, min: "0.01", historyLabel: "splat-edit.brush-depth", onScrubValue: (v) => handleSplatEditBrushDepthInput(v), onCommitValue: (v) => handleSplatEditBrushDepthInput(v) })}
+					`
+					}
+				</div>
+			`
+			}
+			${
+				splatEditTool === "box" &&
+				html`
+				<div class="viewport-splat-edit-popover">
+					${
+						splatEditBoxPlaced
+							? html`
+						<span class="viewport-splat-edit-toolbar__detail-label">${t("status.splatEditCenter")}</span>
+						<div class="viewport-splat-edit-toolbar__detail-grid">
+							${renderSplatEditField({ label: t("field.positionX"), value: splatEditBoxCenter?.x ?? 0, historyLabel: "splat-edit.box-center.x", onScrubValue: (v) => handleSplatEditBoxCenterInput("x", v), onCommitValue: (v) => handleSplatEditBoxCenterInput("x", v) })}
+							${renderSplatEditField({ label: t("field.positionY"), value: splatEditBoxCenter?.y ?? 0, historyLabel: "splat-edit.box-center.y", onScrubValue: (v) => handleSplatEditBoxCenterInput("y", v), onCommitValue: (v) => handleSplatEditBoxCenterInput("y", v) })}
+							${renderSplatEditField({ label: t("field.positionZ"), value: splatEditBoxCenter?.z ?? 0, historyLabel: "splat-edit.box-center.z", onScrubValue: (v) => handleSplatEditBoxCenterInput("z", v), onCommitValue: (v) => handleSplatEditBoxCenterInput("z", v) })}
+						</div>
+						<span class="viewport-splat-edit-toolbar__detail-label">${t("status.splatEditSize")}</span>
+						<div class="viewport-splat-edit-toolbar__detail-grid">
+							${renderSplatEditField({ label: t("field.positionX"), value: splatEditBoxSize?.x ?? 1, min: "0.01", historyLabel: "splat-edit.box-size.x", onScrubValue: (v) => handleSplatEditBoxSizeInput("x", v), onCommitValue: (v) => handleSplatEditBoxSizeInput("x", v) })}
+							${renderSplatEditField({ label: t("field.positionY"), value: splatEditBoxSize?.y ?? 1, min: "0.01", historyLabel: "splat-edit.box-size.y", onScrubValue: (v) => handleSplatEditBoxSizeInput("y", v), onCommitValue: (v) => handleSplatEditBoxSizeInput("y", v) })}
+							${renderSplatEditField({ label: t("field.positionZ"), value: splatEditBoxSize?.z ?? 1, min: "0.01", historyLabel: "splat-edit.box-size.z", onScrubValue: (v) => handleSplatEditBoxSizeInput("z", v), onCommitValue: (v) => handleSplatEditBoxSizeInput("z", v) })}
+						</div>
+						<span class="viewport-splat-edit-toolbar__detail-label">${t("field.assetRotation")}</span>
+						<div class="viewport-splat-edit-toolbar__detail-grid">
+							${renderSplatEditField({ label: t("field.positionX"), value: splatEditBoxRotationDegrees.x, step: "1", historyLabel: "splat-edit.box-rotation.x", onScrubValue: (v) => handleSplatEditBoxRotationInput("x", v), onCommitValue: (v) => handleSplatEditBoxRotationInput("x", v) })}
+							${renderSplatEditField({ label: t("field.positionY"), value: splatEditBoxRotationDegrees.y, step: "1", historyLabel: "splat-edit.box-rotation.y", onScrubValue: (v) => handleSplatEditBoxRotationInput("y", v), onCommitValue: (v) => handleSplatEditBoxRotationInput("y", v) })}
+							${renderSplatEditField({ label: t("field.positionZ"), value: splatEditBoxRotationDegrees.z, step: "1", historyLabel: "splat-edit.box-rotation.z", onScrubValue: (v) => handleSplatEditBoxRotationInput("z", v), onCommitValue: (v) => handleSplatEditBoxRotationInput("z", v) })}
+						</div>
+						<button type="button" class="viewport-splat-edit-toolbar__btn" onClick=${() => controller()?.applySplatEditBoxSelection?.({ subtract: false })}>${t("status.splatEditAdd")}</button>
+						<button type="button" class="viewport-splat-edit-toolbar__btn" onClick=${() => controller()?.applySplatEditBoxSelection?.({ subtract: true })}>${t("status.splatEditSubtract")}</button>
+						<button type="button" class="viewport-splat-edit-toolbar__btn button--tooltip" onClick=${() => controller()?.scaleSplatEditBoxUniform?.(0.9)}>−<${TooltipBubble} title=${t("status.splatEditScaleDown")} placement="top" /></button>
+						<button type="button" class="viewport-splat-edit-toolbar__btn button--tooltip" onClick=${() => controller()?.scaleSplatEditBoxUniform?.(1.1)}>+<${TooltipBubble} title=${t("status.splatEditScaleUp")} placement="top" /></button>
+					`
+							: html`
+						<span class="viewport-splat-edit-toolbar__info">${t("status.splatEditPlaceBoxHint")}</span>
+					`
+					}
+					<button type="button" class="viewport-splat-edit-toolbar__btn" onClick=${() => controller()?.fitSplatEditBoxToScope?.()}>${t("status.splatEditFitScope")}</button>
+				</div>
+			`
+			}
+			<div class="viewport-splat-edit-toolbar__bar">
+				<!-- Tool selector -->
+				<div class="viewport-splat-edit-toolbar__group" role="group" aria-label=${t("action.splatEditTool")}>
+					<button type="button" class=${`viewport-splat-edit-toolbar__btn${splatEditTool === "box" ? " viewport-splat-edit-toolbar__btn--active" : ""}`} onClick=${() => setSplatEditTool("box")}>
+						${t("status.splatEditToolBox")}
+					</button>
+					<button type="button" class=${`viewport-splat-edit-toolbar__btn${splatEditTool === "brush" ? " viewport-splat-edit-toolbar__btn--active" : ""}`} onClick=${() => setSplatEditTool("brush")}>
+						${t("status.splatEditToolBrush")}
+					</button>
+					<button type="button" class=${`viewport-splat-edit-toolbar__btn${splatEditTool === "transform" ? " viewport-splat-edit-toolbar__btn--active" : ""}`} disabled=${splatEditSelectionCount <= 0 && splatEditTool !== "transform"} onClick=${() => setSplatEditTool("transform")}>
+						${t("status.splatEditToolTransform")}
+					</button>
+				</div>
+				<div class="viewport-splat-edit-toolbar__separator" />
+
+				<!-- Selection operations -->
+				<div class="viewport-splat-edit-toolbar__group">
+					<button type="button" class="viewport-splat-edit-toolbar__btn button--tooltip" onClick=${() => controller()?.selectAllSplats?.()}>
+						${t("status.splatEditSelectAll")}<${TooltipBubble} title=${t("status.splatEditSelectAll")} shortcut="Ctrl+A" placement="top" />
+					</button>
+					<button type="button" class="viewport-splat-edit-toolbar__btn button--tooltip" disabled=${splatEditSelectionCount <= 0} onClick=${() => controller()?.invertSplatSelection?.()}>
+						${t("status.splatEditInvert")}<${TooltipBubble} title=${t("status.splatEditInvert")} shortcut="Ctrl+I" placement="top" />
+					</button>
+					<button type="button" class="viewport-splat-edit-toolbar__btn button--tooltip" disabled=${splatEditSelectionCount <= 0} onClick=${() => controller()?.clearSplatSelection?.()}>
+						${t("action.clearSelection")}<${TooltipBubble} title=${t("action.clearSelection")} shortcut="Ctrl+D" placement="top" />
+					</button>
+				</div>
+				<div class="viewport-splat-edit-toolbar__separator" />
+
+				<!-- Edit actions -->
+				<div class="viewport-splat-edit-toolbar__group">
+					<button type="button" class="viewport-splat-edit-toolbar__btn viewport-splat-edit-toolbar__btn--danger" disabled=${splatEditSelectionCount <= 0} onClick=${() => void controller()?.deleteSelectedSplats?.()}>
+						${t("status.splatEditDelete")}
+					</button>
+					<button type="button" class="viewport-splat-edit-toolbar__btn" disabled=${splatEditSelectionCount <= 0} onClick=${() => void controller()?.separateSelectedSplats?.()}>
+						${t("status.splatEditSeparate")}
+					</button>
+					<button type="button" class="viewport-splat-edit-toolbar__btn" disabled=${splatEditSelectionCount <= 0} onClick=${() => void controller()?.duplicateSelectedSplats?.()}>
+						${t("status.splatEditDuplicate")}
+					</button>
+				</div>
+				<div class="viewport-splat-edit-toolbar__separator" />
+
+				<!-- Selection count (right end) -->
+				<span class="viewport-splat-edit-toolbar__info">
+					${splatEditSelectionCount} sel
+				</span>
+			</div>
+		</div>
+	`;
+}
+
 function SplatEditBrushPreview({ store, viewportShellRef }) {
 	const splatEditActive = store.splatEdit.active.value;
 	const splatEditTool = store.splatEdit.tool.value;
@@ -274,16 +474,7 @@ export function ViewportShell({ store, controller, refs, t }) {
 	const mode = store.mode.value;
 	const workbenchCollapsed = store.workbenchCollapsed.value;
 	const splatEditActive = store.splatEdit.active.value;
-	const splatEditTool = store.splatEdit.tool.value;
 	const splatEditScopeCount = store.splatEdit.scopeAssetIds.value.length;
-	const splatEditSelectionCount = store.splatEdit.selectionCount.value;
-	const splatEditBrushSize = store.splatEdit.brushSize.value;
-	const splatEditBrushDepthMode = store.splatEdit.brushDepthMode.value;
-	const splatEditBrushDepth = store.splatEdit.brushDepth.value;
-	const splatEditBoxPlaced = store.splatEdit.boxPlaced.value;
-	const splatEditBoxCenter = store.splatEdit.boxCenter.value;
-	const splatEditBoxSize = store.splatEdit.boxSize.value;
-	const splatEditBoxRotation = store.splatEdit.boxRotation.value;
 	const splatEditHudPosition = store.splatEdit.hudPosition.value;
 	const splatEditLastOperation = store.splatEdit.lastOperation.value;
 	const frames = store.frames.documents.value;
@@ -453,69 +644,6 @@ export function ViewportShell({ store, controller, refs, t }) {
 		controller()?.startReferenceImageRotate?.(zoneKey, event);
 	const startReferenceImageAnchorDrag = (event) =>
 		controller()?.startReferenceImageAnchorDrag?.(event);
-	const setSplatEditTool = (tool) => controller()?.setSplatEditTool?.(tool);
-	const formatSplatEditNumericValue = (numericValue) =>
-		Number(numericValue ?? 0).toFixed(2);
-	const handleSplatEditBoxCenterInput = (axisKey, nextValue) => {
-		const numericValue = Number(nextValue);
-		if (Number.isFinite(numericValue)) {
-			controller()?.setSplatEditBoxCenterAxis?.(axisKey, numericValue);
-		}
-	};
-	const handleSplatEditBoxSizeInput = (axisKey, nextValue) => {
-		const numericValue = Number(nextValue);
-		if (Number.isFinite(numericValue)) {
-			controller()?.setSplatEditBoxSizeAxis?.(axisKey, numericValue);
-		}
-	};
-	const handleSplatEditBoxRotationInput = (axisKey, nextValue) => {
-		const numericValue = Number(nextValue);
-		if (Number.isFinite(numericValue)) {
-			controller()?.setSplatEditBoxRotationAxis?.(axisKey, numericValue);
-		}
-	};
-	const handleSplatEditBrushSizeInput = (nextValue) => {
-		const numericValue = Number(nextValue);
-		if (Number.isFinite(numericValue)) {
-			controller()?.setSplatEditBrushSize?.(numericValue);
-		}
-	};
-	const handleSplatEditBrushDepthInput = (nextValue) => {
-		const numericValue = Number(nextValue);
-		if (Number.isFinite(numericValue)) {
-			controller()?.setSplatEditBrushDepth?.(numericValue);
-		}
-	};
-	const setSplatEditBrushDepthMode = (nextMode) =>
-		controller()?.setSplatEditBrushDepthMode?.(nextMode);
-	const renderSplatEditField = ({
-		label,
-		value,
-		step = "0.10",
-		min = undefined,
-		historyLabel,
-		onScrubValue,
-		onCommitValue,
-	}) => html`
-		<div class="viewport-splat-edit-toolbar__field camera-property-axis-field">
-			<span class="camera-property-axis-field__prefix">${label}</span>
-			<div class="camera-property-axis-field__input field">
-				<${NumericDraftInput}
-					inputMode="decimal"
-					min=${min}
-					step=${step}
-					value=${formatSplatEditNumericValue(value)}
-					controller=${controller}
-					historyLabel=${historyLabel}
-					formatDisplayValue=${formatSplatEditNumericValue}
-					scrubStartValue=${Number(value ?? 0)}
-					onScrubDelta=${(_deltaValue, nextValue) => onScrubValue(nextValue)}
-					onCommit=${(nextValue) => onCommitValue(nextValue)}
-				/>
-			</div>
-		</div>
-	`;
-
 	const startSplatEditHudDrag = (event) => {
 		if (event.button !== 0) {
 			return;
@@ -611,20 +739,6 @@ export function ViewportShell({ store, controller, refs, t }) {
 			className: "viewport-gizmo__handle--scale",
 		},
 	];
-	const splatEditBoxRotationEuler = new THREE.Euler().setFromQuaternion(
-		new THREE.Quaternion(
-			Number(splatEditBoxRotation?.x ?? 0),
-			Number(splatEditBoxRotation?.y ?? 0),
-			Number(splatEditBoxRotation?.z ?? 0),
-			Number(splatEditBoxRotation?.w ?? 1),
-		),
-		"XYZ",
-	);
-	const splatEditBoxRotationDegrees = {
-		x: THREE.MathUtils.radToDeg(splatEditBoxRotationEuler.x),
-		y: THREE.MathUtils.radToDeg(splatEditBoxRotationEuler.y),
-		z: THREE.MathUtils.radToDeg(splatEditBoxRotationEuler.z),
-	};
 
 	return html`
 		<main
@@ -662,116 +776,7 @@ export function ViewportShell({ store, controller, refs, t }) {
 			/>
 			${
 				splatEditActive &&
-				html`
-					<div class="viewport-splat-edit-toolbar">
-						${
-							splatEditTool === "brush" &&
-							html`
-							<div class="viewport-splat-edit-popover">
-								${renderSplatEditField({ label: "px", value: splatEditBrushSize ?? 30, step: "1", min: "4", historyLabel: "splat-edit.brush-size", onScrubValue: (v) => handleSplatEditBrushSizeInput(v), onCommitValue: (v) => handleSplatEditBrushSizeInput(v) })}
-								<button type="button" class=${`viewport-splat-edit-toolbar__btn${splatEditBrushDepthMode === "through" ? " viewport-splat-edit-toolbar__btn--active" : ""}`} onClick=${() => setSplatEditBrushDepthMode("through")}>
-									${t("status.splatEditBrushModeThrough")}
-								</button>
-								<button type="button" class=${`viewport-splat-edit-toolbar__btn${splatEditBrushDepthMode === "depth" ? " viewport-splat-edit-toolbar__btn--active" : ""}`} onClick=${() => setSplatEditBrushDepthMode("depth")}>
-									${t("status.splatEditBrushModeDepth")}
-								</button>
-								${
-									splatEditBrushDepthMode === "depth" &&
-									html`
-									${renderSplatEditField({ label: t("status.splatEditBrushModeDepth"), value: splatEditBrushDepth ?? 0.2, min: "0.01", historyLabel: "splat-edit.brush-depth", onScrubValue: (v) => handleSplatEditBrushDepthInput(v), onCommitValue: (v) => handleSplatEditBrushDepthInput(v) })}
-								`
-								}
-							</div>
-						`
-						}
-						${
-							splatEditTool === "box" &&
-							html`
-							<div class="viewport-splat-edit-popover">
-								${
-									splatEditBoxPlaced
-										? html`
-									<span class="viewport-splat-edit-toolbar__detail-label">${t("status.splatEditCenter")}</span>
-									<div class="viewport-splat-edit-toolbar__detail-grid">
-										${renderSplatEditField({ label: t("field.positionX"), value: splatEditBoxCenter?.x ?? 0, historyLabel: "splat-edit.box-center.x", onScrubValue: (v) => handleSplatEditBoxCenterInput("x", v), onCommitValue: (v) => handleSplatEditBoxCenterInput("x", v) })}
-										${renderSplatEditField({ label: t("field.positionY"), value: splatEditBoxCenter?.y ?? 0, historyLabel: "splat-edit.box-center.y", onScrubValue: (v) => handleSplatEditBoxCenterInput("y", v), onCommitValue: (v) => handleSplatEditBoxCenterInput("y", v) })}
-										${renderSplatEditField({ label: t("field.positionZ"), value: splatEditBoxCenter?.z ?? 0, historyLabel: "splat-edit.box-center.z", onScrubValue: (v) => handleSplatEditBoxCenterInput("z", v), onCommitValue: (v) => handleSplatEditBoxCenterInput("z", v) })}
-									</div>
-									<span class="viewport-splat-edit-toolbar__detail-label">${t("status.splatEditSize")}</span>
-									<div class="viewport-splat-edit-toolbar__detail-grid">
-										${renderSplatEditField({ label: t("field.positionX"), value: splatEditBoxSize?.x ?? 1, min: "0.01", historyLabel: "splat-edit.box-size.x", onScrubValue: (v) => handleSplatEditBoxSizeInput("x", v), onCommitValue: (v) => handleSplatEditBoxSizeInput("x", v) })}
-										${renderSplatEditField({ label: t("field.positionY"), value: splatEditBoxSize?.y ?? 1, min: "0.01", historyLabel: "splat-edit.box-size.y", onScrubValue: (v) => handleSplatEditBoxSizeInput("y", v), onCommitValue: (v) => handleSplatEditBoxSizeInput("y", v) })}
-										${renderSplatEditField({ label: t("field.positionZ"), value: splatEditBoxSize?.z ?? 1, min: "0.01", historyLabel: "splat-edit.box-size.z", onScrubValue: (v) => handleSplatEditBoxSizeInput("z", v), onCommitValue: (v) => handleSplatEditBoxSizeInput("z", v) })}
-									</div>
-									<span class="viewport-splat-edit-toolbar__detail-label">${t("field.assetRotation")}</span>
-									<div class="viewport-splat-edit-toolbar__detail-grid">
-										${renderSplatEditField({ label: t("field.positionX"), value: splatEditBoxRotationDegrees.x, step: "1", historyLabel: "splat-edit.box-rotation.x", onScrubValue: (v) => handleSplatEditBoxRotationInput("x", v), onCommitValue: (v) => handleSplatEditBoxRotationInput("x", v) })}
-										${renderSplatEditField({ label: t("field.positionY"), value: splatEditBoxRotationDegrees.y, step: "1", historyLabel: "splat-edit.box-rotation.y", onScrubValue: (v) => handleSplatEditBoxRotationInput("y", v), onCommitValue: (v) => handleSplatEditBoxRotationInput("y", v) })}
-										${renderSplatEditField({ label: t("field.positionZ"), value: splatEditBoxRotationDegrees.z, step: "1", historyLabel: "splat-edit.box-rotation.z", onScrubValue: (v) => handleSplatEditBoxRotationInput("z", v), onCommitValue: (v) => handleSplatEditBoxRotationInput("z", v) })}
-									</div>
-									<button type="button" class="viewport-splat-edit-toolbar__btn" onClick=${() => controller()?.applySplatEditBoxSelection?.({ subtract: false })}>${t("status.splatEditAdd")}</button>
-									<button type="button" class="viewport-splat-edit-toolbar__btn" onClick=${() => controller()?.applySplatEditBoxSelection?.({ subtract: true })}>${t("status.splatEditSubtract")}</button>
-									<button type="button" class="viewport-splat-edit-toolbar__btn button--tooltip" onClick=${() => controller()?.scaleSplatEditBoxUniform?.(0.9)}>−<${TooltipBubble} title=${t("status.splatEditScaleDown")} placement="top" /></button>
-									<button type="button" class="viewport-splat-edit-toolbar__btn button--tooltip" onClick=${() => controller()?.scaleSplatEditBoxUniform?.(1.1)}>+<${TooltipBubble} title=${t("status.splatEditScaleUp")} placement="top" /></button>
-								`
-										: html`
-									<span class="viewport-splat-edit-toolbar__info">${t("status.splatEditPlaceBoxHint")}</span>
-								`
-								}
-								<button type="button" class="viewport-splat-edit-toolbar__btn" onClick=${() => controller()?.fitSplatEditBoxToScope?.()}>${t("status.splatEditFitScope")}</button>
-							</div>
-						`
-						}
-						<div class="viewport-splat-edit-toolbar__bar">
-							<!-- Tool selector -->
-							<div class="viewport-splat-edit-toolbar__group" role="group" aria-label=${t("action.splatEditTool")}>
-								<button type="button" class=${`viewport-splat-edit-toolbar__btn${splatEditTool === "box" ? " viewport-splat-edit-toolbar__btn--active" : ""}`} onClick=${() => setSplatEditTool("box")}>
-									${t("status.splatEditToolBox")}
-								</button>
-								<button type="button" class=${`viewport-splat-edit-toolbar__btn${splatEditTool === "brush" ? " viewport-splat-edit-toolbar__btn--active" : ""}`} onClick=${() => setSplatEditTool("brush")}>
-									${t("status.splatEditToolBrush")}
-								</button>
-								<button type="button" class=${`viewport-splat-edit-toolbar__btn${splatEditTool === "transform" ? " viewport-splat-edit-toolbar__btn--active" : ""}`} disabled=${splatEditSelectionCount <= 0 && splatEditTool !== "transform"} onClick=${() => setSplatEditTool("transform")}>
-									${t("status.splatEditToolTransform")}
-								</button>
-							</div>
-							<div class="viewport-splat-edit-toolbar__separator" />
-
-							<!-- Selection operations -->
-							<div class="viewport-splat-edit-toolbar__group">
-								<button type="button" class="viewport-splat-edit-toolbar__btn button--tooltip" onClick=${() => controller()?.selectAllSplats?.()}>
-									${t("status.splatEditSelectAll")}<${TooltipBubble} title=${t("status.splatEditSelectAll")} shortcut="Ctrl+A" placement="top" />
-								</button>
-								<button type="button" class="viewport-splat-edit-toolbar__btn button--tooltip" disabled=${splatEditSelectionCount <= 0} onClick=${() => controller()?.invertSplatSelection?.()}>
-									${t("status.splatEditInvert")}<${TooltipBubble} title=${t("status.splatEditInvert")} shortcut="Ctrl+I" placement="top" />
-								</button>
-								<button type="button" class="viewport-splat-edit-toolbar__btn button--tooltip" disabled=${splatEditSelectionCount <= 0} onClick=${() => controller()?.clearSplatSelection?.()}>
-									${t("action.clearSelection")}<${TooltipBubble} title=${t("action.clearSelection")} shortcut="Ctrl+D" placement="top" />
-								</button>
-							</div>
-							<div class="viewport-splat-edit-toolbar__separator" />
-
-							<!-- Edit actions -->
-							<div class="viewport-splat-edit-toolbar__group">
-								<button type="button" class="viewport-splat-edit-toolbar__btn viewport-splat-edit-toolbar__btn--danger" disabled=${splatEditSelectionCount <= 0} onClick=${() => void controller()?.deleteSelectedSplats?.()}>
-									${t("status.splatEditDelete")}
-								</button>
-								<button type="button" class="viewport-splat-edit-toolbar__btn" disabled=${splatEditSelectionCount <= 0} onClick=${() => void controller()?.separateSelectedSplats?.()}>
-									${t("status.splatEditSeparate")}
-								</button>
-								<button type="button" class="viewport-splat-edit-toolbar__btn" disabled=${splatEditSelectionCount <= 0} onClick=${() => void controller()?.duplicateSelectedSplats?.()}>
-									${t("status.splatEditDuplicate")}
-								</button>
-							</div>
-							<div class="viewport-splat-edit-toolbar__separator" />
-
-							<!-- Selection count (right end) -->
-							<span class="viewport-splat-edit-toolbar__info">
-								${splatEditSelectionCount} sel
-							</span>
-						</div>
-					</div>
-				`
+				html`<${SplatEditToolbar} store=${store} controller=${controller} t=${t} />`
 			}
 			<div
 				id="drop-hint"
