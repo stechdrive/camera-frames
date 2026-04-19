@@ -4,6 +4,10 @@
 
 import { html, render } from "htm/preact";
 import { getFixture, listFixtureIds } from "./fixtures/index.js";
+// Side-effect import: registers browser-only fixtures (e.g. wrappers around
+// real UI sections that depend on vite's import.meta.glob). Tests running
+// under plain Node must import fixtures/index.js only.
+import "./fixtures/index-browser.js";
 
 const DEFAULT_LANG = "ja";
 
