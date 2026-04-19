@@ -64,11 +64,6 @@ export const scenarios = {
 			},
 		]);
 	},
-	"splat-edit-toolbar": async (docs) => {
-		await loadBase(docs);
-		docs.controller?.setSplatEditMode?.(true);
-		await docs.waitForReady();
-	},
 
 	// --- Chapter 05: Shot Camera -----------------------------------------
 	"shot-camera-manager": async (docs) => {
@@ -185,18 +180,6 @@ export const scenarios = {
 				label: "選択数",
 			},
 		]);
-	},
-	"per-splat-brush-preview": async (docs) => {
-		await loadBase(docs);
-		docs.controller?.setSplatEditMode?.(true);
-		docs.controller?.setSplatEditTool?.("brush");
-		await docs.waitForReady();
-	},
-	"per-splat-box-tool": async (docs) => {
-		await loadBase(docs);
-		docs.controller?.setSplatEditMode?.(true);
-		docs.controller?.setSplatEditTool?.("box");
-		await docs.waitForReady();
 	},
 
 	// --- Chapter 10: Export ----------------------------------------------
