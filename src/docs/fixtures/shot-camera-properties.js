@@ -1,6 +1,8 @@
-// Panel fixture: the Shot Camera Properties section (Camera tab) in
-// isolation. See section-display-zoom.js for the rationale behind mounting
-// real UI components via the browser-only registry split.
+// Panel fixture: the Shot Camera Properties disclosure block (Camera tab)
+// in isolation. The fixture id matches the chapter 05 screenshot id so
+// captureFixture replaces the legacy scenario-produced PNG directly.
+// See section-display-zoom.js for the rationale behind mounting real UI
+// components via the browser-only registry split.
 
 import { html } from "htm/preact";
 import { translate } from "../../i18n.js";
@@ -27,8 +29,8 @@ const STYLE = `
 `;
 
 /** @type {import("../types").Fixture} */
-export const sectionShotCameraPropertiesFixture = {
-	id: "section-shot-camera-properties",
+export const shotCameraPropertiesFixture = {
+	id: "shot-camera-properties",
 	type: "panel",
 	title: "Shot Camera Properties section",
 	size: { width: 360 },
