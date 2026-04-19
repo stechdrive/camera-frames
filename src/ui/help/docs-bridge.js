@@ -1,11 +1,12 @@
 // Dev-only bridge for driving help screenshot capture. Mounted on
-// globalThis.__CF_DOCS__ from src/main.js when import.meta.env.DEV is true.
-// The bridge is orchestrated from outside the page (e.g. Claude Preview
-// preview_eval) and exposes stable helpers scenarios can rely on.
+// globalThis.__CF_DOCS__ from src/main.js when import.meta.env.DEV is
+// true. The bridge is orchestrated from outside the page (e.g. Claude
+// Preview preview_eval) and exposes the fixture capture pipeline used
+// by docs/help/FIXTURE_ROADMAP.md plus a lightweight project loader
+// for regenerating static backdrop PNGs.
 
 import { domToPng } from "modern-screenshot";
 
-const SCENARIO_MODULE_PATH = "/test/docs-capture.js";
 const SCREENSHOT_ENDPOINT = "/__screenshot";
 const DEFAULT_CAPTURE_PIXEL_RATIO = 1;
 const DOCS_PAGE_PATH = "/docs.html";
@@ -98,103 +99,6 @@ export function createDocsBridge({ store, getController }) {
 		await waitForReady({ frames: 16 });
 	}
 
-	function setAnnotations(items) {
-		const resolved = (items ?? []).map((item) => {
-			const label = item.label ?? "";
-			if (item.selector) {
-				const element = document.querySelector(item.selector);
-				if (!element) {
-					return { n: item.n, label, x: 0, y: 0, missing: true };
-				}
-				const rect = element.getBoundingClientRect();
-				return {
-					n: item.n,
-					label,
-					x: rect.left + rect.width / 2,
-					y: rect.top + rect.height / 2,
-				};
-			}
-			return {
-				n: item.n,
-				label,
-				x: Number.isFinite(item.x) ? item.x : 0,
-				y: Number.isFinite(item.y) ? item.y : 0,
-			};
-		});
-		store.docsAnnotations.value = resolved;
-	}
-
-	function clearAnnotations() {
-		if (store.docsAnnotations.value.length > 0) {
-			store.docsAnnotations.value = [];
-		}
-	}
-
-	async function resetState() {
-		const controller = getController();
-		clearAnnotations();
-		controller?.closeHelp?.();
-		controller?.closeViewportPieMenu?.();
-		if (store.overlay.value) {
-			store.overlay.value = null;
-		}
-		// Close the floating Tool Rail menu if open.
-		const triggers = document.querySelectorAll(".workbench-menu.is-open .workbench-menu__trigger");
-		for (const trigger of triggers) {
-			trigger.click();
-		}
-	}
-
-	async function runScenario(name, options = {}) {
-		const mod = await import(
-			/* @vite-ignore */ `${SCENARIO_MODULE_PATH}?cb=${Date.now()}`
-		);
-		const scenarios = mod.scenarios || mod.default?.scenarios || {};
-		const fn = scenarios[name];
-		if (typeof fn !== "function") {
-			throw new Error(`Unknown scenario: ${name}`);
-		}
-		if (options.resetBeforeRun !== false) {
-			await resetState();
-		}
-		await fn(bridge, options);
-		await waitForReady();
-	}
-
-	async function listScenarios() {
-		const mod = await import(
-			/* @vite-ignore */ `${SCENARIO_MODULE_PATH}?cb=${Date.now()}`
-		);
-		const scenarios = mod.scenarios || mod.default?.scenarios || {};
-		return Object.keys(scenarios);
-	}
-
-	async function capturePng({ pixelRatio = DEFAULT_CAPTURE_PIXEL_RATIO } = {}) {
-		await waitForReady({ frames: 4 });
-		const appShell = document.querySelector(".app-shell");
-		if (!appShell) {
-			throw new Error("capturePng: .app-shell not found");
-		}
-		const spriteHost = document.getElementById("workbench-icon-sprite-host");
-		let spriteClone = null;
-		if (spriteHost) {
-			spriteClone = spriteHost.cloneNode(true);
-			spriteClone.id = "workbench-icon-sprite-host-capture-clone";
-			appShell.appendChild(spriteClone);
-		}
-		try {
-			return await domToPng(appShell, {
-				scale: pixelRatio,
-				backgroundColor: "#08111d",
-				font: false,
-			});
-		} finally {
-			if (spriteClone?.parentNode) {
-				spriteClone.parentNode.removeChild(spriteClone);
-			}
-		}
-	}
-
 	async function postScreenshotDataUrl(name, dataUrl, { lang = "ja" } = {}) {
 		const url = `${SCREENSHOT_ENDPOINT}?name=${encodeURIComponent(name)}&lang=${encodeURIComponent(lang)}`;
 		const response = await fetch(url, {
@@ -215,11 +119,6 @@ export function createDocsBridge({ store, getController }) {
 			);
 		}
 		return payload;
-	}
-
-	async function saveScreenshot(name, { lang = "ja", pixelRatio } = {}) {
-		const dataUrl = await capturePng({ pixelRatio });
-		return postScreenshotDataUrl(name, dataUrl, { lang });
 	}
 
 	// -- iframe-based fixture capture pipeline --
@@ -377,27 +276,6 @@ export function createDocsBridge({ store, getController }) {
 		return results;
 	}
 
-	async function captureScenario(name, options = {}) {
-		await runScenario(name);
-		await waitForReady({ frames: 4, delayMs: options.settleMs ?? 0 });
-		return saveScreenshot(name, { lang: options.lang, pixelRatio: options.pixelRatio });
-	}
-
-	async function captureAllScenarios(options = {}) {
-		const names = await listScenarios();
-		const results = [];
-		for (const name of names) {
-			try {
-				const info = await captureScenario(name, options);
-				results.push({ name, ok: true, path: info.path, bytes: info.bytes });
-			} catch (error) {
-				results.push({ name, ok: false, error: error.message ?? String(error) });
-			}
-		}
-		await resetState();
-		return results;
-	}
-
 	const bridge = {
 		get store() {
 			return store;
@@ -408,16 +286,7 @@ export function createDocsBridge({ store, getController }) {
 		waitForReady,
 		waitForOverlayDismissed,
 		loadProject,
-		setAnnotations,
-		clearAnnotations,
-		resetState,
-		runScenario,
-		listScenarios,
-		capturePng,
-		saveScreenshot,
 		postScreenshotDataUrl,
-		captureScenario,
-		captureAllScenarios,
 		captureFixture,
 		listFixtureIds,
 		captureAllFixtures,
