@@ -10,29 +10,35 @@ CAMERA_FRAMES アプリ内ヘルプの正本です。アプリ内の Help モー
 ## 編集する人向け
 
 - [UPDATING.md](UPDATING.md) — ヘルプ更新ワークフロー
+- [CAPTURE.md](CAPTURE.md) — スクリーンショット撮影の実手順（`__CF_DOCS__.captureFixture` ベース）
 - [SCHEMA.md](SCHEMA.md) — Markdown frontmatter スキーマと記法
+- [FIXTURE_ROADMAP.md](FIXTURE_ROADMAP.md) — fixture システムの設計正本
 
-スクショ自動生成は Phase 3 以降で導入予定:
+スクショは fixture システムから生成されます:
 
-- `npm run docs:capture`
-- 撮影シナリオ: `test/docs-capture.js`
+- 定義: [`src/docs/fixtures/`](../../src/docs/fixtures/) 配下の 1 ファイル = 1 fixture
+- 撮影: dev サーバを立てて `__CF_DOCS__.captureFixture(<id>)` or `captureAllFixtures()`
+- 検証: `npm test` が chapter frontmatter ↔ fixture id 整合とアイコン参照を自動検査
 
 ## ディレクトリ構成
 
 ```
 docs/help/
-├── README.md          # 本ファイル
-├── UPDATING.md        # メンテナー向け更新ガイド
-├── SCHEMA.md          # frontmatter スキーマと記法
-├── ja/                # 日本語版本文
-│   ├── index.md       # 目次
-│   └── 01-*.md ...    # 各章
-├── en/                # 英語版（未提供）
+├── README.md           # 本ファイル
+├── UPDATING.md         # メンテナー向け更新ガイド
+├── CAPTURE.md          # スクショ撮影ワークフロー
+├── SCHEMA.md           # frontmatter スキーマと記法
+├── FIXTURE_ROADMAP.md  # fixture システムの設計正本
+├── ja/                 # 日本語版本文
+│   ├── index.md        # 目次
+│   └── 01-*.md ...     # 各章
+├── en/                 # 英語版（未提供）
 └── assets/
-    ├── icons/         # UI アイコンの参照用 SVG（workbench-icons.js と同期）
+    ├── icons/          # UI アイコンの参照用 SVG（workbench-icons.js と同期）
+    ├── fixture-backdrops/  # viewport fixture 用の静的 splat backdrop PNG
     └── screenshots/
-        ├── ja/        # 日本語版 UI スクショ
-        └── en/        # 英語版 UI スクショ（未提供）
+        ├── ja/         # 日本語版 UI スクショ（fixture 生成物）
+        └── en/         # 英語版 UI スクショ（未提供）
 ```
 
 ## アプリ内ヘルプとの関係

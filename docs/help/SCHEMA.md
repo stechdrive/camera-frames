@@ -39,7 +39,7 @@ last-updated: 2026-04-18
 | `section` | number | ✅ | 並び順（章番号、0 = 目次） |
 | `lang` | string | ✅ | `ja` / `en` |
 | `related-files` | string[] |  | 関連ソースファイルの repo 相対パス。この files が変わったら章を見直す目印 |
-| `screenshots` | object[] |  | 撮影シナリオ定義（Phase 3 以降で利用） |
+| `screenshots` | object[] |  | 章が本文で参照するスクショ一覧（各 id は対応する fixture id と一致する。[CAPTURE.md](CAPTURE.md) 参照） |
 | `shortcuts` | object[] |  | キーボードショートカット。11 章が frontmatter を横串に集約する |
 | `last-updated` | YYYY-MM-DD | ✅ | 最終更新日 |
 
@@ -47,10 +47,10 @@ last-updated: 2026-04-18
 
 | field | 用途 |
 |---|---|
-| `id` | 出力ファイル名 `<id>.png` の元 |
+| `id` | 出力ファイル名 `<id>.png` の元。対応する fixture 定義（`src/docs/fixtures/<id>.js`）の `id` と 1:1 で一致させる（`npm test` が parity を検証） |
 | `alt` | alt text（Markdown img 記法の alt にも使う） |
-| `scenario` | `test/docs-capture.js` 内のシナリオ名 |
-| `annotations` | 番号オーバーレイ（`n`: 1 始まりの連番、`label`: 参照用） |
+| `scenario` | Legacy: 旧 `test/docs-capture.js` が撮影に使っていたシナリオ名。Phase VI で scenario pipeline は撤去され、フィールドは fixture id と同一値を保持する歴史的 alias として残している |
+| `annotations` | 本文の連番対応表と合わせるための参考メモ。実際のオーバーレイ描画は fixture 定義の `annotations: [{ n, selector, label }]` が担う |
 
 ### `shortcuts` サブフィールド
 
@@ -90,4 +90,4 @@ last-updated: 2026-04-18
 
 - 各見出しは自動で slugify されて anchor になる（`## 追加する` → `#追加する`）
 - 他章から: `[追加する](05-shot-camera.md#追加する)`
-- アプリ内 deep link URL（概念、Phase 2 で確定）: `help://<id>/<anchor>` 形式を想定
+- アプリ内 deep link URL: `help://<id>/<anchor>` 形式。Inspector パネルの `?` ボタン（`src/ui/workbench-primitives.js` の `DisclosureBlock`）が `helpSectionId` で対応章へジャンプする
