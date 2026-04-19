@@ -199,7 +199,6 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	const helpAnchor = signal(null);
 	const helpSearchQuery = signal("");
 	const helpLang = signal("ja");
-	const docsAnnotations = signal([]);
 	const exportBusy = signal(false);
 	const exportStatusKey = signal("export.idle");
 	const exportSummary = signal(translate(initialLocale, "exportSummary.empty"));
@@ -547,7 +546,6 @@ export function createCameraFramesStore(runtimeInfo = null) {
 			searchQuery: helpSearchQuery,
 			lang: helpLang,
 		},
-		docsAnnotations,
 		exportBusy,
 		exportStatusKey,
 		exportStatusLabel,
