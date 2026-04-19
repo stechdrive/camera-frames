@@ -183,17 +183,6 @@ export const scenarios = {
 	},
 
 	// --- Chapter 10: Export ----------------------------------------------
-	"export-output-section": async (docs) => {
-		await loadBase(docs);
-		activateInspectorTab(docs, "export");
-	},
-	"export-progress": async (docs) => {
-		await loadBase(docs);
-		activateInspectorTab(docs, "export");
-		// Fire-and-forget to leave the progress overlay visible for capture.
-		docs.controller?.downloadOutput?.();
-		await new Promise((resolve) => setTimeout(resolve, 500));
-	},
 };
 
 export default { scenarios };
