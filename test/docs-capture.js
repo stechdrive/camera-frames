@@ -154,14 +154,6 @@ export const scenarios = {
 	},
 
 	// --- Chapter 07: Reference images ------------------------------------
-	"reference-presets": async (docs) => {
-		await loadBase(docs);
-		activateInspectorTab(docs, "reference");
-	},
-	"reference-manager": async (docs) => {
-		await loadBase(docs);
-		activateInspectorTab(docs, "reference");
-	},
 	"reference-edit-mode": async (docs) => {
 		await loadBase(docs);
 		docs.controller?.toggleViewportReferenceImageEditMode?.();
