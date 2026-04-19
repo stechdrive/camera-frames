@@ -8,6 +8,7 @@ import {
 	listFixtureIds,
 	listFixtures,
 } from "../src/docs/fixtures/index.js";
+import { parseMarkdownDocument } from "../src/ui/help/markdown-parser.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const repoRoot = join(dirname(__filename), "..");
@@ -139,6 +140,83 @@ for (const name of referencedIcons) {
 	);
 }
 
+// -- Chapter frontmatter ↔ fixture id parity --------------------------------
+// Every `screenshots[].id` declared in a chapter's frontmatter must correspond
+// to a registered fixture. Browser-only fixtures (those that import vite-
+// dependent modules) don't show up in FIXTURES at node-test time, so the full
+// id set is recovered by statically scanning src/docs/fixtures/*.js for
+// `id: "..."` literals.
+
+const fixturesDir = join(repoRoot, "src", "docs", "fixtures");
+const fixtureFileNames = readdirSync(fixturesDir).filter(
+	(file) =>
+		file.endsWith(".js") &&
+		!file.startsWith("index") &&
+		file !== "types.d.ts",
+);
+const fixtureIdLiteralPattern = /\bid:\s*"([^"]+)"/g;
+const allFixtureIds = new Set<string>();
+for (const file of fixtureFileNames) {
+	const content = readFileSync(join(fixturesDir, file), "utf8");
+	fixtureIdLiteralPattern.lastIndex = 0;
+	let match: RegExpExecArray | null;
+	// biome-ignore lint/suspicious/noAssignInExpressions: canonical regex.exec loop
+	while ((match = fixtureIdLiteralPattern.exec(content)) !== null) {
+		allFixtureIds.add(match[1]);
+	}
+}
+assert.ok(
+	allFixtureIds.size >= allFixtures.length,
+	`static id scan (${allFixtureIds.size}) should cover at least the runtime-visible fixtures (${allFixtures.length})`,
+);
+for (const fixture of allFixtures) {
+	assert.ok(
+		allFixtureIds.has(fixture.id),
+		`static id scan missed runtime-registered fixture "${fixture.id}"`,
+	);
+}
+
+function collectChapterScreenshotIds(lang: string) {
+	const chaptersDir = join(repoRoot, "docs", "help", lang);
+	let chapterFiles: string[];
+	try {
+		chapterFiles = readdirSync(chaptersDir).filter((file) =>
+			file.endsWith(".md"),
+		);
+	} catch {
+		return new Map<string, string[]>();
+	}
+	const perChapter = new Map<string, string[]>();
+	for (const file of chapterFiles) {
+		const content = readFileSync(join(chaptersDir, file), "utf8");
+		const { frontmatter } = parseMarkdownDocument(content);
+		const screenshots = Array.isArray(frontmatter.screenshots)
+			? frontmatter.screenshots
+			: [];
+		const ids = screenshots
+			.map((entry: unknown) => {
+				if (!entry || typeof entry !== "object") return null;
+				const maybeId = (entry as { id?: unknown }).id;
+				return typeof maybeId === "string" ? maybeId : null;
+			})
+			.filter((id): id is string => id !== null);
+		if (ids.length > 0) perChapter.set(file, ids);
+	}
+	return perChapter;
+}
+
+const chapterIdsByFile = collectChapterScreenshotIds("ja");
+let totalReferencedIds = 0;
+for (const [file, ids] of chapterIdsByFile) {
+	for (const id of ids) {
+		totalReferencedIds++;
+		assert.ok(
+			allFixtureIds.has(id),
+			`chapter ${file} declares screenshots[].id "${id}" but no fixture is registered with that id`,
+		);
+	}
+}
+
 console.log(
-	`✅ CAMERA_FRAMES docs fixture registry tests passed! (${allFixtures.length} fixtures, ${iconNames.size} icons, ${referencedIcons.size} referenced from chapters)`,
+	`✅ CAMERA_FRAMES docs fixture registry tests passed! (${allFixtures.length} runtime fixtures, ${allFixtureIds.size} static, ${totalReferencedIds} chapter refs, ${iconNames.size} icons, ${referencedIcons.size} referenced from chapters)`,
 );

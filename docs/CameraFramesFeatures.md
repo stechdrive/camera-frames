@@ -286,9 +286,9 @@ PSD export の主な構成:
 - Help モーダル本体 / Markdown renderer / 検索 / deep link: `src/ui/help/`
 - 各 Inspector パネルの `?` ボタン: `src/ui/workbench-primitives.js` の `DisclosureBlock`（`helpSectionId` / `onOpenHelp` props）
 - 撮影ブリッジ（dev のみ）: `src/main.js` + `src/ui/help/docs-bridge.js`（`globalThis.__CF_DOCS__`）
-- 撮影シナリオ: [`test/docs-capture.js`](../test/docs-capture.js)（キー = 画像 id）
-- 画像保存エンドポイント（dev のみ）: `vite.config.js` の `screenshotServePlugin`
-- アノテーションオーバーレイ: `src/ui/docs-annotation-overlay.js` + `store.docsAnnotations`
+- Fixture 定義 / レジストリ: `src/docs/fixtures/` + `src/docs/mock/` + `src/docs/docs-app.js`（詳細は [docs/help/FIXTURE_ROADMAP.md](help/FIXTURE_ROADMAP.md)）
+- 画像保存エンドポイント（dev のみ）: `vite.config.js` の `screenshotServePlugin`（`/__screenshot` と `/__backdrop`）
+- Viewport backdrop 実体: `docs/help/assets/fixture-backdrops/`（静的 PNG、mock-scene 経由）
 - 撮影用ベースシーン: `.local/cf-test/cf-test2.ssproj`（gitignored、権利クリア済み）
 
 回帰観点:

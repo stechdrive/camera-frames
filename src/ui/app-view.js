@@ -2,7 +2,6 @@ import { html } from "htm/preact";
 import { useEffect } from "preact/hooks";
 import { DEFAULT_LOCALE, translate } from "../i18n.js";
 import { AppOverlay } from "./app-overlay.js";
-import { DocsAnnotationOverlay } from "./docs-annotation-overlay.js";
 import { HelpModal } from "./help/help-modal.js";
 import { SidePanel } from "./side-panel.js";
 import { ViewportShell } from "./viewport-shell.js";
@@ -58,7 +57,6 @@ export function AppView({ store, controller, refs }) {
 			/>
 			<${AppOverlay} overlay=${store.overlay.value} />
 			<${HelpModal} store=${store} controller=${controller} />
-			<${DocsAnnotationOverlay} store=${store} />
 		</div>
 
 		<input
