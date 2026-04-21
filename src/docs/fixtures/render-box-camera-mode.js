@@ -48,18 +48,33 @@ export const renderBoxCameraModeFixture = {
 	type: "viewport",
 	title: "Render-box in camera mode (annotated)",
 	annotations: [
+		// Each target is small (resize handle 18 px, pan edge a thin
+		// strip, anchor dot 10 px). Position badges fully outside each
+		// target so the element remains visible in the capture.
 		{
 			n: 1,
 			selector: ".render-box__resize-handle--top-right",
 			label: "リサイズハンドル（8 方向）",
+			placement: "top-right",
 		},
 		{
 			n: 2,
 			selector: ".render-box__pan-edge--top",
 			label: "パンエッジ（4 辺）",
+			placement: "above",
 		},
-		{ n: 3, selector: "#anchor-dot", label: "anchor dot" },
-		{ n: 4, selector: "#render-box-meta", label: "meta ラベル" },
+		{
+			n: 3,
+			selector: "#anchor-dot",
+			label: "anchor dot",
+			placement: "right",
+		},
+		{
+			n: 4,
+			selector: "#render-box-meta",
+			label: "meta ラベル",
+			placement: "left",
+		},
 	],
 	mount: () => {
 		const scene = makeScene("cf-test2-default");
