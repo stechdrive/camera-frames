@@ -275,6 +275,48 @@ export default defineConfig(({ command }) => {
 		},
 	};
 
+	// Chapter Markdown references screenshots via `../assets/screenshots/…`
+	// and fixtures reference backdrop PNGs via `…/fixture-backdrops/…`.
+	// In dev vite serves them straight from the source tree, but they are
+	// not hashed asset imports so nothing copies them into `dist/` at
+	// build time. This plugin walks `docs/help/assets/` once during
+	// `generateBundle` and emits each file as a build asset so the GitHub
+	// Pages deploy ships them alongside index.html and the help modal's
+	// `${BASE_URL}docs/help/assets/…` URLs resolve.
+	function createHelpAssetsCopyPlugin() {
+		const helpAssetsDir = resolve(repoRoot, "docs", "help", "assets");
+
+		function collectFiles(dir) {
+			const results = [];
+			const entries = readdirSync(dir, { withFileTypes: true });
+			for (const entry of entries) {
+				const full = join(dir, entry.name);
+				if (entry.isDirectory()) {
+					for (const child of collectFiles(full)) results.push(child);
+				} else if (entry.isFile()) {
+					results.push(full);
+				}
+			}
+			return results;
+		}
+
+		return {
+			name: "camera-frames-help-assets-copy",
+			apply: "build",
+			generateBundle() {
+				const files = collectFiles(helpAssetsDir);
+				for (const full of files) {
+					const rel = relative(helpAssetsDir, full).replace(/\\/g, "/");
+					this.emitFile({
+						type: "asset",
+						fileName: `docs/help/assets/${rel}`,
+						source: readFileSync(full),
+					});
+				}
+			},
+		};
+	}
+
 	const forceReloadPlugin = {
 		name: "camera-frames-force-reload",
 		handleHotUpdate(context) {
@@ -304,6 +346,7 @@ export default defineConfig(({ command }) => {
 		plugins: [
 			createDevStampPlugin(repoRoot),
 			createVersionAssetPlugin(buildInfo),
+			createHelpAssetsCopyPlugin(),
 			screenshotServePlugin,
 			forceReloadPlugin,
 		],
