@@ -40,10 +40,18 @@ export const shotCameraManagerFixture = {
 	title: "Shot Camera Manager list",
 	size: { width: 360 },
 	annotations: [
-		{ n: 1, selector: "#new-shot-camera", label: "追加" },
-		{ n: 2, selector: "#duplicate-shot-camera", label: "複製" },
-		{ n: 3, selector: "#delete-shot-camera", label: "削除" },
-		{ n: 4, selector: ".shot-camera-manager__list", label: "shot 一覧" },
+		// Icon buttons are ~28 px squares — placing a 26 px badge at the
+		// centre (old default) hid the icon entirely. Drop each badge
+		// above its button so the glyph stays readable.
+		{ n: 1, selector: "#new-shot-camera", label: "追加", placement: "above" },
+		{ n: 2, selector: "#duplicate-shot-camera", label: "複製", placement: "above" },
+		{ n: 3, selector: "#delete-shot-camera", label: "削除", placement: "above" },
+		{
+			n: 4,
+			selector: ".shot-camera-manager__list",
+			label: "shot 一覧",
+			placement: "right",
+		},
 	],
 	mount: ({ lang }) => {
 		// Build three full ShotCameraDocuments from the real factory. Passing

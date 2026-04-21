@@ -20,18 +20,40 @@ export interface FixtureSize {
 	height?: number | "auto";
 }
 
+export type AnnotationPlacement =
+	| "center"
+	| "top-left"
+	| "top-right"
+	| "bottom-left"
+	| "bottom-right"
+	| "above"
+	| "below"
+	| "left"
+	| "right";
+
 export interface FixtureAnnotation {
 	/** 1-based sequence number rendered inside the badge. */
 	n: number;
 	/**
 	 * CSS selector resolved against the fixture's rendered DOM at the
-	 * root of `.docs-stage`. The selector's first match is centred in
-	 * its bounding rect; unresolved selectors render at the stage
-	 * top-left with a warning class so the issue is visible in capture.
+	 * root of `.docs-stage`. The selector's first match anchors the
+	 * badge according to `placement`; unresolved selectors render at
+	 * the stage top-left with a warning class so the issue is visible
+	 * in capture.
 	 */
 	selector: string;
 	/** Short human-readable caption surfaced as title attribute. */
 	label?: string;
+	/**
+	 * Where to place the badge relative to the target's bounding box.
+	 *   - `center`: badge centred on the target (good for large regions).
+	 *   - `top-*` / `bottom-*` / `left` / `right`: badge sits fully
+	 *     outside the target on that side, with a small gap.
+	 * Defaults to `top-right` — the badge notches above-right of the
+	 * target, leaving the target's content visible. The old default
+	 * centred the badge and routinely covered small icons entirely.
+	 */
+	placement?: AnnotationPlacement;
 }
 
 export interface Fixture {

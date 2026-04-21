@@ -82,6 +82,46 @@ function MissingFixture({ fixtureId, available }) {
 	`;
 }
 
+// Badge visual size is 26 px diameter (CSS width/height) plus a 2 px
+// white halo from box-shadow. Half of that halo-inclusive size drives
+// how far outside a target we drop the badge so it never covers an
+// icon. Keep in sync with the `.docs-annotation` rule in
+// ANNOTATION_CSS below.
+const ANNOTATION_BADGE_HALF = 15;
+const ANNOTATION_BADGE_GAP = 3;
+const ANNOTATION_OUTSIDE_OFFSET = ANNOTATION_BADGE_HALF + ANNOTATION_BADGE_GAP;
+
+function computeAnnotationPosition(rect, stageRect, placement) {
+	const left = rect.left - stageRect.left;
+	const top = rect.top - stageRect.top;
+	const right = rect.right - stageRect.left;
+	const bottom = rect.bottom - stageRect.top;
+	const centerX = left + rect.width / 2;
+	const centerY = top + rect.height / 2;
+	switch (placement) {
+		case "center":
+			return { x: centerX, y: centerY };
+		case "top-left":
+			return { x: left - ANNOTATION_OUTSIDE_OFFSET, y: top - ANNOTATION_OUTSIDE_OFFSET };
+		case "bottom-right":
+			return { x: right + ANNOTATION_OUTSIDE_OFFSET, y: bottom + ANNOTATION_OUTSIDE_OFFSET };
+		case "bottom-left":
+			return { x: left - ANNOTATION_OUTSIDE_OFFSET, y: bottom + ANNOTATION_OUTSIDE_OFFSET };
+		case "above":
+			return { x: centerX, y: top - ANNOTATION_OUTSIDE_OFFSET };
+		case "below":
+			return { x: centerX, y: bottom + ANNOTATION_OUTSIDE_OFFSET };
+		case "left":
+			return { x: left - ANNOTATION_OUTSIDE_OFFSET, y: centerY };
+		case "right":
+			return { x: right + ANNOTATION_OUTSIDE_OFFSET, y: centerY };
+		default:
+			// "top-right" (default): badge sits fully above-right of the
+			// target's top-right corner so small icons remain visible.
+			return { x: right + ANNOTATION_OUTSIDE_OFFSET, y: top - ANNOTATION_OUTSIDE_OFFSET };
+	}
+}
+
 function AnnotationLayer({ annotations }) {
 	const [resolved, setResolved] = useState([]);
 	useEffect(() => {
@@ -110,12 +150,14 @@ function AnnotationLayer({ annotations }) {
 				};
 			}
 			const rect = target.getBoundingClientRect();
+			const placement = annotation.placement ?? "top-right";
+			const { x, y } = computeAnnotationPosition(rect, stageRect, placement);
 			return {
 				n: annotation.n,
 				label: annotation.label ?? "",
 				selector: annotation.selector,
-				x: rect.left + rect.width / 2 - stageRect.left,
-				y: rect.top + rect.height / 2 - stageRect.top,
+				x,
+				y,
 				missing: false,
 			};
 		});

@@ -179,21 +179,32 @@ export const appLayoutOverviewFixture = {
 	type: "composite",
 	title: "Full app layout overview",
 	annotations: [
-		{ n: 1, selector: ".docs-layout-host__viewport", label: "Viewport" },
+		// Large regions can take a centred badge without hiding
+		// meaningful content — but the small Project Status HUD chip
+		// needs an outside placement so its text stays legible.
+		{
+			n: 1,
+			selector: ".docs-layout-host__viewport",
+			label: "Viewport",
+			placement: "center",
+		},
 		{
 			n: 2,
 			selector: ".workbench-card--tool-rail",
 			label: "Tool Rail",
+			placement: "center",
 		},
 		{
 			n: 3,
 			selector: ".workbench-card--inspector",
 			label: "Inspector",
+			placement: "center",
 		},
 		{
 			n: 4,
 			selector: ".viewport-project-status",
 			label: "Project Status HUD",
+			placement: "right",
 		},
 	],
 	mount: () => {
