@@ -8,31 +8,24 @@ last-updated: 2026-04-18
 
 # CAMERA_FRAMES ヘルプ
 
-shot layout と 書き出し のための専用ツール `CAMERA_FRAMES` の使い方をまとめています。
+構図決定と紙面出力のための専用ツール `CAMERA_FRAMES` の使い方をまとめています。
 
 ## このドキュメントについて
 
-- アプリから `F1` または HUD の `?` ボタンで開けます（Phase 2 実装後）
+- アプリから `F1` キー、または HUD の `?` ボタンで開けます
 - 各パネルのタイトルバーの `?` を押すと、該当章に直接ジャンプします
-- 本文中の `{{icon:...}}` 記法はアプリ内では実際のアイコンとして表示されます
 
 ## 目次
 
 1. [はじめに](01-getting-started.md) — 最初の 5 分：起動から PNG 出力まで
 2. [画面構成](02-ui-layout.md) — ビューポート、サイドパネル、HUD、パイメニュー の名称と役割
-3. [ファイルを開く・保存する](03-open-save.md) — Open、Import、作業保存、`.ssproj`
-4. [シーンアセット](04-scene-assets.md) — スプラット / model の追加・表示・順序・transform
-5. [ショットカメラ](05-shot-camera.md) — 複数 camera 管理、pose / lens / clipping、書き出し name
+3. [ファイルを開く・保存する](03-open-save.md) — ファイルを読み込む、作業保存、`.ssproj` パッケージ
+4. [シーンアセット](04-scene-assets.md) — スプラット / モデル の追加・表示・順序・変形
+5. [ショットカメラ](05-shot-camera.md) — 複数カメラ管理、位置 / レンズ / クリッピング、書き出しファイル名
 6. [用紙 と フレーム](06-output-frame-and-frames.md) — 紙面サイズ、アンカー、フレーム 配置・編集、フレームマスク、軌道
-7. [リファレンス画像](07-reference-images.md) — プリセット、binding、per-shot override、編集
-8. [ビューポート とツール](08-viewport-tools.md) — navigate、zoom、select、transform、pivot、reference edit、measurement、パイメニュー
-9. [スプラット編集](09-per-splat-edit.md) — Shift+E からのツール全般
-10. [書き出し](10-export.md) — target、format、PNG / PSD、layer options
+7. [リファレンス画像](07-reference-images.md) — 下絵プリセット、ショットカメラ への紐付け、編集
+8. [ビューポート とツール](08-viewport-tools.md) — 視点操作、ズーム、選択、変形、ピボット、下絵編集、測定、パイメニュー
+9. [スプラット編集](09-per-splat-edit.md) — `Shift+E` で入るスプラット個別編集
+10. [書き出し](10-export.md) — 書き出し対象、フォーマット、PNG / PSD、レイヤー オプション
 11. [キーボードショートカット一覧](11-shortcuts.md)
 12. [用語集とトラブルシューティング](12-glossary-troubleshooting.md)
-
-## 関連ドキュメント（開発者向け）
-
-- [仕様の正本](../../camera_frames_requirements.md)
-- [機能一覧と回帰観点](../../CameraFramesFeatures.md)
-- [legacy `.ssproj` 互換契約](../../legacy-ssproj-compatibility.md)

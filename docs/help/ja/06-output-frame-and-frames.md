@@ -236,7 +236,7 @@ spline モード時の各 フレーム のノードモード。
 - **ON** — ビューポート 上に 軌道ハンドル が表示され、直接ドラッグ編集できる
 - **OFF** — ハンドル 非表示
 
-この状態は runtime-only で、プロジェクトには保存されません。
+この ON/OFF はセッション中だけ保持され、プロジェクトには保存されません。
 
 ![spline trajectory の編集](../assets/screenshots/ja/trajectory-spline.png)
 
