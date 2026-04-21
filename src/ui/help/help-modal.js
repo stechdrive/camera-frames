@@ -10,10 +10,14 @@ import { buildHitSnippet, searchHelpChapters } from "./help-search.js";
 import { translateHelp } from "./i18n/index.js";
 import { renderBlocks } from "./markdown-renderer.js";
 
-const ASSETS_BASE_URL = new URL(
-	"../../../docs/help/assets/",
-	import.meta.url,
-).href;
+// Help images are referenced from chapter Markdown as `../assets/...` and
+// rewritten by resolveImageSrc() to sit under this base. Using
+// `import.meta.env.BASE_URL` lets the same path resolve correctly in dev
+// (base `/`) and in the GitHub Pages build (base `/camera-frames/`).
+// The old form — `new URL("../../../docs/help/assets/", import.meta.url)`
+// — silently pointed at `https://host/docs/help/assets/` in production,
+// dropping the `/camera-frames/` prefix and 404-ing every help screenshot.
+const ASSETS_BASE_URL = `${import.meta.env.BASE_URL}docs/help/assets/`;
 
 export function HelpModal({ store, controller }) {
 	const open = store.help.open.value;

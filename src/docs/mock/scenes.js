@@ -19,11 +19,16 @@
  * @property {string} [description]  Human-readable note.
  */
 
+// Resolve backdrop PNGs against the build base so fixtures loaded from
+// `/camera-frames/docs.html` on GitHub Pages resolve to
+// `/camera-frames/docs/help/assets/...` instead of a bare root path.
+const FIXTURE_BACKDROP_BASE = `${import.meta.env.BASE_URL}docs/help/assets/fixture-backdrops/`;
+
 /** @type {Record<string, MockSceneRecord>} */
 const SCENES = {
 	"cf-test2-default": {
 		id: "cf-test2-default",
-		backdropUrl: "/docs/help/assets/fixture-backdrops/cf-test2-default.png",
+		backdropUrl: `${FIXTURE_BACKDROP_BASE}cf-test2-default.png`,
 		width: 1073,
 		height: 1264,
 		description:
