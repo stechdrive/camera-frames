@@ -199,6 +199,30 @@ export function createDocsBridge({ store, getController }) {
 		}
 	}
 
+	// modern-screenshot's style-serialisation pass does not reliably copy
+	// `white-space: nowrap` into the inlined style attribute it writes on
+	// each cloned element. As a result short flex children with Japanese
+	// labels (e.g. the Reference panel's "下絵を非表示" button) wrap mid-word
+	// at capture time even though the live DOM renders them on a single
+	// line. Walking the subtree once and copying the computed value onto
+	// the live element's inline style guarantees the attribute survives
+	// serialisation. Runs on the iframe DOM before each capture — the
+	// iframe is discarded immediately after, so there is no lasting
+	// effect on the app.
+	function pinWhiteSpaceNowrapBeforeCapture(root) {
+		if (!root?.querySelectorAll) return;
+		const win = root.ownerDocument?.defaultView;
+		if (!win) return;
+		const candidates = root.querySelectorAll("*");
+		for (const element of candidates) {
+			if (!(element instanceof win.HTMLElement)) continue;
+			const computed = win.getComputedStyle(element);
+			if (computed.whiteSpace === "nowrap" && !element.style.whiteSpace) {
+				element.style.whiteSpace = "nowrap";
+			}
+		}
+	}
+
 	async function captureFixture(id, options = {}) {
 		const {
 			lang = "ja",
@@ -230,6 +254,7 @@ export function createDocsBridge({ store, getController }) {
 				);
 			}
 			syncFormStateToAttributes(target);
+			pinWhiteSpaceNowrapBeforeCapture(target);
 			const dataUrl = await domToPng(target, {
 				scale: pixelRatio,
 				backgroundColor: "#08111d",

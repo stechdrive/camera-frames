@@ -392,13 +392,13 @@ const MESSAGES = {
 		},
 		hint: {
 			viewMode:
-				"カメラビューでは Camera と出力フレームを確認します。ビューポートでは作業用カメラでシーンを操作します。",
+				"カメラビューでは ショットカメラ と出力フレームを確認します。ビューポートでは作業用カメラでシーンを操作します。",
 			shotCameraList:
-				"Camera は document として保持します。追加は現在のビュー姿勢から、複製は現在の Camera 設定ごと作成します。",
+				"ショットカメラ はドキュメントとして保持します。追加は現在のビュー姿勢から、複製は現在の ショットカメラ 設定ごと作成します。",
 			shotCameraClip:
-				"自動では Camera ごとの Near を保持しつつ、Far をシーン境界から決めます。手動では Near/Far を Camera ごとに固定します。",
+				"自動では ショットカメラ ごとの Near を保持しつつ、Far をシーン境界から決めます。手動では Near/Far を ショットカメラ ごとに固定します。",
 			shotCameraExport:
-				"書き出し形式とガイド・レイヤー設定は Camera ごとに保持します。PSD の 3DGS レイヤー化は GLB レイヤー化が前提です。",
+				"書き出し形式とガイド・レイヤー設定は ショットカメラ ごとに保持します。PSD の 3DGS レイヤー化は GLB レイヤー化が前提です。",
 			outputFrame:
 				"カメラビューでは off-axis projection を使い、出力フレーム内の構図を最終出力と一致させます。",
 			sceneCalibration:
@@ -600,10 +600,10 @@ const MESSAGES = {
 			expandedProjectPackage:
 				"{name} から {count} 件の 3D asset を展開しました。",
 			enterUrl: "http(s) URL を 1 つ以上入力してください。",
-			copiedViewportToShot: "Viewport の姿勢を Camera にコピーしました。",
-			copiedShotToViewport: "Camera の姿勢を Viewport にコピーしました。",
+			copiedViewportToShot: "ビューポート の姿勢を ショットカメラ にコピーしました。",
+			copiedShotToViewport: "ショットカメラ の姿勢を ビューポート にコピーしました。",
 			resetViewport: "ビューポートをリセットしました。",
-			resetCamera: "Camera をリセットしました。",
+			resetCamera: "ショットカメラ をリセットしました。",
 			sceneCleared: "シーンをクリアしました。",
 			exportPreviewUpdated: "出力プレビューを更新しました。",
 			pngExported: "PNG を書き出しました。",
@@ -687,7 +687,7 @@ const MESSAGES = {
 			deletedSceneAsset: "{name} を削除しました。",
 			deletedSceneAssets: "{count} 件のオブジェクトを削除しました。",
 			assetOrderUpdated: "{name} の順序を {index} にしました。",
-			selectedShotCamera: "Camera を {name} に切り替えました。",
+			selectedShotCamera: "ショットカメラ を {name} に切り替えました。",
 			createdShotCamera: "Camera {name} を追加しました。",
 			duplicatedShotCamera: "Camera {name} を複製しました。",
 			deletedShotCamera: "Camera {name} を削除しました。",
@@ -701,7 +701,7 @@ const MESSAGES = {
 			shotCameraExportFormat: "Camera の書き出し形式を {format} にしました。",
 			frameLimitReached: "FRAME は最大 {limit} 枚までです。",
 			exportTargetChanged: "書き出し対象を {target} にしました。",
-			exportPresetSelection: "選択書き出しの Camera を {count} 件にしました。",
+			exportPresetSelection: "選択書き出しの ショットカメラ を {count} 件にしました。",
 		},
 		scene: {
 			badgeEmpty: "空",
@@ -765,7 +765,7 @@ const MESSAGES = {
 			exportRequiresAsset:
 				"出力プレビューの前に 3DGS かモデルを読み込んでください。",
 			exportRequiresPreset:
-				"書き出し対象の Camera を 1 つ以上選択してください。",
+				"書き出し対象の ショットカメラ を 1 つ以上選択してください。",
 			projectPackageSaveUnsupported:
 				"この環境ではパッケージ保存ダイアログを利用できません。",
 			projectPackageSaveUnavailable:
@@ -784,7 +784,7 @@ const MESSAGES = {
 		},
 		referenceImage: {
 			activePreset: "現在のプリセット",
-			activePresetItems: "{count} item",
+			activePresetItems: "{count} 件",
 			blankPreset: "(blank)",
 			untitled: "名称未設定",
 			sizeUnknown: "サイズ不明",
@@ -792,8 +792,8 @@ const MESSAGES = {
 			selectedSection: "選択中",
 			selectedEmpty: "選択中の下絵がありません。",
 			currentCameraEmpty:
-				"このプリセットにはまだ下絵 item がありません。下絵を読み込んでください。",
-			currentCameraUsage: "この Camera に {count} 件",
+				"このプリセットにはまだ 下絵アイテム がありません。下絵を読み込んでください。",
+			currentCameraUsage: "この ショットカメラ に {count} 件",
 			orderLabel: "#{order}",
 			group: {
 				back: "背面",

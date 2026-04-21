@@ -17,8 +17,21 @@ const DEFAULT_LANG = "ja";
 // overlay is painted on top of the whole viewport; fixtures need it
 // confined to `.docs-stage` so domToPng includes the badges in the
 // capture bounds.
+//
+// Also pins `white-space: nowrap` on every .button inside the stage.
+// modern-screenshot's style-serialisation drops this property during
+// capture even when it is computed as nowrap; the result is button
+// labels wrapping mid-word at capture time (e.g. "下絵を非表\n示").
+// docs-bridge.js then copies the now-computed `nowrap` value to an
+// inline style attribute before calling domToPng, so serialisation
+// preserves it — but it needs a non-default computed value to copy,
+// which this rule supplies. Buttons in a shot layout DCC never wrap
+// anyway, so this matches real-app UX.
 const ANNOTATION_CSS = `
 .docs-stage { position: relative; }
+.docs-stage .button {
+	white-space: nowrap;
+}
 .docs-stage > .docs-annotation-overlay {
 	position: absolute;
 	inset: 0;

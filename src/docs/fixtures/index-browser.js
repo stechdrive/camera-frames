@@ -22,6 +22,7 @@ import {
 	remoteUrlInputFixture,
 } from "./file-menu.js";
 import { inspectorTabsFixture } from "./inspector-tabs.js";
+import { lightingWidgetFixture } from "./lighting-widget.js";
 import { outputFrameSectionFixture } from "./output-frame-section.js";
 import {
 	pieMenuExpandedFixture,
@@ -34,6 +35,7 @@ import {
 	splatEditToolbarFixture,
 } from "./splat-edit-toolbar.js";
 import { referenceEditModeFixture } from "./reference-edit-mode.js";
+import { sceneManagerFixture } from "./scene-manager.js";
 import {
 	referenceManagerFixture,
 	referencePresetsFixture,
@@ -76,3 +78,5 @@ registerFixture(perSplatEditToolbarFixture);
 registerFixture(trajectorySplineFixture);
 registerFixture(transformGizmoFixture);
 registerFixture(appLayoutOverviewFixture);
+registerFixture(sceneManagerFixture);
+registerFixture(lightingWidgetFixture);

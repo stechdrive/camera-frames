@@ -13,6 +13,7 @@ import {
 	BOX_WIDTH,
 	VIEWPORT_HEIGHT,
 	VIEWPORT_WIDTH,
+	frameSizeForScale,
 	renderRenderBox,
 } from "./camera-mode-render-box.js";
 import { makeScene } from "../mock/scenes.js";
@@ -56,88 +57,127 @@ const STYLE = `
 	height: 100%;
 	overflow: visible;
 }
+/* Trajectory styling mirrors .frame-trajectory-layer__* in app.css so
+ * the capture matches the live spline overlay's palette (warm path,
+ * cyan-vs-orange in/out tangent distinction, peach active node). */
 .docs-trajectory-path {
 	fill: none;
-	stroke: rgba(255, 225, 136, 0.95);
-	stroke-width: 2.5;
+	stroke: rgba(255, 170, 120, 0.92);
+	stroke-width: 3.5;
 	stroke-linecap: round;
 	stroke-linejoin: round;
-	filter: drop-shadow(0 0 6px rgba(255, 225, 136, 0.45));
 }
 .docs-trajectory-handle-line {
 	fill: none;
-	stroke: rgba(255, 225, 136, 0.55);
-	stroke-width: 1.5;
-	stroke-dasharray: 4 3;
+	stroke-width: 2;
+	stroke-dasharray: 10 8;
+	filter: drop-shadow(0 0 1px rgba(6, 10, 18, 0.92));
+}
+.docs-trajectory-handle-line--in {
+	stroke: rgba(145, 222, 255, 0.84);
+}
+.docs-trajectory-handle-line--out {
+	stroke: rgba(255, 208, 158, 0.84);
 }
 .docs-trajectory-node {
 	position: absolute;
-	width: 16px;
-	height: 16px;
+	width: 14px;
+	height: 14px;
 	border-radius: 50%;
 	transform: translate(-50%, -50%);
-	background: rgba(255, 225, 136, 0.96);
-	border: 2px solid rgba(40, 28, 8, 0.85);
-	box-shadow: 0 4px 10px rgba(0, 0, 0, 0.48);
+	background: rgba(255, 121, 88, 0.78);
+	border: 2px solid rgba(9, 16, 25, 0.86);
 }
 .docs-trajectory-node--active {
-	background: rgba(255, 120, 80, 0.98);
-	border-color: rgba(40, 16, 8, 0.88);
+	background: rgba(255, 225, 190, 0.98);
 }
 .docs-trajectory-tangent {
 	position: absolute;
-	width: 10px;
-	height: 10px;
+	width: 12px;
+	height: 12px;
 	border-radius: 50%;
 	transform: translate(-50%, -50%);
-	background: rgba(255, 215, 110, 0.88);
-	border: 1.5px solid rgba(40, 28, 8, 0.75);
-	box-shadow: 0 3px 8px rgba(0, 0, 0, 0.38);
+	border: 2px solid rgba(9, 16, 25, 0.86);
+	filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.28));
+}
+.docs-trajectory-tangent--in {
+	background: rgba(46, 118, 154, 0.98);
+}
+.docs-trajectory-tangent--out {
+	background: rgba(163, 92, 34, 0.98);
 }
 `;
 
-// Three frame centre points inside the render-box, plus tangent
-// offsets that produce a gentle S-curve.
-const FRAMES = [
+// Frame layout + spline handles mirror cf-test2.ssproj / Camera 3 —
+// the canonical spline-trajectory shot that ships in the project
+// fixture. FRAME A is paper-scale 1.0 placed so it overflows the
+// render-box on the left (real shots frequently do this), FRAME B is
+// scale 0.855 up-right. Both nodes have `mirrored` spline handles
+// lifted verbatim from the project JSON so the curve matches what the
+// app would render for this exact state.
+const CF_TEST2_CAMERA_3_FRAMES = [
 	{
 		id: "frame-1",
-		label: "A",
+		label: "FRAME A",
+		center: { x: 0.3933, y: 0.5404 },
+		scale: 1,
 		active: false,
-		left: 8,
-		top: 28,
-		width: 22,
-		height: 44,
+		// handle offsets in paper-normalised coords (mirrored: in = -out)
+		tangent: { in: { x: -0.0874, y: 0.0026 }, out: { x: 0.0874, y: -0.0026 } },
 	},
 	{
 		id: "frame-2",
-		label: "B",
+		label: "FRAME B",
+		center: { x: 0.6461, y: 0.4232 },
+		scale: 0.8549,
 		active: true,
-		left: 39,
-		top: 12,
-		width: 22,
-		height: 76,
-	},
-	{
-		id: "frame-3",
-		label: "C",
-		active: false,
-		left: 70,
-		top: 28,
-		width: 22,
-		height: 44,
+		tangent: { in: { x: -0.077, y: 0.0809 }, out: { x: 0.077, y: -0.0809 } },
 	},
 ];
 
-// Node / tangent positions in viewport-host pixel space (so the SVG
-// path and the absolute-positioned handle dots share the same
-// coordinate frame).
-const NODE_A = { x: BOX_LEFT + BOX_WIDTH * 0.19, y: BOX_TOP + BOX_HEIGHT * 0.5 };
-const NODE_B = { x: BOX_LEFT + BOX_WIDTH * 0.5, y: BOX_TOP + BOX_HEIGHT * 0.5 };
-const NODE_C = { x: BOX_LEFT + BOX_WIDTH * 0.81, y: BOX_TOP + BOX_HEIGHT * 0.5 };
-const TAN_A_OUT = { x: NODE_A.x + 60, y: NODE_A.y - 70 };
-const TAN_B_IN = { x: NODE_B.x - 60, y: NODE_B.y + 70 };
-const TAN_B_OUT = { x: NODE_B.x + 60, y: NODE_B.y - 70 };
-const TAN_C_IN = { x: NODE_C.x - 60, y: NODE_C.y + 70 };
+function paperToPixel(px, py) {
+	return { x: BOX_LEFT + BOX_WIDTH * px, y: BOX_TOP + BOX_HEIGHT * py };
+}
+
+function buildFrameRect(frame) {
+	const { widthPct, heightPct } = frameSizeForScale(frame.scale);
+	return {
+		id: frame.id,
+		label: frame.label,
+		active: frame.active,
+		left: frame.center.x * 100 - widthPct / 2,
+		top: frame.center.y * 100 - heightPct / 2,
+		width: widthPct,
+		height: heightPct,
+	};
+}
+
+const FRAMES = CF_TEST2_CAMERA_3_FRAMES.map(buildFrameRect);
+
+// Node + tangent positions in viewport-host pixel space so the SVG
+// path and the absolutely-positioned handle dots share one coord
+// frame. Tangent offsets are relative to the frame centre, scaled by
+// the render-box dimensions.
+const NODE_A = paperToPixel(
+	CF_TEST2_CAMERA_3_FRAMES[0].center.x,
+	CF_TEST2_CAMERA_3_FRAMES[0].center.y,
+);
+const NODE_B = paperToPixel(
+	CF_TEST2_CAMERA_3_FRAMES[1].center.x,
+	CF_TEST2_CAMERA_3_FRAMES[1].center.y,
+);
+
+function applyHandleOffset(node, offset) {
+	return {
+		x: node.x + offset.x * BOX_WIDTH,
+		y: node.y + offset.y * BOX_HEIGHT,
+	};
+}
+
+const TAN_A_IN = applyHandleOffset(NODE_A, CF_TEST2_CAMERA_3_FRAMES[0].tangent.in);
+const TAN_A_OUT = applyHandleOffset(NODE_A, CF_TEST2_CAMERA_3_FRAMES[0].tangent.out);
+const TAN_B_IN = applyHandleOffset(NODE_B, CF_TEST2_CAMERA_3_FRAMES[1].tangent.in);
+const TAN_B_OUT = applyHandleOffset(NODE_B, CF_TEST2_CAMERA_3_FRAMES[1].tangent.out);
 
 function frameRect(frame) {
 	return {
@@ -155,9 +195,11 @@ function frameRect(frame) {
 export const trajectorySplineFixture = {
 	id: "trajectory-spline",
 	type: "viewport",
-	title: "Camera mode with spline trajectory",
+	title: "Camera mode with spline trajectory (cf-test2 Camera 3)",
 	mount: () => {
 		const scene = makeScene("cf-test2-default");
+		// The spline from A to B is the canonical shot's cubic bezier:
+		//   M A  C A_out, B_in  B
 		return html`
 			<div class="docs-viewport-host">
 				<style>${STYLE}</style>
@@ -171,35 +213,35 @@ export const trajectorySplineFixture = {
 					<svg>
 						<path
 							class="docs-trajectory-path"
-							d=${`M ${NODE_A.x} ${NODE_A.y} C ${TAN_A_OUT.x} ${TAN_A_OUT.y}, ${TAN_B_IN.x} ${TAN_B_IN.y}, ${NODE_B.x} ${NODE_B.y} C ${TAN_B_OUT.x} ${TAN_B_OUT.y}, ${TAN_C_IN.x} ${TAN_C_IN.y}, ${NODE_C.x} ${NODE_C.y}`}
+							d=${`M ${NODE_A.x} ${NODE_A.y} C ${TAN_A_OUT.x} ${TAN_A_OUT.y}, ${TAN_B_IN.x} ${TAN_B_IN.y}, ${NODE_B.x} ${NODE_B.y}`}
 						/>
 						<line
-							class="docs-trajectory-handle-line"
+							class="docs-trajectory-handle-line docs-trajectory-handle-line--in"
+							x1=${TAN_A_IN.x}
+							y1=${TAN_A_IN.y}
+							x2=${NODE_A.x}
+							y2=${NODE_A.y}
+						/>
+						<line
+							class="docs-trajectory-handle-line docs-trajectory-handle-line--out"
 							x1=${NODE_A.x}
 							y1=${NODE_A.y}
 							x2=${TAN_A_OUT.x}
 							y2=${TAN_A_OUT.y}
 						/>
 						<line
-							class="docs-trajectory-handle-line"
+							class="docs-trajectory-handle-line docs-trajectory-handle-line--in"
 							x1=${TAN_B_IN.x}
 							y1=${TAN_B_IN.y}
 							x2=${NODE_B.x}
 							y2=${NODE_B.y}
 						/>
 						<line
-							class="docs-trajectory-handle-line"
+							class="docs-trajectory-handle-line docs-trajectory-handle-line--out"
 							x1=${NODE_B.x}
 							y1=${NODE_B.y}
 							x2=${TAN_B_OUT.x}
 							y2=${TAN_B_OUT.y}
-						/>
-						<line
-							class="docs-trajectory-handle-line"
-							x1=${TAN_C_IN.x}
-							y1=${TAN_C_IN.y}
-							x2=${NODE_C.x}
-							y2=${NODE_C.y}
 						/>
 					</svg>
 					<span
@@ -211,24 +253,20 @@ export const trajectorySplineFixture = {
 						style=${{ left: `${NODE_B.x}px`, top: `${NODE_B.y}px` }}
 					></span>
 					<span
-						class="docs-trajectory-node"
-						style=${{ left: `${NODE_C.x}px`, top: `${NODE_C.y}px` }}
+						class="docs-trajectory-tangent docs-trajectory-tangent--in"
+						style=${{ left: `${TAN_A_IN.x}px`, top: `${TAN_A_IN.y}px` }}
 					></span>
 					<span
-						class="docs-trajectory-tangent"
+						class="docs-trajectory-tangent docs-trajectory-tangent--out"
 						style=${{ left: `${TAN_A_OUT.x}px`, top: `${TAN_A_OUT.y}px` }}
 					></span>
 					<span
-						class="docs-trajectory-tangent"
+						class="docs-trajectory-tangent docs-trajectory-tangent--in"
 						style=${{ left: `${TAN_B_IN.x}px`, top: `${TAN_B_IN.y}px` }}
 					></span>
 					<span
-						class="docs-trajectory-tangent"
+						class="docs-trajectory-tangent docs-trajectory-tangent--out"
 						style=${{ left: `${TAN_B_OUT.x}px`, top: `${TAN_B_OUT.y}px` }}
-					></span>
-					<span
-						class="docs-trajectory-tangent"
-						style=${{ left: `${TAN_C_IN.x}px`, top: `${TAN_C_IN.y}px` }}
 					></span>
 				</div>
 			</div>

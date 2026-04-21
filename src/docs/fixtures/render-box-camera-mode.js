@@ -8,6 +8,7 @@ import { html } from "htm/preact";
 import {
 	VIEWPORT_HEIGHT,
 	VIEWPORT_WIDTH,
+	frameSizeForScale,
 	renderRenderBox,
 } from "./camera-mode-render-box.js";
 import { makeScene } from "../mock/scenes.js";
@@ -62,6 +63,7 @@ export const renderBoxCameraModeFixture = {
 	],
 	mount: () => {
 		const scene = makeScene("cf-test2-default");
+		const { widthPct, heightPct } = frameSizeForScale(1);
 		return html`
 			<div class="docs-viewport-host">
 				<style>${STYLE}</style>
@@ -76,10 +78,10 @@ export const renderBoxCameraModeFixture = {
 							id: "frame-1",
 							label: "A",
 							active: true,
-							left: "6%",
-							top: "8%",
-							width: "88%",
-							height: "84%",
+							left: `${(100 - widthPct) / 2}%`,
+							top: `${(100 - heightPct) / 2}%`,
+							width: `${widthPct}%`,
+							height: `${heightPct}%`,
 						},
 					],
 				})}

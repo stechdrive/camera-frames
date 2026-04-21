@@ -12,6 +12,12 @@ import { ReferenceSection } from "../../ui/workbench-reference-sections.js";
 import { createMockController } from "../mock/controller.js";
 import { createMockStore } from "../mock/store.js";
 
+// modern-screenshot's domToPng re-layouts flex children during the
+// clone step and sometimes wraps short button labels mid-word (e.g.
+// "下絵を非表示" breaks after "表"). The live DOM renders each button
+// on a single line in the 297 px .button-row, so pin white-space:
+// nowrap inside the fixture scope to restore capture-time parity with
+// the real panel — production CSS is untouched.
 const STYLE = `
 .docs-section-host {
 	padding: 24px;

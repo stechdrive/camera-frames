@@ -8,6 +8,7 @@ import { html } from "htm/preact";
 import {
 	VIEWPORT_HEIGHT,
 	VIEWPORT_WIDTH,
+	frameSizeForScale,
 	renderRenderBox,
 } from "./camera-mode-render-box.js";
 import { makeScene } from "../mock/scenes.js";
@@ -41,11 +42,41 @@ const STYLE = `
 }
 `;
 
+// Frame layout mirrors cf-test2.ssproj / Camera 1 — the canonical
+// "tighten up" (TU / zoom-in) shot that ships in the project fixture.
+// FRAME A covers the paper (scale 1.0, centred), and FRAME B is a
+// smaller inner crop nudged slightly right-down, so the line trajectory
+// between centres reads as a push-in onto the motorcycle's cockpit.
+// Values are lifted verbatim from the project JSON.
+const CF_TEST2_CAMERA_1_FRAMES = [
+	{ id: "frame-1", label: "FRAME A", center: { x: 0.5, y: 0.5 }, scale: 1, active: false },
+	{
+		id: "frame-2",
+		label: "FRAME B",
+		center: { x: 0.5755, y: 0.5169 },
+		scale: 0.5537,
+		active: true,
+	},
+];
+
+function makeFrameRect(frame) {
+	const { widthPct, heightPct } = frameSizeForScale(frame.scale);
+	return {
+		id: frame.id,
+		label: frame.label,
+		active: frame.active,
+		left: `${frame.center.x * 100 - widthPct / 2}%`,
+		top: `${frame.center.y * 100 - heightPct / 2}%`,
+		width: `${widthPct}%`,
+		height: `${heightPct}%`,
+	};
+}
+
 /** @type {import("../types").Fixture} */
 export const multipleFramesFixture = {
 	id: "multiple-frames",
 	type: "viewport",
-	title: "Camera mode with multiple frames",
+	title: "Camera mode with multiple frames (zoom-in / TU)",
 	mount: () => {
 		const scene = makeScene("cf-test2-default");
 		return html`
@@ -57,35 +88,7 @@ export const multipleFramesFixture = {
 					alt=${scene.description ?? ""}
 				/>
 				${renderRenderBox({
-					frames: [
-						{
-							id: "frame-1",
-							label: "A",
-							active: false,
-							left: "8%",
-							top: "22%",
-							width: "32%",
-							height: "56%",
-						},
-						{
-							id: "frame-2",
-							label: "B",
-							active: true,
-							left: "34%",
-							top: "12%",
-							width: "32%",
-							height: "76%",
-						},
-						{
-							id: "frame-3",
-							label: "C",
-							active: false,
-							left: "60%",
-							top: "22%",
-							width: "32%",
-							height: "56%",
-						},
-					],
+					frames: CF_TEST2_CAMERA_1_FRAMES.map(makeFrameRect),
 				})}
 			</div>
 		`;
