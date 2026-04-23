@@ -24,6 +24,10 @@ function t(key, values = {}) {
 			return `Working state restored: ${values.name ?? ""}`;
 		case "overlay.packageFieldCompressSplatsWorkerUnavailable":
 			return "Compress 3DGS to SOG (unavailable in this environment)";
+		case "overlay.packageSplatOptimization.sog":
+			return "SOG compression";
+		case "overlay.packageSplatOptimization.sogDisabled":
+			return "SOG compression (unavailable in this environment)";
 		case "error.sogCompressionWorkerUnavailable":
 			return "Could not start the SOG compression worker in this environment. Save again with SOG compression turned off.";
 		default:
@@ -273,14 +277,18 @@ await withNavigator({ gpu: {} }, async () => {
 		},
 	});
 	await harness.projectController.exportProject();
-	const compressField = harness.store.overlay.value?.fields?.find(
-		(field) => field.id === "compressSplatsToSog",
+	const splatOptimizationField = harness.store.overlay.value?.fields?.find(
+		(field) => field.id === "splatOptimization",
 	);
-	assert.equal(compressField?.value, false);
-	assert.equal(compressField?.disabled, true);
+	assert.equal(splatOptimizationField?.type, "radio");
+	assert.equal(splatOptimizationField?.value, "none");
+	const sogOption = splatOptimizationField?.options?.find(
+		(option) => option.value === "sog",
+	);
+	assert.equal(sogOption?.disabled, true);
 	assert.equal(
-		compressField?.label,
-		"Compress 3DGS to SOG (unavailable in this environment)",
+		sogOption?.label,
+		"SOG compression (unavailable in this environment)",
 	);
 });
 
@@ -292,9 +300,10 @@ await withNavigator({ gpu: {} }, async () => {
 	});
 	await harness.projectController.exportProject();
 	await harness.store.overlay.value.onSubmit({
-		compressSplatsToSog: true,
+		splatOptimization: "sog",
 		sogMaxShBands: "2",
 		sogIterations: "10",
+		lodQuality: "quick",
 	});
 	assert.equal(harness.store.overlay.value?.kind, "error");
 	assert.match(
@@ -315,9 +324,10 @@ await withNavigator({ gpu: {} }, async () => {
 		await harness.projectController.exportProject();
 		assert.equal(harness.store.overlay.value?.kind, "confirm");
 		await harness.store.overlay.value.onSubmit({
-			compressSplatsToSog: false,
+			splatOptimization: "none",
 			sogMaxShBands: "2",
 			sogIterations: "10",
+			lodQuality: "quick",
 		});
 		assert.equal(harness.store.overlay.value, null);
 	} finally {

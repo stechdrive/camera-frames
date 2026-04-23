@@ -1014,6 +1014,69 @@ input[type="range"] {
 	opacity: 0.6;
 }
 
+.overlay-field--radio {
+	border: 1px solid rgb(255 255 255 / 10%);
+	border-radius: 12px;
+	padding: 10px 12px;
+	background: rgb(255 255 255 / 4%);
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin: 0;
+}
+
+.overlay-field--radio legend {
+	padding: 0 4px;
+	color: rgb(214 222 239 / 88%);
+	font-size: 13px;
+}
+
+.overlay-field--radio[disabled] {
+	opacity: 0.6;
+}
+
+.overlay-radio-option {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr);
+	align-items: start;
+	gap: 10px;
+	padding: 8px 8px;
+	border-radius: 10px;
+	cursor: pointer;
+	color: rgb(245 247 251 / 92%);
+	font-size: 13px;
+}
+
+.overlay-radio-option:hover {
+	background: rgb(255 255 255 / 4%);
+}
+
+.overlay-radio-option input {
+	margin: 3px 0 0;
+}
+
+.overlay-radio-option__body {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.overlay-radio-option__label {
+	font-weight: 500;
+}
+
+.overlay-radio-option__hint {
+	color: rgb(214 222 239 / 64%);
+	font-size: 12px;
+	line-height: 1.4;
+}
+
+.overlay-radio-option--disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
 .overlay-url-list,
 .overlay-step-list {
 	margin: 14px 0 0;

@@ -264,6 +264,76 @@ async function serializePackedSplatProjectSource(
 	};
 }
 
+async function serializeRawPackedSplatLodBundle(
+	lodSplats,
+	originalName,
+	archiveEntries,
+	archiveEntryLabels,
+) {
+	if (!lodSplats || !(lodSplats.packedArray instanceof Uint32Array)) {
+		return null;
+	}
+	if (lodSplats.packedArray.length === 0) {
+		return null;
+	}
+	const lodPackedBytes = createBinaryEntryBytes(lodSplats.packedArray);
+	const lodPackedHash = await sha256Hex(lodPackedBytes);
+	const lodPackedPath = buildProjectResourcePath(
+		lodPackedHash,
+		`${originalName}.lod.packed.u32`,
+	);
+	archiveEntries[lodPackedPath] = lodPackedBytes;
+	archiveEntryLabels[lodPackedPath] = `${originalName} lodSplats packedArray`;
+
+	const lodExtraArrays = [];
+	for (const [name, value] of Object.entries(lodSplats.extra ?? {})) {
+		if (!(value instanceof Uint32Array) || value.length === 0) {
+			continue;
+		}
+		const bytes = createBinaryEntryBytes(value);
+		if (bytes.byteLength === 0) {
+			continue;
+		}
+		const hash = await sha256Hex(bytes);
+		const path = buildProjectResourcePath(
+			hash,
+			`${originalName}.lod.${name}.u32`,
+		);
+		archiveEntries[path] = bytes;
+		archiveEntryLabels[path] = `${originalName} lodSplats ${name}`;
+		lodExtraArrays.push({
+			name,
+			path,
+			sha256: hash,
+			size: bytes.byteLength,
+		});
+	}
+
+	return {
+		numSplats: Number.isFinite(lodSplats.numSplats)
+			? Math.max(0, Math.floor(lodSplats.numSplats))
+			: 0,
+		splatEncoding:
+			lodSplats.splatEncoding && typeof lodSplats.splatEncoding === "object"
+				? lodSplats.splatEncoding
+				: null,
+		packedArray: {
+			path: lodPackedPath,
+			sha256: lodPackedHash,
+			size: lodPackedBytes.byteLength,
+		},
+		extraArrays: lodExtraArrays,
+		bakedAt:
+			typeof lodSplats.bakedAt === "string" && lodSplats.bakedAt
+				? lodSplats.bakedAt
+				: null,
+		bakedQuality:
+			lodSplats.bakedQuality === "quality" || lodSplats.bakedQuality === "quick"
+				? lodSplats.bakedQuality
+				: null,
+	};
+}
+
 async function serializeRawPackedSplatProjectSource(
 	source,
 	{ onProgress = null, progress = null } = {},
@@ -314,6 +384,12 @@ async function serializeRawPackedSplatProjectSource(
 			size: bytes.byteLength,
 		});
 	}
+	const lodSplatsResource = await serializeRawPackedSplatLodBundle(
+		source.lodSplats,
+		originalName,
+		archiveEntries,
+		archiveEntryLabels,
+	);
 	const resource = cloneRawPackedSplatResource({
 		type: "raw-packed-splat",
 		assetKind: "splat",
@@ -323,6 +399,7 @@ async function serializeRawPackedSplatProjectSource(
 		packedArray: packedArrayResource,
 		extraArrays,
 		radMeta: source.extra?.radMeta ?? null,
+		lodSplats: lodSplatsResource,
 	});
 	source.resource = resource;
 	return {

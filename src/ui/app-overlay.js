@@ -60,6 +60,58 @@ function renderOverlayFields(overlay, fieldValues, setFieldValues) {
 					`;
 				}
 
+				if (field.type === "radio") {
+					const currentValue = String(fieldValues[field.id] ?? "");
+					return html`
+						<fieldset
+							class="overlay-field overlay-field--radio"
+							disabled=${isDisabled}
+						>
+							<legend>${field.label}</legend>
+							${(field.options ?? []).map((option) => {
+								const optionDisabled =
+									Boolean(option.disabled) || isDisabled;
+								return html`
+									<label
+										class=${`overlay-radio-option ${
+											optionDisabled
+												? "overlay-radio-option--disabled"
+												: ""
+										}`}
+									>
+										<input
+											type="radio"
+											name=${field.id}
+											value=${option.value}
+											checked=${currentValue === option.value}
+											disabled=${optionDisabled}
+											onChange=${(event) => {
+												const nextValue = event.currentTarget.value;
+												setFieldValues((current) => ({
+													...current,
+													[field.id]: nextValue,
+												}));
+											}}
+										/>
+										<span class="overlay-radio-option__body">
+											<span class="overlay-radio-option__label">
+												${option.label}
+											</span>
+											${option.hint
+												? html`
+														<span class="overlay-radio-option__hint">
+															${option.hint}
+														</span>
+													`
+												: null}
+										</span>
+									</label>
+								`;
+							})}
+						</fieldset>
+					`;
+				}
+
 				return html`
 					<label class="overlay-field">
 						<span>${field.label}</span>

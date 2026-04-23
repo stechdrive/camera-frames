@@ -106,6 +106,44 @@ export function clonePackedSplatResource(resource) {
 	};
 }
 
+function cloneRawPackedSplatLodResource(lodResource) {
+	if (!lodResource || typeof lodResource !== "object") {
+		return null;
+	}
+	const packedArrayPath = lodResource.packedArray?.path;
+	const packedArraySha = lodResource.packedArray?.sha256;
+	if (typeof packedArrayPath !== "string" || typeof packedArraySha !== "string") {
+		return null;
+	}
+	return {
+		numSplats: Number(lodResource.numSplats ?? 0),
+		splatEncoding:
+			lodResource.splatEncoding && typeof lodResource.splatEncoding === "object"
+				? JSON.parse(JSON.stringify(lodResource.splatEncoding))
+				: null,
+		packedArray: {
+			path: packedArrayPath,
+			sha256: packedArraySha,
+			size: Number(lodResource.packedArray?.size ?? 0),
+		},
+		extraArrays: (lodResource.extraArrays ?? []).map((entry) => ({
+			name: entry.name,
+			path: entry.path,
+			sha256: entry.sha256,
+			size: Number(entry.size ?? 0),
+		})),
+		bakedAt:
+			typeof lodResource.bakedAt === "string" && lodResource.bakedAt
+				? lodResource.bakedAt
+				: null,
+		bakedQuality:
+			lodResource.bakedQuality === "quality" ||
+			lodResource.bakedQuality === "quick"
+				? lodResource.bakedQuality
+				: null,
+	};
+}
+
 export function cloneRawPackedSplatResource(resource) {
 	return {
 		type: PROJECT_RESOURCE_RAW_PACKED_SPLAT,
@@ -131,6 +169,7 @@ export function cloneRawPackedSplatResource(resource) {
 			resource.radMeta && typeof resource.radMeta === "object"
 				? JSON.parse(JSON.stringify(resource.radMeta))
 				: null,
+		lodSplats: cloneRawPackedSplatLodResource(resource.lodSplats),
 	};
 }
 
