@@ -1,3 +1,5 @@
+import { effect } from "@preact/signals";
+import { AUTO_LOD_MIN_SPLATS } from "../constants.js";
 import { createSplatEditSceneHelper } from "../engine/splat-edit-scene-helper.js";
 import { createSplatTransformPreviewController } from "../engine/splat-transform-preview.js";
 import {
@@ -328,7 +330,84 @@ export function createPerSplatEditController({
 			historyBridge.finalizeSplatTransformDragHistory,
 	});
 
+	function assetNeedsLodRebuild(asset) {
+		const packedSplats = asset?.disposeTarget?.packedSplats;
+		if (!packedSplats) {
+			return false;
+		}
+		if (packedSplats.lodSplats) {
+			return false;
+		}
+		const numSplats =
+			packedSplats.getNumSplats?.() ?? packedSplats.numSplats ?? 0;
+		return numSplats >= AUTO_LOD_MIN_SPLATS;
+	}
+
+	function syncSplatEditLodStatus() {
+		const active = modeSwitch?.isSplatEditModeActive?.() ?? false;
+		if (!active) {
+			store.splatEdit.lodStatus.value = "empty";
+			return;
+		}
+		const scopeAssets = scope?.getSplatEditScopeAssets?.() ?? [];
+		const eligible = scopeAssets.filter((asset) => {
+			const packedSplats = asset?.disposeTarget?.packedSplats;
+			if (!packedSplats) {
+				return false;
+			}
+			const numSplats =
+				packedSplats.getNumSplats?.() ?? packedSplats.numSplats ?? 0;
+			return numSplats >= AUTO_LOD_MIN_SPLATS;
+		});
+		if (eligible.length === 0) {
+			store.splatEdit.lodStatus.value = "empty";
+			return;
+		}
+		const stale = eligible.some((asset) => assetNeedsLodRebuild(asset));
+		store.splatEdit.lodStatus.value = stale ? "stale" : "ready";
+	}
+
+	const lodStatusEffectDisposer = effect(() => {
+		// Subscribe to the signals that affect LoD status computation so
+		// the splat-edit toolbar's "LoD 最適化" button stays fresh without
+		// needing explicit calls scattered through every edit path.
+		void store.splatEdit.active.value;
+		void store.splatEdit.scopeAssetIds.value;
+		void store.splatEdit.lastOperation.value;
+		void store.backgroundTask?.value;
+		syncSplatEditLodStatus();
+	});
+
+	function rebuildSplatEditLod() {
+		if (!modeSwitch?.isSplatEditModeActive?.()) {
+			return false;
+		}
+		const assetController = getAssetController?.();
+		const kick = assetController?.kickAutoLodBake;
+		if (typeof kick !== "function") {
+			return false;
+		}
+		const scopeAssets = scope?.getSplatEditScopeAssets?.() ?? [];
+		let dispatched = 0;
+		for (const asset of scopeAssets) {
+			if (!assetNeedsLodRebuild(asset)) {
+				continue;
+			}
+			const displayName =
+				asset?.label ?? asset?.source?.fileName ?? "3DGS";
+			kick(asset.disposeTarget.packedSplats, displayName);
+			dispatched += 1;
+		}
+		// Recompute after dispatching so UI flips to "ready" for small
+		// assets immediately (their bakes are near-instant) and otherwise
+		// stays "stale" until the background task completes and calls
+		// syncSplatEditLodStatus again.
+		syncSplatEditLodStatus();
+		return dispatched > 0;
+	}
+
 	function dispose() {
+		lodStatusEffectDisposer?.();
 		brushTool.clearActiveBrushStroke();
 		brushTool.clearBrushPreview({ syncUi: false });
 		historyBridge.finalizeSplatTransformDragHistory(gizmo.getActiveTransformDrag());
@@ -381,6 +460,8 @@ export function createPerSplatEditController({
 		invertSplatSelection: actions.invertSplatSelection,
 		getSplatEditScopeAssetIds: scope.getSplatEditScopeAssetIds,
 		getSplatEditScopeAssets: scope.getSplatEditScopeAssets,
+		rebuildSplatEditLod,
+		syncSplatEditLodStatus,
 		needsSplatEditBoxPlacement() {
 			return (
 				modeSwitch.isSplatEditModeActive() &&

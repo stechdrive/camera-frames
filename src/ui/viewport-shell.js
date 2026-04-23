@@ -69,6 +69,11 @@ export function SplatEditToolbar({ store, controller, t }) {
 	const splatEditBoxCenter = store.splatEdit.boxCenter.value;
 	const splatEditBoxSize = store.splatEdit.boxSize.value;
 	const splatEditBoxRotation = store.splatEdit.boxRotation.value;
+	const splatEditLodStatus = store.splatEdit.lodStatus?.value ?? "empty";
+	const backgroundTask = store.backgroundTask?.value ?? null;
+	const lodBakeRunning =
+		backgroundTask?.kind === "auto-lod" &&
+		backgroundTask?.status === "running";
 
 	const setSplatEditTool = (tool) => controller()?.setSplatEditTool?.(tool);
 	const setSplatEditBrushDepthMode = (nextMode) =>
@@ -248,6 +253,65 @@ export function SplatEditToolbar({ store, controller, t }) {
 						${t("status.splatEditDuplicate")}
 					</button>
 				</div>
+				${
+					splatEditLodStatus !== "empty" &&
+					html`
+						<div class="viewport-splat-edit-toolbar__separator" />
+						<div
+							class="viewport-splat-edit-toolbar__group"
+							role="group"
+							aria-label=${t("action.splatEditOptimizeLod")}
+						>
+							<button
+								type="button"
+								class=${`viewport-splat-edit-toolbar__btn viewport-splat-edit-toolbar__btn--lod button--tooltip${
+									splatEditLodStatus === "ready"
+										? " viewport-splat-edit-toolbar__btn--lod-ready"
+										: ""
+								}${
+									lodBakeRunning
+										? " viewport-splat-edit-toolbar__btn--lod-running"
+										: ""
+								}`}
+								disabled=${splatEditLodStatus === "ready" ||
+									lodBakeRunning}
+								onClick=${() => controller()?.rebuildSplatEditLod?.()}
+							>
+								<span
+									class=${`viewport-splat-edit-toolbar__lod-icon${
+										lodBakeRunning
+											? " viewport-splat-edit-toolbar__lod-icon--spin"
+											: splatEditLodStatus === "ready"
+												? " viewport-splat-edit-toolbar__lod-icon--done"
+												: ""
+									}`}
+									aria-hidden="true"
+								>
+									${
+										lodBakeRunning
+											? ""
+											: splatEditLodStatus === "ready"
+												? "✓"
+												: "⚡"
+									}
+								</span>
+								<span>
+									${
+										lodBakeRunning
+											? t("status.splatEditLodRunning")
+											: splatEditLodStatus === "ready"
+												? t("status.splatEditLodReady")
+												: t("status.splatEditLodStale")
+									}
+								</span>
+								<${TooltipBubble}
+									title=${t("status.splatEditLodTooltip")}
+									placement="top"
+								/>
+							</button>
+						</div>
+					`
+				}
 				<div class="viewport-splat-edit-toolbar__separator" />
 
 				<!-- Selection count (right end) -->
