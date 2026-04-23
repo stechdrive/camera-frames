@@ -1,17 +1,20 @@
 import { html } from "htm/preact";
 
-const iconModules =
-	typeof import.meta.glob === "function"
-		? import.meta.glob("./svg/*.svg", {
-				eager: true,
-				query: "?raw",
-				import: "default",
-			})
-		: {};
-
 const SPRITE_HOST_ID = "workbench-icon-sprite-host";
+let iconModulesCache = null;
 let spriteMarkupCache = "";
 let spriteMounted = false;
+
+function getIconModules() {
+	if (!iconModulesCache) {
+		iconModulesCache = import.meta.glob("./svg/*.svg", {
+			eager: true,
+			query: "?raw",
+			import: "default",
+		});
+	}
+	return iconModulesCache;
+}
 
 function escapeAttribute(value) {
 	return String(value)
@@ -74,7 +77,7 @@ function convertSvgFileToSymbol(name, rawSvg) {
 }
 
 function buildSpriteMarkup() {
-	const symbols = Object.entries(iconModules)
+	const symbols = Object.entries(getIconModules())
 		.map(([path, rawSvg]) => [getIconNameFromPath(path), rawSvg])
 		.filter(([name, rawSvg]) => Boolean(name) && typeof rawSvg === "string")
 		.map(([name, rawSvg]) => convertSvgFileToSymbol(name, rawSvg))
