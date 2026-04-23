@@ -581,6 +581,10 @@ const MESSAGES = {
 				bakeLod: "LoD 事前計算（読込み速度優先）",
 				bakeLodHint:
 					"保存時に LoD を焼き込み、次回読込み時に即座にフルスピードで描画します。ファイルサイズは大きくなります。",
+				bakeLodHintPreserveQuality:
+					"Quality で焼込み済み。このまま維持して保存します（再計算なし）。",
+				bakeLodHintPreserveQuick:
+					"Quick で焼込み済み。このまま維持するか、Quality にアップグレードできます。",
 			},
 			packageFieldLodQuality: "LoD の品質",
 			packageLodQuality: {
@@ -1399,6 +1403,10 @@ const MESSAGES = {
 				bakeLod: "Bake LoD (faster reload)",
 				bakeLodHint:
 					"Precomputes the LoD tree at save time so the project loads at full speed next time. Produces a larger ssproj.",
+				bakeLodHintPreserveQuality:
+					"Already baked at Quality. Save will preserve it unchanged (no recomputation).",
+				bakeLodHintPreserveQuick:
+					"Already baked at Quick. Save preserves it as-is, or upgrade to Quality.",
 			},
 			packageFieldLodQuality: "LoD quality",
 			packageLodQuality: {

@@ -742,6 +742,46 @@ export function createProjectController({
 		);
 	}
 
+	function getAssetBakedQuality(asset) {
+		const value = asset?.source?.lodSplats?.bakedQuality;
+		return value === "quality" || value === "quick" ? value : null;
+	}
+
+	function getSceneBakedLodState() {
+		const splats = getSceneSplatAssetsForBake();
+		if (splats.length === 0) {
+			return {
+				hasAnyBaked: false,
+				hasAnyQuality: false,
+				hasAnyQuick: false,
+				maxBakedQuality: null,
+				bakedCount: 0,
+				qualityCount: 0,
+				quickCount: 0,
+				splatCount: 0,
+			};
+		}
+		let qualityCount = 0;
+		let quickCount = 0;
+		for (const asset of splats) {
+			const q = getAssetBakedQuality(asset);
+			if (q === "quality") qualityCount += 1;
+			else if (q === "quick") quickCount += 1;
+		}
+		const bakedCount = qualityCount + quickCount;
+		return {
+			hasAnyBaked: bakedCount > 0,
+			hasAnyQuality: qualityCount > 0,
+			hasAnyQuick: quickCount > 0,
+			maxBakedQuality:
+				qualityCount > 0 ? "quality" : quickCount > 0 ? "quick" : null,
+			bakedCount,
+			qualityCount,
+			quickCount,
+			splatCount: splats.length,
+		};
+	}
+
 	function attachBakedLodSplatsToAssetSource(asset, capture, metadata) {
 		if (!asset || !capture) {
 			return false;
@@ -811,6 +851,16 @@ export function createProjectController({
 		for (let index = 0; index < total; index += 1) {
 			const asset = assets[index];
 			const assetLabel = asset.label || asset?.source?.fileName || "3DGS";
+			const existingQuality = getAssetBakedQuality(asset);
+			// Smart skip: already baked at the requested quality and the source
+			// still carries a matching lodSplats bundle (edits clear it via the
+			// default-null path in createProjectFilePackedSplatSource).
+			if (
+				existingQuality === bakedQuality &&
+				asset.source?.lodSplats?.packedArray?.length
+			) {
+				continue;
+			}
 			setOverlay(
 				buildPackageProgressOverlay(
 					t,
@@ -981,16 +1031,52 @@ export function createProjectController({
 			logFailure: true,
 		});
 		const canCompressSplatsToSog = sogCompressionAvailability.available;
+		const bakedLodState = getSceneBakedLodState();
 		const preferredSplatOptimization = normalizeSplatOptimization(
 			preferredPackageSaveOptions.splatOptimization,
 		);
-		const splatOptimizationDefault =
-			preferredSplatOptimization === "sog" && !canCompressSplatsToSog
-				? "none"
-				: preferredSplatOptimization;
+		// If the scene already carries baked LoD, default to bake-lod so the
+		// dialog reflects the current state; otherwise fall back to the user's
+		// prior preference (with SOG availability still honored).
+		let splatOptimizationDefault;
+		if (bakedLodState.hasAnyBaked) {
+			splatOptimizationDefault = "bake-lod";
+		} else if (
+			preferredSplatOptimization === "sog" &&
+			!canCompressSplatsToSog
+		) {
+			splatOptimizationDefault = "none";
+		} else {
+			splatOptimizationDefault = preferredSplatOptimization;
+		}
 		const sogOptionLabel = canCompressSplatsToSog
 			? t("overlay.packageSplatOptimization.sog")
 			: t("overlay.packageSplatOptimization.sogDisabled");
+		// Context-aware LoD quality:
+		//   - When any asset has Quality baked, hide Quick entirely. Quality
+		//     beats Quick on both size and fidelity — offering Quick here is
+		//     a downgrade trap that also loses work.
+		//   - Otherwise offer both, defaulting to the highest existing quality
+		//     or the user's prior preference.
+		const lodQualityOptions = [];
+		if (!bakedLodState.hasAnyQuality) {
+			lodQualityOptions.push({
+				value: "quick",
+				label: t("overlay.packageLodQuality.quick"),
+			});
+		}
+		lodQualityOptions.push({
+			value: "quality",
+			label: t("overlay.packageLodQuality.quality"),
+		});
+		const lodQualityDefault =
+			bakedLodState.maxBakedQuality ??
+			normalizeLodQuality(preferredPackageSaveOptions.lodQuality);
+		const bakeLodHint = bakedLodState.hasAnyQuality
+			? t("overlay.packageSplatOptimization.bakeLodHintPreserveQuality")
+			: bakedLodState.hasAnyQuick
+				? t("overlay.packageSplatOptimization.bakeLodHintPreserveQuick")
+				: t("overlay.packageSplatOptimization.bakeLodHint");
 		setOverlay({
 			kind: "confirm",
 			title: t("overlay.packageSaveTitle"),
@@ -1020,7 +1106,7 @@ export function createProjectController({
 						{
 							value: "bake-lod",
 							label: t("overlay.packageSplatOptimization.bakeLod"),
-							hint: t("overlay.packageSplatOptimization.bakeLodHint"),
+							hint: bakeLodHint,
 						},
 					],
 				},
@@ -1050,18 +1136,9 @@ export function createProjectController({
 					id: "lodQuality",
 					type: "select",
 					label: t("overlay.packageFieldLodQuality"),
-					value: normalizeLodQuality(preferredPackageSaveOptions.lodQuality),
+					value: lodQualityDefault,
 					disabled: (values) => values.splatOptimization !== "bake-lod",
-					options: [
-						{
-							value: "quick",
-							label: t("overlay.packageLodQuality.quick"),
-						},
-						{
-							value: "quality",
-							label: t("overlay.packageLodQuality.quality"),
-						},
-					],
+					options: lodQualityOptions,
 				},
 			],
 			actions: [
