@@ -1,10 +1,3 @@
-import {
-	FpsMovement,
-	PointerControls,
-	SparkRenderer,
-	SplatMesh,
-	flipPixels,
-} from "./engine/spark-integration/spark-symbols.js";
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { createAssetControllerBindings } from "./app/asset-controller-bindings.js";
@@ -48,6 +41,7 @@ import { createUiSyncControllerBindings } from "./app/ui-sync-controller-binding
 import { createViewSyncCommands } from "./app/view-sync-commands.js";
 import { createViewportAxisGizmoControllerBindings } from "./app/viewport-axis-gizmo-controller-bindings.js";
 import { createViewportEditingCommands } from "./app/viewport-editing-commands.js";
+import { createViewportLodScaleRuntimeBinding } from "./app/viewport-lod-scale-runtime-binding.js";
 import { createViewportProjectionControllerBindings } from "./app/viewport-projection-controller-bindings.js";
 import { createViewportToolControllerBindings } from "./app/viewport-tool-controller-bindings.js";
 import {
@@ -89,18 +83,30 @@ import {
 	formatAssetWorldScale,
 	getDefaultAssetUnitMode,
 } from "./engine/scene-units.js";
+import {
+	FpsMovement,
+	PointerControls,
+	SparkRenderer,
+	SplatMesh,
+	flipPixels,
+} from "./engine/spark-integration/spark-symbols.js";
 import { createSplatSelectionHighlightController } from "./engine/splat-selection-highlight.js";
 import { getAnchorLabel } from "./i18n.js";
 import {
 	extractProjectPackageAssets,
 	isProjectPackageSource,
 } from "./project/package-legacy.js";
+import { createHelpCommands } from "./ui/help/help-commands.js";
+import { createMobileUiScaleCommands } from "./ui/settings/mobile-ui-scale-commands.js";
+import { createViewportLodScaleCommands } from "./ui/viewport-lod-scale-commands.js";
+import {
+	readPersistedViewportLodUserScale,
+	resolveEffectiveViewportLodScale,
+} from "./ui/viewport-lod-scale.js";
 import {
 	WORKSPACE_PANE_CAMERA,
 	WORKSPACE_PANE_VIEWPORT,
 } from "./workspace-model.js";
-import { createHelpCommands } from "./ui/help/help-commands.js";
-import { createMobileUiScaleCommands } from "./ui/settings/mobile-ui-scale-commands.js";
 
 export function createCameraFramesController(elements, store) {
 	const {
@@ -119,6 +125,14 @@ export function createCameraFramesController(elements, store) {
 		assetInput,
 		referenceImageInput,
 	} = elements;
+
+	const persistedViewportLodScale = readPersistedViewportLodUserScale();
+	if (persistedViewportLodScale !== null) {
+		store.viewportLod.userScale.value = persistedViewportLodScale;
+	}
+	const initialViewportLodScale = resolveEffectiveViewportLodScale({
+		userScale: store.viewportLod.userScale.value,
+	});
 
 	const {
 		renderer,
@@ -156,6 +170,7 @@ export function createCameraFramesController(elements, store) {
 		GLTFLoaderImpl: GLTFLoader,
 		createGuideOverlayImpl: createGuideOverlay,
 		srgbColorSpace: THREE.SRGBColorSpace,
+		viewportLodScale: initialViewportLodScale,
 	});
 	const splatSelectionHighlightController =
 		createSplatSelectionHighlightController();
@@ -179,6 +194,7 @@ export function createCameraFramesController(elements, store) {
 	let viewportProjectionController = null;
 	let viewportToolController = null;
 	let shotCameraEditorStateController = null;
+	let viewportLodScaleRuntimeBinding = null;
 	let projectPresentationSyncSuspended = true;
 
 	const {
@@ -533,6 +549,11 @@ export function createCameraFramesController(elements, store) {
 			updateShotCameraHelpers,
 		}),
 	);
+	viewportLodScaleRuntimeBinding = createViewportLodScaleRuntimeBinding({
+		store,
+		spark,
+		isExportRenderLocked: () => exportController.isRenderLocked?.() ?? false,
+	});
 
 	sceneFramingController = createSceneFramingController(
 		createSceneFramingControllerBindings({
@@ -938,6 +959,7 @@ export function createCameraFramesController(elements, store) {
 
 	const helpCommands = createHelpCommands({ store });
 	const mobileUiScaleCommands = createMobileUiScaleCommands({ store });
+	const viewportLodScaleCommands = createViewportLodScaleCommands({ store });
 	return createControllerApi({
 		store,
 		state,
@@ -990,5 +1012,8 @@ export function createCameraFramesController(elements, store) {
 		toggleZoomTool,
 		helpCommands,
 		mobileUiScaleCommands,
+		viewportLodScaleCommands,
+		disposeViewportLodScaleBinding: () =>
+			viewportLodScaleRuntimeBinding?.dispose?.(),
 	});
 }

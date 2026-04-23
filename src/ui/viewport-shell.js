@@ -18,8 +18,8 @@ import { BackgroundTaskIndicator } from "./background-task-indicator.js";
 import { computeDropHintStyle, getOverlayBounds } from "./drop-hint-layout.js";
 import { FrameLayer } from "./frame-layer.js";
 import { MeasurementOverlay } from "./measurement-overlay.js";
-import { getProjectStatusDisplay } from "./project-status.js";
 import { ViewportAxisGizmo } from "./viewport-axis-gizmo.js";
+import { ViewportProjectStatusHud } from "./viewport-project-status-hud.js";
 import { NumericDraftInput } from "./workbench-controls.js";
 import { WorkbenchIcon } from "./workbench-icons.js";
 import { TooltipBubble } from "./workbench-primitives.js";
@@ -699,8 +699,6 @@ export function ViewportShell({ store, controller, refs, t }) {
 					bottom: "auto",
 				}
 			: undefined;
-	const { projectDisplayName, projectDirty, showProjectPackageDirty } =
-		getProjectStatusDisplay(store, t);
 	const startReferenceImageMove = (itemId, event) =>
 		controller()?.startReferenceImageMove?.(itemId, event);
 	const startReferenceImageResize = (handleKey, event) =>
@@ -816,25 +814,7 @@ export function ViewportShell({ store, controller, refs, t }) {
 			}
 		>
 			<canvas id="viewport" ref=${refs.viewportCanvasRef} tabindex="0"></canvas>
-			<div class="viewport-project-status" aria-hidden="true">
-				<span class="viewport-project-status__name">${projectDisplayName}</span>
-				${
-					projectDirty &&
-					html`
-					<span class="viewport-project-status__badge">*</span>
-				`
-				}
-				${
-					showProjectPackageDirty &&
-					html`
-					<span
-						class="viewport-project-status__badge viewport-project-status__badge--package"
-					>
-						PKG
-					</span>
-				`
-				}
-			</div>
+			<${ViewportProjectStatusHud} store=${store} controller=${controller} t=${t} />
 			<${BackgroundTaskIndicator} store=${store} t=${t} />
 			<${SplatEditBrushPreview}
 				store=${store}

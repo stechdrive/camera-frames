@@ -6,7 +6,6 @@ import {
 	MOBILE_UI_SCALE_DEFAULT,
 	SCENE_UNIT_BADGE,
 } from "./constants.js";
-import { resolveEffectiveMobileUiScale } from "./ui/mobile-ui-scale.js";
 import {
 	DEFAULT_SHOT_CAMERA_BASE_FOVX,
 	DEFAULT_VIEWPORT_CAMERA_BASE_FOVX,
@@ -25,6 +24,8 @@ import {
 import { resolveInitialLocale, translate } from "./i18n.js";
 import { createDefaultLightingState } from "./lighting-model.js";
 import { createDefaultReferenceImageDocument } from "./reference-image-model.js";
+import { resolveEffectiveMobileUiScale } from "./ui/mobile-ui-scale.js";
+import { resolveEffectiveViewportLodScale } from "./ui/viewport-lod-scale.js";
 import {
 	WORKSPACE_LAYOUT_SINGLE,
 	createDefaultShotCameraDocuments,
@@ -151,6 +152,12 @@ export function createCameraFramesStore(runtimeInfo = null) {
 		resolveEffectiveMobileUiScale({
 			userScale: mobileUiUserScale.value,
 			autoScale: mobileUiAutoScale.value,
+		}),
+	);
+	const viewportLodUserScale = signal(null);
+	const viewportLodEffectiveScale = computed(() =>
+		resolveEffectiveViewportLodScale({
+			userScale: viewportLodUserScale.value,
 		}),
 	);
 	const viewportPieMenu = signal({
@@ -532,6 +539,10 @@ export function createCameraFramesStore(runtimeInfo = null) {
 			autoScale: mobileUiAutoScale,
 			effectiveScale: mobileUiEffectiveScale,
 			settingsOpen: mobileUiSettingsOpen,
+		},
+		viewportLod: {
+			userScale: viewportLodUserScale,
+			effectiveScale: viewportLodEffectiveScale,
 		},
 		sceneBadge,
 		sceneUnitBadge,

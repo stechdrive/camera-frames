@@ -7,6 +7,7 @@ let startedNewProject = false;
 let disposedRuntime = false;
 let disposedGuideOverlay = false;
 let disposedLighting = false;
+let disposedViewportLodScaleBinding = false;
 let frameTrajectoryNodeModeCall = null;
 
 const api = createControllerApi({
@@ -229,6 +230,13 @@ const api = createControllerApi({
 	getActiveShotCameraPoseState: () => ({ x: 1 }),
 	executeViewportPieAction: () => {},
 	toggleZoomTool: () => {},
+	viewportLodScaleCommands: {
+		setViewportLodScale: (value) => `set-lod:${value}`,
+		resetViewportLodScale: () => "reset-lod",
+	},
+	disposeViewportLodScaleBinding: () => {
+		disposedViewportLodScaleBinding = true;
+	},
 	disposeSceneResources: () => {},
 });
 
@@ -246,6 +254,8 @@ assert.equal(api.copyShotCameraToViewport(), "copy-s2v");
 assert.equal(api.resetActiveView(), "reset");
 assert.equal(api.downloadOutput(), "download-output");
 assert.equal(api.duplicateSelectedSceneAssets(), "duplicate-assets");
+assert.equal(api.setViewportLodScale(0.8), "set-lod:0.8");
+assert.equal(api.resetViewportLodScale(), "reset-lod");
 assert.equal(api.beginHistoryTransaction("x"), "x");
 api.setFrameTrajectoryNodeMode("frame-1", "free");
 assert.deepEqual(frameTrajectoryNodeModeCall, ["frame-1", "free"]);
@@ -254,5 +264,6 @@ api.dispose();
 assert.equal(disposedRuntime, true);
 assert.equal(disposedGuideOverlay, true);
 assert.equal(disposedLighting, true);
+assert.equal(disposedViewportLodScaleBinding, true);
 
 console.log("✅ CAMERA_FRAMES controller api tests passed!");

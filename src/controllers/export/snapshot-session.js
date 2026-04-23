@@ -1,3 +1,19 @@
+import {
+	buildViewportLodExportReadinessPolicy,
+	resolveEffectiveViewportLodScale,
+	resolveExportViewportLodScale,
+} from "../../ui/viewport-lod-scale.js";
+
+function resolveStoreViewportLodScale(store) {
+	const effectiveScale = store?.viewportLod?.effectiveScale?.value;
+	if (effectiveScale !== null && effectiveScale !== undefined) {
+		return resolveEffectiveViewportLodScale({ userScale: effectiveScale });
+	}
+	return resolveEffectiveViewportLodScale({
+		userScale: store?.viewportLod?.userScale?.value ?? null,
+	});
+}
+
 export function createSnapshotPhaseTracker(
 	{
 		targetExportSettings,
@@ -72,6 +88,10 @@ export async function withOutputSnapshotSession(
 	const previousGuidesVisible = guides.visible;
 	const previousGuideOverlayState = guideOverlay.captureState();
 	const previousSparkAutoUpdate = spark.autoUpdate;
+	const previewLodScale = resolveStoreViewportLodScale(store);
+	const exportLodScale = resolveExportViewportLodScale(previewLodScale);
+	const readinessPolicy =
+		buildViewportLodExportReadinessPolicy(previewLodScale);
 	const previousHelperVisibility = new Map();
 	const targetExportSettings = getShotCameraExportSettings(targetDocument);
 
@@ -88,6 +108,7 @@ export async function withOutputSnapshotSession(
 
 	try {
 		setRenderLock(true);
+		spark.lodSplatScale = exportLodScale;
 		syncActiveShotCameraFromDocument();
 		syncShotProjection();
 		syncOutputCamera();
@@ -123,23 +144,30 @@ export async function withOutputSnapshotSession(
 			sceneAssets,
 			backgroundCanvas,
 			passPlan,
+			previewLodScale,
+			exportLodScale,
+			readinessPolicy,
 		});
 	} finally {
-		setRenderLock(false);
-		spark.autoUpdate = previousSparkAutoUpdate;
-		guides.visible = previousGuidesVisible;
-		guideOverlay.applyState(previousGuideOverlayState);
-		for (const [entryId, entry] of shotCameraRegistry.entries()) {
-			entry.helper.visible = previousHelperVisibility.get(entryId) ?? false;
-		}
+		try {
+			spark.autoUpdate = previousSparkAutoUpdate;
+			spark.lodSplatScale = resolveStoreViewportLodScale(store);
+			guides.visible = previousGuidesVisible;
+			guideOverlay.applyState(previousGuideOverlayState);
+			for (const [entryId, entry] of shotCameraRegistry.entries()) {
+				entry.helper.visible = previousHelperVisibility.get(entryId) ?? false;
+			}
 
-		if (shouldRestore) {
-			store.workspace.activeShotCameraId.value = previousShotCameraId;
-			syncActiveShotCameraFromDocument();
-			syncShotProjection();
-			syncOutputCamera();
-		}
+			if (shouldRestore) {
+				store.workspace.activeShotCameraId.value = previousShotCameraId;
+				syncActiveShotCameraFromDocument();
+				syncShotProjection();
+				syncOutputCamera();
+			}
 
-		updateShotCameraHelpers();
+			updateShotCameraHelpers();
+		} finally {
+			setRenderLock(false);
+		}
 	}
 }

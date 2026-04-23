@@ -123,10 +123,15 @@ import {
 			width: 100,
 			height: 50,
 			sceneAssets: [{ id: "asset-a" }],
+			readinessPolicy: { splatWarmupPasses: 3, maxWaitMs: 2000 },
 		},
 		{
-			buildReadinessPlan: ({ sceneAssets }) => {
+			buildReadinessPlan: ({ sceneAssets, policy }) => {
 				assert.deepEqual(sceneAssets, [{ id: "asset-a" }]);
+				assert.deepEqual(policy, {
+					splatWarmupPasses: 3,
+					maxWaitMs: 2000,
+				});
 				return { warmupPasses: 2, maxWaitMs: 100 };
 			},
 			finalizeReadiness: (plan, state) => ({ plan, state }),

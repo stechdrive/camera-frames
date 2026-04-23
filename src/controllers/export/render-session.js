@@ -47,11 +47,12 @@ export async function renderGuideLayerPixels(
 }
 
 export async function renderScenePixelsWithReadiness(
-	{ scene, camera, width, height, sceneAssets },
+	{ scene, camera, width, height, sceneAssets, readinessPolicy = {} },
 	{ buildReadinessPlan, finalizeReadiness, getNowMs, renderBackend } = {},
 ) {
 	const readinessPlan = buildReadinessPlan({
 		sceneAssets,
+		policy: readinessPolicy,
 	});
 	const deadline = getNowMs() + readinessPlan.maxWaitMs;
 	let completedWarmupPasses = 0;

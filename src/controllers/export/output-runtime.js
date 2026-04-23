@@ -112,6 +112,7 @@ export function createExportOutputRuntime(
 	} = {},
 ) {
 	let exportRenderLock = false;
+	let activeReadinessPolicy = null;
 	const exportRenderBackend = createSparkExportRendererManagerFn({
 		sourceSpark: spark,
 	});
@@ -176,12 +177,20 @@ export function createExportOutputRuntime(
 	}
 
 	function renderScenePixelsWithReadiness(config) {
-		return renderScenePixelsWithReadinessFn(config, {
-			buildReadinessPlan: buildExportReadinessPlanFn,
-			finalizeReadiness: finalizeExportReadinessFn,
-			getNowMs,
-			renderBackend: exportRenderBackend,
-		});
+		const readinessPolicy =
+			config.readinessPolicy ?? activeReadinessPolicy ?? undefined;
+		return renderScenePixelsWithReadinessFn(
+			{
+				...config,
+				readinessPolicy,
+			},
+			{
+				buildReadinessPlan: buildExportReadinessPlanFn,
+				finalizeReadiness: finalizeExportReadinessFn,
+				getNowMs,
+				renderBackend: exportRenderBackend,
+			},
+		);
 	}
 
 	function renderConfiguredSceneCapture(config) {
@@ -284,50 +293,58 @@ export function createExportOutputRuntime(
 				sceneAssets,
 				backgroundCanvas,
 				passPlan,
-			}) =>
-				renderOutputSnapshotSessionFn(
-					{
-						scene,
-						targetDocument,
-						targetExportSettings,
-						outputCamera,
-						width,
-						height,
-						renderableSceneAssets,
-						sceneAssets,
-						backgroundCanvas,
-						passPlan,
-						referenceImageDocument: store.referenceImages.document.value,
-						referenceImagesExportSessionEnabled:
-							store.referenceImages.exportSessionEnabled.value,
-						t,
-					},
-					{
-						phaseTracker: createSnapshotPhaseTrackerFn(
-							{
-								targetExportSettings,
-								passPlan,
-								includeReferenceImages:
-									store.referenceImages.exportSessionEnabled.value !== false,
-								onProgress,
-								t,
-							},
-							{
-								getPhaseDefinitions: getExportPhaseDefinitionsFn,
-								getPhaseDefaultDetail: getExportPhaseDefaultDetailFn,
-							},
-						),
-						renderConfiguredSceneCapture,
-						clonePixels: clonePixelBuffer,
-						renderGuideLayerPixels,
-						renderMaskPassSnapshots,
-						renderPsdBasePixels,
-						renderModelLayerDocuments,
-						renderSplatLayerDocuments,
-						renderReferenceImageLayersForShotCamera:
-							renderReferenceImageLayersForShotCameraFn,
-					},
-				),
+				readinessPolicy,
+			}) => {
+				const previousReadinessPolicy = activeReadinessPolicy;
+				activeReadinessPolicy = readinessPolicy ?? null;
+				try {
+					return await renderOutputSnapshotSessionFn(
+						{
+							scene,
+							targetDocument,
+							targetExportSettings,
+							outputCamera,
+							width,
+							height,
+							renderableSceneAssets,
+							sceneAssets,
+							backgroundCanvas,
+							passPlan,
+							referenceImageDocument: store.referenceImages.document.value,
+							referenceImagesExportSessionEnabled:
+								store.referenceImages.exportSessionEnabled.value,
+							t,
+						},
+						{
+							phaseTracker: createSnapshotPhaseTrackerFn(
+								{
+									targetExportSettings,
+									passPlan,
+									includeReferenceImages:
+										store.referenceImages.exportSessionEnabled.value !== false,
+									onProgress,
+									t,
+								},
+								{
+									getPhaseDefinitions: getExportPhaseDefinitionsFn,
+									getPhaseDefaultDetail: getExportPhaseDefaultDetailFn,
+								},
+							),
+							renderConfiguredSceneCapture,
+							clonePixels: clonePixelBuffer,
+							renderGuideLayerPixels,
+							renderMaskPassSnapshots,
+							renderPsdBasePixels,
+							renderModelLayerDocuments,
+							renderSplatLayerDocuments,
+							renderReferenceImageLayersForShotCamera:
+								renderReferenceImageLayersForShotCameraFn,
+						},
+					);
+				} finally {
+					activeReadinessPolicy = previousReadinessPolicy;
+				}
+			},
 		);
 	}
 

@@ -32,6 +32,11 @@ import {
 	PROJECT_PACKAGE_EXTENSION,
 	SCENE_UNIT_BADGE,
 	SPLAT_EXTENSIONS,
+	VIEWPORT_LOD_SCALE_DEFAULT,
+	VIEWPORT_LOD_SCALE_MAX,
+	VIEWPORT_LOD_SCALE_MIN,
+	VIEWPORT_LOD_SCALE_STEP,
+	VIEWPORT_LOD_SCALE_STORAGE_KEY,
 	VIEWPORT_PIXEL_RATIO,
 	WORKBENCH_GAP_PX,
 	WORKBENCH_PANEL_MAX_WIDTH_PX,
@@ -104,6 +109,14 @@ import {
 	assert.equal(MOBILE_UI_SCALE_STEP, 0.01);
 	assert.equal(MOBILE_UI_SCALE_DEFAULT, 1.0);
 	assert.equal(MOBILE_UI_SCALE_STORAGE_KEY, "camera-frames.mobileUiScale");
+	assert.equal(VIEWPORT_LOD_SCALE_MIN, 0.6);
+	assert.equal(VIEWPORT_LOD_SCALE_MAX, 1.2);
+	assert.equal(VIEWPORT_LOD_SCALE_STEP, 0.01);
+	assert.equal(VIEWPORT_LOD_SCALE_DEFAULT, 1.1);
+	assert.equal(
+		VIEWPORT_LOD_SCALE_STORAGE_KEY,
+		"camera-frames.viewportLodScale",
+	);
 	console.log("  constants: scalar values OK");
 }
 

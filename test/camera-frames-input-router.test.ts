@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {
 	bindInputRouter,
 	isNativeHistoryTarget,
+	isViewportOverlayControlTarget,
 } from "../src/interactions/input-router.js";
 
 function createClosestTarget(matches: Record<string, unknown>) {
@@ -44,6 +45,21 @@ function createClosestTarget(matches: Record<string, unknown>) {
 	assert.equal(isNativeHistoryTarget(null), false);
 	assert.equal(isNativeHistoryTarget(undefined), false);
 	assert.equal(isNativeHistoryTarget({}), false);
+}
+
+{
+	const projectStatusTarget = createClosestTarget({
+		".viewport-project-status": {},
+	});
+	const lodScaleTarget = createClosestTarget({ ".viewport-lod-scale": {} });
+	const backgroundTaskTarget = createClosestTarget({
+		".background-task-pill": {},
+	});
+	assert.equal(isViewportOverlayControlTarget(projectStatusTarget), true);
+	assert.equal(isViewportOverlayControlTarget(lodScaleTarget), true);
+	assert.equal(isViewportOverlayControlTarget(backgroundTaskTarget), true);
+	assert.equal(isViewportOverlayControlTarget(createClosestTarget({})), false);
+	assert.equal(isViewportOverlayControlTarget(null), false);
 }
 
 function createInputRouterHarness(overrides = {}) {
@@ -205,7 +221,7 @@ function createInputRouterHarness(overrides = {}) {
 		requestNavigationHistoryCommit: () => {},
 		flushNavigationHistory: () => {},
 		isInteractiveTextTarget,
-		isViewportSelectMode: () => false,
+		isViewportSelectMode: () => overrides.isViewportSelectMode ?? false,
 		isViewportReferenceImageEditMode: () =>
 			overrides.isViewportReferenceImageEditMode ?? false,
 		getActiveCamera: () => null,
@@ -213,13 +229,17 @@ function createInputRouterHarness(overrides = {}) {
 		isPieInteractionMode: () => false,
 		isLensInteractionMode: () => false,
 		isRollInteractionMode: () => false,
-		isViewportOrthographicActive: () => false,
+		isViewportOrthographicActive: () =>
+			overrides.isViewportOrthographicActive ?? false,
 		applyNavigateInteractionMode: () => {},
 		syncControlsToMode: () => {},
 		ensurePerspectiveForViewportRotation: () => false,
 		captureViewportProjectionState: () => null,
 		restoreViewportProjectionState: () => false,
-		openViewportPieMenu: () => false,
+		openViewportPieMenu: (event) => {
+			calls.push(["open-pie", event.clientX, event.clientY]);
+			return false;
+		},
 		updateViewportPiePointer: () => {},
 		finishViewportPieMenu: () => null,
 		closeViewportPieMenu: () => {},
@@ -244,7 +264,10 @@ function createInputRouterHarness(overrides = {}) {
 		handleShotCameraRollDragEnd: () => {},
 		handleViewportOrthographicPanMove: () => {},
 		handleViewportOrthographicPanEnd: () => {},
-		handleViewportOrthographicWheel: () => false,
+		handleViewportOrthographicWheel: (event) => {
+			calls.push(["ortho-wheel", event.deltaY ?? 0]);
+			return false;
+		},
 		handleOutputFramePanMove: () => {},
 		handleOutputFramePanEnd: () => {},
 		handleOutputFrameResizeMove: () => {},
@@ -261,7 +284,10 @@ function createInputRouterHarness(overrides = {}) {
 		handleFrameAnchorDragEnd: () => {},
 		handleViewportTransformDragMove: () => {},
 		handleViewportTransformDragEnd: () => {},
-		pickViewportAssetAtPointer: () => false,
+		pickViewportAssetAtPointer: () => {
+			calls.push(["pick-viewport-asset"]);
+			return true;
+		},
 		handleMeasurementPointerDown: () => false,
 		handleMeasurementHoverMove: () => {},
 		clearSelectedMeasurementPoint: () => {},
@@ -503,6 +529,136 @@ function createInputRouterHarness(overrides = {}) {
 			altKey: false,
 		});
 		assert.deepEqual(harness.calls, [["preview-splat-brush", 500, 280, false]]);
+	} finally {
+		harness.restore();
+	}
+}
+
+{
+	const harness = createInputRouterHarness({
+		isViewportOrthographicActive: true,
+	});
+	try {
+		const wheel = harness.listeners.get(harness.viewportShell).get("wheel");
+		const hudTarget = new globalThis.Element();
+		hudTarget.closest = (selector: string) => {
+			if (selector.includes(".viewport-project-status")) {
+				return {};
+			}
+			return null;
+		};
+		wheel({
+			target: hudTarget,
+			deltaY: 120,
+			preventDefault() {},
+			stopPropagation() {},
+		});
+		assert.deepEqual(harness.calls, []);
+	} finally {
+		harness.restore();
+	}
+}
+
+{
+	const harness = createInputRouterHarness({
+		isSplatEditModeActive: true,
+		isSplatEditBrushActive: true,
+	});
+	try {
+		const pointerdown = harness.listeners
+			.get(harness.viewportShell)
+			.get("pointerdown");
+		const hudTarget = new globalThis.Element();
+		hudTarget.closest = (selector: string) => {
+			if (
+				selector.includes(".viewport-lod-scale") ||
+				selector === "#viewport-shell"
+			) {
+				return {};
+			}
+			return null;
+		};
+		pointerdown({
+			pointerId: 9,
+			button: 0,
+			clientX: 240,
+			clientY: 120,
+			target: hudTarget,
+			preventDefault() {},
+			stopPropagation() {},
+			stopImmediatePropagation() {},
+		});
+		assert.deepEqual(harness.calls, []);
+	} finally {
+		harness.restore();
+	}
+}
+
+{
+	const harness = createInputRouterHarness({
+		isViewportSelectMode: true,
+	});
+	try {
+		const pointerdown = harness.listeners
+			.get(harness.viewportShell)
+			.get("pointerdown");
+		const pointerup = harness.listeners.get(harness.windowRef).get("pointerup");
+		const hudTarget = new globalThis.Element();
+		hudTarget.closest = (selector: string) => {
+			if (
+				selector.includes(".viewport-project-status") ||
+				selector === "#viewport-shell"
+			) {
+				return {};
+			}
+			return null;
+		};
+		pointerdown({
+			pointerId: 10,
+			button: 0,
+			clientX: 100,
+			clientY: 80,
+			target: hudTarget,
+			preventDefault() {},
+			stopPropagation() {},
+			stopImmediatePropagation() {},
+		});
+		pointerup({
+			pointerId: 10,
+			clientX: 100,
+			clientY: 80,
+			target: hudTarget,
+		});
+		assert.deepEqual(harness.calls, []);
+	} finally {
+		harness.restore();
+	}
+}
+
+{
+	const harness = createInputRouterHarness();
+	try {
+		const pointerdown = harness.listeners
+			.get(harness.viewportShell)
+			.get("pointerdown");
+		const hudTarget = new globalThis.Element();
+		hudTarget.closest = (selector: string) => {
+			if (selector.includes(".viewport-project-status")) {
+				return {};
+			}
+			return null;
+		};
+		pointerdown({
+			pointerId: 11,
+			button: 1,
+			clientX: 300,
+			clientY: 160,
+			target: hudTarget,
+			preventDefault() {},
+			stopPropagation() {},
+			stopImmediatePropagation() {},
+		});
+		assert.deepEqual(harness.calls, []);
 	} finally {
 		harness.restore();
 	}

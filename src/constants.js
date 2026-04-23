@@ -38,6 +38,12 @@ export const MOBILE_UI_SCALE_STEP = 0.01;
 export const MOBILE_UI_SCALE_DEFAULT = 1.0;
 export const MOBILE_UI_SCALE_STORAGE_KEY = "camera-frames.mobileUiScale";
 
+export const VIEWPORT_LOD_SCALE_MIN = 0.6;
+export const VIEWPORT_LOD_SCALE_MAX = 1.2;
+export const VIEWPORT_LOD_SCALE_STEP = 0.01;
+export const VIEWPORT_LOD_SCALE_DEFAULT = 1.1;
+export const VIEWPORT_LOD_SCALE_STORAGE_KEY = "camera-frames.viewportLodScale";
+
 export const SPLAT_EXTENSIONS = new Set([
 	"ply",
 	"spz",

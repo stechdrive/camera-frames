@@ -8,6 +8,9 @@ related-files:
   - src/ui/viewport-shell.js
   - src/ui/side-panel.js
   - src/ui/app-overlay.js
+  - src/ui/viewport-project-status-hud.js
+  - src/ui/viewport-lod-scale.js
+  - src/ui/viewport-lod-scale-commands.js
   - src/ui/workbench-rail-sections.js
   - src/ui/workbench-sections.js
   - src/ui/workbench-section-ids.js
@@ -34,7 +37,7 @@ screenshots:
   - id: splat-edit-toolbar
     alt: スプラット edit 時のツールバー
     scenario: splat-edit-toolbar
-last-updated: 2026-04-19
+last-updated: 2026-04-24
 ---
 
 # 画面構成
@@ -60,10 +63,11 @@ CAMERA_FRAMES の画面は、大きく次の 3 領域と、画面上に重ねて
 
 ビューポート には次の要素が重なります。
 
-#### Project Status HUD（左上）
+#### Project Status HUD（右上）
 
-プロジェクト名と保存状態を表示します。
+プロジェクト名、保存状態、ビューポートの 3DGS プレビュー品質を表示します。
 
+- プレビュー品質 — ビューポート表示の LoD scale。端末ごとの local 設定で、書き出しは少なくとも標準品質で出力される
 - プロジェクト名 — 未保存の場合は `Untitled`
 - `*` — 作業保存 に未保存の変更がある
 - `PKG` — package（`.ssproj`）に未反映の変更がある

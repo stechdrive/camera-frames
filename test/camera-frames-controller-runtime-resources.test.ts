@@ -96,6 +96,7 @@ class FakeGLTFLoader {}
 		GLTFLoaderImpl: FakeGLTFLoader,
 		createGuideOverlayImpl: () => ({ group: { id: "guide-group" } }),
 		srgbColorSpace: "srgb",
+		viewportLodScale: 0.87,
 	});
 
 	assert.equal(resources.renderer.options.canvas.id, "viewport");
@@ -103,6 +104,7 @@ class FakeGLTFLoader {}
 	assert.equal(resources.renderer.outputColorSpace, "srgb");
 	assert.equal(resources.scene.background.value, 0x08111d);
 	assert.equal(resources.spark.options.renderer, resources.renderer);
+	assert.equal(resources.spark.options.lodSplatScale, 0.87);
 	assert.equal(resources.contentRoot.children.length, 2);
 	assert.equal(resources.guides.children[0].id, "guide-group");
 	assert.deepEqual(resources.viewportCamera.args, [50, 1, 0.1, 1000]);

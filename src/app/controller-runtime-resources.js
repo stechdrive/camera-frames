@@ -1,3 +1,5 @@
+import { VIEWPORT_LOD_SCALE_DEFAULT } from "../constants.js";
+
 export function createControllerRuntimeResources({
 	viewportCanvas,
 	viewportPixelRatio,
@@ -19,6 +21,7 @@ export function createControllerRuntimeResources({
 	GLTFLoaderImpl,
 	createGuideOverlayImpl,
 	srgbColorSpace,
+	viewportLodScale = VIEWPORT_LOD_SCALE_DEFAULT,
 }) {
 	const renderer = new WebGLRendererImpl({
 		canvas: viewportCanvas,
@@ -35,7 +38,7 @@ export function createControllerRuntimeResources({
 	const spark = new SparkRendererImpl({
 		renderer,
 		sortRadial: true,
-		lodSplatScale: 1.1,
+		lodSplatScale: viewportLodScale,
 	});
 	scene.add(spark);
 

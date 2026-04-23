@@ -67,6 +67,9 @@ import {
 		workspace: {
 			activeShotCameraId: { value: "camera-prev" },
 		},
+		viewportLod: {
+			effectiveScale: { value: 0.7 },
+		},
 	};
 	const guides = { visible: true };
 	const guideOverlay = {
@@ -81,7 +84,7 @@ import {
 		["a", { helper: { visible: true } }],
 		["b", { helper: { visible: false } }],
 	]);
-	const spark = { autoUpdate: true };
+	const spark = { autoUpdate: true, lodSplatScale: 0.7 };
 
 	const result = await withOutputSnapshotSession(
 		{ shotCameraId: "camera-next" },
@@ -128,6 +131,7 @@ import {
 			assert.equal(store.workspace.activeShotCameraId.value, "camera-next");
 			assert.equal(guides.visible, false);
 			assert.equal(spark.autoUpdate, false);
+			assert.equal(spark.lodSplatScale, 1.1);
 			assert.equal(shotCameraRegistry.get("a").helper.visible, false);
 			assert.equal(shotCameraRegistry.get("b").helper.visible, false);
 			assert.equal(session.targetDocument.id, "camera-next");
@@ -144,6 +148,14 @@ import {
 				masks: [],
 				sceneAssets: [{ id: "asset-a", kind: "model" }],
 			});
+			assert.equal(session.previewLodScale, 0.7);
+			assert.equal(session.exportLodScale, 1.1);
+			assert.deepEqual(session.readinessPolicy, {
+				minWarmupPasses: 0,
+				splatWarmupPasses: 2,
+				maxWaitMs: 1500,
+			});
+			store.viewportLod.effectiveScale.value = 0.8;
 			return "done";
 		},
 	);
@@ -169,6 +181,7 @@ import {
 	assert.equal(store.workspace.activeShotCameraId.value, "camera-prev");
 	assert.equal(guides.visible, true);
 	assert.equal(spark.autoUpdate, true);
+	assert.equal(spark.lodSplatScale, 0.8);
 	assert.equal(shotCameraRegistry.get("a").helper.visible, true);
 	assert.equal(shotCameraRegistry.get("b").helper.visible, false);
 	assert.deepEqual(updateCalls, ["updateHelpers"]);

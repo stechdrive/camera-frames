@@ -74,7 +74,7 @@ const STYLE = `
 .docs-layout-host__hud {
 	position: absolute;
 	top: 14px;
-	left: 16px;
+	right: 16px;
 	display: flex;
 	align-items: center;
 	gap: 6px;
@@ -87,6 +87,27 @@ const STYLE = `
 	font-weight: 600;
 	letter-spacing: 0.04em;
 	backdrop-filter: blur(6px);
+}
+.docs-layout-host__hud-quality {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	color: rgba(198, 216, 236, 0.8);
+}
+.docs-layout-host__hud-quality-bar {
+	width: 54px;
+	height: 4px;
+	border-radius: 99px;
+	background: linear-gradient(
+		90deg,
+		rgba(143, 210, 255, 0.9) 70%,
+		rgba(255, 255, 255, 0.18) 70%
+	);
+}
+.docs-layout-host__hud-divider {
+	width: 1px;
+	height: 13px;
+	background: rgba(255, 255, 255, 0.16);
 }
 .docs-layout-host__hud-badge {
 	padding: 1px 6px;
@@ -233,6 +254,12 @@ export const appLayoutOverviewFixture = {
 						alt=${scene.description ?? ""}
 					/>
 					<div class="docs-layout-host__hud viewport-project-status">
+						<span class="docs-layout-host__hud-quality">
+							プレビュー品質
+							<span class="docs-layout-host__hud-quality-bar"></span>
+							1.10
+						</span>
+						<span class="docs-layout-host__hud-divider"></span>
 						<span>cf-test2</span>
 						<span class="docs-layout-host__hud-badge">PKG</span>
 					</div>

@@ -50,6 +50,8 @@ export function createControllerApi({
 	toggleZoomTool,
 	helpCommands = null,
 	mobileUiScaleCommands = null,
+	viewportLodScaleCommands = null,
+	disposeViewportLodScaleBinding = null,
 	disposeSceneResources,
 }) {
 	return {
@@ -342,7 +344,9 @@ export function createControllerApi({
 		redoHistory: () => historyController?.redoHistory(),
 		...(helpCommands || {}),
 		...(mobileUiScaleCommands || {}),
+		...(viewportLodScaleCommands || {}),
 		dispose() {
+			disposeViewportLodScaleBinding?.();
 			measurementController?.dispose?.();
 			perSplatEditController?.dispose?.();
 			guideOverlay.dispose();

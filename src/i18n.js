@@ -868,6 +868,12 @@ const MESSAGES = {
 			previewFieldLabel: "入力欄",
 			previewFieldValue: "入力サンプル",
 		},
+		viewportLodScale: {
+			label: "プレビュー品質",
+			ariaLabel: "3DGS プレビュー品質",
+			tooltip:
+				"ビューポート表示の LoD を調整します。書き出しは少なくとも標準品質で出力します。",
+		},
 	},
 	en: {
 		app: {
@@ -1697,6 +1703,12 @@ const MESSAGES = {
 			previewSecondaryButton: "Secondary",
 			previewFieldLabel: "Input",
 			previewFieldValue: "Sample input",
+		},
+		viewportLodScale: {
+			label: "Preview quality",
+			ariaLabel: "3DGS preview quality",
+			tooltip:
+				"Adjust the viewport LoD. Export always renders at least at standard quality.",
 		},
 	},
 };

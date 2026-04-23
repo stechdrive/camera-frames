@@ -24,6 +24,21 @@ export function isNativeHistoryTarget(target) {
 	);
 }
 
+export function isViewportOverlayControlTarget(target) {
+	if (
+		!target ||
+		(typeof target !== "object" && typeof target !== "function") ||
+		typeof target.closest !== "function"
+	) {
+		return false;
+	}
+	return (
+		target.closest(
+			".viewport-project-status, .viewport-lod-scale, .background-task-pill",
+		) !== null
+	);
+}
+
 export function bindInputRouter({
 	listen,
 	viewportShell,
@@ -211,6 +226,9 @@ export function bindInputRouter({
 		if (!isMiddleMouseButton(event)) {
 			return false;
 		}
+		if (isViewportOverlayControlTarget(event.target)) {
+			return false;
+		}
 		if (isInteractiveTextTarget(event.target)) {
 			return false;
 		}
@@ -262,6 +280,9 @@ export function bindInputRouter({
 		viewportShell,
 		"pointerdown",
 		(event) => {
+			if (isViewportOverlayControlTarget(event.target)) {
+				return;
+			}
 			if (handleMeasurementPointerDown?.(event)) {
 				viewportSelectClickCandidate = null;
 			}
@@ -274,6 +295,9 @@ export function bindInputRouter({
 		"pointerdown",
 		(event) => {
 			if (isPieInteractionMode?.()) {
+				return;
+			}
+			if (isViewportOverlayControlTarget(event.target)) {
 				return;
 			}
 			const target = event.target instanceof Element ? event.target : null;
@@ -309,6 +333,9 @@ export function bindInputRouter({
 			if (!isPieInteractionMode?.()) {
 				return;
 			}
+			if (isViewportOverlayControlTarget(event.target)) {
+				return;
+			}
 			if (isViewportPieTarget(event.target)) {
 				return;
 			}
@@ -337,6 +364,9 @@ export function bindInputRouter({
 		"wheel",
 		(event) => {
 			if (!isViewportOrthographicActive?.()) {
+				return;
+			}
+			if (isViewportOverlayControlTarget(event.target)) {
 				return;
 			}
 			const target = event.target instanceof Element ? event.target : null;
@@ -400,6 +430,9 @@ export function bindInputRouter({
 			if (!isMiddleMouseButton(event)) {
 				return;
 			}
+			if (isViewportOverlayControlTarget(event.target)) {
+				return;
+			}
 			event.preventDefault();
 			event.stopPropagation();
 			event.stopImmediatePropagation?.();
@@ -418,8 +451,9 @@ export function bindInputRouter({
 				event.metaKey ||
 				!isSplatEditBrushActive?.() ||
 				!isViewportPointerTarget(target) ||
+				isViewportOverlayControlTarget(target) ||
 				target?.closest(
-					".viewport-splat-edit-toolbar, .viewport-splat-edit-popover, .viewport-project-status",
+					".viewport-splat-edit-toolbar, .viewport-splat-edit-popover",
 				) ||
 				target?.closest(".viewport-pie") ||
 				target?.closest(
@@ -514,6 +548,9 @@ export function bindInputRouter({
 
 	listen(viewportShell, "pointerdown", (event) => {
 		const target = event.target instanceof Element ? event.target : null;
+		if (isViewportOverlayControlTarget(target)) {
+			return;
+		}
 		if (target?.closest(".viewport-pie")) {
 			return;
 		}
@@ -563,8 +600,9 @@ export function bindInputRouter({
 			isSplatEditModeActive?.() &&
 			event.button === 0 &&
 			isViewportPointerTarget(target) &&
+			!isViewportOverlayControlTarget(target) &&
 			!target?.closest(
-				".viewport-splat-edit-toolbar, .viewport-splat-edit-popover, .viewport-project-status",
+				".viewport-splat-edit-toolbar, .viewport-splat-edit-popover",
 			)
 		) {
 			splatEditClickCandidate = {
@@ -651,8 +689,9 @@ export function bindInputRouter({
 		const target = event.target instanceof Element ? event.target : null;
 		if (
 			!isViewportPointerTarget(target) ||
+			isViewportOverlayControlTarget(target) ||
 			target?.closest(
-				".viewport-splat-edit-toolbar, .viewport-splat-edit-popover, .viewport-project-status",
+				".viewport-splat-edit-toolbar, .viewport-splat-edit-popover",
 			)
 		) {
 			clearSplatEditBrushPreview?.();
