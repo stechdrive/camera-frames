@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
 	ANCHORS,
+	AUTO_LOD_MIN_SPLATS,
 	AUTO_VIEW_ZOOM_MARGIN,
 	AUTO_WORKBENCH_MIN_SAFE_ZOOM,
 	BASE_FRAME,
@@ -146,6 +147,27 @@ import {
 	assert.deepEqual(ANCHORS["top-left"], { x: 0, y: 0 });
 	assert.deepEqual(ANCHORS["bottom-right"], { x: 1, y: 1 });
 	console.log("  constants: ANCHORS OK");
+}
+
+// ---------- AUTO_LOD_MIN_SPLATS ----------
+{
+	assert.equal(
+		typeof AUTO_LOD_MIN_SPLATS,
+		"number",
+		"AUTO_LOD_MIN_SPLATS must be numeric",
+	);
+	assert.ok(
+		AUTO_LOD_MIN_SPLATS >= 0,
+		"AUTO_LOD_MIN_SPLATS must be non-negative",
+	);
+	// Sanity check — a threshold below 1k would run LoD bake on trivially
+	// small assets and waste allocations; above 10M it would never fire in
+	// practice.
+	assert.ok(
+		AUTO_LOD_MIN_SPLATS >= 1_000 && AUTO_LOD_MIN_SPLATS <= 10_000_000,
+		"AUTO_LOD_MIN_SPLATS must sit between 1k and 10M",
+	);
+	console.log("  constants: AUTO_LOD_MIN_SPLATS OK");
 }
 
 console.log("constants snapshot test passed!");

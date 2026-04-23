@@ -569,28 +569,24 @@ const MESSAGES = {
 				12: "12 iterations",
 				16: "16 iterations",
 			},
-			packageFieldSplatOptimization: "3DGS の最適化方針",
-			packageSplatOptimization: {
-				none: "変換なし（既存形式のまま保存）",
-				noneHint:
-					"最速保存。3DGS データは読み込んだ形式のままパッケージ化します。",
-				sog: "SOG 圧縮（ファイルサイズ優先）",
-				sogHint:
-					"未編集の PLY / SPZ のファイルサイズを大幅に削減します。読込み時に LoD をランタイム構築するため、初回描画が遅くなることがあります。",
-				sogDisabled: "SOG 圧縮（この環境では利用不可）",
-				bakeLod: "LoD 事前計算（読込み速度優先）",
-				bakeLodHint:
-					"保存時に LoD を焼き込み、次回読込み時に即座にフルスピードで描画します。ファイルサイズは大きくなります。",
-				bakeLodHintPreserveQuality:
-					"Quality で焼込み済み。このまま維持して保存します（再計算なし）。",
-				bakeLodHintPreserveQuick:
-					"Quick で焼込み済み。このまま維持するか、Quality にアップグレードできます。",
+			packageFieldSaveMode: "保存モード",
+			packageSaveMode: {
+				fast: "Fast — 素早く保存",
+				fastHint:
+					"ファイルを小さく保ち、保存は瞬時。描画用の LoD は次回ロード時にバックグラウンドで自動構築されます。",
+				quality: "Quality — 最適化して保存",
+				qualityHint:
+					"LoD を事前計算して保存します。次回読込みから即座に最適化された描画が得られますが、保存に数十秒かかります。",
+				qualityHintPreserve:
+					"既に Quality で焼込み済み。このまま維持して保存します（再計算なし）。",
+				qualityHintUpgrade:
+					"Quick で焼込み済みのデータを Quality に再計算して保存します。",
 			},
-			packageFieldLodQuality: "LoD の品質",
-			packageLodQuality: {
-				quick: "Quick（tiny-lod、数秒）",
-				quality: "Quality（bhatt-lod、数分）",
-			},
+			packageAdvancedOptions: "詳細オプション",
+			packageFieldSogCompress:
+				"未編集 3DGS を SOG 圧縮でさらに小さく保存",
+			packageFieldSogCompressDisabled:
+				"未編集 3DGS を SOG 圧縮（この環境/シーンでは利用不可）",
 			packageBakeLodStage: {
 				start: "LoD を事前計算中…",
 				asset: "{name} の LoD を計算中（{index}/{total}）…",
@@ -619,6 +615,9 @@ const MESSAGES = {
 			workingStateSaved: "{name} を保存しました。",
 			workingStateRestored: "{name} の作業状態を復元しました。",
 			packageSaved: "{name} を書き出しました。",
+			autoLodReady: "{name} の描画を LoD 最適化しました。",
+			autoLodFailed:
+				"{name} の LoD 最適化に失敗しました。通常描画のまま動作を続けます。",
 			newProjectReady: "新規プロジェクトを開始しました。",
 			projectExporting: "プロジェクトを書き出し中...",
 			projectExported: "プロジェクトを書き出しました。",
@@ -1391,28 +1390,24 @@ const MESSAGES = {
 				12: "12 iterations",
 				16: "16 iterations",
 			},
-			packageFieldSplatOptimization: "3DGS optimization",
-			packageSplatOptimization: {
-				none: "No optimization (save as-is)",
-				noneHint:
-					"Fastest save. 3DGS data is packaged in whatever form was loaded.",
-				sog: "SOG compression (smaller file)",
-				sogHint:
-					"Significantly reduces file size for untouched PLY / SPZ. Initial rendering is slower because LoD is rebuilt at runtime.",
-				sogDisabled: "SOG compression (unavailable in this environment)",
-				bakeLod: "Bake LoD (faster reload)",
-				bakeLodHint:
-					"Precomputes the LoD tree at save time so the project loads at full speed next time. Produces a larger ssproj.",
-				bakeLodHintPreserveQuality:
-					"Already baked at Quality. Save will preserve it unchanged (no recomputation).",
-				bakeLodHintPreserveQuick:
-					"Already baked at Quick. Save preserves it as-is, or upgrade to Quality.",
+			packageFieldSaveMode: "Save mode",
+			packageSaveMode: {
+				fast: "Fast — quick save",
+				fastHint:
+					"Keeps the file small and saves instantly. LoD is built in the background on next load.",
+				quality: "Quality — optimized save",
+				qualityHint:
+					"Precomputes the LoD so the next load renders optimized immediately. Save takes tens of seconds.",
+				qualityHintPreserve:
+					"Already baked at Quality. Save will preserve it as-is (no recomputation).",
+				qualityHintUpgrade:
+					"Upgrades existing Quick-baked data to Quality at save time.",
 			},
-			packageFieldLodQuality: "LoD quality",
-			packageLodQuality: {
-				quick: "Quick (tiny-lod, seconds)",
-				quality: "Quality (bhatt-lod, minutes)",
-			},
+			packageAdvancedOptions: "Advanced options",
+			packageFieldSogCompress:
+				"Compress untouched 3DGS as SOG to shrink the file further",
+			packageFieldSogCompressDisabled:
+				"Compress untouched 3DGS as SOG (unavailable in this environment/scene)",
 			packageBakeLodStage: {
 				start: "Baking LoD…",
 				asset: "Baking LoD for {name} ({index}/{total})…",
@@ -1442,6 +1437,9 @@ const MESSAGES = {
 			workingStateRestored: "Restored working state for {name}.",
 			referenceImagesImported: "Loaded {count} reference image file(s).",
 			packageSaved: "Exported {name}.",
+			autoLodReady: "Optimized rendering for {name} with LoD.",
+			autoLodFailed:
+				"Could not build LoD for {name}. Continuing with raw rendering.",
 			newProjectReady: "Started a new project.",
 			projectExporting: "Exporting project...",
 			projectExported: "Project exported.",

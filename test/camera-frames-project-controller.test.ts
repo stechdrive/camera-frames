@@ -274,28 +274,29 @@ function createHarness(overrides = {}) {
 	assert.equal(harness.store.overlay.value, null);
 }
 
+// Radio primary choice is Fast / Quality only — no SOG at the top level.
+// Disclosure group ("advanced") holds SOG compression and its sub-options.
 await withNavigator({ gpu: {} }, async () => {
-	const harness = createHarness({
-		prewarmSogCompressionWorkerImpl: async () => {
-			throw new Error("boom");
-		},
-	});
+	const harness = createHarness();
 	await harness.projectController.exportProject();
-	const splatOptimizationField = harness.store.overlay.value?.fields?.find(
-		(field) => field.id === "splatOptimization",
+	const overlay = harness.store.overlay.value;
+	const saveModeField = overlay?.fields?.find((f) => f.id === "saveMode");
+	assert.equal(saveModeField?.type, "radio");
+	assert.equal(saveModeField?.value, "fast");
+	assert.deepEqual(
+		saveModeField?.options?.map((o) => o.value),
+		["fast", "quality"],
+		"Radio must expose only Fast and Quality; SOG / Quick go through other paths.",
 	);
-	assert.equal(splatOptimizationField?.type, "radio");
-	assert.equal(splatOptimizationField?.value, "none");
-	const sogOption = splatOptimizationField?.options?.find(
-		(option) => option.value === "sog",
-	);
-	assert.equal(sogOption?.disabled, true);
-	assert.equal(
-		sogOption?.label,
-		"SOG compression (unavailable in this environment)",
+	const advancedGroup = overlay?.fields?.find((f) => f.id === "advanced");
+	assert.equal(advancedGroup?.type, "group");
+	assert.ok(
+		advancedGroup?.fields?.some((f) => f.id === "sogCompress"),
+		"Advanced group must expose the SOG compression toggle.",
 	);
 });
 
+// Fast + SOG submit path still routes through SOG worker prewarm + error handling.
 await withNavigator({ gpu: {} }, async () => {
 	const harness = createHarness({
 		prewarmSogCompressionWorkerImpl: async () => {
@@ -304,10 +305,10 @@ await withNavigator({ gpu: {} }, async () => {
 	});
 	await harness.projectController.exportProject();
 	await harness.store.overlay.value.onSubmit({
-		splatOptimization: "sog",
+		saveMode: "fast",
+		sogCompress: true,
 		sogMaxShBands: "2",
 		sogIterations: "10",
-		lodQuality: "quick",
 	});
 	assert.equal(harness.store.overlay.value?.kind, "error");
 	assert.match(
@@ -316,6 +317,7 @@ await withNavigator({ gpu: {} }, async () => {
 	);
 });
 
+// Fast save with no SOG — picker abort path still closes overlay cleanly.
 {
 	const originalShowSaveFilePicker = globalThis.showSaveFilePicker;
 	globalThis.showSaveFilePicker = async () => {
@@ -328,10 +330,10 @@ await withNavigator({ gpu: {} }, async () => {
 		await harness.projectController.exportProject();
 		assert.equal(harness.store.overlay.value?.kind, "confirm");
 		await harness.store.overlay.value.onSubmit({
-			splatOptimization: "none",
+			saveMode: "fast",
+			sogCompress: false,
 			sogMaxShBands: "2",
 			sogIterations: "10",
-			lodQuality: "quick",
 		});
 		assert.equal(harness.store.overlay.value, null);
 	} finally {
@@ -339,9 +341,9 @@ await withNavigator({ gpu: {} }, async () => {
 	}
 }
 
-// Context-aware package-save dialog when assets already carry baked LoD.
-// Quality baked → radio defaults to bake-lod + quality; Quick option is
-// dropped from the select so users cannot accidentally downgrade.
+// When the scene already carries Quality-baked LoD, radio defaults to
+// Quality so the dialog mirrors the existing state the user is about to
+// keep (smart no-op skip then runs at save time — no recomputation).
 await withNavigator({ gpu: {} }, async () => {
 	const harness = createHarness({
 		assetController: {
@@ -363,64 +365,15 @@ await withNavigator({ gpu: {} }, async () => {
 	});
 	await harness.projectController.exportProject();
 	const overlay = harness.store.overlay.value;
-	const splatOptimizationField = overlay?.fields?.find(
-		(field) => field.id === "splatOptimization",
-	);
-	assert.equal(splatOptimizationField?.value, "bake-lod");
-	const lodQualityField = overlay?.fields?.find(
-		(field) => field.id === "lodQuality",
-	);
-	assert.equal(lodQualityField?.value, "quality");
-	assert.deepEqual(
-		lodQualityField?.options?.map((option) => option.value),
-		["quality"],
-		"Quick must be removed from the select when Quality is already baked — no downgrade trap.",
-	);
-	const bakeLodOption = splatOptimizationField?.options?.find(
-		(option) => option.value === "bake-lod",
+	const saveModeField = overlay?.fields?.find((f) => f.id === "saveMode");
+	assert.equal(saveModeField?.value, "quality");
+	const qualityOption = saveModeField?.options?.find(
+		(o) => o.value === "quality",
 	);
 	assert.match(
-		String(bakeLodOption?.hint ?? ""),
-		/Quality.*preserve/i,
-		"bake-lod hint should tell the user the existing Quality bake will be preserved.",
-	);
-});
-
-// Quick baked → radio defaults to bake-lod + quick, Quality is still
-// offered as an explicit upgrade path.
-await withNavigator({ gpu: {} }, async () => {
-	const harness = createHarness({
-		assetController: {
-			getSceneAssets: () => [
-				{
-					kind: "splat",
-					label: "big-scene",
-					disposeTarget: { packedSplats: { packedArray: new Uint32Array(4) } },
-					source: {
-						sourceType: "project-file-packed-splat",
-						lodSplats: {
-							packedArray: new Uint32Array(4),
-							bakedQuality: "quick",
-						},
-					},
-				},
-			],
-		},
-	});
-	await harness.projectController.exportProject();
-	const overlay = harness.store.overlay.value;
-	const splatOptimizationField = overlay?.fields?.find(
-		(field) => field.id === "splatOptimization",
-	);
-	assert.equal(splatOptimizationField?.value, "bake-lod");
-	const lodQualityField = overlay?.fields?.find(
-		(field) => field.id === "lodQuality",
-	);
-	assert.equal(lodQualityField?.value, "quick");
-	assert.deepEqual(
-		lodQualityField?.options?.map((option) => option.value).sort(),
-		["quality", "quick"],
-		"Quick baked scene still offers Quality as an upgrade option.",
+		String(qualityOption?.hint ?? ""),
+		/preserve|Quality/i,
+		"Quality hint should signal that existing bake will be preserved.",
 	);
 });
 

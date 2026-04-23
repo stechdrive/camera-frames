@@ -1,6 +1,8 @@
 import { PackedSplats, unpackSplats } from "../engine/spark-integration/spark-symbols.js";
 import * as THREE from "three";
+import { AUTO_LOD_MIN_SPLATS } from "../constants.js";
 import { prioritizeSceneAssetsWithinKinds } from "../engine/scene-asset-order.js";
+import { bakeSparkPackedSplatsLod } from "../engine/spark-integration/spark-packed-splats-adapter.js";
 import { enableSparkSplatMeshWorldToView } from "../engine/spark-integration/spark-splat-mesh-adapter.js";
 import { applyLegacyAssetState } from "../importers/legacy-ssproj.js";
 import {
@@ -540,6 +542,40 @@ export function createAssetController({
 		return asset;
 	}
 
+	function kickAutoLodBake(packedSplats, displayName) {
+		if (!packedSplats || typeof packedSplats !== "object") {
+			return;
+		}
+		if (packedSplats.lodSplats) {
+			// Already baked (either prebuilt from source.lodSplats or attached
+			// by a prior bake). Renderer will use it directly.
+			return;
+		}
+		const numSplats =
+			packedSplats.getNumSplats?.() ?? packedSplats.numSplats ?? 0;
+		if (numSplats < AUTO_LOD_MIN_SPLATS) {
+			// Small enough that raw rendering is fine; LoD overhead isn't worth it.
+			return;
+		}
+		// Non-blocking background build. Renderer picks up the lodSplats on
+		// next frame via needsUpdate flag set by bakeSparkPackedSplatsLod.
+		void bakeSparkPackedSplatsLod(packedSplats, { quality: false })
+			.then(() => {
+				setStatus?.(
+					t("status.autoLodReady", { name: displayName ?? "3DGS" }),
+				);
+			})
+			.catch((error) => {
+				console.error(
+					`[camera-frames] auto-LoD bake failed for "${displayName ?? "?"}":`,
+					error,
+				);
+				setStatus?.(
+					t("status.autoLodFailed", { name: displayName ?? "3DGS" }),
+				);
+			});
+	}
+
 	async function createPrebuiltLodSplatsFromSource(lodSplatsSource) {
 		if (
 			!lodSplatsSource ||
@@ -657,6 +693,7 @@ export function createAssetController({
 			if (Number.isFinite(insertIndex)) {
 				moveRegisteredAssetToIndex(asset, insertIndex);
 			}
+			kickAutoLodBake(packedSplats, displayName);
 			return asset;
 		};
 

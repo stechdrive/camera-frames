@@ -1,10 +1,171 @@
 import { html } from "htm/preact";
 import { useEffect, useState } from "preact/hooks";
 
+function collectFieldsFromList(list, accumulator) {
+	if (!Array.isArray(list)) {
+		return;
+	}
+	for (const field of list) {
+		if (!field || typeof field !== "object") {
+			continue;
+		}
+		if (field.type === "group") {
+			collectFieldsFromList(field.fields, accumulator);
+			continue;
+		}
+		if (typeof field.id !== "string") {
+			continue;
+		}
+		accumulator[field.id] = field.value ?? "";
+	}
+}
+
 function buildOverlayFieldState(fields = []) {
-	return Object.fromEntries(
-		fields.map((field) => [field.id, field.value ?? ""]),
-	);
+	const accumulator = {};
+	collectFieldsFromList(fields, accumulator);
+	return accumulator;
+}
+
+function renderOverlayField(field, fieldValues, setFieldValues) {
+	if (!field || typeof field !== "object") {
+		return null;
+	}
+	const isDisabled =
+		typeof field.disabled === "function"
+			? Boolean(field.disabled(fieldValues))
+			: Boolean(field.disabled);
+
+	if (field.type === "group") {
+		const isHidden =
+			typeof field.hidden === "function"
+				? Boolean(field.hidden(fieldValues))
+				: Boolean(field.hidden);
+		if (isHidden) {
+			return null;
+		}
+		const openAttr = field.open ? { open: true } : {};
+		return html`
+			<details class="overlay-field-group" ...${openAttr}>
+				<summary class="overlay-field-group__summary">
+					${field.label}
+				</summary>
+				<div class="overlay-field-group__body">
+					${(field.fields ?? []).map((child) =>
+						renderOverlayField(child, fieldValues, setFieldValues),
+					)}
+				</div>
+			</details>
+		`;
+	}
+
+	if (field.type === "checkbox") {
+		return html`
+			<label class="overlay-checkbox-field">
+				<input
+					type="checkbox"
+					checked=${Boolean(fieldValues[field.id])}
+					disabled=${isDisabled}
+					onChange=${(event) =>
+						setFieldValues((current) => ({
+							...current,
+							[field.id]: event.currentTarget.checked,
+						}))}
+				/>
+				<span>${field.label}</span>
+			</label>
+		`;
+	}
+
+	if (field.type === "select") {
+		return html`
+			<label class="overlay-field">
+				<span>${field.label}</span>
+				<select
+					value=${String(fieldValues[field.id] ?? "")}
+					disabled=${isDisabled}
+					onChange=${(event) =>
+						setFieldValues((current) => ({
+							...current,
+							[field.id]: event.currentTarget.value,
+						}))}
+				>
+					${(field.options ?? []).map(
+						(option) => html`
+							<option value=${option.value}>${option.label}</option>
+						`,
+					)}
+				</select>
+			</label>
+		`;
+	}
+
+	if (field.type === "radio") {
+		const currentValue = String(fieldValues[field.id] ?? "");
+		return html`
+			<fieldset
+				class="overlay-field overlay-field--radio"
+				disabled=${isDisabled}
+			>
+				<legend>${field.label}</legend>
+				${(field.options ?? []).map((option) => {
+					const optionDisabled =
+						Boolean(option.disabled) || isDisabled;
+					return html`
+						<label
+							class=${`overlay-radio-option ${
+								optionDisabled
+									? "overlay-radio-option--disabled"
+									: ""
+							}`}
+						>
+							<input
+								type="radio"
+								name=${field.id}
+								value=${option.value}
+								checked=${currentValue === option.value}
+								disabled=${optionDisabled}
+								onChange=${(event) => {
+									const nextValue = event.currentTarget.value;
+									setFieldValues((current) => ({
+										...current,
+										[field.id]: nextValue,
+									}));
+								}}
+							/>
+							<span class="overlay-radio-option__body">
+								<span class="overlay-radio-option__label">
+									${option.label}
+								</span>
+								${option.hint
+									? html`
+											<span class="overlay-radio-option__hint">
+												${option.hint}
+											</span>
+										`
+									: null}
+							</span>
+						</label>
+					`;
+				})}
+			</fieldset>
+		`;
+	}
+
+	return html`
+		<label class="overlay-field">
+			<span>${field.label}</span>
+			<input
+				type=${field.type ?? "text"}
+				value=${String(fieldValues[field.id] ?? "")}
+				disabled=${isDisabled}
+				onInput=${(event) =>
+					setFieldValues((current) => ({
+						...current,
+						[field.id]: event.currentTarget.value,
+					}))}
+			/>
+		</label>
+	`;
 }
 
 function renderOverlayFields(overlay, fieldValues, setFieldValues) {
@@ -14,120 +175,9 @@ function renderOverlayFields(overlay, fieldValues, setFieldValues) {
 
 	return html`
 		<div class="overlay-field-list">
-			${overlay.fields.map((field) => {
-				const isDisabled =
-					typeof field.disabled === "function"
-						? Boolean(field.disabled(fieldValues))
-						: Boolean(field.disabled);
-				if (field.type === "checkbox") {
-					return html`
-						<label class="overlay-checkbox-field">
-							<input
-								type="checkbox"
-								checked=${Boolean(fieldValues[field.id])}
-								disabled=${isDisabled}
-								onChange=${(event) =>
-									setFieldValues((current) => ({
-										...current,
-										[field.id]: event.currentTarget.checked,
-									}))}
-							/>
-							<span>${field.label}</span>
-						</label>
-					`;
-				}
-
-				if (field.type === "select") {
-					return html`
-						<label class="overlay-field">
-							<span>${field.label}</span>
-							<select
-								value=${String(fieldValues[field.id] ?? "")}
-								disabled=${isDisabled}
-								onChange=${(event) =>
-									setFieldValues((current) => ({
-										...current,
-										[field.id]: event.currentTarget.value,
-									}))}
-							>
-								${(field.options ?? []).map(
-									(option) => html`
-										<option value=${option.value}>${option.label}</option>
-									`,
-								)}
-							</select>
-						</label>
-					`;
-				}
-
-				if (field.type === "radio") {
-					const currentValue = String(fieldValues[field.id] ?? "");
-					return html`
-						<fieldset
-							class="overlay-field overlay-field--radio"
-							disabled=${isDisabled}
-						>
-							<legend>${field.label}</legend>
-							${(field.options ?? []).map((option) => {
-								const optionDisabled =
-									Boolean(option.disabled) || isDisabled;
-								return html`
-									<label
-										class=${`overlay-radio-option ${
-											optionDisabled
-												? "overlay-radio-option--disabled"
-												: ""
-										}`}
-									>
-										<input
-											type="radio"
-											name=${field.id}
-											value=${option.value}
-											checked=${currentValue === option.value}
-											disabled=${optionDisabled}
-											onChange=${(event) => {
-												const nextValue = event.currentTarget.value;
-												setFieldValues((current) => ({
-													...current,
-													[field.id]: nextValue,
-												}));
-											}}
-										/>
-										<span class="overlay-radio-option__body">
-											<span class="overlay-radio-option__label">
-												${option.label}
-											</span>
-											${option.hint
-												? html`
-														<span class="overlay-radio-option__hint">
-															${option.hint}
-														</span>
-													`
-												: null}
-										</span>
-									</label>
-								`;
-							})}
-						</fieldset>
-					`;
-				}
-
-				return html`
-					<label class="overlay-field">
-						<span>${field.label}</span>
-						<input
-							type=${field.type ?? "text"}
-							value=${String(fieldValues[field.id] ?? "")}
-							disabled=${isDisabled}
-							onInput=${(event) =>
-								setFieldValues((current) => ({
-									...current,
-									[field.id]: event.currentTarget.value,
-								}))}
-						/>
-					</label>
-				`;
-			})}
+			${overlay.fields.map((field) =>
+				renderOverlayField(field, fieldValues, setFieldValues),
+			)}
 		</div>
 	`;
 }

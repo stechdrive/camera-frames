@@ -8,6 +8,7 @@ import {
 	createProjectFilePackedSplatSource,
 	generateProjectId,
 	getProjectSourceStableKey,
+	isProjectFileEmbeddedFileSource,
 	isProjectFilePackedSplatSource,
 	normalizeProjectDocument,
 } from "../project/document.js";
@@ -84,18 +85,14 @@ export function createProjectController({
 	let currentPackageDirtySignature = "";
 	let pendingAfterSuccessfulSave = null;
 	let preferredPackageSaveOptions = {
-		splatOptimization: "none",
+		saveMode: "fast",
+		sogCompress: false,
 		sogMaxShBands: DEFAULT_SOG_MAX_SH_BANDS,
 		sogIterations: DEFAULT_SOG_ITERATIONS,
-		lodQuality: "quick",
 	};
 
-	function normalizeSplatOptimization(value) {
-		return value === "sog" || value === "bake-lod" ? value : "none";
-	}
-
-	function normalizeLodQuality(value) {
-		return value === "quality" ? "quality" : "quick";
+	function normalizeSaveMode(value) {
+		return value === "quality" ? "quality" : "fast";
 	}
 
 	function setOverlay(nextOverlay) {
@@ -895,23 +892,23 @@ export function createProjectController({
 	) {
 		const progressStartedAt = Date.now();
 		flushDirtySplatSources?.();
-		const splatOptimization = normalizeSplatOptimization(
-			values.splatOptimization,
-		);
-		const compressSplatsToSog = splatOptimization === "sog";
-		const bakeLod = splatOptimization === "bake-lod";
-		const lodQuality = normalizeLodQuality(values.lodQuality);
+		const packageSaveMode = normalizeSaveMode(values.saveMode);
+		const bakeLod = packageSaveMode === "quality";
+		// SOG is only meaningful in Fast mode — Quality always promotes sources
+		// to raw-packed-splat to carry the baked LoD, which bypasses SOG's
+		// embedded-file code path.
+		const sogCompress = packageSaveMode === "fast" && values.sogCompress === true;
 		const sogMaxShBands = Number.parseInt(values.sogMaxShBands ?? "", 10);
 		const sogIterations = Number.parseInt(values.sogIterations ?? "", 10);
 		preferredPackageSaveOptions = {
-			splatOptimization,
+			saveMode: packageSaveMode,
+			sogCompress: values.sogCompress === true,
 			sogMaxShBands: [0, 1, 2, 3].includes(sogMaxShBands)
 				? sogMaxShBands
 				: DEFAULT_SOG_MAX_SH_BANDS,
 			sogIterations: PACKAGE_SOG_ITERATION_OPTIONS.includes(sogIterations)
 				? sogIterations
 				: DEFAULT_SOG_ITERATIONS,
-			lodQuality,
 		};
 
 		const projectSnapshot = captureProjectState();
@@ -923,7 +920,7 @@ export function createProjectController({
 			currentProjectName || getProjectBaseName(buildProjectFilename());
 		const suggestedName = getSuggestedPackageFilename();
 		try {
-			if (compressSplatsToSog) {
+			if (sogCompress) {
 				const sogCompressionAvailability =
 					await resolveSogCompressionAvailability({
 						logFailure: true,
@@ -952,7 +949,7 @@ export function createProjectController({
 
 			if (bakeLod) {
 				await bakeAllSplatLodsForPackageSave({
-					quality: lodQuality === "quality",
+					quality: true,
 					startedAt: progressStartedAt,
 				});
 			}
@@ -964,8 +961,7 @@ export function createProjectController({
 					normalizedProject,
 					writable,
 					{
-						compressSplatsToSog:
-							preferredPackageSaveOptions.splatOptimization === "sog",
+						compressSplatsToSog: sogCompress,
 						sogMaxShBands: preferredPackageSaveOptions.sogMaxShBands,
 						sogIterations: preferredPackageSaveOptions.sogIterations,
 						onProgress: async (progress) => {
@@ -1032,51 +1028,33 @@ export function createProjectController({
 		});
 		const canCompressSplatsToSog = sogCompressionAvailability.available;
 		const bakedLodState = getSceneBakedLodState();
-		const preferredSplatOptimization = normalizeSplatOptimization(
-			preferredPackageSaveOptions.splatOptimization,
+		// If the scene already carries Quality-baked LoD, save-as-Fast would
+		// keep it pass-through, so the radio can either default to Quality
+		// (preserve & signal intent explicitly) or Fast (same effective output
+		// via pass-through). We default to Quality when anything is baked so
+		// the UI mirrors the actual state the user is about to keep.
+		const preferredSaveMode = normalizeSaveMode(preferredPackageSaveOptions.saveMode);
+		const saveModeDefault = bakedLodState.hasAnyBaked
+			? "quality"
+			: preferredSaveMode;
+		const hasAnyEmbeddedFileSource = (
+			assetController?.getSceneAssets?.() ?? []
+		).some(
+			(asset) =>
+				asset?.kind === "splat" &&
+				isProjectFileEmbeddedFileSource(asset?.source),
 		);
-		// If the scene already carries baked LoD, default to bake-lod so the
-		// dialog reflects the current state; otherwise fall back to the user's
-		// prior preference (with SOG availability still honored).
-		let splatOptimizationDefault;
-		if (bakedLodState.hasAnyBaked) {
-			splatOptimizationDefault = "bake-lod";
-		} else if (
-			preferredSplatOptimization === "sog" &&
-			!canCompressSplatsToSog
-		) {
-			splatOptimizationDefault = "none";
-		} else {
-			splatOptimizationDefault = preferredSplatOptimization;
-		}
-		const sogOptionLabel = canCompressSplatsToSog
-			? t("overlay.packageSplatOptimization.sog")
-			: t("overlay.packageSplatOptimization.sogDisabled");
-		// Context-aware LoD quality:
-		//   - When any asset has Quality baked, hide Quick entirely. Quality
-		//     beats Quick on both size and fidelity — offering Quick here is
-		//     a downgrade trap that also loses work.
-		//   - Otherwise offer both, defaulting to the highest existing quality
-		//     or the user's prior preference.
-		const lodQualityOptions = [];
-		if (!bakedLodState.hasAnyQuality) {
-			lodQualityOptions.push({
-				value: "quick",
-				label: t("overlay.packageLodQuality.quick"),
-			});
-		}
-		lodQualityOptions.push({
-			value: "quality",
-			label: t("overlay.packageLodQuality.quality"),
-		});
-		const lodQualityDefault =
-			bakedLodState.maxBakedQuality ??
-			normalizeLodQuality(preferredPackageSaveOptions.lodQuality);
-		const bakeLodHint = bakedLodState.hasAnyQuality
-			? t("overlay.packageSplatOptimization.bakeLodHintPreserveQuality")
+		const sogToggleAvailable = canCompressSplatsToSog && hasAnyEmbeddedFileSource;
+		// If SOG was previously preferred but is no longer available (webgpu
+		// gone or no pure PLY in this scene), untick it so the disclosure
+		// reflects reality.
+		const sogCompressDefault =
+			sogToggleAvailable && preferredPackageSaveOptions.sogCompress;
+		const qualityHint = bakedLodState.hasAnyQuality
+			? t("overlay.packageSaveMode.qualityHintPreserve")
 			: bakedLodState.hasAnyQuick
-				? t("overlay.packageSplatOptimization.bakeLodHintPreserveQuick")
-				: t("overlay.packageSplatOptimization.bakeLodHint");
+				? t("overlay.packageSaveMode.qualityHintUpgrade")
+				: t("overlay.packageSaveMode.qualityHint");
 		setOverlay({
 			kind: "confirm",
 			title: t("overlay.packageSaveTitle"),
@@ -1087,58 +1065,63 @@ export function createProjectController({
 				: t("overlay.packageSaveMessage"),
 			fields: [
 				{
-					id: "splatOptimization",
+					id: "saveMode",
 					type: "radio",
-					label: t("overlay.packageFieldSplatOptimization"),
-					value: splatOptimizationDefault,
+					label: t("overlay.packageFieldSaveMode"),
+					value: saveModeDefault,
 					options: [
 						{
-							value: "none",
-							label: t("overlay.packageSplatOptimization.none"),
-							hint: t("overlay.packageSplatOptimization.noneHint"),
+							value: "fast",
+							label: t("overlay.packageSaveMode.fast"),
+							hint: t("overlay.packageSaveMode.fastHint"),
 						},
 						{
-							value: "sog",
-							label: sogOptionLabel,
-							hint: t("overlay.packageSplatOptimization.sogHint"),
-							disabled: !canCompressSplatsToSog,
-						},
-						{
-							value: "bake-lod",
-							label: t("overlay.packageSplatOptimization.bakeLod"),
-							hint: bakeLodHint,
+							value: "quality",
+							label: t("overlay.packageSaveMode.quality"),
+							hint: qualityHint,
 						},
 					],
 				},
 				{
-					id: "sogMaxShBands",
-					type: "select",
-					label: t("overlay.packageFieldSogShBands"),
-					value: String(preferredPackageSaveOptions.sogMaxShBands),
-					disabled: (values) => values.splatOptimization !== "sog",
-					options: [0, 1, 2, 3].map((value) => ({
-						value: String(value),
-						label: t(`overlay.packageSogShBands.${value}`),
-					})),
-				},
-				{
-					id: "sogIterations",
-					type: "select",
-					label: t("overlay.packageFieldSogIterations"),
-					value: String(preferredPackageSaveOptions.sogIterations),
-					disabled: (values) => values.splatOptimization !== "sog",
-					options: PACKAGE_SOG_ITERATION_OPTIONS.map((value) => ({
-						value: String(value),
-						label: t(`overlay.packageSogIterations.${value}`),
-					})),
-				},
-				{
-					id: "lodQuality",
-					type: "select",
-					label: t("overlay.packageFieldLodQuality"),
-					value: lodQualityDefault,
-					disabled: (values) => values.splatOptimization !== "bake-lod",
-					options: lodQualityOptions,
+					id: "advanced",
+					type: "group",
+					label: t("overlay.packageAdvancedOptions"),
+					open: false,
+					hidden: (values) =>
+						values.saveMode !== "fast" || !sogToggleAvailable,
+					fields: [
+						{
+							id: "sogCompress",
+							type: "checkbox",
+							label: sogToggleAvailable
+								? t("overlay.packageFieldSogCompress")
+								: t("overlay.packageFieldSogCompressDisabled"),
+							value: sogCompressDefault,
+							disabled: !sogToggleAvailable,
+						},
+						{
+							id: "sogMaxShBands",
+							type: "select",
+							label: t("overlay.packageFieldSogShBands"),
+							value: String(preferredPackageSaveOptions.sogMaxShBands),
+							disabled: (values) => values.sogCompress !== true,
+							options: [0, 1, 2, 3].map((value) => ({
+								value: String(value),
+								label: t(`overlay.packageSogShBands.${value}`),
+							})),
+						},
+						{
+							id: "sogIterations",
+							type: "select",
+							label: t("overlay.packageFieldSogIterations"),
+							value: String(preferredPackageSaveOptions.sogIterations),
+							disabled: (values) => values.sogCompress !== true,
+							options: PACKAGE_SOG_ITERATION_OPTIONS.map((value) => ({
+								value: String(value),
+								label: t(`overlay.packageSogIterations.${value}`),
+							})),
+						},
+					],
 				},
 			],
 			actions: [

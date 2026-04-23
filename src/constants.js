@@ -48,6 +48,13 @@ export const SPLAT_EXTENSIONS = new Set([
 	"rad",
 ]);
 
+// Splat assets with at least this many splats get an automatic tiny-lod
+// background build on load. Below this threshold, raw rendering is fast
+// enough that the LoD overhead isn't worth the memory cost.
+// Tunable: lower = LoD on smaller scenes (more memory); higher = LoD only
+// for heavy scenes (more scenes render without LoD).
+export const AUTO_LOD_MIN_SPLATS = 100_000;
+
 export const MODEL_EXTENSIONS = new Set(["glb", "gltf"]);
 
 export const ANCHORS = {
