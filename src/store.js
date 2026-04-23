@@ -207,6 +207,13 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	const projectDirty = signal(false);
 	const projectPackageDirty = signal(true);
 	const overlay = signal(null);
+	// Non-blocking background task indicator. Shape:
+	//   null                                (idle)
+	//   { kind: "auto-lod", current, total, label, status }
+	//     status: "running" | "done" | "failed"
+	// The UI shows a small corner pill (project-status neighbor) that
+	// fades out shortly after transitioning out of "running".
+	const backgroundTask = signal(null);
 	const helpOpen = signal(false);
 	const helpSectionId = signal("getting-started");
 	const helpAnchor = signal(null);
@@ -559,6 +566,7 @@ export function createCameraFramesStore(runtimeInfo = null) {
 			packageDirty: projectPackageDirty,
 		},
 		overlay,
+		backgroundTask,
 		help: {
 			open: helpOpen,
 			sectionId: helpSectionId,

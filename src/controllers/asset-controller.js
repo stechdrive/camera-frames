@@ -542,6 +542,77 @@ export function createAssetController({
 		return asset;
 	}
 
+	function updateBackgroundTaskSignal(mutation) {
+		const current = store.backgroundTask?.value ?? null;
+		const next = mutation(current);
+		if (store.backgroundTask && next !== current) {
+			store.backgroundTask.value = next;
+		}
+	}
+
+	function scheduleBackgroundTaskClear(targetStatus, delayMs) {
+		if (!store.backgroundTask) {
+			return;
+		}
+		const captured = store.backgroundTask.value;
+		setTimeout(() => {
+			// Only clear if state hasn't moved on (e.g. another asset started).
+			const now = store.backgroundTask.value;
+			if (now === captured && now?.status === targetStatus) {
+				store.backgroundTask.value = null;
+			}
+		}, delayMs);
+	}
+
+	function beginAutoLodBakeTask(label) {
+		updateBackgroundTaskSignal((current) => {
+			if (current?.kind === "auto-lod" && current.status === "running") {
+				return {
+					...current,
+					total: current.total + 1,
+					label,
+				};
+			}
+			return {
+				kind: "auto-lod",
+				status: "running",
+				current: 0,
+				total: 1,
+				label,
+			};
+		});
+	}
+
+	function finishAutoLodBakeTask(label, { failed = false } = {}) {
+		updateBackgroundTaskSignal((current) => {
+			if (current?.kind !== "auto-lod") {
+				return current;
+			}
+			const nextCurrent = Math.min(current.total, current.current + 1);
+			const allDone = nextCurrent >= current.total;
+			if (!allDone) {
+				return {
+					...current,
+					current: nextCurrent,
+					label,
+				};
+			}
+			return {
+				...current,
+				current: nextCurrent,
+				label,
+				status: failed ? "failed" : "done",
+			};
+		});
+		// Auto-clear the final state after a short grace period so the
+		// "done" / "failed" badge stays visible briefly, then fades out.
+		if (store.backgroundTask?.value?.status === "done") {
+			scheduleBackgroundTaskClear("done", 2000);
+		} else if (store.backgroundTask?.value?.status === "failed") {
+			scheduleBackgroundTaskClear("failed", 5000);
+		}
+	}
+
 	function kickAutoLodBake(packedSplats, displayName) {
 		if (!packedSplats || typeof packedSplats !== "object") {
 			return;
@@ -557,22 +628,22 @@ export function createAssetController({
 			// Small enough that raw rendering is fine; LoD overhead isn't worth it.
 			return;
 		}
+		const label = displayName ?? "3DGS";
+		beginAutoLodBakeTask(label);
 		// Non-blocking background build. Renderer picks up the lodSplats on
 		// next frame via needsUpdate flag set by bakeSparkPackedSplatsLod.
 		void bakeSparkPackedSplatsLod(packedSplats, { quality: false })
 			.then(() => {
-				setStatus?.(
-					t("status.autoLodReady", { name: displayName ?? "3DGS" }),
-				);
+				finishAutoLodBakeTask(label);
+				setStatus?.(t("status.autoLodReady", { name: label }));
 			})
 			.catch((error) => {
 				console.error(
-					`[camera-frames] auto-LoD bake failed for "${displayName ?? "?"}":`,
+					`[camera-frames] auto-LoD bake failed for "${label}":`,
 					error,
 				);
-				setStatus?.(
-					t("status.autoLodFailed", { name: displayName ?? "3DGS" }),
-				);
+				finishAutoLodBakeTask(label, { failed: true });
+				setStatus?.(t("status.autoLodFailed", { name: label }));
 			});
 	}
 
