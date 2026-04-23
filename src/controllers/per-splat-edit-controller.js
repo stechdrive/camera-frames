@@ -2,32 +2,28 @@ import { effect } from "@preact/signals";
 import { AUTO_LOD_MIN_SPLATS } from "../constants.js";
 import { createSplatEditSceneHelper } from "../engine/splat-edit-scene-helper.js";
 import { createSplatTransformPreviewController } from "../engine/splat-transform-preview.js";
-import {
-	clampBrushDepth,
-	clampBrushSizePx,
-} from "./per-splat-edit/pure-utils.js";
-import {
-	createSceneSplatAssetAccessor,
-} from "./per-splat-edit/asset-accessors.js";
-import { createSplatAssetPersistence } from "./per-splat-edit/persistence.js";
-import { createBrushSpatialIndex } from "./per-splat-edit/brush-spatial-index.js";
-import { createSplatSelectionState } from "./per-splat-edit/selection-state.js";
-import { createSplatEditHistoryBridge } from "./per-splat-edit/history-bridge.js";
-import { createSplatEditScope } from "./per-splat-edit/scope.js";
+import { createSplatEditActions } from "./per-splat-edit/actions.js";
+import { createSceneSplatAssetAccessor } from "./per-splat-edit/asset-accessors.js";
 import {
 	createSplatEditBoxTool,
 	pointInSplatEditBox,
 } from "./per-splat-edit/box-tool.js";
+import { createBrushSpatialIndex } from "./per-splat-edit/brush-spatial-index.js";
 import { createSplatEditBrushTool } from "./per-splat-edit/brush-tool.js";
-import { createSplatEditTransformTool } from "./per-splat-edit/transform-tool.js";
-import {
-	createSplatEditActions,
-} from "./per-splat-edit/actions.js";
-import { createSplatEditSceneHelperSync } from "./per-splat-edit/scene-helper-sync.js";
-import { createSplatEditViewportHelpers } from "./per-splat-edit/viewport-helpers.js";
-import { createSplatEditGizmo } from "./per-splat-edit/gizmo.js";
-import { createSplatEditModeSwitch } from "./per-splat-edit/mode-switch.js";
 import { createSplatEditContentMutations } from "./per-splat-edit/content-mutations.js";
+import { createSplatEditGizmo } from "./per-splat-edit/gizmo.js";
+import { createSplatEditHistoryBridge } from "./per-splat-edit/history-bridge.js";
+import { createSplatEditModeSwitch } from "./per-splat-edit/mode-switch.js";
+import { createSplatAssetPersistence } from "./per-splat-edit/persistence.js";
+import {
+	clampBrushDepth,
+	clampBrushSizePx,
+} from "./per-splat-edit/pure-utils.js";
+import { createSplatEditSceneHelperSync } from "./per-splat-edit/scene-helper-sync.js";
+import { createSplatEditScope } from "./per-splat-edit/scope.js";
+import { createSplatSelectionState } from "./per-splat-edit/selection-state.js";
+import { createSplatEditTransformTool } from "./per-splat-edit/transform-tool.js";
+import { createSplatEditViewportHelpers } from "./per-splat-edit/viewport-helpers.js";
 
 export function createPerSplatEditController({
 	store,
@@ -65,17 +61,29 @@ export function createPerSplatEditController({
 	guides?.add?.(sceneHelper.group);
 
 	// Forward-declared module references (late-bound via closure)
+	// biome-ignore lint/style/useConst: Late-bound controller modules reference each other through closures.
 	let scope;
+	// biome-ignore lint/style/useConst: Late-bound controller modules reference each other through closures.
 	let selectionState;
+	// biome-ignore lint/style/useConst: Late-bound controller modules reference each other through closures.
 	let persistence;
+	// biome-ignore lint/style/useConst: Late-bound controller modules reference each other through closures.
 	let boxTool;
+	// biome-ignore lint/style/useConst: Late-bound controller modules reference each other through closures.
 	let brushTool;
+	// biome-ignore lint/style/useConst: Late-bound controller modules reference each other through closures.
 	let transformTool;
+	// biome-ignore lint/style/useConst: Late-bound controller modules reference each other through closures.
 	let actions;
+	// biome-ignore lint/style/useConst: Late-bound controller modules reference each other through closures.
 	let sceneHelperSync;
+	// biome-ignore lint/style/useConst: Late-bound controller modules reference each other through closures.
 	let historyBridge;
+	// biome-ignore lint/style/useConst: Late-bound controller modules reference each other through closures.
 	let contentMutations;
+	// biome-ignore lint/style/useConst: Late-bound controller modules reference each other through closures.
 	let gizmo;
+	// biome-ignore lint/style/useConst: Late-bound controller modules reference each other through closures.
 	let modeSwitch;
 
 	const getSceneSplatAssets = createSceneSplatAssetAccessor({
@@ -97,7 +105,8 @@ export function createPerSplatEditController({
 		updateUi,
 		getSceneSplatAssets,
 		syncSelectionCount: () => selectionState.syncSelectionCount(),
-		syncSelectionHighlight: (opts) => selectionState.syncSelectionHighlight(opts),
+		syncSelectionHighlight: (opts) =>
+			selectionState.syncSelectionHighlight(opts),
 		syncSceneHelper: () => sceneHelperSync.syncSceneHelper(),
 		clearActiveTransformPreview: (opts) =>
 			transformTool.clearActiveTransformPreview(opts),
@@ -287,7 +296,8 @@ export function createPerSplatEditController({
 			transformTool.ensureSelectedSplatTransformPreview,
 		updateSelectedSplatTransformPreview:
 			transformTool.updateSelectedSplatTransformPreview,
-		finalizeSelectedSplatTransform: transformTool.finalizeSelectedSplatTransform,
+		finalizeSelectedSplatTransform:
+			transformTool.finalizeSelectedSplatTransform,
 		beginSplatSourceHistoryTransaction:
 			persistence.beginSplatSourceHistoryTransaction,
 		finalizeSplatTransformDragHistory:
@@ -393,8 +403,7 @@ export function createPerSplatEditController({
 			if (!assetNeedsLodRebuild(asset)) {
 				continue;
 			}
-			const displayName =
-				asset?.label ?? asset?.source?.fileName ?? "3DGS";
+			const displayName = asset?.label ?? asset?.source?.fileName ?? "3DGS";
 			kick(asset.disposeTarget.packedSplats, displayName);
 			dispatched += 1;
 		}
@@ -410,7 +419,9 @@ export function createPerSplatEditController({
 		lodStatusEffectDisposer?.();
 		brushTool.clearActiveBrushStroke();
 		brushTool.clearBrushPreview({ syncUi: false });
-		historyBridge.finalizeSplatTransformDragHistory(gizmo.getActiveTransformDrag());
+		historyBridge.finalizeSplatTransformDragHistory(
+			gizmo.getActiveTransformDrag(),
+		);
 		gizmo.clearActiveTransformDrag();
 		transformTool.clearActiveTransformPreview({ syncUi: false });
 		selectionState.clearSelectionHighlight();
@@ -440,10 +451,12 @@ export function createPerSplatEditController({
 		placeSplatEditBoxAtViewCenter: boxTool.placeSplatEditBoxAtViewCenter,
 		fitSplatEditBoxToScope: boxTool.fitSplatEditBoxToScope,
 		applySplatEditBoxSelection: boxTool.applySplatEditBoxSelection,
-		applySplatEditBrushAtClientPoint: brushTool.applySplatEditBrushAtClientPoint,
+		applySplatEditBrushAtClientPoint:
+			brushTool.applySplatEditBrushAtClientPoint,
 		updateBrushPreviewFromClientPoint:
 			brushTool.updateBrushPreviewFromClientPoint,
-		moveSelectedSplatsByWorldDelta: transformTool.moveSelectedSplatsByWorldDelta,
+		moveSelectedSplatsByWorldDelta:
+			transformTool.moveSelectedSplatsByWorldDelta,
 		rotateSelectedSplatsAroundSelection:
 			transformTool.rotateSelectedSplatsAroundSelection,
 		scaleSelectedSplatsUniformAroundSelection:

@@ -1,4 +1,7 @@
-import { clampOutputFrameCenterPx, getRenderBoxMetrics } from "../../engine/projection.js";
+import {
+	clampOutputFrameCenterPx,
+	getRenderBoxMetrics,
+} from "../../engine/projection.js";
 
 export function createOutputFramePanSession({
 	state,

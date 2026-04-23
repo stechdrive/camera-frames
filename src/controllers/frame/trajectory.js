@@ -69,11 +69,7 @@ export function transformStoredFrameTrajectoryNodes(
 		};
 		for (const handleKey of ["in", "out"]) {
 			const vector = frameNode[handleKey];
-			if (
-				!vector ||
-				!Number.isFinite(vector.x) ||
-				!Number.isFinite(vector.y)
-			) {
+			if (!vector || !Number.isFinite(vector.x) || !Number.isFinite(vector.y)) {
 				continue;
 			}
 			const nextPoint = transformPoint(

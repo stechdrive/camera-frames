@@ -316,8 +316,7 @@ export function createRuntimeController({
 		hasCameraPoseChanged: navigationCommit.hasCameraPoseChanged,
 		hasKeyboardNavigationActivity:
 			navigationCommit.hasKeyboardNavigationActivity,
-		hasPointerNavigationActivity:
-			navigationCommit.hasPointerNavigationActivity,
+		hasPointerNavigationActivity: navigationCommit.hasPointerNavigationActivity,
 		getActiveCameraHistoryTargetKey:
 			navigationCommit.getActiveCameraHistoryTargetKey,
 		getActiveCameraHistoryLabel: navigationCommit.getActiveCameraHistoryLabel,

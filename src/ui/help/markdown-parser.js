@@ -27,7 +27,9 @@ function splitFrontmatter(normalized) {
 		return { frontmatter: {}, body: normalized };
 	}
 	const yamlText = rest.slice(0, end);
-	const body = rest.slice(end + FRONTMATTER_FENCE.length + 1).replace(/^\n/, "");
+	const body = rest
+		.slice(end + FRONTMATTER_FENCE.length + 1)
+		.replace(/^\n/, "");
 	return { frontmatter: parseFrontmatter(yamlText), body };
 }
 

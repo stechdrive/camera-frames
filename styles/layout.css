@@ -184,7 +184,9 @@
 }
 
 .workbench-shell--compact-desktop .workbench-tool-rail__button,
-.workbench-shell--compact-desktop .workbench-tool-rail .workbench-menu__trigger {
+.workbench-shell--compact-desktop
+	.workbench-tool-rail
+	.workbench-menu__trigger {
 	width: 2.35rem;
 	min-width: 2.35rem;
 	height: 2.35rem;
@@ -192,14 +194,14 @@
 	border-radius: 12px;
 }
 
-.workbench-shell--compact-desktop
-	.workbench-tool-rail__button
-	.workbench-icon,
+.workbench-shell--compact-desktop .workbench-tool-rail__button .workbench-icon,
 .workbench-shell--compact-desktop
 	.workbench-tool-rail
 	.workbench-menu__trigger
 	.workbench-icon,
-.workbench-shell--compact-desktop .workbench-tool-rail__control .workbench-icon {
+.workbench-shell--compact-desktop
+	.workbench-tool-rail__control
+	.workbench-icon {
 	width: auto;
 	height: auto;
 }
@@ -414,10 +416,7 @@
 }
 
 .workbench-shell--mobile .workbench-card--mobile-drawer {
-	width: min(
-		calc(420px * var(--cf-ui-scale, 1)),
-		calc(100vw - 1.5rem)
-	);
+	width: min(calc(420px * var(--cf-ui-scale, 1)), calc(100vw - 1.5rem));
 	max-height: min(70vh, calc(100% - 5.6rem));
 	padding: calc(0.55rem * var(--cf-ui-scale, 1));
 	border-radius: 22px;

@@ -1,8 +1,6 @@
 import { compressEmbeddedSplatSourceAsSogInWorker } from "../../engine/sog-compress-worker-client.js";
 import { readSerializedSogColumnsFromInput } from "../../engine/sog-data-table.js";
-import {
-	REFERENCE_IMAGE_ASSET_KIND,
-} from "../../reference-image-model.js";
+import { REFERENCE_IMAGE_ASSET_KIND } from "../../reference-image-model.js";
 import {
 	buildProjectResourcePath,
 	getProjectMediaTypeFromFileName,

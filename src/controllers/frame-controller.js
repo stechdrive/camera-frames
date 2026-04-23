@@ -11,8 +11,8 @@ import { createCameraFrameMaskController } from "./frame/mask.js";
 import { createCameraFrameResizeSession } from "./frame/resize-session.js";
 import { createCameraFrameRotateSession } from "./frame/rotate-session.js";
 import { createCameraFrameSelectionController } from "./frame/selection-state.js";
-import { createCameraFrameTrajectoryController } from "./frame/trajectory.js";
 import { createCameraFrameTrajectorySession } from "./frame/trajectory-session.js";
+import { createCameraFrameTrajectoryController } from "./frame/trajectory.js";
 
 export function createFrameController({
 	store,
@@ -101,7 +101,8 @@ export function createFrameController({
 		setSelectedFrameIds: selection.setSelectedFrameIds,
 		setFrameMaskSelectedIds: mask.setFrameMaskSelectedIds,
 		getRememberedFrameMaskSelectedIds: mask.getRememberedFrameMaskSelectedIds,
-		syncFrameSelectionTransformState: selection.syncFrameSelectionTransformState,
+		syncFrameSelectionTransformState:
+			selection.syncFrameSelectionTransformState,
 	});
 
 	const dragSession = createCameraFrameDragSession({
@@ -116,7 +117,8 @@ export function createFrameController({
 		isFrameSelected: selection.isFrameSelected,
 		activateFrameSelection: selection.activateFrameSelection,
 		focusSelectedFrame: selection.focusSelectedFrame,
-		buildFrameSelectionTransformState: selection.buildFrameSelectionTransformState,
+		buildFrameSelectionTransformState:
+			selection.buildFrameSelectionTransformState,
 		setStoredFrameSelectionBox: selection.setStoredFrameSelectionBox,
 		clearFrameInteraction,
 		beginHistoryTransaction,
@@ -135,7 +137,8 @@ export function createFrameController({
 		isFrameSelected: selection.isFrameSelected,
 		activateFrameSelection: selection.activateFrameSelection,
 		focusSelectedFrame: selection.focusSelectedFrame,
-		buildFrameSelectionTransformState: selection.buildFrameSelectionTransformState,
+		buildFrameSelectionTransformState:
+			selection.buildFrameSelectionTransformState,
 		setStoredFrameSelectionBox: selection.setStoredFrameSelectionBox,
 		clearFrameInteraction,
 		beginHistoryTransaction,
@@ -154,7 +157,8 @@ export function createFrameController({
 		isFrameSelected: selection.isFrameSelected,
 		activateFrameSelection: selection.activateFrameSelection,
 		focusSelectedFrame: selection.focusSelectedFrame,
-		buildFrameSelectionTransformState: selection.buildFrameSelectionTransformState,
+		buildFrameSelectionTransformState:
+			selection.buildFrameSelectionTransformState,
 		setStoredFrameSelectionBox: selection.setStoredFrameSelectionBox,
 		clearFrameInteraction,
 		beginHistoryTransaction,
@@ -173,7 +177,8 @@ export function createFrameController({
 		isFrameSelected: selection.isFrameSelected,
 		activateFrameSelection: selection.activateFrameSelection,
 		focusSelectedFrame: selection.focusSelectedFrame,
-		buildFrameSelectionTransformState: selection.buildFrameSelectionTransformState,
+		buildFrameSelectionTransformState:
+			selection.buildFrameSelectionTransformState,
 		setStoredFrameSelectionBox: selection.setStoredFrameSelectionBox,
 		clearFrameInteraction,
 		beginHistoryTransaction,
@@ -230,7 +235,8 @@ export function createFrameController({
 		toggleFrameTrajectoryEditMode: trajectory.toggleFrameTrajectoryEditMode,
 		setFrameTrajectoryHandlePoint: trajectory.setFrameTrajectoryHandlePoint,
 		clearFrameTrajectoryHandlePoint: trajectory.clearFrameTrajectoryHandlePoint,
-		syncFrameSelectionTransformState: selection.syncFrameSelectionTransformState,
+		syncFrameSelectionTransformState:
+			selection.syncFrameSelectionTransformState,
 		clearFrameDrag: dragSession.clearFrameDrag,
 		clearFrameInteraction,
 		clearFrameSelection: selection.clearFrameSelection,
@@ -258,8 +264,11 @@ export function createFrameController({
 		startSelectedFramesAnchorDrag: anchorSession.startSelectedFramesAnchorDrag,
 		handleFrameAnchorDragMove: anchorSession.handleFrameAnchorDragMove,
 		handleFrameAnchorDragEnd: anchorSession.handleFrameAnchorDragEnd,
-		startFrameTrajectoryHandleDrag: trajectorySession.startFrameTrajectoryHandleDrag,
-		handleFrameTrajectoryHandleDragMove: trajectorySession.handleFrameTrajectoryHandleDragMove,
-		handleFrameTrajectoryHandleDragEnd: trajectorySession.handleFrameTrajectoryHandleDragEnd,
+		startFrameTrajectoryHandleDrag:
+			trajectorySession.startFrameTrajectoryHandleDrag,
+		handleFrameTrajectoryHandleDragMove:
+			trajectorySession.handleFrameTrajectoryHandleDragMove,
+		handleFrameTrajectoryHandleDragEnd:
+			trajectorySession.handleFrameTrajectoryHandleDragEnd,
 	};
 }

@@ -4,6 +4,7 @@ import {
 	DEFAULT_CAMERA_FAR,
 	DEFAULT_CAMERA_NEAR,
 } from "../../constants.js";
+import { DEFAULT_VIEWPORT_CAMERA_BASE_FOVX } from "../../engine/camera-lens.js";
 import {
 	WORKSPACE_PANE_CAMERA,
 	WORKSPACE_PANE_VIEWPORT,
@@ -11,7 +12,6 @@ import {
 	getShotCameraDocumentById,
 	setSinglePaneRole,
 } from "../../workspace-model.js";
-import { DEFAULT_VIEWPORT_CAMERA_BASE_FOVX } from "../../engine/camera-lens.js";
 
 function createShotCameraEntry(documentState, scene) {
 	const camera = new THREE.PerspectiveCamera(

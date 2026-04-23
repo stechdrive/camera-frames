@@ -34,9 +34,7 @@ function applyOverrides(target, overrides, path) {
 		const nextPath = path.concat(key);
 		const node = target?.[key];
 		if (node == null) {
-			throw new Error(
-				`createMockStore: unknown path "${nextPath.join(".")}"`,
-			);
+			throw new Error(`createMockStore: unknown path "${nextPath.join(".")}"`);
 		}
 		if (isSignalLike(node)) {
 			assignSignalValue(node, value, nextPath);

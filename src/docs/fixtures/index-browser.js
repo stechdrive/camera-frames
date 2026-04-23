@@ -4,7 +4,6 @@
 // its top-level `import.meta.glob(...)` call. That glob is invalid under a
 // plain Node loader, so node-run tests must never import this file.
 
-import { registerFixture } from "./index.js";
 import { appLayoutOverviewFixture } from "./app-layout-overview.js";
 import { axisGizmoFixture } from "./axis-gizmo.js";
 import { cameraModeRenderBoxFixture } from "./camera-mode-render-box.js";
@@ -13,36 +12,31 @@ import { dropHintFixture } from "./drop-hint.js";
 import { exportOutputSectionFixture } from "./export-output-section.js";
 import { exportProgressFixture } from "./export-progress.js";
 import { exportSettingsSectionFixture } from "./export-settings-section.js";
+import { openMenuFixture, remoteUrlInputFixture } from "./file-menu.js";
 import { firstSceneLoadedFixture } from "./first-scene-loaded.js";
-import { measurementOverlayFixture } from "./measurement-overlay.js";
-import { multipleFramesFixture } from "./multiple-frames.js";
-import { renderBoxCameraModeFixture } from "./render-box-camera-mode.js";
-import {
-	openMenuFixture,
-	remoteUrlInputFixture,
-} from "./file-menu.js";
+import { registerFixture } from "./index.js";
 import { inspectorTabsFixture } from "./inspector-tabs.js";
 import { lightingWidgetFixture } from "./lighting-widget.js";
+import { measurementOverlayFixture } from "./measurement-overlay.js";
+import { multipleFramesFixture } from "./multiple-frames.js";
 import { outputFrameSectionFixture } from "./output-frame-section.js";
+import { pieMenuExpandedFixture, pieMenuFixture } from "./pie-menu.js";
+import { referenceEditModeFixture } from "./reference-edit-mode.js";
 import {
-	pieMenuExpandedFixture,
-	pieMenuFixture,
-} from "./pie-menu.js";
+	referenceManagerFixture,
+	referencePresetsFixture,
+} from "./reference-section.js";
+import { renderBoxCameraModeFixture } from "./render-box-camera-mode.js";
+import { sceneManagerFixture } from "./scene-manager.js";
+import { sectionDisplayZoomFixture } from "./section-display-zoom.js";
+import { shotCameraManagerFixture } from "./shot-camera-manager.js";
+import { shotCameraPropertiesFixture } from "./shot-camera-properties.js";
 import {
 	perSplatBoxToolFixture,
 	perSplatBrushPreviewFixture,
 	perSplatEditToolbarFixture,
 	splatEditToolbarFixture,
 } from "./splat-edit-toolbar.js";
-import { referenceEditModeFixture } from "./reference-edit-mode.js";
-import { sceneManagerFixture } from "./scene-manager.js";
-import {
-	referenceManagerFixture,
-	referencePresetsFixture,
-} from "./reference-section.js";
-import { sectionDisplayZoomFixture } from "./section-display-zoom.js";
-import { shotCameraManagerFixture } from "./shot-camera-manager.js";
-import { shotCameraPropertiesFixture } from "./shot-camera-properties.js";
 import { toolRailFixture } from "./tool-rail.js";
 import { trajectorySplineFixture } from "./trajectory-spline.js";
 import { transformGizmoFixture } from "./transform-gizmo.js";

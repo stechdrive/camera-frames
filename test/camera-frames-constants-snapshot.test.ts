@@ -54,6 +54,7 @@ import {
  */
 
 // ---------- BASE_RENDER_BOX ----------
+// biome-ignore lint/complexity/noUselessLoneBlockStatements: Sectioned top-level assertions keep this snapshot readable.
 {
 	assert.equal(BASE_RENDER_BOX.width, 1754);
 	assert.equal(BASE_RENDER_BOX.height, 1240);
@@ -62,6 +63,7 @@ import {
 }
 
 // ---------- BASE_FRAME ----------
+// biome-ignore lint/complexity/noUselessLoneBlockStatements: Sectioned top-level assertions keep this snapshot readable.
 {
 	assert.equal(BASE_FRAME.width, 1536);
 	assert.equal(BASE_FRAME.height, 864);
@@ -70,6 +72,7 @@ import {
 }
 
 // ---------- scalar constants ----------
+// biome-ignore lint/complexity/noUselessLoneBlockStatements: Sectioned top-level assertions keep this snapshot readable.
 {
 	assert.equal(FRAME_OUTLINE_WIDTH_PX, 2);
 	assert.equal(FRAME_MAX_COUNT, 20);
@@ -163,6 +166,7 @@ import {
 }
 
 // ---------- AUTO_LOD_MIN_SPLATS ----------
+// biome-ignore lint/complexity/noUselessLoneBlockStatements: Sectioned top-level assertions keep this snapshot readable.
 {
 	assert.equal(
 		typeof AUTO_LOD_MIN_SPLATS,

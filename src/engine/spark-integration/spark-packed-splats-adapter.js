@@ -7,7 +7,10 @@ function assertSparkPackedSplats(packedSplats) {
 	return packedSplats;
 }
 
-function assertSparkPackedSplatMesh(mesh, { requireUpdateVersion = false } = {}) {
+function assertSparkPackedSplatMesh(
+	mesh,
+	{ requireUpdateVersion = false } = {},
+) {
 	if (!mesh || typeof mesh !== "object") {
 		throw new Error(
 			"Spark packed splat mesh contract mismatch: mesh is not an object.",
@@ -45,12 +48,7 @@ export function resetSparkPackedSplatsRuntimeResources(
 
 export function restoreSparkPackedSplatsInPlace(
 	packedSplats,
-	{
-		packedArray = null,
-		extra = {},
-		splatEncoding = null,
-		numSplats = 0,
-	} = {},
+	{ packedArray = null, extra = {}, splatEncoding = null, numSplats = 0 } = {},
 ) {
 	const target = assertSparkPackedSplats(packedSplats);
 	if (
@@ -97,12 +95,7 @@ export function restoreSparkPackedSplatsInPlace(
 
 export function reinitializeSparkPackedSplats(
 	packedSplats,
-	{
-		packedArray = null,
-		numSplats = 0,
-		extra = {},
-		splatEncoding = null,
-	} = {},
+	{ packedArray = null, numSplats = 0, extra = {}, splatEncoding = null } = {},
 ) {
 	const target = assertSparkPackedSplats(packedSplats);
 	if (typeof target.reinitialize !== "function") {
@@ -181,10 +174,7 @@ export function captureSparkPackedSplatsLod(packedSplats) {
 	};
 }
 
-export function attachPrebuiltLodSplats(
-	packedSplats,
-	lodSplatsInstance,
-) {
+export function attachPrebuiltLodSplats(packedSplats, lodSplatsInstance) {
 	const target = assertSparkPackedSplats(packedSplats);
 	target.disposeLodSplats?.();
 	if (lodSplatsInstance) {

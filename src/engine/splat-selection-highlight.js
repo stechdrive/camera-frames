@@ -1,10 +1,10 @@
-import { RgbaArray } from "./spark-integration/spark-symbols.js";
 import {
 	getSparkSplatMeshColorBufferArray,
 	getSparkSplatMeshCount,
 	restoreSparkSplatMeshColorBuffer,
 	setSparkSplatMeshColorBuffer,
 } from "./spark-integration/spark-splat-mesh-adapter.js";
+import { RgbaArray } from "./spark-integration/spark-symbols.js";
 
 const DEFAULT_HIGHLIGHT_RGBA = {
 	r: 92,

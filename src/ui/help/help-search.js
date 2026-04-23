@@ -9,7 +9,11 @@ function blocksToSearchItems(blocks) {
 	for (const block of blocks ?? []) {
 		switch (block?.type) {
 			case "heading":
-				items.push({ kind: "heading", level: block.level, text: block.content });
+				items.push({
+					kind: "heading",
+					level: block.level,
+					text: block.content,
+				});
 				break;
 			case "paragraph":
 				items.push({ kind: "paragraph", text: block.content });
@@ -48,7 +52,9 @@ export function stripInlineMarkers(text) {
 }
 
 export function searchHelpChapters(query, lang = "ja") {
-	const normalized = String(query ?? "").trim().toLowerCase();
+	const normalized = String(query ?? "")
+		.trim()
+		.toLowerCase();
 	if (!normalized) return [];
 	const chapters = getHelpChapters(lang);
 	const results = [];
@@ -82,7 +88,10 @@ export function buildHitSnippet(hit) {
 	if (!hit) return null;
 	const { text, matchIndex, matchLength } = hit;
 	const start = Math.max(0, matchIndex - SNIPPET_PREFIX_CHARS);
-	const end = Math.min(text.length, matchIndex + matchLength + SNIPPET_SUFFIX_CHARS);
+	const end = Math.min(
+		text.length,
+		matchIndex + matchLength + SNIPPET_SUFFIX_CHARS,
+	);
 	return {
 		prefix: start > 0 ? "…" : "",
 		beforeMatch: text.slice(start, matchIndex),

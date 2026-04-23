@@ -153,12 +153,8 @@ import {
 	const expectedDir = { x: 0.3, y: -0.3 };
 	const expectedLen = Math.hypot(expectedDir.x, expectedDir.y);
 	for (const anchor of anchors) {
-		assert.ok(
-			Math.abs(anchor.tangent.x - expectedDir.x / expectedLen) < 1e-9,
-		);
-		assert.ok(
-			Math.abs(anchor.tangent.y - expectedDir.y / expectedLen) < 1e-9,
-		);
+		assert.ok(Math.abs(anchor.tangent.x - expectedDir.x / expectedLen) < 1e-9);
+		assert.ok(Math.abs(anchor.tangent.y - expectedDir.y / expectedLen) < 1e-9);
 	}
 }
 
@@ -196,10 +192,7 @@ import {
 {
 	// Single frame -> fallback center.
 	const frames = [{ id: "frame-a", x: 0.5, y: 0.5, scale: 0.2, rotation: 0 }];
-	assert.equal(
-		chooseBestFrameTrajectoryExportSource(frames, null),
-		"center",
-	);
+	assert.equal(chooseBestFrameTrajectoryExportSource(frames, null), "center");
 }
 
 {
@@ -230,10 +223,7 @@ import {
 		{ id: "frame-a", x: 0.5, y: 0.5, scale: 0.2, rotation: 0 },
 		{ id: "frame-b", x: 0.5, y: 0.5, scale: 0.2, rotation: 0 },
 	];
-	assert.equal(
-		chooseBestFrameTrajectoryExportSource(frames, null),
-		"top-left",
-	);
+	assert.equal(chooseBestFrameTrajectoryExportSource(frames, null), "top-left");
 }
 
 {

@@ -1,15 +1,15 @@
 import { createProjectFilePackedSplatSource } from "../../project/document.js";
 import {
+	buildRemainingIndices,
+	getAssetIdKey,
+	getSplatAssetTotalCount,
+	getSplatPackedSource,
+} from "./asset-accessors.js";
+import {
 	DERIVED_SPLAT_FILE_EXTENSION,
 	clonePackedExtra,
 	sanitizeFileStem,
 } from "./pure-utils.js";
-import {
-	getAssetIdKey,
-	getSplatAssetTotalCount,
-	getSplatPackedSource,
-	buildRemainingIndices,
-} from "./asset-accessors.js";
 
 export function createSplatAssetPersistence({
 	getSceneSplatAssets,

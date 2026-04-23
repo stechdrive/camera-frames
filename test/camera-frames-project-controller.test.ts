@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { createProjectController } from "../src/controllers/project-controller.js";
 import { buildZipArchiveBytes } from "../src/project-archive.js";
-import { buildCameraFramesProjectArchive } from "../src/project/file/index.js";
+import {
+	buildCameraFramesProjectArchive,
+	isProjectFilePackedSplatSource,
+	readCameraFramesProject,
+} from "../src/project/file/index.js";
 import { createDefaultReferenceImageDocument } from "../src/reference-image-model.js";
 
 function t(key, values = {}) {
@@ -51,9 +55,118 @@ async function withNavigator(value, callback) {
 		if (descriptor) {
 			Object.defineProperty(globalThis, "navigator", descriptor);
 		} else {
+			// biome-ignore lint/performance/noDelete: Restore the original global shape in this test harness.
 			delete globalThis.navigator;
 		}
 	}
+}
+
+function createCollectingProjectFileHandle(name = "mock.ssproj") {
+	const chunks = [];
+	const fileHandle = {
+		name,
+		async createWritable() {
+			const stream = new WritableStream({
+				write(chunk) {
+					chunks.push(chunk);
+				},
+			});
+			return {
+				writable: stream,
+				async close() {},
+				async abort() {
+					await stream.abort?.();
+				},
+			};
+		},
+	};
+	return { fileHandle, chunks };
+}
+
+async function collectWritableChunks(chunks) {
+	const parts = [];
+	let totalLength = 0;
+	for (const chunk of chunks) {
+		let bytes = null;
+		if (chunk instanceof Blob) {
+			bytes = new Uint8Array(await chunk.arrayBuffer());
+		} else if (chunk instanceof ArrayBuffer) {
+			bytes = new Uint8Array(chunk);
+		} else if (ArrayBuffer.isView(chunk)) {
+			bytes = new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength);
+		} else if (typeof chunk === "string") {
+			bytes = new TextEncoder().encode(chunk);
+		} else {
+			throw new Error(`Unsupported writable chunk type: ${typeof chunk}`);
+		}
+		parts.push(bytes);
+		totalLength += bytes.byteLength;
+	}
+	const result = new Uint8Array(totalLength);
+	let offset = 0;
+	for (const part of parts) {
+		result.set(part, offset);
+		offset += part.byteLength;
+	}
+	return result;
+}
+
+function createCompletingIndexedDb() {
+	const records = new Map();
+	const createRequest = () => ({
+		result: undefined,
+		error: null,
+		onsuccess: null,
+		onerror: null,
+	});
+	const completeTransactionRequest = (transaction, result) => {
+		const request = createRequest();
+		request.result = result;
+		queueMicrotask(() => transaction.oncomplete?.());
+		return request;
+	};
+	const database = {
+		objectStoreNames: {
+			contains: () => true,
+		},
+		createObjectStore: () => {},
+		transaction: () => {
+			const transaction = {
+				error: null,
+				onabort: null,
+				oncomplete: null,
+				onerror: null,
+				objectStore: () => ({
+					delete: (projectId) => {
+						records.delete(projectId);
+						return completeTransactionRequest(transaction, undefined);
+					},
+					getAll: () =>
+						completeTransactionRequest(
+							transaction,
+							Array.from(records.values()),
+						),
+					put: (record) => {
+						records.set(record.projectId, record);
+						return completeTransactionRequest(transaction, record);
+					},
+				}),
+			};
+			return transaction;
+		},
+		close: () => {},
+	};
+
+	return {
+		open: () => {
+			const request = createRequest();
+			queueMicrotask(() => {
+				request.result = database;
+				request.onsuccess?.();
+			});
+			return request;
+		},
+	};
 }
 
 function createHarness(overrides = {}) {
@@ -121,8 +234,7 @@ function createHarness(overrides = {}) {
 			statusEvents.push(status);
 		},
 		t,
-		prewarmSogCompressionWorkerImpl:
-			overrides.prewarmSogCompressionWorkerImpl,
+		prewarmSogCompressionWorkerImpl: overrides.prewarmSogCompressionWorkerImpl,
 		supportsSogCompressionImpl: overrides.supportsSogCompressionImpl,
 	});
 
@@ -473,18 +585,11 @@ await withNavigator({ gpu: {} }, async () => {
 	});
 	const originalShowSaveFilePicker = globalThis.showSaveFilePicker;
 	const originalRequestAnimationFrame = globalThis.requestAnimationFrame;
+	const originalIndexedDb = globalThis.indexedDB;
 	globalThis.requestAnimationFrame = (cb) => setTimeout(cb, 0);
-	const originalConsoleError = console.error;
-	console.error = () => {};
-	// Return a handle whose createWritable throws — the bake runs before
-	// the writable is even created, so this lets us verify the ordering
-	// without plumbing a real zip writer through the mock harness.
-	globalThis.showSaveFilePicker = async () => ({
-		name: "mock.ssproj",
-		createWritable: async () => {
-			throw new Error("mock-writable-abort");
-		},
-	});
+	globalThis.indexedDB = createCompletingIndexedDb();
+	const savedPackage = createCollectingProjectFileHandle("quality-save.ssproj");
+	globalThis.showSaveFilePicker = async () => savedPackage.fileHandle;
 	try {
 		await harness.projectController.exportProject();
 		await harness.store.overlay.value.onSubmit({
@@ -496,7 +601,12 @@ await withNavigator({ gpu: {} }, async () => {
 	} finally {
 		globalThis.showSaveFilePicker = originalShowSaveFilePicker;
 		globalThis.requestAnimationFrame = originalRequestAnimationFrame;
-		console.error = originalConsoleError;
+		if (originalIndexedDb === undefined) {
+			// biome-ignore lint/performance/noDelete: Restore the original global shape in this test harness.
+			delete globalThis.indexedDB;
+		} else {
+			globalThis.indexedDB = originalIndexedDb;
+		}
 	}
 	assert.equal(
 		fakePackedSplats.bakeCompleted,
@@ -521,6 +631,36 @@ await withNavigator({ gpu: {} }, async () => {
 		"quality",
 		"Bake attachment must record bakedQuality so the next open mirrors state.",
 	);
+
+	const savedArchiveBytes = await collectWritableChunks(savedPackage.chunks);
+	assert.ok(
+		savedArchiveBytes.byteLength > 0,
+		"Quality save must write a non-empty .ssproj archive.",
+	);
+	const savedProject = await readCameraFramesProject(
+		new File([savedArchiveBytes], "quality-save.ssproj"),
+	);
+	const savedSource = savedProject.assetEntries[0]?.source;
+	assert.equal(
+		isProjectFilePackedSplatSource(savedSource),
+		true,
+		"Quality save archive must restore the splat as a packed-splat source.",
+	);
+	assert.ok(
+		savedSource.lodSplats,
+		"Quality save archive must contain baked LoD data after reopening.",
+	);
+	assert.deepEqual(
+		Array.from(savedSource.lodSplats.packedArray),
+		[9, 9, 9, 9],
+		"Quality save archive must contain the baked lodSplats packedArray.",
+	);
+	assert.deepEqual(
+		Array.from(savedSource.lodSplats.extra.lodTree),
+		[1, 2, 3],
+		"Quality save archive must contain baked lodSplats extra arrays.",
+	);
+	assert.equal(savedSource.lodSplats.bakedQuality, "quality");
 });
 
 {

@@ -108,14 +108,11 @@ function renderOverlayField(field, fieldValues, setFieldValues) {
 			>
 				<legend>${field.label}</legend>
 				${(field.options ?? []).map((option) => {
-					const optionDisabled =
-						Boolean(option.disabled) || isDisabled;
+					const optionDisabled = Boolean(option.disabled) || isDisabled;
 					return html`
 						<label
 							class=${`overlay-radio-option ${
-								optionDisabled
-									? "overlay-radio-option--disabled"
-									: ""
+								optionDisabled ? "overlay-radio-option--disabled" : ""
 							}`}
 						>
 							<input
@@ -136,13 +133,15 @@ function renderOverlayField(field, fieldValues, setFieldValues) {
 								<span class="overlay-radio-option__label">
 									${option.label}
 								</span>
-								${option.hint
-									? html`
+								${
+									option.hint
+										? html`
 											<span class="overlay-radio-option__hint">
 												${option.hint}
 											</span>
 										`
-									: null}
+										: null
+								}
 							</span>
 						</label>
 					`;

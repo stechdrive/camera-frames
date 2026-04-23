@@ -227,7 +227,11 @@ function createBridgeHarness(overrides = {}) {
 }
 
 {
-	const { bridge, viewportCamera } = createBridgeHarness();
+	const { bridge, store, viewportCamera } = createBridgeHarness();
+	store.viewportLod = {
+		userScale: { value: 0.72 },
+		effectiveScale: { value: 0.72 },
+	};
 	const workspaceState = bridge.captureWorkspaceState();
 	const projectState = bridge.captureProjectState();
 
@@ -244,6 +248,16 @@ function createBridgeHarness(overrides = {}) {
 	assert.deepEqual(projectState.scene.assets, [{ id: "asset-a" }]);
 	assert.equal(projectState.shotCameras[0].pose.position.x, 4);
 	assert.equal(bridge.buildProjectFilename(), "export-camera-a.ssproj");
+	assert.equal(
+		JSON.stringify(workspaceState).includes("viewportLod"),
+		false,
+		"Viewport LoD is a machine-local preference and must not enter working/history snapshots.",
+	);
+	assert.equal(
+		JSON.stringify(projectState).includes("viewportLod"),
+		false,
+		"Viewport LoD is a machine-local preference and must not enter project snapshots.",
+	);
 }
 
 {

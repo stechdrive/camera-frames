@@ -1,5 +1,8 @@
 import * as THREE from "three";
-import { WORKSPACE_PANE_CAMERA, WORKSPACE_PANE_VIEWPORT } from "../../workspace-model.js";
+import {
+	WORKSPACE_PANE_CAMERA,
+	WORKSPACE_PANE_VIEWPORT,
+} from "../../workspace-model.js";
 
 export function createCameraViewSyncController({
 	state,
@@ -23,10 +26,7 @@ export function createCameraViewSyncController({
 	function copyViewportToShotCamera() {
 		const shotCamera = getActiveShotCamera();
 		runHistoryAction?.("camera.copy-viewport", () => {
-			copyPose(
-				getViewportCameraForShotCopy?.() ?? viewportCamera,
-				shotCamera,
-			);
+			copyPose(getViewportCameraForShotCopy?.() ?? viewportCamera, shotCamera);
 			state.baseFovX = state.viewportBaseFovX;
 			syncActiveShotCameraDocumentFromLiveCamera({
 				includeLens: true,

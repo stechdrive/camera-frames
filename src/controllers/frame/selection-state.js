@@ -1,5 +1,5 @@
-import { getFrameDocumentById } from "../../workspace-model.js";
 import { getPointFromRectLocal } from "../../engine/frame-transform.js";
+import { getFrameDocumentById } from "../../workspace-model.js";
 import {
 	buildFrameGeometry,
 	buildSelectionBoxLogicalFromGeometries,

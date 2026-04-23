@@ -663,10 +663,7 @@
 
 .workbench-shell--mobile .workbench-menu__panel {
 	padding: calc(0.48rem * var(--cf-ui-scale, 1));
-	min-width: min(
-		calc(18.5rem * var(--cf-ui-scale, 1)),
-		calc(100vw - 2.5rem)
-	);
+	min-width: min(calc(18.5rem * var(--cf-ui-scale, 1)), calc(100vw - 2.5rem));
 }
 
 .workbench-shell--mobile .workbench-tool-rail__popover-select,

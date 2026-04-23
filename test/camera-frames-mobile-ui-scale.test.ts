@@ -31,6 +31,7 @@ import {
  */
 
 // ---------- constants ----------
+// biome-ignore lint/complexity/noUselessLoneBlockStatements: Sectioned top-level assertions keep this behavior test readable.
 {
 	assert.equal(MOBILE_UI_SCALE_MIN, 0.7);
 	assert.equal(MOBILE_UI_SCALE_MAX, 2.0);
@@ -41,6 +42,7 @@ import {
 }
 
 // ---------- clampMobileUiScale ----------
+// biome-ignore lint/complexity/noUselessLoneBlockStatements: Sectioned top-level assertions keep this behavior test readable.
 {
 	assert.equal(clampMobileUiScale(1), 1.0);
 	assert.equal(clampMobileUiScale(0.1), MOBILE_UI_SCALE_MIN);
@@ -52,6 +54,7 @@ import {
 }
 
 // ---------- formatMobileUiScaleLabel ----------
+// biome-ignore lint/complexity/noUselessLoneBlockStatements: Sectioned top-level assertions keep this behavior test readable.
 {
 	assert.equal(formatMobileUiScaleLabel(1), "1.00");
 	assert.equal(formatMobileUiScaleLabel(1.2), "1.20");
@@ -61,6 +64,7 @@ import {
 }
 
 // ---------- resolveEffectiveMobileUiScale ----------
+// biome-ignore lint/complexity/noUselessLoneBlockStatements: Sectioned top-level assertions keep this behavior test readable.
 {
 	assert.equal(
 		resolveEffectiveMobileUiScale({ userScale: null, autoScale: 0.95 }),
@@ -179,7 +183,10 @@ import {
 
 	// Out-of-range values are clamped on write.
 	writePersistedMobileUiUserScale(5, { storage });
-	assert.equal(readPersistedMobileUiUserScale({ storage }), MOBILE_UI_SCALE_MAX);
+	assert.equal(
+		readPersistedMobileUiUserScale({ storage }),
+		MOBILE_UI_SCALE_MAX,
+	);
 
 	// Null clears the entry.
 	writePersistedMobileUiUserScale(null, { storage });
@@ -210,14 +217,18 @@ import {
 
 	const coarseOnly = getViewportPieMetrics({ coarse: true, uiScale: 1 });
 	assert.equal(coarseOnly.scale, VIEWPORT_PIE_COARSE_SCALE);
-	assert.equal(coarseOnly.radius, VIEWPORT_PIE_RADIUS * VIEWPORT_PIE_COARSE_SCALE);
+	assert.equal(
+		coarseOnly.radius,
+		VIEWPORT_PIE_RADIUS * VIEWPORT_PIE_COARSE_SCALE,
+	);
 
 	const coarseWithUserScale = getViewportPieMetrics({
 		coarse: true,
 		uiScale: 1.5,
 	});
 	assert.ok(
-		Math.abs(coarseWithUserScale.scale - VIEWPORT_PIE_COARSE_SCALE * 1.5) < 1e-9,
+		Math.abs(coarseWithUserScale.scale - VIEWPORT_PIE_COARSE_SCALE * 1.5) <
+			1e-9,
 		"coarse scale must multiply with uiScale",
 	);
 

@@ -541,7 +541,10 @@ export function getProjectSourceStableKey(source) {
 	return getProjectResourceStableKey(getProjectSourceResource(source));
 }
 
-function buildProjectFingerprintPayload(project, { assumeNormalized = false } = {}) {
+function buildProjectFingerprintPayload(
+	project,
+	{ assumeNormalized = false } = {},
+) {
 	const normalizedProject = assumeNormalized
 		? project
 		: normalizeProjectDocument(project);

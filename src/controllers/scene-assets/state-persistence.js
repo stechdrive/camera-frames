@@ -213,15 +213,12 @@ export function createSceneAssetStatePersistence({
 		const nextEncoding = nextSource.splatEncoding ?? null;
 		const previousNumSplats =
 			packedSplats.getNumSplats?.() ?? packedSplats.numSplats ?? null;
-		const restoredInPlace = restoreSparkPackedSplatsInPlace(
-			packedSplats,
-			{
-				packedArray: nextPackedArray,
-				numSplats: nextSource.numSplats,
-				extra: nextExtra,
-				splatEncoding: nextEncoding,
-			},
-		);
+		const restoredInPlace = restoreSparkPackedSplatsInPlace(packedSplats, {
+			packedArray: nextPackedArray,
+			numSplats: nextSource.numSplats,
+			extra: nextExtra,
+			splatEncoding: nextEncoding,
+		});
 		if (!restoredInPlace) {
 			reinitializeSparkPackedSplats(packedSplats, {
 				packedArray: nextPackedArray,

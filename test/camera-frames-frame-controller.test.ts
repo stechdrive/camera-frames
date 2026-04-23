@@ -415,10 +415,7 @@ function createHarness() {
 	harness.controller.setFrameMaskShape("trajectory");
 	harness.controller.setFrameTrajectoryMode("spline");
 	harness.controller.setFrameTrajectoryExportSource("center");
-	harness.controller.setFrameTrajectoryNodeMode(
-		getFrameDocumentId(2),
-		"free",
-	);
+	harness.controller.setFrameTrajectoryNodeMode(getFrameDocumentId(2), "free");
 
 	const labels = harness.getHistoryLabels();
 	assert.ok(labels.includes("frame.mask-shape"));
@@ -461,10 +458,12 @@ function createHarness() {
 
 	const events = harness.getTransactionEvents();
 	const firstBegin = events.findIndex(
-		(event) => event.kind === "begin" && event.label === "frame.trajectory-handle",
+		(event) =>
+			event.kind === "begin" && event.label === "frame.trajectory-handle",
 	);
 	const firstCommit = events.findIndex(
-		(event) => event.kind === "commit" && event.label === "frame.trajectory-handle",
+		(event) =>
+			event.kind === "commit" && event.label === "frame.trajectory-handle",
 	);
 	assert.ok(
 		firstBegin >= 0,
@@ -475,9 +474,9 @@ function createHarness() {
 		"handle drag must commit after begin, scoping all moves into one undo step",
 	);
 
-	const historyLabelsDuringDrag = harness.getHistoryLabels().filter(
-		(label) => label === "frame.trajectory-handle",
-	);
+	const historyLabelsDuringDrag = harness
+		.getHistoryLabels()
+		.filter((label) => label === "frame.trajectory-handle");
 	assert.equal(
 		historyLabelsDuringDrag.length,
 		0,

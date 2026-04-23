@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { extractProjectPackageAssets } from "../src/project/package-legacy.js";
 import { buildLegacyProjectImport } from "../src/importers/legacy-ssproj.js";
 import { readCameraFramesProject } from "../src/project/file/index.js";
+import { extractProjectPackageAssets } from "../src/project/package-legacy.js";
 
 /*
  * .ssproj snapshot test
@@ -70,10 +70,7 @@ function assertSnapshot(name: string, actual: unknown) {
 			"utf-8",
 		);
 		throw new Error(
-			`Snapshot mismatch for "${name}". ` +
-				`Actual written to ${name}.actual.json. ` +
-				`Delete ${name}.snapshot.json to accept new baseline.\n` +
-				(err instanceof Error ? err.message : String(err)),
+			`Snapshot mismatch for "${name}". Actual written to ${name}.actual.json. Delete ${name}.snapshot.json to accept new baseline.\n${err instanceof Error ? err.message : String(err)}`,
 		);
 	}
 }
@@ -239,7 +236,10 @@ if (!hasTestData()) {
 			resourceCount: Object.keys(project.resources).length,
 			resourceSummary: Object.fromEntries(
 				Object.entries(project.resources).map(
-					([id, res]: [string, { type: string; assetKind: string; originalName?: string }]) => [
+					([id, res]: [
+						string,
+						{ type: string; assetKind: string; originalName?: string },
+					]) => [
 						id,
 						{
 							type: res.type,
@@ -287,7 +287,11 @@ if (!hasTestData()) {
 						trajectory: {
 							nodesByFrameId: Record<
 								string,
-								{ mode?: string; in?: { x: number; y: number }; out?: { x: number; y: number } }
+								{
+									mode?: string;
+									in?: { x: number; y: number };
+									out?: { x: number; y: number };
+								}
 							>;
 						};
 					};

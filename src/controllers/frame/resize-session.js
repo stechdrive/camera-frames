@@ -1,5 +1,4 @@
 import { ANCHORS } from "../../constants.js";
-import { getFrameDocumentById } from "../../workspace-model.js";
 import {
 	FRAME_MIN_SCALE,
 	FRAME_RESIZE_HANDLES,
@@ -14,6 +13,7 @@ import {
 	inverseRotateVector,
 	normalizeRotationDegrees,
 } from "../../engine/frame-transform.js";
+import { getFrameDocumentById } from "../../workspace-model.js";
 import {
 	clearGlobalFrameCursor,
 	getEventCursor,

@@ -1,9 +1,10 @@
-import { fromHalf } from "../../engine/spark-integration/spark-symbols.js";
 import * as THREE from "three";
 import {
 	debugSplatPerf,
 	isSplatPerfDebugEnabled,
 } from "../../debug/splat-perf-debug.js";
+import { fromHalf } from "../../engine/spark-integration/spark-symbols.js";
+import { getAssetIdKey, getSplatAssetWorldMatrix } from "./asset-accessors.js";
 import {
 	DEFAULT_BOX_SIZE,
 	MIN_BRUSH_SIZE_PX,
@@ -11,10 +12,6 @@ import {
 	clampBrushSizePx,
 	updatePointerRay,
 } from "./pure-utils.js";
-import {
-	getAssetIdKey,
-	getSplatAssetWorldMatrix,
-} from "./asset-accessors.js";
 
 export function createSplatEditBrushTool({
 	store,

@@ -106,8 +106,7 @@ export function createCameraExportSettingsController({
 	}
 
 	function setShotCameraExportGridLayerMode(nextValue) {
-		const exportGridLayerMode =
-			nextValue === "overlay" ? "overlay" : "bottom";
+		const exportGridLayerMode = nextValue === "overlay" ? "overlay" : "bottom";
 		runHistoryAction?.("camera.export-grid-layer", () => {
 			updateActiveShotCameraDocument((documentState) => {
 				documentState.exportSettings = {

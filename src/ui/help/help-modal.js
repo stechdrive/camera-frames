@@ -2,8 +2,8 @@ import { html } from "htm/preact";
 import { useEffect, useRef } from "preact/hooks";
 import { WorkbenchIcon } from "../workbench-icons.js";
 import {
-	getHelpChapterById,
 	getHelpChapterByFilename,
+	getHelpChapterById,
 	getHelpChapters,
 } from "./help-chapters.js";
 import { buildHitSnippet, searchHelpChapters } from "./help-search.js";
@@ -44,6 +44,7 @@ export function HelpModal({ store, controller }) {
 		return () => document.removeEventListener("keydown", handleKey);
 	}, [open, searchQuery, controller]);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: sectionId must reset the scroll position when the visible chapter changes.
 	useEffect(() => {
 		if (!open || searchQuery) return;
 		const element = contentRef.current;
@@ -139,15 +140,18 @@ export function HelpModal({ store, controller }) {
 				<div class="help-modal__body">
 					<nav class="help-modal__toc" aria-label=${t("help.toc")}>
 						<ul class="help-toc-list">
-							${displayedToc.length === 0
-								? html`<li class="help-toc-empty">${t("help.search.noResults")}</li>`
-								: displayedToc.map(
-										(chapter) => html`
+							${
+								displayedToc.length === 0
+									? html`<li class="help-toc-empty">${t("help.search.noResults")}</li>`
+									: displayedToc.map(
+											(chapter) => html`
 											<li
 												key=${chapter.id}
-												class=${chapter.id === sectionId && !searchQuery
-													? "help-toc-item help-toc-item--active"
-													: "help-toc-item"}
+												class=${
+													chapter.id === sectionId && !searchQuery
+														? "help-toc-item help-toc-item--active"
+														: "help-toc-item"
+												}
 											>
 												<button
 													type="button"
@@ -166,21 +170,24 @@ export function HelpModal({ store, controller }) {
 												</button>
 											</li>
 										`,
-									)}
+										)
+							}
 						</ul>
 					</nav>
 
 					<article class="help-modal__content" ref=${contentRef}>
-						${searchQuery
-							? renderSearchResults({
-									results: searchResults,
-									query: searchQuery,
-									controller,
-									t,
-								})
-							: activeChapter
-								? renderBlocks(activeChapter.blocks, rendererOptions)
-								: html`<p class="help-empty">${t("help.empty")}</p>`}
+						${
+							searchQuery
+								? renderSearchResults({
+										results: searchResults,
+										query: searchQuery,
+										controller,
+										t,
+									})
+								: activeChapter
+									? renderBlocks(activeChapter.blocks, rendererOptions)
+									: html`<p class="help-empty">${t("help.empty")}</p>`
+						}
 					</article>
 				</div>
 			</div>
@@ -215,8 +222,9 @@ function renderSearchResults({ results, query, controller, t }) {
 								${result.chapter.title}
 							</button>
 						</h3>
-						${result.hits.length > 0 &&
-						html`
+						${
+							result.hits.length > 0 &&
+							html`
 							<ul class="help-search-result__hits">
 								${result.hits.map(
 									(hit, index) => html`
@@ -229,7 +237,8 @@ function renderSearchResults({ results, query, controller, t }) {
 									`,
 								)}
 							</ul>
-						`}
+						`
+						}
 					</section>
 				`,
 			)}

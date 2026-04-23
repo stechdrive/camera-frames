@@ -1,4 +1,8 @@
-import { ANCHORS, BASE_RENDER_BOX, DEFAULT_CAMERA_NEAR } from "../../constants.js";
+import {
+	ANCHORS,
+	BASE_RENDER_BOX,
+	DEFAULT_CAMERA_NEAR,
+} from "../../constants.js";
 import {
 	clampOutputFrameCenterPx,
 	getBaseFrustumExtents,

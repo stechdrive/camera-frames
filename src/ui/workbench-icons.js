@@ -1,10 +1,13 @@
 import { html } from "htm/preact";
 
-const iconModules = import.meta.glob("./svg/*.svg", {
-	eager: true,
-	query: "?raw",
-	import: "default",
-});
+const iconModules =
+	typeof import.meta.glob === "function"
+		? import.meta.glob("./svg/*.svg", {
+				eager: true,
+				query: "?raw",
+				import: "default",
+			})
+		: {};
 
 const SPRITE_HOST_ID = "workbench-icon-sprite-host";
 let spriteMarkupCache = "";

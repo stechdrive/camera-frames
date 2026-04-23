@@ -1,5 +1,5 @@
-import { createApplyOutputFrameResize } from "./output-frame/apply-resize.js";
 import { createOutputFrameAnchorSession } from "./output-frame/anchor-session.js";
+import { createApplyOutputFrameResize } from "./output-frame/apply-resize.js";
 import { createOutputFrameFitStateController } from "./output-frame/fit-state.js";
 import { createOutputFrameInspectorOps } from "./output-frame/inspector-ops.js";
 import { createOutputFrameMetricsController } from "./output-frame/metrics.js";
@@ -206,8 +206,10 @@ export function createOutputFrameController({
 		handleOutputFramePanMove: panSession.handleOutputFramePanMove,
 		handleOutputFramePanEnd: panSession.handleOutputFramePanEnd,
 		startOutputFrameAnchorDrag: anchorSession.startOutputFrameAnchorDrag,
-		handleOutputFrameAnchorDragMove: anchorSession.handleOutputFrameAnchorDragMove,
-		handleOutputFrameAnchorDragEnd: anchorSession.handleOutputFrameAnchorDragEnd,
+		handleOutputFrameAnchorDragMove:
+			anchorSession.handleOutputFrameAnchorDragMove,
+		handleOutputFrameAnchorDragEnd:
+			anchorSession.handleOutputFrameAnchorDragEnd,
 		startOutputFrameResize: resizeSession.startOutputFrameResize,
 		handleOutputFrameResizeMove: resizeSession.handleOutputFrameResizeMove,
 		handleOutputFrameResizeEnd: resizeSession.handleOutputFrameResizeEnd,

@@ -1,10 +1,10 @@
-import { getFrameDocumentById } from "../../workspace-model.js";
 import {
 	getFrameAnchorWorldPoint,
 	getFrameDocumentCenterFromWorld,
 	getPointFromRectLocal,
 	inverseRotateVector,
 } from "../../engine/frame-transform.js";
+import { getFrameDocumentById } from "../../workspace-model.js";
 import { resolveFrameAnchor } from "./geometry.js";
 
 export function createCameraFrameAnchorSession({

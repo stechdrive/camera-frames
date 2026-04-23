@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { ZipReader } from "../src/project-archive.js";
+import { PROJECT_DOCUMENT_PATH } from "../src/project/document.js";
 import {
 	buildCameraFramesProjectArchive,
 	createProjectFileEmbeddedFileSource,
@@ -436,6 +438,41 @@ assert.equal(
 	bakedLodSource.lodSplats.bakedQuality,
 	"quality",
 	"bakedQuality audit metadata must survive round-trip",
+);
+
+const viewportLodLeakArchive = await buildCameraFramesProjectArchive({
+	...projectSnapshot,
+	viewportLod: { userScale: 0.72, effectiveScale: 0.72 },
+	workspace: {
+		...projectSnapshot.workspace,
+		viewportLod: { userScale: 0.72, effectiveScale: 0.72 },
+	},
+});
+const viewportLodLeakReader = await ZipReader.from(
+	new File([viewportLodLeakArchive], "viewport-lod-leak.ssproj"),
+);
+const viewportLodLeakDocumentText = await viewportLodLeakReader.text(
+	PROJECT_DOCUMENT_PATH,
+);
+await viewportLodLeakReader.close();
+const viewportLodLeakResult = await readCameraFramesProject(
+	new File([viewportLodLeakArchive], "viewport-lod-leak.ssproj"),
+);
+
+assert.equal(
+	viewportLodLeakDocumentText.includes("viewportLod"),
+	false,
+	"Viewport LoD local preference must not be serialized into project.json.",
+);
+assert.equal(
+	viewportLodLeakDocumentText.includes("camera-frames.viewportLodScale"),
+	false,
+	"Viewport LoD localStorage key must never be serialized into .ssproj.",
+);
+assert.equal(
+	JSON.stringify(viewportLodLeakResult.project).includes("viewportLod"),
+	false,
+	"Viewport LoD local preference must not round-trip through .ssproj.",
 );
 
 console.log("✅ CAMERA_FRAMES project file tests passed!");

@@ -346,11 +346,7 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 		return () => {
 			window.removeEventListener("resize", syncWithinBounds);
 		};
-	}, [
-		isMobileWorkbench,
-		refs,
-		workbenchCollapsed,
-	]);
+	}, [isMobileWorkbench, refs, workbenchCollapsed]);
 
 	useEffect(() => {
 		if (
@@ -914,9 +910,7 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 			class=${[
 				"workbench-shell",
 				workbenchCollapsed ? "workbench-shell--inspector-rail" : "",
-				isCompactDesktopWorkbench
-					? "workbench-shell--compact-desktop"
-					: "",
+				isCompactDesktopWorkbench ? "workbench-shell--compact-desktop" : "",
 			]
 				.filter(Boolean)
 				.join(" ")}

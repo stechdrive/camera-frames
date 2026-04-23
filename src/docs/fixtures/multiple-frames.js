@@ -5,13 +5,13 @@
 // rationale.
 
 import { html } from "htm/preact";
+import { makeScene } from "../mock/scenes.js";
 import {
 	VIEWPORT_HEIGHT,
 	VIEWPORT_WIDTH,
 	frameSizeForScale,
 	renderRenderBox,
 } from "./camera-mode-render-box.js";
-import { makeScene } from "../mock/scenes.js";
 
 const STYLE = `
 .docs-viewport-host {
@@ -49,7 +49,13 @@ const STYLE = `
 // between centres reads as a push-in onto the motorcycle's cockpit.
 // Values are lifted verbatim from the project JSON.
 const CF_TEST2_CAMERA_1_FRAMES = [
-	{ id: "frame-1", label: "FRAME A", center: { x: 0.5, y: 0.5 }, scale: 1, active: false },
+	{
+		id: "frame-1",
+		label: "FRAME A",
+		center: { x: 0.5, y: 0.5 },
+		scale: 1,
+		active: false,
+	},
 	{
 		id: "frame-2",
 		label: "FRAME B",

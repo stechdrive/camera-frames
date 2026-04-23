@@ -1840,8 +1840,12 @@ input[type="range"] {
 }
 
 @keyframes background-task-pill-spin {
-	from { transform: rotate(0deg); }
-	to { transform: rotate(360deg); }
+	from {
+		transform: rotate(0deg);
+	}
+	to {
+		transform: rotate(360deg);
+	}
 }
 
 .background-task-pill__icon--done {
@@ -2436,7 +2440,8 @@ body[data-interaction-mode="roll"] .viewport-axis-gizmo {
 	justify-content: center;
 	min-width: calc(5.4rem * var(--cf-pie-scale, 1));
 	min-height: calc(5.4rem * var(--cf-pie-scale, 1));
-	padding: calc(0.7rem * var(--cf-pie-scale, 1)) calc(0.9rem * var(--cf-pie-scale, 1));
+	padding: calc(0.7rem * var(--cf-pie-scale, 1))
+		calc(0.9rem * var(--cf-pie-scale, 1));
 	border-radius: 999px;
 	background: rgba(5, 15, 27, 0.96);
 	border: 1px solid rgba(255, 255, 255, 0.18);

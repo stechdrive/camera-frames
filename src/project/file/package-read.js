@@ -89,9 +89,7 @@ export async function readCameraFramesProject(
 					assetLabel: asset.label,
 					fileLabel:
 						resource.type === "packed-splat"
-							? resource.originalName ||
-								resource.manifest?.path ||
-								"meta.json"
+							? resource.originalName || resource.manifest?.path || "meta.json"
 							: resource.originalName || resource.path,
 				});
 
@@ -118,9 +116,7 @@ export async function readCameraFramesProject(
 						...(resource.extraFiles ?? []).map((ef) => reader.bytes(ef.path)),
 					]);
 					const extraFiles = {};
-					for (const [i, extraFile] of (
-						resource.extraFiles ?? []
-					).entries()) {
+					for (const [i, extraFile] of (resource.extraFiles ?? []).entries()) {
 						extraFiles[extraFile.name] = extraBytesArray[i].buffer;
 					}
 					return {
@@ -227,10 +223,12 @@ export async function readCameraFramesProject(
 			},
 		);
 
-		const [assetEntries, reconstructedReferenceImageAssets] = await Promise.all([
-			Promise.all(assetExtractors.map((extract) => extract())),
-			Promise.all(referenceImageExtractors.map((extract) => extract())),
-		]);
+		const [assetEntries, reconstructedReferenceImageAssets] = await Promise.all(
+			[
+				Promise.all(assetExtractors.map((extract) => extract())),
+				Promise.all(referenceImageExtractors.map((extract) => extract())),
+			],
+		);
 
 		project.scene.referenceImages = {
 			...normalizedReferenceImages,

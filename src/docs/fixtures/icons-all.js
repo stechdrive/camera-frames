@@ -62,7 +62,6 @@ const STYLE = `
 `;
 
 function collectIcons() {
-	// biome-ignore lint/correctness/noUndeclaredVariables: import.meta.glob is injected by Vite
 	const iconModules = import.meta.glob("../../ui/svg/*.svg", {
 		eager: true,
 		query: "?raw",
@@ -72,9 +71,7 @@ function collectIcons() {
 		.map(([path, rawSvg]) => {
 			const match = path.match(/\/([^/]+)\.svg$/i);
 			const name = match ? match[1] : null;
-			return name && typeof rawSvg === "string"
-				? { name, rawSvg }
-				: null;
+			return name && typeof rawSvg === "string" ? { name, rawSvg } : null;
 		})
 		.filter(Boolean);
 	entries.sort((left, right) => left.name.localeCompare(right.name));

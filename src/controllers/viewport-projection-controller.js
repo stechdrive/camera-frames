@@ -302,7 +302,8 @@ export function createViewportProjectionController({
 		const hasValidSize =
 			Number.isFinite(currentState.size) && Number(currentState.size) > 0;
 		const hasValidDistance =
-			Number.isFinite(currentState.distance) && Number(currentState.distance) > 0;
+			Number.isFinite(currentState.distance) &&
+			Number(currentState.distance) > 0;
 		const nextSize = hasValidSize
 			? Number(currentState.size)
 			: Math.max(radius * 1.2, DEFAULT_VIEWPORT_ORTHO_SIZE);

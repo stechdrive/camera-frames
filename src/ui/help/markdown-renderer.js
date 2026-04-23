@@ -78,7 +78,8 @@ function renderTable(block, index, options) {
 				<thead>
 					<tr>
 						${(block.header ?? []).map(
-							(cell, i) => html`<th key=${i}>${renderInline(cell, options)}</th>`,
+							(cell, i) =>
+								html`<th key=${i}>${renderInline(cell, options)}</th>`,
 						)}
 					</tr>
 				</thead>

@@ -176,10 +176,15 @@ export function buildPsdExportDocument(
 	const maskedFrames = resolveFrameMaskFrames(frames, bundle.frameMaskSettings);
 	const frameMaskLayerDocument =
 		maskedFrames.length > 0
-			? createFrameMaskLayerDocument(maskedFrames, bundle.width, bundle.height, {
-					frameMaskSettings: bundle.frameMaskSettings,
-					createCanvas,
-				})
+			? createFrameMaskLayerDocument(
+					maskedFrames,
+					bundle.width,
+					bundle.height,
+					{
+						frameMaskSettings: bundle.frameMaskSettings,
+						createCanvas,
+					},
+				)
 			: null;
 	const orderedLayers = [];
 	if (backgroundLayerDocument) {

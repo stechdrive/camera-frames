@@ -132,20 +132,12 @@ function __cfVerifyState(expected) {
 
 	// --- output frame ---
 	check("widthScale", store.renderBox.widthScale.value, expected.widthScale);
-	check(
-		"heightScale",
-		store.renderBox.heightScale.value,
-		expected.heightScale,
-	);
+	check("heightScale", store.renderBox.heightScale.value, expected.heightScale);
 	check("viewZoom", store.renderBox.viewZoom.value, expected.viewZoom);
 	check("anchor", store.renderBox.anchor.value, expected.anchor);
 
 	// --- export settings ---
-	check(
-		"exportName",
-		store.shotCamera.exportName.value,
-		expected.exportName,
-	);
+	check("exportName", store.shotCamera.exportName.value, expected.exportName);
 	check(
 		"exportFormat",
 		store.shotCamera.exportFormat.value,
@@ -169,11 +161,7 @@ function __cfVerifyState(expected) {
 
 	// --- frames ---
 	check("frames.count", store.frames.count.value, expected.frameCount);
-	check(
-		"frames.activeId",
-		store.frames.activeId.value,
-		expected.activeFrameId,
-	);
+	check("frames.activeId", store.frames.activeId.value, expected.activeFrameId);
 	check(
 		"frames.active.name",
 		store.frames.active.value?.name,

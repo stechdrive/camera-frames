@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
-import { PackedSplats, SplatMesh } from "../src/engine/spark-integration/spark-symbols.js";
 import * as THREE from "three";
 import { createPerSplatEditControllerBindings } from "../src/app/per-splat-edit-controller-bindings.js";
 import { createHistoryController } from "../src/controllers/history-controller.js";
 import { createPerSplatEditController } from "../src/controllers/per-splat-edit-controller.js";
 import { createSceneAssetStatePersistence } from "../src/controllers/scene-assets/state-persistence.js";
+import {
+	PackedSplats,
+	SplatMesh,
+} from "../src/engine/spark-integration/spark-symbols.js";
 import {
 	createProjectFileEmbeddedFileSource,
 	createProjectFilePackedSplatSource,
@@ -2703,7 +2706,9 @@ async function createPackedSplatAsset({ id, label, centers }) {
 			firstBrushCount > 0,
 			"brush should hit at least one splat to seed the grid",
 		);
-		const gridInitEvents = perfLog.filter((entry) => entry.phase === "grid-init");
+		const gridInitEvents = perfLog.filter(
+			(entry) => entry.phase === "grid-init",
+		);
 		assert.equal(
 			gridInitEvents.length,
 			1,
@@ -2748,7 +2753,7 @@ async function createPackedSplatAsset({ id, label, centers }) {
 						fallbackAssets: number;
 						changedCount: number;
 					};
-				}
+			  }
 			| undefined;
 		assert.ok(boxGridEvent, "box-scan perf log should fire");
 		assert.equal(
@@ -2760,9 +2765,9 @@ async function createPackedSplatAsset({ id, label, centers }) {
 		assert.equal(boxGridEvent?.details.changedCount, boxGridCount);
 	} finally {
 		console.debug = originalDebug;
-		delete (
+		(
 			globalThis as { __CAMERA_FRAMES_DEBUG_SPLAT_PERF__?: boolean }
-		).__CAMERA_FRAMES_DEBUG_SPLAT_PERF__;
+		).__CAMERA_FRAMES_DEBUG_SPLAT_PERF__ = undefined;
 	}
 }
 
@@ -2852,9 +2857,9 @@ async function createPackedSplatAsset({ id, label, centers }) {
 		);
 	} finally {
 		console.debug = originalDebug;
-		delete (
+		(
 			globalThis as { __CAMERA_FRAMES_DEBUG_SPLAT_PERF__?: boolean }
-		).__CAMERA_FRAMES_DEBUG_SPLAT_PERF__;
+		).__CAMERA_FRAMES_DEBUG_SPLAT_PERF__ = undefined;
 	}
 }
 
@@ -2934,9 +2939,9 @@ async function createPackedSplatAsset({ id, label, centers }) {
 		);
 	} finally {
 		console.debug = originalDebug;
-		delete (
+		(
 			globalThis as { __CAMERA_FRAMES_DEBUG_SPLAT_PERF__?: boolean }
-		).__CAMERA_FRAMES_DEBUG_SPLAT_PERF__;
+		).__CAMERA_FRAMES_DEBUG_SPLAT_PERF__ = undefined;
 	}
 }
 
@@ -3000,9 +3005,9 @@ async function createPackedSplatAsset({ id, label, centers }) {
 		assert.equal(boxEvent?.details.fallbackAssets, 1);
 	} finally {
 		console.debug = originalDebug;
-		delete (
+		(
 			globalThis as { __CAMERA_FRAMES_DEBUG_SPLAT_PERF__?: boolean }
-		).__CAMERA_FRAMES_DEBUG_SPLAT_PERF__;
+		).__CAMERA_FRAMES_DEBUG_SPLAT_PERF__ = undefined;
 	}
 }
 
@@ -3075,7 +3080,7 @@ async function createPackedSplatAsset({ id, label, centers }) {
 						touchedCount: number | null;
 						selectionCount: number;
 					};
-				}
+			  }
 			| undefined;
 		assert.ok(highlightSync, "highlight-sync perf log should fire after brush");
 		assert.equal(
@@ -3091,9 +3096,9 @@ async function createPackedSplatAsset({ id, label, centers }) {
 		assert.equal(highlightSync?.details.selectionCount, changedCount);
 	} finally {
 		console.debug = originalDebug;
-		delete (
+		(
 			globalThis as { __CAMERA_FRAMES_DEBUG_SPLAT_PERF__?: boolean }
-		).__CAMERA_FRAMES_DEBUG_SPLAT_PERF__;
+		).__CAMERA_FRAMES_DEBUG_SPLAT_PERF__ = undefined;
 	}
 }
 
@@ -3164,9 +3169,9 @@ async function createPackedSplatAsset({ id, label, centers }) {
 		);
 	} finally {
 		console.debug = originalDebug;
-		delete (
+		(
 			globalThis as { __CAMERA_FRAMES_DEBUG_SPLAT_PERF__?: boolean }
-		).__CAMERA_FRAMES_DEBUG_SPLAT_PERF__;
+		).__CAMERA_FRAMES_DEBUG_SPLAT_PERF__ = undefined;
 	}
 }
 

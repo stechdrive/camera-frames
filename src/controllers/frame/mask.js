@@ -1,6 +1,4 @@
-import {
-	normalizeFrameMaskShape,
-} from "../../engine/frame-trajectory.js";
+import { normalizeFrameMaskShape } from "../../engine/frame-trajectory.js";
 import {
 	resolveFrameMaskPreferredMode,
 	resolveFrameMaskSelectedIds,

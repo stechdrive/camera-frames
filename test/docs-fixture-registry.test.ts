@@ -28,15 +28,8 @@ const allFixtures = listFixtures();
 assert.ok(allFixtures.length > 0, "registry must contain at least one fixture");
 
 for (const fixture of allFixtures) {
-	assert.equal(
-		typeof fixture.id,
-		"string",
-		"fixture.id must be a string",
-	);
-	assert.ok(
-		fixture.id.length > 0,
-		"fixture.id must be non-empty",
-	);
+	assert.equal(typeof fixture.id, "string", "fixture.id must be a string");
+	assert.ok(fixture.id.length > 0, "fixture.id must be non-empty");
 	assert.ok(
 		KNOWN_FIXTURE_TYPES.has(fixture.type),
 		`fixture ${fixture.id}: type "${fixture.type}" must be one of ${[...KNOWN_FIXTURE_TYPES].join(", ")}`,
@@ -82,10 +75,16 @@ assert.equal(
 	null,
 	"getFixture(unknown) returns null",
 );
-// biome-ignore lint/suspicious/noExplicitAny: test utility
-assert.equal(getFixture(null as any), null, "getFixture(null) returns null");
-// biome-ignore lint/suspicious/noExplicitAny: test utility
-assert.equal(getFixture(42 as any), null, "getFixture(non-string) returns null");
+assert.equal(
+	getFixture(null as unknown as string),
+	null,
+	"getFixture(null) returns null",
+);
+assert.equal(
+	getFixture(42 as unknown as string),
+	null,
+	"getFixture(non-string) returns null",
+);
 assert.deepEqual(
 	listFixtureIds().sort(),
 	Object.keys(FIXTURES).sort(),
@@ -116,7 +115,9 @@ function collectIconRefsFromLang(lang: string) {
 	const chaptersDir = join(repoRoot, "docs", "help", lang);
 	let chapterFiles: string[];
 	try {
-		chapterFiles = readdirSync(chaptersDir).filter((file) => file.endsWith(".md"));
+		chapterFiles = readdirSync(chaptersDir).filter((file) =>
+			file.endsWith(".md"),
+		);
 	} catch {
 		return;
 	}
@@ -150,9 +151,7 @@ for (const name of referencedIcons) {
 const fixturesDir = join(repoRoot, "src", "docs", "fixtures");
 const fixtureFileNames = readdirSync(fixturesDir).filter(
 	(file) =>
-		file.endsWith(".js") &&
-		!file.startsWith("index") &&
-		file !== "types.d.ts",
+		file.endsWith(".js") && !file.startsWith("index") && file !== "types.d.ts",
 );
 const fixtureIdLiteralPattern = /\bid:\s*"([^"]+)"/g;
 const allFixtureIds = new Set<string>();

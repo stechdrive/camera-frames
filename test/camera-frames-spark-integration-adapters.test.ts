@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
-import * as SparkSymbols from "../src/engine/spark-integration/spark-symbols.js";
 import {
 	assignSparkExportBufferState,
 	captureSparkExportBufferOutputs,
 	captureSparkExportBufferState,
 } from "../src/engine/spark-integration/spark-export-buffer-state.js";
+import * as SparkSymbols from "../src/engine/spark-integration/spark-symbols.js";
 
 {
 	// Contract: spark-symbols.js must re-export every Spark symbol consumed by
@@ -138,8 +138,14 @@ import {
 	};
 
 	assert.equal(getSparkSplatMeshCount(mesh), 2);
-	assert.equal(getSparkSplatMeshColorBufferArray(mesh), previousSplatRgba.array);
-	assert.equal(setSparkSplatMeshColorBuffer(mesh, nextSplatRgba), previousSplatRgba);
+	assert.equal(
+		getSparkSplatMeshColorBufferArray(mesh),
+		previousSplatRgba.array,
+	);
+	assert.equal(
+		setSparkSplatMeshColorBuffer(mesh, nextSplatRgba),
+		previousSplatRgba,
+	);
 	assert.equal(mesh.splatRgba, nextSplatRgba);
 	assert.equal(mesh.updateGeneratorCalls, 1);
 
@@ -245,10 +251,7 @@ import {
 	assert.equal(mesh.updateGeneratorCalls, 1);
 	assert.equal(mesh.updateVersionCalls, 1);
 
-	assert.throws(
-		() => reinitializeSparkPackedSplats({}, {}),
-		/reinitialize/,
-	);
+	assert.throws(() => reinitializeSparkPackedSplats({}, {}), /reinitialize/);
 }
 
 {

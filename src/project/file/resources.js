@@ -67,8 +67,7 @@ export function getProjectResourceFileLabel(resource) {
 	}
 	if (resource?.type === PROJECT_RESOURCE_RAW_PACKED_SPLAT) {
 		return (
-			normalizeProjectFileName(resource.originalName, "") ||
-			"derived.rawsplat"
+			normalizeProjectFileName(resource.originalName, "") || "derived.rawsplat"
 		);
 	}
 	return "asset";
@@ -112,7 +111,10 @@ function cloneRawPackedSplatLodResource(lodResource) {
 	}
 	const packedArrayPath = lodResource.packedArray?.path;
 	const packedArraySha = lodResource.packedArray?.sha256;
-	if (typeof packedArrayPath !== "string" || typeof packedArraySha !== "string") {
+	if (
+		typeof packedArrayPath !== "string" ||
+		typeof packedArraySha !== "string"
+	) {
 		return null;
 	}
 	return {

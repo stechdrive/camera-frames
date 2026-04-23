@@ -102,11 +102,20 @@ function computeAnnotationPosition(rect, stageRect, placement) {
 		case "center":
 			return { x: centerX, y: centerY };
 		case "top-left":
-			return { x: left - ANNOTATION_OUTSIDE_OFFSET, y: top - ANNOTATION_OUTSIDE_OFFSET };
+			return {
+				x: left - ANNOTATION_OUTSIDE_OFFSET,
+				y: top - ANNOTATION_OUTSIDE_OFFSET,
+			};
 		case "bottom-right":
-			return { x: right + ANNOTATION_OUTSIDE_OFFSET, y: bottom + ANNOTATION_OUTSIDE_OFFSET };
+			return {
+				x: right + ANNOTATION_OUTSIDE_OFFSET,
+				y: bottom + ANNOTATION_OUTSIDE_OFFSET,
+			};
 		case "bottom-left":
-			return { x: left - ANNOTATION_OUTSIDE_OFFSET, y: bottom + ANNOTATION_OUTSIDE_OFFSET };
+			return {
+				x: left - ANNOTATION_OUTSIDE_OFFSET,
+				y: bottom + ANNOTATION_OUTSIDE_OFFSET,
+			};
 		case "above":
 			return { x: centerX, y: top - ANNOTATION_OUTSIDE_OFFSET };
 		case "below":
@@ -118,7 +127,10 @@ function computeAnnotationPosition(rect, stageRect, placement) {
 		default:
 			// "top-right" (default): badge sits fully above-right of the
 			// target's top-right corner so small icons remain visible.
-			return { x: right + ANNOTATION_OUTSIDE_OFFSET, y: top - ANNOTATION_OUTSIDE_OFFSET };
+			return {
+				x: right + ANNOTATION_OUTSIDE_OFFSET,
+				y: top - ANNOTATION_OUTSIDE_OFFSET,
+			};
 	}
 }
 
@@ -179,9 +191,11 @@ function AnnotationLayer({ annotations }) {
 							left: `${annotation.x}px`,
 							top: `${annotation.y}px`,
 						}}
-						title=${annotation.missing
-							? `${annotation.label} (selector not found: ${annotation.selector})`
-							: annotation.label}
+						title=${
+							annotation.missing
+								? `${annotation.label} (selector not found: ${annotation.selector})`
+								: annotation.label
+						}
 					>
 						${annotation.n}
 					</span>
@@ -262,10 +276,7 @@ function mount() {
 	// to iterate). Populated after index-browser.js side-effect imports
 	// run at module top, so the list includes browser-only fixtures.
 	globalThis.__DOCS_FIXTURE_IDS = listFixtureIds();
-	render(
-		html`<${DocsStage} fixtureId=${fixtureId} lang=${lang} />`,
-		root,
-	);
+	render(html`<${DocsStage} fixtureId=${fixtureId} lang=${lang} />`, root);
 	signalReady(fixtureId);
 }
 

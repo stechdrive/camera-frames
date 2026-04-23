@@ -30,7 +30,10 @@ export function createMockController(options = {}) {
 	const methods = options.methods ?? null;
 	/** @type {MockMethodCall[]} */
 	const calls = [];
-	const target = { [SPECIAL_PROP_CALLS]: calls, [SPECIAL_PROP_METHODS]: methods };
+	const target = {
+		[SPECIAL_PROP_CALLS]: calls,
+		[SPECIAL_PROP_METHODS]: methods,
+	};
 	return new Proxy(target, {
 		get(box, prop) {
 			if (typeof prop !== "string") {

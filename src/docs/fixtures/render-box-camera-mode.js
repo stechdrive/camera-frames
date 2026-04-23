@@ -5,13 +5,13 @@
 // lockstep.
 
 import { html } from "htm/preact";
+import { makeScene } from "../mock/scenes.js";
 import {
 	VIEWPORT_HEIGHT,
 	VIEWPORT_WIDTH,
 	frameSizeForScale,
 	renderRenderBox,
 } from "./camera-mode-render-box.js";
-import { makeScene } from "../mock/scenes.js";
 
 const STYLE = `
 .docs-viewport-host {

@@ -99,8 +99,9 @@ export function MobileUiScaleModal({ store, controller, t }) {
 								value: formatMobileUiScaleLabel(autoScale),
 							})}
 						</span>
-						${isCustomized
-							? html`
+						${
+							isCustomized
+								? html`
 									<button
 										type="button"
 										class="mobile-ui-scale-modal__reset"
@@ -109,11 +110,12 @@ export function MobileUiScaleModal({ store, controller, t }) {
 										${t("mobileUiScale.resetToAuto")}
 									</button>
 								`
-							: html`
+								: html`
 									<span class="mobile-ui-scale-modal__auto-active">
 										${t("mobileUiScale.autoActiveBadge")}
 									</span>
-								`}
+								`
+						}
 					</div>
 					<section
 						class="mobile-ui-scale-modal__preview"

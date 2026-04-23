@@ -110,7 +110,10 @@ import {
 	);
 
 	assert.equal(createMaskLayerCallCount, 0);
-	assert.equal(document.layers.some((layer) => layer.name === "Mask"), false);
+	assert.equal(
+		document.layers.some((layer) => layer.name === "Mask"),
+		false,
+	);
 }
 
 {

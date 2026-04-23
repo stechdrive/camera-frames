@@ -1,8 +1,5 @@
 import * as THREE from "three";
-import {
-	getAssetIdKey,
-	getSplatAssetWorldMatrix,
-} from "./asset-accessors.js";
+import { getAssetIdKey, getSplatAssetWorldMatrix } from "./asset-accessors.js";
 
 export function createSplatEditScope({
 	store,

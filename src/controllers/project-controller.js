@@ -103,7 +103,9 @@ export function createProjectController({
 		store.overlay.value = null;
 	}
 
-	async function resolveSogCompressionAvailability({ logFailure = false } = {}) {
+	async function resolveSogCompressionAvailability({
+		logFailure = false,
+	} = {}) {
 		if (!supportsSogCompressionImpl()) {
 			return {
 				available: false,
@@ -734,8 +736,7 @@ export function createProjectController({
 		const assets = assetController?.getSceneAssets?.() ?? [];
 		return assets.filter(
 			(asset) =>
-				asset?.kind === "splat" &&
-				asset?.disposeTarget?.packedSplats != null,
+				asset?.kind === "splat" && asset?.disposeTarget?.packedSplats != null,
 		);
 	}
 
@@ -821,8 +822,7 @@ export function createProjectController({
 			extraFiles: {},
 			fileType: asset.source?.fileType ?? null,
 			packedArray: packedSplats.packedArray ?? new Uint32Array(),
-			numSplats:
-				packedSplats.getNumSplats?.() ?? packedSplats.numSplats ?? 0,
+			numSplats: packedSplats.getNumSplats?.() ?? packedSplats.numSplats ?? 0,
 			extra: packedSplats.extra ?? {},
 			splatEncoding: packedSplats.splatEncoding ?? null,
 			lodSplats: lodSplatsEntry,
@@ -897,7 +897,8 @@ export function createProjectController({
 		// SOG is only meaningful in Fast mode — Quality always promotes sources
 		// to raw-packed-splat to carry the baked LoD, which bypasses SOG's
 		// embedded-file code path.
-		const sogCompress = packageSaveMode === "fast" && values.sogCompress === true;
+		const sogCompress =
+			packageSaveMode === "fast" && values.sogCompress === true;
 		const sogMaxShBands = Number.parseInt(values.sogMaxShBands ?? "", 10);
 		const sogIterations = Number.parseInt(values.sogIterations ?? "", 10);
 		preferredPackageSaveOptions = {
@@ -958,9 +959,7 @@ export function createProjectController({
 			const projectSnapshot = captureProjectState();
 			const normalizedProject = normalizeProjectDocument(projectSnapshot);
 			normalizedProject.projectId =
-				currentProjectId ||
-				normalizedProject.projectId ||
-				generateProjectId();
+				currentProjectId || normalizedProject.projectId || generateProjectId();
 			normalizedProject.packageRevision =
 				Math.max(0, currentPackageRevision) + 1;
 
@@ -1043,7 +1042,9 @@ export function createProjectController({
 		// (preserve & signal intent explicitly) or Fast (same effective output
 		// via pass-through). We default to Quality when anything is baked so
 		// the UI mirrors the actual state the user is about to keep.
-		const preferredSaveMode = normalizeSaveMode(preferredPackageSaveOptions.saveMode);
+		const preferredSaveMode = normalizeSaveMode(
+			preferredPackageSaveOptions.saveMode,
+		);
 		const saveModeDefault = bakedLodState.hasAnyBaked
 			? "quality"
 			: preferredSaveMode;
@@ -1054,7 +1055,8 @@ export function createProjectController({
 				asset?.kind === "splat" &&
 				isProjectFileEmbeddedFileSource(asset?.source),
 		);
-		const sogToggleAvailable = canCompressSplatsToSog && hasAnyEmbeddedFileSource;
+		const sogToggleAvailable =
+			canCompressSplatsToSog && hasAnyEmbeddedFileSource;
 		// If SOG was previously preferred but is no longer available (webgpu
 		// gone or no pure PLY in this scene), untick it so the disclosure
 		// reflects reality.
@@ -1097,8 +1099,7 @@ export function createProjectController({
 					type: "group",
 					label: t("overlay.packageAdvancedOptions"),
 					open: false,
-					hidden: (values) =>
-						values.saveMode !== "fast" || !sogToggleAvailable,
+					hidden: (values) => values.saveMode !== "fast" || !sogToggleAvailable,
 					fields: [
 						{
 							id: "sogCompress",

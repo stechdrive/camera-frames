@@ -14,10 +14,7 @@ import {
 	getActiveFrameDocument as resolveActiveFrameDocument,
 } from "../../workspace-model.js";
 
-export function createFrameDocumentHelpers({
-	t,
-	getActiveShotCameraDocument,
-}) {
+export function createFrameDocumentHelpers({ t, getActiveShotCameraDocument }) {
 	function buildFrameDocumentName(nextNumber) {
 		return t("frame.defaultName", { index: getFrameDisplayLabel(nextNumber) });
 	}

@@ -3,6 +3,7 @@ import {
 	debugSplatPerf,
 	isSplatPerfDebugEnabled,
 } from "../../debug/splat-perf-debug.js";
+import { getAssetIdKey, getSplatAssetWorldMatrix } from "./asset-accessors.js";
 import {
 	DEFAULT_BOX_SIZE,
 	WORLD_AXES,
@@ -13,10 +14,6 @@ import {
 	toVector3,
 	updatePointerRay,
 } from "./pure-utils.js";
-import {
-	getAssetIdKey,
-	getSplatAssetWorldMatrix,
-} from "./asset-accessors.js";
 
 const tempBoxLocalPoint = new THREE.Vector3();
 
@@ -360,7 +357,11 @@ export function createSplatEditBoxTool({
 		};
 	}
 
-	function reportSelectionDebugIfEmpty(selectionVolume, changedCount, subtract) {
+	function reportSelectionDebugIfEmpty(
+		selectionVolume,
+		changedCount,
+		subtract,
+	) {
 		if (!isDevRuntime || changedCount > 0) {
 			return;
 		}

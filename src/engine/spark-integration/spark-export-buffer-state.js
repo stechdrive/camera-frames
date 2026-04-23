@@ -1,6 +1,8 @@
 function assertSparkExportBufferStateTarget(sourceSpark) {
 	if (!sourceSpark || typeof sourceSpark !== "object") {
-		throw new Error("Spark export contract mismatch: sourceSpark is not an object.");
+		throw new Error(
+			"Spark export contract mismatch: sourceSpark is not an object.",
+		);
 	}
 	return sourceSpark;
 }

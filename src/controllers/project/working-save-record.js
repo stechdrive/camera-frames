@@ -36,9 +36,7 @@ export function resolveProjectIdentity(project, fallbackFingerprint = "") {
 	const normalizedProject = normalizeProjectDocument(project);
 	return {
 		projectId:
-			normalizedProject.projectId ||
-			fallbackFingerprint ||
-			generateProjectId(),
+			normalizedProject.projectId || fallbackFingerprint || generateProjectId(),
 		packageRevision: normalizedProject.packageRevision ?? 0,
 	};
 }

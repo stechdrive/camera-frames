@@ -1,10 +1,10 @@
-import { getFrameDocumentById } from "../../workspace-model.js";
 import {
 	getFrameAnchorWorldPoint,
 	normalizeRotationDegrees,
 	rotateVector,
 	snapRotationDeltaDegrees,
 } from "../../engine/frame-transform.js";
+import { getFrameDocumentById } from "../../workspace-model.js";
 import {
 	clearGlobalFrameCursor,
 	setGlobalRotateCursor,

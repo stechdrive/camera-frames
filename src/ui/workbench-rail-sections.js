@@ -302,7 +302,9 @@ function MaskToolPopover({ controller, hasFrames, store, t }) {
 							value=${frameTrajectoryMode}
 							disabled=${!hasFrames}
 							onChange=${(event) =>
-								controller()?.setFrameTrajectoryMode?.(event.currentTarget.value)}
+								controller()?.setFrameTrajectoryMode?.(
+									event.currentTarget.value,
+								)}
 						>
 							${trajectoryModeOptions.map(
 								(option) => html`

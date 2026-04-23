@@ -31,8 +31,7 @@ const VIEWPORT_PIE_LAYOUT = Object.freeze(
 );
 
 export function getViewportPieMetrics({ coarse = false, uiScale = 1 } = {}) {
-	const uiMultiplier =
-		Number.isFinite(uiScale) && uiScale > 0 ? uiScale : 1;
+	const uiMultiplier = Number.isFinite(uiScale) && uiScale > 0 ? uiScale : 1;
 	const coarseMultiplier = coarse ? VIEWPORT_PIE_COARSE_SCALE : 1;
 	const scale = coarseMultiplier * uiMultiplier;
 	return {

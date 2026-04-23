@@ -2,7 +2,9 @@ const SPLAT_COUNT_SOURCES = ["splats", "packedSplats", "extSplats"];
 
 function assertSparkSplatMesh(mesh, { requireGenerator = false } = {}) {
 	if (!mesh || typeof mesh !== "object") {
-		throw new Error("Spark splat mesh contract mismatch: mesh is not an object.");
+		throw new Error(
+			"Spark splat mesh contract mismatch: mesh is not an object.",
+		);
 	}
 	if (requireGenerator && typeof mesh.updateGenerator !== "function") {
 		throw new Error(
@@ -37,7 +39,10 @@ export function setSparkSplatMeshColorBuffer(mesh, splatRgba) {
 	return previousSplatRgba;
 }
 
-export function restoreSparkSplatMeshColorBuffer(mesh, previousSplatRgba = null) {
+export function restoreSparkSplatMeshColorBuffer(
+	mesh,
+	previousSplatRgba = null,
+) {
 	const targetMesh = assertSparkSplatMesh(mesh, { requireGenerator: true });
 	targetMesh.splatRgba = previousSplatRgba ?? null;
 	targetMesh.updateGenerator();

@@ -155,7 +155,10 @@ export function createDocsBridge({ store, getController }) {
 		iframe,
 		propName,
 		predicate,
-		{ timeoutMs = DEFAULT_FIXTURE_CAPTURE_TIMEOUT_MS, pollMs = DEFAULT_IFRAME_POLL_MS } = {},
+		{
+			timeoutMs = DEFAULT_FIXTURE_CAPTURE_TIMEOUT_MS,
+			pollMs = DEFAULT_IFRAME_POLL_MS,
+		} = {},
 	) {
 		const start = Date.now();
 		while (Date.now() - start < timeoutMs) {
@@ -266,7 +269,9 @@ export function createDocsBridge({ store, getController }) {
 		}
 	}
 
-	async function listFixtureIds({ timeoutMs = DEFAULT_FIXTURE_CAPTURE_TIMEOUT_MS } = {}) {
+	async function listFixtureIds({
+		timeoutMs = DEFAULT_FIXTURE_CAPTURE_TIMEOUT_MS,
+	} = {}) {
 		const iframe = createDocsIframe("", { visible: false });
 		document.body.appendChild(iframe);
 		try {

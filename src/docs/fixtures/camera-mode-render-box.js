@@ -98,7 +98,10 @@ const RESIZE_HANDLES = [
 
 const PAN_EDGES = ["top", "right", "bottom", "left"];
 
-function renderRenderBox({ frames = [], anchorOffset = { left: "50%", top: "50%" } } = {}) {
+function renderRenderBox({
+	frames = [],
+	anchorOffset = { left: "50%", top: "50%" },
+} = {}) {
 	return html`
 		<div
 			id="render-box"
@@ -129,7 +132,9 @@ function renderRenderBox({ frames = [], anchorOffset = { left: "50%", top: "50%"
 								: "none",
 						}}
 					>
-						${frame.active && html`
+						${
+							frame.active &&
+							html`
 							<span
 								aria-hidden="true"
 								style=${{
@@ -140,7 +145,8 @@ function renderRenderBox({ frames = [], anchorOffset = { left: "50%", top: "50%"
 									pointerEvents: "none",
 								}}
 							></span>
-						`}
+						`
+						}
 						<span
 							style=${{
 								position: "absolute",

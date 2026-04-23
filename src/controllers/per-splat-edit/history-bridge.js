@@ -1,4 +1,5 @@
 import { debugSplatHistory } from "../../debug/splat-history-debug.js";
+import { getAssetIdKey, getSplatAssetTotalCount } from "./asset-accessors.js";
 import {
 	clampBoxAxisSize,
 	clampBrushDepth,
@@ -6,10 +7,6 @@ import {
 	toPlainQuaternion,
 	toQuaternion,
 } from "./pure-utils.js";
-import {
-	getAssetIdKey,
-	getSplatAssetTotalCount,
-} from "./asset-accessors.js";
 
 export function createSplatEditHistoryBridge({
 	store,
@@ -79,9 +76,7 @@ export function createSplatEditHistoryBridge({
 			},
 			lastOperation: {
 				mode: String(store.splatEdit.lastOperation.value?.mode ?? ""),
-				hitCount: Number.isFinite(
-					store.splatEdit.lastOperation.value?.hitCount,
-				)
+				hitCount: Number.isFinite(store.splatEdit.lastOperation.value?.hitCount)
 					? Number(store.splatEdit.lastOperation.value.hitCount)
 					: 0,
 			},
@@ -165,10 +160,7 @@ export function createSplatEditHistoryBridge({
 		);
 		let restoredFromRevision = false;
 		const revisionId = snapshot?.selectionRevision;
-		if (
-			Number.isInteger(revisionId) &&
-			selectionByRevision.has(revisionId)
-		) {
+		if (Number.isInteger(revisionId) && selectionByRevision.has(revisionId)) {
 			const { frozen } = selectionByRevision.get(revisionId);
 			for (const item of frozen) {
 				const assetIdKey = getAssetIdKey(item.assetId);
@@ -185,11 +177,7 @@ export function createSplatEditHistoryBridge({
 				const selectedSet = new Set();
 				for (let i = 0; i < item.indices.length; i += 1) {
 					const index = item.indices[i];
-					if (
-						Number.isInteger(index) &&
-						index >= 0 &&
-						index < totalCount
-					) {
+					if (Number.isInteger(index) && index >= 0 && index < totalCount) {
 						selectedSet.add(index);
 					}
 				}
@@ -287,8 +275,7 @@ export function createSplatEditHistoryBridge({
 			if (drag.historyStarted) {
 				debugSplatHistory(commit ? "commit-transform" : "cancel-transform", {
 					mode: drag.mode,
-					assets:
-						drag.entries?.map?.((entry) => entry.asset?.id ?? null) ?? [],
+					assets: drag.entries?.map?.((entry) => entry.asset?.id ?? null) ?? [],
 				});
 				if (commit) {
 					return commitHistoryTransaction?.("splat-edit.transform") === true;

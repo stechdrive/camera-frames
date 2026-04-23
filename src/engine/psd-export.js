@@ -130,7 +130,9 @@ function toPsdLayer(layer) {
 						bottom:
 							layer.mask.bottom ??
 							layer.mask.top +
-								(layer.mask.canvas?.height ?? layer.mask.imageData?.height ?? 0),
+								(layer.mask.canvas?.height ??
+									layer.mask.imageData?.height ??
+									0),
 						defaultColor: layer.mask.defaultColor ?? 0,
 						...(typeof layer.mask.disabled === "boolean"
 							? { disabled: layer.mask.disabled }

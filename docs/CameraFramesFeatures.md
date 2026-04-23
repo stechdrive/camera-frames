@@ -37,7 +37,8 @@
 - working save
 - portable `.ssproj` save
 - `.ssproj` open 時の compatible working save restore
-- viewport HUD の `name / * / PKG` で dirty 状態を見分けられる
+- viewport 右上 HUD の `name / * / PKG` で dirty 状態を見分けられる
+- desktop では同じ HUD の `プレビュー品質` で 3DGS viewport 表示の軽さと細部確認のしやすさを端末ごとに調整できる
 
 ### 2.3 Scene assets
 
@@ -252,7 +253,7 @@ PSD export の主な構成:
 - preview / export correctness の詰め
 - reference image の true back-layer composition の最終 hardening
 - very large project save/load の hardening
-- LoD settle policy の詰め
+- LoD readiness heuristic の実 scene 追加検証
 - `focus selected / fit scene` の productized workflow
 
 ## 7. この文書の使い方

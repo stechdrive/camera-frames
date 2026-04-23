@@ -35,10 +35,7 @@ initializeCanvas(
 		},
 		{
 			name: "Group",
-			children: [
-				{ name: "Group Bottom" },
-				{ name: "Group Top" },
-			],
+			children: [{ name: "Group Bottom" }, { name: "Group Top" }],
 		},
 		{
 			name: "Top",
@@ -46,11 +43,10 @@ initializeCanvas(
 	];
 
 	const psdChildren = buildPsdChildrenForWrite(layers);
-	assert.deepEqual(psdChildren.map((layer) => layer.name), [
-		"Bottom",
-		"Group",
-		"Top",
-	]);
+	assert.deepEqual(
+		psdChildren.map((layer) => layer.name),
+		["Bottom", "Group", "Top"],
+	);
 	assert.deepEqual(
 		psdChildren[1].children.map((layer) => layer.name),
 		["Group Bottom", "Group Top"],
@@ -64,10 +60,7 @@ initializeCanvas(
 		},
 		{
 			name: "Group",
-			children: [
-				{ name: "Group Bottom" },
-				{ name: "Group Top" },
-			],
+			children: [{ name: "Group Bottom" }, { name: "Group Top" }],
 		},
 		{
 			name: "Top",
@@ -75,11 +68,10 @@ initializeCanvas(
 	];
 
 	const compositeLayers = buildCompositeLayersForRender(layers);
-	assert.deepEqual(compositeLayers.map((layer) => layer.name), [
-		"Bottom",
-		"Group",
-		"Top",
-	]);
+	assert.deepEqual(
+		compositeLayers.map((layer) => layer.name),
+		["Bottom", "Group", "Top"],
+	);
 	assert.deepEqual(
 		compositeLayers[1].children.map((layer) => layer.name),
 		["Group Bottom", "Group Top"],

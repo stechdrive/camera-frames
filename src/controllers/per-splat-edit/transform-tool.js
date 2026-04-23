@@ -387,8 +387,7 @@ export function createSplatEditTransformTool({
 			entries,
 			selectionBounds: getSelectedSplatTransformBounds()?.clone?.() ?? null,
 			pivotWorld:
-				getSelectedSplatTransformPivotWorld()?.clone?.() ??
-				new THREE.Vector3(),
+				getSelectedSplatTransformPivotWorld()?.clone?.() ?? new THREE.Vector3(),
 			worldTranslation: worldDelta.clone(),
 			worldRotation: new THREE.Quaternion(),
 			uniformScale: 1,

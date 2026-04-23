@@ -1,21 +1,21 @@
-import { fromHalf } from "../../engine/spark-integration/spark-symbols.js";
 import * as THREE from "three";
 import {
 	debugSplatPerf,
 	isSplatPerfDebugEnabled,
 } from "../../debug/splat-perf-debug.js";
-import {
-	MAX_BRUSH_GRID_CELL_SIZE,
-	MAX_BRUSH_GRID_QUERY_CELLS,
-	MIN_BRUSH_GRID_CELL_SIZE,
-	MIN_BRUSH_INDEX_SPLAT_COUNT,
-} from "./pure-utils.js";
+import { fromHalf } from "../../engine/spark-integration/spark-symbols.js";
 import {
 	getAssetIdKey,
 	getSplatAssetTotalCount,
 	getSplatAssetWorldMatrix,
 	getSplatPackedSource,
 } from "./asset-accessors.js";
+import {
+	MAX_BRUSH_GRID_CELL_SIZE,
+	MAX_BRUSH_GRID_QUERY_CELLS,
+	MIN_BRUSH_GRID_CELL_SIZE,
+	MIN_BRUSH_INDEX_SPLAT_COUNT,
+} from "./pure-utils.js";
 
 export function createBrushSpatialIndex({ pointInSplatEditBox }) {
 	const brushSpatialIndexByAssetId = new Map();

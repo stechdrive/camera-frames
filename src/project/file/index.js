@@ -1,6 +1,8 @@
 import {
-	normalizeReferenceImageDocument,
-} from "../../reference-image-model.js";
+	buildZipArchiveBytes,
+	createArchiveWritableStream,
+} from "../../project-archive.js";
+import { normalizeReferenceImageDocument } from "../../reference-image-model.js";
 import {
 	PROJECT_DOCUMENT_PATH,
 	PROJECT_MANIFEST_PATH,
@@ -11,14 +13,8 @@ import {
 	isProjectFilePackedSplatSource,
 	normalizeProjectDocument,
 } from "../document.js";
-import {
-	buildZipArchiveBytes,
-	createArchiveWritableStream,
-} from "../../project-archive.js";
 import { notifyPackageProgress } from "./progress.js";
-import {
-	getProjectResourceFileLabel,
-} from "./resources.js";
+import { getProjectResourceFileLabel } from "./resources.js";
 import {
 	serializeProjectAssetSource,
 	serializeReferenceImageAssetSource,

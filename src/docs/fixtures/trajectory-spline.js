@@ -6,6 +6,7 @@
 // so the capture stays deterministic.
 
 import { html } from "htm/preact";
+import { makeScene } from "../mock/scenes.js";
 import {
 	BOX_HEIGHT,
 	BOX_LEFT,
@@ -16,7 +17,6 @@ import {
 	frameSizeForScale,
 	renderRenderBox,
 } from "./camera-mode-render-box.js";
-import { makeScene } from "../mock/scenes.js";
 
 const STYLE = `
 .docs-viewport-host {
@@ -174,10 +174,22 @@ function applyHandleOffset(node, offset) {
 	};
 }
 
-const TAN_A_IN = applyHandleOffset(NODE_A, CF_TEST2_CAMERA_3_FRAMES[0].tangent.in);
-const TAN_A_OUT = applyHandleOffset(NODE_A, CF_TEST2_CAMERA_3_FRAMES[0].tangent.out);
-const TAN_B_IN = applyHandleOffset(NODE_B, CF_TEST2_CAMERA_3_FRAMES[1].tangent.in);
-const TAN_B_OUT = applyHandleOffset(NODE_B, CF_TEST2_CAMERA_3_FRAMES[1].tangent.out);
+const TAN_A_IN = applyHandleOffset(
+	NODE_A,
+	CF_TEST2_CAMERA_3_FRAMES[0].tangent.in,
+);
+const TAN_A_OUT = applyHandleOffset(
+	NODE_A,
+	CF_TEST2_CAMERA_3_FRAMES[0].tangent.out,
+);
+const TAN_B_IN = applyHandleOffset(
+	NODE_B,
+	CF_TEST2_CAMERA_3_FRAMES[1].tangent.in,
+);
+const TAN_B_OUT = applyHandleOffset(
+	NODE_B,
+	CF_TEST2_CAMERA_3_FRAMES[1].tangent.out,
+);
 
 function frameRect(frame) {
 	return {

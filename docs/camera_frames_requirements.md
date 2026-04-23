@@ -87,9 +87,10 @@ CAMERA_FRAMES の共有 contract を Git 管理するための基点です。
 - `Ctrl+Shift+S`
   - portable `.ssproj` package save
 - `.ssproj` を開いた時は `projectId + packageRevision + packageFingerprint` が一致する working save があれば自動復元する
-- project status の UI 表示は viewport HUD の `name / * / PKG`
+- project status の UI 表示は viewport 右上 HUD の `name / * / PKG`
   - `*` は working save dirty
   - `PKG` は portable package dirty
+- 同じ HUD の `プレビュー品質` は端末ローカルの viewport LoD preference であり、project status / dirty 判定 / `.ssproj` contract には含めない
 - working save record には次を含める
   - workspace
   - shot cameras

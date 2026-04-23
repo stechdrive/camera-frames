@@ -175,7 +175,12 @@ export function projectSelectionBoxLogicalToScreen(
 	};
 }
 
-export function updateFrameCenterFromWorldPoint(frame, centerX, centerY, metrics) {
+export function updateFrameCenterFromWorldPoint(
+	frame,
+	centerX,
+	centerY,
+	metrics,
+) {
 	const center = getFrameDocumentCenterFromWorld(centerX, centerY, metrics);
 	frame.x = resolveFrameAxis(center.x);
 	frame.y = resolveFrameAxis(center.y);

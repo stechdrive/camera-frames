@@ -1,9 +1,9 @@
+import { AUTO_VIEW_ZOOM_MARGIN } from "../../constants.js";
 import {
 	clampOutputFrameCenterPx,
 	clampViewZoom,
 	getRenderBoxMetrics,
 } from "../../engine/projection.js";
-import { AUTO_VIEW_ZOOM_MARGIN } from "../../constants.js";
 import { computeWorkbenchAutoCollapseState } from "./layout-compute.js";
 
 export function createOutputFrameFitStateController({

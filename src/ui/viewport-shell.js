@@ -72,8 +72,7 @@ export function SplatEditToolbar({ store, controller, t }) {
 	const splatEditLodStatus = store.splatEdit.lodStatus?.value ?? "empty";
 	const backgroundTask = store.backgroundTask?.value ?? null;
 	const lodBakeRunning =
-		backgroundTask?.kind === "auto-lod" &&
-		backgroundTask?.status === "running";
+		backgroundTask?.kind === "auto-lod" && backgroundTask?.status === "running";
 
 	const setSplatEditTool = (tool) => controller()?.setSplatEditTool?.(tool);
 	const setSplatEditBrushDepthMode = (nextMode) =>
@@ -273,8 +272,7 @@ export function SplatEditToolbar({ store, controller, t }) {
 										? " viewport-splat-edit-toolbar__btn--lod-running"
 										: ""
 								}`}
-								disabled=${splatEditLodStatus === "ready" ||
-									lodBakeRunning}
+								disabled=${splatEditLodStatus === "ready" || lodBakeRunning}
 								onClick=${() => controller()?.rebuildSplatEditLod?.()}
 							>
 								<span

@@ -1,5 +1,5 @@
-import { dyno } from "./spark-integration/spark-symbols.js";
 import * as THREE from "three";
+import { dyno } from "./spark-integration/spark-symbols.js";
 
 const MASK_TEXTURE_WIDTH = 2048;
 const EMPTY_HIDDEN_MAP = new Map();

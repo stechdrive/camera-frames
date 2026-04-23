@@ -1,7 +1,7 @@
 import {
+	buildRemainingIndices,
 	getAssetIdKey,
 	getSplatAssetTotalCount,
-	buildRemainingIndices,
 } from "./asset-accessors.js";
 
 export function selectAllSplatsForAssets(assets, selectedSplatsByAssetId) {
@@ -68,9 +68,7 @@ export function createSplatEditActions({
 		syncSelectionHighlight();
 		syncSceneHelper();
 		updateUi?.();
-		setStatus?.(
-			t("status.splatEditSelectAllDone", { count: totalSelected }),
-		);
+		setStatus?.(t("status.splatEditSelectAllDone", { count: totalSelected }));
 		return totalSelected;
 	}
 

@@ -7,8 +7,9 @@ import {
 const FLAG_KEY = "camera-frames.debug.splat-perf";
 
 function restoreGlobals() {
-	delete (globalThis as { __CAMERA_FRAMES_DEBUG_SPLAT_PERF__?: boolean })
-		.__CAMERA_FRAMES_DEBUG_SPLAT_PERF__;
+	(
+		globalThis as { __CAMERA_FRAMES_DEBUG_SPLAT_PERF__?: boolean }
+	).__CAMERA_FRAMES_DEBUG_SPLAT_PERF__ = undefined;
 	(globalThis as { localStorage?: unknown }).localStorage = undefined;
 }
 
@@ -99,6 +100,7 @@ function withConsoleDebug(run: () => void) {
 }
 
 // ---------- tolerates missing localStorage ----------
+// biome-ignore lint/complexity/noUselessLoneBlockStatements: Sectioned top-level assertions keep this behavior test readable.
 {
 	restoreGlobals();
 	(globalThis as { localStorage?: unknown }).localStorage = {

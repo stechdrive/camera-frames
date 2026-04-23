@@ -8,17 +8,16 @@
 	background: rgba(3, 7, 13, 0.55);
 	padding: calc(1rem * var(--cf-ui-scale, 1));
 	padding-bottom: calc(
-		env(safe-area-inset-bottom, 0px) + 1rem * var(--cf-ui-scale, 1)
+		env(safe-area-inset-bottom, 0px) +
+		1rem *
+		var(--cf-ui-scale, 1)
 	);
 }
 
 .mobile-ui-scale-modal__card {
 	display: flex;
 	flex-direction: column;
-	width: min(
-		calc(26rem * var(--cf-ui-scale, 1)),
-		calc(100vw - 1.5rem)
-	);
+	width: min(calc(26rem * var(--cf-ui-scale, 1)), calc(100vw - 1.5rem));
 	max-height: calc(100vh - 2rem);
 	background: linear-gradient(
 		180deg,
@@ -143,8 +142,8 @@
 	background: transparent;
 	border: none;
 	color: var(--accent-cool);
-	font: 600 calc(0.78rem * var(--cf-ui-scale, 1)) / 1 "Avenir Next",
-		"Segoe UI", sans-serif;
+	font: 600 calc(0.78rem * var(--cf-ui-scale, 1)) / 1 "Avenir Next", "Segoe UI",
+		sans-serif;
 	cursor: pointer;
 	padding: calc(0.25rem * var(--cf-ui-scale, 1))
 		calc(0.45rem * var(--cf-ui-scale, 1));
@@ -209,8 +208,8 @@
 	border-radius: calc(12px * var(--cf-ui-scale, 1));
 	background: rgba(255, 255, 255, 0.04);
 	color: var(--text);
-	font: 600 calc(0.86rem * var(--cf-ui-scale, 1)) / 1 "Avenir Next",
-		"Segoe UI", sans-serif;
+	font: 600 calc(0.86rem * var(--cf-ui-scale, 1)) / 1 "Avenir Next", "Segoe UI",
+		sans-serif;
 	cursor: pointer;
 }
 
@@ -268,8 +267,8 @@
 	border-radius: calc(14px * var(--cf-ui-scale, 1));
 	background: rgba(255, 255, 255, 0.06);
 	color: var(--text);
-	font: 600 calc(0.88rem * var(--cf-ui-scale, 1)) / 1 "Avenir Next",
-		"Segoe UI", sans-serif;
+	font: 600 calc(0.88rem * var(--cf-ui-scale, 1)) / 1 "Avenir Next", "Segoe UI",
+		sans-serif;
 	cursor: pointer;
 }
 

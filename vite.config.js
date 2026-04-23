@@ -204,7 +204,8 @@ export default defineConfig(({ command }) => {
 				try {
 					const body = Buffer.concat(chunks).toString("utf8");
 					const parsed = JSON.parse(body);
-					const dataUrl = typeof parsed.dataUrl === "string" ? parsed.dataUrl : "";
+					const dataUrl =
+						typeof parsed.dataUrl === "string" ? parsed.dataUrl : "";
 					const prefix = "data:image/png;base64,";
 					if (!dataUrl.startsWith(prefix)) {
 						throw new Error("dataUrl must be data:image/png;base64,...");
@@ -226,7 +227,10 @@ export default defineConfig(({ command }) => {
 					response.statusCode = 400;
 					response.setHeader("Content-Type", "application/json");
 					response.end(
-						JSON.stringify({ ok: false, error: error.message ?? String(error) }),
+						JSON.stringify({
+							ok: false,
+							error: error.message ?? String(error),
+						}),
 					);
 				}
 			});

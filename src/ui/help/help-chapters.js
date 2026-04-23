@@ -1,9 +1,10 @@
 import { parseMarkdownDocument } from "./markdown-parser.js";
 
-const rawJaChapterSources = import.meta.glob(
-	"../../../docs/help/ja/*.md",
-	{ eager: true, query: "?raw", import: "default" },
-);
+const rawJaChapterSources = import.meta.glob("../../../docs/help/ja/*.md", {
+	eager: true,
+	query: "?raw",
+	import: "default",
+});
 
 function buildChaptersFromRaw(rawMap) {
 	const chapters = [];

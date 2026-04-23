@@ -584,8 +584,7 @@ const MESSAGES = {
 					"Quick で焼込み済みのデータを Quality に再計算して保存します。",
 			},
 			packageAdvancedOptions: "詳細オプション",
-			packageFieldSogCompress:
-				"未編集 3DGS を SOG 圧縮でさらに小さく保存",
+			packageFieldSogCompress: "未編集 3DGS を SOG 圧縮でさらに小さく保存",
 			packageFieldSogCompressDisabled:
 				"未編集 3DGS を SOG 圧縮（この環境/シーンでは利用不可）",
 			packageBakeLodStage: {
@@ -594,8 +593,7 @@ const MESSAGES = {
 				finalize: "LoD データを確定中…",
 			},
 			packagePhaseBakeLod: "LoD を事前計算",
-			packageDetailBakeLod:
-				"{name} の LoD を計算中（{index}/{total}）…",
+			packageDetailBakeLod: "{name} の LoD を計算中（{index}/{total}）…",
 		},
 		exportSummary: {
 			empty: "現在の Camera 設定で書き出します。",
@@ -630,8 +628,10 @@ const MESSAGES = {
 			expandedProjectPackage:
 				"{name} から {count} 件の 3D asset を展開しました。",
 			enterUrl: "http(s) URL を 1 つ以上入力してください。",
-			copiedViewportToShot: "ビューポート の姿勢を ショットカメラ にコピーしました。",
-			copiedShotToViewport: "ショットカメラ の姿勢を ビューポート にコピーしました。",
+			copiedViewportToShot:
+				"ビューポート の姿勢を ショットカメラ にコピーしました。",
+			copiedShotToViewport:
+				"ショットカメラ の姿勢を ビューポート にコピーしました。",
 			resetViewport: "ビューポートをリセットしました。",
 			resetCamera: "ショットカメラ をリセットしました。",
 			sceneCleared: "シーンをクリアしました。",
@@ -736,7 +736,8 @@ const MESSAGES = {
 			shotCameraExportFormat: "Camera の書き出し形式を {format} にしました。",
 			frameLimitReached: "FRAME は最大 {limit} 枚までです。",
 			exportTargetChanged: "書き出し対象を {target} にしました。",
-			exportPresetSelection: "選択書き出しの ショットカメラ を {count} 件にしました。",
+			exportPresetSelection:
+				"選択書き出しの ショットカメラ を {count} 件にしました。",
 		},
 		backgroundTask: {
 			autoLodRunningSingle: "LoD 最適化中… ({name})",
@@ -1434,8 +1435,7 @@ const MESSAGES = {
 				finalize: "Finalizing LoD data…",
 			},
 			packagePhaseBakeLod: "Baking LoD",
-			packageDetailBakeLod:
-				"Baking LoD for {name} ({index}/{total})…",
+			packageDetailBakeLod: "Baking LoD for {name} ({index}/{total})…",
 		},
 		exportSummary: {
 			empty: "Exports use the current Camera settings.",
@@ -1688,8 +1688,7 @@ const MESSAGES = {
 		},
 		mobileUiScale: {
 			title: "UI Scale (Mobile)",
-			tooltip:
-				"Adjust the mobile UI scale. The value is saved automatically.",
+			tooltip: "Adjust the mobile UI scale. The value is saved automatically.",
 			description:
 				"Scale buttons, text, and menus across the mobile UI together. The bottom bar follows the slider live.",
 			currentLabel: "Current",

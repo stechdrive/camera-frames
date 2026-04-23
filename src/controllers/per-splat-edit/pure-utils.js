@@ -123,7 +123,13 @@ export function buildAxisPlaneNormal(axisWorld, camera, helperA, helperB) {
 		.normalize();
 }
 
-export function updatePointerRay(raycaster, pointerNdc, event, camera, viewportRect) {
+export function updatePointerRay(
+	raycaster,
+	pointerNdc,
+	event,
+	camera,
+	viewportRect,
+) {
 	pointerNdc.set(
 		((event.clientX - viewportRect.left) / viewportRect.width) * 2 - 1,
 		-((event.clientY - viewportRect.top) / viewportRect.height) * 2 + 1,

@@ -183,7 +183,8 @@
 	padding: 1px 6px;
 	border-radius: 3px;
 	font-size: 0.88em;
-	font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+	font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono",
+		monospace;
 }
 
 .help-code {
@@ -195,7 +196,8 @@
 	font-size: 0.85em;
 	line-height: 1.5;
 	margin: 0.8em 0;
-	font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+	font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono",
+		monospace;
 }
 
 .help-table-wrap {

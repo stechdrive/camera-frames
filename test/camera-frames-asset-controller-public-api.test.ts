@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
-import { SplatMesh } from "../src/engine/spark-integration/spark-symbols.js";
 import * as THREE from "three";
 import { createAssetControllerBindings } from "../src/app/asset-controller-bindings.js";
 import { createAssetController } from "../src/controllers/asset-controller.js";
+import { SplatMesh } from "../src/engine/spark-integration/spark-symbols.js";
 import { createProjectFileEmbeddedFileSource } from "../src/project/document.js";
 import { createCameraFramesStore } from "../src/store.js";
 

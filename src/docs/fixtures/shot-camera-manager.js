@@ -44,8 +44,18 @@ export const shotCameraManagerFixture = {
 		// centre (old default) hid the icon entirely. Drop each badge
 		// above its button so the glyph stays readable.
 		{ n: 1, selector: "#new-shot-camera", label: "追加", placement: "above" },
-		{ n: 2, selector: "#duplicate-shot-camera", label: "複製", placement: "above" },
-		{ n: 3, selector: "#delete-shot-camera", label: "削除", placement: "above" },
+		{
+			n: 2,
+			selector: "#duplicate-shot-camera",
+			label: "複製",
+			placement: "above",
+		},
+		{
+			n: 3,
+			selector: "#delete-shot-camera",
+			label: "削除",
+			placement: "above",
+		},
 		{
 			n: 4,
 			selector: ".shot-camera-manager__list",

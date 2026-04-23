@@ -1,9 +1,12 @@
-import { PackedSplats, unpackSplats } from "../engine/spark-integration/spark-symbols.js";
 import * as THREE from "three";
 import { AUTO_LOD_MIN_SPLATS } from "../constants.js";
 import { prioritizeSceneAssetsWithinKinds } from "../engine/scene-asset-order.js";
 import { bakeSparkPackedSplatsLod } from "../engine/spark-integration/spark-packed-splats-adapter.js";
 import { enableSparkSplatMeshWorldToView } from "../engine/spark-integration/spark-splat-mesh-adapter.js";
+import {
+	PackedSplats,
+	unpackSplats,
+} from "../engine/spark-integration/spark-symbols.js";
 import { applyLegacyAssetState } from "../importers/legacy-ssproj.js";
 import {
 	createProjectFileEmbeddedFileSource,
@@ -678,9 +681,8 @@ export function createAssetController({
 		lodSplats = undefined,
 	}) {
 		if ((packedArray?.length ?? 0) > 0) {
-			const prebuiltLodSplats = await createPrebuiltLodSplatsFromSource(
-				lodSplats,
-			);
+			const prebuiltLodSplats =
+				await createPrebuiltLodSplatsFromSource(lodSplats);
 			const packedSplats = new PackedSplats({
 				packedArray,
 				numSplats,

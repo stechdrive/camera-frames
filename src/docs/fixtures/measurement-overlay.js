@@ -11,8 +11,8 @@
 import { html } from "htm/preact";
 import { translate } from "../../i18n.js";
 import { MeasurementOverlay } from "../../ui/measurement-overlay.js";
-import { makeScene } from "../mock/scenes.js";
 import { createMockController } from "../mock/controller.js";
+import { makeScene } from "../mock/scenes.js";
 import { createMockStore } from "../mock/store.js";
 
 const VIEWPORT_WIDTH = 800;
