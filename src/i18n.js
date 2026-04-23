@@ -871,8 +871,9 @@ const MESSAGES = {
 		viewportLodScale: {
 			label: "プレビュー品質",
 			ariaLabel: "3DGS プレビュー品質",
-			tooltip:
-				"ビューポート表示の LoD を調整します。書き出しは少なくとも標準品質で出力します。",
+			tooltipTitle: "プレビュー品質",
+			tooltipDescription:
+				"3DGS が重いときにビューポート表示の軽さと細部の見やすさを調整します。下げると操作が軽くなり、上げると細かな形を確認しやすくなります。",
 		},
 	},
 	en: {
@@ -1707,8 +1708,9 @@ const MESSAGES = {
 		viewportLodScale: {
 			label: "Preview quality",
 			ariaLabel: "3DGS preview quality",
-			tooltip:
-				"Adjust the viewport LoD. Export always renders at least at standard quality.",
+			tooltipTitle: "Preview quality",
+			tooltipDescription:
+				"Use this when 3DGS scenes feel heavy in the viewport. Lower values make editing lighter; higher values make fine detail easier to inspect.",
 		},
 	},
 };

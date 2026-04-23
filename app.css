@@ -1703,6 +1703,11 @@ input[type="range"] {
 	line-height: 1;
 }
 
+.viewport-lod-scale--tooltip {
+	position: relative;
+	overflow: visible;
+}
+
 .viewport-lod-scale__label {
 	white-space: nowrap;
 	font: 700 0.64rem / 1 "Avenir Next", "Segoe UI", sans-serif;
