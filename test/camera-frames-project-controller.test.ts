@@ -113,7 +113,8 @@ function createHarness(overrides = {}) {
 			overrides.resetProjectWorkspace?.();
 		},
 		buildProjectFilename: () => "test-project.ssproj",
-		captureProjectState: () => currentProjectState,
+		captureProjectState:
+			overrides.captureProjectStateSpy ?? (() => currentProjectState),
 		clearHistory: () => {},
 		updateUi: () => {},
 		setStatus: (status) => {
@@ -374,6 +375,151 @@ await withNavigator({ gpu: {} }, async () => {
 		String(qualityOption?.hint ?? ""),
 		/preserve|Quality/i,
 		"Quality hint should signal that existing bake will be preserved.",
+	);
+});
+
+// Regression: Quality-save must bake LoD into asset.source BEFORE the
+// project state is snapshotted for serialization. Earlier, captureProjectState
+// ran first and then the bake mutated asset.source.lodSplats on the live
+// scene assets — but the snapshot was already frozen, so the saved ssproj
+// contained no baked LoD despite the user choosing Quality.
+await withNavigator({ gpu: {} }, async () => {
+	const fakePackedSplats = {
+		packedArray: new Uint32Array([1, 2, 3, 4]),
+		numSplats: 2_000_000,
+		getNumSplats() {
+			return this.numSplats;
+		},
+		extra: {},
+		splatEncoding: null,
+		lodSplats: null,
+		needsUpdate: false,
+		bakeCompleted: false,
+		async createLodSplats({ quality }) {
+			await new Promise((resolve) => setTimeout(resolve, 5));
+			this.lodSplats = {
+				packedArray: new Uint32Array([9, 9, 9, 9]),
+				numSplats: 3_000_000,
+				getNumSplats() {
+					return this.numSplats;
+				},
+				extra: { lodTree: new Uint32Array([1, 2, 3]) },
+				splatEncoding: null,
+			};
+			this.bakeCompleted = true;
+			this.needsUpdate = true;
+		},
+		disposeLodSplats() {
+			this.lodSplats = null;
+		},
+	};
+	const scopeAsset = {
+		id: "splat-big",
+		kind: "splat",
+		label: "big-splat",
+		disposeTarget: { packedSplats: fakePackedSplats },
+		source: {
+			sourceType: "project-file-packed-splat",
+			kind: "splat",
+			fileName: "big-splat.rawsplat",
+			inputBytes: new Uint8Array(),
+			extraFiles: {},
+			fileType: null,
+			packedArray: fakePackedSplats.packedArray,
+			numSplats: fakePackedSplats.numSplats,
+			extra: {},
+			splatEncoding: null,
+			lodSplats: null,
+			projectAssetState: null,
+			legacyState: null,
+			resource: null,
+		},
+	};
+	// Track when captureProjectState runs relative to when the bake attaches
+	// lodSplats to the live source. The bug was: capture ran BEFORE the bake,
+	// so the snapshot passed to the serializer was a frozen copy with no
+	// lodSplats, even though the live asset later carried it.
+	let captureCalls = 0;
+	let bakeCompleteAtCapture = null;
+	let sourceLodSplatsAtCapture = null;
+	const capturedStateShell = {
+		workspace: {
+			activeShotCameraId: "",
+			viewport: {
+				baseFovX: 55,
+				pose: {
+					position: { x: 0, y: 0, z: 0 },
+					quaternion: { x: 0, y: 0, z: 0, w: 1 },
+					up: { x: 0, y: 1, z: 0 },
+				},
+			},
+		},
+		shotCameras: [],
+		scene: {
+			assets: [scopeAsset],
+			referenceImages: createDefaultReferenceImageDocument(),
+		},
+	};
+	const harness = createHarness({
+		assetController: {
+			getSceneAssets: () => [scopeAsset],
+		},
+		captureProjectStateSpy: () => {
+			captureCalls += 1;
+			bakeCompleteAtCapture = fakePackedSplats.bakeCompleted;
+			sourceLodSplatsAtCapture = scopeAsset.source.lodSplats;
+			return capturedStateShell;
+		},
+	});
+	const originalShowSaveFilePicker = globalThis.showSaveFilePicker;
+	const originalRequestAnimationFrame = globalThis.requestAnimationFrame;
+	globalThis.requestAnimationFrame = (cb) => setTimeout(cb, 0);
+	const originalConsoleError = console.error;
+	console.error = () => {};
+	// Return a handle whose createWritable throws — the bake runs before
+	// the writable is even created, so this lets us verify the ordering
+	// without plumbing a real zip writer through the mock harness.
+	globalThis.showSaveFilePicker = async () => ({
+		name: "mock.ssproj",
+		createWritable: async () => {
+			throw new Error("mock-writable-abort");
+		},
+	});
+	try {
+		await harness.projectController.exportProject();
+		await harness.store.overlay.value.onSubmit({
+			saveMode: "quality",
+			sogCompress: false,
+			sogMaxShBands: "2",
+			sogIterations: "10",
+		});
+	} finally {
+		globalThis.showSaveFilePicker = originalShowSaveFilePicker;
+		globalThis.requestAnimationFrame = originalRequestAnimationFrame;
+		console.error = originalConsoleError;
+	}
+	assert.equal(
+		fakePackedSplats.bakeCompleted,
+		true,
+		"Quality save must invoke createLodSplats on the packed splat.",
+	);
+	assert.ok(
+		captureCalls > 0,
+		"captureProjectState must be consulted during the save flow.",
+	);
+	assert.equal(
+		bakeCompleteAtCapture,
+		true,
+		"captureProjectState must run AFTER the Quality bake has mutated the live source — otherwise the serializer sees a snapshot frozen before the bake and the saved ssproj contains no lodSplats.",
+	);
+	assert.ok(
+		sourceLodSplatsAtCapture,
+		"At the moment captureProjectState ran, asset.source.lodSplats must already be attached so it flows into the normalized project passed to the serializer.",
+	);
+	assert.equal(
+		scopeAsset.source.lodSplats.bakedQuality,
+		"quality",
+		"Bake attachment must record bakedQuality so the next open mirrors state.",
 	);
 });
 

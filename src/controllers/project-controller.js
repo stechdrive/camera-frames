@@ -911,11 +911,6 @@ export function createProjectController({
 				: DEFAULT_SOG_ITERATIONS,
 		};
 
-		const projectSnapshot = captureProjectState();
-		const normalizedProject = normalizeProjectDocument(projectSnapshot);
-		normalizedProject.projectId =
-			currentProjectId || normalizedProject.projectId || generateProjectId();
-		normalizedProject.packageRevision = Math.max(0, currentPackageRevision) + 1;
 		currentProjectName =
 			currentProjectName || getProjectBaseName(buildProjectFilename());
 		const suggestedName = getSuggestedPackageFilename();
@@ -947,12 +942,27 @@ export function createProjectController({
 			);
 			await new Promise((resolve) => requestAnimationFrame(resolve));
 
+			// Must run before captureProjectState — the bake mutates
+			// `asset.source.lodSplats`, and the snapshot pipeline below
+			// freezes whatever state the sources are in at capture time.
+			// Capturing first meant serialize saw the pre-bake sources and
+			// silently dropped the LoD bundle, so the ssproj ended up the
+			// same size as an unbaked one.
 			if (bakeLod) {
 				await bakeAllSplatLodsForPackageSave({
 					quality: true,
 					startedAt: progressStartedAt,
 				});
 			}
+
+			const projectSnapshot = captureProjectState();
+			const normalizedProject = normalizeProjectDocument(projectSnapshot);
+			normalizedProject.projectId =
+				currentProjectId ||
+				normalizedProject.projectId ||
+				generateProjectId();
+			normalizedProject.packageRevision =
+				Math.max(0, currentPackageRevision) + 1;
 
 			const writable = await resolvedSaveTarget.fileHandle.createWritable();
 			let packageResult = null;
