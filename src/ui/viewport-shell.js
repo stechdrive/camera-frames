@@ -14,6 +14,7 @@ import {
 	VIEWPORT_PIE_RADIUS,
 	buildViewportPieActions,
 } from "../engine/viewport-pie.js";
+import { BackgroundTaskIndicator } from "./background-task-indicator.js";
 import { computeDropHintStyle, getOverlayBounds } from "./drop-hint-layout.js";
 import { FrameLayer } from "./frame-layer.js";
 import { MeasurementOverlay } from "./measurement-overlay.js";
@@ -770,6 +771,7 @@ export function ViewportShell({ store, controller, refs, t }) {
 				`
 				}
 			</div>
+			<${BackgroundTaskIndicator} store=${store} t=${t} />
 			<${SplatEditBrushPreview}
 				store=${store}
 				viewportShellRef=${refs.viewportShellRef}

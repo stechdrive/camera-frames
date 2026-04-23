@@ -732,6 +732,12 @@ const MESSAGES = {
 			exportTargetChanged: "書き出し対象を {target} にしました。",
 			exportPresetSelection: "選択書き出しの ショットカメラ を {count} 件にしました。",
 		},
+		backgroundTask: {
+			autoLodRunningSingle: "LoD 最適化中… ({name})",
+			autoLodRunningMulti: "LoD 最適化中… {current}/{total}",
+			autoLodDone: "LoD 最適化完了",
+			autoLodFailed: "LoD 最適化に失敗",
+		},
 		scene: {
 			badgeEmpty: "空",
 			summaryEmpty:
@@ -1549,6 +1555,12 @@ const MESSAGES = {
 			exportTargetChanged: "Export target set to {target}.",
 			exportPresetSelection:
 				"Selected export now includes {count} Camera preset(s).",
+		},
+		backgroundTask: {
+			autoLodRunningSingle: "Building LoD… ({name})",
+			autoLodRunningMulti: "Building LoD… {current}/{total}",
+			autoLodDone: "LoD ready",
+			autoLodFailed: "LoD build failed",
 		},
 		scene: {
 			badgeEmpty: "Empty",
