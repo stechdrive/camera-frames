@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { buildImportProgressDetail } from "../src/controllers/project/overlays.js";
 import { ZipReader } from "../src/project-archive.js";
 import { PROJECT_DOCUMENT_PATH } from "../src/project/document.js";
 import {
@@ -194,8 +195,14 @@ const projectSnapshot = {
 };
 
 const archive = await buildCameraFramesProjectArchive(projectSnapshot);
+const projectReadProgress = [];
 const result = await readCameraFramesProject(
 	new File([archive], "scene.ssproj"),
+	{
+		onProgress: (progress) => {
+			projectReadProgress.push(progress);
+		},
+	},
 );
 
 assert.equal(result.manifest.format, "camera-frames-project");
@@ -215,6 +222,31 @@ assert.equal(result.project.scene.lighting.modelLight.elevationDeg, 28);
 assert.equal(result.project.scene.referenceImages.assets.length, 1);
 assert.equal(result.project.scene.referenceImages.presets[0].items.length, 1);
 assert.equal(result.assetEntries.length, 2);
+assert.equal(projectReadProgress[0]?.stage, "open-archive");
+assert.ok(
+	projectReadProgress.some(
+		(progress) => progress.stage === "scan-project-assets",
+	),
+	"project package read must report the asset scan stage",
+);
+assert.ok(
+	projectReadProgress.some(
+		(progress) => progress.stage === "extract-project-asset-packed-splat",
+	),
+	"project package read must report packed-splat extraction detail",
+);
+assert.ok(
+	projectReadProgress.some(
+		(progress) => progress.stage === "extract-reference-image",
+	),
+	"project package read must report reference image extraction detail",
+);
+assert.equal(
+	projectReadProgress.at(-1)?.stage,
+	"expand-complete",
+	"project package read should finish with a completion detail instead of leaving the last asset name visible",
+);
+assert.equal(projectReadProgress.at(-1)?.total, 2);
 
 assert.equal(
 	isProjectFileEmbeddedFileSource(result.assetEntries[0].source),
@@ -254,6 +286,29 @@ assert.equal(
 assert.equal(
 	result.project.scene.referenceImages.presets[0].items[0].rotationDeg,
 	12,
+);
+
+const t = (key, values = {}) =>
+	`${key}:${Object.entries(values)
+		.map(([name, value]) => `${name}=${value}`)
+		.join(",")}`;
+assert.match(
+	buildImportProgressDetail(t, {
+		stage: "extract-project-asset-packed-splat",
+		index: 2,
+		total: 3,
+		assetLabel: "Packed Splat",
+		fileLabel: "meta.json",
+		fileCount: 4,
+	}),
+	/overlay\.importDetailExtractProjectAssetData:.*stage=overlay\.importProjectAssetExtractStage\.packedSplat/u,
+);
+assert.match(
+	buildImportProgressDetail(t, {
+		stage: "expand-complete",
+		total: 3,
+	}),
+	/^overlay\.importDetailExpandComplete:/u,
 );
 
 const rawPackedProjectSnapshot = {

@@ -26,6 +26,10 @@ export async function readCameraFramesProject(
 	source,
 	{ onProgress = null } = {},
 ) {
+	await notifyProjectReadProgress(onProgress, {
+		phase: "verify",
+		stage: "open-archive",
+	});
 	const reader = await ZipReader.from(source);
 	try {
 		const archivePaths = reader.listFilenames();
@@ -71,6 +75,52 @@ export async function readCameraFramesProject(
 			project.scene.referenceImages,
 		);
 		const totalAssets = project.scene.assets.length;
+		await notifyProjectReadProgress(onProgress, {
+			phase: "expand",
+			stage: "scan-project-assets",
+			total: totalAssets,
+			referenceTotal: normalizedReferenceImages.assets.length,
+		});
+
+		function getResourceFileLabel(resource) {
+			if (resource.type === "packed-splat") {
+				return resource.originalName || resource.manifest?.path || "meta.json";
+			}
+			if (resource.type === PROJECT_RESOURCE_RAW_PACKED_SPLAT) {
+				return (
+					resource.originalName || resource.packedArray?.path || "rawsplat"
+				);
+			}
+			return resource.originalName || resource.path;
+		}
+
+		function getResourceFileCount(resource) {
+			if (resource.type === "packed-splat") {
+				return 1 + (resource.extraFiles?.length ?? 0);
+			}
+			if (resource.type === PROJECT_RESOURCE_RAW_PACKED_SPLAT) {
+				return (
+					1 +
+					(resource.extraArrays?.length ?? 0) +
+					(resource.lodSplats?.packedArray?.path ? 1 : 0) +
+					(resource.lodSplats?.extraArrays?.length ?? 0)
+				);
+			}
+			return 1;
+		}
+
+		async function notifyAssetProgress(stage, asset, index, resource) {
+			await notifyProjectReadProgress(onProgress, {
+				phase: "expand",
+				stage,
+				index: index + 1,
+				total: totalAssets,
+				assetLabel: asset.label,
+				fileLabel: getResourceFileLabel(resource),
+				fileCount: getResourceFileCount(resource),
+				resourceType: resource.type,
+			});
+		}
 
 		const assetExtractors = project.scene.assets.map(
 			(asset, index) => async () => {
@@ -81,20 +131,27 @@ export async function readCameraFramesProject(
 						`Missing project resource for asset "${asset.label}".`,
 					);
 				}
-				await notifyProjectReadProgress(onProgress, {
-					phase: "expand",
-					stage: "extract-project-asset",
-					index: index + 1,
-					total: totalAssets,
-					assetLabel: asset.label,
-					fileLabel:
-						resource.type === "packed-splat"
-							? resource.originalName || resource.manifest?.path || "meta.json"
-							: resource.originalName || resource.path,
-				});
+				await notifyAssetProgress(
+					"extract-project-asset",
+					asset,
+					index,
+					resource,
+				);
 
 				if (resource.type === "file") {
+					await notifyAssetProgress(
+						"extract-project-asset-file",
+						asset,
+						index,
+						resource,
+					);
 					const bytes = await reader.bytes(resource.path);
+					await notifyAssetProgress(
+						"extract-project-asset-complete",
+						asset,
+						index,
+						resource,
+					);
 					return {
 						...asset,
 						source: createProjectFileEmbeddedFileSource({
@@ -111,6 +168,12 @@ export async function readCameraFramesProject(
 				}
 
 				if (resource.type === "packed-splat") {
+					await notifyAssetProgress(
+						"extract-project-asset-packed-splat",
+						asset,
+						index,
+						resource,
+					);
 					const [inputBytes, ...extraBytesArray] = await Promise.all([
 						reader.bytes(resource.manifest?.path),
 						...(resource.extraFiles ?? []).map((ef) => reader.bytes(ef.path)),
@@ -119,6 +182,12 @@ export async function readCameraFramesProject(
 					for (const [i, extraFile] of (resource.extraFiles ?? []).entries()) {
 						extraFiles[extraFile.name] = extraBytesArray[i].buffer;
 					}
+					await notifyAssetProgress(
+						"extract-project-asset-complete",
+						asset,
+						index,
+						resource,
+					);
 					return {
 						...asset,
 						source: createProjectFilePackedSplatSource({
@@ -135,6 +204,12 @@ export async function readCameraFramesProject(
 				}
 
 				if (resource.type === PROJECT_RESOURCE_RAW_PACKED_SPLAT) {
+					await notifyAssetProgress(
+						"extract-project-asset-raw-splat",
+						asset,
+						index,
+						resource,
+					);
 					const [packedArrayBytes, ...extraBytesArray] = await Promise.all([
 						reader.bytes(resource.packedArray?.path),
 						...(resource.extraArrays ?? []).map((ea) => reader.bytes(ea.path)),
@@ -171,6 +246,12 @@ export async function readCameraFramesProject(
 							bakedQuality: resource.lodSplats.bakedQuality ?? null,
 						};
 					}
+					await notifyAssetProgress(
+						"extract-project-asset-complete",
+						asset,
+						index,
+						resource,
+					);
 					return {
 						...asset,
 						source: createProjectFilePackedSplatSource({
@@ -195,7 +276,7 @@ export async function readCameraFramesProject(
 		);
 
 		const referenceImageExtractors = normalizedReferenceImages.assets.map(
-			(referenceAsset) => async () => {
+			(referenceAsset, index) => async () => {
 				const resourceId = referenceAsset.source?.resourceId;
 				const resource = project.resources?.[resourceId];
 				if (!resource) {
@@ -208,6 +289,16 @@ export async function readCameraFramesProject(
 						`Unsupported project resource type "${resource.type}" for reference image "${referenceAsset.label}".`,
 					);
 				}
+				await notifyProjectReadProgress(onProgress, {
+					phase: "expand",
+					stage: "extract-reference-image",
+					index: index + 1,
+					total: normalizedReferenceImages.assets.length,
+					assetLabel: referenceAsset.label,
+					fileLabel: resource.originalName || resource.path,
+					fileCount: 1,
+					resourceType: resource.type,
+				});
 				const blob = await reader.blob(resource.path);
 				return {
 					...referenceAsset,
@@ -229,6 +320,13 @@ export async function readCameraFramesProject(
 				Promise.all(referenceImageExtractors.map((extract) => extract())),
 			],
 		);
+
+		await notifyProjectReadProgress(onProgress, {
+			phase: "expand",
+			stage: "expand-complete",
+			total: totalAssets,
+			referenceTotal: normalizedReferenceImages.assets.length,
+		});
 
 		project.scene.referenceImages = {
 			...normalizedReferenceImages,

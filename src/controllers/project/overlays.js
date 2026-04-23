@@ -74,10 +74,24 @@ export function buildImportProgressOverlay(t, step, detail = "") {
 
 export function buildImportProgressDetail(
 	t,
-	{ stage = "", index = 0, total = 0, assetLabel = "", fileLabel = "" } = {},
+	{
+		stage = "",
+		index = 0,
+		total = 0,
+		assetLabel = "",
+		fileLabel = "",
+		fileCount = 0,
+		referenceTotal = 0,
+		resourceType = "",
+	} = {},
 ) {
+	const normalizedAssetLabel = String(assetLabel ?? "").trim();
+	const normalizedFileLabel = String(fileLabel ?? "").trim();
 	if (stage === "inspect-archive") {
 		return t("overlay.importDetailInspectProjectArchive");
+	}
+	if (stage === "open-archive") {
+		return t("overlay.importDetailOpenProjectArchive");
 	}
 	if (stage === "read-manifest") {
 		return t("overlay.importDetailReadProjectManifest", {
@@ -89,19 +103,70 @@ export function buildImportProgressDetail(
 			file: fileLabel || PROJECT_DOCUMENT_PATH,
 		});
 	}
+	if (stage === "scan-project-assets") {
+		return t("overlay.importDetailScanProjectAssets", {
+			count: total,
+			referenceCount: referenceTotal,
+		});
+	}
 	if (stage === "extract-project-asset") {
-		if (assetLabel && fileLabel && assetLabel !== fileLabel) {
+		if (
+			normalizedAssetLabel &&
+			normalizedFileLabel &&
+			normalizedAssetLabel !== normalizedFileLabel
+		) {
 			return t("overlay.importDetailExpandProjectAssetWithFile", {
 				index,
 				count: total,
-				name: assetLabel,
-				file: fileLabel,
+				name: normalizedAssetLabel,
+				file: normalizedFileLabel,
 			});
 		}
 		return t("overlay.importDetailExpandProjectAsset", {
 			index,
 			count: total,
-			name: assetLabel || fileLabel,
+			name: normalizedAssetLabel || normalizedFileLabel,
+		});
+	}
+	if (
+		stage === "extract-project-asset-file" ||
+		stage === "extract-project-asset-packed-splat" ||
+		stage === "extract-project-asset-raw-splat"
+	) {
+		const stageKey =
+			stage === "extract-project-asset-file"
+				? "overlay.importProjectAssetExtractStage.file"
+				: stage === "extract-project-asset-packed-splat"
+					? "overlay.importProjectAssetExtractStage.packedSplat"
+					: "overlay.importProjectAssetExtractStage.rawSplat";
+		return t("overlay.importDetailExtractProjectAssetData", {
+			index,
+			count: total,
+			name: normalizedAssetLabel || normalizedFileLabel,
+			file: normalizedFileLabel,
+			fileCount,
+			stage: t(stageKey),
+			resourceType,
+		});
+	}
+	if (stage === "extract-project-asset-complete") {
+		return t("overlay.importDetailExpandProjectAssetComplete", {
+			index,
+			count: total,
+		});
+	}
+	if (stage === "extract-reference-image") {
+		return t("overlay.importDetailExtractReferenceImage", {
+			index,
+			count: total,
+			name: normalizedAssetLabel || normalizedFileLabel,
+			file: normalizedFileLabel,
+		});
+	}
+	if (stage === "expand-complete") {
+		return t("overlay.importDetailExpandComplete", {
+			count: total,
+			referenceCount: referenceTotal,
 		});
 	}
 	return "";

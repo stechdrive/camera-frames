@@ -458,13 +458,28 @@ const MESSAGES = {
 			importPhaseExpand: "パッケージを展開",
 			importPhaseLoad: "3D アセットを読込",
 			importPhaseApply: "シーンへ反映",
+			importDetailOpenProjectArchive: "プロジェクトパッケージを開いています…",
 			importDetailInspectProjectArchive: "プロジェクトパッケージを確認中…",
 			importDetailReadProjectManifest: "manifest を読込中… ({file})",
 			importDetailReadProjectDocument: "プロジェクト設定を読込中… ({file})",
+			importDetailScanProjectAssets:
+				"展開する project asset を確認中… ({count}件)",
 			importDetailExpandProjectAsset:
 				"{index}/{count} プロジェクト asset を展開: {name}",
 			importDetailExpandProjectAssetWithFile:
 				"{index}/{count} プロジェクト asset を展開: {name} ({file})",
+			importDetailExtractProjectAssetData:
+				"{index}/{count} プロジェクト asset の内容を展開中: {stage} ({fileCount}ファイル)",
+			importDetailExpandProjectAssetComplete:
+				"{index}/{count} プロジェクト asset の展開完了",
+			importDetailExtractReferenceImage:
+				"{index}/{count} reference image を展開中: {name}",
+			importDetailExpandComplete: "パッケージの展開が完了しました。",
+			importProjectAssetExtractStage: {
+				file: "埋め込みファイル",
+				packedSplat: "3DGS manifest / companion files",
+				rawSplat: "raw 3DGS arrays / LoD arrays",
+			},
 			importDetailExpandPackage: "{index}/{count} パッケージ: {name}",
 			importDetailLoadAsset: "{index}/{count} アセット: {name}",
 			importDetailApply: "Camera / FRAME / シーン状態を反映",
@@ -1298,13 +1313,28 @@ const MESSAGES = {
 			importPhaseExpand: "Expanding packages",
 			importPhaseLoad: "Loading 3D assets",
 			importPhaseApply: "Applying scene state",
+			importDetailOpenProjectArchive: "Opening project package…",
 			importDetailInspectProjectArchive: "Inspecting project package…",
 			importDetailReadProjectManifest: "Reading manifest… ({file})",
 			importDetailReadProjectDocument: "Reading project document… ({file})",
+			importDetailScanProjectAssets:
+				"Checking project assets to expand… ({count})",
 			importDetailExpandProjectAsset:
 				"Expanding project asset {index}/{count}: {name}",
 			importDetailExpandProjectAssetWithFile:
 				"Expanding project asset {index}/{count}: {name} ({file})",
+			importDetailExtractProjectAssetData:
+				"Expanding project asset data {index}/{count}: {stage} ({fileCount} file(s))",
+			importDetailExpandProjectAssetComplete:
+				"Finished project asset {index}/{count}",
+			importDetailExtractReferenceImage:
+				"Expanding reference image {index}/{count}: {name}",
+			importDetailExpandComplete: "Package expansion complete.",
+			importProjectAssetExtractStage: {
+				file: "embedded file",
+				packedSplat: "3DGS manifest / companion files",
+				rawSplat: "raw 3DGS arrays / LoD arrays",
+			},
 			importDetailExpandPackage: "Package {index}/{count}: {name}",
 			importDetailLoadAsset: "Asset {index}/{count}: {name}",
 			importDetailApply: "Applying Camera / FRAME / scene state",
