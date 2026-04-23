@@ -569,6 +569,36 @@ const MESSAGES = {
 				12: "12 iterations",
 				16: "16 iterations",
 			},
+			packageFieldSplatOptimization: "3DGS の最適化方針",
+			packageSplatOptimization: {
+				none: "変換なし（既存形式のまま保存）",
+				noneHint:
+					"最速保存。3DGS データは読み込んだ形式のままパッケージ化します。",
+				sog: "SOG 圧縮（ファイルサイズ優先）",
+				sogHint:
+					"未編集の PLY / SPZ のファイルサイズを大幅に削減します。読込み時に LoD をランタイム構築するため、初回描画が遅くなることがあります。",
+				sogDisabled: "SOG 圧縮（この環境では利用不可）",
+				bakeLod: "LoD 事前計算（読込み速度優先）",
+				bakeLodHint:
+					"保存時に LoD を焼き込み、次回読込み時に即座にフルスピードで描画します。ファイルサイズは大きくなります。",
+				bakeLodHintPreserveQuality:
+					"Quality で焼込み済み。このまま維持して保存します（再計算なし）。",
+				bakeLodHintPreserveQuick:
+					"Quick で焼込み済み。このまま維持するか、Quality にアップグレードできます。",
+			},
+			packageFieldLodQuality: "LoD の品質",
+			packageLodQuality: {
+				quick: "Quick（tiny-lod、数秒）",
+				quality: "Quality（bhatt-lod、数分）",
+			},
+			packageBakeLodStage: {
+				start: "LoD を事前計算中…",
+				asset: "{name} の LoD を計算中（{index}/{total}）…",
+				finalize: "LoD データを確定中…",
+			},
+			packagePhaseBakeLod: "LoD を事前計算",
+			packageDetailBakeLod:
+				"{name} の LoD を計算中（{index}/{total}）…",
 		},
 		exportSummary: {
 			empty: "現在の Camera 設定で書き出します。",
@@ -1361,6 +1391,36 @@ const MESSAGES = {
 				12: "12 iterations",
 				16: "16 iterations",
 			},
+			packageFieldSplatOptimization: "3DGS optimization",
+			packageSplatOptimization: {
+				none: "No optimization (save as-is)",
+				noneHint:
+					"Fastest save. 3DGS data is packaged in whatever form was loaded.",
+				sog: "SOG compression (smaller file)",
+				sogHint:
+					"Significantly reduces file size for untouched PLY / SPZ. Initial rendering is slower because LoD is rebuilt at runtime.",
+				sogDisabled: "SOG compression (unavailable in this environment)",
+				bakeLod: "Bake LoD (faster reload)",
+				bakeLodHint:
+					"Precomputes the LoD tree at save time so the project loads at full speed next time. Produces a larger ssproj.",
+				bakeLodHintPreserveQuality:
+					"Already baked at Quality. Save will preserve it unchanged (no recomputation).",
+				bakeLodHintPreserveQuick:
+					"Already baked at Quick. Save preserves it as-is, or upgrade to Quality.",
+			},
+			packageFieldLodQuality: "LoD quality",
+			packageLodQuality: {
+				quick: "Quick (tiny-lod, seconds)",
+				quality: "Quality (bhatt-lod, minutes)",
+			},
+			packageBakeLodStage: {
+				start: "Baking LoD…",
+				asset: "Baking LoD for {name} ({index}/{total})…",
+				finalize: "Finalizing LoD data…",
+			},
+			packagePhaseBakeLod: "Baking LoD",
+			packageDetailBakeLod:
+				"Baking LoD for {name} ({index}/{total})…",
 		},
 		exportSummary: {
 			empty: "Exports use the current Camera settings.",

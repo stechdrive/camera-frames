@@ -540,6 +540,24 @@ export function createAssetController({
 		return asset;
 	}
 
+	async function createPrebuiltLodSplatsFromSource(lodSplatsSource) {
+		if (
+			!lodSplatsSource ||
+			!(lodSplatsSource.packedArray instanceof Uint32Array) ||
+			lodSplatsSource.packedArray.length === 0
+		) {
+			return null;
+		}
+		const lodSplats = new PackedSplats({
+			packedArray: lodSplatsSource.packedArray,
+			numSplats: lodSplatsSource.numSplats ?? 0,
+			extra: lodSplatsSource.extra ?? {},
+			splatEncoding: lodSplatsSource.splatEncoding ?? undefined,
+		});
+		await lodSplats.initialized;
+		return lodSplats;
+	}
+
 	async function createPackedSplatsFromSourceData({
 		fileName,
 		inputBytes,
@@ -550,13 +568,18 @@ export function createAssetController({
 		numSplats = undefined,
 		extra = undefined,
 		splatEncoding = undefined,
+		lodSplats = undefined,
 	}) {
 		if ((packedArray?.length ?? 0) > 0) {
+			const prebuiltLodSplats = await createPrebuiltLodSplatsFromSource(
+				lodSplats,
+			);
 			const packedSplats = new PackedSplats({
 				packedArray,
 				numSplats,
 				extra: extra ?? {},
 				splatEncoding: splatEncoding ?? undefined,
+				lodSplats: prebuiltLodSplats ?? undefined,
 			});
 			await packedSplats.initialized;
 			return packedSplats;
@@ -593,6 +616,7 @@ export function createAssetController({
 			numSplats = undefined,
 			extra = undefined,
 			splatEncoding = undefined,
+			lodSplats = undefined,
 		}) => {
 			const packedSplats = await createPackedSplatsFromSourceData({
 				fileName,
@@ -604,6 +628,7 @@ export function createAssetController({
 				numSplats,
 				extra,
 				splatEncoding,
+				lodSplats,
 			});
 			const localBoundsHint =
 				buildSplatLocalBoundsFromSource(packedSplats, false) ??
@@ -647,6 +672,7 @@ export function createAssetController({
 				numSplats: source.numSplats,
 				extra: source.extra,
 				splatEncoding: source.splatEncoding,
+				lodSplats: source.lodSplats,
 			});
 		}
 

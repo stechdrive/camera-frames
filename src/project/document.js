@@ -611,6 +611,46 @@ export function createProjectFileEmbeddedFileSource({
 	};
 }
 
+function cloneBakedLodSplats(lodSplats, { skipClone = false } = {}) {
+	if (!lodSplats || typeof lodSplats !== "object") {
+		return null;
+	}
+	const packedArray = toUint32Array(lodSplats.packedArray);
+	if (packedArray.length === 0) {
+		return null;
+	}
+	const extra = {};
+	for (const key of ["lodTree", "sh1", "sh2", "sh3"]) {
+		const value = toUint32Array(lodSplats.extra?.[key]);
+		if (value.length > 0) {
+			extra[key] = skipClone ? value : new Uint32Array(value);
+		}
+	}
+	const numSplats = Number.isFinite(lodSplats.numSplats)
+		? Math.max(0, Math.floor(lodSplats.numSplats))
+		: 0;
+	const splatEncoding =
+		lodSplats.splatEncoding && typeof lodSplats.splatEncoding === "object"
+			? skipClone
+				? lodSplats.splatEncoding
+				: JSON.parse(JSON.stringify(lodSplats.splatEncoding))
+			: null;
+	return {
+		packedArray: skipClone ? packedArray : new Uint32Array(packedArray),
+		numSplats,
+		extra,
+		splatEncoding,
+		bakedAt:
+			typeof lodSplats.bakedAt === "string" && lodSplats.bakedAt
+				? lodSplats.bakedAt
+				: null,
+		bakedQuality:
+			lodSplats.bakedQuality === "quality" || lodSplats.bakedQuality === "quick"
+				? lodSplats.bakedQuality
+				: null,
+	};
+}
+
 export function createProjectFilePackedSplatSource({
 	fileName,
 	inputBytes,
@@ -620,6 +660,7 @@ export function createProjectFilePackedSplatSource({
 	numSplats = 0,
 	extra = null,
 	splatEncoding = null,
+	lodSplats = null,
 	projectAssetState = null,
 	legacyState = null,
 	resource = null,
@@ -649,11 +690,14 @@ export function createProjectFilePackedSplatSource({
 					? splatEncoding
 					: JSON.parse(JSON.stringify(splatEncoding))
 				: null,
+		lodSplats: cloneBakedLodSplats(lodSplats, { skipClone }),
 		projectAssetState,
 		legacyState,
 		resource,
 	};
 }
+
+export { cloneBakedLodSplats };
 
 export function isProjectFileEmbeddedFileSource(source) {
 	return source?.sourceType === PROJECT_FILE_EMBEDDED_FILE_SOURCE;

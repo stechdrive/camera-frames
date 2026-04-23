@@ -319,4 +319,123 @@ assert.deepEqual(
 );
 assert.equal(rawPackedResult.assetEntries[0].source.splatEncoding.rgbMax, 1);
 
+assert.equal(
+	rawPackedResult.assetEntries[0].source.lodSplats,
+	null,
+	"ssproj without baked LoD must round-trip with lodSplats === null",
+);
+
+const bakedLodProjectSnapshot = {
+	workspace: projectSnapshot.workspace,
+	shotCameras: projectSnapshot.shotCameras,
+	scene: {
+		assets: [
+			{
+				id: "asset-baked-lod",
+				kind: "splat",
+				label: "Baked LoD Splat",
+				source: createProjectFilePackedSplatSource({
+					fileName: "baked.rawsplat",
+					packedArray: new Uint32Array([21, 22, 23, 24, 25, 26, 27, 28]),
+					numSplats: 2,
+					extra: {
+						sh1: new Uint32Array([31, 32, 33, 34]),
+					},
+					splatEncoding: {
+						rgbMin: 0,
+						rgbMax: 1,
+					},
+					lodSplats: {
+						packedArray: new Uint32Array([41, 42, 43, 44]),
+						numSplats: 1,
+						extra: {
+							lodTree: new Uint32Array([51, 52]),
+							sh1: new Uint32Array([61, 62]),
+						},
+						splatEncoding: {
+							rgbMin: 0.1,
+							rgbMax: 0.9,
+						},
+						bakedAt: "2026-04-23T12:00:00.000Z",
+						bakedQuality: "quality",
+					},
+				}),
+				transform: {
+					position: { x: 0, y: 0, z: 0 },
+					quaternion: { x: 0, y: 0, z: 0, w: 1 },
+				},
+				worldScale: 1,
+				unitMode: "meters",
+				visible: true,
+				exportRole: "beauty",
+				maskGroup: "",
+				workingPivotLocal: null,
+			},
+		],
+		lighting: projectSnapshot.scene.lighting,
+		referenceImages: createDefaultReferenceImageDocument(),
+	},
+};
+
+const bakedLodArchive = await buildCameraFramesProjectArchive(
+	bakedLodProjectSnapshot,
+);
+const bakedLodResult = await readCameraFramesProject(
+	new File([bakedLodArchive], "baked-lod.ssproj"),
+);
+
+const bakedLodSource = bakedLodResult.assetEntries[0].source;
+assert.equal(
+	isProjectFilePackedSplatSource(bakedLodSource),
+	true,
+	"baked-LoD asset must restore as packed-splat source",
+);
+assert.deepEqual(
+	Array.from(bakedLodSource.packedArray),
+	[21, 22, 23, 24, 25, 26, 27, 28],
+	"root packedArray must survive round-trip unchanged",
+);
+assert.equal(bakedLodSource.numSplats, 2);
+assert.deepEqual(
+	Array.from(bakedLodSource.extra.sh1),
+	[31, 32, 33, 34],
+	"root extra.sh1 must survive round-trip",
+);
+assert.ok(
+	bakedLodSource.lodSplats,
+	"lodSplats must be present after round-trip",
+);
+assert.deepEqual(
+	Array.from(bakedLodSource.lodSplats.packedArray),
+	[41, 42, 43, 44],
+	"lodSplats.packedArray must survive round-trip",
+);
+assert.equal(bakedLodSource.lodSplats.numSplats, 1);
+assert.deepEqual(
+	Array.from(bakedLodSource.lodSplats.extra.lodTree),
+	[51, 52],
+	"lodSplats.extra.lodTree must survive round-trip",
+);
+assert.deepEqual(
+	Array.from(bakedLodSource.lodSplats.extra.sh1),
+	[61, 62],
+	"lodSplats.extra.sh1 must survive round-trip",
+);
+assert.equal(
+	bakedLodSource.lodSplats.splatEncoding.rgbMin,
+	0.1,
+	"lodSplats splatEncoding must survive round-trip",
+);
+assert.equal(bakedLodSource.lodSplats.splatEncoding.rgbMax, 0.9);
+assert.equal(
+	bakedLodSource.lodSplats.bakedAt,
+	"2026-04-23T12:00:00.000Z",
+	"bakedAt audit metadata must survive round-trip",
+);
+assert.equal(
+	bakedLodSource.lodSplats.bakedQuality,
+	"quality",
+	"bakedQuality audit metadata must survive round-trip",
+);
+
 console.log("✅ CAMERA_FRAMES project file tests passed!");

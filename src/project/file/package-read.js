@@ -152,6 +152,29 @@ export async function readCameraFramesProject(
 					if (resource.radMeta) {
 						extra.radMeta = JSON.parse(JSON.stringify(resource.radMeta));
 					}
+					let lodSplats = null;
+					if (resource.lodSplats?.packedArray?.path) {
+						const [lodPackedBytes, ...lodExtraBytesArray] = await Promise.all([
+							reader.bytes(resource.lodSplats.packedArray.path),
+							...(resource.lodSplats.extraArrays ?? []).map((ea) =>
+								reader.bytes(ea.path),
+							),
+						]);
+						const lodExtra = {};
+						for (const [i, ea] of (
+							resource.lodSplats.extraArrays ?? []
+						).entries()) {
+							lodExtra[ea.name] = toUint32Array(lodExtraBytesArray[i].buffer);
+						}
+						lodSplats = {
+							packedArray: toUint32Array(lodPackedBytes.buffer),
+							numSplats: resource.lodSplats.numSplats ?? 0,
+							extra: lodExtra,
+							splatEncoding: resource.lodSplats.splatEncoding ?? null,
+							bakedAt: resource.lodSplats.bakedAt ?? null,
+							bakedQuality: resource.lodSplats.bakedQuality ?? null,
+						};
+					}
 					return {
 						...asset,
 						source: createProjectFilePackedSplatSource({
@@ -160,6 +183,7 @@ export async function readCameraFramesProject(
 							numSplats: resource.numSplats ?? 0,
 							extra,
 							splatEncoding: resource.splatEncoding ?? null,
+							lodSplats,
 							projectAssetState: asset,
 							legacyState: asset.legacyState ?? null,
 							resource: cloneRawPackedSplatResource(resource),

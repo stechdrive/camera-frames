@@ -1,8 +1,14 @@
 import { prewarmSogCompressionWorker } from "../engine/sog-compress-worker-client.js";
 import {
+	bakeSparkPackedSplatsLod,
+	captureSparkPackedSplatsLod,
+} from "../engine/spark-integration/spark-packed-splats-adapter.js";
+import {
 	buildProjectFingerprint,
+	createProjectFilePackedSplatSource,
 	generateProjectId,
 	getProjectSourceStableKey,
+	isProjectFilePackedSplatSource,
 	normalizeProjectDocument,
 } from "../project/document.js";
 import {
@@ -78,10 +84,19 @@ export function createProjectController({
 	let currentPackageDirtySignature = "";
 	let pendingAfterSuccessfulSave = null;
 	let preferredPackageSaveOptions = {
-		compressSplatsToSog: false,
+		splatOptimization: "none",
 		sogMaxShBands: DEFAULT_SOG_MAX_SH_BANDS,
 		sogIterations: DEFAULT_SOG_ITERATIONS,
+		lodQuality: "quick",
 	};
+
+	function normalizeSplatOptimization(value) {
+		return value === "sog" || value === "bake-lod" ? value : "none";
+	}
+
+	function normalizeLodQuality(value) {
+		return value === "quality" ? "quality" : "quick";
+	}
 
 	function setOverlay(nextOverlay) {
 		store.overlay.value = nextOverlay;
@@ -718,23 +733,185 @@ export function createProjectController({
 		};
 	}
 
+	function getSceneSplatAssetsForBake() {
+		const assets = assetController?.getSceneAssets?.() ?? [];
+		return assets.filter(
+			(asset) =>
+				asset?.kind === "splat" &&
+				asset?.disposeTarget?.packedSplats != null,
+		);
+	}
+
+	function getAssetBakedQuality(asset) {
+		const value = asset?.source?.lodSplats?.bakedQuality;
+		return value === "quality" || value === "quick" ? value : null;
+	}
+
+	function getSceneBakedLodState() {
+		const splats = getSceneSplatAssetsForBake();
+		if (splats.length === 0) {
+			return {
+				hasAnyBaked: false,
+				hasAnyQuality: false,
+				hasAnyQuick: false,
+				maxBakedQuality: null,
+				bakedCount: 0,
+				qualityCount: 0,
+				quickCount: 0,
+				splatCount: 0,
+			};
+		}
+		let qualityCount = 0;
+		let quickCount = 0;
+		for (const asset of splats) {
+			const q = getAssetBakedQuality(asset);
+			if (q === "quality") qualityCount += 1;
+			else if (q === "quick") quickCount += 1;
+		}
+		const bakedCount = qualityCount + quickCount;
+		return {
+			hasAnyBaked: bakedCount > 0,
+			hasAnyQuality: qualityCount > 0,
+			hasAnyQuick: quickCount > 0,
+			maxBakedQuality:
+				qualityCount > 0 ? "quality" : quickCount > 0 ? "quick" : null,
+			bakedCount,
+			qualityCount,
+			quickCount,
+			splatCount: splats.length,
+		};
+	}
+
+	function attachBakedLodSplatsToAssetSource(asset, capture, metadata) {
+		if (!asset || !capture) {
+			return false;
+		}
+		const lodSplatsEntry = {
+			...capture,
+			bakedAt: metadata?.bakedAt ?? new Date().toISOString(),
+			bakedQuality: metadata?.bakedQuality ?? "quick",
+		};
+		if (isProjectFilePackedSplatSource(asset.source)) {
+			asset.source = createProjectFilePackedSplatSource({
+				fileName: asset.source.fileName,
+				inputBytes: asset.source.inputBytes ?? new Uint8Array(),
+				extraFiles: asset.source.extraFiles ?? {},
+				fileType: asset.source.fileType ?? null,
+				packedArray: asset.source.packedArray ?? new Uint32Array(),
+				numSplats: asset.source.numSplats ?? 0,
+				extra: asset.source.extra ?? {},
+				splatEncoding: asset.source.splatEncoding ?? null,
+				lodSplats: lodSplatsEntry,
+				projectAssetState: asset.source.projectAssetState ?? null,
+				legacyState: asset.source.legacyState ?? null,
+				resource: asset.source.resource ?? null,
+				skipClone: true,
+			});
+			return true;
+		}
+		// untouched embedded file source (PLY/SPZ) — promote to packed-splat source
+		// so the serializer writes the baked LoD alongside the runtime packedArray.
+		const packedSplats = asset.disposeTarget?.packedSplats ?? null;
+		if (!packedSplats) {
+			return false;
+		}
+		asset.source = createProjectFilePackedSplatSource({
+			fileName:
+				asset.source?.fileName ??
+				asset.source?.file?.name ??
+				`${asset.label ?? "baked"}.rawsplat`,
+			inputBytes: new Uint8Array(),
+			extraFiles: {},
+			fileType: asset.source?.fileType ?? null,
+			packedArray: packedSplats.packedArray ?? new Uint32Array(),
+			numSplats:
+				packedSplats.getNumSplats?.() ?? packedSplats.numSplats ?? 0,
+			extra: packedSplats.extra ?? {},
+			splatEncoding: packedSplats.splatEncoding ?? null,
+			lodSplats: lodSplatsEntry,
+			projectAssetState: asset.source?.projectAssetState ?? null,
+			legacyState: asset.source?.legacyState ?? null,
+			resource: null,
+			skipClone: true,
+		});
+		return true;
+	}
+
+	async function bakeAllSplatLodsForPackageSave({
+		quality = false,
+		startedAt = Date.now(),
+	} = {}) {
+		const assets = getSceneSplatAssetsForBake();
+		const total = assets.length;
+		if (total === 0) {
+			return;
+		}
+		const bakedAt = new Date().toISOString();
+		const bakedQuality = quality ? "quality" : "quick";
+		for (let index = 0; index < total; index += 1) {
+			const asset = assets[index];
+			const assetLabel = asset.label || asset?.source?.fileName || "3DGS";
+			const existingQuality = getAssetBakedQuality(asset);
+			// Smart skip: already baked at the requested quality and the source
+			// still carries a matching lodSplats bundle (edits clear it via the
+			// default-null path in createProjectFilePackedSplatSource).
+			if (
+				existingQuality === bakedQuality &&
+				asset.source?.lodSplats?.packedArray?.length
+			) {
+				continue;
+			}
+			setOverlay(
+				buildPackageProgressOverlay(
+					t,
+					"collect-state",
+					t("overlay.packageDetailBakeLod", {
+						name: assetLabel,
+						index: index + 1,
+						total,
+					}),
+					{ startedAt },
+				),
+			);
+			await waitForOverlayFrame();
+			const packedSplats = asset?.disposeTarget?.packedSplats;
+			if (!packedSplats) {
+				continue;
+			}
+			await bakeSparkPackedSplatsLod(packedSplats, { quality });
+			const capture = captureSparkPackedSplatsLod(packedSplats);
+			if (capture) {
+				attachBakedLodSplatsToAssetSource(asset, capture, {
+					bakedAt,
+					bakedQuality,
+				});
+			}
+		}
+	}
+
 	async function performPackageSave(
 		values,
 		{ saveMode = "auto", saveTarget = null } = {},
 	) {
 		const progressStartedAt = Date.now();
 		flushDirtySplatSources?.();
-		const compressSplatsToSog = values.compressSplatsToSog === true;
+		const splatOptimization = normalizeSplatOptimization(
+			values.splatOptimization,
+		);
+		const compressSplatsToSog = splatOptimization === "sog";
+		const bakeLod = splatOptimization === "bake-lod";
+		const lodQuality = normalizeLodQuality(values.lodQuality);
 		const sogMaxShBands = Number.parseInt(values.sogMaxShBands ?? "", 10);
 		const sogIterations = Number.parseInt(values.sogIterations ?? "", 10);
 		preferredPackageSaveOptions = {
-			compressSplatsToSog,
+			splatOptimization,
 			sogMaxShBands: [0, 1, 2, 3].includes(sogMaxShBands)
 				? sogMaxShBands
 				: DEFAULT_SOG_MAX_SH_BANDS,
 			sogIterations: PACKAGE_SOG_ITERATION_OPTIONS.includes(sogIterations)
 				? sogIterations
 				: DEFAULT_SOG_ITERATIONS,
+			lodQuality,
 		};
 
 		const projectSnapshot = captureProjectState();
@@ -773,6 +950,13 @@ export function createProjectController({
 			);
 			await new Promise((resolve) => requestAnimationFrame(resolve));
 
+			if (bakeLod) {
+				await bakeAllSplatLodsForPackageSave({
+					quality: lodQuality === "quality",
+					startedAt: progressStartedAt,
+				});
+			}
+
 			const writable = await resolvedSaveTarget.fileHandle.createWritable();
 			let packageResult = null;
 			try {
@@ -781,7 +965,7 @@ export function createProjectController({
 					writable,
 					{
 						compressSplatsToSog:
-							preferredPackageSaveOptions.compressSplatsToSog,
+							preferredPackageSaveOptions.splatOptimization === "sog",
 						sogMaxShBands: preferredPackageSaveOptions.sogMaxShBands,
 						sogIterations: preferredPackageSaveOptions.sogIterations,
 						onProgress: async (progress) => {
@@ -847,9 +1031,52 @@ export function createProjectController({
 			logFailure: true,
 		});
 		const canCompressSplatsToSog = sogCompressionAvailability.available;
-		const compressSplatsDefault = canCompressSplatsToSog
-			? preferredPackageSaveOptions.compressSplatsToSog
-			: false;
+		const bakedLodState = getSceneBakedLodState();
+		const preferredSplatOptimization = normalizeSplatOptimization(
+			preferredPackageSaveOptions.splatOptimization,
+		);
+		// If the scene already carries baked LoD, default to bake-lod so the
+		// dialog reflects the current state; otherwise fall back to the user's
+		// prior preference (with SOG availability still honored).
+		let splatOptimizationDefault;
+		if (bakedLodState.hasAnyBaked) {
+			splatOptimizationDefault = "bake-lod";
+		} else if (
+			preferredSplatOptimization === "sog" &&
+			!canCompressSplatsToSog
+		) {
+			splatOptimizationDefault = "none";
+		} else {
+			splatOptimizationDefault = preferredSplatOptimization;
+		}
+		const sogOptionLabel = canCompressSplatsToSog
+			? t("overlay.packageSplatOptimization.sog")
+			: t("overlay.packageSplatOptimization.sogDisabled");
+		// Context-aware LoD quality:
+		//   - When any asset has Quality baked, hide Quick entirely. Quality
+		//     beats Quick on both size and fidelity — offering Quick here is
+		//     a downgrade trap that also loses work.
+		//   - Otherwise offer both, defaulting to the highest existing quality
+		//     or the user's prior preference.
+		const lodQualityOptions = [];
+		if (!bakedLodState.hasAnyQuality) {
+			lodQualityOptions.push({
+				value: "quick",
+				label: t("overlay.packageLodQuality.quick"),
+			});
+		}
+		lodQualityOptions.push({
+			value: "quality",
+			label: t("overlay.packageLodQuality.quality"),
+		});
+		const lodQualityDefault =
+			bakedLodState.maxBakedQuality ??
+			normalizeLodQuality(preferredPackageSaveOptions.lodQuality);
+		const bakeLodHint = bakedLodState.hasAnyQuality
+			? t("overlay.packageSplatOptimization.bakeLodHintPreserveQuality")
+			: bakedLodState.hasAnyQuick
+				? t("overlay.packageSplatOptimization.bakeLodHintPreserveQuick")
+				: t("overlay.packageSplatOptimization.bakeLodHint");
 		setOverlay({
 			kind: "confirm",
 			title: t("overlay.packageSaveTitle"),
@@ -860,19 +1087,35 @@ export function createProjectController({
 				: t("overlay.packageSaveMessage"),
 			fields: [
 				{
-					id: "compressSplatsToSog",
-					type: "checkbox",
-					label: getCompressSplatsFieldLabel(sogCompressionAvailability),
-					value: compressSplatsDefault,
-					disabled: !canCompressSplatsToSog,
+					id: "splatOptimization",
+					type: "radio",
+					label: t("overlay.packageFieldSplatOptimization"),
+					value: splatOptimizationDefault,
+					options: [
+						{
+							value: "none",
+							label: t("overlay.packageSplatOptimization.none"),
+							hint: t("overlay.packageSplatOptimization.noneHint"),
+						},
+						{
+							value: "sog",
+							label: sogOptionLabel,
+							hint: t("overlay.packageSplatOptimization.sogHint"),
+							disabled: !canCompressSplatsToSog,
+						},
+						{
+							value: "bake-lod",
+							label: t("overlay.packageSplatOptimization.bakeLod"),
+							hint: bakeLodHint,
+						},
+					],
 				},
 				{
 					id: "sogMaxShBands",
 					type: "select",
 					label: t("overlay.packageFieldSogShBands"),
 					value: String(preferredPackageSaveOptions.sogMaxShBands),
-					disabled: (values) =>
-						!canCompressSplatsToSog || values.compressSplatsToSog !== true,
+					disabled: (values) => values.splatOptimization !== "sog",
 					options: [0, 1, 2, 3].map((value) => ({
 						value: String(value),
 						label: t(`overlay.packageSogShBands.${value}`),
@@ -883,12 +1126,19 @@ export function createProjectController({
 					type: "select",
 					label: t("overlay.packageFieldSogIterations"),
 					value: String(preferredPackageSaveOptions.sogIterations),
-					disabled: (values) =>
-						!canCompressSplatsToSog || values.compressSplatsToSog !== true,
+					disabled: (values) => values.splatOptimization !== "sog",
 					options: PACKAGE_SOG_ITERATION_OPTIONS.map((value) => ({
 						value: String(value),
 						label: t(`overlay.packageSogIterations.${value}`),
 					})),
+				},
+				{
+					id: "lodQuality",
+					type: "select",
+					label: t("overlay.packageFieldLodQuality"),
+					value: lodQualityDefault,
+					disabled: (values) => values.splatOptimization !== "bake-lod",
+					options: lodQualityOptions,
 				},
 			],
 			actions: [

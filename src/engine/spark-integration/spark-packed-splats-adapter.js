@@ -128,6 +128,72 @@ export function disposeSparkPackedSplatsLod(packedSplats) {
 	return target;
 }
 
+export async function bakeSparkPackedSplatsLod(
+	packedSplats,
+	{ quality = false } = {},
+) {
+	const target = assertSparkPackedSplats(packedSplats);
+	if (typeof target.createLodSplats !== "function") {
+		throw new Error(
+			"Spark packed splats contract mismatch: createLodSplats() is required.",
+		);
+	}
+	await target.createLodSplats({ quality: Boolean(quality) });
+	target.needsUpdate = true;
+	return target;
+}
+
+function cloneLodExtraArrays(extra) {
+	if (!extra || typeof extra !== "object") {
+		return {};
+	}
+	const sanitized = {};
+	for (const key of ["lodTree", "sh1", "sh2", "sh3"]) {
+		const array = extra[key];
+		if (array instanceof Uint32Array && array.length > 0) {
+			sanitized[key] = new Uint32Array(array);
+		}
+	}
+	return sanitized;
+}
+
+export function captureSparkPackedSplatsLod(packedSplats) {
+	const target = assertSparkPackedSplats(packedSplats);
+	const lod = target.lodSplats;
+	if (!lod) {
+		return null;
+	}
+	const packedArray =
+		lod.packedArray instanceof Uint32Array
+			? new Uint32Array(lod.packedArray)
+			: null;
+	if (!packedArray || packedArray.length === 0) {
+		return null;
+	}
+	return {
+		packedArray,
+		numSplats: lod.getNumSplats?.() ?? lod.numSplats ?? 0,
+		extra: cloneLodExtraArrays(lod.extra),
+		splatEncoding:
+			lod.splatEncoding && typeof lod.splatEncoding === "object"
+				? JSON.parse(JSON.stringify(lod.splatEncoding))
+				: null,
+	};
+}
+
+export function attachPrebuiltLodSplats(
+	packedSplats,
+	lodSplatsInstance,
+) {
+	const target = assertSparkPackedSplats(packedSplats);
+	target.disposeLodSplats?.();
+	if (lodSplatsInstance) {
+		target.lodSplats = lodSplatsInstance;
+		target.needsUpdate = true;
+	}
+	return target;
+}
+
 export function refreshSparkPackedSplatMesh(
 	mesh,
 	packedSplats,

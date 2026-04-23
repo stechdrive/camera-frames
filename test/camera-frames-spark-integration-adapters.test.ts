@@ -57,6 +57,9 @@ import {
 	);
 }
 import {
+	attachPrebuiltLodSplats,
+	bakeSparkPackedSplatsLod,
+	captureSparkPackedSplatsLod,
 	disposeSparkPackedSplatsLod,
 	refreshSparkPackedSplatMesh,
 	reinitializeSparkPackedSplats,
@@ -246,6 +249,109 @@ import {
 		() => reinitializeSparkPackedSplats({}, {}),
 		/reinitialize/,
 	);
+}
+
+{
+	// bakeSparkPackedSplatsLod must call createLodSplats with the requested
+	// quality and surface needsUpdate so the renderer picks up the new LoD.
+	const bakeCalls: Array<{ quality: boolean }> = [];
+	const packedSplats = {
+		createLodSplats: async ({ quality = false } = {}) => {
+			bakeCalls.push({ quality });
+		},
+		needsUpdate: false,
+	};
+	await bakeSparkPackedSplatsLod(packedSplats, { quality: true });
+	assert.equal(bakeCalls.length, 1);
+	assert.equal(bakeCalls[0].quality, true);
+	assert.equal(packedSplats.needsUpdate, true);
+
+	await assert.rejects(
+		async () => bakeSparkPackedSplatsLod({}, { quality: false }),
+		/createLodSplats/,
+	);
+}
+
+{
+	// captureSparkPackedSplatsLod returns null when no lodSplats is attached
+	// and otherwise returns a defensively-cloned bundle suitable for ssproj save.
+	const withoutLod = {};
+	assert.equal(captureSparkPackedSplatsLod(withoutLod), null);
+
+	const withEmptyLod = {
+		lodSplats: {
+			packedArray: new Uint32Array(0),
+		},
+	};
+	assert.equal(
+		captureSparkPackedSplatsLod(withEmptyLod),
+		null,
+		"empty packedArray should be treated as no-op capture",
+	);
+
+	const lodSplats = {
+		packedArray: new Uint32Array([1, 2, 3, 4]),
+		numSplats: 1,
+		extra: {
+			lodTree: new Uint32Array([10, 11]),
+			sh1: new Uint32Array([20]),
+			// Non-Uint32Array / non-whitelisted keys must be dropped.
+			unrelated: new Uint8Array([99]),
+		},
+		splatEncoding: { rgbMin: 0, rgbMax: 1 },
+	};
+	const target = { lodSplats };
+	const captured = captureSparkPackedSplatsLod(target);
+	assert.ok(captured, "capture should return a bundle");
+	assert.deepEqual(Array.from(captured.packedArray), [1, 2, 3, 4]);
+	// Must be a copy, not a reference
+	captured.packedArray[0] = 999;
+	assert.equal(
+		lodSplats.packedArray[0],
+		1,
+		"captured packedArray must be a defensive copy",
+	);
+	assert.equal(captured.numSplats, 1);
+	assert.deepEqual(Object.keys(captured.extra).sort(), ["lodTree", "sh1"]);
+	assert.deepEqual(Array.from(captured.extra.lodTree), [10, 11]);
+	assert.deepEqual(Array.from(captured.extra.sh1), [20]);
+	captured.extra.lodTree[0] = 999;
+	assert.equal(
+		lodSplats.extra.lodTree[0],
+		10,
+		"captured extra.lodTree must be a defensive copy",
+	);
+	assert.deepEqual(captured.splatEncoding, { rgbMin: 0, rgbMax: 1 });
+	assert.notEqual(
+		captured.splatEncoding,
+		lodSplats.splatEncoding,
+		"captured splatEncoding must be a defensive clone",
+	);
+}
+
+{
+	// attachPrebuiltLodSplats replaces any current lodSplats and asks the
+	// renderer to refresh the next frame.
+	const packedSplats = {
+		lodSplats: null,
+		needsUpdate: false,
+		disposeLodSplatsCalls: 0,
+		disposeLodSplats() {
+			this.disposeLodSplatsCalls += 1;
+			this.lodSplats = null;
+		},
+	};
+	const prebuilt = { tag: "prebuilt-lod" };
+	attachPrebuiltLodSplats(packedSplats, prebuilt);
+	assert.equal(packedSplats.disposeLodSplatsCalls, 1);
+	assert.equal(packedSplats.lodSplats, prebuilt);
+	assert.equal(packedSplats.needsUpdate, true);
+
+	// Calling with null keeps the previous state disposed but leaves lodSplats
+	// cleared so the default runtime path can rebuild it.
+	attachPrebuiltLodSplats(packedSplats, null);
+	assert.equal(packedSplats.disposeLodSplatsCalls, 2);
+	assert.equal(packedSplats.lodSplats, null);
 }
 
 console.log("✅ CAMERA_FRAMES spark integration adapter tests passed!");
