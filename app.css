@@ -1077,6 +1077,51 @@ input[type="range"] {
 	cursor: not-allowed;
 }
 
+.overlay-field-group {
+	border: 1px solid rgb(255 255 255 / 10%);
+	border-radius: 12px;
+	padding: 0;
+	background: rgb(255 255 255 / 3%);
+}
+
+.overlay-field-group__summary {
+	padding: 10px 12px;
+	cursor: pointer;
+	color: rgb(214 222 239 / 80%);
+	font-size: 13px;
+	list-style: none;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	user-select: none;
+}
+
+.overlay-field-group__summary::-webkit-details-marker {
+	display: none;
+}
+
+.overlay-field-group__summary::before {
+	content: "▸";
+	font-size: 10px;
+	transition: transform 120ms ease;
+	display: inline-block;
+}
+
+.overlay-field-group[open] > .overlay-field-group__summary::before {
+	transform: rotate(90deg);
+}
+
+.overlay-field-group__summary:hover {
+	color: rgb(245 247 251 / 96%);
+}
+
+.overlay-field-group__body {
+	padding: 4px 12px 12px;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
 .overlay-url-list,
 .overlay-step-list {
 	margin: 14px 0 0;
