@@ -1237,5 +1237,6 @@ export function createAssetController({
 		handleAssetInputChange,
 		openFiles,
 		loadStartupUrls,
+		kickAutoLodBake,
 	};
 }

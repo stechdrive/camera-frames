@@ -96,6 +96,8 @@ export function createControllerApi({
 			perSplatEditController?.selectAllSplats?.(...args),
 		invertSplatSelection: (...args) =>
 			perSplatEditController?.invertSplatSelection?.(...args),
+		rebuildSplatEditLod: (...args) =>
+			perSplatEditController?.rebuildSplatEditLod?.(...args),
 		setViewportReferenceImageEditMode,
 		activateViewportReferenceImageEditModeImplicit,
 		toggleViewportReferenceImageEditMode,

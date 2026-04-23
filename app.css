@@ -2019,6 +2019,44 @@ input[type="range"] {
 	color: rgba(255, 210, 190, 0.98);
 }
 
+.viewport-splat-edit-toolbar__btn--lod {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35rem;
+}
+
+.viewport-splat-edit-toolbar__btn--lod-ready {
+	color: rgba(180, 230, 200, 0.9);
+	border-color: rgba(134, 234, 184, 0.22);
+	background: rgba(40, 80, 60, 0.32);
+}
+
+.viewport-splat-edit-toolbar__btn--lod-running {
+	color: rgba(220, 220, 240, 0.72);
+}
+
+.viewport-splat-edit-toolbar__lod-icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 0.72rem;
+	height: 0.72rem;
+	font-size: 0.72rem;
+	line-height: 1;
+}
+
+.viewport-splat-edit-toolbar__lod-icon--done {
+	color: #7fe4a8;
+	font-weight: 700;
+}
+
+.viewport-splat-edit-toolbar__lod-icon--spin {
+	border: 2px solid rgba(255, 255, 255, 0.22);
+	border-top-color: rgba(255, 255, 255, 0.85);
+	border-radius: 999px;
+	animation: background-task-pill-spin 900ms linear infinite;
+}
+
 .viewport-splat-edit-toolbar__field {
 	min-width: 0;
 	max-width: 5rem;

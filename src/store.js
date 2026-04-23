@@ -125,6 +125,14 @@ export function createCameraFramesStore(runtimeInfo = null) {
 		mode: "",
 		hitCount: 0,
 	});
+	// Scope-wide LoD state snapshot. UI reads this to drive the
+	// "LoD 最適化" button in the splat-edit toolbar.
+	//   "ready"  — every scope splat already has lodSplats attached (or is
+	//              below the auto-LoD threshold). Button is disabled/✓.
+	//   "stale"  — at least one scope splat lacks lodSplats and is big
+	//              enough to benefit. Button is active.
+	//   "empty"  — no scope splats large enough to matter. Button hidden.
+	const splatEditLodStatus = signal("empty");
 	const workbenchManualCollapsed = signal(false);
 	const workbenchAutoCollapsed = signal(false);
 	const workbenchManualExpanded = signal(false);
@@ -454,6 +462,7 @@ export function createCameraFramesStore(runtimeInfo = null) {
 			boxRotation: splatEditBoxRotation,
 			hudPosition: splatEditHudPosition,
 			lastOperation: splatEditLastOperation,
+			lodStatus: splatEditLodStatus,
 		},
 		measurement: {
 			active: measurementActive,
