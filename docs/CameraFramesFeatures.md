@@ -1,6 +1,6 @@
 # CAMERA_FRAMES 機能一覧 / 回帰チェック観点
 
-最終更新: 2026-04-16
+最終更新: 2026-04-24
 
 ## 0. この文書の役割
 
@@ -270,14 +270,14 @@ PSD export の主な構成:
 | 章 | 主題 |
 |---|---|
 | [01 はじめに](./help/ja/01-getting-started.md) | アプリの目的、最初の 5 分 |
-| [02 画面構成](./help/ja/02-ui-layout.md) | Viewport / Tool Rail / Inspector / Overlay |
+| [02 画面構成](./help/ja/02-ui-layout.md) | ビューポート / ツールレール / インスペクター / オーバーレイ |
 | [03 ファイルを開く・保存する](./help/ja/03-open-save.md) | Import / working save / package save |
 | [04 シーンアセット](./help/ja/04-scene-assets.md) | splat / model 管理、Lighting、Transform |
-| [05 Shot Camera](./help/ja/05-shot-camera.md) | 構図カメラ、pose / lens / clipping / roll lock |
-| [06 Output Frame と FRAME](./help/ja/06-output-frame-and-frames.md) | 紙面 / anchor / FRAME / Trajectory / mask |
-| [07 リファレンス画像](./help/ja/07-reference-images.md) | preset / shot binding / 編集 |
-| [08 Viewport とツール](./help/ja/08-viewport-tools.md) | Navigate / Select / Transform / Pivot / Measurement / pie menu |
-| [09 Per-splat edit](./help/ja/09-per-splat-edit.md) | Shift+E、Box / Brush / Transform |
+| [05 ショットカメラ](./help/ja/05-shot-camera.md) | 構図カメラ、位置・回転 / レンズ / クリッピング / ロールロック |
+| [06 用紙とフレーム](./help/ja/06-output-frame-and-frames.md) | 紙面 / アンカー / フレーム / 軌道 / マスク |
+| [07 下絵](./help/ja/07-reference-images.md) | プリセット / ショット紐付け / 編集 |
+| [08 ビューポートとツール](./help/ja/08-viewport-tools.md) | 視点操作 / 選択 / 変形 / ピボット / 測定 / パイメニュー |
+| [09 スプラット編集](./help/ja/09-per-splat-edit.md) | Shift+E、Box / Brush / Transform |
 | [10 Export](./help/ja/10-export.md) | target / format / PSD layers |
 | [11 キーボードショートカット一覧](./help/ja/11-shortcuts.md) | 全ショートカット |
 | [12 用語集とトラブルシューティング](./help/ja/12-glossary-troubleshooting.md) | glossary + FAQ |
