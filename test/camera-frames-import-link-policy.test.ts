@@ -17,11 +17,47 @@ assert.equal(
 	"private-host",
 );
 assert.equal(
+	getBlockedStartupUrlReason("https://localhost./scene.ssproj"),
+	"private-host",
+);
+assert.equal(
+	getBlockedStartupUrlReason("https://0.0.0.0/scene.ssproj"),
+	"private-host",
+);
+assert.equal(
+	getBlockedStartupUrlReason("https://100.64.0.1/scene.ssproj"),
+	"private-host",
+);
+assert.equal(
 	getBlockedStartupUrlReason("https://192.168.0.10/scene.ssproj"),
 	"private-host",
 );
 assert.equal(
 	getBlockedStartupUrlReason("https://[::1]/scene.ssproj"),
+	"private-host",
+);
+assert.equal(
+	getBlockedStartupUrlReason("https://[::]/scene.ssproj"),
+	"private-host",
+);
+assert.equal(
+	getBlockedStartupUrlReason("https://[::ffff:127.0.0.1]/scene.ssproj"),
+	"private-host",
+);
+assert.equal(
+	getBlockedStartupUrlReason("https://[::ffff:10.0.0.1]/scene.ssproj"),
+	"private-host",
+);
+assert.equal(
+	getBlockedStartupUrlReason("https://[::ffff:c0a8:1]/scene.ssproj"),
+	"private-host",
+);
+assert.equal(
+	getBlockedStartupUrlReason("https://[fe90::1]/scene.ssproj"),
+	"private-host",
+);
+assert.equal(
+	getBlockedStartupUrlReason("https://[fd00::1]/scene.ssproj"),
 	"private-host",
 );
 assert.equal(getBlockedStartupUrlReason("not-a-url"), "invalid");

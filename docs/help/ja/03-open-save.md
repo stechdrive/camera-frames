@@ -10,7 +10,7 @@ related-files:
   - src/controllers/project/
   - src/project/
   - src/importers/legacy-ssproj.js
-  - src/project-package.js
+  - src/project/package-legacy.js
   - src/app/project-state-bridge.js
   - src/controllers/scene-assets/import-runtime.js
   - src/ui/side-panel.js

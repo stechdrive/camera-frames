@@ -436,8 +436,8 @@ PSD layer 順の詳細契約:
 ## 11. Cross-check Files
 
 - bootstrap / composition: `src/main.js`, `src/controller.js`
-- project schema: `src/project-document.js`, `src/project-file.js`
-- working save: `src/project-working-state.js`, `src/controllers/project-controller.js`
+- project schema: `src/project/document.js`, `src/project/file/`
+- working save: `src/project/working-state.js`, `src/controllers/project-controller.js`
 - import routing: `src/app/file-open-routing.js`, `src/controllers/scene-assets/import-runtime.js`
 - scene asset ordering / scene manager display: `src/engine/scene-asset-order.js`, `src/controllers/scene-assets/selection-order.js`, `src/ui/workbench-scene-sections.js`, `src/ui/workbench-browser-sections.js`
 - scene asset import prioritization / order persistence: `src/controllers/scene-assets/import-runtime.js`, `src/controllers/asset-controller.js`, `src/controllers/scene-assets/project-state.js`, `src/controllers/scene-assets/state-persistence.js`

@@ -32,7 +32,7 @@
 - [project-controller.js](../src/controllers/project-controller.js)
   - `openProjectSource()`
   - manifest のない old package を検知すると legacy import path へ落とす
-- [project-package.js](../src/project-package.js)
+- [package-legacy.js](../src/project/package-legacy.js)
   - 旧 package archive から importable asset を解決する
 - [legacy-ssproj.js](../src/importers/legacy-ssproj.js)
   - old `cameraFramesState` を current shot camera / camera transform に変換する
@@ -88,11 +88,11 @@
 | legacy case | current repo での扱い | 壊れると起きること | 主な確認先 |
 | --- | --- | --- | --- |
 | `manifest.json` がなく `document.json` だけある `.ssproj` | current project open 失敗後に legacy project 判定へ落として import runtime で読む | old `.ssproj` が開けない | `project-controller.js`, `camera-frames-project-controller.test.ts` |
-| model path の大文字小文字が archive 実体とずれる | case-insensitive に path を解決する | GLB が見つからず scene が欠ける | `project-package.js`, `camera-frames-project-package.test.ts` |
-| `models/layout.glb` のような完全 path でなく leaf 名しか残っていない | leaf-name fallback で archive 実体に寄せる | 旧 model asset が欠落する | `project-package.js`, `camera-frames-project-package.test.ts` |
-| splat path が `.sog` や drift した参照名になっている | packed splat の実体 `meta.json` に寄せて companion files もまとめる | 旧 splat が開けない | `project-package.js`, `camera-frames-project-package.test.ts` |
-| old splat entry に filename がない | synthetic `assetId` / `filename` を補い、`legacyTransformBakedInAsset` を保持する | old raw splat の transform 救済が消える | `project-package.js`, `camera-frames-project-package.test.ts` |
-| archive に `refs/` 画像が混ざっている | importable scene asset から除外する | scene asset 判定が誤爆する | `project-package.js`, `camera-frames-project-package.test.ts` |
+| model path の大文字小文字が archive 実体とずれる | case-insensitive に path を解決する | GLB が見つからず scene が欠ける | `src/project/package-legacy.js`, `camera-frames-project-package.test.ts` |
+| `models/layout.glb` のような完全 path でなく leaf 名しか残っていない | leaf-name fallback で archive 実体に寄せる | 旧 model asset が欠落する | `src/project/package-legacy.js`, `camera-frames-project-package.test.ts` |
+| splat path が `.sog` や drift した参照名になっている | packed splat の実体 `meta.json` に寄せて companion files もまとめる | 旧 splat が開けない | `src/project/package-legacy.js`, `camera-frames-project-package.test.ts` |
+| old splat entry に filename がない | synthetic `assetId` / `filename` を補い、`legacyTransformBakedInAsset` を保持する | old raw splat の transform 救済が消える | `src/project/package-legacy.js`, `camera-frames-project-package.test.ts` |
+| archive に `refs/` 画像が混ざっている | importable scene asset から除外する | scene asset 判定が誤爆する | `src/project/package-legacy.js`, `camera-frames-project-package.test.ts` |
 
 ## 4. `cameraFramesState` 変換の互換条件
 

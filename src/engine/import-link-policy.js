@@ -1,7 +1,8 @@
 function normalizeHostName(hostname) {
 	return String(hostname ?? "")
 		.trim()
-		.toLowerCase();
+		.toLowerCase()
+		.replace(/\.+$/, "");
 }
 
 function isLocalHostName(hostname) {
@@ -37,8 +38,10 @@ function isPrivateIpv4(hostname) {
 
 	const [a, b] = octets;
 	return (
+		a === 0 ||
 		a === 10 ||
 		a === 127 ||
+		(a === 100 && b >= 64 && b <= 127) ||
 		(a === 169 && b === 254) ||
 		(a === 172 && b >= 16 && b <= 31) ||
 		(a === 192 && b === 168)
@@ -56,13 +59,56 @@ function normalizeIpv6(hostname) {
 	return normalizedHost;
 }
 
+function getIpv6FirstHextet(value) {
+	const firstPart = String(value ?? "").split(":")[0];
+	const firstHextet = Number.parseInt(firstPart, 16);
+	return Number.isFinite(firstHextet) ? firstHextet : null;
+}
+
+function parseIpv4MappedIpv6(hostname) {
+	const normalizedIpv6 = normalizeIpv6(hostname);
+	if (!normalizedIpv6.startsWith("::ffff:")) {
+		return null;
+	}
+
+	const mappedValue = normalizedIpv6.slice("::ffff:".length);
+	const dottedOctets = parseIpv4(mappedValue);
+	if (dottedOctets) {
+		return dottedOctets;
+	}
+
+	const parts = mappedValue.split(":");
+	if (parts.length !== 2) {
+		return null;
+	}
+	const high = Number.parseInt(parts[0], 16);
+	const low = Number.parseInt(parts[1], 16);
+	if (
+		!Number.isInteger(high) ||
+		!Number.isInteger(low) ||
+		high < 0 ||
+		high > 0xffff ||
+		low < 0 ||
+		low > 0xffff
+	) {
+		return null;
+	}
+
+	return [high >> 8, high & 0xff, low >> 8, low & 0xff];
+}
+
 function isPrivateIpv6(hostname) {
 	const normalizedIpv6 = normalizeIpv6(hostname);
+	const mappedIpv4Octets = parseIpv4MappedIpv6(normalizedIpv6);
+	if (mappedIpv4Octets) {
+		return isPrivateIpv4(mappedIpv4Octets.join("."));
+	}
+	const firstHextet = getIpv6FirstHextet(normalizedIpv6);
 	return (
+		normalizedIpv6 === "::" ||
 		normalizedIpv6 === "::1" ||
-		normalizedIpv6.startsWith("fc") ||
-		normalizedIpv6.startsWith("fd") ||
-		normalizedIpv6.startsWith("fe80:")
+		(firstHextet !== null && firstHextet >= 0xfc00 && firstHextet <= 0xfdff) ||
+		(firstHextet !== null && firstHextet >= 0xfe80 && firstHextet <= 0xfebf)
 	);
 }
 
