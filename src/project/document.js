@@ -24,7 +24,6 @@ export const PROJECT_JOURNAL_PATH = "journal.json";
 export const DEFAULT_PROJECT_FILENAME = "camera-frames-project.ssproj";
 export const PROJECT_FILE_EMBEDDED_FILE_SOURCE = "project-file-embedded-file";
 export const PROJECT_FILE_PACKED_SPLAT_SOURCE = "project-file-packed-splat";
-export const PROJECT_FILE_LAZY_RESOURCE_SOURCE = "project-file-lazy-resource";
 export const PROJECT_RESOURCE_RAW_PACKED_SPLAT = "raw-packed-splat";
 export const PROJECT_ASSET_LABEL_MAX_LENGTH = 128;
 
@@ -703,62 +702,10 @@ export function createProjectFilePackedSplatSource({
 
 export { cloneBakedLodSplats };
 
-export function createProjectFileLazyResourceSource({
-	kind,
-	fileName,
-	projectAssetState = null,
-	legacyState = null,
-	resource = null,
-	materialize,
-} = {}) {
-	const normalizedKind =
-		kind === "model" || kind === "splat" || kind === REFERENCE_IMAGE_ASSET_KIND
-			? kind
-			: "splat";
-	let materializedSource = null;
-	let materializePromise = null;
-	return {
-		sourceType: PROJECT_FILE_LAZY_RESOURCE_SOURCE,
-		kind: normalizedKind,
-		fileName: normalizeProjectFileName(fileName, "asset.bin"),
-		projectAssetState,
-		legacyState,
-		resource,
-		async materialize() {
-			if (materializedSource) {
-				return materializedSource;
-			}
-			if (!materializePromise) {
-				if (typeof materialize !== "function") {
-					throw new Error(
-						`Project resource "${fileName || "asset.bin"}" cannot be loaded.`,
-					);
-				}
-				materializePromise = Promise.resolve(materialize()).then((source) => {
-					materializedSource = source;
-					return materializedSource;
-				});
-			}
-			return await materializePromise;
-		},
-	};
-}
-
-export async function materializeProjectFileLazyResourceSource(source) {
-	if (!isProjectFileLazyResourceSource(source)) {
-		return source;
-	}
-	return await source.materialize();
-}
-
 export function isProjectFileEmbeddedFileSource(source) {
 	return source?.sourceType === PROJECT_FILE_EMBEDDED_FILE_SOURCE;
 }
 
 export function isProjectFilePackedSplatSource(source) {
 	return source?.sourceType === PROJECT_FILE_PACKED_SPLAT_SOURCE;
-}
-
-export function isProjectFileLazyResourceSource(source) {
-	return source?.sourceType === PROJECT_FILE_LAZY_RESOURCE_SOURCE;
 }

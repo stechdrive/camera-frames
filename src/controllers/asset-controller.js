@@ -13,11 +13,13 @@ import {
 	createProjectFilePackedSplatSource,
 	getProjectSourceStableKey,
 	isProjectFileEmbeddedFileSource,
-	isProjectFileLazyResourceSource,
 	isProjectFilePackedSplatSource,
-	materializeProjectFileLazyResourceSource,
 	sanitizeProjectAssetLabel,
 } from "../project/document.js";
+import {
+	isProjectFileLazyResourceSource,
+	materializeProjectFileLazyResourceSource,
+} from "../project/file/lazy-source.js";
 import {
 	isProjectPackageFileSource,
 	isProjectPackagePackedSplatSource,

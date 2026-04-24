@@ -34,9 +34,14 @@ export {
 	createProjectFilePackedSplatSource,
 	getDefaultProjectFilename,
 	isProjectFileEmbeddedFileSource,
-	isProjectFileLazyResourceSource,
 	isProjectFilePackedSplatSource,
 } from "../document.js";
+
+export {
+	createProjectFileLazyResourceSource,
+	isProjectFileLazyResourceSource,
+	materializeProjectFileLazyResourceSource,
+} from "./lazy-source.js";
 
 export {
 	openCameraFramesProjectPackage,

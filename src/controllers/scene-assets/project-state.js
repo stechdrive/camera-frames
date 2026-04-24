@@ -1,9 +1,9 @@
 import * as THREE from "three";
 import {
 	isProjectFileEmbeddedFileSource,
-	isProjectFileLazyResourceSource,
 	isProjectFilePackedSplatSource,
 } from "../../project/document.js";
+import { isProjectFileLazyResourceSource } from "../../project/file/lazy-source.js";
 import {
 	isProjectPackageFileSource,
 	isProjectPackagePackedSplatSource,
