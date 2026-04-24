@@ -227,6 +227,7 @@ export async function writeCameraFramesProjectPackageToWritable(
 	const totalReferenceImageAssets = normalizedReferenceImages.assets.length;
 	const totalEntries = countProjectArchiveEntries(normalizedProject);
 	let writtenEntries = 0;
+	const writtenArchiveEntryPaths = new Set();
 	const zipWriter = createArchiveWritableStream(writable, {
 		level: PROJECT_ZIP_LEVEL,
 	});
@@ -258,6 +259,10 @@ export async function writeCameraFramesProjectPackageToWritable(
 					serializedSource.archiveEntryLabels?.[path] ??
 					getProjectResourceFileLabel(serializedSource.resource),
 			});
+			if (writtenArchiveEntryPaths.has(path)) {
+				continue;
+			}
+			writtenArchiveEntryPaths.add(path);
 			await zipWriter.addEntry(path, bytes, {
 				level: getProjectArchiveEntryCompressionLevel(
 					serializedSource.resource,
@@ -300,6 +305,10 @@ export async function writeCameraFramesProjectPackageToWritable(
 					serializedSource.archiveEntryLabels?.[path] ??
 					getProjectResourceFileLabel(serializedSource.resource),
 			});
+			if (writtenArchiveEntryPaths.has(path)) {
+				continue;
+			}
+			writtenArchiveEntryPaths.add(path);
 			await zipWriter.addEntry(path, bytes, {
 				level: getProjectArchiveEntryCompressionLevel(
 					serializedSource.resource,

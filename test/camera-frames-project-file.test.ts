@@ -14,12 +14,55 @@ import {
 	isProjectFilePackedSplatSource,
 	openCameraFramesProjectPackage,
 	readCameraFramesProject,
+	writeCameraFramesProjectPackageToWritable,
 } from "../src/project/file/index.js";
 import {
 	createDefaultReferenceImageDocument,
 	createReferenceImageAsset,
 	createReferenceImageItem,
 } from "../src/reference-image-model.js";
+
+function createCollectingWritable() {
+	const chunks = [];
+	return {
+		chunks,
+		writable: {
+			writable: new WritableStream({
+				write(chunk) {
+					chunks.push(chunk);
+				},
+			}),
+		},
+	};
+}
+
+async function collectWritableChunks(chunks) {
+	const parts = [];
+	let totalLength = 0;
+	for (const chunk of chunks) {
+		let bytes = null;
+		if (chunk instanceof Blob) {
+			bytes = new Uint8Array(await chunk.arrayBuffer());
+		} else if (chunk instanceof ArrayBuffer) {
+			bytes = new Uint8Array(chunk);
+		} else if (ArrayBuffer.isView(chunk)) {
+			bytes = new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength);
+		} else if (typeof chunk === "string") {
+			bytes = new TextEncoder().encode(chunk);
+		} else {
+			throw new Error(`Unsupported writable chunk type: ${typeof chunk}`);
+		}
+		parts.push(bytes);
+		totalLength += bytes.byteLength;
+	}
+	const result = new Uint8Array(totalLength);
+	let offset = 0;
+	for (const part of parts) {
+		result.set(part, offset);
+		offset += part.byteLength;
+	}
+	return result;
+}
 
 const referenceImageDocument = createDefaultReferenceImageDocument();
 const referenceImageAsset = createReferenceImageAsset({
@@ -400,6 +443,353 @@ assert.equal(
 	"project.json should remain deflated",
 );
 await compressedEntryReader.close();
+
+const duplicateGlbProjectSnapshot = {
+	workspace: projectSnapshot.workspace,
+	shotCameras: projectSnapshot.shotCameras,
+	scene: {
+		assets: [
+			{
+				id: "asset-model-a",
+				kind: "model",
+				label: "Layout A",
+				source: createProjectFileEmbeddedFileSource({
+					kind: "model",
+					file: new File([new Uint8Array([1, 2, 3, 4])], "layout.glb", {
+						type: "model/gltf-binary",
+					}),
+					fileName: "layout.glb",
+				}),
+				transform: {
+					position: { x: 0, y: 0, z: 0 },
+					quaternion: { x: 0, y: 0, z: 0, w: 1 },
+				},
+				worldScale: 1,
+				unitMode: "meters",
+				visible: true,
+				exportRole: "beauty",
+				maskGroup: "",
+				workingPivotLocal: null,
+			},
+			{
+				id: "asset-model-b",
+				kind: "model",
+				label: "Layout B",
+				source: createProjectFileEmbeddedFileSource({
+					kind: "model",
+					file: new File([new Uint8Array([1, 2, 3, 4])], "layout.glb", {
+						type: "model/gltf-binary",
+					}),
+					fileName: "layout.glb",
+				}),
+				transform: {
+					position: { x: 1, y: 0, z: 0 },
+					quaternion: { x: 0, y: 0, z: 0, w: 1 },
+				},
+				worldScale: 1,
+				unitMode: "meters",
+				visible: true,
+				exportRole: "beauty",
+				maskGroup: "",
+				workingPivotLocal: null,
+			},
+		],
+		lighting: projectSnapshot.scene.lighting,
+		referenceImages: createDefaultReferenceImageDocument(),
+	},
+};
+const duplicateGlbWritable = createCollectingWritable();
+await writeCameraFramesProjectPackageToWritable(
+	duplicateGlbProjectSnapshot,
+	duplicateGlbWritable.writable,
+);
+const duplicateGlbArchive = await collectWritableChunks(
+	duplicateGlbWritable.chunks,
+);
+const duplicateGlbReader = await ZipReader.from(
+	new File([duplicateGlbArchive], "duplicate-glb.ssproj"),
+);
+const duplicateGlbDocument = JSON.parse(
+	await duplicateGlbReader.text(PROJECT_DOCUMENT_PATH),
+);
+const duplicateGlbPathA = duplicateGlbDocument.resources["resource-1"].path;
+const duplicateGlbPathB = duplicateGlbDocument.resources["resource-2"].path;
+assert.equal(
+	duplicateGlbPathA,
+	duplicateGlbPathB,
+	"identical GLB resources should share one content-hash path",
+);
+assert.ok(
+	duplicateGlbReader.entries.has(duplicateGlbPathA),
+	"streaming package save should write the shared GLB resource once",
+);
+await duplicateGlbReader.close();
+const duplicateGlbResult = await readCameraFramesProject(
+	new File([duplicateGlbArchive], "duplicate-glb.ssproj"),
+);
+assert.equal(
+	duplicateGlbResult.assetEntries.length,
+	2,
+	"multiple placements of the same GLB must survive streaming package save",
+);
+
+const duplicateBaked3dgsProjectSnapshot = {
+	workspace: projectSnapshot.workspace,
+	shotCameras: projectSnapshot.shotCameras,
+	scene: {
+		assets: [
+			{
+				id: "asset-splat-a",
+				kind: "splat",
+				label: "3DGS A",
+				source: createProjectFilePackedSplatSource({
+					fileName: "scene.rawsplat",
+					packedArray: new Uint32Array([1, 2, 3, 4]),
+					numSplats: 1,
+					extra: {
+						sh1: new Uint32Array([5, 6]),
+					},
+					splatEncoding: {
+						rgbMin: 0,
+						rgbMax: 1,
+					},
+					lodSplats: {
+						packedArray: new Uint32Array([7, 8, 9, 10]),
+						numSplats: 1,
+						extra: {
+							lodTree: new Uint32Array([11, 12]),
+						},
+						splatEncoding: {
+							rgbMin: 0,
+							rgbMax: 1,
+						},
+						bakedAt: "2026-04-24T00:00:00.000Z",
+						bakedQuality: "quality",
+					},
+				}),
+				transform: {
+					position: { x: 0, y: 0, z: 0 },
+					quaternion: { x: 0, y: 0, z: 0, w: 1 },
+				},
+				worldScale: 1,
+				unitMode: "meters",
+				visible: true,
+				exportRole: "beauty",
+				maskGroup: "",
+				workingPivotLocal: null,
+			},
+			{
+				id: "asset-splat-b",
+				kind: "splat",
+				label: "3DGS B",
+				source: createProjectFilePackedSplatSource({
+					fileName: "scene.rawsplat",
+					packedArray: new Uint32Array([1, 2, 3, 4]),
+					numSplats: 1,
+					extra: {
+						sh1: new Uint32Array([5, 6]),
+					},
+					splatEncoding: {
+						rgbMin: 0,
+						rgbMax: 1,
+					},
+					lodSplats: {
+						packedArray: new Uint32Array([7, 8, 9, 10]),
+						numSplats: 1,
+						extra: {
+							lodTree: new Uint32Array([11, 12]),
+						},
+						splatEncoding: {
+							rgbMin: 0,
+							rgbMax: 1,
+						},
+						bakedAt: "2026-04-24T00:00:00.000Z",
+						bakedQuality: "quality",
+					},
+				}),
+				transform: {
+					position: { x: 1, y: 0, z: 0 },
+					quaternion: { x: 0, y: 0, z: 0, w: 1 },
+				},
+				worldScale: 1,
+				unitMode: "meters",
+				visible: true,
+				exportRole: "beauty",
+				maskGroup: "",
+				workingPivotLocal: null,
+			},
+		],
+		lighting: projectSnapshot.scene.lighting,
+		referenceImages: createDefaultReferenceImageDocument(),
+	},
+};
+const duplicateBaked3dgsWritable = createCollectingWritable();
+await writeCameraFramesProjectPackageToWritable(
+	duplicateBaked3dgsProjectSnapshot,
+	duplicateBaked3dgsWritable.writable,
+);
+const duplicateBaked3dgsArchive = await collectWritableChunks(
+	duplicateBaked3dgsWritable.chunks,
+);
+const duplicateBaked3dgsReader = await ZipReader.from(
+	new File([duplicateBaked3dgsArchive], "duplicate-baked-3dgs.ssproj"),
+);
+const duplicateBaked3dgsDocument = JSON.parse(
+	await duplicateBaked3dgsReader.text(PROJECT_DOCUMENT_PATH),
+);
+const duplicateBaked3dgsResourceA =
+	duplicateBaked3dgsDocument.resources["resource-1"];
+const duplicateBaked3dgsResourceB =
+	duplicateBaked3dgsDocument.resources["resource-2"];
+assert.equal(
+	duplicateBaked3dgsResourceA.packedArray.path,
+	duplicateBaked3dgsResourceB.packedArray.path,
+	"identical 3DGS packed arrays should share one content-hash path",
+);
+assert.equal(
+	duplicateBaked3dgsResourceA.lodSplats.packedArray.path,
+	duplicateBaked3dgsResourceB.lodSplats.packedArray.path,
+	"identical baked LoD packed arrays should share one content-hash path",
+);
+assert.ok(
+	duplicateBaked3dgsReader.entries.has(
+		duplicateBaked3dgsResourceA.packedArray.path,
+	),
+	"streaming package save should write the shared 3DGS packed array once",
+);
+assert.ok(
+	duplicateBaked3dgsReader.entries.has(
+		duplicateBaked3dgsResourceA.lodSplats.packedArray.path,
+	),
+	"streaming package save should write the shared baked LoD packed array once",
+);
+await duplicateBaked3dgsReader.close();
+const duplicateBaked3dgsResult = await readCameraFramesProject(
+	new File([duplicateBaked3dgsArchive], "duplicate-baked-3dgs.ssproj"),
+);
+assert.equal(
+	duplicateBaked3dgsResult.assetEntries.length,
+	2,
+	"multiple placements of the same baked 3DGS must survive streaming package save",
+);
+assert.ok(
+	duplicateBaked3dgsResult.assetEntries[0].source.lodSplats,
+	"baked LoD must survive the duplicate 3DGS round-trip",
+);
+
+const duplicateReferenceImageDocument = createDefaultReferenceImageDocument();
+const duplicateReferenceAssetA = createReferenceImageAsset({
+	id: "ref-duplicate-a",
+	label: "Reference A",
+	source: createProjectFileEmbeddedFileSource({
+		kind: "reference-image",
+		file: new File([new Uint8Array([9, 8, 7, 6])], "rough.png", {
+			type: "image/png",
+		}),
+		fileName: "rough.png",
+	}),
+	sourceMeta: {
+		filename: "rough.png",
+		mime: "image/png",
+		originalSize: { w: 1024, h: 512 },
+		appliedSize: { w: 1024, h: 512 },
+		pixelRatio: 1,
+		usedOriginal: true,
+	},
+});
+const duplicateReferenceAssetB = createReferenceImageAsset({
+	id: "ref-duplicate-b",
+	label: "Reference B",
+	source: createProjectFileEmbeddedFileSource({
+		kind: "reference-image",
+		file: new File([new Uint8Array([9, 8, 7, 6])], "rough.png", {
+			type: "image/png",
+		}),
+		fileName: "rough.png",
+	}),
+	sourceMeta: {
+		filename: "rough.png",
+		mime: "image/png",
+		originalSize: { w: 1024, h: 512 },
+		appliedSize: { w: 1024, h: 512 },
+		pixelRatio: 1,
+		usedOriginal: true,
+	},
+});
+duplicateReferenceImageDocument.assets.push(
+	duplicateReferenceAssetA,
+	duplicateReferenceAssetB,
+);
+duplicateReferenceImageDocument.presets[0].items.push(
+	createReferenceImageItem({
+		id: "ref-duplicate-item-a",
+		assetId: duplicateReferenceAssetA.id,
+		name: "Reference A",
+		group: "front",
+		order: 0,
+		previewVisible: true,
+		exportEnabled: true,
+	}),
+	createReferenceImageItem({
+		id: "ref-duplicate-item-b",
+		assetId: duplicateReferenceAssetB.id,
+		name: "Reference B",
+		group: "front",
+		order: 1,
+		previewVisible: true,
+		exportEnabled: true,
+	}),
+);
+const duplicateReferenceWritable = createCollectingWritable();
+await writeCameraFramesProjectPackageToWritable(
+	{
+		workspace: projectSnapshot.workspace,
+		shotCameras: projectSnapshot.shotCameras,
+		scene: {
+			assets: [],
+			lighting: projectSnapshot.scene.lighting,
+			referenceImages: duplicateReferenceImageDocument,
+		},
+	},
+	duplicateReferenceWritable.writable,
+);
+const duplicateReferenceArchive = await collectWritableChunks(
+	duplicateReferenceWritable.chunks,
+);
+const duplicateReferenceReader = await ZipReader.from(
+	new File([duplicateReferenceArchive], "duplicate-reference.ssproj"),
+);
+const duplicateReferenceDocument = JSON.parse(
+	await duplicateReferenceReader.text(PROJECT_DOCUMENT_PATH),
+);
+const duplicateReferencePathA =
+	duplicateReferenceDocument.resources["reference-image-resource-1"].path;
+const duplicateReferencePathB =
+	duplicateReferenceDocument.resources["reference-image-resource-2"].path;
+assert.equal(
+	duplicateReferencePathA,
+	duplicateReferencePathB,
+	"identical reference images should share one content-hash path",
+);
+assert.ok(
+	duplicateReferenceReader.entries.has(duplicateReferencePathA),
+	"streaming package save should write the shared reference image resource once",
+);
+await duplicateReferenceReader.close();
+const duplicateReferenceResult = await readCameraFramesProject(
+	new File([duplicateReferenceArchive], "duplicate-reference.ssproj"),
+);
+assert.equal(
+	duplicateReferenceResult.project.scene.referenceImages.assets.length,
+	2,
+	"multiple reference image assets with the same file must survive streaming package save",
+);
+assert.equal(
+	duplicateReferenceResult.project.scene.referenceImages.presets[0].items
+		.length,
+	2,
+	"multiple reference image items with the same file must survive streaming package save",
+);
 
 const t = (key, values = {}) =>
 	`${key}:${Object.entries(values)
