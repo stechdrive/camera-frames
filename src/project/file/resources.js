@@ -2,6 +2,7 @@ import { SPLAT_EXTENSIONS } from "../../constants.js";
 import {
 	PROJECT_RESOURCE_RAW_PACKED_SPLAT,
 	getProjectMediaTypeFromFileName,
+	getProjectPathExtension,
 	isProjectFileEmbeddedFileSource,
 	isProjectFilePackedSplatSource,
 	normalizeProjectFileName,
@@ -9,6 +10,18 @@ import {
 } from "../document.js";
 
 const SOG_SERIALIZABLE_EXTENSIONS = new Set(["ply", "spz"]);
+const DEFAULT_PROJECT_ARCHIVE_ENTRY_LEVEL = 6;
+const STORED_FILE_EXTENSIONS = new Set([
+	"glb",
+	"jpg",
+	"jpeg",
+	"png",
+	"rad",
+	"sog",
+	"spz",
+	"webp",
+	"zip",
+]);
 
 export function canCompressEmbeddedSplatSourceAsSog(source) {
 	if (!isProjectFileEmbeddedFileSource(source)) {
@@ -182,4 +195,87 @@ export function createBinaryEntryBytes(value) {
 		);
 	}
 	return toUint8Array(value);
+}
+
+function getFileResourceArchiveEntryLevel(resource) {
+	const extension = getProjectPathExtension(
+		resource.originalName || resource.path || "",
+	);
+	return STORED_FILE_EXTENSIONS.has(extension)
+		? 0
+		: DEFAULT_PROJECT_ARCHIVE_ENTRY_LEVEL;
+}
+
+export function getProjectArchiveEntryCompressionLevel(
+	resource,
+	path,
+	{ defaultLevel = DEFAULT_PROJECT_ARCHIVE_ENTRY_LEVEL } = {},
+) {
+	if (!resource || typeof resource !== "object") {
+		return defaultLevel;
+	}
+	if (resource.type === "file" && resource.path === path) {
+		return getFileResourceArchiveEntryLevel(resource);
+	}
+	if (resource.type === "packed-splat") {
+		if ((resource.extraFiles ?? []).some((entry) => entry.path === path)) {
+			return 0;
+		}
+		return defaultLevel;
+	}
+	if (resource.type === PROJECT_RESOURCE_RAW_PACKED_SPLAT) {
+		if (resource.packedArray?.path === path) {
+			return 0;
+		}
+		if ((resource.extraArrays ?? []).some((entry) => entry.path === path)) {
+			return 0;
+		}
+		if (resource.lodSplats?.packedArray?.path === path) {
+			return 0;
+		}
+		if (
+			(resource.lodSplats?.extraArrays ?? []).some(
+				(entry) => entry.path === path,
+			)
+		) {
+			return 0;
+		}
+	}
+	return defaultLevel;
+}
+
+export function buildProjectArchiveEntryCompressionLevels(
+	resources,
+	{ defaultLevel = DEFAULT_PROJECT_ARCHIVE_ENTRY_LEVEL } = {},
+) {
+	const levels = {};
+	for (const resource of Object.values(resources ?? {})) {
+		if (!resource || typeof resource !== "object") {
+			continue;
+		}
+		const paths = [];
+		if (resource.type === "file") {
+			paths.push(resource.path);
+		} else if (resource.type === "packed-splat") {
+			paths.push(resource.manifest?.path);
+			for (const extraFile of resource.extraFiles ?? []) {
+				paths.push(extraFile.path);
+			}
+		} else if (resource.type === PROJECT_RESOURCE_RAW_PACKED_SPLAT) {
+			paths.push(resource.packedArray?.path);
+			for (const entry of resource.extraArrays ?? []) {
+				paths.push(entry.path);
+			}
+			paths.push(resource.lodSplats?.packedArray?.path);
+			for (const entry of resource.lodSplats?.extraArrays ?? []) {
+				paths.push(entry.path);
+			}
+		}
+		for (const path of paths.filter(Boolean)) {
+			levels[path] = getProjectArchiveEntryCompressionLevel(resource, path, {
+				defaultLevel,
+			});
+		}
+	}
+	return levels;
 }

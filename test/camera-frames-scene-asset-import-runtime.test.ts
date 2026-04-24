@@ -69,6 +69,8 @@ function createHarness(overrides = {}) {
 		isProjectPackagePackedSplatSource: () => false,
 		isProjectFilePackedSplatSource: (source) =>
 			source?.sourceType === "packed-splat",
+		isProjectFileLazyResourceSource:
+			overrides.isProjectFileLazyResourceSource ?? (() => false),
 		extractProjectPackageAssets: async () => ({
 			files: [],
 			importState: null,
@@ -85,26 +87,30 @@ function createHarness(overrides = {}) {
 				.pop(),
 		getDisplayName: (value) =>
 			typeof value === "string" ? value : (value.name ?? "asset"),
-		loadSplatFromSource: async (source) => {
-			calls.loadedSplats.push(source);
-			return {
-				id:
-					typeof source === "string"
-						? source
-						: (source.fileName ?? source.name),
-				kind: "splat",
-			};
-		},
-		loadModelFromSource: async (source) => {
-			calls.loadedModels.push(source);
-			return {
-				id:
-					typeof source === "string"
-						? source
-						: (source.fileName ?? source.name),
-				kind: "model",
-			};
-		},
+		loadSplatFromSource:
+			overrides.loadSplatFromSource ??
+			(async (source) => {
+				calls.loadedSplats.push(source);
+				return {
+					id:
+						typeof source === "string"
+							? source
+							: (source.fileName ?? source.name),
+					kind: "splat",
+				};
+			}),
+		loadModelFromSource:
+			overrides.loadModelFromSource ??
+			(async (source) => {
+				calls.loadedModels.push(source);
+				return {
+					id:
+						typeof source === "string"
+							? source
+							: (source.fileName ?? source.name),
+					kind: "model",
+				};
+			}),
 		getSceneAssetCount: () => overrides.sceneAssetCount ?? 0,
 		clearScene: () => {
 			calls.clearScene += 1;
@@ -190,6 +196,25 @@ function createHarness(overrides = {}) {
 
 {
 	const { runtime, calls } = createHarness({
+		isProjectFileLazyResourceSource: (source) =>
+			source?.sourceType === "project-file-lazy-resource",
+	});
+	const lazyPackedSource = {
+		sourceType: "project-file-lazy-resource",
+		kind: "splat",
+		fileName: "meta.json",
+	};
+	await runtime.loadSources([lazyPackedSource], false);
+	assert.deepEqual(calls.loadedSplats, [lazyPackedSource]);
+	assert.equal(
+		calls.loadedModels.length,
+		0,
+		"lazy packed-splat sources should route by kind, not by .json extension",
+	);
+}
+
+{
+	const { runtime, calls } = createHarness({
 		sceneAssetCount: 2,
 	});
 	const glb = new File([new Uint8Array([1])], "model.glb");
@@ -201,6 +226,37 @@ function createHarness(overrides = {}) {
 	assert.deepEqual(
 		calls.prioritizedAssets[0].map((asset) => asset.id),
 		["model.glb", "cloud.ply"],
+	);
+}
+
+{
+	let activeLoads = 0;
+	let maxActiveLoads = 0;
+	const { runtime } = createHarness({
+		loadModelFromSource: async (source) => {
+			activeLoads += 1;
+			maxActiveLoads = Math.max(maxActiveLoads, activeLoads);
+			await new Promise((resolve) => setTimeout(resolve, 5));
+			activeLoads -= 1;
+			return {
+				id: source.name,
+				kind: "model",
+			};
+		},
+	});
+	await runtime.loadSources(
+		[
+			new File([new Uint8Array([1])], "a.glb"),
+			new File([new Uint8Array([1])], "b.glb"),
+			new File([new Uint8Array([1])], "c.glb"),
+		],
+		false,
+		{ concurrency: 1 },
+	);
+	assert.equal(
+		maxActiveLoads,
+		1,
+		"loadSources should honor concurrency=1 for package-open lazy materialization",
 	);
 }
 

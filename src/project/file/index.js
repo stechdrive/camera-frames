@@ -14,7 +14,11 @@ import {
 	normalizeProjectDocument,
 } from "../document.js";
 import { notifyPackageProgress } from "./progress.js";
-import { getProjectResourceFileLabel } from "./resources.js";
+import {
+	buildProjectArchiveEntryCompressionLevels,
+	getProjectArchiveEntryCompressionLevel,
+	getProjectResourceFileLabel,
+} from "./resources.js";
 import {
 	serializeProjectAssetSource,
 	serializeReferenceImageAssetSource,
@@ -30,10 +34,14 @@ export {
 	createProjectFilePackedSplatSource,
 	getDefaultProjectFilename,
 	isProjectFileEmbeddedFileSource,
+	isProjectFileLazyResourceSource,
 	isProjectFilePackedSplatSource,
 } from "../document.js";
 
-export { readCameraFramesProject } from "./package-read.js";
+export {
+	openCameraFramesProjectPackage,
+	readCameraFramesProject,
+} from "./package-read.js";
 
 async function serializeCameraFramesProjectPackageContents(
 	projectSnapshot,
@@ -146,6 +154,10 @@ export async function buildCameraFramesProjectPackage(
 	);
 	const archive = await buildZipArchiveBytes(packageContents.archiveEntries, {
 		level: PROJECT_ZIP_LEVEL,
+		entryLevels: buildProjectArchiveEntryCompressionLevels(
+			packageContents.serializedProject.resources,
+			{ defaultLevel: PROJECT_ZIP_LEVEL },
+		),
 	});
 	return {
 		archive,
@@ -241,7 +253,13 @@ export async function writeCameraFramesProjectPackageToWritable(
 					serializedSource.archiveEntryLabels?.[path] ??
 					getProjectResourceFileLabel(serializedSource.resource),
 			});
-			zipWriter.addEntry(path, bytes);
+			await zipWriter.addEntry(path, bytes, {
+				level: getProjectArchiveEntryCompressionLevel(
+					serializedSource.resource,
+					path,
+					{ defaultLevel: PROJECT_ZIP_LEVEL },
+				),
+			});
 		}
 		resources[resourceId] = serializedSource.resource;
 		serializedAssets.push({
@@ -277,7 +295,13 @@ export async function writeCameraFramesProjectPackageToWritable(
 					serializedSource.archiveEntryLabels?.[path] ??
 					getProjectResourceFileLabel(serializedSource.resource),
 			});
-			zipWriter.addEntry(path, bytes);
+			await zipWriter.addEntry(path, bytes, {
+				level: getProjectArchiveEntryCompressionLevel(
+					serializedSource.resource,
+					path,
+					{ defaultLevel: PROJECT_ZIP_LEVEL },
+				),
+			});
 		}
 		resources[resourceId] = serializedSource.resource;
 		serializedReferenceImageAssets.push({
@@ -313,7 +337,9 @@ export async function writeCameraFramesProjectPackageToWritable(
 		total: totalEntries,
 		fileLabel: PROJECT_MANIFEST_PATH,
 	});
-	zipWriter.addEntry(PROJECT_MANIFEST_PATH, manifestBytes);
+	await zipWriter.addEntry(PROJECT_MANIFEST_PATH, manifestBytes, {
+		level: PROJECT_ZIP_LEVEL,
+	});
 
 	writtenEntries += 1;
 	await notifyPackageProgress(onProgress, {
@@ -323,7 +349,9 @@ export async function writeCameraFramesProjectPackageToWritable(
 		total: totalEntries,
 		fileLabel: PROJECT_DOCUMENT_PATH,
 	});
-	zipWriter.addEntry(PROJECT_DOCUMENT_PATH, projectBytes);
+	await zipWriter.addEntry(PROJECT_DOCUMENT_PATH, projectBytes, {
+		level: PROJECT_ZIP_LEVEL,
+	});
 	await zipWriter.close();
 
 	return {

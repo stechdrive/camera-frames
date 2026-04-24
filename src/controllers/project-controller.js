@@ -14,7 +14,7 @@ import {
 } from "../project/document.js";
 import {
 	getDefaultProjectFilename,
-	readCameraFramesProject,
+	openCameraFramesProjectPackage,
 	writeCameraFramesProjectPackageToWritable,
 } from "../project/file/index.js";
 import { ZipReader } from "../project/package-legacy.js";
@@ -543,7 +543,7 @@ export function createProjectController({
 		try {
 			setOverlay(buildImportProgressOverlay(t, "verify"));
 			await waitForOverlayFrame();
-			const parsedProject = await readCameraFramesProject(source, {
+			const parsedProject = await openCameraFramesProjectPackage(source, {
 				onProgress: (progress) => {
 					setOverlay(
 						buildImportProgressOverlay(
@@ -554,10 +554,14 @@ export function createProjectController({
 					);
 				},
 			});
-			return openParsedProject(parsedProject, {
-				projectName,
-				fileHandle,
-			});
+			try {
+				return await openParsedProject(parsedProject, {
+					projectName,
+					fileHandle,
+				});
+			} finally {
+				await parsedProject.close?.();
+			}
 		} catch (error) {
 			if (!(await isLegacyCameraFramesProjectSource(source))) {
 				clearOverlay();

@@ -22,12 +22,17 @@ export function createProjectOpenApply({
 			(entry) => entry.source,
 		);
 		if (projectSources.length > 0) {
-			await assetController?.loadSources?.(projectSources, false, {
+			const loadOptions = {
 				onProgress: onAssetProgress,
-			});
+			};
+			if (Number.isFinite(parsedProject.assetLoadConcurrency)) {
+				loadOptions.concurrency = parsedProject.assetLoadConcurrency;
+			}
+			await assetController?.loadSources?.(projectSources, false, loadOptions);
 		}
 		onAssetProgress?.("apply", t("overlay.importDetailApply", { projectName }));
 		if (!skipApplyState) {
+			await parsedProject.materializeReferenceImages?.();
 			applySavedProjectState?.(parsedProject.project);
 			getHistoryController?.()?.clearHistory?.();
 		}

@@ -70,7 +70,7 @@ export class ZipReader {
 
 export async function buildZipArchiveBytes(
 	archiveEntries,
-	{ level = DEFAULT_ARCHIVE_ZIP_LEVEL } = {},
+	{ level = DEFAULT_ARCHIVE_ZIP_LEVEL, entryLevels = {} } = {},
 ) {
 	const writer = new Uint8ArrayWriter();
 	const zipWriter = new ZipJsWriter(writer, {
@@ -79,8 +79,11 @@ export async function buildZipArchiveBytes(
 		useWebWorkers: true,
 	});
 	for (const [path, bytes] of Object.entries(archiveEntries)) {
+		const entryLevel = Number.isFinite(entryLevels?.[path])
+			? entryLevels[path]
+			: level;
 		await zipWriter.add(path, new Uint8ArrayReader(bytes), {
-			level,
+			level: entryLevel,
 			zip64: true,
 		});
 	}
@@ -101,9 +104,10 @@ export function createArchiveWritableStream(
 	let closed = false;
 
 	return {
-		async addEntry(path, bytes) {
+		async addEntry(path, bytes, options = {}) {
+			const entryLevel = Number.isFinite(options.level) ? options.level : level;
 			await zipWriter.add(path, new Uint8ArrayReader(bytes), {
-				level,
+				level: entryLevel,
 				zip64: true,
 			});
 		},

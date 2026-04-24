@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import {
 	isProjectFileEmbeddedFileSource,
+	isProjectFileLazyResourceSource,
 	isProjectFilePackedSplatSource,
 } from "../../project/document.js";
 import {
@@ -55,10 +56,12 @@ export function createSceneAssetProjectStateHelpers({
 				: isProjectFileEmbeddedFileSource(value) ||
 						isProjectFilePackedSplatSource(value)
 					? value.fileName
-					: isProjectPackageFileSource(value) ||
-							isProjectPackagePackedSplatSource(value)
+					: isProjectFileLazyResourceSource(value)
 						? value.fileName
-						: value.name;
+						: isProjectPackageFileSource(value) ||
+								isProjectPackagePackedSplatSource(value)
+							? value.fileName
+							: value.name;
 		const clean = raw.split("?")[0].split("#")[0].toLowerCase();
 		const lastDot = clean.lastIndexOf(".");
 		return lastDot >= 0 ? clean.slice(lastDot + 1) : "";
@@ -69,7 +72,8 @@ export function createSceneAssetProjectStateHelpers({
 			isProjectPackageFileSource(value) ||
 			isProjectPackagePackedSplatSource(value) ||
 			isProjectFileEmbeddedFileSource(value) ||
-			isProjectFilePackedSplatSource(value)
+			isProjectFilePackedSplatSource(value) ||
+			isProjectFileLazyResourceSource(value)
 		) {
 			return value.legacyState ?? null;
 		}
@@ -80,7 +84,8 @@ export function createSceneAssetProjectStateHelpers({
 	function getProjectAssetState(value) {
 		if (
 			isProjectFileEmbeddedFileSource(value) ||
-			isProjectFilePackedSplatSource(value)
+			isProjectFilePackedSplatSource(value) ||
+			isProjectFileLazyResourceSource(value)
 		) {
 			return value.projectAssetState ?? null;
 		}
@@ -111,6 +116,9 @@ export function createSceneAssetProjectStateHelpers({
 		}
 		if (isProjectFileEmbeddedFileSource(value)) {
 			return value.fileName || value.file?.name || "asset";
+		}
+		if (isProjectFileLazyResourceSource(value)) {
+			return value.fileName || "asset";
 		}
 		if (isProjectPackagePackedSplatSource(value)) {
 			return value.label || value.fileName || value.path || "meta.json";

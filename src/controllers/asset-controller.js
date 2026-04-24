@@ -13,7 +13,9 @@ import {
 	createProjectFilePackedSplatSource,
 	getProjectSourceStableKey,
 	isProjectFileEmbeddedFileSource,
+	isProjectFileLazyResourceSource,
 	isProjectFilePackedSplatSource,
+	materializeProjectFileLazyResourceSource,
 	sanitizeProjectAssetLabel,
 } from "../project/document.js";
 import {
@@ -711,6 +713,13 @@ export function createAssetController({
 	}
 
 	async function loadSplatAssetFromSource(source, { insertIndex = null } = {}) {
+		if (isProjectFileLazyResourceSource(source)) {
+			return await loadSplatAssetFromSource(
+				await materializeProjectFileLazyResourceSource(source),
+				{ insertIndex },
+			);
+		}
+
 		const displayName = getDisplayName(source);
 		const legacyState = getLegacyState(source);
 		const projectAssetState = getProjectAssetState(source);
@@ -922,6 +931,13 @@ export function createAssetController({
 	}
 
 	async function loadModelFromSource(source, { insertIndex = null } = {}) {
+		if (isProjectFileLazyResourceSource(source)) {
+			return await loadModelFromSource(
+				await materializeProjectFileLazyResourceSource(source),
+				{ insertIndex },
+			);
+		}
+
 		let url = source;
 		let needsRevoke = false;
 		const displayName = getDisplayName(source);
@@ -1131,6 +1147,7 @@ export function createAssetController({
 		isProjectPackageSource,
 		isProjectPackagePackedSplatSource,
 		isProjectFilePackedSplatSource,
+		isProjectFileLazyResourceSource,
 		extractProjectPackageAssets,
 		openProjectSource,
 		getExtension,

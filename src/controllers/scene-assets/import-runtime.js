@@ -53,6 +53,7 @@ export function createAssetImportRuntime({
 	isProjectPackageSource,
 	isProjectPackagePackedSplatSource,
 	isProjectFilePackedSplatSource,
+	isProjectFileLazyResourceSource,
 	extractProjectPackageAssets,
 	openProjectSource = null,
 	getExtension,
@@ -204,6 +205,11 @@ export function createAssetImportRuntime({
 	}
 
 	async function loadSource(source) {
+		if (isProjectFileLazyResourceSource?.(source)) {
+			return source.kind === "model"
+				? loadModelFromSource(source)
+				: loadSplatFromSource(source);
+		}
 		if (isProjectFilePackedSplatSource?.(source)) {
 			return loadSplatFromSource(source);
 		}
@@ -237,6 +243,7 @@ export function createAssetImportRuntime({
 			onProgress = null,
 			resetHistory = true,
 			prioritizeNewAssets = false,
+			concurrency = 3,
 		} = {},
 	) {
 		if (!sources.length) {
@@ -260,7 +267,10 @@ export function createAssetImportRuntime({
 
 		setStatus(t("status.loadingItems", { count: expandedSources.length }));
 
-		const CONCURRENCY = 3;
+		const maxConcurrency = Math.max(
+			1,
+			Number.isFinite(concurrency) ? Math.floor(concurrency) : 3,
+		);
 		let loaded = 0;
 		let running = 0;
 		let nextIndex = 0;
@@ -269,7 +279,7 @@ export function createAssetImportRuntime({
 
 		await new Promise((resolve, reject) => {
 			function kick() {
-				while (running < CONCURRENCY && nextIndex < total) {
+				while (running < maxConcurrency && nextIndex < total) {
 					const index = nextIndex++;
 					const source = expandedSources[index];
 					running += 1;

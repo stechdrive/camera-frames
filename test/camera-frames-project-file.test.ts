@@ -1,13 +1,18 @@
 import assert from "node:assert/strict";
 import { buildImportProgressDetail } from "../src/controllers/project/overlays.js";
 import { ZipReader } from "../src/project-archive.js";
-import { PROJECT_DOCUMENT_PATH } from "../src/project/document.js";
+import {
+	PROJECT_DOCUMENT_PATH,
+	PROJECT_MANIFEST_PATH,
+} from "../src/project/document.js";
 import {
 	buildCameraFramesProjectArchive,
 	createProjectFileEmbeddedFileSource,
 	createProjectFilePackedSplatSource,
 	isProjectFileEmbeddedFileSource,
+	isProjectFileLazyResourceSource,
 	isProjectFilePackedSplatSource,
+	openCameraFramesProjectPackage,
 	readCameraFramesProject,
 } from "../src/project/file/index.js";
 import {
@@ -288,6 +293,114 @@ assert.equal(
 	12,
 );
 
+const lazyProjectReadProgress = [];
+const lazyResult = await openCameraFramesProjectPackage(
+	new File([archive], "scene-lazy.ssproj"),
+	{
+		onProgress: (progress) => {
+			lazyProjectReadProgress.push(progress);
+		},
+	},
+);
+try {
+	assert.equal(lazyResult.assetLoadConcurrency, 1);
+	assert.equal(lazyResult.assetEntries.length, 2);
+	assert.equal(
+		isProjectFileLazyResourceSource(lazyResult.assetEntries[0].source),
+		true,
+	);
+	assert.equal(
+		isProjectFileLazyResourceSource(lazyResult.assetEntries[1].source),
+		true,
+	);
+	assert.equal(
+		lazyProjectReadProgress.some((progress) =>
+			String(progress.stage).startsWith("extract-project-asset"),
+		),
+		false,
+		"lazy package open must not extract scene asset resources during the package expand phase",
+	);
+	assert.equal(
+		lazyProjectReadProgress.some(
+			(progress) => progress.stage === "extract-reference-image",
+		),
+		false,
+		"lazy package open must not extract reference image files before project state apply",
+	);
+	assert.equal(lazyProjectReadProgress.at(-1)?.stage, "expand-complete");
+	assert.equal(
+		lazyResult.project.scene.referenceImages.assets[0].source.resourceId,
+		"reference-image-resource-1",
+		"reference image sources remain package resource refs until materialized for state apply",
+	);
+
+	const lazyModelSource = await lazyResult.assetEntries[0].source.materialize();
+	assert.equal(isProjectFileEmbeddedFileSource(lazyModelSource), true);
+	assert.equal(lazyModelSource.file.name, "layout.glb");
+	assert.equal(
+		await lazyResult.assetEntries[0].source.materialize(),
+		lazyModelSource,
+		"lazy scene asset sources should cache materialized resources",
+	);
+
+	const lazyPackedSource =
+		await lazyResult.assetEntries[1].source.materialize();
+	assert.equal(isProjectFilePackedSplatSource(lazyPackedSource), true);
+	assert.deepEqual(Object.keys(lazyPackedSource.extraFiles), ["means.bin"]);
+
+	await lazyResult.materializeReferenceImages();
+	assert.equal(
+		lazyResult.project.scene.referenceImages.assets[0].source.file.name,
+		"rough.png",
+	);
+} finally {
+	await lazyResult.close();
+}
+
+const compressedEntryReader = await ZipReader.from(
+	new File([archive], "compression-levels.ssproj"),
+);
+const compressedEntryProject = JSON.parse(
+	await compressedEntryReader.text(PROJECT_DOCUMENT_PATH),
+);
+const modelResource = compressedEntryProject.resources["resource-1"];
+const packedResource = compressedEntryProject.resources["resource-2"];
+const referenceResource =
+	compressedEntryProject.resources["reference-image-resource-1"];
+assert.equal(
+	compressedEntryReader.entries.get(modelResource.path)?.compressionMethod,
+	0,
+	"GLB resources should be stored without deflate in .ssproj archives",
+);
+assert.equal(
+	compressedEntryReader.entries.get(packedResource.manifest.path)
+		?.compressionMethod,
+	8,
+	"packed-splat JSON manifests should remain deflated",
+);
+assert.equal(
+	compressedEntryReader.entries.get(packedResource.extraFiles[0].path)
+		?.compressionMethod,
+	0,
+	"packed-splat companion binaries should be stored without deflate",
+);
+assert.equal(
+	compressedEntryReader.entries.get(referenceResource.path)?.compressionMethod,
+	0,
+	"image resources should be stored without deflate",
+);
+assert.equal(
+	compressedEntryReader.entries.get(PROJECT_MANIFEST_PATH)?.compressionMethod,
+	8,
+	"manifest.json should remain deflated",
+);
+assert.equal(
+	compressedEntryReader.entries.get(PROJECT_DOCUMENT_PATH)?.compressionMethod,
+	8,
+	"project.json should remain deflated",
+);
+await compressedEntryReader.close();
+
 const t = (key, values = {}) =>
 	`${key}:${Object.entries(values)
 		.map(([name, value]) => `${name}=${value}`)
@@ -381,6 +494,81 @@ assert.equal(
 	null,
 	"ssproj without baked LoD must round-trip with lodSplats === null",
 );
+
+const rawPackedCompressionReader = await ZipReader.from(
+	new File([rawPackedArchive], "raw-packed-compression.ssproj"),
+);
+const rawPackedCompressionProject = JSON.parse(
+	await rawPackedCompressionReader.text(PROJECT_DOCUMENT_PATH),
+);
+const rawPackedResource = rawPackedCompressionProject.resources["resource-1"];
+assert.equal(
+	rawPackedCompressionReader.entries.get(rawPackedResource.packedArray.path)
+		?.compressionMethod,
+	0,
+	"raw-packed-splat packedArray entries should be stored without deflate",
+);
+assert.equal(
+	rawPackedCompressionReader.entries.get(rawPackedResource.extraArrays[0].path)
+		?.compressionMethod,
+	0,
+	"raw-packed-splat extra array entries should be stored without deflate",
+);
+await rawPackedCompressionReader.close();
+
+const embeddedPlyArchive = await buildCameraFramesProjectArchive({
+	workspace: projectSnapshot.workspace,
+	shotCameras: projectSnapshot.shotCameras,
+	scene: {
+		assets: [
+			{
+				id: "asset-ply",
+				kind: "splat",
+				label: "Raw PLY",
+				source: createProjectFileEmbeddedFileSource({
+					kind: "splat",
+					file: new File(
+						[
+							new TextEncoder().encode(
+								"ply\nformat ascii 1.0\nelement vertex 0\nend_header\n",
+							),
+						],
+						"cloud.ply",
+						{ type: "application/octet-stream" },
+					),
+					fileName: "cloud.ply",
+				}),
+				transform: {
+					position: { x: 0, y: 0, z: 0 },
+					quaternion: { x: 0, y: 0, z: 0, w: 1 },
+				},
+				worldScale: 1,
+				unitMode: "meters",
+				visible: true,
+				exportRole: "beauty",
+				maskGroup: "",
+				workingPivotLocal: null,
+			},
+		],
+		lighting: projectSnapshot.scene.lighting,
+		referenceImages: createDefaultReferenceImageDocument(),
+	},
+});
+const embeddedPlyCompressionReader = await ZipReader.from(
+	new File([embeddedPlyArchive], "embedded-ply-compression.ssproj"),
+);
+const embeddedPlyCompressionProject = JSON.parse(
+	await embeddedPlyCompressionReader.text(PROJECT_DOCUMENT_PATH),
+);
+const embeddedPlyResource =
+	embeddedPlyCompressionProject.resources["resource-1"];
+assert.equal(
+	embeddedPlyCompressionReader.entries.get(embeddedPlyResource.path)
+		?.compressionMethod,
+	8,
+	"embedded raw PLY resources should keep deflate compression for the 2GB package-size guard",
+);
+await embeddedPlyCompressionReader.close();
 
 const bakedLodProjectSnapshot = {
 	workspace: projectSnapshot.workspace,
