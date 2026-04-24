@@ -1,63 +1,75 @@
-// Composite fixture: the whole app layout at a glance — Tool Rail on
-// the left, Viewport in the middle with a backdrop, Inspector on the
-// right, and the Project Status HUD floating inside the viewport.
-// Four annotations point at each region so chapter 02's layout intro
-// image reads as a labelled map.
-//
-// Unlike the panel / overlay fixtures that mount a single real
-// component, this fixture stitches together simplified stand-ins
-// (matching the real class selectors) purely so the overall layout
-// reads at a glance. Each pane's actual content is covered by its
-// own dedicated fixture (tool-rail, inspector-tabs, first-scene-loaded,
-// etc.), so deeply re-mounting each real component here would
-// duplicate work without adding docs value.
-
 import { html } from "htm/preact";
+import { getAnchorOptions, translate } from "../../i18n.js";
+import {
+	OutputFrameSection,
+	ShotCameraPropertiesSection,
+} from "../../ui/workbench-camera-export-sections.js";
+import {
+	InspectorTabs,
+	ToolRailSection,
+} from "../../ui/workbench-rail-sections.js";
+import { ViewportProjectStatusHud } from "../../ui/viewport-project-status-hud.js";
+import { createMockController } from "../mock/controller.js";
 import { makeScene } from "../mock/scenes.js";
+import { createMockStore } from "../mock/store.js";
 
-const VIEWPORT_WIDTH = 960;
-const VIEWPORT_HEIGHT = 600;
+const STAGE_WIDTH = 960;
+const STAGE_HEIGHT = 600;
 
 const STYLE = `
 .docs-layout-host {
 	position: relative;
-	width: ${VIEWPORT_WIDTH}px;
-	height: ${VIEWPORT_HEIGHT}px;
+	width: ${STAGE_WIDTH}px;
+	height: ${STAGE_HEIGHT}px;
 	background: #050a13;
 	color: #e8ecf1;
-	display: grid;
-	grid-template-columns: 64px 1fr 320px;
-	gap: 12px;
-	padding: 16px;
 	box-sizing: border-box;
 	font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
 	overflow: hidden;
 }
-.docs-layout-host__rail {
-	border: 1px solid rgba(255, 255, 255, 0.08);
-	border-radius: 14px;
-	background: #10161e;
-	display: flex;
+.docs-layout-host__rail-wrap {
+	position: absolute;
+	left: 16px;
+	top: 16px;
+	z-index: 12;
+	pointer-events: auto;
+}
+.docs-layout-host__rail-wrap .workbench-card--tool-rail {
+	position: relative;
+	width: 3.55rem;
+	padding: 0.45rem;
+	border-radius: 22px;
+	cursor: default;
+}
+.docs-layout-host__rail-wrap .workbench-tool-rail {
 	flex-direction: column;
+	flex-wrap: nowrap;
 	align-items: center;
-	gap: 6px;
-	padding: 10px 4px;
+	width: 100%;
 }
-.docs-layout-host__rail-item {
-	width: 40px;
-	height: 40px;
-	border-radius: 10px;
-	border: 1px solid rgba(255, 255, 255, 0.08);
-	background: rgba(255, 255, 255, 0.02);
+.docs-layout-host__rail-wrap .workbench-tool-rail__group {
+	flex-direction: column;
+	width: 100%;
 }
-.docs-layout-host__rail-item--active {
-	border-color: rgba(246, 165, 36, 0.78);
-	background: rgba(246, 165, 36, 0.12);
-	box-shadow: 0 0 0 1px rgba(246, 165, 36, 0.3);
+.docs-layout-host__rail-wrap .workbench-tool-rail__divider {
+	width: 100%;
+	height: 1px;
+	background: linear-gradient(
+		90deg,
+		rgba(255, 255, 255, 0) 0%,
+		rgba(255, 255, 255, 0.16) 25%,
+		rgba(255, 255, 255, 0.16) 75%,
+		rgba(255, 255, 255, 0) 100%
+	);
 }
 .docs-layout-host__viewport {
 	position: relative;
-	border-radius: 16px;
+	position: absolute;
+	left: 92px;
+	top: 16px;
+	right: 356px;
+	bottom: 16px;
+	border-radius: 14px;
 	overflow: hidden;
 	border: 1px solid rgba(255, 255, 255, 0.06);
 	background: #04070c;
@@ -71,128 +83,47 @@ const STYLE = `
 	pointer-events: none;
 	user-select: none;
 }
-.docs-layout-host__hud {
-	position: absolute;
-	top: 14px;
-	right: 16px;
-	display: flex;
-	align-items: center;
-	gap: 6px;
-	padding: 6px 10px;
-	border-radius: 8px;
-	background: rgba(4, 10, 18, 0.82);
-	border: 1px solid rgba(255, 255, 255, 0.1);
-	color: rgba(220, 233, 248, 0.96);
-	font-size: 12px;
-	font-weight: 600;
-	letter-spacing: 0.04em;
-	backdrop-filter: blur(6px);
-}
-.docs-layout-host__hud-quality {
-	display: inline-flex;
-	align-items: center;
-	gap: 5px;
-	color: rgba(198, 216, 236, 0.8);
-}
-.docs-layout-host__hud-quality-bar {
-	width: 54px;
-	height: 4px;
-	border-radius: 99px;
-	background: linear-gradient(
-		90deg,
-		rgba(143, 210, 255, 0.9) 70%,
-		rgba(255, 255, 255, 0.18) 70%
-	);
-}
-.docs-layout-host__hud-divider {
-	width: 1px;
-	height: 13px;
-	background: rgba(255, 255, 255, 0.16);
-}
-.docs-layout-host__hud-badge {
-	padding: 1px 6px;
-	border-radius: 4px;
-	font-size: 10px;
-	font-weight: 800;
-	letter-spacing: 0.08em;
-	background: rgba(246, 165, 36, 0.22);
-	color: rgba(255, 212, 128, 0.98);
-}
 .docs-layout-host__inspector {
-	border: 1px solid rgba(255, 255, 255, 0.08);
-	border-radius: 14px;
-	background: #10161e;
-	padding: 16px;
-	display: flex;
-	flex-direction: column;
-	gap: 12px;
+	position: absolute;
+	top: 16px;
+	right: 16px;
+	bottom: 16px;
+	width: 324px;
+	z-index: 11;
+	box-sizing: border-box;
+	overflow: hidden;
 }
-.docs-layout-host__inspector-tabs {
-	display: flex;
-	gap: 8px;
+.docs-layout-host__inspector.workbench-card--inspector {
+	width: 324px;
+	height: calc(100% - 32px);
+	max-height: none;
+	padding: 0.55rem;
+	overflow: hidden;
 }
-.docs-layout-host__inspector-tab {
-	flex: 1;
-	height: 36px;
-	border-radius: 9px;
-	background: rgba(255, 255, 255, 0.03);
-	border: 1px solid rgba(255, 255, 255, 0.08);
+.docs-layout-host__inspector .workbench-inspector-stack {
+	overflow: hidden;
+	max-height: 482px;
 }
-.docs-layout-host__inspector-tab--active {
-	background: rgba(246, 165, 36, 0.16);
-	border-color: rgba(246, 165, 36, 0.72);
+.docs-layout-host__inspector .workbench-inspector-stack--split {
+	grid-template-columns: 1fr;
+	gap: 0.5rem;
 }
-.docs-layout-host__inspector-section {
-	padding: 14px;
-	border: 1px solid rgba(255, 255, 255, 0.06);
-	border-radius: 10px;
-	background: rgba(255, 255, 255, 0.02);
-	display: flex;
-	flex-direction: column;
-	gap: 10px;
+.docs-layout-host__inspector .disclosure-block {
+	min-width: 0;
 }
-.docs-layout-host__section-title {
-	font-size: 11px;
-	font-weight: 700;
-	letter-spacing: 0.12em;
-	color: rgba(198, 216, 236, 0.88);
-	text-transform: uppercase;
+.docs-layout-host__viewport .viewport-project-status {
+	top: 1rem;
+	right: 1rem;
+	max-width: calc(100% - 2rem);
 }
-.docs-layout-host__field {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	padding: 8px 10px;
-	border-radius: 8px;
-	background: rgba(255, 255, 255, 0.04);
-	font-size: 12px;
-	color: rgba(220, 233, 248, 0.86);
+.docs-layout-host__viewport .viewport-lod-scale__range {
+	width: 4.2rem;
+	min-width: 4.2rem;
 }
-.docs-layout-host__field-label {
-	width: 50px;
-	color: rgba(198, 216, 236, 0.7);
-	font-size: 11px;
-}
-.docs-layout-host__field-value {
-	flex: 1;
-	text-align: right;
-	font-variant-numeric: tabular-nums;
-	font-weight: 600;
+.docs-layout-host .tooltip-bubble {
+	display: none;
 }
 `;
-
-const RAIL_ITEMS = [
-	{ active: false },
-	{ active: false },
-	{ active: false },
-	{ active: false },
-	{ active: true },
-	{ active: false },
-	{ active: false },
-	{ active: false },
-	{ active: false },
-	{ active: false },
-];
 
 /** @type {import("../types").Fixture} */
 export const appLayoutOverviewFixture = {
@@ -206,105 +137,142 @@ export const appLayoutOverviewFixture = {
 		{
 			n: 1,
 			selector: ".docs-layout-host__viewport",
-			label: "Viewport",
+			label: "ビューポート",
 			placement: "center",
 		},
 		{
 			n: 2,
 			selector: ".workbench-card--tool-rail",
-			label: "Tool Rail",
+			label: "ツールレール",
 			placement: "center",
 		},
 		{
 			n: 3,
 			selector: ".workbench-card--inspector",
-			label: "Inspector",
+			label: "インスペクター",
 			placement: "center",
 		},
 		{
 			n: 4,
 			selector: ".viewport-project-status",
-			label: "Project Status HUD",
+			label: "プロジェクト状態 HUD",
 			placement: "right",
 		},
 	],
-	mount: () => {
+	mount: ({ lang }) => {
 		const scene = makeScene("cf-test2-default");
+		const store = createMockStore({
+			locale: lang,
+			project: {
+				name: "cf-test2",
+				dirty: false,
+				packageDirty: true,
+			},
+			history: {
+				canUndo: true,
+				canRedo: true,
+			},
+			shotCamera: {
+				positionX: 1.23,
+				positionY: 2.45,
+				positionZ: -0.5,
+				yawDeg: 45,
+				pitchDeg: -15,
+				rollDeg: 0,
+			},
+		});
+		const controller = createMockController({
+			methods: {
+				canFitOutputFrameToSafeArea: () => true,
+			},
+		});
+		const t = (key, params) => translate(lang, key, params);
+		const projectMenuItems = [
+			{
+				id: "new-project",
+				icon: "plus",
+				label: t("menu.newProjectAction"),
+				shortcut: "Ctrl+N",
+			},
+			{
+				id: "open-files",
+				icon: "folder-open",
+				label: t("action.openFiles"),
+				shortcut: "Ctrl+O",
+			},
+			{
+				id: "save-project",
+				icon: "save",
+				label: t("menu.saveWorkingStateAction"),
+				shortcut: "Ctrl+S",
+			},
+			{
+				id: "export-project",
+				icon: "package",
+				label: t("menu.savePackageAction"),
+				shortcut: "Ctrl+Shift+S",
+			},
+		];
+		const anchorOptions = getAnchorOptions(lang);
 		return html`
 			<div class="docs-layout-host">
 				<style>${STYLE}</style>
-				<aside class="docs-layout-host__rail workbench-card workbench-card--tool-rail">
-					${RAIL_ITEMS.map(
-						(item, index) => html`
-							<div
-								key=${index}
-								class=${
-									item.active
-										? "docs-layout-host__rail-item docs-layout-host__rail-item--active"
-										: "docs-layout-host__rail-item"
-								}
-							></div>
-						`,
-					)}
-				</aside>
+				<div class="docs-layout-host__rail-wrap">
+					<section class="workbench-card workbench-card--tool-rail">
+						<${ToolRailSection}
+							controller=${() => controller}
+							mode="camera"
+							projectMenuItems=${projectMenuItems}
+							showQuickMenu=${true}
+							store=${store}
+							t=${t}
+						/>
+					</section>
+				</div>
 				<main class="docs-layout-host__viewport">
 					<img
 						class="docs-layout-host__backdrop"
 						src=${scene.backdropUrl}
 						alt=${scene.description ?? ""}
 					/>
-					<div class="docs-layout-host__hud viewport-project-status">
-						<span class="docs-layout-host__hud-quality">
-							プレビュー品質
-							<span class="docs-layout-host__hud-quality-bar"></span>
-							1.10
-						</span>
-						<span class="docs-layout-host__hud-divider"></span>
-						<span>cf-test2</span>
-						<span class="docs-layout-host__hud-badge">PKG</span>
-					</div>
+					<${ViewportProjectStatusHud}
+						store=${store}
+						controller=${() => controller}
+						t=${t}
+					/>
 				</main>
 				<aside class="docs-layout-host__inspector workbench-card workbench-card--inspector">
-					<div class="docs-layout-host__inspector-tabs">
-						${["scene", "camera", "reference", "export"].map(
-							(id) => html`
-								<div
-									key=${id}
-									class=${
-										id === "camera"
-											? "docs-layout-host__inspector-tab docs-layout-host__inspector-tab--active"
-											: "docs-layout-host__inspector-tab"
-									}
-								></div>
-							`,
-						)}
+					<div class="workbench-inspector-header">
+						<${InspectorTabs}
+							activeTab="camera"
+							setActiveTab=${() => {}}
+							t=${t}
+						/>
 					</div>
-					<section class="docs-layout-host__inspector-section">
-						<div class="docs-layout-host__section-title">Shot Camera</div>
-						<div class="docs-layout-host__field">
-							<span class="docs-layout-host__field-label">焦点距離</span>
-							<span class="docs-layout-host__field-value">35 mm</span>
-						</div>
-						<div class="docs-layout-host__field">
-							<span class="docs-layout-host__field-label">位置</span>
-							<span class="docs-layout-host__field-value">1.2 / 2.4 / -0.5</span>
-						</div>
-						<div class="docs-layout-host__field">
-							<span class="docs-layout-host__field-label">回転</span>
-							<span class="docs-layout-host__field-value">45° / -15° / 0°</span>
-						</div>
-					</section>
-					<section class="docs-layout-host__inspector-section">
-						<div class="docs-layout-host__section-title">用紙</div>
-						<div class="docs-layout-host__field">
-							<span class="docs-layout-host__field-label">サイズ</span>
-							<span class="docs-layout-host__field-value">1754 × 1240 px</span>
-						</div>
-						<div class="docs-layout-host__field">
-							<span class="docs-layout-host__field-label">アンカー</span>
-							<span class="docs-layout-host__field-value">center</span>
-						</div>
-					</section>
+					<div class="workbench-inspector-tab-title">
+						<strong>${t("section.shotCamera")}</strong>
+					</div>
+					<div class="workbench-inspector-stack workbench-inspector-stack--split">
+						<${ShotCameraPropertiesSection}
+							store=${store}
+							controller=${() => controller}
+							t=${t}
+							equivalentMmValue=${store.equivalentMmValue.value}
+							fovLabel=${store.fovLabel.value}
+							shotCameraClipMode="auto"
+							open=${true}
+						/>
+						<${OutputFrameSection}
+							anchorOptions=${anchorOptions}
+							controller=${() => controller}
+							exportSizeLabel=${store.exportSizeLabel.value}
+							heightLabel=${store.heightLabel.value}
+							store=${store}
+							t=${t}
+							widthLabel=${store.widthLabel.value}
+							open=${true}
+						/>
+					</div>
 				</aside>
 			</div>
 		`;
