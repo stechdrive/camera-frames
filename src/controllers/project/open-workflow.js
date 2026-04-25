@@ -10,10 +10,44 @@ import {
 	waitForOverlayFrame,
 } from "./overlays.js";
 import {
+	PROJECT_PICKER_MIME,
+	ensureProjectFileName,
 	getProjectBaseName,
 	isLegacyCameraFramesProjectSource,
 } from "./picker-options.js";
 import { resolveProjectIdentity } from "./working-save-record.js";
+
+function getProjectSourceFileName(source, fileHandle = null) {
+	if (fileHandle?.name) {
+		return fileHandle.name;
+	}
+	if (source?.name) {
+		return source.name;
+	}
+	if (typeof source !== "string") {
+		return "";
+	}
+	try {
+		const url = new URL(source);
+		return decodeURIComponent(url.pathname.split("/").pop() || "");
+	} catch {
+		return source;
+	}
+}
+
+async function materializeRemoteProjectSource(source, fileName) {
+	if (typeof source !== "string") {
+		return source;
+	}
+	const response = await fetch(source);
+	if (!response.ok) {
+		throw new Error(`Failed to fetch ${source}: ${response.status}`);
+	}
+	const blob = await response.blob();
+	return new File([blob], ensureProjectFileName(fileName), {
+		type: blob.type || PROJECT_PICKER_MIME,
+	});
+}
 
 export function createProjectOpenWorkflow({
 	t,
@@ -116,7 +150,8 @@ export function createProjectOpenWorkflow({
 				});
 			});
 		}
-		const projectName = getProjectBaseName(source?.name || fileHandle?.name);
+		const sourceFileName = getProjectSourceFileName(source, fileHandle);
+		const projectName = getProjectBaseName(sourceFileName);
 		const progressStartedAt = Date.now();
 		try {
 			setOverlay(
@@ -125,11 +160,15 @@ export function createProjectOpenWorkflow({
 				}),
 			);
 			await waitForOverlayFrame();
+			const projectSource = await materializeRemoteProjectSource(
+				source,
+				sourceFileName,
+			);
 			const refreshSource =
 				fileHandle && typeof fileHandle.getFile === "function"
 					? async () => await fileHandle.getFile()
 					: null;
-			const parsedProject = await openCameraFramesProjectPackage(source, {
+			const parsedProject = await openCameraFramesProjectPackage(projectSource, {
 				refreshSource,
 				onProgress: (progress) => {
 					setOverlay(
@@ -152,7 +191,11 @@ export function createProjectOpenWorkflow({
 				await parsedProject.close?.();
 			}
 		} catch (error) {
-			if (!(await isLegacyCameraFramesProjectSource(source))) {
+			const legacySource =
+				typeof source === "string"
+					? await materializeRemoteProjectSource(source, sourceFileName)
+					: source;
+			if (!(await isLegacyCameraFramesProjectSource(legacySource))) {
 				clearOverlay();
 				throw error;
 			}
@@ -164,7 +207,7 @@ export function createProjectOpenWorkflow({
 			);
 			await waitForOverlayFrame();
 			try {
-				await assetController.loadSources([source], true, {
+				await assetController.loadSources([legacySource], true, {
 					onProgress: (step, detail = "", progress = {}) => {
 						setOverlay(
 							buildImportProgressOverlay(t, step, detail, {

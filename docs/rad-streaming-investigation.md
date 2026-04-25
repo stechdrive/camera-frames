@@ -118,9 +118,28 @@ RAD reader が期待する root/chunk layout に絞った encoder を `camera-fr
 mesh を `PagedSplats` から `PackedSplats` へ swap する。編集後の source は RAD bundle を保持せず、
 次回 Quality save の RAD build worker で再生成する。
 
+## Dev Browser Validation
+
+Codex / browser-use から file picker や drag-and-drop を直接操作しなくても検証できるように、
+dev build では query param から RAD `.ssproj` 検証を起動できる。
+
+例:
+
+```text
+http://127.0.0.1:3010/?cfDevValidation=rad-ssproj&projectUrl=http%3A%2F%2F127.0.0.1%3A3010%2F%40fs%2FD%3A%2FGitHub%2Fcamera-frames%2F.local%2Fcf-test%2Fcf-test-rad-user.ssproj
+```
+
+結果は `#cf-dev-browser-validation-result` / `data-testid="cf-dev-browser-validation-result"` に JSON として表示する。
+この検証は dev-only で、production build には自動起動処理を入れない。
+
+2026-04-25 に `cf-test-rad-user.ssproj` で確認した内容:
+
+- package open 後、RAD-backed splat assets が `PagedSplats` + `radBundleRuntime` として表示される。
+- 通常 object transform 後も RAD streaming runtime と source `radBundle` は維持される。
+- per-splat edit 開始時は FullData を materialize し、mesh は `PackedSplats` へ切り替わり、runtime/source の RAD cache は stale として外れる。
+
 ## Remaining Work
 
-- 保存済み `.ssproj` 由来の generated RAD bundle を使った browser smoke を追加し、package open path でも `PagedSplats` render を確認する。
 - codebook/clustered SH arrays を含む asset の RAD encode 対応を追加するか、UI 上で「RAD cache 対象外」warning をより明確にする。
 - export 時の paged RAD readiness gate と FullData fallback を、実 RAD bundle で browser smoke に追加する。
 - Service Worker Range failure を browser smoke で明示的に検証する。

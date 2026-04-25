@@ -28,6 +28,13 @@ assert.deepEqual(
 		}),
 		null,
 	);
+	assert.equal(
+		getStandaloneProjectAssetSource(["https://example.test/scene.ssproj"], {
+			openProjectSource: () => {},
+			getExtension: (value) => value.split(".").pop(),
+		}),
+		"https://example.test/scene.ssproj",
+	);
 }
 
 function createHarness(overrides = {}) {
@@ -180,6 +187,18 @@ function createHarness(overrides = {}) {
 	assert.deepEqual(calls.openProjectSources, [projectFile]);
 	assert.equal(calls.loadedModels.length, 0);
 	assert.equal(calls.loadedSplats.length, 0);
+}
+
+{
+	const { runtime, calls, store } = createHarness();
+	store.remoteUrl.value = "https://example.test/remote-scene.ssproj";
+	await runtime.loadRemoteUrls();
+	assert.deepEqual(calls.openProjectSources, [
+		"https://example.test/remote-scene.ssproj",
+	]);
+	assert.equal(calls.loadedModels.length, 0);
+	assert.equal(calls.loadedSplats.length, 0);
+	assert.equal(store.remoteUrl.value, "");
 }
 
 {

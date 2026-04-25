@@ -270,6 +270,9 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 					onInput=${(event) => {
 						store.remoteUrl.value = event.currentTarget.value;
 					}}
+					onChange=${(event) => {
+						store.remoteUrl.value = event.currentTarget.value;
+					}}
 					onKeyDown=${(event) => {
 						if (event.key === "Enter") {
 							event.preventDefault();

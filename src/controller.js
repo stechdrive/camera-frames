@@ -973,6 +973,7 @@ export function createCameraFramesController(elements, store) {
 		outputFrameController,
 		perSplatEditController,
 		assetController,
+		projectController,
 		referenceImageController,
 		runtimeController,
 		viewportToolController,

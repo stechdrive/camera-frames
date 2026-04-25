@@ -66,6 +66,13 @@ function CameraFramesApp({ runtimeInfo }) {
 				store,
 				getController: () => controllerRef.current,
 			});
+			void import("./app/dev-browser-validation.js").then(
+				({ installDevBrowserValidation }) => {
+					installDevBrowserValidation({
+						controller: controllerRef.current,
+					});
+				},
+			);
 		}
 
 		return () => {

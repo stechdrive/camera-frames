@@ -369,6 +369,54 @@ function createHarness(overrides = {}) {
 }
 
 {
+	const harness = createHarness();
+	const projectSnapshot = {
+		workspace: {
+			activeShotCameraId: "",
+			viewport: {
+				baseFovX: 55,
+				pose: {
+					position: { x: 0, y: 0, z: 0 },
+					quaternion: { x: 0, y: 0, z: 0, w: 1 },
+					up: { x: 0, y: 1, z: 0 },
+				},
+			},
+		},
+		shotCameras: [],
+		scene: {
+			assets: [],
+			referenceImages: createDefaultReferenceImageDocument(),
+		},
+	};
+	const archive = await buildCameraFramesProjectArchive(projectSnapshot);
+	const originalFetch = globalThis.fetch;
+	let fetchedUrl = "";
+	globalThis.fetch = async (url) => {
+		fetchedUrl = String(url);
+		return new Response(new Blob([archive]), {
+			status: 200,
+			headers: {
+				"Content-Type": "application/x-camera-frames-project",
+			},
+		});
+	};
+	try {
+		await harness.projectController.openProjectSource(
+			"https://example.test/projects/remote-scene.ssproj",
+		);
+	} finally {
+		globalThis.fetch = originalFetch;
+	}
+
+	assert.equal(
+		fetchedUrl,
+		"https://example.test/projects/remote-scene.ssproj",
+	);
+	assert.equal(harness.store.overlay.value, null);
+	assert.equal(harness.applyOpenedProjectCalls.length, 1);
+}
+
+{
 	const harness = createHarness({
 		assetController: {
 			loadSources: async () => {},

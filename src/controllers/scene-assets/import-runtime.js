@@ -54,7 +54,7 @@ export function getStandaloneProjectAssetSource(
 	}
 	const source = sources[0];
 	if (typeof source === "string") {
-		return null;
+		return getExtension(source) === "ssproj" ? source : null;
 	}
 	return getExtension(source) === "ssproj" ? source : null;
 }

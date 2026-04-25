@@ -13,6 +13,7 @@ export function createControllerApi({
 	outputFrameController,
 	perSplatEditController = null,
 	assetController,
+	projectController,
 	referenceImageController,
 	runtimeController,
 	viewportToolController,
@@ -232,6 +233,8 @@ export function createControllerApi({
 		supportsReferenceImageFile:
 			referenceImageController.supportsReferenceImageFile,
 		startNewProject,
+		openProjectSource: (...args) =>
+			projectController?.openProjectSource?.(...args),
 		saveProject,
 		exportProject,
 		clearScene,
@@ -334,6 +337,9 @@ export function createControllerApi({
 		downloadOutput: exportController.downloadOutput,
 		downloadPng: exportController.downloadPng,
 		downloadPsd: exportController.downloadPsd,
+		__debugGetSceneAssets: () => assetController?.getSceneAssets?.() ?? [],
+		__debugEnsureFullDataForSplatAssets: (...args) =>
+			assetController?.ensureFullDataForSplatAssets?.(...args),
 		beginHistoryTransaction: (label) =>
 			historyController?.beginHistoryTransaction(label),
 		commitHistoryTransaction: (label) =>

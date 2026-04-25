@@ -164,6 +164,8 @@ export function WorkbenchHeader({
 											...${INTERACTIVE_FIELD_PROPS}
 											onInput=${(event) =>
 												onRemoteUrlInput?.(event.currentTarget.value)}
+											onChange=${(event) =>
+												onRemoteUrlInput?.(event.currentTarget.value)}
 											onKeyDown=${(event) => {
 												if (event.key === "Enter") {
 													event.preventDefault();
