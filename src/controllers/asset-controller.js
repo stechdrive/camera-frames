@@ -1,7 +1,10 @@
 import * as THREE from "three";
 import { AUTO_LOD_MIN_SPLATS } from "../constants.js";
 import { prioritizeSceneAssetsWithinKinds } from "../engine/scene-asset-order.js";
-import { bakeSparkPackedSplatsLod } from "../engine/spark-integration/spark-packed-splats-adapter.js";
+import {
+	bakeSparkPackedSplatsLod,
+	refreshSparkPackedSplatMesh,
+} from "../engine/spark-integration/spark-packed-splats-adapter.js";
 import { enableSparkSplatMeshWorldToView } from "../engine/spark-integration/spark-splat-mesh-adapter.js";
 import {
 	PackedSplats,
@@ -12,8 +15,10 @@ import {
 	createProjectFileEmbeddedFileSource,
 	createProjectFilePackedSplatSource,
 	getProjectSourceStableKey,
+	hasProjectFilePackedSplatDeferredFullData,
 	isProjectFileEmbeddedFileSource,
 	isProjectFilePackedSplatSource,
+	loadProjectFilePackedSplatFullDataSource,
 	sanitizeProjectAssetLabel,
 } from "../project/document.js";
 import {
@@ -683,15 +688,28 @@ export function createAssetController({
 		extra = undefined,
 		splatEncoding = undefined,
 		lodSplats = undefined,
+		previewPackedSplats = undefined,
 	}) {
-		if ((packedArray?.length ?? 0) > 0) {
+		const hasFullPackedArray = (packedArray?.length ?? 0) > 0;
+		const runtimePackedArray = hasFullPackedArray
+			? packedArray
+			: previewPackedSplats?.packedArray;
+		if ((runtimePackedArray?.length ?? 0) > 0) {
 			const prebuiltLodSplats =
-				await createPrebuiltLodSplatsFromSource(lodSplats);
+				hasFullPackedArray
+					? await createPrebuiltLodSplatsFromSource(lodSplats)
+					: null;
 			const packedSplats = new PackedSplats({
-				packedArray,
-				numSplats,
-				extra: extra ?? {},
-				splatEncoding: splatEncoding ?? undefined,
+				packedArray: runtimePackedArray,
+				numSplats: hasFullPackedArray
+					? numSplats
+					: (previewPackedSplats?.numSplats ?? 0),
+				extra: hasFullPackedArray
+					? (extra ?? {})
+					: (previewPackedSplats?.extra ?? {}),
+				splatEncoding: hasFullPackedArray
+					? (splatEncoding ?? undefined)
+					: (previewPackedSplats?.splatEncoding ?? undefined),
 				lodSplats: prebuiltLodSplats ?? undefined,
 			});
 			await packedSplats.initialized;
@@ -737,6 +755,7 @@ export function createAssetController({
 			extra = undefined,
 			splatEncoding = undefined,
 			lodSplats = undefined,
+			previewPackedSplats = undefined,
 		}) => {
 			const packedSplats = await createPackedSplatsFromSourceData({
 				fileName,
@@ -749,6 +768,7 @@ export function createAssetController({
 				extra,
 				splatEncoding,
 				lodSplats,
+				previewPackedSplats,
 			});
 			const localBoundsHint =
 				buildSplatLocalBoundsFromSource(packedSplats, false) ??
@@ -777,7 +797,9 @@ export function createAssetController({
 			if (Number.isFinite(insertIndex)) {
 				moveRegisteredAssetToIndex(asset, insertIndex);
 			}
-			kickAutoLodBake(packedSplats, displayName);
+			if (!hasProjectFilePackedSplatDeferredFullData(persistentSource)) {
+				kickAutoLodBake(packedSplats, displayName);
+			}
 			return asset;
 		};
 
@@ -794,6 +816,7 @@ export function createAssetController({
 				extra: source.extra,
 				splatEncoding: source.splatEncoding,
 				lodSplats: source.lodSplats,
+				previewPackedSplats: source.previewPackedSplats,
 			});
 		}
 
@@ -855,6 +878,91 @@ export function createAssetController({
 			pathOrUrl: source,
 			persistentSource,
 		});
+	}
+
+	function getSplatAssetsNeedingFullData(assetIds = null) {
+		const requestedIds =
+			Array.isArray(assetIds) && assetIds.length > 0
+				? new Set(assetIds.map(String))
+				: null;
+		return sceneState.assets.filter(
+			(asset) =>
+				asset?.kind === "splat" &&
+				(!requestedIds || requestedIds.has(String(asset.id))) &&
+				hasProjectFilePackedSplatDeferredFullData(asset.source),
+		);
+	}
+
+	async function swapSplatAssetToFullDataSource(asset, fullSource) {
+		if (!asset || !isProjectFilePackedSplatSource(fullSource)) {
+			return false;
+		}
+		const mesh = asset.disposeTarget;
+		if (!mesh) {
+			return false;
+		}
+		const nextPackedSplats = await createPackedSplatsFromSourceData({
+			fileName: fullSource.fileName,
+			inputBytes: fullSource.inputBytes,
+			extraFiles: fullSource.extraFiles,
+			fileType: fullSource.fileType,
+			pathOrUrl: fullSource.fileName,
+			packedArray: fullSource.packedArray,
+			numSplats: fullSource.numSplats,
+			extra: fullSource.extra,
+			splatEncoding: fullSource.splatEncoding,
+			lodSplats: fullSource.lodSplats,
+		});
+		const previousPackedSplats = mesh.packedSplats;
+		try {
+			mesh.packedSplats = nextPackedSplats;
+			refreshSparkPackedSplatMesh(mesh, nextPackedSplats, {
+				updateVersion: typeof mesh.updateVersion === "function",
+			});
+		} catch (error) {
+			mesh.packedSplats = previousPackedSplats;
+			nextPackedSplats.dispose?.();
+			throw error;
+		}
+		if (previousPackedSplats && previousPackedSplats !== nextPackedSplats) {
+			previousPackedSplats.dispose?.();
+		}
+		asset.source = fullSource;
+		asset.persistentSourceDirty = false;
+		asset.localBoundsHint =
+			buildSplatLocalBoundsFromSource(nextPackedSplats, false) ??
+			buildSplatLocalBoundsFromSource(nextPackedSplats, true);
+		asset.localCenterBoundsHint =
+			buildSplatFramingBoundsFromSource(nextPackedSplats) ??
+			buildSplatLocalBoundsFromSource(nextPackedSplats, true) ??
+			asset.localBoundsHint;
+		return true;
+	}
+
+	async function ensureFullDataForSplatAssets(
+		assetIds = null,
+		{ silent = false } = {},
+	) {
+		const candidates = getSplatAssetsNeedingFullData(assetIds);
+		if (candidates.length === 0) {
+			return true;
+		}
+		if (!silent) {
+			setStatus?.(t("status.loadingItems", { count: candidates.length }));
+		}
+		for (const asset of candidates) {
+			const fullSource = await loadProjectFilePackedSplatFullDataSource(
+				asset.source,
+			);
+			await swapSplatAssetToFullDataSource(asset, fullSource);
+		}
+		resetLocalizedCaches?.();
+		updateCameraSummary?.();
+		updateUi?.();
+		if (!silent) {
+			setStatus?.(t("status.loadedItems", { count: candidates.length }));
+		}
+		return true;
 	}
 
 	async function loadSplatFromSource(source) {
@@ -1047,6 +1155,9 @@ export function createAssetController({
 		if (sourceAssets.length === 0) {
 			return 0;
 		}
+		const splatAssetIds = sourceAssets
+			.filter((asset) => asset.kind === "splat")
+			.map((asset) => asset.id);
 		const previousSelectionIds = [...(store.selectedSceneAssetIds.value ?? [])];
 		const previousActiveSelectionId = store.selectedSceneAssetId.value ?? null;
 		const previousSelectionAnchorId = sceneAssetSelectionAnchorId;
@@ -1055,6 +1166,9 @@ export function createAssetController({
 			beginHistoryTransaction?.(historyLabel) === true;
 		const createdAssets = [];
 		try {
+			if (splatAssetIds.length > 0) {
+				await ensureFullDataForSplatAssets(splatAssetIds);
+			}
 			for (const asset of sourceAssets) {
 				const projectAssetState = getCapturedProjectAssetState(asset.id);
 				const duplicateLabel = buildUniqueSceneAssetDuplicateLabel(
@@ -1244,6 +1358,7 @@ export function createAssetController({
 		setAssetVisibility,
 		setAssetLabel,
 		duplicateSelectedSceneAssets,
+		ensureFullDataForSplatAssets,
 		deleteSelectedSceneAssets,
 		setSelectedSceneAssetsVisibility,
 		applyAssetTransform,

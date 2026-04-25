@@ -9,12 +9,93 @@ import {
 } from "@zip.js/zip.js";
 
 const DEFAULT_ARCHIVE_ZIP_LEVEL = 6;
+const COMPRESSION_METHOD_STORE = 0;
+const LOCAL_FILE_HEADER_SIGNATURE = 0x04034b50;
+const LOCAL_FILE_HEADER_SIZE = 30;
+const BITFLAG_ENCRYPTED = 0b1;
+
+function canSliceStoredEntry(source, entry) {
+	if (!(source instanceof Blob)) {
+		return false;
+	}
+	if (!entry || entry.directory || entry.encrypted) {
+		return false;
+	}
+	if (entry.compressionMethod !== COMPRESSION_METHOD_STORE) {
+		return false;
+	}
+	if (
+		!Number.isFinite(entry.offset) ||
+		entry.offset < 0 ||
+		!Number.isFinite(entry.compressedSize) ||
+		entry.compressedSize < 0 ||
+		!Number.isFinite(entry.uncompressedSize) ||
+		entry.uncompressedSize < 0
+	) {
+		return false;
+	}
+	if (entry.compressedSize !== entry.uncompressedSize) {
+		return false;
+	}
+	if (Number.isFinite(entry.diskNumberStart) && entry.diskNumberStart !== 0) {
+		return false;
+	}
+	return entry.offset + LOCAL_FILE_HEADER_SIZE <= source.size;
+}
+
+async function resolveStoredEntryDataRange(source, entry) {
+	if (!canSliceStoredEntry(source, entry)) {
+		return null;
+	}
+	const headerBlob = source.slice(
+		entry.offset,
+		entry.offset + LOCAL_FILE_HEADER_SIZE,
+	);
+	if (headerBlob.size !== LOCAL_FILE_HEADER_SIZE) {
+		return null;
+	}
+	const headerBytes = new Uint8Array(await headerBlob.arrayBuffer());
+	const headerView = new DataView(
+		headerBytes.buffer,
+		headerBytes.byteOffset,
+		headerBytes.byteLength,
+	);
+	if (headerView.getUint32(0, true) !== LOCAL_FILE_HEADER_SIGNATURE) {
+		return null;
+	}
+	const rawBitFlag = headerView.getUint16(6, true);
+	if ((rawBitFlag & BITFLAG_ENCRYPTED) === BITFLAG_ENCRYPTED) {
+		return null;
+	}
+	if (headerView.getUint16(8, true) !== COMPRESSION_METHOD_STORE) {
+		return null;
+	}
+	const filenameLength = headerView.getUint16(26, true);
+	const extraFieldLength = headerView.getUint16(28, true);
+	const dataOffset =
+		entry.offset + LOCAL_FILE_HEADER_SIZE + filenameLength + extraFieldLength;
+	const dataEnd = dataOffset + entry.compressedSize;
+	if (
+		!Number.isFinite(dataOffset) ||
+		!Number.isFinite(dataEnd) ||
+		dataOffset < 0 ||
+		dataEnd < dataOffset ||
+		dataEnd > source.size
+	) {
+		return null;
+	}
+	return {
+		start: dataOffset,
+		end: dataEnd,
+	};
+}
 
 export class ZipReader {
 	constructor(source, reader, entries) {
 		this.source = source;
 		this.reader = reader;
 		this.entries = entries;
+		this.storedEntryRanges = new Map();
 	}
 
 	static async from(source) {
@@ -43,6 +124,28 @@ export class ZipReader {
 		return entry;
 	}
 
+	async getStoredEntryRange(name, entry) {
+		if (this.storedEntryRanges.has(name)) {
+			return this.storedEntryRanges.get(name);
+		}
+		let range = null;
+		try {
+			range = await resolveStoredEntryDataRange(this.source, entry);
+		} catch {
+			range = null;
+		}
+		this.storedEntryRanges.set(name, range);
+		return range;
+	}
+
+	async getStoredEntryBlob(name, entry) {
+		const range = await this.getStoredEntryRange(name, entry);
+		if (!range) {
+			return null;
+		}
+		return this.source.slice(range.start, range.end);
+	}
+
 	async stream(name) {
 		const blob = await this.blob(name);
 		return blob.stream();
@@ -50,11 +153,19 @@ export class ZipReader {
 
 	async blob(name) {
 		const entry = this.getEntry(name);
+		const storedBlob = await this.getStoredEntryBlob(name, entry);
+		if (storedBlob) {
+			return storedBlob;
+		}
 		return await entry.getData(new BlobWriter());
 	}
 
 	async bytes(name) {
 		const entry = this.getEntry(name);
+		const storedBlob = await this.getStoredEntryBlob(name, entry);
+		if (storedBlob) {
+			return new Uint8Array(await storedBlob.arrayBuffer());
+		}
 		return await entry.getData(new Uint8ArrayWriter());
 	}
 

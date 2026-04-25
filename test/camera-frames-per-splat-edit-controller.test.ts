@@ -286,6 +286,7 @@ function createHarness({
 	viewportRect = { left: 0, top: 0, width: 1000, height: 1000 },
 	renderBoxRect = null,
 	historyController = null,
+	assetControllerOverrides = {},
 } = {}) {
 	const store = createCameraFramesStore();
 	const calls = [];
@@ -397,6 +398,7 @@ function createHarness({
 			}
 			store.selectedSceneAssetId.value = assetId;
 		},
+		...assetControllerOverrides,
 	};
 	const historyCalls = [];
 	const resolvedHistoryController = historyController ?? {
@@ -682,6 +684,70 @@ async function createPackedSplatAsset({ id, label, centers }) {
 		),
 	);
 	assert.deepEqual(harness.calls.at(-1), ["status", "enabled:2"]);
+}
+
+{
+	let harness = null;
+	const ensureCalls = [];
+	harness = createHarness({
+		assetControllerOverrides: {
+			ensureFullDataForSplatAssets: async (assetIds) => {
+				ensureCalls.push([...assetIds]);
+				assert.equal(
+					harness.store.splatEdit.active.value,
+					false,
+					"FullData must be ensured before splat edit mode becomes active",
+				);
+				await Promise.resolve();
+				return true;
+			},
+		},
+	});
+	harness.store.sceneAssets.value = [
+		{ id: "splat-1", kind: "splat" },
+		{ id: "splat-2", kind: "splat" },
+	];
+	harness.store.selectedSceneAssetIds.value = ["splat-1", "splat-2"];
+
+	const enabled = await harness.controller.setSplatEditMode(true);
+
+	assert.equal(enabled, true);
+	assert.deepEqual(ensureCalls, [["splat-1", "splat-2"]]);
+	assert.equal(harness.controller.isSplatEditModeActive(), true);
+	assert.deepEqual(harness.store.splatEdit.scopeAssetIds.value, [
+		"splat-1",
+		"splat-2",
+	]);
+}
+
+{
+	const harness = createHarness({
+		assetControllerOverrides: {
+			ensureFullDataForSplatAssets: async () => {
+				throw new Error("FullData load failed");
+			},
+		},
+	});
+	harness.store.sceneAssets.value = [{ id: "splat-1", kind: "splat" }];
+	harness.store.selectedSceneAssetIds.value = ["splat-1"];
+
+	const originalConsoleError = console.error;
+	let enabled = null;
+	console.error = () => {};
+	try {
+		enabled = await harness.controller.setSplatEditMode(true);
+	} finally {
+		console.error = originalConsoleError;
+	}
+
+	assert.equal(enabled, false);
+	assert.equal(harness.controller.isSplatEditModeActive(), false);
+	assert.equal(harness.store.viewportToolMode.value, "none");
+	assert.deepEqual(harness.store.splatEdit.scopeAssetIds.value, []);
+	assert.deepEqual(harness.calls.at(-1), [
+		"status",
+		"FullData load failed",
+	]);
 }
 
 {

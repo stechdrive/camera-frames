@@ -472,6 +472,13 @@ export function toUint32Array(value) {
 	return new Uint32Array();
 }
 
+function cloneSplatEncoding(value, { skipClone = false } = {}) {
+	if (!value || typeof value !== "object") {
+		return null;
+	}
+	return skipClone ? value : JSON.parse(JSON.stringify(value));
+}
+
 function clonePackedSplatExtra(extra = null) {
 	if (!extra || typeof extra !== "object") {
 		return {};
@@ -632,12 +639,9 @@ function cloneBakedLodSplats(lodSplats, { skipClone = false } = {}) {
 	const numSplats = Number.isFinite(lodSplats.numSplats)
 		? Math.max(0, Math.floor(lodSplats.numSplats))
 		: 0;
-	const splatEncoding =
-		lodSplats.splatEncoding && typeof lodSplats.splatEncoding === "object"
-			? skipClone
-				? lodSplats.splatEncoding
-				: JSON.parse(JSON.stringify(lodSplats.splatEncoding))
-			: null;
+	const splatEncoding = cloneSplatEncoding(lodSplats.splatEncoding, {
+		skipClone,
+	});
 	return {
 		packedArray: skipClone ? packedArray : new Uint32Array(packedArray),
 		numSplats,
@@ -654,6 +658,24 @@ function cloneBakedLodSplats(lodSplats, { skipClone = false } = {}) {
 	};
 }
 
+function clonePreviewPackedSplats(
+	previewPackedSplats,
+	{ skipClone = false } = {},
+) {
+	return cloneBakedLodSplats(previewPackedSplats, { skipClone });
+}
+
+function normalizeDeferredFullData(deferredFullData) {
+	if (
+		!deferredFullData ||
+		typeof deferredFullData !== "object" ||
+		typeof deferredFullData.loadFullData !== "function"
+	) {
+		return null;
+	}
+	return deferredFullData;
+}
+
 export function createProjectFilePackedSplatSource({
 	fileName,
 	inputBytes,
@@ -667,6 +689,8 @@ export function createProjectFilePackedSplatSource({
 	projectAssetState = null,
 	legacyState = null,
 	resource = null,
+	previewPackedSplats = null,
+	deferredFullData = null,
 	skipClone = false,
 } = {}) {
 	const normalizedPackedArray = toUint32Array(packedArray);
@@ -687,20 +711,62 @@ export function createProjectFilePackedSplatSource({
 		numSplats:
 			Number.isFinite(numSplats) && numSplats >= 0 ? Math.floor(numSplats) : 0,
 		extra: skipClone ? (extra ?? {}) : clonePackedSplatExtra(extra),
-		splatEncoding:
-			splatEncoding && typeof splatEncoding === "object"
-				? skipClone
-					? splatEncoding
-					: JSON.parse(JSON.stringify(splatEncoding))
-				: null,
+		splatEncoding: cloneSplatEncoding(splatEncoding, { skipClone }),
 		lodSplats: cloneBakedLodSplats(lodSplats, { skipClone }),
 		projectAssetState,
 		legacyState,
 		resource,
+		previewPackedSplats: clonePreviewPackedSplats(previewPackedSplats, {
+			skipClone,
+		}),
+		deferredFullData: normalizeDeferredFullData(deferredFullData),
 	};
 }
 
 export { cloneBakedLodSplats };
+
+export function hasProjectFilePackedSplatDeferredFullData(source) {
+	return (
+		isProjectFilePackedSplatSource(source) &&
+		(source.packedArray?.length ?? 0) === 0 &&
+		Boolean(source.previewPackedSplats?.packedArray?.length) &&
+		typeof source.deferredFullData?.loadFullData === "function"
+	);
+}
+
+export async function loadProjectFilePackedSplatFullDataSource(source) {
+	if (!hasProjectFilePackedSplatDeferredFullData(source)) {
+		return source;
+	}
+	const fullData = await source.deferredFullData.loadFullData(source);
+	return createProjectFilePackedSplatSource({
+		fileName: fullData?.fileName ?? source.fileName,
+		inputBytes: fullData?.inputBytes ?? source.inputBytes ?? new Uint8Array(),
+		extraFiles: fullData?.extraFiles ?? source.extraFiles ?? {},
+		fileType: fullData?.fileType ?? source.fileType ?? null,
+		packedArray: fullData?.packedArray ?? new Uint32Array(),
+		numSplats: fullData?.numSplats ?? source.numSplats ?? 0,
+		extra: fullData?.extra ?? {},
+		splatEncoding: fullData?.splatEncoding ?? source.splatEncoding ?? null,
+		lodSplats: fullData?.lodSplats ?? source.lodSplats ?? null,
+		projectAssetState:
+			fullData?.projectAssetState ?? source.projectAssetState ?? null,
+		legacyState: fullData?.legacyState ?? source.legacyState ?? null,
+		resource: fullData?.resource ?? source.resource ?? null,
+		skipClone: true,
+	});
+}
+
+export async function materializeProjectFilePackedSplatFullData(source) {
+	if (!hasProjectFilePackedSplatDeferredFullData(source)) {
+		return source;
+	}
+	const fullSource = await loadProjectFilePackedSplatFullDataSource(source);
+	Object.assign(source, fullSource);
+	source.previewPackedSplats = null;
+	source.deferredFullData = null;
+	return source;
+}
 
 export function isProjectFileEmbeddedFileSource(source) {
 	return source?.sourceType === PROJECT_FILE_EMBEDDED_FILE_SOURCE;

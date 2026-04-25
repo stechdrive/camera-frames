@@ -321,6 +321,11 @@ export function createPerSplatEditController({
 		cancelHistoryTransaction,
 		resolveEntryScopeAssetIds: scope.resolveEntryScopeAssetIds,
 		getSplatEditScopeAssetIds: scope.getSplatEditScopeAssetIds,
+		ensureFullDataForSplatAssets: (assetIds, options) =>
+			getAssetController?.()?.ensureFullDataForSplatAssets?.(
+				assetIds,
+				options,
+			),
 		syncSelectionCount: selectionState.syncSelectionCount,
 		syncSelectionHighlight: selectionState.syncSelectionHighlight,
 		clearSelectionHighlight: selectionState.clearSelectionHighlight,

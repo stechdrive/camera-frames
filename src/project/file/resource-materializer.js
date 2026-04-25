@@ -5,6 +5,7 @@ import {
 	createProjectFilePackedSplatSource,
 	toUint32Array,
 } from "../document.js";
+import { ZipReader } from "../package-legacy.js";
 import { notifyProjectReadProgress } from "./progress.js";
 import {
 	cloneFileResource,
@@ -50,6 +51,104 @@ export function cloneResourceForSource(resource, kind) {
 	throw new Error(`Unsupported project resource type "${resource.type}".`);
 }
 
+async function readRawPackedSplatFullData(reader, resource) {
+	const [packedArrayBytes, ...extraBytesArray] = await Promise.all([
+		reader.bytes(resource.packedArray?.path),
+		...(resource.extraArrays ?? []).map((ea) => reader.bytes(ea.path)),
+	]);
+	const extra = {};
+	for (const [i, extraArray] of (resource.extraArrays ?? []).entries()) {
+		extra[extraArray.name] = toUint32Array(extraBytesArray[i].buffer);
+	}
+	if (resource.radMeta) {
+		extra.radMeta = JSON.parse(JSON.stringify(resource.radMeta));
+	}
+	return {
+		packedArray: toUint32Array(packedArrayBytes.buffer),
+		numSplats: resource.numSplats ?? 0,
+		extra,
+		splatEncoding: resource.splatEncoding ?? null,
+	};
+}
+
+async function readRawPackedSplatLodBundle(reader, lodResource) {
+	if (!lodResource?.packedArray?.path) {
+		return null;
+	}
+	const [lodPackedBytes, ...lodExtraBytesArray] = await Promise.all([
+		reader.bytes(lodResource.packedArray.path),
+		...(lodResource.extraArrays ?? []).map((ea) => reader.bytes(ea.path)),
+	]);
+	const lodExtra = {};
+	for (const [i, ea] of (lodResource.extraArrays ?? []).entries()) {
+		lodExtra[ea.name] = toUint32Array(lodExtraBytesArray[i].buffer);
+	}
+	return {
+		packedArray: toUint32Array(lodPackedBytes.buffer),
+		numSplats: lodResource.numSplats ?? 0,
+		extra: lodExtra,
+		splatEncoding: lodResource.splatEncoding ?? null,
+		bakedAt: lodResource.bakedAt ?? null,
+		bakedQuality: lodResource.bakedQuality ?? null,
+	};
+}
+
+function canDeferRawPackedSplatFullData({ packageSource, resource }) {
+	return (
+		typeof Blob !== "undefined" &&
+		packageSource instanceof Blob &&
+		Boolean(resource?.packedArray?.path) &&
+		Boolean(resource?.lodSplats?.packedArray?.path)
+	);
+}
+
+function createRawPackedSplatDeferredFullData({
+	packageSource,
+	resource,
+	lodSplats,
+	fileName,
+	projectAssetState,
+	legacyState,
+}) {
+	let fullDataPromise = null;
+	return {
+		async loadFullData() {
+			if (!fullDataPromise) {
+				fullDataPromise = (async () => {
+					const fullReader = await ZipReader.from(packageSource);
+					try {
+						const fullData = await readRawPackedSplatFullData(
+							fullReader,
+							resource,
+						);
+						return createProjectFilePackedSplatSource({
+							fileName,
+							inputBytes: new Uint8Array(),
+							extraFiles: {},
+							fileType: null,
+							packedArray: fullData.packedArray,
+							numSplats: fullData.numSplats,
+							extra: fullData.extra,
+							splatEncoding: fullData.splatEncoding,
+							lodSplats,
+							projectAssetState,
+							legacyState,
+							resource: cloneRawPackedSplatResource(resource),
+							skipClone: true,
+						});
+					} finally {
+						await fullReader.close();
+					}
+				})().catch((error) => {
+					fullDataPromise = null;
+					throw error;
+				});
+			}
+			return await fullDataPromise;
+		},
+	};
+}
+
 export async function materializeProjectAssetResource({
 	reader,
 	asset,
@@ -57,6 +156,8 @@ export async function materializeProjectAssetResource({
 	resource,
 	onProgress = null,
 	totalAssets = 0,
+	packageSource = null,
+	preferBakedLodPreview = false,
 }) {
 	async function notifyAssetProgress(stage) {
 		await notifyProjectReadProgress(onProgress, {
@@ -75,12 +176,12 @@ export async function materializeProjectAssetResource({
 
 	if (resource.type === "file") {
 		await notifyAssetProgress("extract-project-asset-file");
-		const bytes = await reader.bytes(resource.path);
+		const blob = await reader.blob(resource.path);
 		await notifyAssetProgress("extract-project-asset-complete");
 		return createProjectFileEmbeddedFileSource({
 			kind: asset.kind,
-			file: new File([bytes], resource.originalName, {
-				type: resource.mediaType || undefined,
+			file: new File([blob], resource.originalName, {
+				type: resource.mediaType || blob.type || undefined,
 			}),
 			fileName: resource.originalName,
 			projectAssetState: asset,
@@ -114,49 +215,46 @@ export async function materializeProjectAssetResource({
 
 	if (resource.type === PROJECT_RESOURCE_RAW_PACKED_SPLAT) {
 		await notifyAssetProgress("extract-project-asset-raw-splat");
-		const [packedArrayBytes, ...extraBytesArray] = await Promise.all([
-			reader.bytes(resource.packedArray?.path),
-			...(resource.extraArrays ?? []).map((ea) => reader.bytes(ea.path)),
-		]);
-		const extra = {};
-		for (const [i, extraArray] of (resource.extraArrays ?? []).entries()) {
-			extra[extraArray.name] = toUint32Array(extraBytesArray[i].buffer);
-		}
-		if (resource.radMeta) {
-			extra.radMeta = JSON.parse(JSON.stringify(resource.radMeta));
-		}
-		let lodSplats = null;
-		if (resource.lodSplats?.packedArray?.path) {
-			const [lodPackedBytes, ...lodExtraBytesArray] = await Promise.all([
-				reader.bytes(resource.lodSplats.packedArray.path),
-				...(resource.lodSplats.extraArrays ?? []).map((ea) =>
-					reader.bytes(ea.path),
-				),
-			]);
-			const lodExtra = {};
-			for (const [i, ea] of (resource.lodSplats.extraArrays ?? []).entries()) {
-				lodExtra[ea.name] = toUint32Array(lodExtraBytesArray[i].buffer);
-			}
-			lodSplats = {
-				packedArray: toUint32Array(lodPackedBytes.buffer),
-				numSplats: resource.lodSplats.numSplats ?? 0,
-				extra: lodExtra,
-				splatEncoding: resource.lodSplats.splatEncoding ?? null,
-				bakedAt: resource.lodSplats.bakedAt ?? null,
-				bakedQuality: resource.lodSplats.bakedQuality ?? null,
-			};
-		}
+		const lodSplats = await readRawPackedSplatLodBundle(
+			reader,
+			resource.lodSplats,
+		);
+		const shouldDeferFullData =
+			preferBakedLodPreview &&
+			lodSplats &&
+			canDeferRawPackedSplatFullData({ packageSource, resource });
+		const fullData = shouldDeferFullData
+			? {
+					packedArray: new Uint32Array(),
+					numSplats: resource.numSplats ?? 0,
+					extra: {},
+					splatEncoding: resource.splatEncoding ?? null,
+				}
+			: await readRawPackedSplatFullData(reader, resource);
+		const previewPackedSplats = shouldDeferFullData ? lodSplats : null;
+		const deferredFullData = shouldDeferFullData
+			? createRawPackedSplatDeferredFullData({
+					packageSource,
+					resource,
+					lodSplats,
+					fileName: resource.originalName,
+					projectAssetState: asset,
+					legacyState: asset.legacyState ?? null,
+				})
+			: null;
 		await notifyAssetProgress("extract-project-asset-complete");
 		return createProjectFilePackedSplatSource({
 			fileName: resource.originalName,
-			packedArray: toUint32Array(packedArrayBytes.buffer),
-			numSplats: resource.numSplats ?? 0,
-			extra,
-			splatEncoding: resource.splatEncoding ?? null,
+			packedArray: fullData.packedArray,
+			numSplats: fullData.numSplats,
+			extra: fullData.extra,
+			splatEncoding: fullData.splatEncoding,
 			lodSplats,
 			projectAssetState: asset,
 			legacyState: asset.legacyState ?? null,
 			resource: cloneRawPackedSplatResource(resource),
+			previewPackedSplats,
+			deferredFullData,
 			skipClone: true,
 		});
 	}

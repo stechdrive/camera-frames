@@ -3,7 +3,10 @@ import * as THREE from "three";
 import { createAssetControllerBindings } from "../src/app/asset-controller-bindings.js";
 import { createAssetController } from "../src/controllers/asset-controller.js";
 import { SplatMesh } from "../src/engine/spark-integration/spark-symbols.js";
-import { createProjectFileEmbeddedFileSource } from "../src/project/document.js";
+import {
+	createProjectFileEmbeddedFileSource,
+	createProjectFilePackedSplatSource,
+} from "../src/project/document.js";
 import { createCameraFramesStore } from "../src/store.js";
 
 function createAssetControllerForPublicApiTest() {
@@ -69,6 +72,7 @@ function createAssetControllerForPublicApiTest() {
 	assert.equal(typeof controller.replaceSplatAssetFromSource, "function");
 	assert.equal(typeof controller.removeSceneAssets, "function");
 	assert.equal(typeof controller.duplicateSelectedSceneAssets, "function");
+	assert.equal(typeof controller.ensureFullDataForSplatAssets, "function");
 }
 
 {
@@ -94,6 +98,76 @@ function createAssetControllerForPublicApiTest() {
 	assert.deepEqual(harness.store.selectedSceneAssetIds.value, [2]);
 	assert.equal(harness.store.selectedSceneAssetId.value, 2);
 	assert.equal(harness.statusEvents.at(-1), "status.duplicatedSceneAsset");
+}
+
+{
+	const harness = createAssetControllerForPublicApiTest();
+	let fullDataLoads = 0;
+	const source = createProjectFilePackedSplatSource({
+		fileName: "lod-first.rawsplat",
+		packedArray: new Uint32Array(),
+		numSplats: 2,
+		lodSplats: {
+			packedArray: new Uint32Array([9, 9, 9, 9]),
+			numSplats: 1,
+			extra: {
+				lodTree: new Uint32Array([1, 2]),
+			},
+		},
+		previewPackedSplats: {
+			packedArray: new Uint32Array([9, 9, 9, 9]),
+			numSplats: 1,
+			extra: {
+				lodTree: new Uint32Array([1, 2]),
+			},
+		},
+		deferredFullData: {
+			async loadFullData() {
+				fullDataLoads += 1;
+				return {
+					packedArray: new Uint32Array([1, 2, 3, 4, 5, 6, 7, 8]),
+					numSplats: 2,
+					extra: {
+						sh1: new Uint32Array([11, 12]),
+					},
+					splatEncoding: null,
+					lodSplats: {
+						packedArray: new Uint32Array([9, 9, 9, 9]),
+						numSplats: 1,
+						extra: {
+							lodTree: new Uint32Array([1, 2]),
+						},
+					},
+				};
+			},
+		},
+		skipClone: true,
+	});
+	const createdAsset = await harness.controller.createSplatAssetFromSource(
+		source,
+	);
+
+	assert.deepEqual(
+		Array.from(createdAsset.disposeTarget.packedSplats.packedArray),
+		[9, 9, 9, 9],
+		"LoD-first splat asset should initially render from the preview packed splats",
+	);
+
+	await harness.controller.ensureFullDataForSplatAssets([createdAsset.id]);
+	await harness.controller.ensureFullDataForSplatAssets([createdAsset.id]);
+
+	assert.equal(fullDataLoads, 1);
+	assert.deepEqual(
+		Array.from(createdAsset.disposeTarget.packedSplats.packedArray),
+		[1, 2, 3, 4, 5, 6, 7, 8],
+		"FullData ensure should swap the runtime splat mesh onto the full packedArray",
+	);
+	assert.deepEqual(Array.from(createdAsset.source.extra.sh1), [11, 12]);
+	assert.deepEqual(
+		Array.from(createdAsset.source.lodSplats.packedArray),
+		[9, 9, 9, 9],
+		"FullData ensure should keep the baked LoD bundle on the persistent source",
+	);
 }
 
 console.log("✅ CAMERA_FRAMES asset controller public API tests passed!");

@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import { buildImportProgressDetail } from "../src/controllers/project/overlays.js";
-import { ZipReader } from "../src/project-archive.js";
+import { ZipReader, buildZipArchiveBytes } from "../src/project-archive.js";
 import {
 	PROJECT_DOCUMENT_PATH,
 	PROJECT_MANIFEST_PATH,
+	materializeProjectFilePackedSplatFullData,
 } from "../src/project/document.js";
 import {
 	buildCameraFramesProjectArchive,
@@ -62,6 +63,78 @@ async function collectWritableChunks(chunks) {
 		offset += part.byteLength;
 	}
 	return result;
+}
+
+{
+	const storedPayload = new Uint8Array([1, 2, 3, 4, 5]);
+	const deflatedPayload = new TextEncoder().encode(
+		'{"kind":"deflated-entry"}',
+	);
+	const fastPathArchive = await buildZipArchiveBytes(
+		{
+			"stored.bin": storedPayload,
+			"deflated.json": deflatedPayload,
+		},
+		{
+			level: 6,
+			entryLevels: {
+				"stored.bin": 0,
+				"deflated.json": 6,
+			},
+		},
+	);
+	const fastPathBlob = new Blob([fastPathArchive]);
+	const fastPathReader = await ZipReader.from(
+		new File([fastPathBlob], "stored-fast-path.ssproj"),
+	);
+
+	const storedEntry = fastPathReader.entries.get("stored.bin");
+	assert.equal(storedEntry?.compressionMethod, 0);
+	const storedHeader = new Uint8Array(
+		await fastPathBlob
+			.slice(storedEntry.offset, storedEntry.offset + 30)
+			.arrayBuffer(),
+	);
+	assert.ok(
+		new DataView(storedHeader.buffer).getUint16(28, true) > 0,
+		"stored-entry fast path test must exercise local extra-field offset handling",
+	);
+	let storedGetDataCalls = 0;
+	const originalStoredGetData = storedEntry.getData;
+	storedEntry.getData = async (...args) => {
+		storedGetDataCalls += 1;
+		return await originalStoredGetData(...args);
+	};
+
+	const storedBytes = await fastPathReader.bytes("stored.bin");
+	assert.deepEqual(Array.from(storedBytes), Array.from(storedPayload));
+	const storedBlob = await fastPathReader.blob("stored.bin");
+	assert.deepEqual(
+		Array.from(new Uint8Array(await storedBlob.arrayBuffer())),
+		Array.from(storedPayload),
+	);
+	assert.equal(
+		storedGetDataCalls,
+		0,
+		"stored entries should be sliced from the package blob without zip.js getData()",
+	);
+
+	const deflatedEntry = fastPathReader.entries.get("deflated.json");
+	assert.equal(deflatedEntry?.compressionMethod, 8);
+	let deflatedGetDataCalls = 0;
+	const originalDeflatedGetData = deflatedEntry.getData;
+	deflatedEntry.getData = async (...args) => {
+		deflatedGetDataCalls += 1;
+		return await originalDeflatedGetData(...args);
+	};
+	const deflatedBytes = await fastPathReader.bytes("deflated.json");
+	assert.deepEqual(Array.from(deflatedBytes), Array.from(deflatedPayload));
+	assert.equal(
+		deflatedGetDataCalls,
+		1,
+		"deflated entries must keep using zip.js getData()",
+	);
+	await fastPathReader.close();
 }
 
 const referenceImageDocument = createDefaultReferenceImageDocument();
@@ -1071,6 +1144,136 @@ assert.equal(
 	bakedLodSource.lodSplats.bakedQuality,
 	"quality",
 	"bakedQuality audit metadata must survive round-trip",
+);
+
+const lazyBakedLodResult = await openCameraFramesProjectPackage(
+	new File([bakedLodArchive], "baked-lod-lazy.ssproj"),
+);
+let lazyBakedLodSource = null;
+try {
+	lazyBakedLodSource =
+		await lazyBakedLodResult.assetEntries[0].source.materialize();
+	assert.equal(
+		isProjectFilePackedSplatSource(lazyBakedLodSource),
+		true,
+		"LoD-first lazy package open must still expose a packed-splat source",
+	);
+	assert.equal(
+		lazyBakedLodSource.packedArray.length,
+		0,
+		"LoD-first lazy materialize must not read the root FullData packedArray during initial asset load",
+	);
+	assert.deepEqual(
+		Array.from(lazyBakedLodSource.previewPackedSplats.packedArray),
+		[41, 42, 43, 44],
+		"LoD-first lazy materialize must load the baked LoD bundle as the preview source",
+	);
+	assert.deepEqual(
+		Array.from(lazyBakedLodSource.lodSplats.extra.lodTree),
+		[51, 52],
+		"LoD-first preview must keep the baked lodTree available for Spark LoD rendering",
+	);
+} finally {
+	await lazyBakedLodResult.close();
+}
+
+const ensuredBakedLodSource =
+	await materializeProjectFilePackedSplatFullData(lazyBakedLodSource);
+assert.deepEqual(
+	Array.from(ensuredBakedLodSource.packedArray),
+	[21, 22, 23, 24, 25, 26, 27, 28],
+	"deferred FullData ensure must restore the exact root packedArray after the package reader is closed",
+);
+assert.deepEqual(
+	Array.from(ensuredBakedLodSource.extra.sh1),
+	[31, 32, 33, 34],
+	"deferred FullData ensure must restore root companion arrays",
+);
+assert.equal(
+	ensuredBakedLodSource.previewPackedSplats,
+	null,
+	"deferred preview state must be cleared once FullData has been materialized",
+);
+await materializeProjectFilePackedSplatFullData(ensuredBakedLodSource);
+assert.deepEqual(
+	Array.from(ensuredBakedLodSource.packedArray),
+	[21, 22, 23, 24, 25, 26, 27, 28],
+	"deferred FullData ensure must be safe to call repeatedly",
+);
+
+let manualDeferredFullDataLoads = 0;
+const manualDeferredSource = createProjectFilePackedSplatSource({
+	fileName: "manual-deferred.rawsplat",
+	packedArray: new Uint32Array(),
+	numSplats: 2,
+	lodSplats: bakedLodSource.lodSplats,
+	previewPackedSplats: bakedLodSource.lodSplats,
+	deferredFullData: {
+		async loadFullData() {
+			manualDeferredFullDataLoads += 1;
+			return {
+				packedArray: new Uint32Array([91, 92, 93, 94]),
+				numSplats: 1,
+				extra: {},
+				splatEncoding: null,
+				lodSplats: bakedLodSource.lodSplats,
+			};
+		},
+	},
+	skipClone: true,
+});
+await materializeProjectFilePackedSplatFullData(manualDeferredSource);
+await materializeProjectFilePackedSplatFullData(manualDeferredSource);
+assert.equal(
+	manualDeferredFullDataLoads,
+	1,
+	"deferred FullData ensure must not invoke the loader again after a successful materialization",
+);
+
+const deferredSaveLazyResult = await openCameraFramesProjectPackage(
+	new File([bakedLodArchive], "baked-lod-deferred-save.ssproj"),
+);
+let deferredSaveSource = null;
+try {
+	deferredSaveSource =
+		await deferredSaveLazyResult.assetEntries[0].source.materialize();
+} finally {
+	await deferredSaveLazyResult.close();
+}
+const deferredSaveWritable = createCollectingWritable();
+await writeCameraFramesProjectPackageToWritable(
+	{
+		workspace: projectSnapshot.workspace,
+		shotCameras: projectSnapshot.shotCameras,
+		scene: {
+			assets: [
+				{
+					...bakedLodProjectSnapshot.scene.assets[0],
+					source: deferredSaveSource,
+				},
+			],
+			lighting: projectSnapshot.scene.lighting,
+			referenceImages: createDefaultReferenceImageDocument(),
+		},
+	},
+	deferredSaveWritable.writable,
+);
+const deferredSaveArchive = await collectWritableChunks(
+	deferredSaveWritable.chunks,
+);
+const deferredSaveResult = await readCameraFramesProject(
+	new File([deferredSaveArchive], "baked-lod-deferred-save-roundtrip.ssproj"),
+);
+const deferredSaveRoundTripSource = deferredSaveResult.assetEntries[0].source;
+assert.deepEqual(
+	Array.from(deferredSaveRoundTripSource.packedArray),
+	[21, 22, 23, 24, 25, 26, 27, 28],
+	"package save must force deferred FullData before writing root packedArray",
+);
+assert.deepEqual(
+	Array.from(deferredSaveRoundTripSource.lodSplats.packedArray),
+	[41, 42, 43, 44],
+	"package save must preserve the baked LoD bundle when FullData was deferred during display",
 );
 
 const viewportLodLeakArchive = await buildCameraFramesProjectArchive({
