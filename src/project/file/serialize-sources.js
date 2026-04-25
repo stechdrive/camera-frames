@@ -6,6 +6,7 @@ import {
 	getProjectMediaTypeFromFileName,
 	isProjectFileEmbeddedFileSource,
 	isProjectFilePackedSplatSource,
+	materializeProjectFilePackedSplatFullData,
 	normalizeProjectFileName,
 	sha256Hex,
 	toUint8Array,
@@ -418,26 +419,30 @@ export async function serializeProjectAssetSource(
 		onProgress = null,
 	} = {},
 ) {
+	let source = asset.source;
+	if (isProjectFilePackedSplatSource(source)) {
+		source = await materializeProjectFilePackedSplatFullData(source);
+	}
 	const progress = {
 		phase:
 			compressSplatsToSog &&
 			asset.kind === "splat" &&
-			canCompressEmbeddedSplatSourceAsSog(asset.source)
+			canCompressEmbeddedSplatSourceAsSog(source)
 				? "compress-splats"
 				: "resolve-assets",
 		index: index + 1,
 		total: totalAssets,
 		assetLabel: asset.label,
-		fileLabel: getProjectSourceFileLabel(asset.source),
+		fileLabel: getProjectSourceFileLabel(source),
 	};
 
 	if (
 		compressSplatsToSog &&
 		asset.kind === "splat" &&
-		canCompressEmbeddedSplatSourceAsSog(asset.source)
+		canCompressEmbeddedSplatSourceAsSog(source)
 	) {
 		return await serializeEmbeddedSplatProjectSourceAsSog(
-			asset.source,
+			source,
 			asset.kind,
 			index,
 			{
@@ -449,9 +454,9 @@ export async function serializeProjectAssetSource(
 		);
 	}
 
-	if (isProjectFileEmbeddedFileSource(asset.source)) {
+	if (isProjectFileEmbeddedFileSource(source)) {
 		return await serializeEmbeddedProjectSource(
-			asset.source,
+			source,
 			asset.kind,
 			index,
 			{
@@ -461,14 +466,14 @@ export async function serializeProjectAssetSource(
 		);
 	}
 
-	if (isProjectFilePackedSplatSource(asset.source)) {
-		if ((asset.source.packedArray?.length ?? 0) > 0) {
-			return await serializeRawPackedSplatProjectSource(asset.source, {
+	if (isProjectFilePackedSplatSource(source)) {
+		if ((source.packedArray?.length ?? 0) > 0) {
+			return await serializeRawPackedSplatProjectSource(source, {
 				onProgress,
 				progress,
 			});
 		}
-		return await serializePackedSplatProjectSource(asset.source, {
+		return await serializePackedSplatProjectSource(source, {
 			onProgress,
 			progress,
 		});

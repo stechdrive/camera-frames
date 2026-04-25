@@ -11,6 +11,7 @@ import {
 	createProjectAssetResourceRef,
 	isProjectFileEmbeddedFileSource,
 	isProjectFilePackedSplatSource,
+	materializeProjectFilePackedSplatFullData,
 	normalizeProjectDocument,
 } from "../document.js";
 import { notifyPackageProgress } from "./progress.js";
@@ -58,6 +59,7 @@ async function serializeCameraFramesProjectPackageContents(
 	} = {},
 ) {
 	const normalizedProject = normalizeProjectDocument(projectSnapshot);
+	await materializeDeferredPackedSplatSources(normalizedProject);
 	const archiveEntries = {};
 	const resources = {};
 	const serializedAssets = [];
@@ -139,6 +141,14 @@ async function serializeCameraFramesProjectPackageContents(
 	};
 }
 
+async function materializeDeferredPackedSplatSources(project) {
+	for (const asset of project?.scene?.assets ?? []) {
+		if (isProjectFilePackedSplatSource(asset?.source)) {
+			await materializeProjectFilePackedSplatFullData(asset.source);
+		}
+	}
+}
+
 export async function buildCameraFramesProjectPackage(
 	projectSnapshot,
 	{
@@ -181,7 +191,9 @@ function countSerializedSourceEntries(source) {
 			return (
 				1 +
 				Object.keys(source.extra ?? {}).filter((key) => key !== "radMeta")
-					.length
+					.length +
+				(source.lodSplats?.packedArray?.length ? 1 : 0) +
+				Object.keys(source.lodSplats?.extra ?? {}).length
 			);
 		}
 		return 1 + Object.keys(source.extraFiles ?? {}).length;
@@ -217,6 +229,7 @@ export async function writeCameraFramesProjectPackageToWritable(
 		onProgress = null,
 	} = options ?? {};
 	const normalizedProject = normalizeProjectDocument(projectSnapshot);
+	await materializeDeferredPackedSplatSources(normalizedProject);
 	const resources = {};
 	const serializedAssets = [];
 	const normalizedReferenceImages = normalizeReferenceImageDocument(

@@ -46,6 +46,7 @@ export async function readCameraFramesProject(
 						resource,
 						onProgress,
 						totalAssets,
+						packageSource: source,
 					}),
 				};
 			},
@@ -155,6 +156,8 @@ export async function openCameraFramesProjectPackage(
 							index,
 							resource,
 							totalAssets,
+							packageSource: source,
+							preferBakedLodPreview: true,
 						}),
 				}),
 			};

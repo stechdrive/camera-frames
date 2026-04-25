@@ -804,6 +804,10 @@ export function createProjectController({
 			);
 			await new Promise((resolve) => requestAnimationFrame(resolve));
 
+			await assetController.ensureFullDataForSplatAssets?.(null, {
+				silent: true,
+			});
+
 			// Must run before captureProjectState — the bake mutates
 			// `asset.source.lodSplats`, and the snapshot pipeline below
 			// freezes whatever state the sources are in at capture time.
