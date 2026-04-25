@@ -1,8 +1,8 @@
 {
   "name": "camera-frames",
-  "version": "0.17.15",
-  "commit": "4e14b3d",
-  "branch": "main",
-  "codeStamp": "eb67563d",
-  "builtAt": "2026-04-25T06:46:57.226Z"
+  "version": "0.17.16",
+  "commit": "439f360",
+  "branch": "codex/rad-streaming-investigation",
+  "codeStamp": "7f7d4254",
+  "builtAt": "2026-04-25T10:07:08.935Z"
 }
