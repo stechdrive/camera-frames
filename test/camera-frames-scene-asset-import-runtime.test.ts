@@ -54,7 +54,7 @@ function createHarness(overrides = {}) {
 	};
 	const runtime = createAssetImportRuntime({
 		store,
-		t: (key) => key,
+		t: overrides.t ?? ((key) => key),
 		setStatus: (value) => calls.statuses.push(value),
 		setOverlay: (overlay) => {
 			store.overlay.value = overlay;
@@ -192,6 +192,57 @@ function createHarness(overrides = {}) {
 	assert.equal(imported, undefined);
 	assert.deepEqual(calls.loadedSplats, [packedProjectSource]);
 	assert.equal(calls.loadedModels.length, 0);
+}
+
+{
+	const progressEvents = [];
+	const t = (key, values = {}) =>
+		`${key}:${Object.entries(values)
+			.map(([name, value]) => `${name}=${value}`)
+			.join(",")}`;
+	const { runtime } = createHarness({
+		t,
+		loadSplatFromSource: async (source, options = {}) => {
+			options.onProgress?.({
+				stage: "init-packed-splats",
+				sourceKind: "raw-packed-splat",
+			});
+			return {
+				id: source.name,
+				kind: "splat",
+			};
+		},
+	});
+	await runtime.loadSources(
+		[new File([new Uint8Array([1])], "timed.ply")],
+		false,
+		{
+			onProgress: (...args) => progressEvents.push(args),
+		},
+	);
+	const stageProgress = progressEvents.find(
+		([step, detail]) =>
+			step === "load" &&
+			String(detail).startsWith("overlay.importDetailLoadAssetStage:"),
+	);
+	assert.ok(stageProgress, "splat load stage progress should be emitted");
+	assert.match(
+		stageProgress[1],
+		/stage=overlay\.importLoadStage\.initPackedSplats/u,
+	);
+	assert.equal(stageProgress[2].index, 1);
+	assert.equal(stageProgress[2].total, 1);
+	assert.equal(stageProgress[2].name, "timed.ply");
+	assert.equal(stageProgress[2].stage, "init-packed-splats");
+	assert.equal(
+		stageProgress[2].detailTiming.stageLabel,
+		"overlay.importTimingStage:",
+	);
+	assert.equal(
+		stageProgress[2].detailTiming.totalLabel,
+		"overlay.importTimingTotal:",
+	);
+	assert.equal(typeof stageProgress[2].detailTiming.stageStartedAt, "number");
 }
 
 {

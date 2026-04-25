@@ -49,6 +49,52 @@ import { createProjectOpenApply } from "../src/app/project-open-apply.js";
 }
 
 {
+	const progressCalls = [];
+	const applyOpenedProject = createProjectOpenApply({
+		getAssetController: () => ({
+			clearScene: () => {},
+			loadSources: async (_sources, _replace, options = {}) => {
+				options.onProgress?.("load", "Stage detail", {
+					stage: "init-packed-splats",
+					detailTiming: {
+						stageStartedAt: 10,
+						totalStartedAt: 5,
+					},
+				});
+			},
+		}),
+		applySavedProjectState: () => {},
+		getHistoryController: () => ({
+			clearHistory: () => {},
+		}),
+		setStatus: () => {},
+		t: (key) => key,
+	});
+
+	await applyOpenedProject(
+		{
+			assetEntries: [{ source: "asset-a" }],
+			project: { id: "project-progress" },
+		},
+		{
+			onAssetProgress: (...args) => progressCalls.push(args),
+		},
+	);
+
+	assert.deepEqual(progressCalls[0], [
+		"load",
+		"Stage detail",
+		{
+			stage: "init-packed-splats",
+			detailTiming: {
+				stageStartedAt: 10,
+				totalStartedAt: 5,
+			},
+		},
+	]);
+}
+
+{
 	const calls = [];
 	const applyOpenedProject = createProjectOpenApply({
 		getAssetController: () => ({

@@ -678,6 +678,10 @@ export function createAssetController({
 		return lodSplats;
 	}
 
+	function reportSplatLoadStage(onProgress, stage, details = {}) {
+		onProgress?.({ stage, ...details });
+	}
+
 	async function createPackedSplatsFromSourceData({
 		fileName,
 		inputBytes,
@@ -690,10 +694,22 @@ export function createAssetController({
 		splatEncoding = undefined,
 		lodSplats = undefined,
 		previewPackedSplats = undefined,
+		onProgress = null,
 	}) {
 		if ((packedArray?.length ?? 0) > 0) {
+			reportSplatLoadStage(onProgress, "decode-source", {
+				sourceKind: "raw-packed-splat",
+			});
+			if ((lodSplats?.packedArray?.length ?? 0) > 0) {
+				reportSplatLoadStage(onProgress, "init-lod", {
+					sourceKind: "raw-packed-splat",
+				});
+			}
 			const prebuiltLodSplats =
 				await createPrebuiltLodSplatsFromSource(lodSplats);
+			reportSplatLoadStage(onProgress, "init-packed-splats", {
+				sourceKind: "raw-packed-splat",
+			});
 			const packedSplats = new PackedSplats({
 				packedArray,
 				numSplats,
@@ -705,11 +721,17 @@ export function createAssetController({
 			return packedSplats;
 		}
 
+		reportSplatLoadStage(onProgress, "decode-source", {
+			sourceKind: "encoded-splat",
+		});
 		const unpacked = await unpackSplats({
 			input: inputBytes,
 			extraFiles,
 			fileType,
 			pathOrUrl,
+		});
+		reportSplatLoadStage(onProgress, "init-packed-splats", {
+			sourceKind: "encoded-splat",
 		});
 		const packedSplats = new PackedSplats({
 			packedArray: unpacked.packedArray,
@@ -721,11 +743,17 @@ export function createAssetController({
 		return packedSplats;
 	}
 
-	async function loadSplatAssetFromSource(source, { insertIndex = null } = {}) {
+	async function loadSplatAssetFromSource(
+		source,
+		{ insertIndex = null, onProgress = null } = {},
+	) {
 		if (isProjectFileLazyResourceSource(source)) {
+			reportSplatLoadStage(onProgress, "materialize", {
+				sourceKind: source.resource?.type ?? source.kind ?? null,
+			});
 			return await loadSplatAssetFromSource(
 				await materializeProjectFileLazyResourceSource(source),
-				{ insertIndex },
+				{ insertIndex, onProgress },
 			);
 		}
 
@@ -758,7 +786,9 @@ export function createAssetController({
 				splatEncoding,
 				lodSplats,
 				previewPackedSplats,
+				onProgress,
 			});
+			reportSplatLoadStage(onProgress, "build-bounds");
 			const localBoundsHint =
 				buildSplatLocalBoundsFromSource(packedSplats, false) ??
 				buildSplatLocalBoundsFromSource(packedSplats, true);
@@ -766,6 +796,7 @@ export function createAssetController({
 				buildSplatFramingBoundsFromSource(packedSplats) ??
 				buildSplatLocalBoundsFromSource(packedSplats, true) ??
 				localBoundsHint;
+			reportSplatLoadStage(onProgress, "init-splat-mesh");
 			const mesh = new SplatMesh({
 				packedSplats,
 				fileName,
@@ -773,6 +804,7 @@ export function createAssetController({
 			});
 			enableSparkSplatMeshWorldToView(mesh);
 			await mesh.initialized;
+			reportSplatLoadStage(onProgress, "register-scene");
 			const asset = createSplatContainer({
 				mesh,
 				displayName,
@@ -794,9 +826,12 @@ export function createAssetController({
 
 		if (isProjectFilePackedSplatSource(source)) {
 			if (hasProjectFilePackedSplatDeferredFullData(source)) {
+				reportSplatLoadStage(onProgress, "materialize", {
+					sourceKind: "raw-packed-splat",
+				});
 				return await loadSplatAssetFromSource(
 					await materializeProjectFilePackedSplatFullData(source),
-					{ insertIndex },
+					{ insertIndex, onProgress },
 				);
 			}
 			return createPackedSplatAsset({
@@ -853,6 +888,7 @@ export function createAssetController({
 						projectAssetState,
 						legacyState,
 					});
+			reportSplatLoadStage(onProgress, "read-bytes");
 			return createPackedSplatAsset({
 				fileName,
 				inputBytes: new Uint8Array(await file.arrayBuffer()),
@@ -867,6 +903,7 @@ export function createAssetController({
 			file: fetchedFile,
 			fileName: fetchedFile.name,
 		});
+		reportSplatLoadStage(onProgress, "read-bytes");
 		return createPackedSplatAsset({
 			fileName: fetchedFile.name,
 			inputBytes: new Uint8Array(await fetchedFile.arrayBuffer()),
@@ -960,15 +997,15 @@ export function createAssetController({
 		return true;
 	}
 
-	async function loadSplatFromSource(source) {
-		return await loadSplatAssetFromSource(source);
+	async function loadSplatFromSource(source, options = {}) {
+		return await loadSplatAssetFromSource(source, options);
 	}
 
 	async function createSplatAssetFromSource(
 		source,
-		{ insertIndex = null } = {},
+		{ insertIndex = null, onProgress = null } = {},
 	) {
-		return await loadSplatAssetFromSource(source, { insertIndex });
+		return await loadSplatAssetFromSource(source, { insertIndex, onProgress });
 	}
 
 	async function replaceSplatAssetFromSource(assetId, source) {

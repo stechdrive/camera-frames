@@ -39,9 +39,14 @@ export function createProjectOpenWorkflow({
 			projectName = "",
 			fileHandle = null,
 			loadedStatus = t("status.projectLoaded"),
+			progressStartedAt = Date.now(),
 		} = {},
 	) {
-		setOverlay(buildImportProgressOverlay(t, "verify"));
+		setOverlay(
+			buildImportProgressOverlay(t, "verify", "", {
+				startedAt: progressStartedAt,
+			}),
+		);
 		await waitForOverlayFrame();
 		const packageFingerprint = await buildProjectFingerprint(
 			parsedProject.project,
@@ -63,8 +68,13 @@ export function createProjectOpenWorkflow({
 			await applyOpenedProject(parsedProject, {
 				projectName,
 				loadedStatus,
-				onAssetProgress: (step, detail = "") => {
-					setOverlay(buildImportProgressOverlay(t, step, detail));
+				onAssetProgress: (step, detail = "", progress = {}) => {
+					setOverlay(
+						buildImportProgressOverlay(t, step, detail, {
+							startedAt: progressStartedAt,
+							detailTiming: progress?.detailTiming ?? null,
+						}),
+					);
 				},
 				skipApplyState: compatibleWorkingStateRecord !== null,
 			});
@@ -107,8 +117,13 @@ export function createProjectOpenWorkflow({
 			});
 		}
 		const projectName = getProjectBaseName(source?.name || fileHandle?.name);
+		const progressStartedAt = Date.now();
 		try {
-			setOverlay(buildImportProgressOverlay(t, "verify"));
+			setOverlay(
+				buildImportProgressOverlay(t, "verify", "", {
+					startedAt: progressStartedAt,
+				}),
+			);
 			await waitForOverlayFrame();
 			const parsedProject = await openCameraFramesProjectPackage(source, {
 				onProgress: (progress) => {
@@ -117,6 +132,7 @@ export function createProjectOpenWorkflow({
 							t,
 							progress?.phase || "verify",
 							buildImportProgressDetail(t, progress),
+							{ startedAt: progressStartedAt },
 						),
 					);
 				},
@@ -125,6 +141,7 @@ export function createProjectOpenWorkflow({
 				return await openParsedProject(parsedProject, {
 					projectName,
 					fileHandle,
+					progressStartedAt,
 				});
 			} finally {
 				await parsedProject.close?.();
@@ -135,12 +152,21 @@ export function createProjectOpenWorkflow({
 				throw error;
 			}
 
-			setOverlay(buildImportProgressOverlay(t, "verify"));
+			setOverlay(
+				buildImportProgressOverlay(t, "verify", "", {
+					startedAt: progressStartedAt,
+				}),
+			);
 			await waitForOverlayFrame();
 			try {
 				await assetController.loadSources([source], true, {
-					onProgress: (step, detail = "") => {
-						setOverlay(buildImportProgressOverlay(t, step, detail));
+					onProgress: (step, detail = "", progress = {}) => {
+						setOverlay(
+							buildImportProgressOverlay(t, step, detail, {
+								startedAt: progressStartedAt,
+								detailTiming: progress?.detailTiming ?? null,
+							}),
+						);
 					},
 				});
 				clearProjectSidecars?.();

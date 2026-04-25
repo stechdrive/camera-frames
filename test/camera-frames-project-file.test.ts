@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
-import { buildImportProgressDetail } from "../src/controllers/project/overlays.js";
+import {
+	buildImportProgressDetail,
+	buildImportProgressOverlay,
+} from "../src/controllers/project/overlays.js";
 import { ZipReader, buildZipArchiveBytes } from "../src/project-archive.js";
 import {
 	PROJECT_DOCUMENT_PATH,
@@ -67,9 +70,7 @@ async function collectWritableChunks(chunks) {
 
 {
 	const storedPayload = new Uint8Array([1, 2, 3, 4, 5]);
-	const deflatedPayload = new TextEncoder().encode(
-		'{"kind":"deflated-entry"}',
-	);
+	const deflatedPayload = new TextEncoder().encode('{"kind":"deflated-entry"}');
 	const fastPathArchive = await buildZipArchiveBytes(
 		{
 			"stored.bin": storedPayload,
@@ -886,6 +887,21 @@ assert.match(
 	}),
 	/^overlay\.importDetailExpandComplete:/u,
 );
+{
+	const timing = {
+		stageStartedAt: 100,
+		totalStartedAt: 50,
+		stageLabel: "stage",
+		totalLabel: "total",
+	};
+	const overlay = buildImportProgressOverlay(t, "load", "Loading", {
+		startedAt: 25,
+		detailTiming: timing,
+	});
+	assert.equal(overlay.startedAt, 25);
+	assert.equal(overlay.detailTiming, timing);
+	assert.equal(overlay.steps[2].status, "active");
+}
 
 const rawPackedProjectSnapshot = {
 	workspace: projectSnapshot.workspace,

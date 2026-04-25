@@ -19,6 +19,22 @@ function createImportSteps(activeStep, t) {
 	}));
 }
 
+const LOAD_STAGE_LABEL_KEYS = {
+	materialize: "overlay.importLoadStage.materialize",
+	"read-bytes": "overlay.importLoadStage.readBytes",
+	"decode-source": "overlay.importLoadStage.decodeSource",
+	"init-lod": "overlay.importLoadStage.initLod",
+	"init-packed-splats": "overlay.importLoadStage.initPackedSplats",
+	"build-bounds": "overlay.importLoadStage.buildBounds",
+	"init-splat-mesh": "overlay.importLoadStage.initSplatMesh",
+	"register-scene": "overlay.importLoadStage.registerScene",
+	"load-model": "overlay.importLoadStage.loadModel",
+};
+
+function getTimingNowMs() {
+	return globalThis.performance?.now?.() ?? Date.now();
+}
+
 export function parseAssetImportInputUrls(value) {
 	return String(value ?? "")
 		.split(/[\r\n,\s]+/)
@@ -73,14 +89,56 @@ export function createAssetImportRuntime({
 	commitHistoryTransaction = () => false,
 	cancelHistoryTransaction = () => {},
 }) {
-	function showImportProgress(step, detail = "") {
+	function showImportProgress(
+		step,
+		detail = "",
+		{ startedAt = 0, detailTiming = null } = {},
+	) {
 		setOverlay({
 			kind: "progress",
 			title: t("overlay.importTitle"),
 			message: t("overlay.importMessage"),
 			detail,
+			startedAt,
+			detailTiming,
 			steps: createImportSteps(step, t),
 		});
+	}
+
+	function getLoadStageLabel(stage, progress = {}) {
+		if (
+			stage === "decode-source" &&
+			progress.sourceKind === "raw-packed-splat"
+		) {
+			return t("overlay.importLoadStage.prepareRawPackedSplat");
+		}
+		const labelKey = LOAD_STAGE_LABEL_KEYS[stage];
+		return labelKey ? t(labelKey) : String(stage || "");
+	}
+
+	function buildLoadAssetStageDetail({ index, total, name, stageLabel }) {
+		if (!stageLabel) {
+			return t("overlay.importDetailLoadAsset", {
+				index,
+				count: total,
+				name,
+			});
+		}
+		return t("overlay.importDetailLoadAssetStage", {
+			index,
+			count: total,
+			name,
+			stage: stageLabel,
+		});
+	}
+
+	function buildLoadAssetTiming(stageStartedAt, totalStartedAt) {
+		return {
+			stageStartedAt,
+			totalStartedAt,
+			stageLabel: t("overlay.importTimingStage"),
+			totalLabel: t("overlay.importTimingTotal"),
+		};
 	}
 
 	function showImportError(
@@ -204,17 +262,19 @@ export function createAssetImportRuntime({
 		};
 	}
 
-	async function loadSource(source) {
+	async function loadSource(source, { onProgress = null } = {}) {
 		if (isProjectFileLazyResourceSource?.(source)) {
-			return source.kind === "model"
-				? loadModelFromSource(source)
-				: loadSplatFromSource(source);
+			if (source.kind === "model") {
+				onProgress?.({ stage: "load-model" });
+				return loadModelFromSource(source);
+			}
+			return loadSplatFromSource(source, { onProgress });
 		}
 		if (isProjectFilePackedSplatSource?.(source)) {
-			return loadSplatFromSource(source);
+			return loadSplatFromSource(source, { onProgress });
 		}
 		if (isProjectPackagePackedSplatSource(source)) {
-			return loadSplatFromSource(source);
+			return loadSplatFromSource(source, { onProgress });
 		}
 
 		const extension = getExtension(source);
@@ -226,9 +286,10 @@ export function createAssetImportRuntime({
 		if (
 			["ply", "spz", "splat", "ksplat", "zip", "sog", "rad"].includes(extension)
 		) {
-			return loadSplatFromSource(source);
+			return loadSplatFromSource(source, { onProgress });
 		}
 		if (["glb", "gltf"].includes(extension)) {
+			onProgress?.({ stage: "load-model" });
 			return loadModelFromSource(source);
 		}
 		throw new Error(
@@ -282,16 +343,61 @@ export function createAssetImportRuntime({
 				while (running < maxConcurrency && nextIndex < total) {
 					const index = nextIndex++;
 					const source = expandedSources[index];
+					const progressAssetIndex = index + 1;
+					const progressAssetName = getDisplayName(source);
+					let emitLoadStageProgress = null;
+					if (typeof onProgress === "function") {
+						const assetStartedAt = Date.now();
+						const assetStartedAtMs = getTimingNowMs();
+						let activeStage = "";
+						let activeStageStartedAt = assetStartedAt;
+						let activeStageStartedAtMs = assetStartedAtMs;
+						emitLoadStageProgress = (progress = {}) => {
+							const stage = String(progress.stage ?? "").trim();
+							if (!stage) {
+								return;
+							}
+							const now = Date.now();
+							const nowMs = getTimingNowMs();
+							if (stage !== activeStage) {
+								activeStage = stage;
+								activeStageStartedAt = now;
+								activeStageStartedAtMs = nowMs;
+							}
+							const stageLabel = getLoadStageLabel(stage, progress);
+							onProgress(
+								"load",
+								buildLoadAssetStageDetail({
+									index: progressAssetIndex,
+									total,
+									name: progressAssetName,
+									stageLabel,
+								}),
+								{
+									...progress,
+									index: progressAssetIndex,
+									total,
+									name: progressAssetName,
+									stageElapsedMs: nowMs - activeStageStartedAtMs,
+									totalElapsedMs: nowMs - assetStartedAtMs,
+									detailTiming: buildLoadAssetTiming(
+										activeStageStartedAt,
+										assetStartedAt,
+									),
+								},
+							);
+						};
+					}
 					running += 1;
 					onProgress?.(
 						"load",
 						t("overlay.importDetailLoadAsset", {
-							index: index + 1,
+							index: progressAssetIndex,
 							count: total,
-							name: getDisplayName(source),
+							name: progressAssetName,
 						}),
 					);
-					loadSource(source).then(
+					loadSource(source, { onProgress: emitLoadStageProgress }).then(
 						(asset) => {
 							loadedAssets[index] = asset ?? null;
 							loaded += 1;
@@ -358,10 +464,15 @@ export function createAssetImportRuntime({
 			const historyLabel = "asset.import";
 			const hasHistoryTransaction =
 				beginHistoryTransaction?.(historyLabel) === true;
-			showImportProgress("verify");
+			const progressStartedAt = Date.now();
+			showImportProgress("verify", "", { startedAt: progressStartedAt });
 			try {
 				await loadSources(sources, replace, {
-					onProgress: (step, detail) => showImportProgress(step, detail),
+					onProgress: (step, detail, progress = {}) =>
+						showImportProgress(step, detail, {
+							startedAt: progressStartedAt,
+							detailTiming: progress?.detailTiming ?? null,
+						}),
 					resetHistory: false,
 					prioritizeNewAssets: !replace,
 				});

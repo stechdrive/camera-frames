@@ -47,7 +47,12 @@ export function buildPackageProgressOverlay(
 	};
 }
 
-export function buildImportProgressOverlay(t, step, detail = "") {
+export function buildImportProgressOverlay(
+	t,
+	step,
+	detail = "",
+	{ startedAt = 0, detailTiming = null } = {},
+) {
 	const steps = [
 		{ key: "verify", label: t("overlay.importPhaseVerify") },
 		{ key: "expand", label: t("overlay.importPhaseExpand") },
@@ -60,6 +65,8 @@ export function buildImportProgressOverlay(t, step, detail = "") {
 		title: t("overlay.importTitle"),
 		message: t("overlay.importMessage"),
 		detail,
+		startedAt,
+		detailTiming,
 		steps: steps.map((entry, index) => ({
 			label: entry.label,
 			status:

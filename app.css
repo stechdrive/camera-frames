@@ -856,6 +856,10 @@ input[type="range"] {
 	line-height: 1.5;
 }
 
+.overlay-card__detail-timing {
+	color: rgb(180 194 224 / 78%);
+}
+
 .overlay-phase {
 	margin-top: 12px;
 	padding: 12px;

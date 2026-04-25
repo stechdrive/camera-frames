@@ -226,6 +226,47 @@ function formatOverlayElapsedTime(elapsedSeconds) {
 	return `${minutes}m ${String(seconds).padStart(2, "0")}s`;
 }
 
+function formatOverlayDurationMs(durationMs) {
+	if (!Number.isFinite(durationMs) || durationMs < 0) {
+		return "";
+	}
+	const totalSeconds = durationMs / 1000;
+	if (totalSeconds < 60) {
+		return `${totalSeconds.toFixed(1)}s`;
+	}
+	const minutes = Math.floor(totalSeconds / 60);
+	const seconds = totalSeconds - minutes * 60;
+	return `${minutes}m ${seconds.toFixed(1).padStart(4, "0")}s`;
+}
+
+function renderProgressDetail(overlay, progressTick) {
+	if (!overlay.detail) {
+		return null;
+	}
+	const timing = overlay.detailTiming;
+	if (
+		!timing ||
+		!Number.isFinite(timing.stageStartedAt) ||
+		!Number.isFinite(timing.totalStartedAt)
+	) {
+		return html`<p class="overlay-card__detail">${overlay.detail}</p>`;
+	}
+	const stageElapsed = Math.max(0, progressTick - timing.stageStartedAt);
+	const totalElapsed = Math.max(0, progressTick - timing.totalStartedAt);
+	const stageLabel = timing.stageLabel || "Stage";
+	const totalLabel = timing.totalLabel || "Total";
+	const stageText = formatOverlayDurationMs(stageElapsed);
+	const totalText = formatOverlayDurationMs(totalElapsed);
+	return html`
+		<p class="overlay-card__detail">
+			${overlay.detail}
+			<span class="overlay-card__detail-timing">
+				(${stageLabel} ${stageText} / ${totalLabel} ${totalText})
+			</span>
+		</p>
+	`;
+}
+
 function renderProgressBody(overlay, progressTick = Date.now()) {
 	const stepCount = overlay.steps?.length ?? 0;
 	const completedSteps =
@@ -255,10 +296,7 @@ function renderProgressBody(overlay, progressTick = Date.now()) {
 				</div>
 			`
 		}
-		${
-			overlay.detail &&
-			html`<p class="overlay-card__detail">${overlay.detail}</p>`
-		}
+		${renderProgressDetail(overlay, progressTick)}
 		${
 			overlay.phaseLabel &&
 			html`
