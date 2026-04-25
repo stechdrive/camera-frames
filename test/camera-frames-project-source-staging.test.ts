@@ -11,6 +11,11 @@ const ANDROID_PLATFORM = {
 	userAgent: "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/147",
 	maxTouchPoints: 5,
 };
+const ANDROID_DESKTOP_SITE_PLATFORM = {
+	userAgent:
+		"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/147 Safari/537.36",
+	maxTouchPoints: 5,
+};
 const DESKTOP_PLATFORM = {
 	userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
 	maxTouchPoints: 0,
@@ -138,6 +143,16 @@ assert.equal(
 	false,
 	"desktop browsers should not stage by default",
 );
+assert.equal(
+	isMobileProjectSourceStagingPlatform({
+		userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+		maxTouchPoints: 0,
+		userAgentDataMobile: true,
+		userAgentDataPlatform: "Android",
+	}),
+	true,
+	"UA Client Hints should enable staging even if the legacy UA is desktop-like",
+);
 
 {
 	const opfs = createFakeOpfsStorage();
@@ -212,6 +227,64 @@ assert.equal(
 	assert.equal(summary.removed, 1);
 	assert.equal(summary.skipped, 2);
 	assert.deepEqual(opfs.removed, [oldName]);
+}
+
+{
+	const opfs = createFakeOpfsStorage();
+	const source = new File(
+		[new Uint8Array([4, 3, 2, 1])],
+		"desktop-site.ssproj",
+	);
+	const result = await prepareStableProjectOpenSource(source, {
+		fileName: source.name,
+		platform: ANDROID_DESKTOP_SITE_PLATFORM,
+		storage: opfs.storage,
+	});
+	assert.equal(
+		result.mode,
+		"opfs",
+		"touch desktop-like UA without a File System Access handle should still stage cloud-prone project files",
+	);
+	await result.cleanup?.();
+}
+
+{
+	const opfs = createFakeOpfsStorage();
+	const source = new File(
+		[new Uint8Array([4, 3, 2, 1])],
+		"stable-handle.ssproj",
+	);
+	const result = await prepareStableProjectOpenSource(source, {
+		fileName: source.name,
+		platform: ANDROID_DESKTOP_SITE_PLATFORM,
+		storage: opfs.storage,
+		hasFileSystemHandle: true,
+	});
+	assert.equal(
+		result.mode,
+		"none",
+		"desktop-like touch browsers with a File System Access handle should keep the stable desktop path",
+	);
+	assert.equal(opfs.written.length, 0);
+}
+
+{
+	const opfs = createFakeOpfsStorage();
+	const source = new File([new Uint8Array([6, 6, 6])], "windows-touch.ssproj");
+	const result = await prepareStableProjectOpenSource(source, {
+		fileName: source.name,
+		platform: {
+			userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+			maxTouchPoints: 10,
+		},
+		storage: opfs.storage,
+	});
+	assert.equal(
+		result.mode,
+		"none",
+		"Windows touch PCs should not be treated as cloud-prone mobile project opens by default",
+	);
+	assert.equal(opfs.written.length, 0);
 }
 
 {

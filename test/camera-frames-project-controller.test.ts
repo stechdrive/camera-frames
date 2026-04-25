@@ -581,6 +581,53 @@ function createHarness(overrides = {}) {
 }
 
 {
+	const opfs = createFakeOpfsStorage();
+	await withNavigator(
+		{
+			userAgent:
+				"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/147 Safari/537.36",
+			maxTouchPoints: 5,
+			storage: opfs.storage,
+		},
+		async () => {
+			const harness = createHarness();
+			const projectSnapshot = {
+				workspace: {
+					activeShotCameraId: "",
+					viewport: {
+						baseFovX: 55,
+						pose: {
+							position: { x: 0, y: 0, z: 0 },
+							quaternion: { x: 0, y: 0, z: 0, w: 1 },
+							up: { x: 0, y: 1, z: 0 },
+						},
+					},
+				},
+				shotCameras: [],
+				scene: {
+					assets: [],
+					referenceImages: createDefaultReferenceImageDocument(),
+				},
+			};
+			const archive = await buildCameraFramesProjectArchive(projectSnapshot);
+			const projectFile = new File([archive], "stable-handle.ssproj");
+			await harness.projectController.openProjectSource(projectFile, {
+				fileHandle: {
+					name: projectFile.name,
+					getFile: async () => projectFile,
+				},
+			});
+			assert.equal(
+				opfs.written.length,
+				0,
+				"desktop-like touch opens with a File System Access handle should not create an extra OPFS staging copy",
+			);
+			assert.equal(harness.applyOpenedProjectCalls.length, 1);
+		},
+	);
+}
+
+{
 	const harness = createHarness();
 	const projectSnapshot = {
 		workspace: {

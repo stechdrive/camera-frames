@@ -214,6 +214,9 @@ export function createProjectOpenWorkflow({
 						}
 					: await prepareStableProjectOpenSource(projectSource, {
 							fileName: sourceFileName,
+							hasFileSystemHandle: Boolean(
+								fileHandle && typeof fileHandle.getFile === "function",
+							),
 							onProgress: (progress) => {
 								setOverlay(
 									buildImportProgressOverlay(

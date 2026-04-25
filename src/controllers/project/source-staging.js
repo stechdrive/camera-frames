@@ -12,9 +12,14 @@ const PROJECT_SOURCE_STAGING_DIR = "camera-frames-project-open-staging";
 const STAGING_OVERRIDE_PARAM = "cfProjectSourceStaging";
 
 function getDefaultPlatform() {
+	const userAgentData = globalThis.navigator?.userAgentData;
 	return {
 		userAgent: globalThis.navigator?.userAgent ?? "",
 		maxTouchPoints: globalThis.navigator?.maxTouchPoints ?? 0,
+		userAgentDataMobile:
+			typeof userAgentData?.mobile === "boolean" ? userAgentData.mobile : null,
+		userAgentDataPlatform:
+			typeof userAgentData?.platform === "string" ? userAgentData.platform : "",
 	};
 }
 
@@ -23,10 +28,28 @@ export function isMobileProjectSourceStagingPlatform(
 ) {
 	const userAgent = String(platform?.userAgent ?? "");
 	const maxTouchPoints = Number(platform?.maxTouchPoints ?? 0);
+	const userAgentDataPlatform = String(platform?.userAgentDataPlatform ?? "");
 	return (
+		platform?.userAgentDataMobile === true ||
 		/Android|iPhone|iPad|iPod/iu.test(userAgent) ||
+		/Android|iPhone|iPad|iPod|iOS/iu.test(userAgentDataPlatform) ||
 		(/Macintosh/iu.test(userAgent) && maxTouchPoints > 1)
 	);
+}
+
+function shouldStageDesktopLikeTouchProjectSource(
+	platform,
+	hasFileSystemHandle,
+) {
+	if (hasFileSystemHandle) {
+		return false;
+	}
+	const maxTouchPoints = Number(platform?.maxTouchPoints ?? 0);
+	if (maxTouchPoints <= 1) {
+		return false;
+	}
+	const userAgent = String(platform?.userAgent ?? "");
+	return !/Windows|Win32|Win64|WOW64/iu.test(userAgent);
 }
 
 function getProjectSourceStagingOverride(search) {
@@ -43,7 +66,10 @@ function getProjectSourceStagingOverride(search) {
 	}
 }
 
-function shouldStageProjectSource(source, { platform, search }) {
+function shouldStageProjectSource(
+	source,
+	{ platform, search, hasFileSystemHandle },
+) {
 	if (!(source instanceof Blob)) {
 		return false;
 	}
@@ -54,7 +80,10 @@ function shouldStageProjectSource(source, { platform, search }) {
 	if (override === "on") {
 		return true;
 	}
-	return isMobileProjectSourceStagingPlatform(platform);
+	return (
+		isMobileProjectSourceStagingPlatform(platform) ||
+		shouldStageDesktopLikeTouchProjectSource(platform, hasFileSystemHandle)
+	);
 }
 
 function normalizeStagingFileName(fileName) {
@@ -445,9 +474,16 @@ export async function prepareStableProjectOpenSource(
 		storage = globalThis.navigator?.storage,
 		onProgress = null,
 		memoryLimitBytes = PROJECT_SOURCE_STAGING_MEMORY_LIMIT_BYTES,
+		hasFileSystemHandle = false,
 	} = {},
 ) {
-	if (!shouldStageProjectSource(source, { platform, search })) {
+	if (
+		!shouldStageProjectSource(source, {
+			platform,
+			search,
+			hasFileSystemHandle,
+		})
+	) {
 		return {
 			source,
 			mode: "none",
