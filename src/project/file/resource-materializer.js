@@ -75,12 +75,12 @@ export async function materializeProjectAssetResource({
 
 	if (resource.type === "file") {
 		await notifyAssetProgress("extract-project-asset-file");
-		const bytes = await reader.bytes(resource.path);
+		const blob = await reader.blob(resource.path);
 		await notifyAssetProgress("extract-project-asset-complete");
 		return createProjectFileEmbeddedFileSource({
 			kind: asset.kind,
-			file: new File([bytes], resource.originalName, {
-				type: resource.mediaType || undefined,
+			file: new File([blob], resource.originalName, {
+				type: resource.mediaType || blob.type || undefined,
 			}),
 			fileName: resource.originalName,
 			projectAssetState: asset,

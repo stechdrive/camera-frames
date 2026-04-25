@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { buildImportProgressDetail } from "../src/controllers/project/overlays.js";
-import { ZipReader } from "../src/project-archive.js";
+import { ZipReader, buildZipArchiveBytes } from "../src/project-archive.js";
 import {
 	PROJECT_DOCUMENT_PATH,
 	PROJECT_MANIFEST_PATH,
@@ -62,6 +62,78 @@ async function collectWritableChunks(chunks) {
 		offset += part.byteLength;
 	}
 	return result;
+}
+
+{
+	const storedPayload = new Uint8Array([1, 2, 3, 4, 5]);
+	const deflatedPayload = new TextEncoder().encode(
+		'{"kind":"deflated-entry"}',
+	);
+	const fastPathArchive = await buildZipArchiveBytes(
+		{
+			"stored.bin": storedPayload,
+			"deflated.json": deflatedPayload,
+		},
+		{
+			level: 6,
+			entryLevels: {
+				"stored.bin": 0,
+				"deflated.json": 6,
+			},
+		},
+	);
+	const fastPathBlob = new Blob([fastPathArchive]);
+	const fastPathReader = await ZipReader.from(
+		new File([fastPathBlob], "stored-fast-path.ssproj"),
+	);
+
+	const storedEntry = fastPathReader.entries.get("stored.bin");
+	assert.equal(storedEntry?.compressionMethod, 0);
+	const storedHeader = new Uint8Array(
+		await fastPathBlob
+			.slice(storedEntry.offset, storedEntry.offset + 30)
+			.arrayBuffer(),
+	);
+	assert.ok(
+		new DataView(storedHeader.buffer).getUint16(28, true) > 0,
+		"stored-entry fast path test must exercise local extra-field offset handling",
+	);
+	let storedGetDataCalls = 0;
+	const originalStoredGetData = storedEntry.getData;
+	storedEntry.getData = async (...args) => {
+		storedGetDataCalls += 1;
+		return await originalStoredGetData(...args);
+	};
+
+	const storedBytes = await fastPathReader.bytes("stored.bin");
+	assert.deepEqual(Array.from(storedBytes), Array.from(storedPayload));
+	const storedBlob = await fastPathReader.blob("stored.bin");
+	assert.deepEqual(
+		Array.from(new Uint8Array(await storedBlob.arrayBuffer())),
+		Array.from(storedPayload),
+	);
+	assert.equal(
+		storedGetDataCalls,
+		0,
+		"stored entries should be sliced from the package blob without zip.js getData()",
+	);
+
+	const deflatedEntry = fastPathReader.entries.get("deflated.json");
+	assert.equal(deflatedEntry?.compressionMethod, 8);
+	let deflatedGetDataCalls = 0;
+	const originalDeflatedGetData = deflatedEntry.getData;
+	deflatedEntry.getData = async (...args) => {
+		deflatedGetDataCalls += 1;
+		return await originalDeflatedGetData(...args);
+	};
+	const deflatedBytes = await fastPathReader.bytes("deflated.json");
+	assert.deepEqual(Array.from(deflatedBytes), Array.from(deflatedPayload));
+	assert.equal(
+		deflatedGetDataCalls,
+		1,
+		"deflated entries must keep using zip.js getData()",
+	);
+	await fastPathReader.close();
 }
 
 const referenceImageDocument = createDefaultReferenceImageDocument();
