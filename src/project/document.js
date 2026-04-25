@@ -479,6 +479,13 @@ function cloneSplatEncoding(value, { skipClone = false } = {}) {
 	return skipClone ? value : JSON.parse(JSON.stringify(value));
 }
 
+function cloneJsonObject(value, { skipClone = false } = {}) {
+	if (!value || typeof value !== "object") {
+		return null;
+	}
+	return skipClone ? value : JSON.parse(JSON.stringify(value));
+}
+
 function clonePackedSplatExtra(extra = null) {
 	if (!extra || typeof extra !== "object") {
 		return {};
@@ -676,6 +683,68 @@ function normalizeDeferredFullData(deferredFullData) {
 	return deferredFullData;
 }
 
+function cloneRadBundleEntry(entry, { skipClone = false } = {}) {
+	if (!entry || typeof entry !== "object") {
+		return null;
+	}
+	const blob = entry.blob instanceof Blob ? entry.blob : null;
+	const bytes = toUint8Array(entry.bytes);
+	const cloned = {
+		name:
+			typeof entry.name === "string" && entry.name
+				? entry.name
+				: typeof entry.path === "string"
+					? entry.path.split(/[\\/]/).pop()
+					: null,
+		path: typeof entry.path === "string" && entry.path ? entry.path : null,
+		sha256:
+			typeof entry.sha256 === "string" && entry.sha256 ? entry.sha256 : null,
+		size: Number.isFinite(entry.size)
+			? Math.max(0, Math.floor(entry.size))
+			: blob
+				? blob.size
+				: bytes.byteLength,
+	};
+	if (blob) {
+		cloned.blob = blob;
+	} else if (bytes.byteLength > 0) {
+		cloned.bytes = skipClone ? bytes : new Uint8Array(bytes);
+	}
+	return cloned;
+}
+
+function cloneRadBundle(radBundle, { skipClone = false } = {}) {
+	if (!radBundle || typeof radBundle !== "object") {
+		return null;
+	}
+	const root = cloneRadBundleEntry(radBundle.root, { skipClone });
+	if (!root) {
+		return null;
+	}
+	return {
+		kind:
+			radBundle.kind === "spark-rad-bundle"
+				? "spark-rad-bundle"
+				: "spark-rad-bundle",
+		version: Number.isFinite(radBundle.version)
+			? Math.max(1, Math.floor(radBundle.version))
+			: 1,
+		root,
+		chunks: (radBundle.chunks ?? [])
+			.map((entry) => cloneRadBundleEntry(entry, { skipClone }))
+			.filter(Boolean),
+		sourceFingerprint: cloneJsonObject(radBundle.sourceFingerprint, {
+			skipClone,
+		}),
+		bounds: cloneJsonObject(radBundle.bounds, { skipClone }),
+		sparkVersion:
+			typeof radBundle.sparkVersion === "string"
+				? radBundle.sparkVersion
+				: null,
+		build: cloneJsonObject(radBundle.build, { skipClone }),
+	};
+}
+
 export function createProjectFilePackedSplatSource({
 	fileName,
 	inputBytes,
@@ -686,6 +755,7 @@ export function createProjectFilePackedSplatSource({
 	extra = null,
 	splatEncoding = null,
 	lodSplats = null,
+	radBundle = null,
 	projectAssetState = null,
 	legacyState = null,
 	resource = null,
@@ -713,6 +783,7 @@ export function createProjectFilePackedSplatSource({
 		extra: skipClone ? (extra ?? {}) : clonePackedSplatExtra(extra),
 		splatEncoding: cloneSplatEncoding(splatEncoding, { skipClone }),
 		lodSplats: cloneBakedLodSplats(lodSplats, { skipClone }),
+		radBundle: cloneRadBundle(radBundle, { skipClone }),
 		projectAssetState,
 		legacyState,
 		resource,
@@ -729,7 +800,6 @@ export function hasProjectFilePackedSplatDeferredFullData(source) {
 	return (
 		isProjectFilePackedSplatSource(source) &&
 		(source.packedArray?.length ?? 0) === 0 &&
-		Boolean(source.previewPackedSplats?.packedArray?.length) &&
 		typeof source.deferredFullData?.loadFullData === "function"
 	);
 }
@@ -749,6 +819,7 @@ export async function loadProjectFilePackedSplatFullDataSource(source) {
 		extra: fullData?.extra ?? {},
 		splatEncoding: fullData?.splatEncoding ?? source.splatEncoding ?? null,
 		lodSplats: fullData?.lodSplats ?? source.lodSplats ?? null,
+		radBundle: fullData?.radBundle ?? null,
 		projectAssetState:
 			fullData?.projectAssetState ?? source.projectAssetState ?? null,
 		legacyState: fullData?.legacyState ?? source.legacyState ?? null,

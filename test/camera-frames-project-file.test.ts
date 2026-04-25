@@ -1246,6 +1246,155 @@ assert.equal(
 	"deferred FullData ensure must not invoke the loader again after a successful materialization",
 );
 
+const radBundleProjectSnapshot = {
+	workspace: projectSnapshot.workspace,
+	shotCameras: projectSnapshot.shotCameras,
+	scene: {
+		assets: [
+			{
+				...bakedLodProjectSnapshot.scene.assets[0],
+				id: "asset-rad-bundle",
+				label: "RAD Bundle Splat",
+				source: createProjectFilePackedSplatSource({
+					fileName: "rad-bundle.rawsplat",
+					packedArray: new Uint32Array([101, 102, 103, 104]),
+					numSplats: 1,
+					extra: {
+						sh1: new Uint32Array([105, 106]),
+					},
+					splatEncoding: {
+						rgbMin: 0,
+						rgbMax: 1,
+					},
+					radBundle: {
+						kind: "spark-rad-bundle",
+						version: 1,
+						root: {
+							name: "rad-bundle-lod-0.rad",
+							bytes: new Uint8Array([0x52, 0x41, 0x44, 0x30, 1, 2]),
+						},
+						chunks: [
+							{
+								name: "rad-bundle-lod-1.radc",
+								bytes: new Uint8Array([0x52, 0x41, 0x44, 0x43, 3, 4]),
+							},
+						],
+						sourceFingerprint: {
+							numSplats: 1,
+							packedArraySha256:
+								"5427c4a0393a3ec58718aa557f372b4c04862133ed419340c7f68daf464d2c12",
+							extraArraysSha256: {
+								sh1: "223c9173c6d8fedf244b70bbb6a074dbc93ccebb4914deff21a7058773f1866c",
+							},
+						},
+						bounds: {
+							local: {
+								min: { x: -1, y: -2, z: -3 },
+								max: { x: 1, y: 2, z: 3 },
+							},
+							center: {
+								min: { x: -0.5, y: -0.5, z: -0.5 },
+								max: { x: 0.5, y: 0.5, z: 0.5 },
+							},
+						},
+						sparkVersion: "2.0.0",
+						build: {
+							mode: "quality",
+							chunked: true,
+						},
+					},
+					skipClone: true,
+				}),
+			},
+		],
+		lighting: projectSnapshot.scene.lighting,
+		referenceImages: createDefaultReferenceImageDocument(),
+	},
+};
+
+const radBundleArchive = await buildCameraFramesProjectArchive(
+	radBundleProjectSnapshot,
+);
+const radBundleReader = await ZipReader.from(
+	new File([radBundleArchive], "rad-bundle.ssproj"),
+);
+const radBundleProjectJson = JSON.parse(
+	await radBundleReader.text(PROJECT_DOCUMENT_PATH),
+);
+const radBundleResource = radBundleProjectJson.resources["resource-1"];
+assert.equal(radBundleResource.radBundle.kind, "spark-rad-bundle");
+assert.equal(radBundleResource.radBundle.root.name, "rad-bundle-lod-0.rad");
+assert.equal(
+	radBundleResource.radBundle.chunks[0].name,
+	"rad-bundle-lod-1.radc",
+);
+assert.equal(
+	radBundleReader.entries.get(radBundleResource.radBundle.root.path)
+		?.compressionMethod,
+	0,
+	"RAD root entries must be stored so Range requests can slice the package blob",
+);
+assert.equal(
+	radBundleReader.entries.get(radBundleResource.radBundle.chunks[0].path)
+		?.compressionMethod,
+	0,
+	"RAD chunk entries must be stored so Range requests can slice the package blob",
+);
+await radBundleReader.close();
+
+const radBundleResult = await readCameraFramesProject(
+	new File([radBundleArchive], "rad-bundle-read.ssproj"),
+);
+const radBundleSource = radBundleResult.assetEntries[0].source;
+assert.equal(
+	isProjectFilePackedSplatSource(radBundleSource),
+	true,
+	"RAD-backed raw-packed splat must restore as packed-splat source",
+);
+assert.equal(
+	radBundleSource.packedArray.length,
+	0,
+	"RAD-backed open should not materialize root FullData before the FullData gate",
+);
+assert.ok(radBundleSource.radBundle?.root?.blob instanceof Blob);
+assert.equal(radBundleSource.radBundle.chunks.length, 1);
+assert.deepEqual(
+	radBundleSource.radBundle.bounds.local.min,
+	{ x: -1, y: -2, z: -3 },
+	"RAD bounds metadata must survive package round-trip",
+);
+const radBundleFullSource =
+	await materializeProjectFilePackedSplatFullData(radBundleSource);
+assert.deepEqual(
+	Array.from(radBundleFullSource.packedArray),
+	[101, 102, 103, 104],
+	"RAD-backed FullData materialization must work after the package reader has closed",
+);
+assert.equal(
+	radBundleFullSource.radBundle,
+	null,
+	"FullData materialization clears the streaming cache so edits do not reuse stale RAD",
+);
+
+const radBundleMismatchProjectSnapshot = structuredClone(
+	radBundleProjectSnapshot,
+);
+radBundleMismatchProjectSnapshot.scene.assets[0].source.radBundle.sourceFingerprint.packedArraySha256 =
+	"mismatched-packed-array";
+const radBundleMismatchArchive = await buildCameraFramesProjectArchive(
+	radBundleMismatchProjectSnapshot,
+);
+const radBundleMismatchResult = await readCameraFramesProject(
+	new File([radBundleMismatchArchive], "rad-bundle-mismatch.ssproj"),
+);
+const radBundleMismatchSource = radBundleMismatchResult.assetEntries[0].source;
+assert.deepEqual(
+	Array.from(radBundleMismatchSource.packedArray),
+	[101, 102, 103, 104],
+	"RAD sourceFingerprint mismatch must fall back to eager FullData instead of streaming",
+);
+assert.equal(radBundleMismatchSource.radBundle, null);
+
 const deferredSaveLazyResult = await openCameraFramesProjectPackage(
 	new File([bakedLodArchive], "baked-lod-deferred-save.ssproj"),
 );

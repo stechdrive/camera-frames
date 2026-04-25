@@ -10,7 +10,7 @@
 
 ## 1. 現在の baseline
 
-- app version: `0.17.15`
+- app version: `0.17.16`
 - project format: `camera-frames-project` version `3`
 - major feature set は概ね揃っている
 - 今の開発主眼は「既存機能を壊さず強くすること」
@@ -44,6 +44,8 @@
 - `Fast` package save は通常保存で、条件が揃う場合のみ advanced option として未編集 3DGS の SOG compression を選べる
 - `Quality` package save は Spark LoD を事前計算し、`raw-packed-splat` の `lodSplats` sidecar として `.ssproj` に保存する
 - baked LoD 付き `.ssproj` は load 直後から prebuilt LoD を使い、必要な時だけ root FullData を materialize する
+- `raw-packed-splat` は derived cache として `radBundle` を持てる。RAD bundle 付き `.ssproj` は Service Worker の `Range` 配信経由で Spark `PagedSplats` 表示を優先し、失敗時は FullData 読み込みに戻る
+- 現 baseline では embedded RAD の runtime / schema / fallback は入っているが、標準 Quality 保存での RAD 生成は Spark 2.0 npm に browser-side encoder が公開されるか、同等 worker を追加するまで disabled
 
 ### 2.3 Scene assets
 
@@ -52,7 +54,7 @@
 - export role と mask group を持てる
 - working pivot を持てる
 - scene asset order は保存され、export 側にも影響する
-- raw-packed splat source は optional baked LoD と deferred FullData を持てる
+- raw-packed splat source は optional baked LoD / RAD bundle / deferred FullData を持てる
 
 ### 2.4 Shot cameras
 
@@ -141,6 +143,7 @@
 - raw selection は runtime-only
 - 編集結果は persistent source に反映される
 - splat 内容変更時は baked LoD を invalidate する
+- RAD/PagedSplats は read-only streaming 表示 path として扱い、per-splat edit に入る時は FullData/PackedSplats へ切り替える
 
 ### 2.9 Export
 

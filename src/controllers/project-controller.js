@@ -1,3 +1,7 @@
+import {
+	buildSparkRadBundleFromPackedSplats,
+	supportsSparkRadBundleBuild,
+} from "../engine/rad-build-worker-client.js";
 import { prewarmSogCompressionWorker } from "../engine/sog-compress-worker-client.js";
 import {
 	bakeSparkPackedSplatsLod,
@@ -11,6 +15,7 @@ import {
 	isProjectFileEmbeddedFileSource,
 	isProjectFilePackedSplatSource,
 	normalizeProjectDocument,
+	sha256Hex,
 } from "../project/document.js";
 import {
 	getDefaultProjectFilename,
@@ -71,6 +76,8 @@ export function createProjectController({
 	t,
 	prewarmSogCompressionWorkerImpl = prewarmSogCompressionWorker,
 	supportsSogCompressionImpl = supportsSogCompression,
+	supportsSparkRadBundleBuildImpl = supportsSparkRadBundleBuild,
+	buildSparkRadBundleFromPackedSplatsImpl = buildSparkRadBundleFromPackedSplats,
 }) {
 	let projectFileHandle = null;
 	let currentProjectId = "";
@@ -695,6 +702,164 @@ export function createProjectController({
 		return true;
 	}
 
+	function toUint8ArrayView(value) {
+		if (value instanceof Uint8Array) {
+			return value;
+		}
+		if (ArrayBuffer.isView(value)) {
+			return new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+		}
+		return new Uint8Array();
+	}
+
+	async function hashBinaryView(value) {
+		const bytes = toUint8ArrayView(value);
+		return bytes.byteLength > 0 ? await sha256Hex(bytes) : null;
+	}
+
+	async function buildPackedSplatSourceFingerprint(packedSplats) {
+		const extraArrayHashes = {};
+		for (const [key, value] of Object.entries(packedSplats?.extra ?? {})) {
+			if (key === "radMeta") {
+				continue;
+			}
+			const hash = await hashBinaryView(value);
+			if (hash) {
+				extraArrayHashes[key] = hash;
+			}
+		}
+		return {
+			numSplats: packedSplats?.getNumSplats?.() ?? packedSplats?.numSplats ?? 0,
+			packedArraySha256: await hashBinaryView(packedSplats?.packedArray),
+			extraArraysSha256: extraArrayHashes,
+		};
+	}
+
+	function serializeBox3(box) {
+		if (!box?.isBox3 || box.isEmpty?.()) {
+			return null;
+		}
+		return {
+			min: { x: box.min.x, y: box.min.y, z: box.min.z },
+			max: { x: box.max.x, y: box.max.y, z: box.max.z },
+		};
+	}
+
+	function normalizeRadBundleChunk(entry, index) {
+		const bytes = toUint8ArrayView(entry?.bytes ?? entry?.data);
+		const blob = entry?.blob instanceof Blob ? entry.blob : null;
+		if (bytes.byteLength === 0 && !blob) {
+			return null;
+		}
+		return {
+			name: String(entry?.name || `lod-${index + 1}.radc`),
+			bytes: bytes.byteLength > 0 ? bytes : undefined,
+			blob: blob ?? undefined,
+			size:
+				Number.isFinite(entry?.size) && entry.size >= 0
+					? Math.floor(entry.size)
+					: bytes.byteLength || blob?.size || 0,
+			sha256: typeof entry?.sha256 === "string" ? entry.sha256 : null,
+		};
+	}
+
+	async function attachRadBundleToAssetSource(
+		asset,
+		radBuildResult,
+		{ quality = false } = {},
+	) {
+		if (!asset || !isProjectFilePackedSplatSource(asset.source)) {
+			return false;
+		}
+		const rootBytes = toUint8ArrayView(
+			radBuildResult?.rootBytes ?? radBuildResult?.root?.bytes,
+		);
+		const rootBlob =
+			radBuildResult?.root?.blob instanceof Blob
+				? radBuildResult.root.blob
+				: null;
+		if (rootBytes.byteLength === 0 && !rootBlob) {
+			return false;
+		}
+		const metadata = radBuildResult?.metadata ?? {};
+		const chunks = (radBuildResult?.chunks ?? [])
+			.map(normalizeRadBundleChunk)
+			.filter(Boolean);
+		const sourceFingerprint =
+			metadata.sourceFingerprint ??
+			(await buildPackedSplatSourceFingerprint(
+				asset.disposeTarget?.packedSplats,
+			));
+		const radBundle = {
+			kind: "spark-rad-bundle",
+			version: 1,
+			root: {
+				name: String(
+					radBuildResult?.root?.name ||
+						metadata.rootName ||
+						`${asset.source.fileName}.lod.rad`,
+				),
+				bytes: rootBytes.byteLength > 0 ? rootBytes : undefined,
+				blob: rootBlob ?? undefined,
+				size:
+					Number.isFinite(radBuildResult?.root?.size) &&
+					radBuildResult.root.size >= 0
+						? Math.floor(radBuildResult.root.size)
+						: rootBytes.byteLength || rootBlob?.size || 0,
+				sha256:
+					typeof radBuildResult?.root?.sha256 === "string"
+						? radBuildResult.root.sha256
+						: null,
+			},
+			chunks,
+			sourceFingerprint,
+			bounds: metadata.bounds ?? {
+				local: serializeBox3(asset.localBoundsHint),
+				center: serializeBox3(asset.localCenterBoundsHint),
+			},
+			sparkVersion:
+				typeof metadata.sparkVersion === "string"
+					? metadata.sparkVersion
+					: "2.0.0",
+			build: {
+				...(metadata.build && typeof metadata.build === "object"
+					? metadata.build
+					: {}),
+				mode: "quality",
+				chunked: chunks.length > 0,
+				quality: Boolean(quality),
+			},
+		};
+		asset.source = createProjectFilePackedSplatSource({
+			...asset.source,
+			radBundle,
+			skipClone: true,
+		});
+		return true;
+	}
+
+	async function buildRadBundleForPackageSave(asset, { quality = false } = {}) {
+		if (!supportsSparkRadBundleBuildImpl()) {
+			return false;
+		}
+		const packedSplats = asset?.disposeTarget?.packedSplats;
+		if (!packedSplats || !isProjectFilePackedSplatSource(asset?.source)) {
+			return false;
+		}
+		const result = await buildSparkRadBundleFromPackedSplatsImpl({
+			packedArray: packedSplats.packedArray ?? new Uint32Array(),
+			extraArrays: packedSplats.extra ?? {},
+			splatEncoding: packedSplats.splatEncoding ?? null,
+			numSplats: packedSplats.getNumSplats?.() ?? packedSplats.numSplats ?? 0,
+			bounds: {
+				local: serializeBox3(asset.localBoundsHint),
+				center: serializeBox3(asset.localCenterBoundsHint),
+			},
+			quality: Boolean(quality),
+		});
+		return await attachRadBundleToAssetSource(asset, result, { quality });
+	}
+
 	async function bakeAllSplatLodsForPackageSave({
 		quality = false,
 		startedAt = Date.now(),
@@ -715,7 +880,8 @@ export function createProjectController({
 			// default-null path in createProjectFilePackedSplatSource).
 			if (
 				existingQuality === bakedQuality &&
-				asset.source?.lodSplats?.packedArray?.length
+				asset.source?.lodSplats?.packedArray?.length &&
+				(!supportsSparkRadBundleBuildImpl() || asset.source?.radBundle?.root)
 			) {
 				continue;
 			}
@@ -744,6 +910,7 @@ export function createProjectController({
 					bakedQuality,
 				});
 			}
+			await buildRadBundleForPackageSave(asset, { quality });
 		}
 	}
 

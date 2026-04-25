@@ -31,7 +31,9 @@ function getResourceFileCount(resource) {
 			1 +
 			(resource.extraArrays?.length ?? 0) +
 			(resource.lodSplats?.packedArray?.path ? 1 : 0) +
-			(resource.lodSplats?.extraArrays?.length ?? 0)
+			(resource.lodSplats?.extraArrays?.length ?? 0) +
+			(resource.radBundle?.root?.path ? 1 : 0) +
+			(resource.radBundle?.chunks?.length ?? 0)
 		);
 	}
 	return 1;
@@ -70,6 +72,34 @@ async function readRawPackedSplatFullData(reader, resource) {
 	};
 }
 
+async function captureRawPackedSplatFullDataBlobs(reader, resource) {
+	const [packedArrayBlob, ...extraBlobs] = await Promise.all([
+		reader.blob(resource.packedArray?.path),
+		...(resource.extraArrays ?? []).map((ea) => reader.blob(ea.path)),
+	]);
+	return {
+		async read() {
+			const [packedArrayBytes, ...extraBytesArray] = await Promise.all([
+				packedArrayBlob.arrayBuffer(),
+				...extraBlobs.map((blob) => blob.arrayBuffer()),
+			]);
+			const extra = {};
+			for (const [i, extraArray] of (resource.extraArrays ?? []).entries()) {
+				extra[extraArray.name] = toUint32Array(extraBytesArray[i]);
+			}
+			if (resource.radMeta) {
+				extra.radMeta = JSON.parse(JSON.stringify(resource.radMeta));
+			}
+			return {
+				packedArray: toUint32Array(packedArrayBytes),
+				numSplats: resource.numSplats ?? 0,
+				extra,
+				splatEncoding: resource.splatEncoding ?? null,
+			};
+		},
+	};
+}
+
 async function readRawPackedSplatLodBundle(reader, lodResource) {
 	if (!lodResource?.packedArray?.path) {
 		return null;
@@ -89,6 +119,117 @@ async function readRawPackedSplatLodBundle(reader, lodResource) {
 		splatEncoding: lodResource.splatEncoding ?? null,
 		bakedAt: lodResource.bakedAt ?? null,
 		bakedQuality: lodResource.bakedQuality ?? null,
+	};
+}
+
+async function captureRawPackedSplatLodBundleBlobs(reader, lodResource) {
+	if (!lodResource?.packedArray?.path) {
+		return null;
+	}
+	const [packedArrayBlob, ...extraBlobs] = await Promise.all([
+		reader.blob(lodResource.packedArray.path),
+		...(lodResource.extraArrays ?? []).map((ea) => reader.blob(ea.path)),
+	]);
+	return {
+		async read() {
+			const [lodPackedBytes, ...lodExtraBytesArray] = await Promise.all([
+				packedArrayBlob.arrayBuffer(),
+				...extraBlobs.map((blob) => blob.arrayBuffer()),
+			]);
+			const lodExtra = {};
+			for (const [i, ea] of (lodResource.extraArrays ?? []).entries()) {
+				lodExtra[ea.name] = toUint32Array(lodExtraBytesArray[i]);
+			}
+			return {
+				packedArray: toUint32Array(lodPackedBytes),
+				numSplats: lodResource.numSplats ?? 0,
+				extra: lodExtra,
+				splatEncoding: lodResource.splatEncoding ?? null,
+				bakedAt: lodResource.bakedAt ?? null,
+				bakedQuality: lodResource.bakedQuality ?? null,
+			};
+		},
+	};
+}
+
+function isRawPackedSplatRadBundleFingerprintCompatible(
+	resource,
+	radBundleResource,
+) {
+	const fingerprint = radBundleResource?.sourceFingerprint;
+	if (!fingerprint || typeof fingerprint !== "object") {
+		return true;
+	}
+	if (
+		Number.isFinite(fingerprint.numSplats) &&
+		Math.floor(fingerprint.numSplats) !== Math.floor(resource.numSplats ?? 0)
+	) {
+		return false;
+	}
+	if (
+		typeof fingerprint.packedArraySha256 === "string" &&
+		typeof resource.packedArray?.sha256 === "string" &&
+		fingerprint.packedArraySha256 !== resource.packedArray.sha256
+	) {
+		return false;
+	}
+	const extraHashes = fingerprint.extraArraysSha256;
+	if (extraHashes && typeof extraHashes === "object") {
+		const resourceExtras = new Map(
+			(resource.extraArrays ?? []).map((entry) => [entry.name, entry.sha256]),
+		);
+		for (const [name, sha256] of Object.entries(extraHashes)) {
+			if (
+				typeof sha256 === "string" &&
+				resourceExtras.has(name) &&
+				resourceExtras.get(name) !== sha256
+			) {
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
+async function readRawPackedSplatRadBundle(reader, radBundleResource) {
+	if (!radBundleResource?.root?.path) {
+		return null;
+	}
+	const rootEntry = reader.getEntry(radBundleResource.root.path);
+	const rootBlob = await reader.getStoredEntryBlob(
+		radBundleResource.root.path,
+		rootEntry,
+	);
+	if (!rootBlob) {
+		return null;
+	}
+	const chunks = [];
+	for (const entry of radBundleResource.chunks ?? []) {
+		if (!entry?.path) {
+			continue;
+		}
+		const zipEntry = reader.getEntry(entry.path);
+		const blob = await reader.getStoredEntryBlob(entry.path, zipEntry);
+		if (!blob) {
+			return null;
+		}
+		chunks.push({
+			...entry,
+			blob,
+		});
+	}
+	return {
+		kind: "spark-rad-bundle",
+		version: radBundleResource.version ?? 1,
+		root: {
+			...radBundleResource.root,
+			blob: rootBlob,
+		},
+		chunks,
+		sourceFingerprint: radBundleResource.sourceFingerprint ?? null,
+		bounds: radBundleResource.bounds ?? null,
+		sparkVersion: radBundleResource.sparkVersion ?? null,
+		build: radBundleResource.build ?? null,
 	};
 }
 
@@ -156,6 +297,55 @@ export async function materializeProjectAssetResource({
 
 	if (resource.type === PROJECT_RESOURCE_RAW_PACKED_SPLAT) {
 		await notifyAssetProgress("extract-project-asset-raw-splat");
+		const radBundle = isRawPackedSplatRadBundleFingerprintCompatible(
+			resource,
+			resource.radBundle,
+		)
+			? await readRawPackedSplatRadBundle(reader, resource.radBundle)
+			: null;
+		if (radBundle) {
+			const fullDataBlobs = await captureRawPackedSplatFullDataBlobs(
+				reader,
+				resource,
+			);
+			const lodBundleBlobs = await captureRawPackedSplatLodBundleBlobs(
+				reader,
+				resource.lodSplats,
+			);
+			await notifyAssetProgress("extract-project-asset-complete");
+			return createProjectFilePackedSplatSource({
+				fileName: resource.originalName,
+				packedArray: new Uint32Array(),
+				numSplats: resource.numSplats ?? 0,
+				extra: resource.radMeta ? { radMeta: resource.radMeta } : {},
+				splatEncoding: resource.splatEncoding ?? null,
+				lodSplats: null,
+				radBundle,
+				projectAssetState: asset,
+				legacyState: asset.legacyState ?? null,
+				resource: cloneRawPackedSplatResource(resource),
+				deferredFullData: {
+					loadFullData: async () => {
+						const [fullData, lodSplats] = await Promise.all([
+							fullDataBlobs.read(),
+							lodBundleBlobs?.read?.() ?? null,
+						]);
+						return {
+							fileName: resource.originalName,
+							packedArray: fullData.packedArray,
+							numSplats: fullData.numSplats,
+							extra: fullData.extra,
+							splatEncoding: fullData.splatEncoding,
+							lodSplats,
+							projectAssetState: asset,
+							legacyState: asset.legacyState ?? null,
+							resource: cloneRawPackedSplatResource(resource),
+						};
+					},
+				},
+				skipClone: true,
+			});
+		}
 		const lodSplats = await readRawPackedSplatLodBundle(
 			reader,
 			resource.lodSplats,

@@ -59,6 +59,7 @@ function shouldIncludeCodeStampFile(relativePath) {
 		relativePath === "app.css" ||
 		relativePath === "index.html" ||
 		relativePath === "package.json" ||
+		relativePath === "public/camera-frames-rad-bundle-sw.js" ||
 		relativePath.startsWith("src/")
 	);
 }

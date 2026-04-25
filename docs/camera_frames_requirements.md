@@ -23,7 +23,7 @@ CAMERA_FRAMES の共有 contract を Git 管理するための基点です。
 
 ## 1. 現在の基準
 
-- app version は `0.17.15`
+- app version は `0.17.16`
 - Spark dependency baseline は npm 公開版 `@sparkjsdev/spark@2.0.0`
 - portable project format は `camera-frames-project` version `3`
 - この repo は「新機能を大量に増やす段階」より、「既存 contract を壊さず hardening する段階」に入っている
@@ -117,6 +117,12 @@ CAMERA_FRAMES の共有 contract を Git 管理するための基点です。
 - baked LoD 付き `.ssproj` でも runtime render / edit 用には root FullData が正本であり、LoD preview bundle だけを asset 本体として扱わない
 - LoD-first に lazy materialize した raw-packed splat source は、編集 / package save / FullData gate が必要になった時に root `packedArray` / `extra` を materialize する
 - splat 内容を変える per-splat edit / transform は existing baked LoD を invalidate する。現在 session の表示最適化は splat edit toolbar の `LoD 最適化`、次回 load 用の永続化は package `Quality` save で行う
+- `raw-packed-splat` resource は optional derived cache として `radBundle` を持てる
+  - `kind: "spark-rad-bundle"` / `version: 1` / `root` / `chunks[]` / `sourceFingerprint` / `bounds` / `sparkVersion` / `build` を持つ
+  - RAD root / chunk entries は `.ssproj` ZIP 内で stored/uncompressed として保存し、stored entry Blob を Service Worker から `Range` 対応 URL として配信する
+  - `.ssproj` open は valid な `radBundle` があれば Spark `PagedSplats` + `SplatMesh({ paged })` を優先し、stored entry 条件 / source fingerprint / Service Worker / Range / RAD decode の失敗時は root FullData path に fallback する
+  - FullData が正本であり、RAD bundle は高速表示用 cache として扱う。per-splat edit / FullData gate に入ると FullData/PackedSplats へ swap し、runtime 上の RAD cache は stale として外す
+  - Quality save 経路には RAD build worker hook を持つが、現 baseline の `@sparkjsdev/spark@2.0.0` npm package は browser-side RAD encoder を公開していないため、標準配布では RAD 生成はまだ有効化しない
 
 ## 6. Scene / Camera / Reference Image の契約
 

@@ -13,6 +13,8 @@ export {
 	PointerControls,
 	SparkRenderer,
 	SplatMesh,
+	PagedSplats,
+	SplatFileType,
 	flipPixels,
 	PackedSplats,
 	unpackSplats,

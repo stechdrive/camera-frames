@@ -333,6 +333,95 @@ async function serializeRawPackedSplatLodBundle(
 	};
 }
 
+async function readRadBundleEntryBytes(entry) {
+	if (!entry || typeof entry !== "object") {
+		return null;
+	}
+	if (entry.bytes instanceof Uint8Array) {
+		return entry.bytes;
+	}
+	if (entry.blob instanceof Blob) {
+		return new Uint8Array(await entry.blob.arrayBuffer());
+	}
+	return null;
+}
+
+async function serializeRawPackedSplatRadBundle(
+	radBundle,
+	originalName,
+	archiveEntries,
+	archiveEntryLabels,
+) {
+	if (!radBundle?.root) {
+		return null;
+	}
+	const rootBytes = await readRadBundleEntryBytes(radBundle.root);
+	if (!rootBytes || rootBytes.byteLength === 0) {
+		return null;
+	}
+	const rootName = normalizeProjectFileName(
+		radBundle.root.name,
+		`${originalName}.lod.rad`,
+	);
+	const rootHash = await sha256Hex(rootBytes);
+	const rootPath = buildProjectResourcePath(rootHash, rootName);
+	archiveEntries[rootPath] = rootBytes;
+	archiveEntryLabels[rootPath] = `${originalName} RAD root`;
+
+	const chunks = [];
+	for (const [index, entry] of (radBundle.chunks ?? []).entries()) {
+		const bytes = await readRadBundleEntryBytes(entry);
+		if (!bytes || bytes.byteLength === 0) {
+			continue;
+		}
+		const entryName = normalizeProjectFileName(
+			entry.name,
+			`${originalName}.lod-${index + 1}.radc`,
+		);
+		const hash = await sha256Hex(bytes);
+		const path = buildProjectResourcePath(hash, entryName);
+		archiveEntries[path] = bytes;
+		archiveEntryLabels[path] = `${originalName} RAD chunk ${index + 1}`;
+		chunks.push({
+			name: entryName,
+			path,
+			sha256: hash,
+			size: bytes.byteLength,
+		});
+	}
+
+	return {
+		kind: "spark-rad-bundle",
+		version: Number.isFinite(radBundle.version)
+			? Math.max(1, Math.floor(radBundle.version))
+			: 1,
+		root: {
+			name: rootName,
+			path: rootPath,
+			sha256: rootHash,
+			size: rootBytes.byteLength,
+		},
+		chunks,
+		sourceFingerprint:
+			radBundle.sourceFingerprint &&
+			typeof radBundle.sourceFingerprint === "object"
+				? JSON.parse(JSON.stringify(radBundle.sourceFingerprint))
+				: null,
+		bounds:
+			radBundle.bounds && typeof radBundle.bounds === "object"
+				? JSON.parse(JSON.stringify(radBundle.bounds))
+				: null,
+		sparkVersion:
+			typeof radBundle.sparkVersion === "string"
+				? radBundle.sparkVersion
+				: null,
+		build:
+			radBundle.build && typeof radBundle.build === "object"
+				? JSON.parse(JSON.stringify(radBundle.build))
+				: null,
+	};
+}
+
 async function serializeRawPackedSplatProjectSource(
 	source,
 	{ onProgress = null, progress = null } = {},
@@ -389,6 +478,12 @@ async function serializeRawPackedSplatProjectSource(
 		archiveEntries,
 		archiveEntryLabels,
 	);
+	const radBundleResource = await serializeRawPackedSplatRadBundle(
+		source.radBundle,
+		originalName,
+		archiveEntries,
+		archiveEntryLabels,
+	);
 	const resource = cloneRawPackedSplatResource({
 		type: "raw-packed-splat",
 		assetKind: "splat",
@@ -399,6 +494,7 @@ async function serializeRawPackedSplatProjectSource(
 		extraArrays,
 		radMeta: source.extra?.radMeta ?? null,
 		lodSplats: lodSplatsResource,
+		radBundle: radBundleResource,
 	});
 	source.resource = resource;
 	return {
@@ -455,15 +551,10 @@ export async function serializeProjectAssetSource(
 	}
 
 	if (isProjectFileEmbeddedFileSource(source)) {
-		return await serializeEmbeddedProjectSource(
-			source,
-			asset.kind,
-			index,
-			{
-				onProgress,
-				progress,
-			},
-		);
+		return await serializeEmbeddedProjectSource(source, asset.kind, index, {
+			onProgress,
+			progress,
+		});
 	}
 
 	if (isProjectFilePackedSplatSource(source)) {

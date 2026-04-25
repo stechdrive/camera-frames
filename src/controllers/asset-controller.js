@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { AUTO_LOD_MIN_SPLATS } from "../constants.js";
+import { registerProjectRadBundle } from "../engine/rad-bundle-service-worker-client.js";
 import { prioritizeSceneAssetsWithinKinds } from "../engine/scene-asset-order.js";
 import {
 	bakeSparkPackedSplatsLod,
@@ -8,6 +9,8 @@ import {
 import { enableSparkSplatMeshWorldToView } from "../engine/spark-integration/spark-splat-mesh-adapter.js";
 import {
 	PackedSplats,
+	PagedSplats,
+	SplatFileType,
 	unpackSplats,
 } from "../engine/spark-integration/spark-symbols.js";
 import { applyLegacyAssetState } from "../importers/legacy-ssproj.js";
@@ -555,6 +558,45 @@ export function createAssetController({
 		return asset;
 	}
 
+	function createBox3FromSerializable(value) {
+		if (!value || typeof value !== "object") {
+			return null;
+		}
+		const min = value.min ?? value[0] ?? null;
+		const max = value.max ?? value[1] ?? null;
+		const box = new THREE.Box3(
+			new THREE.Vector3(
+				Number(min?.x ?? min?.[0] ?? 0),
+				Number(min?.y ?? min?.[1] ?? 0),
+				Number(min?.z ?? min?.[2] ?? 0),
+			),
+			new THREE.Vector3(
+				Number(max?.x ?? max?.[0] ?? 0),
+				Number(max?.y ?? max?.[1] ?? 0),
+				Number(max?.z ?? max?.[2] ?? 0),
+			),
+		);
+		return box.isEmpty() ? null : box;
+	}
+
+	function getRadBundleLocalBounds(radBundle, key) {
+		return (
+			createBox3FromSerializable(radBundle?.bounds?.[key]) ??
+			createBox3FromSerializable(radBundle?.bounds)
+		);
+	}
+
+	function attachRadBundleRuntimeCleanup(mesh, runtime) {
+		if (!mesh || !runtime) {
+			return;
+		}
+		const dispose = mesh.dispose?.bind(mesh);
+		mesh.dispose = () => {
+			runtime.unregister?.();
+			dispose?.();
+		};
+	}
+
 	function updateBackgroundTaskSignal(mutation) {
 		const current = store.backgroundTask?.value ?? null;
 		const next = mutation(current);
@@ -824,7 +866,83 @@ export function createAssetController({
 			return asset;
 		};
 
+		const createPagedRadSplatAsset = async (source) => {
+			const radBundle = source?.radBundle ?? null;
+			if (!radBundle?.root) {
+				return null;
+			}
+			reportSplatLoadStage(onProgress, "decode-source", {
+				sourceKind: "rad-bundle",
+			});
+			const runtime = await registerProjectRadBundle(radBundle);
+			if (!runtime?.rootUrl) {
+				return null;
+			}
+			try {
+				reportSplatLoadStage(onProgress, "init-packed-splats", {
+					sourceKind: "rad-bundle",
+				});
+				const pagedSplats = new PagedSplats({
+					rootUrl: runtime.rootUrl,
+					fileType: SplatFileType.RAD,
+				});
+				await pagedSplats.getRadMeta?.();
+				reportSplatLoadStage(onProgress, "build-bounds");
+				const localBoundsHint = getRadBundleLocalBounds(radBundle, "local");
+				const localCenterBoundsHint =
+					getRadBundleLocalBounds(radBundle, "center") ?? localBoundsHint;
+				reportSplatLoadStage(onProgress, "init-splat-mesh");
+				const mesh = new SplatMesh({
+					paged: pagedSplats,
+					fileName: source.fileName,
+					lod: true,
+				});
+				attachRadBundleRuntimeCleanup(mesh, runtime);
+				enableSparkSplatMeshWorldToView(mesh);
+				await mesh.initialized;
+				reportSplatLoadStage(onProgress, "register-scene");
+				const asset = createSplatContainer({
+					mesh,
+					displayName,
+					source,
+					persistentSource: source,
+					legacyState,
+					projectAssetState,
+					localBoundsHint,
+					localCenterBoundsHint,
+				});
+				asset.radBundleRuntime = runtime;
+				if (Number.isFinite(insertIndex)) {
+					moveRegisteredAssetToIndex(asset, insertIndex);
+				}
+				return asset;
+			} catch (error) {
+				await runtime.unregister?.();
+				throw error;
+			}
+		};
+
 		if (isProjectFilePackedSplatSource(source)) {
+			if (source.radBundle?.root) {
+				try {
+					const radAsset = await createPagedRadSplatAsset(source);
+					if (radAsset) {
+						return radAsset;
+					}
+				} catch (error) {
+					console.warn(
+						`[camera-frames] embedded RAD streaming failed for "${displayName}", falling back to FullData.`,
+						error,
+					);
+					reportSplatLoadStage(onProgress, "materialize", {
+						sourceKind: "raw-packed-splat",
+					});
+					return await loadSplatAssetFromSource(
+						await materializeProjectFilePackedSplatFullData(source),
+						{ insertIndex, onProgress },
+					);
+				}
+			}
 			if (hasProjectFilePackedSplatDeferredFullData(source)) {
 				reportSplatLoadStage(onProgress, "materialize", {
 					sourceKind: "raw-packed-splat",
@@ -946,18 +1064,26 @@ export function createAssetController({
 			lodSplats: fullSource.lodSplats,
 		});
 		const previousPackedSplats = mesh.packedSplats;
+		const previousPagedSplats = mesh.paged;
 		try {
+			mesh.paged = undefined;
 			mesh.packedSplats = nextPackedSplats;
 			refreshSparkPackedSplatMesh(mesh, nextPackedSplats, {
 				updateVersion: typeof mesh.updateVersion === "function",
 			});
 		} catch (error) {
 			mesh.packedSplats = previousPackedSplats;
+			mesh.paged = previousPagedSplats;
 			nextPackedSplats.dispose?.();
 			throw error;
 		}
 		if (previousPackedSplats && previousPackedSplats !== nextPackedSplats) {
 			previousPackedSplats.dispose?.();
+		}
+		if (previousPagedSplats && previousPagedSplats !== nextPackedSplats) {
+			previousPagedSplats.dispose?.();
+			await asset.radBundleRuntime?.unregister?.();
+			asset.radBundleRuntime = null;
 		}
 		asset.source = fullSource;
 		asset.persistentSourceDirty = false;

@@ -193,7 +193,9 @@ function countSerializedSourceEntries(source) {
 				Object.keys(source.extra ?? {}).filter((key) => key !== "radMeta")
 					.length +
 				(source.lodSplats?.packedArray?.length ? 1 : 0) +
-				Object.keys(source.lodSplats?.extra ?? {}).length
+				Object.keys(source.lodSplats?.extra ?? {}).length +
+				(source.radBundle?.root ? 1 : 0) +
+				(source.radBundle?.chunks?.length ?? 0)
 			);
 		}
 		return 1 + Object.keys(source.extraFiles ?? {}).length;

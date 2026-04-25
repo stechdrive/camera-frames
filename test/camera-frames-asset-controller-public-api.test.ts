@@ -143,9 +143,8 @@ function createAssetControllerForPublicApiTest() {
 		},
 		skipClone: true,
 	});
-	const createdAsset = await harness.controller.createSplatAssetFromSource(
-		source,
-	);
+	const createdAsset =
+		await harness.controller.createSplatAssetFromSource(source);
 
 	assert.equal(
 		fullDataLoads,
@@ -173,6 +172,63 @@ function createAssetControllerForPublicApiTest() {
 		[9, 9, 9, 9],
 		"FullData ensure should keep the baked LoD bundle on the persistent source",
 	);
+}
+
+{
+	const harness = createAssetControllerForPublicApiTest();
+	let fullDataLoads = 0;
+	const source = createProjectFilePackedSplatSource({
+		fileName: "rad-backed.rawsplat",
+		packedArray: new Uint32Array(),
+		numSplats: 1,
+		radBundle: {
+			kind: "spark-rad-bundle",
+			version: 1,
+			root: {
+				name: "rad-backed-lod-0.rad",
+				blob: new Blob([new Uint8Array([0x52, 0x41, 0x44, 0x30])]),
+			},
+			chunks: [],
+		},
+		deferredFullData: {
+			async loadFullData() {
+				fullDataLoads += 1;
+				return {
+					packedArray: new Uint32Array([201, 202, 203, 204]),
+					numSplats: 1,
+					extra: {},
+					splatEncoding: null,
+					lodSplats: null,
+				};
+			},
+		},
+		skipClone: true,
+	});
+	const originalWarn = console.warn;
+	const warnings = [];
+	console.warn = (...args) => warnings.push(args);
+	let createdAsset = null;
+	try {
+		createdAsset = await harness.controller.createSplatAssetFromSource(source);
+	} finally {
+		console.warn = originalWarn;
+	}
+
+	assert.equal(
+		fullDataLoads,
+		1,
+		"RAD-backed assets must fall back to FullData when Service Worker streaming is unavailable",
+	);
+	assert.deepEqual(
+		Array.from(createdAsset.disposeTarget.packedSplats.packedArray),
+		[201, 202, 203, 204],
+	);
+	assert.equal(
+		createdAsset.source.radBundle,
+		null,
+		"fallback FullData source must not keep the stale RAD bundle",
+	);
+	assert.equal(warnings.length, 1);
 }
 
 console.log("✅ CAMERA_FRAMES asset controller public API tests passed!");

@@ -159,6 +159,64 @@ function cloneRawPackedSplatLodResource(lodResource) {
 	};
 }
 
+function cloneRawPackedSplatRadBundleEntry(entry) {
+	if (!entry || typeof entry !== "object") {
+		return null;
+	}
+	const path = typeof entry.path === "string" && entry.path ? entry.path : null;
+	const sha256 =
+		typeof entry.sha256 === "string" && entry.sha256 ? entry.sha256 : null;
+	if (!path || !sha256) {
+		return null;
+	}
+	return {
+		name:
+			typeof entry.name === "string" && entry.name
+				? entry.name
+				: normalizeProjectFileName(path.split(/[\\/]/).pop(), "asset.rad"),
+		path,
+		sha256,
+		size: Number(entry.size ?? 0),
+	};
+}
+
+function cloneRawPackedSplatRadBundleResource(radBundle) {
+	if (!radBundle || typeof radBundle !== "object") {
+		return null;
+	}
+	const root = cloneRawPackedSplatRadBundleEntry(radBundle.root);
+	if (!root) {
+		return null;
+	}
+	return {
+		kind: "spark-rad-bundle",
+		version: Number.isFinite(radBundle.version)
+			? Math.max(1, Math.floor(radBundle.version))
+			: 1,
+		root,
+		chunks: (radBundle.chunks ?? [])
+			.map(cloneRawPackedSplatRadBundleEntry)
+			.filter(Boolean),
+		sourceFingerprint:
+			radBundle.sourceFingerprint &&
+			typeof radBundle.sourceFingerprint === "object"
+				? JSON.parse(JSON.stringify(radBundle.sourceFingerprint))
+				: null,
+		bounds:
+			radBundle.bounds && typeof radBundle.bounds === "object"
+				? JSON.parse(JSON.stringify(radBundle.bounds))
+				: null,
+		sparkVersion:
+			typeof radBundle.sparkVersion === "string"
+				? radBundle.sparkVersion
+				: null,
+		build:
+			radBundle.build && typeof radBundle.build === "object"
+				? JSON.parse(JSON.stringify(radBundle.build))
+				: null,
+	};
+}
+
 export function cloneRawPackedSplatResource(resource) {
 	return {
 		type: PROJECT_RESOURCE_RAW_PACKED_SPLAT,
@@ -185,6 +243,7 @@ export function cloneRawPackedSplatResource(resource) {
 				? JSON.parse(JSON.stringify(resource.radMeta))
 				: null,
 		lodSplats: cloneRawPackedSplatLodResource(resource.lodSplats),
+		radBundle: cloneRawPackedSplatRadBundleResource(resource.radBundle),
 	};
 }
 
@@ -240,6 +299,14 @@ export function getProjectArchiveEntryCompressionLevel(
 		) {
 			return 0;
 		}
+		if (resource.radBundle?.root?.path === path) {
+			return 0;
+		}
+		if (
+			(resource.radBundle?.chunks ?? []).some((entry) => entry.path === path)
+		) {
+			return 0;
+		}
 	}
 	return defaultLevel;
 }
@@ -268,6 +335,10 @@ export function buildProjectArchiveEntryCompressionLevels(
 			}
 			paths.push(resource.lodSplats?.packedArray?.path);
 			for (const entry of resource.lodSplats?.extraArrays ?? []) {
+				paths.push(entry.path);
+			}
+			paths.push(resource.radBundle?.root?.path);
+			for (const entry of resource.radBundle?.chunks ?? []) {
 				paths.push(entry.path);
 			}
 		}
