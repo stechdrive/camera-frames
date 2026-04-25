@@ -87,6 +87,9 @@ CAMERA_FRAMES の共有 contract を Git 管理するための基点です。
 - `Ctrl+Shift+S`
   - portable `.ssproj` package save
 - `.ssproj` を開いた時は `projectId + packageRevision + packageFingerprint` が一致する working save があれば自動復元する
+- current `.ssproj` open は manifest / project document / resource metadata を先に読み、scene asset bytes と reference image bytes は必要になるまで materialize しない
+- `.ssproj` 由来の scene asset load は package reader を開いたまま concurrency 1 で順に materialize / load する
+- compatible working save restore が確定している `.ssproj` open では、package 側の state apply と reference image bytes materialization を skip する
 - project status の UI 表示は viewport 右上 HUD の `name / * / PKG`
   - `*` は working save dirty
   - `PKG` は portable package dirty
@@ -105,6 +108,15 @@ CAMERA_FRAMES の共有 contract を Git 管理するための基点です。
   - lighting
   - reference image assets / presets / per-shot binding
   - project identity (`projectId`, `packageRevision`, `resources`)
+- package save dialog の top-level 保存モードは `Fast` / `Quality`
+  - `Fast` は通常の package save。未編集 PLY / SPZ があり WebGPU + worker が使える場合だけ、advanced option として SOG compression を選べる
+  - `Quality` は package snapshot capture 前に必要な splat asset へ Spark `PackedSplats.createLodSplats({ quality: true })` を実行し、baked LoD を `.ssproj` に含める
+  - SOG compression と Quality LoD bake は同時に使わない
+- baked LoD は `raw-packed-splat` resource の optional `lodSplats` sidecar として保存する
+- baked LoD を持つ `.ssproj` は load 時に prebuilt LoD を runtime に attach し、auto-LoD を待たずに使う
+- baked LoD 付き `.ssproj` でも runtime render / edit 用には root FullData が正本であり、LoD preview bundle だけを asset 本体として扱わない
+- LoD-first に lazy materialize した raw-packed splat source は、編集 / package save / FullData gate が必要になった時に root `packedArray` / `extra` を materialize する
+- splat 内容を変える per-splat edit / transform は existing baked LoD を invalidate する。現在 session の表示最適化は splat edit toolbar の `LoD 最適化`、次回 load 用の永続化は package `Quality` save で行う
 
 ## 6. Scene / Camera / Reference Image の契約
 
@@ -461,6 +473,9 @@ PSD layer 順の詳細契約:
   - `test/camera-frames-project-controller.test.ts`
   - `test/camera-frames-project-file.test.ts`
   - `test/camera-frames-project-document.test.ts`
+  - `test/camera-frames-project-open-apply.test.ts`
+  - `test/camera-frames-ssproj-snapshot.test.ts`
+  - `test/camera-frames-asset-controller-public-api.test.ts`
 - projection / output frame / frame:
   - `test/camera-frames-projection.test.ts`
   - `test/camera-frames-output-frame-controller.test.ts`

@@ -23,6 +23,8 @@
 - drag and drop でも同じ import routing を使う
 - remote URL 欄から scene asset URL を読み込める
 - startup `?load=` による確認付き remote import がある
+- current `.ssproj` は resource metadata を先に読み、scene asset / reference image bytes は必要時に lazy materialize する
+- compatible working save restore がある `.ssproj` では、package state apply と不要な reference image bytes 展開を skip する
 - legacy `document.json` ベース `.ssproj` を fallback import できる
 
 対応形式:
@@ -35,10 +37,13 @@
 
 - new project
 - working save
-- portable `.ssproj` save
+- portable `.ssproj` save (`Fast` / `Quality`)
 - `.ssproj` open 時の compatible working save restore
 - viewport 右上 HUD の `name / * / PKG` で dirty 状態を見分けられる
 - desktop では同じ HUD の `プレビュー品質` で 3DGS viewport 表示の軽さと細部確認のしやすさを端末ごとに調整できる
+- `Fast` package save は通常保存で、条件が揃う場合のみ advanced option として未編集 3DGS の SOG compression を選べる
+- `Quality` package save は Spark LoD を事前計算し、`raw-packed-splat` の `lodSplats` sidecar として `.ssproj` に保存する
+- baked LoD 付き `.ssproj` は load 直後から prebuilt LoD を使い、必要な時だけ root FullData を materialize する
 
 ### 2.3 Scene assets
 
@@ -47,6 +52,7 @@
 - export role と mask group を持てる
 - working pivot を持てる
 - scene asset order は保存され、export 側にも影響する
+- raw-packed splat source は optional baked LoD と deferred FullData を持てる
 
 ### 2.4 Shot cameras
 
@@ -121,6 +127,7 @@
 ### 2.8 Per-splat edit
 
 - entry は tool rail と `Shift+E`
+- scope 内の大きい splat asset に対して `LoD 最適化` を実行できる
 - current tool / action:
   - `Box`
   - `Brush`
@@ -133,6 +140,7 @@
   - `Clear`
 - raw selection は runtime-only
 - 編集結果は persistent source に反映される
+- splat 内容変更時は baked LoD を invalidate する
 
 ### 2.9 Export
 
@@ -176,6 +184,8 @@ PSD export の主な構成:
 
 - `test/camera-frames-project-controller.test.ts`
 - `test/camera-frames-project-file.test.ts`
+- `test/camera-frames-project-open-apply.test.ts`
+- `test/camera-frames-asset-controller-public-api.test.ts`
 - `test/camera-frames-legacy-ssproj.test.ts`
 
 ### 4.2 Projection / Output Frame / FRAME
