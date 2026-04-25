@@ -1,6 +1,6 @@
 # CAMERA_FRAMES 機能一覧 / 回帰チェック観点
 
-最終更新: 2026-04-24
+最終更新: 2026-04-25
 
 ## 0. この文書の役割
 
@@ -10,7 +10,7 @@
 
 ## 1. 現在の baseline
 
-- app version: `0.17.13`
+- app version: `0.17.14`
 - project format: `camera-frames-project` version `3`
 - major feature set は概ね揃っている
 - 今の開発主眼は「既存機能を壊さず強くすること」

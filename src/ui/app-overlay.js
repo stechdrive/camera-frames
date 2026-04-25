@@ -275,7 +275,10 @@ function renderProgressBody(overlay, progressTick = Date.now()) {
 					${
 						overlay.phases?.length > 0 &&
 						html`
-							<ol class="overlay-phase-list">
+							<ol
+								class="overlay-phase-list"
+								style=${`--overlay-phase-count:${overlay.phases.length}`}
+							>
 								${overlay.phases.map(
 									(phase) => html`
 										<li class=${`overlay-phase-step overlay-phase-step--${phase.status}`}>

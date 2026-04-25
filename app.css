@@ -1132,7 +1132,7 @@ input[type="range"] {
 .overlay-phase-list {
 	position: relative;
 	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(64px, 1fr));
+	grid-template-columns: repeat(var(--overlay-phase-count), minmax(0, 1fr));
 	gap: 0.65rem;
 	margin: 12px 0 0;
 	padding: 0;
@@ -1246,6 +1246,40 @@ input[type="range"] {
 .overlay-phase-step__label {
 	display: block;
 	max-width: 100%;
+	overflow-wrap: anywhere;
+}
+
+@media (max-width: 520px) {
+	.overlay-phase-list {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.overlay-phase-list::before {
+		left: 0.45rem;
+		right: auto;
+		top: 0.45rem;
+		bottom: 0.45rem;
+		width: 2px;
+		height: auto;
+	}
+
+	.overlay-phase-step {
+		display: grid;
+		grid-template-columns: 0.9rem minmax(0, 1fr);
+		align-items: center;
+		column-gap: 0.6rem;
+		text-align: left;
+	}
+
+	.overlay-phase-step__marker {
+		grid-column: 1;
+	}
+
+	.overlay-phase-step__label {
+		grid-column: 2;
+	}
 }
 
 .overlay-step::before {
