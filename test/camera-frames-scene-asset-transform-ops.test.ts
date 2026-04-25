@@ -222,4 +222,51 @@ function createHarness() {
 	assert.ok(harness.getUpdateCount() >= 7);
 }
 
+{
+	const harness = createHarness();
+	const pagedSplats = { dispose: () => assert.fail("paged RAD was disposed") };
+	const radBundle = {
+		kind: "spark-rad-bundle",
+		version: 1,
+		root: { name: "asset-lod.rad" },
+		chunks: [],
+	};
+	const radRuntime = {
+		unregister: () => assert.fail("RAD runtime was unregistered"),
+	};
+	const source = {
+		sourceType: "project-file-packed-splat",
+		radBundle,
+		deferredFullData: {
+			loadFullData: () =>
+				assert.fail("object transform should not materialize FullData"),
+		},
+	};
+	harness.assetA.disposeTarget = {
+		paged: pagedSplats,
+		enableLod: true,
+	};
+	harness.assetA.radBundleRuntime = radRuntime;
+	harness.assetA.source = source;
+
+	harness.transformController.setAssetTransform(1, {
+		worldPosition: new THREE.Vector3(2, 3, 4),
+		worldQuaternion: new THREE.Quaternion().setFromEuler(
+			new THREE.Euler(0, Math.PI / 4, 0),
+		),
+		worldScale: 2,
+	});
+
+	assert.equal(harness.assetA.disposeTarget.paged, pagedSplats);
+	assert.equal(harness.assetA.disposeTarget.enableLod, true);
+	assert.equal(harness.assetA.radBundleRuntime, radRuntime);
+	assert.equal(harness.assetA.source, source);
+	assert.equal(harness.assetA.source.radBundle, radBundle);
+	assert.ok(
+		harness.assetA.object
+			.getWorldPosition(new THREE.Vector3())
+			.distanceTo(new THREE.Vector3(2, 3, 4)) < 1e-9,
+	);
+}
+
 console.log("✅ CAMERA_FRAMES scene asset transform ops tests passed!");

@@ -694,6 +694,52 @@ export async function runEmbeddedRadProjectFullDataSwapSmoke({
 			observations.radRuntimeAsset,
 		);
 
+		const pagedBeforeObjectTransform = asset?.disposeTarget?.paged;
+		const runtimeBeforeObjectTransform = asset?.radBundleRuntime;
+		const sourceBeforeObjectTransform = asset?.source;
+		const radBundleBeforeObjectTransform = asset?.source?.radBundle;
+		const enableLodBeforeObjectTransform = asset?.disposeTarget?.enableLod;
+		const objectTransformTarget = new THREE.Vector3(0.25, 0.5, -0.75);
+		harness.controller.setAssetTransform(asset.id, {
+			worldPosition: objectTransformTarget,
+			worldQuaternion: new THREE.Quaternion().setFromEuler(
+				new THREE.Euler(0, Math.PI / 8, 0),
+			),
+			worldScale: 1.5,
+		});
+		const objectTransformPosition = asset.object.getWorldPosition(
+			new THREE.Vector3(),
+		);
+		observations.radObjectTransform = {
+			hasPaged: Boolean(asset?.disposeTarget?.paged),
+			samePaged:
+				Boolean(pagedBeforeObjectTransform) &&
+				asset?.disposeTarget?.paged === pagedBeforeObjectTransform,
+			sameRuntime:
+				Boolean(runtimeBeforeObjectTransform) &&
+				asset?.radBundleRuntime === runtimeBeforeObjectTransform,
+			sameSource:
+				Boolean(sourceBeforeObjectTransform) &&
+				asset?.source === sourceBeforeObjectTransform,
+			sourceHasRad: Boolean(asset?.source?.radBundle),
+			sameRadBundle:
+				Boolean(radBundleBeforeObjectTransform) &&
+				asset?.source?.radBundle === radBundleBeforeObjectTransform,
+			enableLodBefore: enableLodBeforeObjectTransform,
+			enableLodAfter: asset?.disposeTarget?.enableLod,
+			worldPosition: objectTransformPosition.toArray(),
+		};
+		check(
+			"rad-object-transform-keeps-paged-streaming",
+			asset?.disposeTarget?.paged === pagedBeforeObjectTransform &&
+				asset?.radBundleRuntime === runtimeBeforeObjectTransform &&
+				asset?.source === sourceBeforeObjectTransform &&
+				asset?.source?.radBundle === radBundleBeforeObjectTransform &&
+				asset?.disposeTarget?.enableLod === enableLodBeforeObjectTransform &&
+				objectTransformPosition.distanceTo(objectTransformTarget) < 1e-6,
+			observations.radObjectTransform,
+		);
+
 		await withTimeout(
 			harness.controller.ensureFullDataForSplatAssets([asset.id]),
 			timeoutMs,
