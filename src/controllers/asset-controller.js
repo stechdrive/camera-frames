@@ -19,6 +19,7 @@ import {
 	isProjectFileEmbeddedFileSource,
 	isProjectFilePackedSplatSource,
 	loadProjectFilePackedSplatFullDataSource,
+	materializeProjectFilePackedSplatFullData,
 	sanitizeProjectAssetLabel,
 } from "../project/document.js";
 import {
@@ -690,26 +691,14 @@ export function createAssetController({
 		lodSplats = undefined,
 		previewPackedSplats = undefined,
 	}) {
-		const hasFullPackedArray = (packedArray?.length ?? 0) > 0;
-		const runtimePackedArray = hasFullPackedArray
-			? packedArray
-			: previewPackedSplats?.packedArray;
-		if ((runtimePackedArray?.length ?? 0) > 0) {
+		if ((packedArray?.length ?? 0) > 0) {
 			const prebuiltLodSplats =
-				hasFullPackedArray
-					? await createPrebuiltLodSplatsFromSource(lodSplats)
-					: null;
+				await createPrebuiltLodSplatsFromSource(lodSplats);
 			const packedSplats = new PackedSplats({
-				packedArray: runtimePackedArray,
-				numSplats: hasFullPackedArray
-					? numSplats
-					: (previewPackedSplats?.numSplats ?? 0),
-				extra: hasFullPackedArray
-					? (extra ?? {})
-					: (previewPackedSplats?.extra ?? {}),
-				splatEncoding: hasFullPackedArray
-					? (splatEncoding ?? undefined)
-					: (previewPackedSplats?.splatEncoding ?? undefined),
+				packedArray,
+				numSplats,
+				extra: extra ?? {},
+				splatEncoding: splatEncoding ?? undefined,
 				lodSplats: prebuiltLodSplats ?? undefined,
 			});
 			await packedSplats.initialized;
@@ -804,6 +793,12 @@ export function createAssetController({
 		};
 
 		if (isProjectFilePackedSplatSource(source)) {
+			if (hasProjectFilePackedSplatDeferredFullData(source)) {
+				return await loadSplatAssetFromSource(
+					await materializeProjectFilePackedSplatFullData(source),
+					{ insertIndex },
+				);
+			}
 			return createPackedSplatAsset({
 				fileName: source.fileName,
 				inputBytes: source.inputBytes,

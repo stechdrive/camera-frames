@@ -147,10 +147,15 @@ function createAssetControllerForPublicApiTest() {
 		source,
 	);
 
+	assert.equal(
+		fullDataLoads,
+		1,
+		"deferred FullData should be materialized before creating the runtime splat asset",
+	);
 	assert.deepEqual(
 		Array.from(createdAsset.disposeTarget.packedSplats.packedArray),
-		[9, 9, 9, 9],
-		"LoD-first splat asset should initially render from the preview packed splats",
+		[1, 2, 3, 4, 5, 6, 7, 8],
+		"runtime splat asset should render from FullData, not the baked LoD preview",
 	);
 
 	await harness.controller.ensureFullDataForSplatAssets([createdAsset.id]);

@@ -1156,22 +1156,22 @@ try {
 	assert.equal(
 		isProjectFilePackedSplatSource(lazyBakedLodSource),
 		true,
-		"LoD-first lazy package open must still expose a packed-splat source",
-	);
-	assert.equal(
-		lazyBakedLodSource.packedArray.length,
-		0,
-		"LoD-first lazy materialize must not read the root FullData packedArray during initial asset load",
+		"lazy package open must still expose a packed-splat source",
 	);
 	assert.deepEqual(
-		Array.from(lazyBakedLodSource.previewPackedSplats.packedArray),
-		[41, 42, 43, 44],
-		"LoD-first lazy materialize must load the baked LoD bundle as the preview source",
+		Array.from(lazyBakedLodSource.packedArray),
+		[21, 22, 23, 24, 25, 26, 27, 28],
+		"lazy materialize must load root FullData for the runtime packed splats",
+	);
+	assert.equal(
+		lazyBakedLodSource.previewPackedSplats,
+		null,
+		"baked LoD must not be exposed as a standalone preview source",
 	);
 	assert.deepEqual(
 		Array.from(lazyBakedLodSource.lodSplats.extra.lodTree),
 		[51, 52],
-		"LoD-first preview must keep the baked lodTree available for Spark LoD rendering",
+		"lazy materialize must keep the baked lodTree attached to FullData for Spark LoD rendering",
 	);
 } finally {
 	await lazyBakedLodResult.close();
@@ -1182,12 +1182,12 @@ const ensuredBakedLodSource =
 assert.deepEqual(
 	Array.from(ensuredBakedLodSource.packedArray),
 	[21, 22, 23, 24, 25, 26, 27, 28],
-	"deferred FullData ensure must restore the exact root packedArray after the package reader is closed",
+	"FullData materialization must keep the exact root packedArray after the package reader is closed",
 );
 assert.deepEqual(
 	Array.from(ensuredBakedLodSource.extra.sh1),
 	[31, 32, 33, 34],
-	"deferred FullData ensure must restore root companion arrays",
+	"FullData materialization must keep root companion arrays",
 );
 assert.equal(
 	ensuredBakedLodSource.previewPackedSplats,
@@ -1198,7 +1198,7 @@ await materializeProjectFilePackedSplatFullData(ensuredBakedLodSource);
 assert.deepEqual(
 	Array.from(ensuredBakedLodSource.packedArray),
 	[21, 22, 23, 24, 25, 26, 27, 28],
-	"deferred FullData ensure must be safe to call repeatedly",
+	"FullData materialization must be safe to call repeatedly",
 );
 
 let manualDeferredFullDataLoads = 0;
@@ -1268,12 +1268,12 @@ const deferredSaveRoundTripSource = deferredSaveResult.assetEntries[0].source;
 assert.deepEqual(
 	Array.from(deferredSaveRoundTripSource.packedArray),
 	[21, 22, 23, 24, 25, 26, 27, 28],
-	"package save must force deferred FullData before writing root packedArray",
+	"package save must write root FullData from a lazy materialized source",
 );
 assert.deepEqual(
 	Array.from(deferredSaveRoundTripSource.lodSplats.packedArray),
 	[41, 42, 43, 44],
-	"package save must preserve the baked LoD bundle when FullData was deferred during display",
+	"package save must preserve the baked LoD bundle attached to FullData",
 );
 
 const viewportLodLeakArchive = await buildCameraFramesProjectArchive({

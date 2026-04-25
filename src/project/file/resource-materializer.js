@@ -5,7 +5,6 @@ import {
 	createProjectFilePackedSplatSource,
 	toUint32Array,
 } from "../document.js";
-import { ZipReader } from "../package-legacy.js";
 import { notifyProjectReadProgress } from "./progress.js";
 import {
 	cloneFileResource,
@@ -93,62 +92,6 @@ async function readRawPackedSplatLodBundle(reader, lodResource) {
 	};
 }
 
-function canDeferRawPackedSplatFullData({ packageSource, resource }) {
-	return (
-		typeof Blob !== "undefined" &&
-		packageSource instanceof Blob &&
-		Boolean(resource?.packedArray?.path) &&
-		Boolean(resource?.lodSplats?.packedArray?.path)
-	);
-}
-
-function createRawPackedSplatDeferredFullData({
-	packageSource,
-	resource,
-	lodSplats,
-	fileName,
-	projectAssetState,
-	legacyState,
-}) {
-	let fullDataPromise = null;
-	return {
-		async loadFullData() {
-			if (!fullDataPromise) {
-				fullDataPromise = (async () => {
-					const fullReader = await ZipReader.from(packageSource);
-					try {
-						const fullData = await readRawPackedSplatFullData(
-							fullReader,
-							resource,
-						);
-						return createProjectFilePackedSplatSource({
-							fileName,
-							inputBytes: new Uint8Array(),
-							extraFiles: {},
-							fileType: null,
-							packedArray: fullData.packedArray,
-							numSplats: fullData.numSplats,
-							extra: fullData.extra,
-							splatEncoding: fullData.splatEncoding,
-							lodSplats,
-							projectAssetState,
-							legacyState,
-							resource: cloneRawPackedSplatResource(resource),
-							skipClone: true,
-						});
-					} finally {
-						await fullReader.close();
-					}
-				})().catch((error) => {
-					fullDataPromise = null;
-					throw error;
-				});
-			}
-			return await fullDataPromise;
-		},
-	};
-}
-
 export async function materializeProjectAssetResource({
 	reader,
 	asset,
@@ -156,8 +99,6 @@ export async function materializeProjectAssetResource({
 	resource,
 	onProgress = null,
 	totalAssets = 0,
-	packageSource = null,
-	preferBakedLodPreview = false,
 }) {
 	async function notifyAssetProgress(stage) {
 		await notifyProjectReadProgress(onProgress, {
@@ -219,29 +160,10 @@ export async function materializeProjectAssetResource({
 			reader,
 			resource.lodSplats,
 		);
-		const shouldDeferFullData =
-			preferBakedLodPreview &&
-			lodSplats &&
-			canDeferRawPackedSplatFullData({ packageSource, resource });
-		const fullData = shouldDeferFullData
-			? {
-					packedArray: new Uint32Array(),
-					numSplats: resource.numSplats ?? 0,
-					extra: {},
-					splatEncoding: resource.splatEncoding ?? null,
-				}
-			: await readRawPackedSplatFullData(reader, resource);
-		const previewPackedSplats = shouldDeferFullData ? lodSplats : null;
-		const deferredFullData = shouldDeferFullData
-			? createRawPackedSplatDeferredFullData({
-					packageSource,
-					resource,
-					lodSplats,
-					fileName: resource.originalName,
-					projectAssetState: asset,
-					legacyState: asset.legacyState ?? null,
-				})
-			: null;
+		// Spark's baked LoD bundle is not a standalone replacement for the root
+		// FullData. It must be attached to the full PackedSplats instance so the
+		// renderer can refine back to the original splats.
+		const fullData = await readRawPackedSplatFullData(reader, resource);
 		await notifyAssetProgress("extract-project-asset-complete");
 		return createProjectFilePackedSplatSource({
 			fileName: resource.originalName,
@@ -253,8 +175,6 @@ export async function materializeProjectAssetResource({
 			projectAssetState: asset,
 			legacyState: asset.legacyState ?? null,
 			resource: cloneRawPackedSplatResource(resource),
-			previewPackedSplats,
-			deferredFullData,
 			skipClone: true,
 		});
 	}
