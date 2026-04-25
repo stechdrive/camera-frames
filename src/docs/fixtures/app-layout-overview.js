@@ -1,5 +1,6 @@
 import { html } from "htm/preact";
 import { getAnchorOptions, translate } from "../../i18n.js";
+import { ViewportProjectStatusHud } from "../../ui/viewport-project-status-hud.js";
 import {
 	OutputFrameSection,
 	ShotCameraPropertiesSection,
@@ -8,7 +9,6 @@ import {
 	InspectorTabs,
 	ToolRailSection,
 } from "../../ui/workbench-rail-sections.js";
-import { ViewportProjectStatusHud } from "../../ui/viewport-project-status-hud.js";
 import { createMockController } from "../mock/controller.js";
 import { makeScene } from "../mock/scenes.js";
 import { createMockStore } from "../mock/store.js";

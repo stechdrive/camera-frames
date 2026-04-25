@@ -10,6 +10,7 @@
 		"lint": "biome check .",
 		"format": "biome format .",
 		"test": "node --no-warnings --loader ts-node/esm --test test/**/*.test.ts",
+		"test:browser": "node scripts/browser-smoke.mjs",
 		"develop": "npm run dev",
 		"deploy": "npm run pages:publish",
 		"pages:build": "npm run build",

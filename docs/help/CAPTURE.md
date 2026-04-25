@@ -23,6 +23,33 @@
 
 `options` は全 API 共通で `{ lang = "ja", pixelRatio = 1, settleMs = 0, timeoutMs = 15000 }`。
 
+## Codex / Windows での実ブラウザ smoke
+
+Claude Preview の `preview_eval` と同じ dev-only bridge / state verification を、Codex や通常の Windows shell から確認するために CDP smoke runner を用意している。
+
+```powershell
+npm run test:browser
+```
+
+このコマンドは必要に応じて Vite dev server を起動し、一時 profile の Chrome / Edge を DevTools Protocol 付きで開く。その上で次を確認する。
+
+- main app が boot し、`__CF_TEST__` と `__CF_DOCS__` が露出している
+- `test/ui-state-verification.js` をブラウザ内へ注入し、`.local/cf-test/cf-test.ssproj` の load + store state 検証を実行する
+- `/docs.html?fixture=hello` が registered fixture として表示できる
+- browser console / runtime exception に error が出ていない
+- `.local/browser-smoke/` に `project-smoke.png` と `fixture-hello.png` を保存する
+
+主なオプション:
+
+```powershell
+npm run test:browser -- --headed
+npm run test:browser -- --fixture shot-camera-properties
+npm run test:browser -- --project /.local/cf-test/cf-test2.ssproj
+npm run test:browser -- --browser "C:\Program Files\Google\Chrome\Application\chrome.exe"
+```
+
+`CF_CHROME_PATH` を指定すると、既定探索より優先してそのブラウザを使う。`.local/cf-test/` は git 管理外なので、fixture がない環境では project smoke は失敗する。通常の `npm test` には含めず、実ブラウザ確認が必要な変更で明示的に実行する。
+
 ## 撮影フロー（Claude 向け手順）
 
 ### 1. preview を起動
