@@ -80,6 +80,13 @@ function hideBaseColor(array, baseArray, index) {
 	array[baseOffset + 3] = 0;
 }
 
+function setSplatMeshLodEnabled(mesh, enabled) {
+	if (!mesh || typeof mesh !== "object") {
+		return;
+	}
+	mesh.enableLod = enabled;
+}
+
 export function createSplatSelectionHighlightController({
 	RgbaArrayImpl = RgbaArray,
 	highlightRgba = DEFAULT_HIGHLIGHT_RGBA,
@@ -96,6 +103,7 @@ export function createSplatSelectionHighlightController({
 			return;
 		}
 		if (entry.mesh) {
+			setSplatMeshLodEnabled(entry.mesh, entry.previousEnableLod);
 			restoreSparkSplatMeshColorBuffer(entry.mesh, entry.previousSplatRgba);
 		}
 		entry.rgbaArray?.dispose?.();
@@ -126,12 +134,15 @@ export function createSplatSelectionHighlightController({
 			capacity: count,
 		});
 		rgbaArray.getTexture?.();
+		const previousEnableLod = splatMesh.enableLod;
+		setSplatMeshLodEnabled(splatMesh, false);
 		const entry = {
 			assetId: assetIdKey,
 			mesh: splatMesh,
 			baseArray,
 			rgbaArray,
 			previousSplatRgba: setSparkSplatMeshColorBuffer(splatMesh, rgbaArray),
+			previousEnableLod,
 			highlightedIndices: new Set(),
 			hiddenIndices: new Set(),
 		};

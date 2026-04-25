@@ -626,6 +626,7 @@ export async function runEmbeddedRadProjectFullDataSwapSmoke({
 
 	let harness = null;
 	let asset = null;
+	let highlightController = null;
 
 	const check = (name, ok, details = {}) => {
 		const entry = { name, ok: Boolean(ok), details };
@@ -725,6 +726,39 @@ export async function runEmbeddedRadProjectFullDataSwapSmoke({
 				!asset?.radBundleRuntime,
 			observations.fullDataRuntimeAsset,
 		);
+
+		const { createSplatSelectionHighlightController } = await import(
+			"/src/engine/splat-selection-highlight.js"
+		);
+		highlightController = createSplatSelectionHighlightController();
+		const assetIdKey = String(asset.id);
+		const previousEnableLod = asset.disposeTarget?.enableLod;
+		highlightController.sync({
+			scopeAssets: [asset],
+			selectedSplatsByAssetId: new Map([[assetIdKey, new Set([0])]]),
+		});
+		observations.fullDataHighlight = {
+			hasLodSplats: Boolean(asset?.disposeTarget?.packedSplats?.lodSplats),
+			hasSplatRgba: Boolean(asset?.disposeTarget?.splatRgba),
+			enableLodDuringHighlight: asset?.disposeTarget?.enableLod,
+			splatRgbaCount: asset?.disposeTarget?.splatRgba?.count ?? null,
+			splatRgbaNeedsUpdate:
+				asset?.disposeTarget?.splatRgba?.needsUpdate ?? null,
+		};
+		check(
+			"full-data-highlight-disables-lod",
+			Boolean(asset?.disposeTarget?.splatRgba) &&
+				asset?.disposeTarget?.enableLod === false,
+			observations.fullDataHighlight,
+		);
+		highlightController.clear();
+		observations.fullDataHighlight.enableLodAfterClear =
+			asset?.disposeTarget?.enableLod;
+		check(
+			"full-data-highlight-restores-lod",
+			asset?.disposeTarget?.enableLod === previousEnableLod,
+			observations.fullDataHighlight,
+		);
 	} catch (error) {
 		failures.push({
 			name: "embedded-rad-full-data-swap-runtime",
@@ -732,6 +766,9 @@ export async function runEmbeddedRadProjectFullDataSwapSmoke({
 			details: formatError(error),
 		});
 	} finally {
+		try {
+			highlightController?.clear?.();
+		} catch {}
 		try {
 			await harness?.controller?.removeSceneAssets?.([asset?.id]);
 		} catch {}

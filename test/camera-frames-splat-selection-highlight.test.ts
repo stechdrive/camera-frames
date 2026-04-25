@@ -80,6 +80,74 @@ function createSplatMesh(colors) {
 }
 
 {
+	const mesh = createSplatMesh([
+		{ color: { r: 0.2, g: 0.4, b: 0.6 }, opacity: 1 },
+	]);
+	mesh.enableLod = undefined;
+	const asset = {
+		id: "splat-lod-default",
+		kind: "splat",
+		disposeTarget: mesh,
+	};
+	const controller = createSplatSelectionHighlightController({
+		RgbaArrayImpl: FakeRgbaArray,
+		highlightRgba: { r: 255, g: 0, b: 0 },
+		highlightMix: 1,
+	});
+
+	controller.sync({
+		scopeAssets: [asset],
+		selectedSplatsByAssetId: new Map([["splat-lod-default", new Set([0])]]),
+	});
+
+	assert.equal(
+		mesh.enableLod,
+		false,
+		"selection highlight must disable Spark LoD so splatRgba is applied",
+	);
+
+	controller.clear();
+
+	assert.equal(
+		mesh.enableLod,
+		undefined,
+		"selection highlight clear must restore the previous LoD setting",
+	);
+}
+
+{
+	const mesh = createSplatMesh([
+		{ color: { r: 0.2, g: 0.4, b: 0.6 }, opacity: 1 },
+	]);
+	mesh.enableLod = true;
+	const asset = {
+		id: "splat-lod-explicit",
+		kind: "splat",
+		disposeTarget: mesh,
+	};
+	const controller = createSplatSelectionHighlightController({
+		RgbaArrayImpl: FakeRgbaArray,
+		highlightRgba: { r: 255, g: 0, b: 0 },
+		highlightMix: 1,
+	});
+
+	controller.sync({
+		scopeAssets: [asset],
+		selectedSplatsByAssetId: new Map([["splat-lod-explicit", new Set([0])]]),
+	});
+	controller.sync({
+		scopeAssets: [asset],
+		selectedSplatsByAssetId: new Map(),
+	});
+
+	assert.equal(
+		mesh.enableLod,
+		true,
+		"selection highlight disposal must restore explicit LoD settings",
+	);
+}
+
+{
 	const previousRgba = { array: new Uint8Array([1, 2, 3, 4]) };
 	const mesh = createSplatMesh([{ color: { r: 0, g: 0, b: 0 }, opacity: 1 }]);
 	mesh.splatRgba = previousRgba;
