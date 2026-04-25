@@ -47,6 +47,7 @@ import {
 	supportsSogCompression,
 	writeProjectFileHandle,
 } from "./project/picker-options.js";
+import { cleanupStaleProjectOpenSources } from "./project/source-staging.js";
 import {
 	buildWorkingSaveRecord,
 	isQuotaExceededError,
@@ -78,6 +79,7 @@ export function createProjectController({
 	supportsSogCompressionImpl = supportsSogCompression,
 	supportsSparkRadBundleBuildImpl = supportsSparkRadBundleBuild,
 	buildSparkRadBundleFromPackedSplatsImpl = buildSparkRadBundleFromPackedSplats,
+	cleanupStaleProjectOpenSourcesImpl = cleanupStaleProjectOpenSources,
 }) {
 	let projectFileHandle = null;
 	let currentProjectId = "";
@@ -102,6 +104,22 @@ export function createProjectController({
 	function setOverlay(nextOverlay) {
 		store.overlay.value = nextOverlay;
 	}
+
+	function scheduleProjectSourceStagingSweep() {
+		if (typeof cleanupStaleProjectOpenSourcesImpl !== "function") {
+			return;
+		}
+		void Promise.resolve()
+			.then(() => cleanupStaleProjectOpenSourcesImpl())
+			.catch((error) => {
+				console.warn(
+					"[camera-frames] failed to clean up stale staged project sources.",
+					error,
+				);
+			});
+	}
+
+	scheduleProjectSourceStagingSweep();
 
 	function clearOverlay() {
 		store.overlay.value = null;
@@ -933,20 +951,23 @@ export function createProjectController({
 			local: serializeBox3(asset.localBoundsHint),
 			center: serializeBox3(asset.localCenterBoundsHint),
 		};
-		const result = await buildSparkRadBundleFromPackedSplatsImpl({
-			fileName: asset.source.fileName || asset.label || "asset",
-			packedArray: packedSplats.packedArray ?? new Uint32Array(),
-			extraArrays: packedSplats.extra ?? {},
-			splatEncoding: packedSplats.splatEncoding ?? null,
-			numSplats: packedSplats.getNumSplats?.() ?? packedSplats.numSplats ?? 0,
-			bounds,
-			quality: Boolean(quality),
-			lodSplats: normalizeLodSplatsForRadBuild(
-				lodSplats ?? asset.source?.lodSplats,
-			),
-		}, {
-			onProgress,
-		});
+		const result = await buildSparkRadBundleFromPackedSplatsImpl(
+			{
+				fileName: asset.source.fileName || asset.label || "asset",
+				packedArray: packedSplats.packedArray ?? new Uint32Array(),
+				extraArrays: packedSplats.extra ?? {},
+				splatEncoding: packedSplats.splatEncoding ?? null,
+				numSplats: packedSplats.getNumSplats?.() ?? packedSplats.numSplats ?? 0,
+				bounds,
+				quality: Boolean(quality),
+				lodSplats: normalizeLodSplatsForRadBuild(
+					lodSplats ?? asset.source?.lodSplats,
+				),
+			},
+			{
+				onProgress,
+			},
+		);
 		return await attachRadBundleToAssetSource(asset, result, { quality });
 	}
 

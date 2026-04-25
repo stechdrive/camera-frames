@@ -1,6 +1,10 @@
-import { PROJECT_PICKER_MIME, ensureProjectFileName } from "./picker-options.js";
+import {
+	PROJECT_PICKER_MIME,
+	ensureProjectFileName,
+} from "./picker-options.js";
 
 export const PROJECT_SOURCE_STAGING_MEMORY_LIMIT_BYTES = 256 * 1024 * 1024;
+export const PROJECT_SOURCE_STAGING_CLEANUP_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 const PROJECT_SOURCE_STAGING_DIR = "camera-frames-project-open-staging";
 const STAGING_OVERRIDE_PARAM = "cfProjectSourceStaging";
@@ -65,6 +69,48 @@ function buildOpfsStagingFileName(fileName) {
 		.toString(36)
 		.slice(2, 10)}`;
 	return `${safeStem || "project"}-${suffix}.ssproj`;
+}
+
+async function getOpfsStagingDirectory(storage, { create = false } = {}) {
+	const root = await storage.getDirectory();
+	return await root.getDirectoryHandle(PROJECT_SOURCE_STAGING_DIR, {
+		create,
+	});
+}
+
+function isNotFoundError(error) {
+	return (
+		error?.name === "NotFoundError" ||
+		error?.name === "NotFound" ||
+		error?.code === 8
+	);
+}
+
+function getDirectoryEntries(directory) {
+	if (typeof directory?.entries === "function") {
+		return directory.entries();
+	}
+	if (typeof directory?.[Symbol.asyncIterator] === "function") {
+		return directory[Symbol.asyncIterator]();
+	}
+	return null;
+}
+
+function isStaleStagingFile(name, file, { now, maxAgeMs }) {
+	if (!/\.ssproj$/iu.test(String(name ?? ""))) {
+		return false;
+	}
+	if (!Number.isFinite(maxAgeMs) || maxAgeMs < 0) {
+		return false;
+	}
+	if (maxAgeMs === 0) {
+		return true;
+	}
+	const lastModified = Number(file?.lastModified);
+	if (!Number.isFinite(lastModified) || lastModified <= 0) {
+		return false;
+	}
+	return now - lastModified >= maxAgeMs;
 }
 
 function createNamedProjectBlob(parts, fileName, source) {
@@ -198,12 +244,11 @@ async function copySourceToOpfs(source, { fileName, storage, onProgress }) {
 		sourceStagingMode: "opfs",
 		totalBytes: source.size,
 	});
-	const root = await storage.getDirectory();
-	const directory = await root.getDirectoryHandle(PROJECT_SOURCE_STAGING_DIR, {
+	const directory = await getOpfsStagingDirectory(storage, { create: true });
+	const stagedName = buildOpfsStagingFileName(fileName);
+	const fileHandle = await directory.getFileHandle(stagedName, {
 		create: true,
 	});
-	const stagedName = buildOpfsStagingFileName(fileName);
-	const fileHandle = await directory.getFileHandle(stagedName, { create: true });
 	const writable = await fileHandle.createWritable();
 	try {
 		await source
@@ -255,6 +300,66 @@ async function copySourceToOpfs(source, { fileName, storage, onProgress }) {
 		cleanup,
 		warning: null,
 	};
+}
+
+export async function cleanupStaleProjectOpenSources({
+	storage = globalThis.navigator?.storage,
+	now = Date.now(),
+	maxAgeMs = PROJECT_SOURCE_STAGING_CLEANUP_MAX_AGE_MS,
+} = {}) {
+	const summary = {
+		checked: 0,
+		removed: 0,
+		skipped: 0,
+		failed: 0,
+		unavailable: false,
+	};
+	if (typeof storage?.getDirectory !== "function") {
+		summary.unavailable = true;
+		return summary;
+	}
+
+	let directory = null;
+	try {
+		directory = await getOpfsStagingDirectory(storage, { create: false });
+	} catch (error) {
+		if (!isNotFoundError(error)) {
+			summary.failed += 1;
+			summary.unavailable = true;
+		}
+		return summary;
+	}
+
+	const entries = getDirectoryEntries(directory);
+	if (!entries) {
+		summary.unavailable = true;
+		return summary;
+	}
+
+	for await (const [name, handle] of entries) {
+		summary.checked += 1;
+		try {
+			if (handle?.kind && handle.kind !== "file") {
+				summary.skipped += 1;
+				continue;
+			}
+			if (typeof handle?.getFile !== "function") {
+				summary.skipped += 1;
+				continue;
+			}
+			const file = await handle.getFile();
+			if (!isStaleStagingFile(name, file, { now, maxAgeMs })) {
+				summary.skipped += 1;
+				continue;
+			}
+			await directory.removeEntry(name);
+			summary.removed += 1;
+		} catch {
+			summary.failed += 1;
+		}
+	}
+
+	return summary;
 }
 
 async function copySourceToMemory(source, { fileName, onProgress }) {

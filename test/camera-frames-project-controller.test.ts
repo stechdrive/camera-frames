@@ -288,6 +288,8 @@ function createHarness(overrides = {}) {
 		supportsSparkRadBundleBuildImpl: overrides.supportsSparkRadBundleBuildImpl,
 		buildSparkRadBundleFromPackedSplatsImpl:
 			overrides.buildSparkRadBundleFromPackedSplatsImpl,
+		cleanupStaleProjectOpenSourcesImpl:
+			overrides.cleanupStaleProjectOpenSourcesImpl,
 	});
 
 	return {
@@ -301,6 +303,21 @@ function createHarness(overrides = {}) {
 			currentProjectState = nextState;
 		},
 	};
+}
+
+{
+	let cleanupCalls = 0;
+	createHarness({
+		cleanupStaleProjectOpenSourcesImpl: async () => {
+			cleanupCalls += 1;
+		},
+	});
+	await Promise.resolve();
+	assert.equal(
+		cleanupCalls,
+		1,
+		"project controller should sweep stale staged project sources at startup",
+	);
 }
 
 {
@@ -539,10 +556,7 @@ function createHarness(overrides = {}) {
 		globalThis.fetch = originalFetch;
 	}
 
-	assert.equal(
-		fetchedUrl,
-		"https://example.test/projects/remote-scene.ssproj",
-	);
+	assert.equal(fetchedUrl, "https://example.test/projects/remote-scene.ssproj");
 	assert.equal(harness.store.overlay.value, null);
 	assert.equal(harness.applyOpenedProjectCalls.length, 1);
 }
@@ -1126,7 +1140,10 @@ await withNavigator({ gpu: {} }, async () => {
 	);
 	const savedSource = savedProject.assetEntries[0]?.source;
 	assert.equal(isProjectFilePackedSplatSource(savedSource), true);
-	assert.ok(savedSource.lodSplats, "Quality LoD must survive RAD build failure.");
+	assert.ok(
+		savedSource.lodSplats,
+		"Quality LoD must survive RAD build failure.",
+	);
 	assert.equal(savedSource.radBundle, null);
 });
 

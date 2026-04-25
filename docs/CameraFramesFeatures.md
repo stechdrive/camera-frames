@@ -10,7 +10,7 @@
 
 ## 1. 現在の baseline
 
-- app version: `0.17.18`
+- app version: `0.17.19`
 - project format: `camera-frames-project` version `3`
 - major feature set は概ね揃っている
 - 今の開発主眼は「既存機能を壊さず強くすること」
@@ -26,6 +26,7 @@
 - remote URL 欄や startup `?load=` で単独 `.ssproj` URL が渡った場合は、asset import ではなく project open workflow へ送る
 - current `.ssproj` は resource metadata を先に読み、scene asset / reference image bytes は必要時に lazy materialize する
 - Android / iOS / iPadOS では、file picker / drop 由来の `.ssproj` を OPFS のローカル作業コピーへ staging してから開き、Google Drive / iCloud Drive などのクラウド provider 由来 Blob の遅延 read 不安定性を避ける
+- staged copy は deferred FullData 読み込みのため project lifetime 中だけ保持し、通常の project 切り替え / new project reset で削除する。クラッシュ等で残った古い staging file は起動時に自動掃除する
 - compatible working save restore がある `.ssproj` では、package state apply と不要な reference image bytes 展開を skip する
 - legacy `document.json` ベース `.ssproj` を fallback import できる
 

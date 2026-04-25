@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import {
-	prepareStableProjectOpenSource,
+	PROJECT_SOURCE_STAGING_CLEANUP_MAX_AGE_MS,
+	cleanupStaleProjectOpenSources,
 	isMobileProjectSourceStagingPlatform,
+	prepareStableProjectOpenSource,
 } from "../src/controllers/project/source-staging.js";
 
 const ANDROID_PLATFORM = {
@@ -13,41 +15,67 @@ const DESKTOP_PLATFORM = {
 	maxTouchPoints: 0,
 };
 
-function createFakeOpfsStorage({ quota = 1024 * 1024 * 1024, usage = 0 } = {}) {
-	const records = new Map();
+function createFakeOpfsStorage({
+	quota = 1024 * 1024 * 1024,
+	usage = 0,
+	entries = [],
+} = {}) {
+	const records = new Map(
+		entries.map((entry) => [
+			entry.name,
+			{
+				chunks: entry.parts ?? [new Uint8Array()],
+				lastModified: Number.isFinite(entry.lastModified)
+					? entry.lastModified
+					: Date.now(),
+			},
+		]),
+	);
 	const removed = [];
 	const written = [];
+	const createFileHandle = (name) => ({
+		kind: "file",
+		name,
+		async createWritable() {
+			const chunks = [];
+			return new WritableStream({
+				write(chunk) {
+					written.push(name);
+					if (chunk instanceof Uint8Array) {
+						chunks.push(chunk.slice());
+					} else if (chunk instanceof ArrayBuffer) {
+						chunks.push(chunk.slice(0));
+					} else {
+						chunks.push(chunk);
+					}
+				},
+				close() {
+					records.set(name, {
+						chunks,
+						lastModified: Date.now(),
+					});
+				},
+			});
+		},
+		async getFile() {
+			const record = records.get(name);
+			if (!record) {
+				throw new Error(`Missing staged file ${name}`);
+			}
+			return new File(record.chunks, name, {
+				type: "application/x-camera-frames-project",
+				lastModified: record.lastModified,
+			});
+		},
+	});
 	const directory = {
 		async getFileHandle(name) {
-			return {
-				name,
-				async createWritable() {
-					const chunks = [];
-					return new WritableStream({
-						write(chunk) {
-							written.push(name);
-							if (chunk instanceof Uint8Array) {
-								chunks.push(chunk.slice());
-							} else if (chunk instanceof ArrayBuffer) {
-								chunks.push(chunk.slice(0));
-							} else {
-								chunks.push(chunk);
-							}
-						},
-						close() {
-							records.set(name, chunks);
-						},
-					});
-				},
-				async getFile() {
-					if (!records.has(name)) {
-						throw new Error(`Missing staged file ${name}`);
-					}
-					return new File(records.get(name), name, {
-						type: "application/x-camera-frames-project",
-					});
-				},
-			};
+			return createFileHandle(name);
+		},
+		async *entries() {
+			for (const name of records.keys()) {
+				yield [name, createFileHandle(name)];
+			}
 		},
 		async removeEntry(name) {
 			removed.push(name);
@@ -134,18 +162,55 @@ assert.equal(
 		[1, 2, 3, 4],
 	);
 	assert.ok(
-		progress.some((payload) => payload.stage === "prepare-local-project-source"),
+		progress.some(
+			(payload) => payload.stage === "prepare-local-project-source",
+		),
 	);
 	assert.ok(
 		progress.some((payload) => payload.stage === "copy-local-project-source"),
 	);
 	assert.ok(
-		progress.some((payload) => payload.stage === "complete-local-project-source"),
+		progress.some(
+			(payload) => payload.stage === "complete-local-project-source",
+		),
 	);
 	assert.equal(opfs.written.length > 0, true);
 	await result.cleanup?.();
 	await result.cleanup?.();
 	assert.equal(opfs.removed.length, 1);
+}
+
+{
+	const now = 1_700_000_000_000;
+	const oldName = "old-cloud-project-a1b2c3.ssproj";
+	const freshName = "fresh-cloud-project-d4e5f6.ssproj";
+	const opfs = createFakeOpfsStorage({
+		entries: [
+			{
+				name: oldName,
+				parts: [new Uint8Array([1])],
+				lastModified: now - PROJECT_SOURCE_STAGING_CLEANUP_MAX_AGE_MS - 1,
+			},
+			{
+				name: freshName,
+				parts: [new Uint8Array([2])],
+				lastModified: now - 1000,
+			},
+			{
+				name: "unrelated.txt",
+				parts: [new Uint8Array([3])],
+				lastModified: now - PROJECT_SOURCE_STAGING_CLEANUP_MAX_AGE_MS - 1,
+			},
+		],
+	});
+	const summary = await cleanupStaleProjectOpenSources({
+		storage: opfs.storage,
+		now,
+	});
+	assert.equal(summary.checked, 3);
+	assert.equal(summary.removed, 1);
+	assert.equal(summary.skipped, 2);
+	assert.deepEqual(opfs.removed, [oldName]);
 }
 
 {
