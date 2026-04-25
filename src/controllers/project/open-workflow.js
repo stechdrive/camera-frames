@@ -15,7 +15,10 @@ import {
 	getProjectBaseName,
 	isLegacyCameraFramesProjectSource,
 } from "./picker-options.js";
-import { prepareStableProjectOpenSource } from "./source-staging.js";
+import {
+	isProjectSourceStagingRequiredError,
+	prepareStableProjectOpenSource,
+} from "./source-staging.js";
 import { resolveProjectIdentity } from "./working-save-record.js";
 
 function getProjectSourceFileName(source, fileHandle = null) {
@@ -34,6 +37,15 @@ function getProjectSourceFileName(source, fileHandle = null) {
 	} catch {
 		return source;
 	}
+}
+
+function copyProjectSourceStagingErrorMetadata(target, source) {
+	target.name = source?.name ?? target.name;
+	target.code = source?.code;
+	target.reason = source?.reason;
+	target.sourceSize = source?.sourceSize;
+	target.messageKey = source?.messageKey;
+	return target;
 }
 
 async function materializeRemoteProjectSource(source, fileName) {
@@ -174,6 +186,13 @@ export function createProjectOpenWorkflow({
 			await replaceProjectSourceStaging(preparedProjectSource?.cleanup ?? null);
 			stagingAdopted = true;
 		};
+		const localizeStagingError = (error) =>
+			copyProjectSourceStagingErrorMetadata(
+				new Error(t(error.messageKey || "error.projectSourceStagingRequired"), {
+					cause: error,
+				}),
+				error,
+			);
 		try {
 			setOverlay(
 				buildImportProgressOverlay(t, "verify", "", {
@@ -243,6 +262,13 @@ export function createProjectOpenWorkflow({
 				await parsedProject.close?.();
 			}
 		} catch (error) {
+			if (isProjectSourceStagingRequiredError(error)) {
+				clearOverlay();
+				await cleanupUnadoptedStaging();
+				const localizedError = localizeStagingError(error);
+				setStatus(localizedError.message);
+				throw localizedError;
+			}
 			const legacySource =
 				preparedProjectSource?.source ??
 				projectSource ??

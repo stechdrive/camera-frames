@@ -5,6 +5,8 @@ import {
 
 export const PROJECT_SOURCE_STAGING_MEMORY_LIMIT_BYTES = 256 * 1024 * 1024;
 export const PROJECT_SOURCE_STAGING_CLEANUP_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+export const PROJECT_SOURCE_STAGING_REQUIRED_ERROR_CODE =
+	"PROJECT_SOURCE_STAGING_REQUIRED";
 
 const PROJECT_SOURCE_STAGING_DIR = "camera-frames-project-open-staging";
 const STAGING_OVERRIDE_PARAM = "cfProjectSourceStaging";
@@ -161,6 +163,56 @@ async function notifyStagingProgress(onProgress, payload) {
 	});
 }
 
+function summarizeStagingError(error) {
+	const name = String(error?.name ?? "").trim();
+	const message = String(error?.message ?? error ?? "").trim();
+	if (name && message) {
+		return `${name}: ${message}`;
+	}
+	return message || name || "unknown error";
+}
+
+function logStagingFailure({ reason, error }) {
+	if (typeof globalThis.window === "undefined") {
+		return;
+	}
+	globalThis.console?.warn?.(
+		`[camera-frames] project source staging failed (${reason}).`,
+		error,
+	);
+}
+
+async function notifyStagingFailure(onProgress, { source, reason, error }) {
+	await notifyStagingProgress(onProgress, {
+		stage: "fail-local-project-source",
+		sourceStagingMode: "required",
+		warningReason: reason,
+		errorMessage: summarizeStagingError(error),
+		totalBytes: source?.size ?? 0,
+	});
+}
+
+export function createProjectSourceStagingRequiredError({
+	reason = "staging-unavailable",
+	cause = null,
+	sourceSize = 0,
+} = {}) {
+	const error = new Error(
+		"Project source staging is required before opening this file.",
+		{ cause },
+	);
+	error.name = "ProjectSourceStagingRequiredError";
+	error.code = PROJECT_SOURCE_STAGING_REQUIRED_ERROR_CODE;
+	error.reason = reason;
+	error.sourceSize = sourceSize;
+	error.messageKey = "error.projectSourceStagingRequired";
+	return error;
+}
+
+export function isProjectSourceStagingRequiredError(error) {
+	return error?.code === PROJECT_SOURCE_STAGING_REQUIRED_ERROR_CODE;
+}
+
 function createCopyProgressTransform({ totalBytes, onProgress, mode }) {
 	let bytesCopied = 0;
 	let lastPercent = -1;
@@ -211,26 +263,6 @@ function createCopyProgressTransform({ totalBytes, onProgress, mode }) {
 	});
 }
 
-async function assertOpfsQuota(storage, sourceSize) {
-	if (!Number.isFinite(sourceSize) || sourceSize <= 0) {
-		return;
-	}
-	if (typeof storage?.estimate !== "function") {
-		return;
-	}
-	const estimate = await storage.estimate();
-	const quota = Number(estimate?.quota);
-	const usage = Number(estimate?.usage);
-	if (!Number.isFinite(quota) || !Number.isFinite(usage)) {
-		return;
-	}
-	if (quota - usage < sourceSize) {
-		const error = new Error("Insufficient browser storage quota for staging.");
-		error.name = "QuotaExceededError";
-		throw error;
-	}
-}
-
 async function copySourceToOpfs(source, { fileName, storage, onProgress }) {
 	if (typeof storage?.getDirectory !== "function") {
 		throw new Error("OPFS is unavailable.");
@@ -238,7 +270,6 @@ async function copySourceToOpfs(source, { fileName, storage, onProgress }) {
 	if (typeof source?.stream !== "function") {
 		throw new Error("Blob stream() is unavailable.");
 	}
-	await assertOpfsQuota(storage, source.size);
 	await notifyStagingProgress(onProgress, {
 		stage: "prepare-local-project-source",
 		sourceStagingMode: "opfs",
@@ -392,19 +423,17 @@ async function copySourceToMemory(source, { fileName, onProgress }) {
 	};
 }
 
-async function returnOriginalWithWarning(source, { onProgress, reason }) {
-	await notifyStagingProgress(onProgress, {
-		stage: "warn-local-project-source",
-		sourceStagingMode: "original-with-warning",
-		warningReason: reason,
-		totalBytes: source?.size ?? 0,
+async function throwRequiredStagingError(
+	source,
+	{ onProgress, reason, cause },
+) {
+	await notifyStagingFailure(onProgress, { source, reason, error: cause });
+	logStagingFailure({ reason, error: cause });
+	throw createProjectSourceStagingRequiredError({
+		reason,
+		cause,
+		sourceSize: source?.size ?? 0,
 	});
-	return {
-		source,
-		mode: "original-with-warning",
-		cleanup: null,
-		warning: "status.projectSourceStagingUnavailable",
-	};
 }
 
 export async function prepareStableProjectOpenSource(
@@ -427,26 +456,28 @@ export async function prepareStableProjectOpenSource(
 		};
 	}
 
+	let opfsError = null;
 	try {
 		return await copySourceToOpfs(source, { fileName, storage, onProgress });
-	} catch {
-		// Fall back below. Cloud-backed providers can fail any individual read, so
-		// staging must be best-effort and never make opening worse.
+	} catch (error) {
+		opfsError = error;
 	}
 
 	if (source.size <= memoryLimitBytes) {
 		try {
 			return await copySourceToMemory(source, { fileName, onProgress });
-		} catch {
-			return await returnOriginalWithWarning(source, {
+		} catch (error) {
+			return await throwRequiredStagingError(source, {
 				onProgress,
 				reason: "memory-copy-failed",
+				cause: error,
 			});
 		}
 	}
 
-	return await returnOriginalWithWarning(source, {
+	return await throwRequiredStagingError(source, {
 		onProgress,
 		reason: "staging-unavailable-large-file",
+		cause: opfsError,
 	});
 }

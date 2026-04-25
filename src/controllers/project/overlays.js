@@ -136,6 +136,9 @@ export function buildImportProgressDetail(
 	if (stage === "warn-local-project-source") {
 		return t("overlay.importDetailWarnLocalProjectSource");
 	}
+	if (stage === "fail-local-project-source") {
+		return t("overlay.importDetailFailLocalProjectSource");
+	}
 	if (stage === "read-manifest") {
 		return t("overlay.importDetailReadProjectManifest", {
 			file: fileLabel || PROJECT_MANIFEST_PATH,

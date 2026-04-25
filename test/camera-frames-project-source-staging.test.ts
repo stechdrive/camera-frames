@@ -3,6 +3,7 @@ import {
 	PROJECT_SOURCE_STAGING_CLEANUP_MAX_AGE_MS,
 	cleanupStaleProjectOpenSources,
 	isMobileProjectSourceStagingPlatform,
+	isProjectSourceStagingRequiredError,
 	prepareStableProjectOpenSource,
 } from "../src/controllers/project/source-staging.js";
 
@@ -214,6 +215,26 @@ assert.equal(
 }
 
 {
+	const opfs = createFakeOpfsStorage({ quota: 1, usage: 0 });
+	const source = new File(
+		[new Uint8Array([1, 2, 3, 4])],
+		"quota-estimate.ssproj",
+	);
+	const result = await prepareStableProjectOpenSource(source, {
+		fileName: source.name,
+		platform: ANDROID_PLATFORM,
+		storage: opfs.storage,
+	});
+	assert.equal(
+		result.mode,
+		"opfs",
+		"mobile staging should attempt the OPFS write instead of rejecting on a conservative quota estimate",
+	);
+	assert.equal(opfs.written.length > 0, true);
+	await result.cleanup?.();
+}
+
+{
 	const source = new File([new Uint8Array([5, 6, 7])], "small.ssproj");
 	const result = await prepareStableProjectOpenSource(source, {
 		fileName: source.name,
@@ -233,19 +254,45 @@ assert.equal(
 		type: "application/x-camera-frames-project",
 	});
 	const progress = [];
-	const result = await prepareStableProjectOpenSource(source, {
-		fileName: "huge.ssproj",
-		platform: ANDROID_PLATFORM,
-		storage: null,
-		memoryLimitBytes: 256 * 1024 * 1024,
-		onProgress: (payload) => progress.push(payload),
-	});
-	assert.equal(result.mode, "original-with-warning");
-	assert.equal(result.source, source);
-	assert.equal(result.warning, "status.projectSourceStagingUnavailable");
-	assert.ok(
-		progress.some((payload) => payload.stage === "warn-local-project-source"),
+	await assert.rejects(
+		prepareStableProjectOpenSource(source, {
+			fileName: "huge.ssproj",
+			platform: ANDROID_PLATFORM,
+			storage: null,
+			memoryLimitBytes: 256 * 1024 * 1024,
+			onProgress: (payload) => progress.push(payload),
+		}),
+		(error) => {
+			assert.equal(isProjectSourceStagingRequiredError(error), true);
+			assert.equal(error.reason, "staging-unavailable-large-file");
+			return true;
+		},
 	);
+	assert.ok(
+		progress.some((payload) => payload.stage === "fail-local-project-source"),
+	);
+}
+
+{
+	const sourceState = {};
+	const source = new NoArrayBufferFile(
+		[new Uint8Array([12, 13])],
+		"small-memory-fails.ssproj",
+		sourceState,
+	);
+	await assert.rejects(
+		prepareStableProjectOpenSource(source, {
+			fileName: source.name,
+			platform: ANDROID_PLATFORM,
+			storage: null,
+		}),
+		(error) => {
+			assert.equal(isProjectSourceStagingRequiredError(error), true);
+			assert.equal(error.reason, "memory-copy-failed");
+			return true;
+		},
+	);
+	assert.equal(sourceState.arrayBufferCalls, 1);
 }
 
 {

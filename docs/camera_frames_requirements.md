@@ -23,7 +23,7 @@ CAMERA_FRAMES の共有 contract を Git 管理するための基点です。
 
 ## 1. 現在の基準
 
-- app version は `0.17.19`
+- app version は `0.17.20`
 - Spark dependency baseline は npm 公開版 `@sparkjsdev/spark@2.0.0`
 - portable project format は `camera-frames-project` version `3`
 - この repo は「新機能を大量に増やす段階」より、「既存 contract を壊さず hardening する段階」に入っている
@@ -90,9 +90,10 @@ CAMERA_FRAMES の共有 contract を Git 管理するための基点です。
 - current `.ssproj` open は manifest / project document / resource metadata を先に読み、scene asset bytes と reference image bytes は必要になるまで materialize しない
 - `.ssproj` 由来の scene asset load は package reader を開いたまま concurrency 1 で順に materialize / load する
 - remote URL 入力または startup `?load=` で単独 `.ssproj` URL が渡った場合も project open workflow にルーティングし、fetch した `File` を current package / legacy package 判定に使う
-- Android / iOS / iPadOS で file picker / drop 由来の `.ssproj` を開く時は、クラウドストレージ provider の遅延 read 不安定性を避けるため、可能なら OPFS にローカル作業コピーを作成してから package reader / RAD streaming を開始する
+- Android / iOS / iPadOS で file picker / drop 由来の `.ssproj` を開く時は、クラウドストレージ provider の遅延 read 不安定性を避けるため、OPFS にローカル作業コピーを作成してから package reader / RAD streaming を開始する
   - OPFS staging copy は RAD streaming / deferred FullData 読み込みのため project lifetime 中は保持し、次の project へ正常に切り替えた時または new project reset 時に削除する
   - クラッシュや OS kill で cleanup が走らなかった場合に備え、起動時に staging 専用ディレクトリ内の古い `.ssproj` copy を自動掃除する
+  - OPFS staging が使えない場合は 256 MiB 以下だけ memory copy fallback を許可する。それより大きい `.ssproj` は元のクラウド provider Blob のまま読み続けず、端末ローカル保存後に開き直すよう案内して失敗させる
 - compatible working save restore が確定している `.ssproj` open では、package 側の state apply と reference image bytes materialization を skip する
 - project status の UI 表示は viewport 右上 HUD の `name / * / PKG`
   - `*` は working save dirty

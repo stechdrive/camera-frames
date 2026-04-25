@@ -460,16 +460,16 @@ const MESSAGES = {
 			importPhaseApply: "シーンへ反映",
 			importDetailOpenProjectArchive: "プロジェクトパッケージを開いています…",
 			importDetailInspectProjectArchive: "プロジェクトパッケージを確認中…",
-			importDetailPrepareLocalProjectSource:
-				"ローカル作業コピーを作成中…",
-			importDetailCopyLocalProjectSource:
-				"ローカル作業コピーへ読み込み中…",
+			importDetailPrepareLocalProjectSource: "ローカル作業コピーを作成中…",
+			importDetailCopyLocalProjectSource: "ローカル作業コピーへ読み込み中…",
 			importDetailCopyLocalProjectSourceProgress:
 				"ローカル作業コピーを作成中… {copied} / {total} ({percent}%)",
 			importDetailCompleteLocalProjectSource:
 				"ローカル作業コピーの準備が完了しました。",
 			importDetailWarnLocalProjectSource:
 				"クラウドストレージ上のファイルは直接読み込みが不安定な場合があります。失敗した場合は端末に保存してから開いてください。",
+			importDetailFailLocalProjectSource:
+				"ローカル作業コピーを作成できませんでした。端末にファイルを保存してから開き直してください。",
 			importDetailReadProjectManifest: "manifest を読込中… ({file})",
 			importDetailReadProjectDocument: "プロジェクト設定を読込中… ({file})",
 			importDetailScanProjectAssets:
@@ -872,6 +872,8 @@ const MESSAGES = {
 				"この環境では WebGPU が使えないため、SOG 圧縮保存は利用できません。",
 			sogCompressionWorkerUnavailable:
 				"SOG 圧縮 worker を開始できませんでした。SOG 圧縮をオフにして再度保存してください。",
+			projectSourceStagingRequired:
+				"この端末では、クラウドストレージ由来の可能性がある大きな .ssproj を直接開けませんでした。端末にファイルを保存してから開き直してください。",
 			projectPackageOverwriteUnavailable:
 				"上書き保存できるパッケージファイルがありません。",
 			previewContext: "プレビュー用の 2D context を取得できませんでした。",
@@ -1356,16 +1358,15 @@ const MESSAGES = {
 			importPhaseApply: "Applying scene state",
 			importDetailOpenProjectArchive: "Opening project package…",
 			importDetailInspectProjectArchive: "Inspecting project package…",
-			importDetailPrepareLocalProjectSource:
-				"Preparing local working copy…",
-			importDetailCopyLocalProjectSource:
-				"Reading into a local working copy…",
+			importDetailPrepareLocalProjectSource: "Preparing local working copy…",
+			importDetailCopyLocalProjectSource: "Reading into a local working copy…",
 			importDetailCopyLocalProjectSourceProgress:
 				"Preparing local working copy… {copied} / {total} ({percent}%)",
-			importDetailCompleteLocalProjectSource:
-				"Local working copy is ready.",
+			importDetailCompleteLocalProjectSource: "Local working copy is ready.",
 			importDetailWarnLocalProjectSource:
 				"Opening cloud storage files directly can be unstable. If loading fails, save the file to this device and open it again.",
+			importDetailFailLocalProjectSource:
+				"Could not create a local working copy. Save the file to this device and open it again.",
 			importDetailReadProjectManifest: "Reading manifest… ({file})",
 			importDetailReadProjectDocument: "Reading project document… ({file})",
 			importDetailScanProjectAssets:
@@ -1764,6 +1765,8 @@ const MESSAGES = {
 				"SOG compression save requires WebGPU in this environment.",
 			sogCompressionWorkerUnavailable:
 				"Could not start the SOG compression worker in this environment. Save again with SOG compression turned off.",
+			projectSourceStagingRequired:
+				"This device could not open a large .ssproj that may come from cloud storage directly. Save the file to this device and open it again.",
 			projectPackageOverwriteUnavailable:
 				"There is no project package available to overwrite.",
 			previewContext: "Could not get the 2D context for output preview.",

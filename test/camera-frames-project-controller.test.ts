@@ -38,6 +38,8 @@ function t(key, values = {}) {
 			return "Already baked at Quick — preserved, or upgrade to Quality.";
 		case "error.sogCompressionWorkerUnavailable":
 			return "Could not start the SOG compression worker in this environment. Save again with SOG compression turned off.";
+		case "error.projectSourceStagingRequired":
+			return "Save this project file to the device and open it again.";
 		default:
 			return key;
 	}
@@ -216,6 +218,33 @@ function createFakeOpfsStorage() {
 			},
 		},
 	};
+}
+
+class HugeCountingProjectBlob extends Blob {
+	constructor(state) {
+		super([new Uint8Array([1, 2, 3, 4])], {
+			type: "application/x-camera-frames-project",
+		});
+		this.state = state;
+		Object.defineProperty(this, "name", {
+			configurable: true,
+			value: "huge-cloud.ssproj",
+		});
+	}
+
+	get size() {
+		return 300 * 1024 * 1024;
+	}
+
+	slice(start, end, contentType) {
+		this.state.sliceCalls = (this.state.sliceCalls ?? 0) + 1;
+		return super.slice(start, end, contentType);
+	}
+
+	async arrayBuffer() {
+		this.state.arrayBufferCalls = (this.state.arrayBufferCalls ?? 0) + 1;
+		return await super.arrayBuffer();
+	}
 }
 
 function createHarness(overrides = {}) {
@@ -512,6 +541,41 @@ function createHarness(overrides = {}) {
 				1,
 				"failed project open should release the staged project source immediately",
 			);
+		},
+	);
+}
+
+{
+	const sourceState = {};
+	await withNavigator(
+		{
+			userAgent:
+				"Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/147",
+			maxTouchPoints: 5,
+			storage: null,
+		},
+		async () => {
+			const harness = createHarness();
+			const source = new HugeCountingProjectBlob(sourceState);
+			await assert.rejects(
+				harness.projectController.openProjectSource(source),
+				(error) => {
+					assert.equal(error.code, "PROJECT_SOURCE_STAGING_REQUIRED");
+					assert.equal(error.reason, "staging-unavailable-large-file");
+					assert.equal(
+						error.message,
+						"Save this project file to the device and open it again.",
+					);
+					return true;
+				},
+			);
+			assert.equal(
+				sourceState.sliceCalls ?? 0,
+				0,
+				"large mobile files without a stable copy should fail before legacy archive probing re-reads the original provider Blob",
+			);
+			assert.equal(sourceState.arrayBufferCalls ?? 0, 0);
+			assert.equal(harness.store.overlay.value, null);
 		},
 	);
 }
