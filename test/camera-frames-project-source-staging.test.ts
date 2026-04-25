@@ -1,0 +1,213 @@
+import assert from "node:assert/strict";
+import {
+	prepareStableProjectOpenSource,
+	isMobileProjectSourceStagingPlatform,
+} from "../src/controllers/project/source-staging.js";
+
+const ANDROID_PLATFORM = {
+	userAgent: "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/147",
+	maxTouchPoints: 5,
+};
+const DESKTOP_PLATFORM = {
+	userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+	maxTouchPoints: 0,
+};
+
+function createFakeOpfsStorage({ quota = 1024 * 1024 * 1024, usage = 0 } = {}) {
+	const records = new Map();
+	const removed = [];
+	const written = [];
+	const directory = {
+		async getFileHandle(name) {
+			return {
+				name,
+				async createWritable() {
+					const chunks = [];
+					return new WritableStream({
+						write(chunk) {
+							written.push(name);
+							if (chunk instanceof Uint8Array) {
+								chunks.push(chunk.slice());
+							} else if (chunk instanceof ArrayBuffer) {
+								chunks.push(chunk.slice(0));
+							} else {
+								chunks.push(chunk);
+							}
+						},
+						close() {
+							records.set(name, chunks);
+						},
+					});
+				},
+				async getFile() {
+					if (!records.has(name)) {
+						throw new Error(`Missing staged file ${name}`);
+					}
+					return new File(records.get(name), name, {
+						type: "application/x-camera-frames-project",
+					});
+				},
+			};
+		},
+		async removeEntry(name) {
+			removed.push(name);
+			records.delete(name);
+		},
+	};
+	return {
+		records,
+		removed,
+		written,
+		storage: {
+			async estimate() {
+				return { quota, usage };
+			},
+			async getDirectory() {
+				return {
+					async getDirectoryHandle() {
+						return directory;
+					},
+				};
+			},
+		},
+	};
+}
+
+class NoArrayBufferFile extends File {
+	constructor(parts, name, state = {}) {
+		super(parts, name, { type: "application/x-camera-frames-project" });
+		this.state = state;
+	}
+
+	async arrayBuffer() {
+		this.state.arrayBufferCalls = (this.state.arrayBufferCalls ?? 0) + 1;
+		throw new Error("arrayBuffer should not be used");
+	}
+}
+
+class HugeProjectBlob extends Blob {
+	get size() {
+		return 300 * 1024 * 1024;
+	}
+}
+
+assert.equal(
+	isMobileProjectSourceStagingPlatform(ANDROID_PLATFORM),
+	true,
+	"Android should enable mobile project source staging",
+);
+assert.equal(
+	isMobileProjectSourceStagingPlatform({
+		userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15)",
+		maxTouchPoints: 5,
+	}),
+	true,
+	"iPadOS desktop-style user agents should enable mobile staging",
+);
+assert.equal(
+	isMobileProjectSourceStagingPlatform(DESKTOP_PLATFORM),
+	false,
+	"desktop browsers should not stage by default",
+);
+
+{
+	const opfs = createFakeOpfsStorage();
+	const sourceState = {};
+	const source = new NoArrayBufferFile(
+		[new Uint8Array([1, 2, 3, 4])],
+		"drive-project.ssproj",
+		sourceState,
+	);
+	const progress = [];
+	const result = await prepareStableProjectOpenSource(source, {
+		fileName: source.name,
+		platform: ANDROID_PLATFORM,
+		storage: opfs.storage,
+		onProgress: (payload) => progress.push(payload),
+	});
+
+	assert.equal(result.mode, "opfs");
+	assert.notEqual(result.source, source);
+	assert.equal(sourceState.arrayBufferCalls ?? 0, 0);
+	assert.deepEqual(
+		Array.from(new Uint8Array(await result.source.arrayBuffer())),
+		[1, 2, 3, 4],
+	);
+	assert.ok(
+		progress.some((payload) => payload.stage === "prepare-local-project-source"),
+	);
+	assert.ok(
+		progress.some((payload) => payload.stage === "copy-local-project-source"),
+	);
+	assert.ok(
+		progress.some((payload) => payload.stage === "complete-local-project-source"),
+	);
+	assert.equal(opfs.written.length > 0, true);
+	await result.cleanup?.();
+	await result.cleanup?.();
+	assert.equal(opfs.removed.length, 1);
+}
+
+{
+	const source = new File([new Uint8Array([5, 6, 7])], "small.ssproj");
+	const result = await prepareStableProjectOpenSource(source, {
+		fileName: source.name,
+		platform: ANDROID_PLATFORM,
+		storage: null,
+	});
+	assert.equal(result.mode, "memory");
+	assert.notEqual(result.source, source);
+	assert.deepEqual(
+		Array.from(new Uint8Array(await result.source.arrayBuffer())),
+		[5, 6, 7],
+	);
+}
+
+{
+	const source = new HugeProjectBlob([new Uint8Array([8, 9])], {
+		type: "application/x-camera-frames-project",
+	});
+	const progress = [];
+	const result = await prepareStableProjectOpenSource(source, {
+		fileName: "huge.ssproj",
+		platform: ANDROID_PLATFORM,
+		storage: null,
+		memoryLimitBytes: 256 * 1024 * 1024,
+		onProgress: (payload) => progress.push(payload),
+	});
+	assert.equal(result.mode, "original-with-warning");
+	assert.equal(result.source, source);
+	assert.equal(result.warning, "status.projectSourceStagingUnavailable");
+	assert.ok(
+		progress.some((payload) => payload.stage === "warn-local-project-source"),
+	);
+}
+
+{
+	const opfs = createFakeOpfsStorage();
+	const source = new File([new Uint8Array([10])], "off.ssproj");
+	const result = await prepareStableProjectOpenSource(source, {
+		fileName: source.name,
+		platform: ANDROID_PLATFORM,
+		storage: opfs.storage,
+		search: "?cfProjectSourceStaging=off",
+	});
+	assert.equal(result.mode, "none");
+	assert.equal(result.source, source);
+	assert.equal(opfs.written.length, 0);
+}
+
+{
+	const opfs = createFakeOpfsStorage();
+	const source = new File([new Uint8Array([11])], "forced.ssproj");
+	const result = await prepareStableProjectOpenSource(source, {
+		fileName: source.name,
+		platform: DESKTOP_PLATFORM,
+		storage: opfs.storage,
+		search: "?cfProjectSourceStaging=on",
+	});
+	assert.equal(result.mode, "opfs");
+	await result.cleanup?.();
+}
+
+console.log("✅ CAMERA_FRAMES project source staging tests passed!");

@@ -15,6 +15,7 @@ import {
 	getProjectBaseName,
 	isLegacyCameraFramesProjectSource,
 } from "./picker-options.js";
+import { prepareStableProjectOpenSource } from "./source-staging.js";
 import { resolveProjectIdentity } from "./working-save-record.js";
 
 function getProjectSourceFileName(source, fileHandle = null) {
@@ -63,6 +64,14 @@ export function createProjectOpenWorkflow({
 	probeCompatibleWorkingState,
 	applyProbedWorkingState,
 	rememberProjectContext,
+	replaceProjectSourceStaging = async (cleanup) => {
+		try {
+			await cleanup?.();
+		} catch {
+			// Best-effort fallback for tests or alternate hosts that do not
+			// provide a project-lifetime staging owner.
+		}
+	},
 	markCurrentPackageClean,
 	markCurrentProjectClean,
 	syncProjectPresentation,
@@ -153,6 +162,18 @@ export function createProjectOpenWorkflow({
 		const sourceFileName = getProjectSourceFileName(source, fileHandle);
 		const projectName = getProjectBaseName(sourceFileName);
 		const progressStartedAt = Date.now();
+		let preparedProjectSource = null;
+		let projectSource = null;
+		let stagingAdopted = false;
+		const cleanupUnadoptedStaging = async () => {
+			if (!stagingAdopted) {
+				await preparedProjectSource?.cleanup?.();
+			}
+		};
+		const adoptPreparedStaging = async () => {
+			await replaceProjectSourceStaging(preparedProjectSource?.cleanup ?? null);
+			stagingAdopted = true;
+		};
 		try {
 			setOverlay(
 				buildImportProgressOverlay(t, "verify", "", {
@@ -160,43 +181,77 @@ export function createProjectOpenWorkflow({
 				}),
 			);
 			await waitForOverlayFrame();
-			const projectSource = await materializeRemoteProjectSource(
+			projectSource = await materializeRemoteProjectSource(
 				source,
 				sourceFileName,
 			);
+			preparedProjectSource =
+				typeof source === "string"
+					? {
+							source: projectSource,
+							mode: "none",
+							cleanup: null,
+							warning: null,
+						}
+					: await prepareStableProjectOpenSource(projectSource, {
+							fileName: sourceFileName,
+							onProgress: (progress) => {
+								setOverlay(
+									buildImportProgressOverlay(
+										t,
+										progress?.phase || "verify",
+										buildImportProgressDetail(t, progress),
+										{ startedAt: progressStartedAt },
+									),
+								);
+							},
+						});
+			if (preparedProjectSource?.warning) {
+				setStatus(t(preparedProjectSource.warning));
+			}
 			const refreshSource =
-				fileHandle && typeof fileHandle.getFile === "function"
+				preparedProjectSource?.mode === "none" &&
+				fileHandle &&
+				typeof fileHandle.getFile === "function"
 					? async () => await fileHandle.getFile()
 					: null;
-			const parsedProject = await openCameraFramesProjectPackage(projectSource, {
-				refreshSource,
-				onProgress: (progress) => {
-					setOverlay(
-						buildImportProgressOverlay(
-							t,
-							progress?.phase || "verify",
-							buildImportProgressDetail(t, progress),
-							{ startedAt: progressStartedAt },
-						),
-					);
+			const parsedProject = await openCameraFramesProjectPackage(
+				preparedProjectSource.source,
+				{
+					refreshSource,
+					onProgress: (progress) => {
+						setOverlay(
+							buildImportProgressOverlay(
+								t,
+								progress?.phase || "verify",
+								buildImportProgressDetail(t, progress),
+								{ startedAt: progressStartedAt },
+							),
+						);
+					},
 				},
-			});
+			);
 			try {
-				return await openParsedProject(parsedProject, {
+				const opened = await openParsedProject(parsedProject, {
 					projectName,
 					fileHandle,
 					progressStartedAt,
 				});
+				await adoptPreparedStaging();
+				return opened;
 			} finally {
 				await parsedProject.close?.();
 			}
 		} catch (error) {
 			const legacySource =
-				typeof source === "string"
+				preparedProjectSource?.source ??
+				projectSource ??
+				(typeof source === "string"
 					? await materializeRemoteProjectSource(source, sourceFileName)
-					: source;
+					: source);
 			if (!(await isLegacyCameraFramesProjectSource(legacySource))) {
 				clearOverlay();
+				await cleanupUnadoptedStaging();
 				throw error;
 			}
 
@@ -221,6 +276,7 @@ export function createProjectOpenWorkflow({
 				clearOverlay();
 			} catch (legacyError) {
 				clearOverlay();
+				await cleanupUnadoptedStaging();
 				throw legacyError;
 			}
 			const projectSnapshot = captureProjectState();
@@ -262,6 +318,7 @@ export function createProjectOpenWorkflow({
 				markCurrentProjectClean(finalSnapshot);
 				syncProjectPresentation(finalSnapshot);
 			}
+			await adoptPreparedStaging();
 			setStatus(t("status.projectLoaded"));
 			return true;
 		}

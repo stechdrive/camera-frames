@@ -90,15 +90,51 @@ export function buildImportProgressDetail(
 		fileCount = 0,
 		referenceTotal = 0,
 		resourceType = "",
+		bytesCopied = 0,
+		totalBytes = 0,
+		percent = null,
 	} = {},
 ) {
 	const normalizedAssetLabel = String(assetLabel ?? "").trim();
 	const normalizedFileLabel = String(fileLabel ?? "").trim();
+	const formatBytes = (bytes) => {
+		const value = Number(bytes);
+		if (!Number.isFinite(value) || value <= 0) {
+			return "0 B";
+		}
+		const units = ["B", "KiB", "MiB", "GiB"];
+		let unitIndex = 0;
+		let nextValue = value;
+		while (nextValue >= 1024 && unitIndex < units.length - 1) {
+			nextValue /= 1024;
+			unitIndex += 1;
+		}
+		return `${nextValue >= 10 || unitIndex === 0 ? nextValue.toFixed(0) : nextValue.toFixed(1)} ${units[unitIndex]}`;
+	};
 	if (stage === "inspect-archive") {
 		return t("overlay.importDetailInspectProjectArchive");
 	}
 	if (stage === "open-archive") {
 		return t("overlay.importDetailOpenProjectArchive");
+	}
+	if (stage === "prepare-local-project-source") {
+		return t("overlay.importDetailPrepareLocalProjectSource");
+	}
+	if (stage === "copy-local-project-source") {
+		if (Number.isFinite(percent)) {
+			return t("overlay.importDetailCopyLocalProjectSourceProgress", {
+				copied: formatBytes(bytesCopied),
+				total: formatBytes(totalBytes),
+				percent,
+			});
+		}
+		return t("overlay.importDetailCopyLocalProjectSource");
+	}
+	if (stage === "complete-local-project-source") {
+		return t("overlay.importDetailCompleteLocalProjectSource");
+	}
+	if (stage === "warn-local-project-source") {
+		return t("overlay.importDetailWarnLocalProjectSource");
 	}
 	if (stage === "read-manifest") {
 		return t("overlay.importDetailReadProjectManifest", {

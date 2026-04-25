@@ -86,6 +86,7 @@ export function createProjectController({
 	let currentProjectName = "";
 	let currentDirtySignature = "";
 	let currentPackageDirtySignature = "";
+	let currentProjectSourceStagingCleanup = null;
 	let pendingAfterSuccessfulSave = null;
 	let preferredPackageSaveOptions = {
 		saveMode: "fast",
@@ -189,6 +190,32 @@ export function createProjectController({
 		store.project.name.value = "";
 		store.project.dirty.value = false;
 		store.project.packageDirty.value = true;
+	}
+
+	async function cleanupProjectSourceStaging(cleanup) {
+		if (typeof cleanup !== "function") {
+			return;
+		}
+		try {
+			await cleanup();
+		} catch (error) {
+			console.warn(
+				"[camera-frames] failed to clean up staged project source.",
+				error,
+			);
+		}
+	}
+
+	async function replaceProjectSourceStaging(cleanup = null) {
+		const previousCleanup = currentProjectSourceStagingCleanup;
+		currentProjectSourceStagingCleanup =
+			typeof cleanup === "function" ? cleanup : null;
+		if (
+			previousCleanup &&
+			previousCleanup !== currentProjectSourceStagingCleanup
+		) {
+			await cleanupProjectSourceStaging(previousCleanup);
+		}
 	}
 
 	function clearPendingAfterSuccessfulSave() {
@@ -483,6 +510,7 @@ export function createProjectController({
 		probeCompatibleWorkingState,
 		applyProbedWorkingState,
 		rememberProjectContext,
+		replaceProjectSourceStaging,
 		markCurrentPackageClean,
 		markCurrentProjectClean,
 		syncProjectPresentation,
@@ -1336,6 +1364,7 @@ export function createProjectController({
 	}
 
 	async function performNewProjectReset() {
+		await replaceProjectSourceStaging(null);
 		clearProjectContext();
 		resetProjectWorkspace?.();
 		const projectSnapshot = captureProjectState();

@@ -25,6 +25,7 @@
 - startup `?load=` による確認付き remote import がある
 - remote URL 欄や startup `?load=` で単独 `.ssproj` URL が渡った場合は、asset import ではなく project open workflow へ送る
 - current `.ssproj` は resource metadata を先に読み、scene asset / reference image bytes は必要時に lazy materialize する
+- Android / iOS / iPadOS では、file picker / drop 由来の `.ssproj` を OPFS のローカル作業コピーへ staging してから開き、Google Drive / iCloud Drive などのクラウド provider 由来 Blob の遅延 read 不安定性を避ける
 - compatible working save restore がある `.ssproj` では、package state apply と不要な reference image bytes 展開を skip する
 - legacy `document.json` ベース `.ssproj` を fallback import できる
 

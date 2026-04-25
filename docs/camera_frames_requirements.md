@@ -90,6 +90,7 @@ CAMERA_FRAMES の共有 contract を Git 管理するための基点です。
 - current `.ssproj` open は manifest / project document / resource metadata を先に読み、scene asset bytes と reference image bytes は必要になるまで materialize しない
 - `.ssproj` 由来の scene asset load は package reader を開いたまま concurrency 1 で順に materialize / load する
 - remote URL 入力または startup `?load=` で単独 `.ssproj` URL が渡った場合も project open workflow にルーティングし、fetch した `File` を current package / legacy package 判定に使う
+- Android / iOS / iPadOS で file picker / drop 由来の `.ssproj` を開く時は、クラウドストレージ provider の遅延 read 不安定性を避けるため、可能なら OPFS にローカル作業コピーを作成してから package reader / RAD streaming を開始する
 - compatible working save restore が確定している `.ssproj` open では、package 側の state apply と reference image bytes materialization を skip する
 - project status の UI 表示は viewport 右上 HUD の `name / * / PKG`
   - `*` は working save dirty

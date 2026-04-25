@@ -169,6 +169,55 @@ function createCompletingIndexedDb() {
 	};
 }
 
+function createFakeOpfsStorage() {
+	const records = new Map();
+	const removed = [];
+	const written = [];
+	const directory = {
+		async getFileHandle(name) {
+			return {
+				async createWritable() {
+					const chunks = [];
+					return new WritableStream({
+						write(chunk) {
+							written.push(name);
+							chunks.push(chunk instanceof Uint8Array ? chunk.slice() : chunk);
+						},
+						close() {
+							records.set(name, chunks);
+						},
+					});
+				},
+				async getFile() {
+					return new File(records.get(name) ?? [], name, {
+						type: "application/x-camera-frames-project",
+					});
+				},
+			};
+		},
+		async removeEntry(name) {
+			removed.push(name);
+			records.delete(name);
+		},
+	};
+	return {
+		removed,
+		written,
+		storage: {
+			async estimate() {
+				return { quota: 1024 * 1024 * 1024, usage: 0 };
+			},
+			async getDirectory() {
+				return {
+					async getDirectoryHandle() {
+						return directory;
+					},
+				};
+			},
+		},
+	};
+}
+
 function createHarness(overrides = {}) {
 	const store = {
 		overlay: { value: null },
@@ -365,6 +414,88 @@ function createHarness(overrides = {}) {
 		harness.applyOpenedProjectCalls[0]?.[1]?.skipApplyState,
 		false,
 		"applyOpenedProject should receive skipApplyState=false when no compatible working state exists",
+	);
+}
+
+{
+	const opfs = createFakeOpfsStorage();
+	await withNavigator(
+		{
+			userAgent:
+				"Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/147",
+			maxTouchPoints: 5,
+			storage: opfs.storage,
+		},
+		async () => {
+			const harness = createHarness();
+			const projectSnapshot = {
+				workspace: {
+					activeShotCameraId: "",
+					viewport: {
+						baseFovX: 55,
+						pose: {
+							position: { x: 0, y: 0, z: 0 },
+							quaternion: { x: 0, y: 0, z: 0, w: 1 },
+							up: { x: 0, y: 1, z: 0 },
+						},
+					},
+				},
+				shotCameras: [],
+				scene: {
+					assets: [],
+					referenceImages: createDefaultReferenceImageDocument(),
+				},
+			};
+			const archive = await buildCameraFramesProjectArchive(projectSnapshot);
+			const projectFile = new File([archive], "cloud-scene.ssproj");
+			await harness.projectController.openProjectSource(projectFile);
+			assert.equal(opfs.written.length > 0, true);
+			assert.equal(
+				opfs.removed.length,
+				0,
+				"mobile staged project source must survive after successful open for deferred reads",
+			);
+			await harness.projectController.startNewProject();
+			const discardAction = harness.store.overlay.value?.actions?.find(
+				(action) => action.label === "action.discardAndNewProject",
+			);
+			if (discardAction) {
+				await discardAction.onClick();
+			}
+			assert.equal(
+				opfs.removed.length,
+				1,
+				"starting a new project releases the staged project source",
+			);
+		},
+	);
+}
+
+{
+	const opfs = createFakeOpfsStorage();
+	await withNavigator(
+		{
+			userAgent:
+				"Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/147",
+			maxTouchPoints: 5,
+			storage: opfs.storage,
+		},
+		async () => {
+			const harness = createHarness();
+			const brokenProjectFile = new File(
+				[new Uint8Array([1, 2, 3, 4])],
+				"broken-cloud.ssproj",
+			);
+			await assert.rejects(
+				harness.projectController.openProjectSource(brokenProjectFile),
+			);
+			assert.equal(opfs.written.length > 0, true);
+			assert.equal(
+				opfs.removed.length,
+				1,
+				"failed project open should release the staged project source immediately",
+			);
+		},
 	);
 }
 

@@ -3,6 +3,7 @@ import {
 	buildImportProgressDetail,
 	buildImportProgressOverlay,
 } from "../src/controllers/project/overlays.js";
+import { prepareStableProjectOpenSource } from "../src/controllers/project/source-staging.js";
 import { ZipReader, buildZipArchiveBytes } from "../src/project-archive.js";
 import {
 	PROJECT_DOCUMENT_PATH,
@@ -76,6 +77,52 @@ class VolatileArchiveSliceBlob extends Blob {
 			this.state,
 		);
 	}
+}
+
+function createFakeOpfsStorage() {
+	const records = new Map();
+	const removed = [];
+	const directory = {
+		async getFileHandle(name) {
+			return {
+				async createWritable() {
+					const chunks = [];
+					return new WritableStream({
+						write(chunk) {
+							chunks.push(chunk instanceof Uint8Array ? chunk.slice() : chunk);
+						},
+						close() {
+							records.set(name, chunks);
+						},
+					});
+				},
+				async getFile() {
+					return new File(records.get(name) ?? [], name, {
+						type: "application/x-camera-frames-project",
+					});
+				},
+			};
+		},
+		async removeEntry(name) {
+			removed.push(name);
+			records.delete(name);
+		},
+	};
+	return {
+		removed,
+		storage: {
+			async estimate() {
+				return { quota: 1024 * 1024 * 1024, usage: 0 };
+			},
+			async getDirectory() {
+				return {
+					async getDirectoryHandle() {
+						return directory;
+					},
+				};
+			},
+		},
+	};
 }
 
 async function collectWritableChunks(chunks) {
@@ -925,6 +972,15 @@ assert.match(
 	}),
 	/^overlay\.importDetailExpandComplete:/u,
 );
+assert.match(
+	buildImportProgressDetail(t, {
+		stage: "copy-local-project-source",
+		bytesCopied: 1024 * 1024,
+		totalBytes: 2 * 1024 * 1024,
+		percent: 50,
+	}),
+	/^overlay\.importDetailCopyLocalProjectSourceProgress:.*copied=1\.0 MiB.*total=2\.0 MiB.*percent=50/u,
+);
 {
 	const timing = {
 		stageStartedAt: 100,
@@ -1443,6 +1499,46 @@ assert.deepEqual(
 	"RAD-backed deferred FullData should reopen the project file when a stale file-backed Blob fails",
 );
 assert.equal(refreshedArchiveReads > 0, true);
+
+const stagedVolatileArchiveState = { failReads: false };
+const stagedVolatileArchive = new VolatileArchiveBlob(
+	[radBundleArchive],
+	stagedVolatileArchiveState,
+);
+const stagedOpfs = createFakeOpfsStorage();
+const stagedProjectSource = await prepareStableProjectOpenSource(
+	stagedVolatileArchive,
+	{
+		fileName: "cloud-rad-bundle-read.ssproj",
+		platform: {
+			userAgent:
+				"Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/147",
+			maxTouchPoints: 5,
+		},
+		storage: stagedOpfs.storage,
+	},
+);
+assert.equal(stagedProjectSource.mode, "opfs");
+const stagedParsedProject = await openCameraFramesProjectPackage(
+	stagedProjectSource.source,
+);
+let stagedRadSource = null;
+try {
+	stagedRadSource = await stagedParsedProject.assetEntries[0].source.materialize();
+} finally {
+	await stagedParsedProject.close();
+}
+assert.equal(stagedRadSource.packedArray.length, 0);
+stagedVolatileArchiveState.failReads = true;
+const stagedFullSource =
+	await materializeProjectFilePackedSplatFullData(stagedRadSource);
+assert.deepEqual(
+	Array.from(stagedFullSource.packedArray),
+	[101, 102, 103, 104],
+	"mobile-staged RAD-backed FullData should not depend on the original cloud provider Blob after open",
+);
+await stagedProjectSource.cleanup?.();
+assert.equal(stagedOpfs.removed.length, 1);
 
 const radBundleMismatchProjectSnapshot = structuredClone(
 	radBundleProjectSnapshot,

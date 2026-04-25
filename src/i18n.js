@@ -460,6 +460,16 @@ const MESSAGES = {
 			importPhaseApply: "シーンへ反映",
 			importDetailOpenProjectArchive: "プロジェクトパッケージを開いています…",
 			importDetailInspectProjectArchive: "プロジェクトパッケージを確認中…",
+			importDetailPrepareLocalProjectSource:
+				"ローカル作業コピーを作成中…",
+			importDetailCopyLocalProjectSource:
+				"ローカル作業コピーへ読み込み中…",
+			importDetailCopyLocalProjectSourceProgress:
+				"ローカル作業コピーを作成中… {copied} / {total} ({percent}%)",
+			importDetailCompleteLocalProjectSource:
+				"ローカル作業コピーの準備が完了しました。",
+			importDetailWarnLocalProjectSource:
+				"クラウドストレージ上のファイルは直接読み込みが不安定な場合があります。失敗した場合は端末に保存してから開いてください。",
 			importDetailReadProjectManifest: "manifest を読込中… ({file})",
 			importDetailReadProjectDocument: "プロジェクト設定を読込中… ({file})",
 			importDetailScanProjectAssets:
@@ -653,6 +663,8 @@ const MESSAGES = {
 			projectSavingToFolder: "{name} にプロジェクトを保存中...",
 			projectLoaded: "プロジェクトを読み込みました。",
 			projectLoadedFromFolder: "{name} からプロジェクトを読み込みました。",
+			projectSourceStagingUnavailable:
+				"クラウドストレージ上のファイルを直接開いている可能性があります。失敗した場合は端末に保存してから開いてください。",
 			projectSaved: "プロジェクトを保存しました。",
 			projectSavedToFolder: "{name} にプロジェクトを保存しました。",
 			workingStateSaved: "{name} を保存しました。",
@@ -1344,6 +1356,16 @@ const MESSAGES = {
 			importPhaseApply: "Applying scene state",
 			importDetailOpenProjectArchive: "Opening project package…",
 			importDetailInspectProjectArchive: "Inspecting project package…",
+			importDetailPrepareLocalProjectSource:
+				"Preparing local working copy…",
+			importDetailCopyLocalProjectSource:
+				"Reading into a local working copy…",
+			importDetailCopyLocalProjectSourceProgress:
+				"Preparing local working copy… {copied} / {total} ({percent}%)",
+			importDetailCompleteLocalProjectSource:
+				"Local working copy is ready.",
+			importDetailWarnLocalProjectSource:
+				"Opening cloud storage files directly can be unstable. If loading fails, save the file to this device and open it again.",
 			importDetailReadProjectManifest: "Reading manifest… ({file})",
 			importDetailReadProjectDocument: "Reading project document… ({file})",
 			importDetailScanProjectAssets:
@@ -1539,6 +1561,8 @@ const MESSAGES = {
 			projectSavingToFolder: "Saving project to {name}...",
 			projectLoaded: "Project loaded.",
 			projectLoadedFromFolder: "Loaded project from {name}.",
+			projectSourceStagingUnavailable:
+				"This may be a cloud storage file opened directly. If loading fails, save it to this device and open it again.",
 			projectSaved: "Project saved.",
 			projectSavedToFolder: "Saved project to {name}.",
 			workingStateSaved: "Saved {name}.",
