@@ -671,6 +671,7 @@ export function createProjectController({
 				projectAssetState: asset.source.projectAssetState ?? null,
 				legacyState: asset.source.legacyState ?? null,
 				resource: asset.source.resource ?? null,
+				radBundle: null,
 				skipClone: true,
 			});
 			return true;
@@ -697,6 +698,7 @@ export function createProjectController({
 			projectAssetState: asset.source?.projectAssetState ?? null,
 			legacyState: asset.source?.legacyState ?? null,
 			resource: null,
+			radBundle: null,
 			skipClone: true,
 		});
 		return true;
@@ -763,6 +765,22 @@ export function createProjectController({
 		};
 	}
 
+	async function ensureRadEntrySha256(entry) {
+		if (!entry || typeof entry.sha256 === "string") {
+			return entry;
+		}
+		if (entry.bytes instanceof Uint8Array && entry.bytes.byteLength > 0) {
+			entry.sha256 = await sha256Hex(entry.bytes);
+			return entry;
+		}
+		if (entry.blob instanceof Blob && entry.blob.size > 0) {
+			entry.sha256 = await sha256Hex(
+				new Uint8Array(await entry.blob.arrayBuffer()),
+			);
+		}
+		return entry;
+	}
+
 	async function attachRadBundleToAssetSource(
 		asset,
 		radBuildResult,
@@ -785,32 +803,36 @@ export function createProjectController({
 		const chunks = (radBuildResult?.chunks ?? [])
 			.map(normalizeRadBundleChunk)
 			.filter(Boolean);
+		for (const chunk of chunks) {
+			await ensureRadEntrySha256(chunk);
+		}
 		const sourceFingerprint =
 			metadata.sourceFingerprint ??
 			(await buildPackedSplatSourceFingerprint(
 				asset.disposeTarget?.packedSplats,
 			));
+		const root = await ensureRadEntrySha256({
+			name: String(
+				radBuildResult?.root?.name ||
+					metadata.rootName ||
+					`${asset.source.fileName}.lod.rad`,
+			),
+			bytes: rootBytes.byteLength > 0 ? rootBytes : undefined,
+			blob: rootBlob ?? undefined,
+			size:
+				Number.isFinite(radBuildResult?.root?.size) &&
+				radBuildResult.root.size >= 0
+					? Math.floor(radBuildResult.root.size)
+					: rootBytes.byteLength || rootBlob?.size || 0,
+			sha256:
+				typeof radBuildResult?.root?.sha256 === "string"
+					? radBuildResult.root.sha256
+					: null,
+		});
 		const radBundle = {
 			kind: "spark-rad-bundle",
 			version: 1,
-			root: {
-				name: String(
-					radBuildResult?.root?.name ||
-						metadata.rootName ||
-						`${asset.source.fileName}.lod.rad`,
-				),
-				bytes: rootBytes.byteLength > 0 ? rootBytes : undefined,
-				blob: rootBlob ?? undefined,
-				size:
-					Number.isFinite(radBuildResult?.root?.size) &&
-					radBuildResult.root.size >= 0
-						? Math.floor(radBuildResult.root.size)
-						: rootBytes.byteLength || rootBlob?.size || 0,
-				sha256:
-					typeof radBuildResult?.root?.sha256 === "string"
-						? radBuildResult.root.sha256
-						: null,
-			},
+			root,
 			chunks,
 			sourceFingerprint,
 			bounds: metadata.bounds ?? {
@@ -838,7 +860,40 @@ export function createProjectController({
 		return true;
 	}
 
-	async function buildRadBundleForPackageSave(asset, { quality = false } = {}) {
+	function normalizeLodSplatsForRadBuild(lodSplats) {
+		if (!lodSplats || typeof lodSplats !== "object") {
+			return null;
+		}
+		const packedArray =
+			lodSplats.packedArray instanceof Uint32Array
+				? lodSplats.packedArray
+				: null;
+		if (!packedArray || packedArray.length === 0) {
+			return null;
+		}
+		return {
+			packedArray,
+			numSplats: Number.isFinite(lodSplats.numSplats)
+				? Math.max(0, Math.floor(lodSplats.numSplats))
+				: Math.floor(packedArray.length / 4),
+			extra: lodSplats.extra ?? {},
+			splatEncoding: lodSplats.splatEncoding ?? null,
+		};
+	}
+
+	function resolvePackageRadBuildStageLabel(stage) {
+		if (!stage) {
+			return "";
+		}
+		const key = `overlay.packageRadBuildStage.${stage}`;
+		const label = t(key);
+		return label === key ? String(stage) : label;
+	}
+
+	async function buildRadBundleForPackageSave(
+		asset,
+		{ quality = false, lodSplats = null, onProgress = null } = {},
+	) {
 		if (!supportsSparkRadBundleBuildImpl()) {
 			return false;
 		}
@@ -846,16 +901,23 @@ export function createProjectController({
 		if (!packedSplats || !isProjectFilePackedSplatSource(asset?.source)) {
 			return false;
 		}
+		const bounds = {
+			local: serializeBox3(asset.localBoundsHint),
+			center: serializeBox3(asset.localCenterBoundsHint),
+		};
 		const result = await buildSparkRadBundleFromPackedSplatsImpl({
+			fileName: asset.source.fileName || asset.label || "asset",
 			packedArray: packedSplats.packedArray ?? new Uint32Array(),
 			extraArrays: packedSplats.extra ?? {},
 			splatEncoding: packedSplats.splatEncoding ?? null,
 			numSplats: packedSplats.getNumSplats?.() ?? packedSplats.numSplats ?? 0,
-			bounds: {
-				local: serializeBox3(asset.localBoundsHint),
-				center: serializeBox3(asset.localCenterBoundsHint),
-			},
+			bounds,
 			quality: Boolean(quality),
+			lodSplats: normalizeLodSplatsForRadBuild(
+				lodSplats ?? asset.source?.lodSplats,
+			),
+		}, {
+			onProgress,
 		});
 		return await attachRadBundleToAssetSource(asset, result, { quality });
 	}
@@ -871,6 +933,7 @@ export function createProjectController({
 		}
 		const bakedAt = new Date().toISOString();
 		const bakedQuality = quality ? "quality" : "quick";
+		const canBuildRadBundle = supportsSparkRadBundleBuildImpl();
 		for (let index = 0; index < total; index += 1) {
 			const asset = assets[index];
 			const assetLabel = asset.label || asset?.source?.fileName || "3DGS";
@@ -881,36 +944,97 @@ export function createProjectController({
 			if (
 				existingQuality === bakedQuality &&
 				asset.source?.lodSplats?.packedArray?.length &&
-				(!supportsSparkRadBundleBuildImpl() || asset.source?.radBundle?.root)
+				(!canBuildRadBundle || asset.source?.radBundle?.root)
 			) {
 				continue;
 			}
-			setOverlay(
-				buildPackageProgressOverlay(
-					t,
-					"collect-state",
-					t("overlay.packageDetailBakeLod", {
-						name: assetLabel,
-						index: index + 1,
-						total,
-					}),
-					{ startedAt },
-				),
-			);
-			await waitForOverlayFrame();
+			let capture =
+				existingQuality === bakedQuality
+					? normalizeLodSplatsForRadBuild(asset.source?.lodSplats)
+					: null;
 			const packedSplats = asset?.disposeTarget?.packedSplats;
 			if (!packedSplats) {
 				continue;
 			}
-			await bakeSparkPackedSplatsLod(packedSplats, { quality });
-			const capture = captureSparkPackedSplatsLod(packedSplats);
-			if (capture) {
-				attachBakedLodSplatsToAssetSource(asset, capture, {
-					bakedAt,
-					bakedQuality,
-				});
+			if (!capture) {
+				setOverlay(
+					buildPackageProgressOverlay(
+						t,
+						"collect-state",
+						t("overlay.packageDetailBakeLod", {
+							name: assetLabel,
+							index: index + 1,
+							total,
+						}),
+						{ startedAt },
+					),
+				);
+				await waitForOverlayFrame();
+				await bakeSparkPackedSplatsLod(packedSplats, { quality });
+				capture = captureSparkPackedSplatsLod(packedSplats);
+				if (capture) {
+					attachBakedLodSplatsToAssetSource(asset, capture, {
+						bakedAt,
+						bakedQuality,
+					});
+				}
 			}
-			await buildRadBundleForPackageSave(asset, { quality });
+			if (!canBuildRadBundle) {
+				continue;
+			}
+			try {
+				setOverlay(
+					buildPackageProgressOverlay(
+						t,
+						"collect-state",
+						t("overlay.packageDetailBuildRad", {
+							name: assetLabel,
+							index: index + 1,
+							total,
+						}),
+						{ startedAt },
+					),
+				);
+				await waitForOverlayFrame();
+				await buildRadBundleForPackageSave(asset, {
+					quality,
+					lodSplats: capture,
+					onProgress: async (progress) => {
+						const stage = resolvePackageRadBuildStageLabel(progress?.stage);
+						setOverlay(
+							buildPackageProgressOverlay(
+								t,
+								"collect-state",
+								t("overlay.packageDetailBuildRadStage", {
+									name: assetLabel,
+									index: index + 1,
+									total,
+									stage,
+								}),
+								{ startedAt },
+							),
+						);
+						await waitForOverlayFrame();
+					},
+				});
+			} catch (error) {
+				console.warn(
+					`[camera-frames] RAD bundle generation failed for "${assetLabel}". Quality save will continue without RAD for this asset.`,
+					error,
+				);
+				setOverlay(
+					buildPackageProgressOverlay(
+						t,
+						"collect-state",
+						t("overlay.packageDetailBuildRadFailed", {
+							name: assetLabel,
+							message: error?.message ?? String(error),
+						}),
+						{ startedAt },
+					),
+				);
+				await waitForOverlayFrame();
+			}
 		}
 	}
 

@@ -40,6 +40,44 @@ function createCollectingWritable() {
 	};
 }
 
+class VolatileArchiveBlob extends Blob {
+	constructor(parts, state, options) {
+		super(parts, options);
+		this.state = state;
+	}
+
+	slice(start, end, contentType) {
+		return new VolatileArchiveSliceBlob(
+			super.slice(start, end, contentType),
+			this.state,
+		);
+	}
+}
+
+class VolatileArchiveSliceBlob extends Blob {
+	constructor(blob, state) {
+		super([blob], { type: blob.type });
+		this.state = state;
+	}
+
+	async arrayBuffer() {
+		if (this.state?.failReads) {
+			throw new DOMException(
+				"A requested file or directory could not be found at the time an operation was processed.",
+				"NotFoundError",
+			);
+		}
+		return await super.arrayBuffer();
+	}
+
+	slice(start, end, contentType) {
+		return new VolatileArchiveSliceBlob(
+			super.slice(start, end, contentType),
+			this.state,
+		);
+	}
+}
+
 async function collectWritableChunks(chunks) {
 	const parts = [];
 	let totalLength = 0;
@@ -1375,6 +1413,36 @@ assert.equal(
 	null,
 	"FullData materialization clears the streaming cache so edits do not reuse stale RAD",
 );
+
+const volatileArchiveState = { failReads: false };
+const volatileArchive = new VolatileArchiveBlob(
+	[radBundleArchive],
+	volatileArchiveState,
+);
+let refreshedArchiveReads = 0;
+const volatileParsedProject = await openCameraFramesProjectPackage(
+	volatileArchive,
+	{
+		refreshSource: async () => {
+			refreshedArchiveReads += 1;
+			return new Blob([radBundleArchive]);
+		},
+	},
+);
+const volatileLazySource = volatileParsedProject.assetEntries[0].source;
+assert.equal(isProjectFileLazyResourceSource(volatileLazySource), true);
+const volatileRadSource = await volatileLazySource.materialize();
+assert.equal(volatileRadSource.packedArray.length, 0);
+await volatileParsedProject.close();
+volatileArchiveState.failReads = true;
+const volatileFullSource =
+	await materializeProjectFilePackedSplatFullData(volatileRadSource);
+assert.deepEqual(
+	Array.from(volatileFullSource.packedArray),
+	[101, 102, 103, 104],
+	"RAD-backed deferred FullData should reopen the project file when a stale file-backed Blob fails",
+);
+assert.equal(refreshedArchiveReads > 0, true);
 
 const radBundleMismatchProjectSnapshot = structuredClone(
 	radBundleProjectSnapshot,

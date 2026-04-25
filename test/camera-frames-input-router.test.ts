@@ -696,19 +696,36 @@ function createInputRouterHarness(overrides = {}) {
 {
 	const calls = [];
 	const harness = createInputRouterHarness({
-		importOpenedFiles: async (files) => {
-			calls.push(["import-opened-files", files.map((file) => file.name)]);
+		importOpenedFiles: async (files, options = {}) => {
+			calls.push([
+				"import-opened-files",
+				files.map((file) => file.name),
+				options.fileHandles?.map((handle) => handle?.id ?? null) ?? null,
+			]);
 		},
 	});
 	try {
+		const droppedHandle = {
+			id: "dnd-project-handle",
+			kind: "file",
+			getFile: async () => ({ name: "scene.ssproj" }),
+		};
 		const drop = harness.listeners.get(harness.viewportShell).get("drop");
 		await drop({
 			preventDefault() {},
 			dataTransfer: {
 				files: [{ name: "scene.ssproj" }],
+				items: [
+					{
+						kind: "file",
+						getAsFileSystemHandle: async () => droppedHandle,
+					},
+				],
 			},
 		});
-		assert.deepEqual(calls, [["import-opened-files", ["scene.ssproj"]]]);
+		assert.deepEqual(calls, [
+			["import-opened-files", ["scene.ssproj"], ["dnd-project-handle"]],
+		]);
 		assert.deepEqual(harness.calls, []);
 	} finally {
 		harness.restore();

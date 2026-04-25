@@ -1,0 +1,15 @@
+{
+  "name": "camera_frames_rad_encoder",
+  "type": "module",
+  "version": "0.1.0",
+  "files": [
+    "camera_frames_rad_encoder_bg.wasm",
+    "camera_frames_rad_encoder.js",
+    "camera_frames_rad_encoder.d.ts"
+  ],
+  "main": "camera_frames_rad_encoder.js",
+  "types": "camera_frames_rad_encoder.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

@@ -39,6 +39,38 @@ export function isViewportOverlayControlTarget(target) {
 	);
 }
 
+async function getDroppedFileSystemHandles(dataTransfer, fileCount) {
+	const items = Array.from(dataTransfer?.items ?? []);
+	if (items.length === 0) {
+		return null;
+	}
+	const handlePromises = [];
+	for (const item of items) {
+		if (
+			item?.kind !== "file" ||
+			typeof item.getAsFileSystemHandle !== "function"
+		) {
+			continue;
+		}
+		handlePromises.push(
+			item
+				.getAsFileSystemHandle()
+				.then((handle) =>
+					handle?.kind === "file" &&
+					typeof handle.getFile === "function"
+						? handle
+						: null,
+				)
+				.catch(() => null),
+		);
+	}
+	if (handlePromises.length === 0) {
+		return null;
+	}
+	const handles = await Promise.all(handlePromises);
+	return handles.length === fileCount ? handles : null;
+}
+
 export function bindInputRouter({
 	listen,
 	viewportShell,
@@ -496,6 +528,10 @@ export function bindInputRouter({
 			updateDropHint();
 			return;
 		}
+		const fileHandles = await getDroppedFileSystemHandles(
+			event.dataTransfer,
+			files.length,
+		);
 
 		const referenceImageFiles =
 			typeof supportsReferenceImageFile === "function"
@@ -508,7 +544,7 @@ export function bindInputRouter({
 
 		try {
 			if (typeof importOpenedFiles === "function") {
-				await importOpenedFiles(files);
+				await importOpenedFiles(files, { fileHandles });
 			} else {
 				if (referenceImageFiles.length > 0) {
 					await importReferenceImageFiles?.(referenceImageFiles);

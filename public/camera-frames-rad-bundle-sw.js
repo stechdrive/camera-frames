@@ -13,6 +13,14 @@ self.addEventListener("message", (event) => {
 	const data = event.data ?? {};
 	const port = event.ports?.[0] ?? null;
 	try {
+		if (data.type === "CLAIM_CLIENTS") {
+			event.waitUntil(
+				self.clients.claim().then(() => {
+					port?.postMessage({ ok: true });
+				}),
+			);
+			return;
+		}
 		if (data.type === "REGISTER_RAD_BUNDLE") {
 			const token = String(data.token ?? "");
 			if (!token) {

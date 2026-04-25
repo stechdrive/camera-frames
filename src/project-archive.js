@@ -91,14 +91,16 @@ async function resolveStoredEntryDataRange(source, entry) {
 }
 
 export class ZipReader {
-	constructor(source, reader, entries) {
+	constructor(source, reader, entries, { refreshSource = null } = {}) {
 		this.source = source;
 		this.reader = reader;
 		this.entries = entries;
 		this.storedEntryRanges = new Map();
+		this.refreshSource =
+			typeof refreshSource === "function" ? refreshSource : null;
 	}
 
-	static async from(source) {
+	static async from(source, { refreshSource = null } = {}) {
 		const blob = source instanceof Blob ? source : new Blob([source]);
 		const reader = new ZipJsReader(new BlobReader(blob), {
 			useWebWorkers: true,
@@ -109,7 +111,7 @@ export class ZipReader {
 				entries.set(entry.filename, entry);
 			}
 		}
-		return new ZipReader(blob, reader, entries);
+		return new ZipReader(blob, reader, entries, { refreshSource });
 	}
 
 	listFilenames() {
@@ -160,13 +162,26 @@ export class ZipReader {
 		return await entry.getData(new BlobWriter());
 	}
 
-	async bytes(name) {
+	async bytes(name, { allowRefresh = true } = {}) {
 		const entry = this.getEntry(name);
-		const storedBlob = await this.getStoredEntryBlob(name, entry);
-		if (storedBlob) {
-			return new Uint8Array(await storedBlob.arrayBuffer());
+		try {
+			const storedBlob = await this.getStoredEntryBlob(name, entry);
+			if (storedBlob) {
+				return new Uint8Array(await storedBlob.arrayBuffer());
+			}
+			return await entry.getData(new Uint8ArrayWriter());
+		} catch (error) {
+			if (!allowRefresh || typeof this.refreshSource !== "function") {
+				throw error;
+			}
+			const refreshedSource = await this.refreshSource();
+			const refreshedReader = await ZipReader.from(refreshedSource);
+			try {
+				return await refreshedReader.bytes(name, { allowRefresh: false });
+			} finally {
+				await refreshedReader.close();
+			}
 		}
-		return await entry.getData(new Uint8ArrayWriter());
 	}
 
 	async text(name) {

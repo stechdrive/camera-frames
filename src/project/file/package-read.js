@@ -12,13 +12,13 @@ import {
 
 export async function readCameraFramesProject(
 	source,
-	{ onProgress = null } = {},
+	{ onProgress = null, refreshSource = null } = {},
 ) {
 	await notifyProjectReadProgress(onProgress, {
 		phase: "verify",
 		stage: "open-archive",
 	});
-	const reader = await ZipReader.from(source);
+	const reader = await ZipReader.from(source, { refreshSource });
 	try {
 		const {
 			manifest,
@@ -107,13 +107,13 @@ export async function readCameraFramesProject(
 
 export async function openCameraFramesProjectPackage(
 	source,
-	{ onProgress = null } = {},
+	{ onProgress = null, refreshSource = null } = {},
 ) {
 	await notifyProjectReadProgress(onProgress, {
 		phase: "verify",
 		stage: "open-archive",
 	});
-	const reader = await ZipReader.from(source);
+	const reader = await ZipReader.from(source, { refreshSource });
 	let closed = false;
 	async function close() {
 		if (closed) {

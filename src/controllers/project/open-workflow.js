@@ -125,7 +125,12 @@ export function createProjectOpenWorkflow({
 				}),
 			);
 			await waitForOverlayFrame();
+			const refreshSource =
+				fileHandle && typeof fileHandle.getFile === "function"
+					? async () => await fileHandle.getFile()
+					: null;
 			const parsedProject = await openCameraFramesProjectPackage(source, {
+				refreshSource,
 				onProgress: (progress) => {
 					setOverlay(
 						buildImportProgressOverlay(

@@ -1,4 +1,5 @@
 const RAD_BUNDLE_ROUTE_PREFIX = "__cf_rad_bundle__";
+const RAD_ROOT_MAGIC_BYTES = [0x52, 0x41, 0x44, 0x30];
 const BASE_URL =
 	typeof import.meta.env?.BASE_URL === "string"
 		? import.meta.env.BASE_URL
@@ -45,8 +46,24 @@ function buildRouteUrl(token, entryName) {
 	).toString();
 }
 
-async function waitForController(timeoutMs = 5000) {
-	if (navigator.serviceWorker.controller) {
+function formatBytesHex(bytes) {
+	return Array.from(bytes)
+		.map((value) => value.toString(16).padStart(2, "0"))
+		.join(" ");
+}
+
+function isExpectedController(controller, expectedScriptUrl = null) {
+	return (
+		controller &&
+		(!expectedScriptUrl || controller.scriptURL === expectedScriptUrl)
+	);
+}
+
+async function waitForController({
+	expectedScriptUrl = null,
+	timeoutMs = 5000,
+} = {}) {
+	if (isExpectedController(navigator.serviceWorker.controller, expectedScriptUrl)) {
 		return navigator.serviceWorker.controller;
 	}
 	return await new Promise((resolve, reject) => {
@@ -55,11 +72,17 @@ async function waitForController(timeoutMs = 5000) {
 				"controllerchange",
 				onControllerChange,
 			);
-			reject(new Error("RAD bundle service worker did not control the page."));
+			reject(
+				new Error(
+					expectedScriptUrl
+						? "Updated RAD bundle service worker did not control the page."
+						: "RAD bundle service worker did not control the page.",
+				),
+			);
 		}, timeoutMs);
 		function onControllerChange() {
 			const controller = navigator.serviceWorker.controller;
-			if (!controller) {
+			if (!isExpectedController(controller, expectedScriptUrl)) {
 				return;
 			}
 			clearTimeout(timeout);
@@ -76,9 +99,58 @@ async function waitForController(timeoutMs = 5000) {
 	});
 }
 
-async function postServiceWorkerMessage(message, transfer = []) {
+async function verifyRadBundleRootUrl(rootUrl) {
+	const response = await fetch(rootUrl, {
+		cache: "no-store",
+		headers: {
+			Range: "bytes=0-3",
+		},
+	});
+	const bytes = new Uint8Array(await response.arrayBuffer());
+	const hasRadMagic =
+		bytes.length >= RAD_ROOT_MAGIC_BYTES.length &&
+		RAD_ROOT_MAGIC_BYTES.every((value, index) => bytes[index] === value);
+	if (response.ok && hasRadMagic) {
+		return;
+	}
+	const contentType = response.headers?.get?.("Content-Type") ?? "";
+	throw new Error(
+		[
+			"RAD bundle service worker returned non-RAD root data.",
+			`status=${response.status}`,
+			contentType ? `contentType=${contentType}` : null,
+			`firstBytes=${formatBytesHex(bytes.slice(0, 8)) || "empty"}`,
+		]
+			.filter(Boolean)
+			.join(" "),
+	);
+}
+
+async function waitForWorkerActivation(worker, timeoutMs = 5000) {
+	if (!worker || worker.state === "activated") {
+		return;
+	}
+	await new Promise((resolve, reject) => {
+		const timeout = setTimeout(() => {
+			worker.removeEventListener("statechange", onStateChange);
+			reject(new Error("RAD bundle service worker activation timed out."));
+		}, timeoutMs);
+		function onStateChange() {
+			if (worker.state !== "activated") {
+				return;
+			}
+			clearTimeout(timeout);
+			worker.removeEventListener("statechange", onStateChange);
+			resolve();
+		}
+		worker.addEventListener("statechange", onStateChange);
+	});
+}
+
+async function postServiceWorkerMessage(message, transfer = [], targetWorker = null) {
 	const registration = await navigator.serviceWorker.ready;
 	const target =
+		targetWorker ||
 		navigator.serviceWorker.controller ||
 		registration.active ||
 		registration.waiting ||
@@ -89,10 +161,12 @@ async function postServiceWorkerMessage(message, transfer = []) {
 	const channel = new MessageChannel();
 	const response = new Promise((resolve, reject) => {
 		const timeout = setTimeout(() => {
+			channel.port1.close?.();
 			reject(new Error("RAD bundle service worker message timed out."));
 		}, 5000);
 		channel.port1.onmessage = (event) => {
 			clearTimeout(timeout);
+			channel.port1.close?.();
 			const data = event.data ?? {};
 			if (data.ok) {
 				resolve(data);
@@ -111,11 +185,31 @@ async function ensureRadBundleServiceWorker() {
 			"Service Worker is unavailable for embedded RAD streaming.",
 		);
 	}
-	await navigator.serviceWorker.register(SERVICE_WORKER_URL, {
-		scope: SERVICE_WORKER_SCOPE,
-	});
+	let registration = await navigator.serviceWorker.register(
+		SERVICE_WORKER_URL,
+		{
+			scope: SERVICE_WORKER_SCOPE,
+		},
+	);
+	try {
+		registration = await registration.update();
+		const updatingWorker = registration.installing || registration.waiting;
+		if (updatingWorker && updatingWorker !== registration.active) {
+			await waitForWorkerActivation(updatingWorker);
+		}
+	} catch {
+		// A failed update check should not block an already-installed worker.
+	}
 	await navigator.serviceWorker.ready;
-	await waitForController();
+	const activeWorker = registration.active;
+	if (activeWorker) {
+		await postServiceWorkerMessage(
+			{ type: "CLAIM_CLIENTS" },
+			[],
+			activeWorker,
+		);
+	}
+	await waitForController({ expectedScriptUrl: activeWorker?.scriptURL ?? null });
 }
 
 function getEntryBlob(entry) {
@@ -170,9 +264,11 @@ export async function registerProjectRadBundle(radBundle) {
 		token,
 		files,
 	});
+	const rootUrl = buildRouteUrl(token, rootName);
+	await verifyRadBundleRootUrl(rootUrl);
 	return {
 		token,
-		rootUrl: buildRouteUrl(token, rootName),
+		rootUrl,
 		async unregister() {
 			try {
 				await postServiceWorkerMessage({

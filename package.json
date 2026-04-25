@@ -15,7 +15,8 @@
 		"develop": "npm run dev",
 		"deploy": "npm run pages:publish",
 		"pages:build": "npm run build",
-		"pages:publish": "npm run build && node scripts/publish-pages.mjs"
+		"pages:publish": "npm run build && node scripts/publish-pages.mjs",
+		"build:rad-encoder": "wasm-pack build src/engine/rad-encoder-wasm-rs --target web --out-dir ../rad-encoder-wasm/pkg --release"
 	},
 	"dependencies": {
 		"@playcanvas/splat-transform": "^1.8.2",

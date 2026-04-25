@@ -29,14 +29,24 @@ export function createFileOpenRouting({
 	fallbackOpenFiles,
 	setStatus,
 } = {}) {
-	async function importOpenedFiles(files, { projectFileHandle = null } = {}) {
+	async function importOpenedFiles(
+		files,
+		{ projectFileHandle = null, fileHandles = null } = {},
+	) {
 		if (!Array.isArray(files) || files.length === 0) {
 			return;
 		}
 
 		if (files.length === 1 && isProjectPackageFile(files[0])) {
+			const fileHandle =
+				projectFileHandle ??
+				(Array.isArray(fileHandles) &&
+				fileHandles[0] &&
+				typeof fileHandles[0].getFile === "function"
+					? fileHandles[0]
+					: null);
 			await openProjectSource?.(files[0], {
-				fileHandle: projectFileHandle,
+				fileHandle,
 			});
 			return;
 		}

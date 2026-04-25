@@ -11,7 +11,8 @@ shared contract の正本は `docs/camera_frames_requirements.md` と `src/` / `
 - `.ssproj` は単体ファイルのまま維持し、外部 RAD sidecar は要求しない。
 - RAD/PagedSplats は read-only streaming 表示 path として扱う。
 - per-splat edit は FullData/PackedSplats へ materialize してから行う。
-- 現 baseline の `@sparkjsdev/spark@2.0.0` npm package は RAD writer / `build-lod` encoder を public API として公開していないため、標準 Quality 保存での RAD 生成はまだ disabled。
+- Quality 保存では、既存 FullData から作った Spark LoD を RAD bundle 化し、生成できた asset だけ `.ssproj` 内へ stored entry として同梱する。
+- RAD 生成は asset 単位の best-effort。失敗した asset は `lodSplats` だけ保存し、既存 Quality `.ssproj` 保存を止めない。
 
 ## Spark 2.0 Flow
 
@@ -51,9 +52,32 @@ const mesh = new SplatMesh({ paged: pagedSplats });
   - Spark には same-origin URL を渡し、Service Worker が `Range` request へ `206 Partial Content` で返す。
   - Service Worker / Range / RAD decode / PagedSplats 初期化に失敗した時は existing FullData path に fallback する。
 - Quality save hook
-  - `buildSparkRadBundleFromPackedSplats({ packedArray, extraArrays, splatEncoding, numSplats, bounds, quality })` の入口を持つ。
-  - 実装本体は `@sparkjsdev/spark@2.0.0` npm に RAD encoder が無いため現在 stub。
-  - fake builder 注入テストでは Quality save 前に `radBundle` が source に付き、`.ssproj` に保存されることを確認している。
+  - `buildSparkRadBundleFromPackedSplats({ packedArray, extraArrays, splatEncoding, numSplats, bounds, quality, lodSplats })` が module worker を lazy load する。
+  - `src/engine/rad-encoder-wasm-rs/` の Rust/WASM encoder が RAD root / chunk bytes を生成する。
+  - Quality save pipeline が先に Spark `PackedSplats.createLodSplats({ quality: true })` を実行し、`lodSplats` を worker へ渡す。`lodSplats.extra.lodTree` がある時は worker 内で LoD を再計算しない。
+  - `lodSplats` が渡されない単体呼び出しでは、worker 内で Spark public API の `PackedSplats.createLodSplats({ quality })` を呼び出してから RAD encode する。
+  - RAD root / chunk 名は RAD meta の `chunks[].filename` と `.ssproj` entry name が一致するように生成する。
+  - worker load / WASM init / encode / unsupported input の失敗は asset 単位で warning 扱いにし、保存全体は継続する。
+
+## WASM Encoder Flow
+
+`@sparkjsdev/spark@2.0.0` npm package は RAD writer を public API として公開していない。
+一方で上流 Rust workspace の license は proprietary 扱いだったため、Spark source をこの repo にコピーせず、
+RAD reader が期待する root/chunk layout に絞った encoder を `camera-frames` 側の Rust/WASM として実装している。
+なお、Spark repo 直下の `LICENSE` と npm package metadata は MIT だが、Spark repo 内の Rust workspace は `license = "Proprietary"` を明示しているため、Rust writer の実装はこの repo にコピーしない。公式 writer 出力と公開 package の reader contract を観測し、互換 encoder を独立実装する。
+
+通常の Quality 保存では次の順序になる。
+
+1. `ensureFullDataForSplatAssets` で root FullData を正本として揃える。
+2. Spark `PackedSplats.createLodSplats({ quality: true })` で Quality LoD を bake する。
+3. `lodSplats.packedArray` と `lodSplats.extra.lodTree` を WASM worker に渡す。
+4. WASM encoder が `RAD0` root と `RADC` chunk 群を生成する。
+5. `sourceFingerprint`、bounds、sha256、build metadata を付けた `radBundle` を `captureProjectState()` 前に source へ attach する。
+6. `.ssproj` writer が RAD entries だけ stored/uncompressed として ZIP に入れる。
+
+現在の encoder は packed centers / alpha / rgb / scales / orientation、通常 SH arrays (`sh1` / `sh2` / `sh3`) と LoD tree を対象にした narrow implementation。
+`sh1Codes` / `sh2Codes` / `sh3Codes` のような codebook/clustered SH arrays はまだ encode せず、該当 asset の RAD 生成を skip して `lodSplats` 保存に fallback する。
+この制限は Quality 保存の信頼性を守るための fail-open 契約で、FullData 正本や既存 load/edit/export path は保持される。
 
 ## Fixture / Smoke
 
@@ -66,6 +90,7 @@ const mesh = new SplatMesh({ paged: pagedSplats });
 この smoke は Chrome/CDP と Vite dev server を使い、通常の `npm test` には混ぜない。
 `blob:` Range の基礎確認に加えて、実装と同じ Service Worker 登録 URL から
 `Range` fetch し、その URL を Spark `PagedSplats` に渡す。
+既存 fixture `.rad` と、WASM encoder が生成した root/chunk RAD bundle の両方を確認する。
 
 2026-04-25 の確認結果:
 
@@ -74,6 +99,9 @@ const mesh = new SplatMesh({ paged: pagedSplats });
   `206 Partial Content` になった。
 - Spark は RAD header 取得で `bytes=0-65535` を投げた。
 - fixture は小さいため body は RAD 全体になったが、chunk fetch は `bytes=1336-3399` として観測できた。
+- WASM encoder が生成した chunked RAD bundle でも `PagedSplats` render が成立した。
+- 通常 SH arrays (`sh1` / `sh2` / `sh3`) を含む generated RAD bundle でも `PagedSplats` render が成立した。
+- generated bundle では root fetch は `206 Partial Content`、外部 `.radc` chunk file fetch は Spark が chunk file 単位で取得するため `200 OK` として観測された。これは FullData 全量 materialize ではなく、root meta から参照された chunk entry 単位の lazy fetch として扱う。
 - `PagedSplats({ rootUrl, fileType: SplatFileType.RAD })` + `SplatMesh({ paged })` で 1 frame 以上 render できた。
 
 ## Per-splat Edit
@@ -92,8 +120,8 @@ mesh を `PagedSplats` から `PackedSplats` へ swap する。編集後の sour
 
 ## Remaining Work
 
-- Spark 2.0 build-lod 相当の browser worker encoder を追加する。
-- chunked RAD 生成時に RAD meta 内の chunk filename と `.ssproj` 内 entry name を一致させる。
+- 保存済み `.ssproj` 由来の generated RAD bundle を使った browser smoke を追加し、package open path でも `PagedSplats` render を確認する。
+- codebook/clustered SH arrays を含む asset の RAD encode 対応を追加するか、UI 上で「RAD cache 対象外」warning をより明確にする。
 - export 時の paged RAD readiness gate と FullData fallback を、実 RAD bundle で browser smoke に追加する。
 - Service Worker Range failure を browser smoke で明示的に検証する。
 - 大規模 `.ssproj` で PC / mobile のメモリ使用量と初回表示時間を比較する。

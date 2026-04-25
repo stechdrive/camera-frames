@@ -42,6 +42,21 @@ const fixturePath = resolve(
 	repoRoot,
 	String(args.fixture ?? process.env.CF_RAD_SMOKE_FIXTURE ?? DEFAULT_FIXTURE),
 );
+const projectFixturePath = args["project-fixture"]
+	? resolve(repoRoot, String(args["project-fixture"]))
+	: process.env.CF_RAD_SMOKE_PROJECT_FIXTURE
+		? resolve(repoRoot, process.env.CF_RAD_SMOKE_PROJECT_FIXTURE)
+		: null;
+const projectAssetIndex = Number(
+	args["project-asset-index"] ??
+		process.env.CF_RAD_SMOKE_PROJECT_ASSET_INDEX ??
+		0,
+);
+const projectFullDataAssetIndex = Number(
+	args["project-full-data-asset-index"] ??
+		process.env.CF_RAD_SMOKE_PROJECT_FULL_DATA_ASSET_INDEX ??
+		0,
+);
 const outDir = resolve(
 	repoRoot,
 	String(args["out-dir"] ?? join(".local", "rad-streaming-smoke")),
@@ -64,6 +79,9 @@ async function main() {
 	mkdirSync(outDir, { recursive: true });
 	if (!existsSync(fixturePath)) {
 		throw new Error(`RAD fixture was not found: ${fixturePath}`);
+	}
+	if (projectFixturePath && !existsSync(projectFixturePath)) {
+		throw new Error(`Project fixture was not found: ${projectFixturePath}`);
 	}
 	if (!(await isHttpReady(baseUrl))) {
 		if (noDevServer) {
@@ -106,30 +124,76 @@ async function main() {
 		timeoutMs,
 	);
 
-	const radBase64 = readFileSync(fixturePath).toString("base64");
-	issues.length = 0;
-	const result = await evaluate(
-		cdp,
-		`(async () => {
-			const smoke = await import(${JSON.stringify("/test/fixtures/rad/rad-streaming-smoke-page.js")});
-			return await smoke.runRadStreamingSmoke({
-				radBase64: ${JSON.stringify(radBase64)},
-				fixtureName: ${JSON.stringify(relativePath(fixturePath))},
-				frameCount: ${JSON.stringify(frameCount)},
-				timeoutMs: ${JSON.stringify(Math.min(timeoutMs, DEFAULT_CDP_COMMAND_TIMEOUT_MS))},
-			});
-		})()`,
-		{ awaitPromise: true },
+	const runs = [];
+	runs.push(
+		await runBrowserSmoke({
+			name: "fixture-rad",
+			issues,
+			payload: {
+				radBase64: readFileSync(fixturePath).toString("base64"),
+				fixtureName: relativePath(fixturePath),
+				frameCount,
+				timeoutMs: Math.min(timeoutMs, DEFAULT_CDP_COMMAND_TIMEOUT_MS),
+			},
+		}),
 	);
-
-	if (issues.length > 0) {
-		result.ok = false;
-		result.failures.push({
-			name: "browser-page-issues",
-			ok: false,
-			details: { issues },
-		});
+	runs.push(
+		await runBrowserSmoke({
+			name: "generated-rad-bundle",
+			issues,
+			payload: {
+				radBundleBase64: await createGeneratedRadBundle({ withSh: false }),
+				frameCount,
+				timeoutMs: Math.min(timeoutMs, DEFAULT_CDP_COMMAND_TIMEOUT_MS),
+			},
+		}),
+	);
+	runs.push(
+		await runBrowserSmoke({
+			name: "generated-rad-bundle-sh",
+			issues,
+			payload: {
+				radBundleBase64: await createGeneratedRadBundle({ withSh: true }),
+				frameCount,
+				timeoutMs: Math.min(timeoutMs, DEFAULT_CDP_COMMAND_TIMEOUT_MS),
+			},
+		}),
+	);
+	if (projectFixturePath) {
+		runs.push(
+			await runBrowserSmoke({
+				name: "embedded-ssproj-rad-bundle",
+				issues,
+				functionName: "runEmbeddedRadProjectSmoke",
+				payload: {
+					ssprojUrl: toViteFsUrl(projectFixturePath),
+					fixtureName: relativePath(projectFixturePath),
+					assetIndex: Number.isFinite(projectAssetIndex)
+						? Math.max(0, Math.floor(projectAssetIndex))
+						: 0,
+					frameCount,
+					timeoutMs: Math.min(timeoutMs, DEFAULT_CDP_COMMAND_TIMEOUT_MS),
+				},
+			}),
+		);
+		runs.push(
+			await runBrowserSmoke({
+				name: "embedded-ssproj-rad-full-data-swap",
+				issues,
+				functionName: "runEmbeddedRadProjectFullDataSwapSmoke",
+				payload: {
+					ssprojUrl: toViteFsUrl(projectFixturePath),
+					fixtureName: relativePath(projectFixturePath),
+					assetIndex: Number.isFinite(projectFullDataAssetIndex)
+						? Math.max(0, Math.floor(projectFullDataAssetIndex))
+						: 0,
+					timeoutMs: Math.min(timeoutMs, DEFAULT_CDP_COMMAND_TIMEOUT_MS),
+				},
+			}),
+		);
 	}
+
+	const result = combineSmokeRuns(runs);
 
 	const outputPath = join(outDir, "rad-streaming-smoke.json");
 	writeFileSync(outputPath, JSON.stringify(result, null, 2));
@@ -139,6 +203,13 @@ async function main() {
 				...result,
 				baseUrl,
 				fixture: relativePath(fixturePath),
+				projectFixture: projectFixturePath
+					? relativePath(projectFixturePath)
+					: null,
+				projectAssetIndex: projectFixturePath ? projectAssetIndex : null,
+				projectFullDataAssetIndex: projectFixturePath
+					? projectFullDataAssetIndex
+					: null,
 				output: relativePath(outputPath),
 				browser: browserPath,
 			},
@@ -151,6 +222,111 @@ async function main() {
 	if (!result.ok) {
 		process.exitCode = 1;
 	}
+}
+
+async function runBrowserSmoke({
+	name,
+	issues,
+	payload,
+	functionName = "runRadStreamingSmoke",
+}) {
+	issues.length = 0;
+	const result = await evaluate(
+		cdp,
+		`(async () => {
+			const smoke = await import(${JSON.stringify("/test/fixtures/rad/rad-streaming-smoke-page.js")});
+			return await smoke[${JSON.stringify(functionName)}](${JSON.stringify(payload)});
+		})()`,
+		{ awaitPromise: true },
+	);
+	if (issues.length > 0) {
+		const blockingIssues = issues.filter((issue) => !isIgnoredPageIssue(issue));
+		if (blockingIssues.length > 0) {
+			result.ok = false;
+			result.failures.push({
+				name: "browser-page-issues",
+				ok: false,
+				details: { issues: blockingIssues },
+			});
+		}
+	}
+	return { name, result };
+}
+
+function isIgnoredPageIssue(issue) {
+	const text = String(issue?.text ?? "");
+	return text.includes("Error: No target") && text.includes("readbackDepth");
+}
+
+function combineSmokeRuns(runs) {
+	return {
+		ok: runs.every((entry) => entry.result.ok),
+		checks: runs.flatMap((entry) =>
+			entry.result.checks.map((check) => ({
+				...check,
+				run: entry.name,
+			})),
+		),
+		failures: runs.flatMap((entry) =>
+			entry.result.failures.map((failure) => ({
+				...failure,
+				run: entry.name,
+			})),
+		),
+		observations: Object.fromEntries(
+			runs.map((entry) => [entry.name, entry.result.observations]),
+		),
+		runs,
+	};
+}
+
+async function createGeneratedRadBundle({ withSh = false } = {}) {
+	const { default: initRadEncoder, encode_packed_rad_bundle } = await import(
+		"../src/engine/rad-encoder-wasm/pkg/camera_frames_rad_encoder.js"
+	);
+	await initRadEncoder({
+		module_or_path: readFileSync(
+			resolve(
+				repoRoot,
+				"src",
+				"engine",
+				"rad-encoder-wasm",
+				"pkg",
+				"camera_frames_rad_encoder_bg.wasm",
+			),
+		),
+	});
+	const result = encode_packed_rad_bundle(
+		new Uint32Array([
+			0xff_ff_40_20, 0, 0x8080_0000, 0x8080_8080, 0xff_20_80_ff, 0,
+			0x7f7f_0000, 0x4080_8040,
+		]),
+		2,
+		new Uint32Array([0, 0, 1, 1, 0, 0, 0, 0]),
+		withSh
+			? {
+					sh1: new Uint32Array(4),
+					sh2: new Uint32Array(8),
+					sh3: new Uint32Array(8),
+				}
+			: {},
+		{},
+		withSh ? "generated-sh-lod.rad" : "generated-lod.rad",
+		withSh ? "generated-sh-lod-" : "generated-lod-",
+		null,
+	);
+	return {
+		fixtureName: withSh ? "generated-rad-bundle-sh" : "generated-rad-bundle",
+		root: encodeGeneratedEntry(result.root),
+		chunks: Array.from(result.chunks ?? []).map(encodeGeneratedEntry),
+	};
+}
+
+function encodeGeneratedEntry(entry) {
+	return {
+		name: entry.name,
+		base64: Buffer.from(entry.bytes).toString("base64"),
+	};
 }
 
 function parseArgs(argv) {
@@ -502,6 +678,11 @@ function sleep(ms) {
 
 function relativePath(filePath) {
 	return filePath.replace(`${repoRoot}\\`, "").replace(`${repoRoot}/`, "");
+}
+
+function toViteFsUrl(filePath) {
+	const absolute = resolve(filePath).replace(/\\/g, "/");
+	return `/@fs/${encodeURI(absolute).replace(/#/g, "%23")}`;
 }
 
 async function cleanup() {

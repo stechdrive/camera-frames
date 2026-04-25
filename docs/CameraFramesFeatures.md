@@ -43,9 +43,9 @@
 - desktop では同じ HUD の `プレビュー品質` で 3DGS viewport 表示の軽さと細部確認のしやすさを端末ごとに調整できる
 - `Fast` package save は通常保存で、条件が揃う場合のみ advanced option として未編集 3DGS の SOG compression を選べる
 - `Quality` package save は Spark LoD を事前計算し、`raw-packed-splat` の `lodSplats` sidecar として `.ssproj` に保存する
+- `Quality` package save は生成可能な splat asset について WASM RAD encoder で chunked `radBundle` を作り、`.ssproj` 内の stored entry として同梱する。RAD 生成に失敗した asset でも保存は止めず、既存の `lodSplats` 保存に戻る
 - baked LoD 付き `.ssproj` は load 直後から prebuilt LoD を使い、必要な時だけ root FullData を materialize する
 - `raw-packed-splat` は derived cache として `radBundle` を持てる。RAD bundle 付き `.ssproj` は Service Worker の `Range` 配信経由で Spark `PagedSplats` 表示を優先し、失敗時は FullData 読み込みに戻る
-- 現 baseline では embedded RAD の runtime / schema / fallback は入っているが、標準 Quality 保存での RAD 生成は Spark 2.0 npm に browser-side encoder が公開されるか、同等 worker を追加するまで disabled
 
 ### 2.3 Scene assets
 

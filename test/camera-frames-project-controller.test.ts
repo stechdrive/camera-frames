@@ -805,10 +805,20 @@ await withNavigator({ gpu: {} }, async () => {
 	}
 	assert.equal(radBuildCalls.length, 1);
 	assert.equal(radBuildCalls[0].quality, true);
+	assert.deepEqual(
+		Array.from(radBuildCalls[0].lodSplats.packedArray),
+		[41, 42, 43, 44],
+	);
+	assert.deepEqual(
+		Array.from(radBuildCalls[0].lodSplats.extra.lodTree),
+		[7, 8, 9],
+	);
 	assert.ok(
 		radBundleAtCapture?.root,
 		"Quality save must attach the generated RAD bundle before project snapshot capture.",
 	);
+	assert.match(radBundleAtCapture.root.sha256, /^[a-f0-9]{64}$/);
+	assert.match(radBundleAtCapture.chunks[0].sha256, /^[a-f0-9]{64}$/);
 
 	const savedArchiveBytes = await collectWritableChunks(savedPackage.chunks);
 	const savedProject = await readCameraFramesProject(
@@ -820,10 +830,125 @@ await withNavigator({ gpu: {} }, async () => {
 	assert.ok(savedSource.radBundle?.root?.blob instanceof Blob);
 	assert.equal(savedSource.radBundle.root.name, "rad-quality-lod.rad");
 	assert.equal(savedSource.radBundle.chunks[0].name, "rad-quality-lod-1.radc");
+	assert.match(savedSource.radBundle.root.sha256, /^[a-f0-9]{64}$/);
+	assert.match(savedSource.radBundle.chunks[0].sha256, /^[a-f0-9]{64}$/);
 	assert.equal(
 		savedSource.radBundle.sourceFingerprint.packedArraySha256,
 		"240e10fe289dc87f0adf500a96166e6c071414beeb936e4e37d86345c273558d",
 	);
+});
+
+await withNavigator({ gpu: {} }, async () => {
+	const fakePackedSplats = {
+		packedArray: new Uint32Array([51, 52, 53, 54]),
+		numSplats: 4,
+		getNumSplats() {
+			return this.numSplats;
+		},
+		extra: {},
+		splatEncoding: null,
+		lodSplats: null,
+		needsUpdate: false,
+		async createLodSplats() {
+			this.lodSplats = {
+				packedArray: new Uint32Array([61, 62, 63, 64]),
+				numSplats: 4,
+				extra: { lodTree: new Uint32Array([0, 0, 0, 0]) },
+				splatEncoding: null,
+			};
+			this.needsUpdate = true;
+		},
+	};
+	const scopeAsset = {
+		id: "splat-rad-fail",
+		kind: "splat",
+		label: "rad-fail",
+		disposeTarget: { packedSplats: fakePackedSplats },
+		source: {
+			sourceType: "project-file-packed-splat",
+			kind: "splat",
+			fileName: "rad-fail.rawsplat",
+			inputBytes: new Uint8Array(),
+			extraFiles: {},
+			fileType: null,
+			packedArray: fakePackedSplats.packedArray,
+			numSplats: fakePackedSplats.numSplats,
+			extra: {},
+			splatEncoding: null,
+			lodSplats: null,
+			radBundle: {
+				kind: "spark-rad-bundle",
+				version: 1,
+				root: { name: "stale.rad", bytes: new Uint8Array([1]) },
+				chunks: [],
+			},
+			projectAssetState: null,
+			legacyState: null,
+			resource: null,
+		},
+	};
+	const harness = createHarness({
+		assetController: {
+			getSceneAssets: () => [scopeAsset],
+		},
+		supportsSparkRadBundleBuildImpl: () => true,
+		buildSparkRadBundleFromPackedSplatsImpl: async () => {
+			throw new Error("encoder unavailable");
+		},
+		captureProjectStateSpy: () => ({
+			workspace: {
+				activeShotCameraId: "",
+				viewport: {
+					baseFovX: 55,
+					pose: {
+						position: { x: 0, y: 0, z: 0 },
+						quaternion: { x: 0, y: 0, z: 0, w: 1 },
+						up: { x: 0, y: 1, z: 0 },
+					},
+				},
+			},
+			shotCameras: [],
+			scene: {
+				assets: [scopeAsset],
+				referenceImages: createDefaultReferenceImageDocument(),
+			},
+		}),
+	});
+	const originalShowSaveFilePicker = globalThis.showSaveFilePicker;
+	const originalRequestAnimationFrame = globalThis.requestAnimationFrame;
+	const originalIndexedDb = globalThis.indexedDB;
+	globalThis.requestAnimationFrame = (cb) => setTimeout(cb, 0);
+	globalThis.indexedDB = createCompletingIndexedDb();
+	const savedPackage = createCollectingProjectFileHandle(
+		"quality-save-rad-failure.ssproj",
+	);
+	globalThis.showSaveFilePicker = async () => savedPackage.fileHandle;
+	try {
+		await harness.projectController.exportProject();
+		await harness.store.overlay.value.onSubmit({
+			saveMode: "quality",
+			sogCompress: false,
+			sogMaxShBands: "2",
+			sogIterations: "10",
+		});
+	} finally {
+		globalThis.showSaveFilePicker = originalShowSaveFilePicker;
+		globalThis.requestAnimationFrame = originalRequestAnimationFrame;
+		if (originalIndexedDb === undefined) {
+			// biome-ignore lint/performance/noDelete: Restore the original global shape in this test harness.
+			delete globalThis.indexedDB;
+		} else {
+			globalThis.indexedDB = originalIndexedDb;
+		}
+	}
+	const savedArchiveBytes = await collectWritableChunks(savedPackage.chunks);
+	const savedProject = await readCameraFramesProject(
+		new File([savedArchiveBytes], "quality-save-rad-failure.ssproj"),
+	);
+	const savedSource = savedProject.assetEntries[0]?.source;
+	assert.equal(isProjectFilePackedSplatSource(savedSource), true);
+	assert.ok(savedSource.lodSplats, "Quality LoD must survive RAD build failure.");
+	assert.equal(savedSource.radBundle, null);
 });
 
 {

@@ -42,6 +42,9 @@ assert.deepEqual(
 	await routing.importOpenedFiles([{ name: "shot.ssproj" }], {
 		projectFileHandle: { id: "handle-a" },
 	});
+	await routing.importOpenedFiles([{ name: "dropped.ssproj" }], {
+		fileHandles: [{ id: "drop-handle", getFile: async () => ({}) }],
+	});
 	await routing.importOpenedFiles([
 		{ name: "scene.glb" },
 		{ name: "board.png" },
@@ -50,6 +53,7 @@ assert.deepEqual(
 
 	assert.deepEqual(calls, [
 		["open-project", "shot.ssproj", "handle-a"],
+		["open-project", "dropped.ssproj", "drop-handle"],
 		["import-assets", ["scene.glb", "mesh.gltf"]],
 		["import-references", ["board.png"]],
 	]);

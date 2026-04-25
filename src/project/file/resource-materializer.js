@@ -72,26 +72,26 @@ async function readRawPackedSplatFullData(reader, resource) {
 	};
 }
 
-async function captureRawPackedSplatFullDataBlobs(reader, resource) {
-	const [packedArrayBlob, ...extraBlobs] = await Promise.all([
-		reader.blob(resource.packedArray?.path),
-		...(resource.extraArrays ?? []).map((ea) => reader.blob(ea.path)),
-	]);
+async function captureRawPackedSplatFullDataReader(reader, resource) {
+	const packedArrayPath = resource.packedArray?.path;
+	const extraEntries = [...(resource.extraArrays ?? [])];
 	return {
 		async read() {
 			const [packedArrayBytes, ...extraBytesArray] = await Promise.all([
-				packedArrayBlob.arrayBuffer(),
-				...extraBlobs.map((blob) => blob.arrayBuffer()),
+				reader.bytes(packedArrayPath),
+				...extraEntries.map((entry) => reader.bytes(entry.path)),
 			]);
 			const extra = {};
-			for (const [i, extraArray] of (resource.extraArrays ?? []).entries()) {
-				extra[extraArray.name] = toUint32Array(extraBytesArray[i]);
+			for (const [i, extraArray] of extraEntries.entries()) {
+				extra[extraArray.name] = toUint32Array(
+					extraBytesArray[i].buffer,
+				);
 			}
 			if (resource.radMeta) {
 				extra.radMeta = JSON.parse(JSON.stringify(resource.radMeta));
 			}
 			return {
-				packedArray: toUint32Array(packedArrayBytes),
+				packedArray: toUint32Array(packedArrayBytes.buffer),
 				numSplats: resource.numSplats ?? 0,
 				extra,
 				splatEncoding: resource.splatEncoding ?? null,
@@ -122,26 +122,24 @@ async function readRawPackedSplatLodBundle(reader, lodResource) {
 	};
 }
 
-async function captureRawPackedSplatLodBundleBlobs(reader, lodResource) {
+async function captureRawPackedSplatLodBundleReader(reader, lodResource) {
 	if (!lodResource?.packedArray?.path) {
 		return null;
 	}
-	const [packedArrayBlob, ...extraBlobs] = await Promise.all([
-		reader.blob(lodResource.packedArray.path),
-		...(lodResource.extraArrays ?? []).map((ea) => reader.blob(ea.path)),
-	]);
+	const packedArrayPath = lodResource.packedArray.path;
+	const extraEntries = [...(lodResource.extraArrays ?? [])];
 	return {
 		async read() {
 			const [lodPackedBytes, ...lodExtraBytesArray] = await Promise.all([
-				packedArrayBlob.arrayBuffer(),
-				...extraBlobs.map((blob) => blob.arrayBuffer()),
+				reader.bytes(packedArrayPath),
+				...extraEntries.map((entry) => reader.bytes(entry.path)),
 			]);
 			const lodExtra = {};
-			for (const [i, ea] of (lodResource.extraArrays ?? []).entries()) {
-				lodExtra[ea.name] = toUint32Array(lodExtraBytesArray[i]);
+			for (const [i, ea] of extraEntries.entries()) {
+				lodExtra[ea.name] = toUint32Array(lodExtraBytesArray[i].buffer);
 			}
 			return {
-				packedArray: toUint32Array(lodPackedBytes),
+				packedArray: toUint32Array(lodPackedBytes.buffer),
 				numSplats: lodResource.numSplats ?? 0,
 				extra: lodExtra,
 				splatEncoding: lodResource.splatEncoding ?? null,
@@ -304,11 +302,11 @@ export async function materializeProjectAssetResource({
 			? await readRawPackedSplatRadBundle(reader, resource.radBundle)
 			: null;
 		if (radBundle) {
-			const fullDataBlobs = await captureRawPackedSplatFullDataBlobs(
+			const fullDataReader = await captureRawPackedSplatFullDataReader(
 				reader,
 				resource,
 			);
-			const lodBundleBlobs = await captureRawPackedSplatLodBundleBlobs(
+			const lodBundleReader = await captureRawPackedSplatLodBundleReader(
 				reader,
 				resource.lodSplats,
 			);
@@ -327,8 +325,8 @@ export async function materializeProjectAssetResource({
 				deferredFullData: {
 					loadFullData: async () => {
 						const [fullData, lodSplats] = await Promise.all([
-							fullDataBlobs.read(),
-							lodBundleBlobs?.read?.() ?? null,
+							fullDataReader.read(),
+							lodBundleReader?.read?.() ?? null,
 						]);
 						return {
 							fileName: resource.originalName,

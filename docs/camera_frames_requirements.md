@@ -122,7 +122,8 @@ CAMERA_FRAMES の共有 contract を Git 管理するための基点です。
   - RAD root / chunk entries は `.ssproj` ZIP 内で stored/uncompressed として保存し、stored entry Blob を Service Worker から `Range` 対応 URL として配信する
   - `.ssproj` open は valid な `radBundle` があれば Spark `PagedSplats` + `SplatMesh({ paged })` を優先し、stored entry 条件 / source fingerprint / Service Worker / Range / RAD decode の失敗時は root FullData path に fallback する
   - FullData が正本であり、RAD bundle は高速表示用 cache として扱う。per-splat edit / FullData gate に入ると FullData/PackedSplats へ swap し、runtime 上の RAD cache は stale として外す
-  - Quality save 経路には RAD build worker hook を持つが、現 baseline の `@sparkjsdev/spark@2.0.0` npm package は browser-side RAD encoder を公開していないため、標準配布では RAD 生成はまだ有効化しない
+  - Quality save は package snapshot capture 前に browser module worker + WASM RAD encoder を lazy load し、生成できた asset だけ `radBundle` を同梱する
+  - RAD 生成は asset 単位の best-effort とし、worker load / encode / unsupported input で失敗しても既存 Quality `.ssproj` 保存は継続する。失敗した asset は `lodSplats` だけを保存し、`radBundle` は付けない
 
 ## 6. Scene / Camera / Reference Image の契約
 

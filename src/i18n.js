@@ -624,6 +624,20 @@ const MESSAGES = {
 			},
 			packagePhaseBakeLod: "LoD を事前計算",
 			packageDetailBakeLod: "{name} の LoD を計算中（{index}/{total}）…",
+			packageDetailBuildRad:
+				"{name} の RAD bundle を生成中（{index}/{total}）…",
+			packageDetailBuildRadStage:
+				"{name} の RAD bundle を生成中（{index}/{total}）: {stage}",
+			packageDetailBuildRadFailed:
+				"{name} の RAD bundle 生成に失敗しました。RAD なしで保存を継続します: {message}",
+			packageRadBuildStage: {
+				"load-wasm": "RAD encoder を読み込み中…",
+				"build-lod": "Quality LoD を生成中…",
+				"encode-prebaked-lod": "LoD encode 中…",
+				"encode-generated-lod": "生成済み LoD を encode 中…",
+				"encode-root": "PackedSplats encode 中…",
+				"write-chunks": "chunked RAD を書き出し中…",
+			},
 		},
 		exportSummary: {
 			empty: "現在の Camera 設定で書き出します。",
@@ -1496,6 +1510,20 @@ const MESSAGES = {
 			},
 			packagePhaseBakeLod: "Baking LoD",
 			packageDetailBakeLod: "Baking LoD for {name} ({index}/{total})…",
+			packageDetailBuildRad:
+				"Generating RAD bundle for {name} ({index}/{total})…",
+			packageDetailBuildRadStage:
+				"Generating RAD bundle for {name} ({index}/{total}): {stage}",
+			packageDetailBuildRadFailed:
+				"RAD bundle generation failed for {name}. Saving continues without RAD: {message}",
+			packageRadBuildStage: {
+				"load-wasm": "Loading RAD encoder…",
+				"build-lod": "Building Quality LoD…",
+				"encode-prebaked-lod": "Encoding LoD…",
+				"encode-generated-lod": "Encoding generated LoD…",
+				"encode-root": "Encoding PackedSplats…",
+				"write-chunks": "Writing chunked RAD…",
+			},
 		},
 		exportSummary: {
 			empty: "Exports use the current Camera settings.",
