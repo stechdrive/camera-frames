@@ -23,6 +23,7 @@
 - drag and drop でも同じ import routing を使う
 - remote URL 欄から scene asset URL を読み込める
 - startup `?load=` による確認付き remote import がある
+- remote URL 欄や startup `?load=` で単独 `.ssproj` URL が渡った場合は、asset import ではなく project open workflow へ送る
 - current `.ssproj` は resource metadata を先に読み、scene asset / reference image bytes は必要時に lazy materialize する
 - compatible working save restore がある `.ssproj` では、package state apply と不要な reference image bytes 展開を skip する
 - legacy `document.json` ベース `.ssproj` を fallback import できる
@@ -142,7 +143,7 @@
   - `Clear`
 - raw selection は runtime-only
 - 編集結果は persistent source に反映される
-- splat 内容変更時は baked LoD を invalidate する
+- splat 内容変更時は baked LoD と RAD cache を invalidate する。scene object transform は splat 内容を変えないため RAD streaming を維持する
 - RAD/PagedSplats は read-only streaming 表示 path として扱い、per-splat edit に入る時は FullData/PackedSplats へ切り替える
 
 ### 2.9 Export
@@ -256,7 +257,7 @@ PSD export の主な構成:
 - `.sscam`
 - generic viewer 方向の UI
 - WebGPU を前提にした通常運用
-- streaming LoD
+- 外部 sidecar / server 前提の generic streaming LoD
 - `WORKSPACE_LAYOUT_QUAD` の完成機能
 
 ## 6. まだ完成扱いにしないもの
@@ -300,6 +301,7 @@ PSD export の主な構成:
 - Help モーダル本体 / Markdown renderer / 検索 / deep link: `src/ui/help/`
 - 各 Inspector パネルの `?` ボタン: `src/ui/workbench-primitives.js` の `DisclosureBlock`（`helpSectionId` / `onOpenHelp` props）
 - 撮影ブリッジ（dev のみ）: `src/main.js` + `src/ui/help/docs-bridge.js`（`globalThis.__CF_DOCS__`）
+- RAD `.ssproj` browser-use 検証ブリッジ（dev のみ）: `src/main.js` + `src/app/dev-browser-validation.js`（`globalThis.__CF_BROWSER_VALIDATE__`, `?cfDevValidation=rad-ssproj&projectUrl=...`）
 - Fixture 定義 / レジストリ: `src/docs/fixtures/` + `src/docs/mock/` + `src/docs/docs-app.js`（詳細は [docs/help/FIXTURE_ROADMAP.md](help/FIXTURE_ROADMAP.md)）
 - 画像保存エンドポイント（dev のみ）: `vite.config.js` の `screenshotServePlugin`（`/__screenshot` と `/__backdrop`）
 - Viewport backdrop 実体: `docs/help/assets/fixture-backdrops/`（静的 PNG、mock-scene 経由）

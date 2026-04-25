@@ -89,6 +89,7 @@ CAMERA_FRAMES の共有 contract を Git 管理するための基点です。
 - `.ssproj` を開いた時は `projectId + packageRevision + packageFingerprint` が一致する working save があれば自動復元する
 - current `.ssproj` open は manifest / project document / resource metadata を先に読み、scene asset bytes と reference image bytes は必要になるまで materialize しない
 - `.ssproj` 由来の scene asset load は package reader を開いたまま concurrency 1 で順に materialize / load する
+- remote URL 入力または startup `?load=` で単独 `.ssproj` URL が渡った場合も project open workflow にルーティングし、fetch した `File` を current package / legacy package 判定に使う
 - compatible working save restore が確定している `.ssproj` open では、package 側の state apply と reference image bytes materialization を skip する
 - project status の UI 表示は viewport 右上 HUD の `name / * / PKG`
   - `*` は working save dirty
@@ -116,7 +117,7 @@ CAMERA_FRAMES の共有 contract を Git 管理するための基点です。
 - baked LoD を持つ `.ssproj` は load 時に prebuilt LoD を runtime に attach し、auto-LoD を待たずに使う
 - baked LoD 付き `.ssproj` でも runtime render / edit 用には root FullData が正本であり、LoD preview bundle だけを asset 本体として扱わない
 - LoD-first に lazy materialize した raw-packed splat source は、編集 / package save / FullData gate が必要になった時に root `packedArray` / `extra` を materialize する
-- splat 内容を変える per-splat edit / transform は existing baked LoD を invalidate する。現在 session の表示最適化は splat edit toolbar の `LoD 最適化`、次回 load 用の永続化は package `Quality` save で行う
+- splat 内容を変える per-splat edit 内の delete / separate / duplicate / transform は existing baked LoD を invalidate する。scene object transform は splat 内容を変えないため baked LoD / RAD cache を維持する。現在 session の表示最適化は splat edit toolbar の `LoD 最適化`、次回 load 用の永続化は package `Quality` save で行う
 - `raw-packed-splat` resource は optional derived cache として `radBundle` を持てる
   - `kind: "spark-rad-bundle"` / `version: 1` / `root` / `chunks[]` / `sourceFingerprint` / `bounds` / `sparkVersion` / `build` を持つ
   - RAD root / chunk entries は `.ssproj` ZIP 内で stored/uncompressed として保存し、stored entry Blob を Service Worker から `Range` 対応 URL として配信する
@@ -124,6 +125,7 @@ CAMERA_FRAMES の共有 contract を Git 管理するための基点です。
   - FullData が正本であり、RAD bundle は高速表示用 cache として扱う。per-splat edit / FullData gate に入ると FullData/PackedSplats へ swap し、runtime 上の RAD cache は stale として外す
   - Quality save は package snapshot capture 前に browser module worker + WASM RAD encoder を lazy load し、生成できた asset だけ `radBundle` を同梱する
   - RAD 生成は asset 単位の best-effort とし、worker load / encode / unsupported input で失敗しても既存 Quality `.ssproj` 保存は継続する。失敗した asset は `lodSplats` だけを保存し、`radBundle` は付けない
+  - dev build では `?cfDevValidation=rad-ssproj&projectUrl=...` と `globalThis.__CF_BROWSER_VALIDATE__` で、browser-use から RAD package open / object transform / per-splat FullData swap を JSON 検証できる
 
 ## 6. Scene / Camera / Reference Image の契約
 
@@ -425,7 +427,7 @@ PSD layer 順の詳細契約:
 - `.sscam`
 - generic viewer 方向の UI
 - WebGPU 起動を前提にした運用
-- streaming LoD
+- 外部 sidecar / server 前提の generic streaming LoD
 - `unified-culling=true` を既定前提にした性能議論
 - `WORKSPACE_LAYOUT_QUAD` の productized workflow
 

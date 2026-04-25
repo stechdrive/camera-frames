@@ -66,6 +66,8 @@ last-updated: 2026-04-25
 
 RAD streaming cache 付きのアセットでも、編集に入る時は FullData に切り替えてから操作します。編集後の RAD cache は破棄され、次回 `Quality` 保存で作り直されます。
 
+シーンマネージャーで 3DGS オブジェクト自体を移動・回転・拡縮する操作はスプラット内容を変えないため、RAD streaming cache と焼込み済み LoD は維持されます。
+
 ## 2. 入口
 
 | 入口 | 操作 |
