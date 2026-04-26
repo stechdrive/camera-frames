@@ -518,6 +518,7 @@ PSD layer 順の詳細契約:
 - export:
   - `test/camera-frames-export-*.test.ts`
   - `test/camera-frames-psd-export.test.ts`
+  - `npm run test:local-scenarios -- --scenario cf-test-psd-export`（local `.ssproj` から browser PSD export → `ag-psd` readback / layer fingerprint golden 比較）
 - per-splat:
   - `test/camera-frames-per-splat-edit-controller.test.ts`
 - UI local preferences / HUD:

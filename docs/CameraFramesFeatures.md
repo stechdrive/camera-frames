@@ -247,6 +247,7 @@ PSD export の主な構成:
 - `test/camera-frames-export-reference-images.test.ts`
 - `test/camera-frames-export-psd-document.test.ts`
 - `test/camera-frames-psd-export.test.ts`
+- `npm run test:local-scenarios -- --scenario cf-test-psd-export`（local `.ssproj` から browser PSD export → `ag-psd` readback / layer fingerprint golden 比較）
 
 ### 4.5 Per-splat edit
 
