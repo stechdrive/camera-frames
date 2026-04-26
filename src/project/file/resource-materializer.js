@@ -83,9 +83,7 @@ async function captureRawPackedSplatFullDataReader(reader, resource) {
 			]);
 			const extra = {};
 			for (const [i, extraArray] of extraEntries.entries()) {
-				extra[extraArray.name] = toUint32Array(
-					extraBytesArray[i].buffer,
-				);
+				extra[extraArray.name] = toUint32Array(extraBytesArray[i].buffer);
 			}
 			if (resource.radMeta) {
 				extra.radMeta = JSON.parse(JSON.stringify(resource.radMeta));

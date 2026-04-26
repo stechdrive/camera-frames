@@ -331,7 +331,9 @@ export async function runEmbeddedRadProjectSmoke({
 			ssprojUrl,
 		});
 
-		const { readCameraFramesProject } = await import("/src/project/file/index.js");
+		const { readCameraFramesProject } = await import(
+			"/src/project/file/index.js"
+		);
 		const project = await withTimeout(
 			readCameraFramesProject(new File([projectBytes], fixtureName)),
 			timeoutMs,
@@ -642,7 +644,9 @@ export async function runEmbeddedRadProjectFullDataSwapSmoke({
 			ssprojUrl,
 		});
 
-		const { readCameraFramesProject } = await import("/src/project/file/index.js");
+		const { readCameraFramesProject } = await import(
+			"/src/project/file/index.js"
+		);
 		const project = await withTimeout(
 			readCameraFramesProject(new File([projectBytes], fixtureName)),
 			timeoutMs,
@@ -934,9 +938,7 @@ function normalizeRadBundleInput({ radBase64, radBundleBase64, fixtureName }) {
 	if (radBundleBase64?.root) {
 		return {
 			fixtureName:
-				radBundleBase64.fixtureName ??
-				radBundleBase64.root.name ??
-				fixtureName,
+				radBundleBase64.fixtureName ?? radBundleBase64.root.name ?? fixtureName,
 			root: {
 				name: radBundleBase64.root.name ?? "generated-lod.rad",
 				bytes: decodeBase64(

@@ -56,8 +56,7 @@ async function getDroppedFileSystemHandles(dataTransfer, fileCount) {
 			item
 				.getAsFileSystemHandle()
 				.then((handle) =>
-					handle?.kind === "file" &&
-					typeof handle.getFile === "function"
+					handle?.kind === "file" && typeof handle.getFile === "function"
 						? handle
 						: null,
 				)

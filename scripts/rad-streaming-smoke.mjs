@@ -298,8 +298,8 @@ async function createGeneratedRadBundle({ withSh = false } = {}) {
 	});
 	const result = encode_packed_rad_bundle(
 		new Uint32Array([
-			0xff_ff_40_20, 0, 0x8080_0000, 0x8080_8080, 0xff_20_80_ff, 0,
-			0x7f7f_0000, 0x4080_8040,
+			0xff_ff_40_20, 0, 0x8080_0000, 0x8080_8080, 0xff_20_80_ff, 0, 0x7f7f_0000,
+			0x4080_8040,
 		]),
 		2,
 		new Uint32Array([0, 0, 1, 1, 0, 0, 0, 0]),

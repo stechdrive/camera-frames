@@ -37,18 +37,20 @@ function readJsonHeader(bytes: Uint8Array, offset = 0) {
 	assert.equal(result.root.name, "tiny-lod.rad");
 	assert.equal(result.chunks.length, 1);
 	assert.equal(result.chunks[0].name, "tiny-lod-0.radc");
-	assert.deepEqual(Array.from(result.root.bytes.slice(0, 4)), [
-		0x52, 0x41, 0x44, 0x30,
-	]);
+	assert.deepEqual(
+		Array.from(result.root.bytes.slice(0, 4)),
+		[0x52, 0x41, 0x44, 0x30],
+	);
 	const rootMeta = readJsonHeader(result.root.bytes);
 	assert.equal(rootMeta.count, 2);
 	assert.equal(rootMeta.lodTree, true);
 	assert.equal(rootMeta.chunks[0].filename, result.chunks[0].name);
 	assert.equal(rootMeta.splatEncoding.lodOpacity, true);
 
-	assert.deepEqual(Array.from(result.chunks[0].bytes.slice(0, 4)), [
-		0x52, 0x41, 0x44, 0x43,
-	]);
+	assert.deepEqual(
+		Array.from(result.chunks[0].bytes.slice(0, 4)),
+		[0x52, 0x41, 0x44, 0x43],
+	);
 	const chunkMeta = readJsonHeader(result.chunks[0].bytes);
 	assert.equal(chunkMeta.count, 2);
 	assert.ok(
@@ -65,8 +67,8 @@ function readJsonHeader(bytes: Uint8Array, offset = 0) {
 
 {
 	const packed = new Uint32Array([
-		0xff_ff_40_20, 0, 0x8080_0000, 0x8080_8080, 0xff_20_80_ff, 0,
-		0x7f7f_0000, 0x4080_8040,
+		0xff_ff_40_20, 0, 0x8080_0000, 0x8080_8080, 0xff_20_80_ff, 0, 0x7f7f_0000,
+		0x4080_8040,
 	]);
 	const sh1 = new Uint32Array(4);
 	const sh2 = new Uint32Array(8);

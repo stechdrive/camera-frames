@@ -63,7 +63,9 @@ async function waitForController({
 	expectedScriptUrl = null,
 	timeoutMs = 5000,
 } = {}) {
-	if (isExpectedController(navigator.serviceWorker.controller, expectedScriptUrl)) {
+	if (
+		isExpectedController(navigator.serviceWorker.controller, expectedScriptUrl)
+	) {
 		return navigator.serviceWorker.controller;
 	}
 	return await new Promise((resolve, reject) => {
@@ -147,7 +149,11 @@ async function waitForWorkerActivation(worker, timeoutMs = 5000) {
 	});
 }
 
-async function postServiceWorkerMessage(message, transfer = [], targetWorker = null) {
+async function postServiceWorkerMessage(
+	message,
+	transfer = [],
+	targetWorker = null,
+) {
 	const registration = await navigator.serviceWorker.ready;
 	const target =
 		targetWorker ||
@@ -203,13 +209,11 @@ async function ensureRadBundleServiceWorker() {
 	await navigator.serviceWorker.ready;
 	const activeWorker = registration.active;
 	if (activeWorker) {
-		await postServiceWorkerMessage(
-			{ type: "CLAIM_CLIENTS" },
-			[],
-			activeWorker,
-		);
+		await postServiceWorkerMessage({ type: "CLAIM_CLIENTS" }, [], activeWorker);
 	}
-	await waitForController({ expectedScriptUrl: activeWorker?.scriptURL ?? null });
+	await waitForController({
+		expectedScriptUrl: activeWorker?.scriptURL ?? null,
+	});
 }
 
 function getEntryBlob(entry) {

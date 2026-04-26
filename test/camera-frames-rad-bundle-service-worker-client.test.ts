@@ -110,16 +110,19 @@ function installBrowserGlobals(serviceWorker) {
 		if (originalWindow) {
 			Object.defineProperty(globalThis, "window", originalWindow);
 		} else {
+			// biome-ignore lint/performance/noDelete: Restore the original global shape in this test harness.
 			delete globalThis.window;
 		}
 		if (originalNavigator) {
 			Object.defineProperty(globalThis, "navigator", originalNavigator);
 		} else {
+			// biome-ignore lint/performance/noDelete: Restore the original global shape in this test harness.
 			delete globalThis.navigator;
 		}
 		if (originalFetch) {
 			Object.defineProperty(globalThis, "fetch", originalFetch);
 		} else {
+			// biome-ignore lint/performance/noDelete: Restore the original global shape in this test harness.
 			delete globalThis.fetch;
 		}
 	}
@@ -149,7 +152,7 @@ function installBrowserGlobals(serviceWorker) {
 		assert.equal(serviceWorker.controller, activeWorker);
 		assert.deepEqual(fetchCalls, [[runtime.rootUrl, "bytes=0-3"]]);
 		assert.deepEqual(
-			calls.map((entry) => entry[0] === "post-message" ? entry[1] : entry[0]),
+			calls.map((entry) => (entry[0] === "post-message" ? entry[1] : entry[0])),
 			["register", "update", "CLAIM_CLIENTS", "REGISTER_RAD_BUNDLE"],
 		);
 		assert.equal(

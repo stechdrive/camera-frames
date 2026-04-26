@@ -1524,7 +1524,8 @@ const stagedParsedProject = await openCameraFramesProjectPackage(
 );
 let stagedRadSource = null;
 try {
-	stagedRadSource = await stagedParsedProject.assetEntries[0].source.materialize();
+	stagedRadSource =
+		await stagedParsedProject.assetEntries[0].source.materialize();
 } finally {
 	await stagedParsedProject.close();
 }

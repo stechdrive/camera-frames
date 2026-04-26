@@ -109,7 +109,9 @@ export async function runRadSsprojDevValidation({
 		);
 
 		const assetsAfterOpen = getSceneAssets(controller);
-		const openSummary = assetsAfterOpen.map(summarizeSceneAssetForDevValidation);
+		const openSummary = assetsAfterOpen.map(
+			summarizeSceneAssetForDevValidation,
+		);
 		observations.assetsAfterOpen = openSummary;
 		check("project-opened-assets", assetsAfterOpen.length > 0, {
 			count: assetsAfterOpen.length,
@@ -131,9 +133,8 @@ export async function runRadSsprojDevValidation({
 		if (!radAsset) {
 			throw new Error("No RAD-backed splat asset was loaded.");
 		}
-		observations.selectedRadAssetBefore = summarizeSceneAssetForDevValidation(
-			radAsset,
-		);
+		observations.selectedRadAssetBefore =
+			summarizeSceneAssetForDevValidation(radAsset);
 
 		const pagedBefore = radAsset.disposeTarget?.paged;
 		const runtimeBefore = radAsset.radBundleRuntime;
@@ -141,7 +142,9 @@ export async function runRadSsprojDevValidation({
 		const radBundleBefore = radAsset.source?.radBundle;
 		const enableLodBefore = radAsset.disposeTarget?.enableLod;
 		const startPosition = getWorldPosition(radAsset) ?? new THREE.Vector3();
-		const nextPosition = startPosition.clone().add(new THREE.Vector3(0.05, 0, 0));
+		const nextPosition = startPosition
+			.clone()
+			.add(new THREE.Vector3(0.05, 0, 0));
 		await maybeAwait(
 			controller.setAssetTransform(radAsset.id, {
 				worldPosition: nextPosition,

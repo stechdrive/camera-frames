@@ -37,18 +37,18 @@ export async function readCameraFramesProject(
 						`Missing project resource for asset "${asset.label}".`,
 					);
 				}
-					return {
-						...asset,
-						source: await materializeProjectAssetResource({
-							reader,
-							asset,
-							index,
-							resource,
-							onProgress,
-							totalAssets,
-						}),
-					};
-				},
+				return {
+					...asset,
+					source: await materializeProjectAssetResource({
+						reader,
+						asset,
+						index,
+						resource,
+						onProgress,
+						totalAssets,
+					}),
+				};
+			},
 		);
 
 		const referenceImageExtractors = normalizedReferenceImages.assets.map(
