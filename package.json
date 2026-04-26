@@ -1,6 +1,6 @@
 {
 	"name": "camera-frames",
-	"version": "0.17.22",
+	"version": "1.0.0",
 	"private": true,
 	"type": "module",
 	"scripts": {
