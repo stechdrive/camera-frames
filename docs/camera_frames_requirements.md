@@ -339,6 +339,7 @@ interaction の基準:
 - middle click で pie menu を開く
 - orthographic は viewport-only
 - orthographic 操作中でも click-like gesture の時は元の投影状態へ戻す
+- touch の 1 本指 navigate は mouse drag と符号を分離し、画面上の内容を指でつかむ direct manipulation として扱う
 - direct manipulation は transaction 単位で undo/redo にまとめる
 
 per-splat edit の current contract:

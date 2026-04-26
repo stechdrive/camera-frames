@@ -98,7 +98,7 @@ function createInputRouterHarness(overrides = {}) {
 	const anchorDot = { id: "anchor-dot" };
 	const calls = [];
 	const fpsMovement = { enable: false, moveSpeed: 1 };
-	const pointerControls = { enable: false };
+	const pointerControls = { enable: false, reverseRotate: false };
 	const originalWindow = globalThis.window;
 	const originalDocument = globalThis.document;
 	const originalElement = globalThis.Element;
@@ -312,6 +312,149 @@ function createInputRouterHarness(overrides = {}) {
 			globalThis.Element = originalElement;
 		},
 	};
+}
+
+{
+	const harness = createInputRouterHarness();
+	try {
+		const pointerdown = harness.listeners
+			.get(harness.viewportShell)
+			.get("pointerdown");
+		const pointerup = harness.listeners.get(harness.windowRef).get("pointerup");
+		const viewportTarget = new globalThis.Element();
+		viewportTarget.closest = (selector: string) => {
+			if (selector === "#viewport") {
+				return {};
+			}
+			return null;
+		};
+		assert.equal(harness.pointerControls.reverseRotate, false);
+		pointerdown({
+			pointerId: 21,
+			pointerType: "touch",
+			button: 0,
+			clientX: 320,
+			clientY: 240,
+			target: viewportTarget,
+		});
+		assert.equal(harness.pointerControls.reverseRotate, true);
+		pointerup({
+			pointerId: 21,
+			pointerType: "touch",
+			clientX: 320,
+			clientY: 240,
+			target: viewportTarget,
+		});
+		assert.equal(harness.pointerControls.reverseRotate, false);
+	} finally {
+		harness.restore();
+	}
+}
+
+{
+	const harness = createInputRouterHarness();
+	try {
+		const pointerdown = harness.listeners
+			.get(harness.viewportShell)
+			.get("pointerdown");
+		const pointerup = harness.listeners.get(harness.windowRef).get("pointerup");
+		const viewportTarget = new globalThis.Element();
+		viewportTarget.closest = (selector: string) => {
+			if (selector === "#viewport") {
+				return {};
+			}
+			return null;
+		};
+		pointerdown({
+			pointerId: 22,
+			pointerType: "touch",
+			button: 0,
+			clientX: 320,
+			clientY: 240,
+			target: viewportTarget,
+		});
+		pointerdown({
+			pointerId: 23,
+			pointerType: "touch",
+			button: 0,
+			clientX: 420,
+			clientY: 240,
+			target: viewportTarget,
+		});
+		assert.equal(harness.pointerControls.reverseRotate, true);
+		pointerup({
+			pointerId: 22,
+			pointerType: "touch",
+			clientX: 320,
+			clientY: 240,
+			target: viewportTarget,
+		});
+		assert.equal(harness.pointerControls.reverseRotate, true);
+		pointerup({
+			pointerId: 23,
+			pointerType: "touch",
+			clientX: 420,
+			clientY: 240,
+			target: viewportTarget,
+		});
+		assert.equal(harness.pointerControls.reverseRotate, false);
+	} finally {
+		harness.restore();
+	}
+}
+
+{
+	const harness = createInputRouterHarness();
+	try {
+		const pointerdown = harness.listeners
+			.get(harness.viewportShell)
+			.get("pointerdown");
+		const viewportTarget = new globalThis.Element();
+		viewportTarget.closest = (selector: string) => {
+			if (selector === "#viewport") {
+				return {};
+			}
+			return null;
+		};
+		pointerdown({
+			pointerId: 24,
+			pointerType: "mouse",
+			button: 0,
+			clientX: 320,
+			clientY: 240,
+			target: viewportTarget,
+		});
+		assert.equal(harness.pointerControls.reverseRotate, false);
+	} finally {
+		harness.restore();
+	}
+}
+
+{
+	const harness = createInputRouterHarness();
+	try {
+		const pointerdown = harness.listeners
+			.get(harness.viewportShell)
+			.get("pointerdown");
+		const hudTarget = new globalThis.Element();
+		hudTarget.closest = (selector: string) => {
+			if (selector.includes(".viewport-project-status")) {
+				return {};
+			}
+			return null;
+		};
+		pointerdown({
+			pointerId: 25,
+			pointerType: "touch",
+			button: 0,
+			clientX: 320,
+			clientY: 240,
+			target: hudTarget,
+		});
+		assert.equal(harness.pointerControls.reverseRotate, false);
+	} finally {
+		harness.restore();
+	}
 }
 
 {

@@ -132,6 +132,8 @@ export function bindInputRouter({
 	let splatEditBrushStrokePointerId = null;
 	let viewportOrthoRotationGesture = null;
 	let viewportPieTouchHoldState = null;
+	const activeTouchNavigationPointerIds = new Set();
+	let touchNavigationBaseReverseRotate = null;
 	const VIEWPORT_PIE_TOUCH_HOLD_MS = 320;
 	const VIEWPORT_PIE_TOUCH_HOLD_DISTANCE_PX = 12;
 	const VIEWPORT_POINTER_CLICK_DISTANCE_PX = 8;
@@ -211,6 +213,76 @@ export function bindInputRouter({
 		return false;
 	}
 
+	function restoreTouchNavigationPointerControls() {
+		if (activeTouchNavigationPointerIds.size > 0) {
+			return;
+		}
+		if (touchNavigationBaseReverseRotate === null) {
+			return;
+		}
+		pointerControls.reverseRotate = touchNavigationBaseReverseRotate;
+		touchNavigationBaseReverseRotate = null;
+	}
+
+	function clearTouchNavigationPointerControls() {
+		activeTouchNavigationPointerIds.clear();
+		restoreTouchNavigationPointerControls();
+	}
+
+	function isTouchNavigationTarget(event) {
+		if (event.pointerType !== "touch" || event.button !== 0) {
+			return false;
+		}
+		if (state.interactionMode !== "navigate") {
+			return false;
+		}
+		if (isPieInteractionMode?.() || isZoomInteractionMode?.()) {
+			return false;
+		}
+		if (isLensInteractionMode?.() || isRollInteractionMode?.()) {
+			return false;
+		}
+		if (isViewportOrthographicActive?.() || isSplatEditBrushActive?.()) {
+			return false;
+		}
+		const target = event.target instanceof Element ? event.target : null;
+		if (!target || isViewportOverlayControlTarget(target)) {
+			return false;
+		}
+		if (isInteractiveTextTarget(target)) {
+			return false;
+		}
+		if (target.closest("#viewport") === null) {
+			return false;
+		}
+		if (
+			target.closest(
+				".viewport-pie, .viewport-axis-gizmo, #viewport-gizmo, .frame-item, .frame-trajectory-layer, .reference-image-layer__entry, .reference-image-selection-layer, .measurement-overlay__point, .measurement-overlay__chip, .viewport-splat-edit-toolbar, .viewport-splat-edit-popover",
+			)
+		) {
+			return false;
+		}
+		return true;
+	}
+
+	function maybeApplyTouchNavigationPointerControls(event) {
+		if (!isTouchNavigationTarget(event)) {
+			return;
+		}
+		activeTouchNavigationPointerIds.add(event.pointerId);
+		if (touchNavigationBaseReverseRotate === null) {
+			touchNavigationBaseReverseRotate = Boolean(pointerControls.reverseRotate);
+		}
+		pointerControls.reverseRotate = true;
+	}
+
+	function releaseTouchNavigationPointerControls(event) {
+		if (!activeTouchNavigationPointerIds.delete(event.pointerId)) {
+			return;
+		}
+		restoreTouchNavigationPointerControls();
+	}
+
 	function maybeRestoreViewportOrthographicProjection(event) {
 		if (
 			!viewportOrthoRotationGesture ||
@@ -243,6 +315,15 @@ export function bindInputRouter({
 			if (handleMeasurementPointerDown?.(event)) {
 				viewportSelectClickCandidate = null;
 			}
+		},
+		{ capture: true },
+	);
+
+	listen(
+		viewportShell,
+		"pointerdown",
+		(event) => {
+			maybeApplyTouchNavigationPointerControls(event);
 		},
 		{ capture: true },
 	);
@@ -732,11 +813,13 @@ export function bindInputRouter({
 		if (viewportPieTouchHoldState?.pointerId === event.pointerId) {
 			clearViewportPieTouchHold();
 		}
+		releaseTouchNavigationPointerControls(event);
 	});
 	listen(window, "pointercancel", (event) => {
 		if (viewportPieTouchHoldState?.pointerId === event.pointerId) {
 			clearViewportPieTouchHold();
 		}
+		releaseTouchNavigationPointerControls(event);
 	});
 	listen(window, "pointerup", (event) => {
 		if (
@@ -1067,6 +1150,7 @@ export function bindInputRouter({
 	});
 	listen(window, "blur", () => {
 		clearViewportPieTouchHold();
+		clearTouchNavigationPointerControls();
 		closeViewportPieMenu?.();
 		flushNavigationHistory?.();
 	});
