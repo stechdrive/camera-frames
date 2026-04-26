@@ -668,7 +668,7 @@ export function createAssetController({
 		}
 	}
 
-	function kickAutoLodBake(packedSplats, displayName) {
+	function kickAutoLodBake(packedSplats, displayName, splatMesh = null) {
 		if (!packedSplats || typeof packedSplats !== "object") {
 			return;
 		}
@@ -689,6 +689,11 @@ export function createAssetController({
 		// next frame via needsUpdate flag set by bakeSparkPackedSplatsLod.
 		void bakeSparkPackedSplatsLod(packedSplats, { quality: false })
 			.then(() => {
+				if (typeof splatMesh?.updateGenerator === "function") {
+					refreshSparkPackedSplatMesh(splatMesh, packedSplats, {
+						updateVersion: typeof splatMesh.updateVersion === "function",
+					});
+				}
 				finishAutoLodBakeTask(label);
 				setStatus?.(t("status.autoLodReady", { name: label }));
 			})
@@ -861,7 +866,7 @@ export function createAssetController({
 				moveRegisteredAssetToIndex(asset, insertIndex);
 			}
 			if (!hasProjectFilePackedSplatDeferredFullData(persistentSource)) {
-				kickAutoLodBake(packedSplats, displayName);
+				kickAutoLodBake(packedSplats, displayName, mesh);
 			}
 			return asset;
 		};

@@ -744,10 +744,42 @@ async function createPackedSplatAsset({ id, label, centers }) {
 	assert.equal(harness.controller.isSplatEditModeActive(), false);
 	assert.equal(harness.store.viewportToolMode.value, "none");
 	assert.deepEqual(harness.store.splatEdit.scopeAssetIds.value, []);
-	assert.deepEqual(harness.calls.at(-1), [
-		"status",
-		"FullData load failed",
-	]);
+	assert.deepEqual(harness.calls.at(-1), ["status", "FullData load failed"]);
+}
+
+{
+	const lodDispatches = [];
+	const harness = createHarness({
+		assetControllerOverrides: {
+			kickAutoLodBake: (packedSplats, displayName, splatMesh) => {
+				lodDispatches.push({ packedSplats, displayName, splatMesh });
+			},
+		},
+	});
+	const asset = createSplatAsset({
+		id: "splat-lod-button",
+		centers: [new THREE.Vector3(0, 0, 0)],
+		centerBounds: new THREE.Box3(
+			new THREE.Vector3(-0.5, -0.5, -0.5),
+			new THREE.Vector3(0.5, 0.5, 0.5),
+		),
+	});
+	asset.label = "LoD Button Target";
+	asset.disposeTarget.packedSplats = {
+		numSplats: 1_000_000,
+	};
+	harness.store.sceneAssets.value = [asset];
+	harness.store.selectedSceneAssetIds.value = [asset.id];
+
+	assert.equal(
+		harness.controller.setSplatEditMode(true, { silent: true }),
+		true,
+	);
+	assert.equal(harness.controller.rebuildSplatEditLod(), true);
+	assert.equal(lodDispatches.length, 1);
+	assert.equal(lodDispatches[0].packedSplats, asset.disposeTarget.packedSplats);
+	assert.equal(lodDispatches[0].displayName, "LoD Button Target");
+	assert.equal(lodDispatches[0].splatMesh, asset.disposeTarget);
 }
 
 {
@@ -2045,11 +2077,33 @@ async function createPackedSplatAsset({ id, label, centers }) {
 	const gizmoConfig = harness.controller.getViewportGizmoConfig();
 	assert.equal(gizmoConfig?.showRotate, true);
 	assert.equal(gizmoConfig?.showScale, true);
+	let disposedStaleLod = false;
+	asset.disposeTarget.raycastIndices = {
+		numSplats: 1,
+		indices: new Uint32Array([0]),
+	};
+	asset.disposeTarget.context.enableLod.value = true;
+	asset.disposeTarget.packedSplats.lodSplats = {
+		dispose() {
+			disposedStaleLod = true;
+		},
+	};
 	assert.equal(
 		harness.controller.moveSelectedSplatsByWorldDelta(
 			new THREE.Vector3(1, 0, 0),
 		),
 		true,
+	);
+	assert.equal(disposedStaleLod, true);
+	assert.equal(asset.disposeTarget.raycastIndices, undefined);
+	assert.equal(asset.disposeTarget.context.enableLod.value, false);
+	assert.equal(
+		asset.disposeTarget.context.splats,
+		asset.disposeTarget.packedSplats,
+	);
+	assert.equal(
+		asset.disposeTarget.context.numSplats.value,
+		asset.disposeTarget.packedSplats.numSplats,
 	);
 	const movedFirstX = asset.disposeTarget.packedSplats.getSplat(0).center.x;
 	const movedSecondX = asset.disposeTarget.packedSplats.getSplat(1).center.x;

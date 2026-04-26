@@ -202,6 +202,15 @@ import {
 		},
 	};
 	const mesh = {
+		raycastIndices: {
+			numSplats: 1,
+			indices: new Uint32Array([0]),
+		},
+		context: {
+			splats: null,
+			numSplats: { value: 0 },
+			enableLod: { value: true },
+		},
 		updateGeneratorCalls: 0,
 		updateGenerator() {
 			this.updateGeneratorCalls += 1;
@@ -246,7 +255,11 @@ import {
 
 	refreshSparkPackedSplatMesh(mesh, packedSplats, { updateVersion: true });
 	assert.equal(mesh.numSplats, 1);
+	assert.equal(mesh.raycastIndices, undefined);
 	assert.equal(mesh.splats, packedSplats);
+	assert.equal(mesh.context.splats, packedSplats);
+	assert.equal(mesh.context.numSplats.value, 1);
+	assert.equal(mesh.context.enableLod.value, false);
 	assert.equal(mesh.generatorDirty, true);
 	assert.equal(mesh.updateGeneratorCalls, 1);
 	assert.equal(mesh.updateVersionCalls, 1);

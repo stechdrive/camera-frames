@@ -195,8 +195,18 @@ export function refreshSparkPackedSplatMesh(
 	const targetPackedSplats = assertSparkPackedSplats(packedSplats);
 	targetMesh.numSplats =
 		targetPackedSplats.getNumSplats?.() ?? targetPackedSplats.numSplats ?? 0;
+	targetMesh.raycastIndices = undefined;
 	targetMesh.lastSplats = null;
 	targetMesh.splats = targetPackedSplats;
+	if (targetMesh.context && typeof targetMesh.context === "object") {
+		targetMesh.context.splats = targetPackedSplats;
+		if (targetMesh.context.numSplats?.value !== undefined) {
+			targetMesh.context.numSplats.value = targetMesh.numSplats;
+		}
+		if (targetMesh.context.enableLod?.value !== undefined) {
+			targetMesh.context.enableLod.value = false;
+		}
+	}
 	targetMesh.generatorDirty = true;
 	targetMesh.updateGenerator();
 	if (updateVersion) {

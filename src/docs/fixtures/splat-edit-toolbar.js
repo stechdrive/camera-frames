@@ -43,7 +43,7 @@ const STYLE = `
 	left: auto !important;
 	transform: none !important;
 	margin-bottom: 0.4rem;
-	align-self: stretch;
+	align-self: center;
 }
 `;
 

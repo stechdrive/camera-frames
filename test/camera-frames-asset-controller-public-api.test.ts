@@ -77,6 +77,68 @@ function createAssetControllerForPublicApiTest() {
 
 {
 	const harness = createAssetControllerForPublicApiTest();
+	const bakeCalls = [];
+	const timeoutCalls = [];
+	const packedSplats = {
+		numSplats: 1_000_000,
+		lodSplats: null,
+		needsUpdate: false,
+		createLodSplats: async ({ quality = false } = {}) => {
+			bakeCalls.push({ quality });
+			packedSplats.lodSplats = {
+				packedArray: new Uint32Array([1, 2, 3, 4]),
+				numSplats: 1,
+			};
+		},
+	};
+	const mesh = {
+		numSplats: 0,
+		raycastIndices: {
+			numSplats: 1,
+			indices: new Uint32Array([0]),
+		},
+		context: {
+			splats: null,
+			numSplats: { value: 0 },
+			enableLod: { value: true },
+		},
+		generatorDirty: false,
+		updateGeneratorCalls: 0,
+		updateVersionCalls: 0,
+		updateGenerator() {
+			this.updateGeneratorCalls += 1;
+		},
+		updateVersion() {
+			this.updateVersionCalls += 1;
+		},
+	};
+	const originalSetTimeout = globalThis.setTimeout;
+	globalThis.setTimeout = ((callback, delay) => {
+		timeoutCalls.push(delay);
+		return 0;
+	}) as typeof setTimeout;
+	try {
+		harness.controller.kickAutoLodBake(packedSplats, "LoD Target", mesh);
+		await Promise.resolve();
+		await Promise.resolve();
+	} finally {
+		globalThis.setTimeout = originalSetTimeout;
+	}
+
+	assert.deepEqual(bakeCalls, [{ quality: false }]);
+	assert.equal(packedSplats.needsUpdate, true);
+	assert.equal(mesh.raycastIndices, undefined);
+	assert.equal(mesh.splats, packedSplats);
+	assert.equal(mesh.context.splats, packedSplats);
+	assert.equal(mesh.context.numSplats.value, packedSplats.numSplats);
+	assert.equal(mesh.context.enableLod.value, false);
+	assert.equal(mesh.updateGeneratorCalls, 1);
+	assert.equal(mesh.updateVersionCalls, 1);
+	assert.deepEqual(timeoutCalls, [2000]);
+}
+
+{
+	const harness = createAssetControllerForPublicApiTest();
 	const source = createProjectFileEmbeddedFileSource({
 		kind: "model",
 		file: new File([new Uint8Array([1, 2, 3, 4])], "robot.glb", {

@@ -59,7 +59,13 @@ const REFERENCE_IMAGE_ROTATION_ZONES = [
 	"left",
 ];
 
-export function SplatEditToolbar({ store, controller, t }) {
+export function SplatEditToolbar({
+	store,
+	controller,
+	t,
+	style = undefined,
+	onDragPointerDown = undefined,
+}) {
 	const splatEditTool = store.splatEdit.tool.value;
 	const splatEditSelectionCount = store.splatEdit.selectionCount.value;
 	const splatEditBrushSize = store.splatEdit.brushSize.value;
@@ -152,7 +158,7 @@ export function SplatEditToolbar({ store, controller, t }) {
 	};
 
 	return html`
-		<div class="viewport-splat-edit-toolbar">
+		<div class="viewport-splat-edit-toolbar" style=${style}>
 			${
 				splatEditTool === "brush" &&
 				html`
@@ -180,38 +186,61 @@ export function SplatEditToolbar({ store, controller, t }) {
 					${
 						splatEditBoxPlaced
 							? html`
-						<span class="viewport-splat-edit-toolbar__detail-label">${t("status.splatEditCenter")}</span>
-						<div class="viewport-splat-edit-toolbar__detail-grid">
-							${renderSplatEditField({ label: t("field.positionX"), value: splatEditBoxCenter?.x ?? 0, historyLabel: "splat-edit.box-center.x", onScrubValue: (v) => handleSplatEditBoxCenterInput("x", v), onCommitValue: (v) => handleSplatEditBoxCenterInput("x", v) })}
-							${renderSplatEditField({ label: t("field.positionY"), value: splatEditBoxCenter?.y ?? 0, historyLabel: "splat-edit.box-center.y", onScrubValue: (v) => handleSplatEditBoxCenterInput("y", v), onCommitValue: (v) => handleSplatEditBoxCenterInput("y", v) })}
-							${renderSplatEditField({ label: t("field.positionZ"), value: splatEditBoxCenter?.z ?? 0, historyLabel: "splat-edit.box-center.z", onScrubValue: (v) => handleSplatEditBoxCenterInput("z", v), onCommitValue: (v) => handleSplatEditBoxCenterInput("z", v) })}
+						<div class="viewport-splat-edit-toolbar__box-panel">
+							<div class="viewport-splat-edit-toolbar__detail-row">
+								<span class="viewport-splat-edit-toolbar__detail-label">${t("status.splatEditCenter")}</span>
+								<div class="viewport-splat-edit-toolbar__detail-grid">
+									${renderSplatEditField({ label: t("field.positionX"), value: splatEditBoxCenter?.x ?? 0, historyLabel: "splat-edit.box-center.x", onScrubValue: (v) => handleSplatEditBoxCenterInput("x", v), onCommitValue: (v) => handleSplatEditBoxCenterInput("x", v) })}
+									${renderSplatEditField({ label: t("field.positionY"), value: splatEditBoxCenter?.y ?? 0, historyLabel: "splat-edit.box-center.y", onScrubValue: (v) => handleSplatEditBoxCenterInput("y", v), onCommitValue: (v) => handleSplatEditBoxCenterInput("y", v) })}
+									${renderSplatEditField({ label: t("field.positionZ"), value: splatEditBoxCenter?.z ?? 0, historyLabel: "splat-edit.box-center.z", onScrubValue: (v) => handleSplatEditBoxCenterInput("z", v), onCommitValue: (v) => handleSplatEditBoxCenterInput("z", v) })}
+								</div>
+							</div>
+							<div class="viewport-splat-edit-toolbar__detail-row">
+								<span class="viewport-splat-edit-toolbar__detail-label">${t("status.splatEditSize")}</span>
+								<div class="viewport-splat-edit-toolbar__detail-grid">
+									${renderSplatEditField({ label: t("field.positionX"), value: splatEditBoxSize?.x ?? 1, min: "0.01", historyLabel: "splat-edit.box-size.x", onScrubValue: (v) => handleSplatEditBoxSizeInput("x", v), onCommitValue: (v) => handleSplatEditBoxSizeInput("x", v) })}
+									${renderSplatEditField({ label: t("field.positionY"), value: splatEditBoxSize?.y ?? 1, min: "0.01", historyLabel: "splat-edit.box-size.y", onScrubValue: (v) => handleSplatEditBoxSizeInput("y", v), onCommitValue: (v) => handleSplatEditBoxSizeInput("y", v) })}
+									${renderSplatEditField({ label: t("field.positionZ"), value: splatEditBoxSize?.z ?? 1, min: "0.01", historyLabel: "splat-edit.box-size.z", onScrubValue: (v) => handleSplatEditBoxSizeInput("z", v), onCommitValue: (v) => handleSplatEditBoxSizeInput("z", v) })}
+								</div>
+							</div>
+							<div class="viewport-splat-edit-toolbar__detail-row">
+								<span class="viewport-splat-edit-toolbar__detail-label">${t("field.assetRotation")}</span>
+								<div class="viewport-splat-edit-toolbar__detail-grid">
+									${renderSplatEditField({ label: t("field.positionX"), value: splatEditBoxRotationDegrees.x, step: "1", historyLabel: "splat-edit.box-rotation.x", onScrubValue: (v) => handleSplatEditBoxRotationInput("x", v), onCommitValue: (v) => handleSplatEditBoxRotationInput("x", v) })}
+									${renderSplatEditField({ label: t("field.positionY"), value: splatEditBoxRotationDegrees.y, step: "1", historyLabel: "splat-edit.box-rotation.y", onScrubValue: (v) => handleSplatEditBoxRotationInput("y", v), onCommitValue: (v) => handleSplatEditBoxRotationInput("y", v) })}
+									${renderSplatEditField({ label: t("field.positionZ"), value: splatEditBoxRotationDegrees.z, step: "1", historyLabel: "splat-edit.box-rotation.z", onScrubValue: (v) => handleSplatEditBoxRotationInput("z", v), onCommitValue: (v) => handleSplatEditBoxRotationInput("z", v) })}
+								</div>
+							</div>
+							<div class="viewport-splat-edit-toolbar__action-row">
+								<button type="button" class="viewport-splat-edit-toolbar__btn" onClick=${() => controller()?.applySplatEditBoxSelection?.({ subtract: false })}>${t("status.splatEditAdd")}</button>
+								<button type="button" class="viewport-splat-edit-toolbar__btn" onClick=${() => controller()?.applySplatEditBoxSelection?.({ subtract: true })}>${t("status.splatEditSubtract")}</button>
+								<button type="button" class="viewport-splat-edit-toolbar__btn button--tooltip" onClick=${() => controller()?.scaleSplatEditBoxUniform?.(0.9)}>−<${TooltipBubble} title=${t("status.splatEditScaleDown")} placement="top" /></button>
+								<button type="button" class="viewport-splat-edit-toolbar__btn button--tooltip" onClick=${() => controller()?.scaleSplatEditBoxUniform?.(1.1)}>+<${TooltipBubble} title=${t("status.splatEditScaleUp")} placement="top" /></button>
+								<button type="button" class="viewport-splat-edit-toolbar__btn" onClick=${() => controller()?.fitSplatEditBoxToScope?.()}>${t("status.splatEditFitScope")}</button>
+							</div>
 						</div>
-						<span class="viewport-splat-edit-toolbar__detail-label">${t("status.splatEditSize")}</span>
-						<div class="viewport-splat-edit-toolbar__detail-grid">
-							${renderSplatEditField({ label: t("field.positionX"), value: splatEditBoxSize?.x ?? 1, min: "0.01", historyLabel: "splat-edit.box-size.x", onScrubValue: (v) => handleSplatEditBoxSizeInput("x", v), onCommitValue: (v) => handleSplatEditBoxSizeInput("x", v) })}
-							${renderSplatEditField({ label: t("field.positionY"), value: splatEditBoxSize?.y ?? 1, min: "0.01", historyLabel: "splat-edit.box-size.y", onScrubValue: (v) => handleSplatEditBoxSizeInput("y", v), onCommitValue: (v) => handleSplatEditBoxSizeInput("y", v) })}
-							${renderSplatEditField({ label: t("field.positionZ"), value: splatEditBoxSize?.z ?? 1, min: "0.01", historyLabel: "splat-edit.box-size.z", onScrubValue: (v) => handleSplatEditBoxSizeInput("z", v), onCommitValue: (v) => handleSplatEditBoxSizeInput("z", v) })}
-						</div>
-						<span class="viewport-splat-edit-toolbar__detail-label">${t("field.assetRotation")}</span>
-						<div class="viewport-splat-edit-toolbar__detail-grid">
-							${renderSplatEditField({ label: t("field.positionX"), value: splatEditBoxRotationDegrees.x, step: "1", historyLabel: "splat-edit.box-rotation.x", onScrubValue: (v) => handleSplatEditBoxRotationInput("x", v), onCommitValue: (v) => handleSplatEditBoxRotationInput("x", v) })}
-							${renderSplatEditField({ label: t("field.positionY"), value: splatEditBoxRotationDegrees.y, step: "1", historyLabel: "splat-edit.box-rotation.y", onScrubValue: (v) => handleSplatEditBoxRotationInput("y", v), onCommitValue: (v) => handleSplatEditBoxRotationInput("y", v) })}
-							${renderSplatEditField({ label: t("field.positionZ"), value: splatEditBoxRotationDegrees.z, step: "1", historyLabel: "splat-edit.box-rotation.z", onScrubValue: (v) => handleSplatEditBoxRotationInput("z", v), onCommitValue: (v) => handleSplatEditBoxRotationInput("z", v) })}
-						</div>
-						<button type="button" class="viewport-splat-edit-toolbar__btn" onClick=${() => controller()?.applySplatEditBoxSelection?.({ subtract: false })}>${t("status.splatEditAdd")}</button>
-						<button type="button" class="viewport-splat-edit-toolbar__btn" onClick=${() => controller()?.applySplatEditBoxSelection?.({ subtract: true })}>${t("status.splatEditSubtract")}</button>
-						<button type="button" class="viewport-splat-edit-toolbar__btn button--tooltip" onClick=${() => controller()?.scaleSplatEditBoxUniform?.(0.9)}>−<${TooltipBubble} title=${t("status.splatEditScaleDown")} placement="top" /></button>
-						<button type="button" class="viewport-splat-edit-toolbar__btn button--tooltip" onClick=${() => controller()?.scaleSplatEditBoxUniform?.(1.1)}>+<${TooltipBubble} title=${t("status.splatEditScaleUp")} placement="top" /></button>
 					`
 							: html`
 						<span class="viewport-splat-edit-toolbar__info">${t("status.splatEditPlaceBoxHint")}</span>
 					`
 					}
-					<button type="button" class="viewport-splat-edit-toolbar__btn" onClick=${() => controller()?.fitSplatEditBoxToScope?.()}>${t("status.splatEditFitScope")}</button>
+					${
+						!splatEditBoxPlaced &&
+						html`<button type="button" class="viewport-splat-edit-toolbar__btn" onClick=${() => controller()?.fitSplatEditBoxToScope?.()}>${t("status.splatEditFitScope")}</button>`
+					}
 				</div>
 			`
 			}
 			<div class="viewport-splat-edit-toolbar__bar">
+				<button
+					type="button"
+					class="viewport-splat-edit-toolbar__drag-handle button--tooltip"
+					aria-label=${t("action.moveToolbar")}
+					onPointerDown=${onDragPointerDown}
+				>
+					<${WorkbenchIcon} name="grip" size=${14} strokeWidth=${0} />
+					<${TooltipBubble} title=${t("action.moveToolbar")} placement="top" />
+				</button>
 				<!-- Tool selector -->
 				<div class="viewport-splat-edit-toolbar__group" role="group" aria-label=${t("action.splatEditTool")}>
 					<button type="button" class=${`viewport-splat-edit-toolbar__btn${splatEditTool === "box" ? " viewport-splat-edit-toolbar__btn--active" : ""}`} onClick=${() => setSplatEditTool("box")}>
@@ -695,6 +724,7 @@ export function ViewportShell({ store, controller, refs, t }) {
 					top: `${splatEditHudPosition.y}px`,
 					right: "auto",
 					bottom: "auto",
+					margin: "0",
 				}
 			: undefined;
 	const startReferenceImageMove = (itemId, event) =>
@@ -820,7 +850,13 @@ export function ViewportShell({ store, controller, refs, t }) {
 			/>
 			${
 				splatEditActive &&
-				html`<${SplatEditToolbar} store=${store} controller=${controller} t=${t} />`
+				html`<${SplatEditToolbar}
+					store=${store}
+					controller=${controller}
+					t=${t}
+					style=${splatEditHudStyle}
+					onDragPointerDown=${startSplatEditHudDrag}
+				/>`
 			}
 			<div
 				id="drop-hint"

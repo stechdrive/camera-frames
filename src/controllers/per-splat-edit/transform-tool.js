@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { debugSplatHistory } from "../../debug/splat-history-debug.js";
+import { refreshSparkPackedSplatMesh } from "../../engine/spark-integration/spark-packed-splats-adapter.js";
 import {
 	getAssetIdKey,
 	getSplatAssetTotalCount,
@@ -316,7 +317,11 @@ export function createSplatEditTransformTool({
 			}
 			entry.packedSplats.disposeLodSplats?.();
 			entry.packedSplats.needsUpdate = true;
-			entry.splatMesh.updateGenerator?.();
+			if (typeof entry.splatMesh?.updateGenerator === "function") {
+				refreshSparkPackedSplatMesh(entry.splatMesh, entry.packedSplats, {
+					updateVersion: typeof entry.splatMesh?.updateVersion === "function",
+				});
+			}
 			updateSplatAssetBoundsHints(entry.asset);
 			changed = true;
 		}

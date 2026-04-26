@@ -648,7 +648,7 @@ export function ToolRailSection({
 									)}
 							/>
 							<${IconButton}
-								icon="grip"
+								icon="splat-edit"
 								label=${t("action.splatEditTool")}
 								active=${store.splatEdit.active.value}
 								className="workbench-tool-rail__button"

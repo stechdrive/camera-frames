@@ -322,10 +322,7 @@ export function createPerSplatEditController({
 		resolveEntryScopeAssetIds: scope.resolveEntryScopeAssetIds,
 		getSplatEditScopeAssetIds: scope.getSplatEditScopeAssetIds,
 		ensureFullDataForSplatAssets: (assetIds, options) =>
-			getAssetController?.()?.ensureFullDataForSplatAssets?.(
-				assetIds,
-				options,
-			),
+			getAssetController?.()?.ensureFullDataForSplatAssets?.(assetIds, options),
 		syncSelectionCount: selectionState.syncSelectionCount,
 		syncSelectionHighlight: selectionState.syncSelectionHighlight,
 		clearSelectionHighlight: selectionState.clearSelectionHighlight,
@@ -409,7 +406,7 @@ export function createPerSplatEditController({
 				continue;
 			}
 			const displayName = asset?.label ?? asset?.source?.fileName ?? "3DGS";
-			kick(asset.disposeTarget.packedSplats, displayName);
+			kick(asset.disposeTarget.packedSplats, displayName, asset.disposeTarget);
 			dispatched += 1;
 		}
 		// Recompute after dispatching so UI flips to "ready" for small
