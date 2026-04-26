@@ -1247,6 +1247,34 @@ input[type="range"] {
 		rgb(255 184 77 / 18%);
 }
 
+.overlay-phase-step--active .overlay-phase-step__marker::after {
+	position: absolute;
+	inset: -0.42rem;
+	border: 2px solid rgb(255 184 77 / 42%);
+	border-radius: inherit;
+	content: "";
+	animation: overlay-phase-active-pulse 1s ease-out infinite;
+}
+
+@keyframes overlay-phase-active-pulse {
+	0% {
+		opacity: 0.9;
+		transform: scale(0.7);
+	}
+
+	100% {
+		opacity: 0;
+		transform: scale(1.45);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.overlay-phase-step--active .overlay-phase-step__marker::after {
+		animation: none;
+		opacity: 0.35;
+	}
+}
+
 .overlay-phase-step__label {
 	display: block;
 	max-width: 100%;

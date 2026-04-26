@@ -122,6 +122,7 @@ import {
 		requireTargetsMessage: "missing",
 		t: (key, values = {}) => `${key}:${JSON.stringify(values)}`,
 		now: () => 12345,
+		waitForWritePhasePaint: () => calls.push(["paint"]),
 	});
 
 	assert.deepEqual(calls[0], ["setExportStatus", "export.exporting", true]);
@@ -160,7 +161,25 @@ import {
 			detail: "write:png:detail:{}",
 		},
 	]);
-	assert.deepEqual(calls[5], ["downloadPng", "camera-a", 800, 1, 0]);
+	assert.deepEqual(calls[5], ["paint"]);
+	assert.deepEqual(calls[6], ["downloadPng", "camera-a", 800, 1, 0]);
+	assert.deepEqual(calls[10], [
+		"overlay",
+		[{ id: "camera-a" }, { id: "camera-b" }],
+		1,
+		"psd",
+		12345,
+		{
+			definitions: [{ id: "write", label: "Write" }],
+			completedIds: new Set(["beauty"]),
+			id: "write",
+			activeId: "write",
+			label: "Write",
+			detail: "write:psd:detail:{}",
+		},
+	]);
+	assert.deepEqual(calls[11], ["paint"]);
+	assert.deepEqual(calls[12], ["downloadPsd", "camera-b", 800, 2, 1]);
 	assert.deepEqual(calls.at(-5), [
 		"setSummary",
 		'exportSummary.exportedMixed:{"count":2}',

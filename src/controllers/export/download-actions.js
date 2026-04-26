@@ -24,6 +24,30 @@ function buildWritePhaseState(
 	};
 }
 
+function defaultWaitForWritePhasePaint() {
+	return new Promise((resolve) => {
+		let settled = false;
+		let timeoutId = null;
+		const finish = () => {
+			if (settled) {
+				return;
+			}
+			settled = true;
+			if (timeoutId !== null) {
+				globalThis.clearTimeout(timeoutId);
+			}
+			resolve();
+		};
+		const raf = globalThis.requestAnimationFrame;
+		timeoutId = globalThis.setTimeout(finish, 120);
+		if (typeof raf === "function") {
+			raf(() => raf(finish));
+			return;
+		}
+		globalThis.setTimeout(finish, 0);
+	});
+}
+
 function applyExportError(
 	error,
 	{ setSummary, setExportStatus, setStatus, showExportError = null },
@@ -164,6 +188,7 @@ export async function runOutputExport({
 	requireTargetsMessage,
 	t,
 	now = () => Date.now(),
+	waitForWritePhasePaint = defaultWaitForWritePhasePaint,
 } = {}) {
 	setExportStatus("export.exporting", true);
 
@@ -208,6 +233,7 @@ export async function runOutputExport({
 			);
 			if (currentPhaseState?.definitions?.length) {
 				pushOverlay();
+				await waitForWritePhasePaint?.();
 			}
 			if (exportSettings.exportFormat === "png") {
 				downloadPngSnapshot(
