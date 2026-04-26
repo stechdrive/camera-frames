@@ -24,8 +24,8 @@ import {
 import { resolveInitialLocale, translate } from "./i18n.js";
 import { createDefaultLightingState } from "./lighting-model.js";
 import { createDefaultReferenceImageDocument } from "./reference-image-model.js";
-import { resolveEffectiveMobileUiScale } from "./ui/mobile-ui-scale.js";
-import { resolveEffectiveViewportLodScale } from "./ui/viewport-lod-scale.js";
+import { resolveEffectiveMobileUiScale } from "./app/mobile-ui-scale.js";
+import { resolveEffectiveViewportLodScale } from "./app/viewport-lod-scale.js";
 import {
 	WORKSPACE_LAYOUT_SINGLE,
 	createDefaultShotCameraDocuments,

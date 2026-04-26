@@ -1,6 +1,6 @@
 # 旧 CAMERA_FRAMES `.ssproj` 読み込み互換
 
-最終更新: 2026-04-16
+最終更新: 2026-04-26
 
 ## 0. この文書の役割
 
@@ -31,7 +31,11 @@
 
 - [project-controller.js](../src/controllers/project-controller.js)
   - `openProjectSource()`
-  - manifest のない old package を検知すると legacy import path へ落とす
+  - public project open API と project context / dirty baseline を持つ
+- [open-workflow.js](../src/controllers/project/open-workflow.js)
+  - current package open orchestration を持つ
+  - current package parse に失敗した source が legacy `document.json` package なら legacy import path へ落とす
+  - mobile / touch 環境の `.ssproj` staging 後も、同じ prepared source で current / legacy 判定を行う
 - [package-legacy.js](../src/project/package-legacy.js)
   - 旧 package archive から importable asset を解決する
 - [legacy-ssproj.js](../src/importers/legacy-ssproj.js)

@@ -102,7 +102,7 @@ import { createViewportLodScaleCommands } from "./ui/viewport-lod-scale-commands
 import {
 	readPersistedViewportLodUserScale,
 	resolveEffectiveViewportLodScale,
-} from "./ui/viewport-lod-scale.js";
+} from "./app/viewport-lod-scale.js";
 import {
 	WORKSPACE_PANE_CAMERA,
 	WORKSPACE_PANE_VIEWPORT,

@@ -1,6 +1,6 @@
 # CAMERA_FRAMES 実装要件 / 保守基点
 
-最終更新: 2026-04-25
+最終更新: 2026-04-26
 
 ## 0. この文書の役割
 
@@ -100,6 +100,11 @@ CAMERA_FRAMES の共有 contract を Git 管理するための基点です。
   - `*` は working save dirty
   - `PKG` は portable package dirty
 - 同じ HUD の `プレビュー品質` は端末ローカルの viewport LoD preference であり、project status / dirty 判定 / `.ssproj` contract には含めない
+- モバイル UI の `UI 倍率` は端末ローカル preference であり、project status / dirty 判定 / `.ssproj` contract には含めない
+  - `camera-frames.mobileUiScale` に保存する
+  - 範囲は `0.70` から `2.00`、step は `0.01`
+  - user 未調整時は viewport width / screen width / coarse pointer から auto scale を解決する
+  - WebGL viewport、output frame、FRAME、reference image、export output は UI 倍率に追従させない
 - working save record には次を含める
   - workspace
   - shot cameras
@@ -131,6 +136,10 @@ CAMERA_FRAMES の共有 contract を Git 管理するための基点です。
   - Quality save は package snapshot capture 前に browser module worker + WASM RAD encoder を lazy load し、生成できた asset だけ `radBundle` を同梱する
   - RAD 生成は asset 単位の best-effort とし、worker load / encode / unsupported input で失敗しても既存 Quality `.ssproj` 保存は継続する。失敗した asset は `lodSplats` だけを保存し、`radBundle` は付けない
   - dev build では `?cfDevValidation=rad-ssproj&projectUrl=...` と `globalThis.__CF_BROWSER_VALIDATE__` で、browser-use から RAD package open / object transform / per-splat FullData swap を JSON 検証できる
+- `.ssproj` ZIP entry の圧縮方針は package open / RAD Range / 大容量 save の contract として扱う
+  - JSON と raw PLY は deflate level 6 を基本にする
+  - GLB、image (`jpg` / `jpeg` / `png` / `webp`)、SOG、SPZ、ZIP、RAD、packed splat companion binary、raw-packed `packedArray` / `extraArrays` / `lodSplats` binary は stored/uncompressed とする
+  - stored entry は ZIP Blob から `Blob.slice()` できる fast path として扱い、RAD root / chunk の Range 配信にも使う
 
 ## 6. Scene / Camera / Reference Image の契約
 
@@ -464,6 +473,7 @@ PSD layer 順の詳細契約:
 - bootstrap / composition: `src/main.js`, `src/controller.js`
 - project schema: `src/project/document.js`, `src/project/file/`
 - working save: `src/project/working-state.js`, `src/controllers/project-controller.js`
+- project open workflow / staging: `src/controllers/project/open-workflow.js`, `src/controllers/project/source-staging.js`
 - import routing: `src/app/file-open-routing.js`, `src/controllers/scene-assets/import-runtime.js`
 - scene asset ordering / scene manager display: `src/engine/scene-asset-order.js`, `src/controllers/scene-assets/selection-order.js`, `src/ui/workbench-scene-sections.js`, `src/ui/workbench-browser-sections.js`
 - scene asset import prioritization / order persistence: `src/controllers/scene-assets/import-runtime.js`, `src/controllers/asset-controller.js`, `src/controllers/scene-assets/project-state.js`, `src/controllers/scene-assets/state-persistence.js`
@@ -475,6 +485,7 @@ PSD layer 順の詳細契約:
 - PSD layer assembly / reference image export ordering: `src/controllers/export/reference-images.js`, `src/controllers/export/layer-documents.js`, `src/controllers/export/psd-document.js`
 - per-splat edit: `src/controllers/per-splat-edit-controller.js`
 - input / shortcut: `src/interactions/input-router.js`
+- UI local preferences: `src/ui/mobile-ui-scale.js`, `src/ui/viewport-lod-scale.js`, `src/app/viewport-lod-scale-runtime-binding.js`
 
 ## 12. Verification Baseline
 
@@ -488,6 +499,7 @@ PSD layer 順の詳細契約:
   - `test/camera-frames-project-file.test.ts`
   - `test/camera-frames-project-document.test.ts`
   - `test/camera-frames-project-open-apply.test.ts`
+  - `test/camera-frames-project-source-staging.test.ts`
   - `test/camera-frames-ssproj-snapshot.test.ts`
   - `test/camera-frames-asset-controller-public-api.test.ts`
 - projection / output frame / frame:
@@ -504,3 +516,9 @@ PSD layer 順の詳細契約:
   - `test/camera-frames-psd-export.test.ts`
 - per-splat:
   - `test/camera-frames-per-splat-edit-controller.test.ts`
+- UI local preferences / HUD:
+  - `test/camera-frames-mobile-ui-scale.test.ts`
+  - `test/camera-frames-viewport-lod-scale.test.ts`
+  - `test/camera-frames-viewport-lod-scale-runtime-binding.test.ts`
+  - `test/camera-frames-viewport-project-status-hud.test.ts`
+  - `test/camera-frames-input-router.test.ts`

@@ -1,6 +1,6 @@
 # CAMERA_FRAMES 機能一覧 / 回帰チェック観点
 
-最終更新: 2026-04-25
+最終更新: 2026-04-26
 
 ## 0. この文書の役割
 
@@ -44,11 +44,13 @@
 - `.ssproj` open 時の compatible working save restore
 - viewport 右上 HUD の `name / * / PKG` で dirty 状態を見分けられる
 - desktop では同じ HUD の `プレビュー品質` で 3DGS viewport 表示の軽さと細部確認のしやすさを端末ごとに調整できる
+- モバイル UI では下部ドック右端の歯車から `UI 倍率` を調整できる。設定は端末ローカルの localStorage に保存され、WebGL viewport / 用紙 / FRAME / 下絵 / export output には影響しない
 - `Fast` package save は通常保存で、条件が揃う場合のみ advanced option として未編集 3DGS の SOG compression を選べる
 - `Quality` package save は Spark LoD を事前計算し、`raw-packed-splat` の `lodSplats` sidecar として `.ssproj` に保存する
 - `Quality` package save は生成可能な splat asset について WASM RAD encoder で chunked `radBundle` を作り、`.ssproj` 内の stored entry として同梱する。RAD 生成に失敗した asset でも保存は止めず、既存の `lodSplats` 保存に戻る
 - baked LoD 付き `.ssproj` は load 直後から prebuilt LoD を使い、必要な時だけ root FullData を materialize する
 - `raw-packed-splat` は derived cache として `radBundle` を持てる。RAD bundle 付き `.ssproj` は Service Worker の `Range` 配信経由で Spark `PagedSplats` 表示を優先し、失敗時は FullData 読み込みに戻る
+- `.ssproj` ZIP では RAD / GLB / image / SOG / SPZ / packed companion binary / raw-packed binary を stored entry として保存し、JSON と raw PLY は deflate を使う
 
 ### 2.3 Scene assets
 
@@ -184,6 +186,7 @@ PSD export の主な構成:
 
 - `Ctrl+S` が working save と package save を取り違えないか
 - `.ssproj` open 時に compatible working save が不正に適用 / 不適用にならないか
+- mobile / touch 環境の `.ssproj` staging がクラウド provider Blob に依存し続けないか
 - legacy `.ssproj` fallback import が current project context を壊さないか
 
 代表テスト:
@@ -191,6 +194,7 @@ PSD export の主な構成:
 - `test/camera-frames-project-controller.test.ts`
 - `test/camera-frames-project-file.test.ts`
 - `test/camera-frames-project-open-apply.test.ts`
+- `test/camera-frames-project-source-staging.test.ts`
 - `test/camera-frames-asset-controller-public-api.test.ts`
 - `test/camera-frames-legacy-ssproj.test.ts`
 
@@ -253,6 +257,20 @@ PSD export の主な構成:
 
 - `test/camera-frames-per-splat-edit-controller.test.ts`
 - `test/camera-frames-scene-asset-state-persistence.test.ts`
+
+### 4.6 UI local preferences
+
+- `プレビュー品質` と mobile `UI 倍率` が `.ssproj` / working save / history / dirty state に混入しないか
+- export 中の LoD scale override 後に最新の preview preference へ戻るか
+- HUD slider / background task pill / mobile scale modal が viewport interaction routing を壊さないか
+
+代表テスト:
+
+- `test/camera-frames-mobile-ui-scale.test.ts`
+- `test/camera-frames-viewport-lod-scale.test.ts`
+- `test/camera-frames-viewport-lod-scale-runtime-binding.test.ts`
+- `test/camera-frames-viewport-project-status-hud.test.ts`
+- `test/camera-frames-input-router.test.ts`
 
 ## 5. 現在 baseline に含めないもの
 

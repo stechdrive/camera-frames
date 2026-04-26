@@ -2,7 +2,7 @@ import {
 	buildViewportLodExportReadinessPolicy,
 	resolveEffectiveViewportLodScale,
 	resolveExportViewportLodScale,
-} from "../../ui/viewport-lod-scale.js";
+} from "../../app/viewport-lod-scale.js";
 
 function resolveStoreViewportLodScale(store) {
 	const effectiveScale = store?.viewportLod?.effectiveScale?.value;

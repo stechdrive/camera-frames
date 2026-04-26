@@ -1,74 +1,19 @@
-export function isNativeHistoryTarget(target) {
-	if (
-		!target ||
-		(typeof target !== "object" && typeof target !== "function") ||
-		typeof target.closest !== "function"
-	) {
-		return false;
-	}
-	const draftEditingTarget = target.closest('input[data-draft-editing="true"]');
-	if (draftEditingTarget) {
-		return true;
-	}
-	return (
-		target.closest(
-			[
-				"textarea",
-				'[contenteditable="true"]',
-				'input[type="search"]',
-				'input[type="url"]',
-				'input[type="email"]',
-				'input[type="password"]',
-			].join(", "),
-		) !== null
-	);
-}
+import {
+	getDroppedFileSystemHandles,
+	partitionDroppedFiles,
+} from "./input/drop-routing.js";
+import {
+	isHistoryShortcut,
+	isNativeHistoryTarget,
+} from "./input/keyboard-shortcuts.js";
+import {
+	isMiddleMouseButton,
+	isViewportOverlayControlTarget,
+	isViewportPointerTarget,
+} from "./input/viewport-targets.js";
 
-export function isViewportOverlayControlTarget(target) {
-	if (
-		!target ||
-		(typeof target !== "object" && typeof target !== "function") ||
-		typeof target.closest !== "function"
-	) {
-		return false;
-	}
-	return (
-		target.closest(
-			".viewport-project-status, .viewport-lod-scale, .background-task-pill",
-		) !== null
-	);
-}
-
-async function getDroppedFileSystemHandles(dataTransfer, fileCount) {
-	const items = Array.from(dataTransfer?.items ?? []);
-	if (items.length === 0) {
-		return null;
-	}
-	const handlePromises = [];
-	for (const item of items) {
-		if (
-			item?.kind !== "file" ||
-			typeof item.getAsFileSystemHandle !== "function"
-		) {
-			continue;
-		}
-		handlePromises.push(
-			item
-				.getAsFileSystemHandle()
-				.then((handle) =>
-					handle?.kind === "file" && typeof handle.getFile === "function"
-						? handle
-						: null,
-				)
-				.catch(() => null),
-		);
-	}
-	if (handlePromises.length === 0) {
-		return null;
-	}
-	const handles = await Promise.all(handlePromises);
-	return handles.length === fileCount ? handles : null;
-}
+export { isNativeHistoryTarget } from "./input/keyboard-shortcuts.js";
+export { isViewportOverlayControlTarget } from "./input/viewport-targets.js";
 
 export function bindInputRouter({
 	listen,
@@ -191,13 +136,6 @@ export function bindInputRouter({
 	const VIEWPORT_PIE_TOUCH_HOLD_DISTANCE_PX = 12;
 	const VIEWPORT_POINTER_CLICK_DISTANCE_PX = 8;
 
-	function isHistoryShortcut(event) {
-		const hasHistoryModifier = event.ctrlKey || event.metaKey;
-		return (
-			hasHistoryModifier && (event.code === "KeyZ" || event.code === "KeyY")
-		);
-	}
-
 	function syncInteractiveInputNavigationState(isInteractiveInputFocused) {
 		if (isInteractiveInputFocused) {
 			fpsMovement.enable = false;
@@ -239,18 +177,6 @@ export function bindInputRouter({
 					].join("|")
 				: "perspective",
 		].join("|");
-	}
-
-	function isViewportPointerTarget(target) {
-		return Boolean(
-			target?.closest?.("#render-box") ||
-				target?.closest?.("#viewport") ||
-				target?.closest?.("#viewport-shell"),
-		);
-	}
-
-	function isMiddleMouseButton(event) {
-		return event.button === 1;
 	}
 
 	function shouldOpenViewportPie(event) {
@@ -532,14 +458,10 @@ export function bindInputRouter({
 			files.length,
 		);
 
-		const referenceImageFiles =
-			typeof supportsReferenceImageFile === "function"
-				? files.filter((file) => supportsReferenceImageFile(file))
-				: [];
-		const assetFiles =
-			referenceImageFiles.length > 0
-				? files.filter((file) => !referenceImageFiles.includes(file))
-				: files;
+		const { referenceImageFiles, assetFiles } = partitionDroppedFiles(
+			files,
+			supportsReferenceImageFile,
+		);
 
 		try {
 			if (typeof importOpenedFiles === "function") {

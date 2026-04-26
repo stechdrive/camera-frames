@@ -1,6 +1,6 @@
 # RAD Streaming Investigation
 
-最終更新: 2026-04-25
+最終更新: 2026-04-26
 
 この文書は、`.ssproj` 内蔵 RAD streaming の調査結果と現在の実装境界を記録する。
 shared contract の正本は `docs/camera_frames_requirements.md` と `src/` / `test/`。
@@ -73,7 +73,7 @@ RAD reader が期待する root/chunk layout に絞った encoder を `camera-fr
 3. `lodSplats.packedArray` と `lodSplats.extra.lodTree` を WASM worker に渡す。
 4. WASM encoder が `RAD0` root と `RADC` chunk 群を生成する。
 5. `sourceFingerprint`、bounds、sha256、build metadata を付けた `radBundle` を `captureProjectState()` 前に source へ attach する。
-6. `.ssproj` writer が RAD entries だけ stored/uncompressed として ZIP に入れる。
+6. `.ssproj` writer が RAD entries を stored/uncompressed として ZIP に入れる。その他の package entry 圧縮方針は `docs/camera_frames_requirements.md` を正とする。
 
 現在の encoder は packed centers / alpha / rgb / scales / orientation、通常 SH arrays (`sh1` / `sh2` / `sh3`) と LoD tree を対象にした narrow implementation。
 `sh1Codes` / `sh2Codes` / `sh3Codes` のような codebook/clustered SH arrays はまだ encode せず、該当 asset の RAD 生成を skip して `lodSplats` 保存に fallback する。
