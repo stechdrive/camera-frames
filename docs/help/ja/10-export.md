@@ -17,13 +17,10 @@ related-files:
 screenshots:
   - id: export-output-section
     alt: 書き出し > 出力セクション
-    scenario: export-output-section
   - id: export-settings-section
     alt: 書き出し設定セクション
-    scenario: export-settings-section
   - id: export-progress
     alt: 書き出し実行中の進捗オーバーレイ
-    scenario: export-progress
 last-updated: 2026-04-25
 ---
 

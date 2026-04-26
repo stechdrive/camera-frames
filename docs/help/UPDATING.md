@@ -73,7 +73,7 @@ user-visible な仕様変更が入るときは、該当章も同じ PR で更新
 - Backdrop 画像実体: `docs/help/assets/fixture-backdrops/`
 - 撮影ワークフロー: [CAPTURE.md](CAPTURE.md)
 - アイコン実体: `src/ui/workbench-icons.js` + `src/ui/svg/*.svg`
-- 設計の正本: [FIXTURE_ROADMAP.md](FIXTURE_ROADMAP.md)
+- frontmatter スキーマ: [SCHEMA.md](SCHEMA.md)
 
 ## チェックリスト（PR 送る前）
 

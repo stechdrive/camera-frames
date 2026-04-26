@@ -12,7 +12,6 @@ related-files:
 screenshots:
   - id: per-splat-edit-toolbar
     alt: スプラット編集ツールバー
-    scenario: per-splat-edit-toolbar
     annotations:
       - { n: 1, label: "ツール選択" }
       - { n: 2, label: "選択操作" }
@@ -20,10 +19,8 @@ screenshots:
       - { n: 4, label: "選択数" }
   - id: per-splat-brush-preview
     alt: ブラシプレビュー（リング + 奥行きバー）
-    scenario: per-splat-brush-preview
   - id: per-splat-box-tool
     alt: Box ツール配置中
-    scenario: per-splat-box-tool
 shortcuts:
   - key: Shift+E
     action: スプラット編集モード切替

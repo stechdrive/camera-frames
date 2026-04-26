@@ -18,19 +18,14 @@ related-files:
 screenshots:
   - id: tool-rail
     alt: ツールレールの各ボタン
-    scenario: tool-rail
   - id: pie-menu-expanded
     alt: パイメニュー 展開中（中ボタン押下）
-    scenario: pie-menu-expanded
   - id: transform-gizmo
     alt: 変形ギズモ表示中
-    scenario: transform-gizmo
   - id: axis-gizmo
     alt: 軸ギズモ（正投影時）
-    scenario: axis-gizmo
   - id: measurement-overlay
     alt: 測定オーバーレイ
-    scenario: measurement-overlay
 shortcuts:
   - key: V
     action: 選択ツール切替

@@ -16,13 +16,10 @@ related-files:
 screenshots:
   - id: reference-presets
     alt: 下絵プリセットセクション
-    scenario: reference-presets
   - id: reference-manager
     alt: 下絵マネージャー セクション（前後グループ）
-    scenario: reference-manager
   - id: reference-edit-mode
     alt: 下絵編集モード中のビューポート
-    scenario: reference-edit-mode
 shortcuts:
   - key: R
     action: 下絵プレビュー表示切替

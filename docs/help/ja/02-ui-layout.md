@@ -22,7 +22,6 @@ related-files:
 screenshots:
   - id: app-layout-overview
     alt: アプリ全体のレイアウト
-    scenario: app-layout-overview
     annotations:
       - { n: 1, label: "ビューポート" }
       - { n: 2, label: "ツールレール（ドラッグ可能）" }
@@ -30,13 +29,10 @@ screenshots:
       - { n: 4, label: "プロジェクト状態 HUD" }
   - id: inspector-tabs
     alt: インスペクターの 4 タブ
-    scenario: inspector-tabs
   - id: pie-menu
     alt: パイメニュー を開いた状態
-    scenario: pie-menu
   - id: splat-edit-toolbar
     alt: スプラット編集時のツールバー
-    scenario: splat-edit-toolbar
 last-updated: 2026-04-24
 ---
 

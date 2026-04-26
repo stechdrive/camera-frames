@@ -323,7 +323,7 @@ PSD export の主な構成:
 - 各 Inspector パネルの `?` ボタン: `src/ui/workbench-primitives.js` の `DisclosureBlock`（`helpSectionId` / `onOpenHelp` props）
 - 撮影ブリッジ（dev のみ）: `src/main.js` + `src/ui/help/docs-bridge.js`（`globalThis.__CF_DOCS__`）
 - RAD `.ssproj` browser-use 検証ブリッジ（dev のみ）: `src/main.js` + `src/app/dev-browser-validation.js`（`globalThis.__CF_BROWSER_VALIDATE__`, `?cfDevValidation=rad-ssproj&projectUrl=...`）
-- Fixture 定義 / レジストリ: `src/docs/fixtures/` + `src/docs/mock/` + `src/docs/docs-app.js`（詳細は [docs/help/FIXTURE_ROADMAP.md](help/FIXTURE_ROADMAP.md)）
+- Fixture 定義 / レジストリ: `src/docs/fixtures/` + `src/docs/mock/` + `src/docs/docs-app.js`（撮影手順は [docs/help/CAPTURE.md](help/CAPTURE.md)）
 - 画像保存エンドポイント（dev のみ）: `vite.config.js` の `screenshotServePlugin`（`/__screenshot` と `/__backdrop`）
 - Viewport backdrop 実体: `docs/help/assets/fixture-backdrops/`（静的 PNG、mock-scene 経由）
 - 撮影用ベースシーン: `.local/cf-test/cf-test2.ssproj`（gitignored、権利クリア済み）

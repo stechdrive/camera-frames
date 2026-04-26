@@ -17,13 +17,10 @@ related-files:
 screenshots:
   - id: open-menu
     alt: ツールレールのファイルメニュー
-    scenario: open-menu
   - id: remote-url-input
     alt: リモート URL 入力欄
-    scenario: remote-url-input
   - id: confirm-new-project
     alt: 未保存状態での新規プロジェクト確認ダイアログ
-    scenario: confirm-new-project
 shortcuts:
   - key: Ctrl+N
     action: 新規プロジェクトを作成

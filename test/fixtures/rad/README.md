@@ -1,7 +1,11 @@
-# RAD streaming investigation fixture
+# RAD streaming smoke fixture
 
-This directory is a test-only fixture for the RAD streaming investigation branch.
+This directory is a test-only fixture for embedded RAD streaming smoke tests.
 It is intentionally small and is not a visual quality or performance benchmark.
+
+Current RAD behavior is specified in `docs/camera_frames_requirements.md` and
+covered by project/RAD tests. This README only documents how to regenerate the
+checked-in smoke fixture.
 
 ## Files
 

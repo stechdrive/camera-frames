@@ -2,7 +2,7 @@
 // globalThis.__CF_DOCS__ from src/main.js when import.meta.env.DEV is
 // true. The bridge is orchestrated from outside the page (e.g. Claude
 // Preview preview_eval) and exposes the fixture capture pipeline used
-// by docs/help/FIXTURE_ROADMAP.md plus a lightweight project loader
+// by docs/help/CAPTURE.md plus a lightweight project loader
 // for regenerating static backdrop PNGs.
 
 import { domToPng } from "modern-screenshot";

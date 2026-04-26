@@ -12,7 +12,6 @@ CAMERA_FRAMES アプリ内ヘルプの正本です。アプリ内の Help モー
 - [UPDATING.md](UPDATING.md) — ヘルプ更新ワークフロー
 - [CAPTURE.md](CAPTURE.md) — スクリーンショット撮影の実手順（`__CF_DOCS__.captureFixture` ベース）
 - [SCHEMA.md](SCHEMA.md) — Markdown frontmatter スキーマと記法
-- [FIXTURE_ROADMAP.md](FIXTURE_ROADMAP.md) — fixture システムの設計正本
 
 スクショは fixture システムから生成されます:
 
@@ -28,7 +27,6 @@ docs/help/
 ├── UPDATING.md         # メンテナー向け更新ガイド
 ├── CAPTURE.md          # スクショ撮影ワークフロー
 ├── SCHEMA.md           # frontmatter スキーマと記法
-├── FIXTURE_ROADMAP.md  # fixture システムの設計正本
 ├── ja/                 # 日本語版本文
 │   ├── index.md        # 目次
 │   └── 01-*.md ...     # 各章

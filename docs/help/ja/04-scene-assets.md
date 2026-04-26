@@ -18,10 +18,8 @@ related-files:
 screenshots:
   - id: scene-manager
     alt: シーンマネージャー
-    scenario: scene-manager
   - id: lighting-widget
     alt: 照明方向ウィジェット
-    scenario: lighting-widget
 last-updated: 2026-04-24
 ---
 

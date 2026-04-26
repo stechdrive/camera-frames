@@ -19,10 +19,8 @@ related-files:
 screenshots:
   - id: output-frame-section
     alt: 用紙設定セクション
-    scenario: output-frame-section
   - id: render-box-camera-mode
     alt: カメラモードの用紙枠
-    scenario: render-box-camera-mode
     annotations:
       - { n: 1, label: "リサイズハンドル（8 方向）" }
       - { n: 2, label: "パンエッジ（4 辺）" }
@@ -30,10 +28,8 @@ screenshots:
       - { n: 4, label: "メタラベル" }
   - id: multiple-frames
     alt: 複数フレーム配置
-    scenario: multiple-frames
   - id: trajectory-spline
     alt: スプライン軌道の編集
-    scenario: trajectory-spline
 shortcuts:
   - key: F
     action: フレームマスク（all）を切替

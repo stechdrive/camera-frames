@@ -9,7 +9,7 @@
 - 撮影ランタイムは `/docs.html?fixture=<id>` に fixture を単体マウント → DOM を `modern-screenshot` で PNG 化 → POST `/__screenshot` で保存
 - 実シーン (splat) は事前に `docs/help/assets/fixture-backdrops/` の静的 PNG として保存してあり、それを fixture が `<img>` で敷く。その上に real な gizmo / overlay / UI コンポーネントが乗る
 
-仕組みの詳細は [FIXTURE_ROADMAP.md](FIXTURE_ROADMAP.md)、型は [`src/docs/types.d.ts`](../../src/docs/types.d.ts)。
+fixture 定義の型は [`src/docs/types.d.ts`](../../src/docs/types.d.ts)、frontmatter 側の対応は [SCHEMA.md](SCHEMA.md) を参照。
 
 ## ブリッジ API（`__CF_DOCS__`、dev のみ）
 
@@ -126,4 +126,4 @@ body は `{ "dataUrl": "data:image/png;base64,..." }`。name は `[A-Za-z0-9_\-.
 
 ## 英語版の撮影（将来）
 
-fixture 定義は lang を気にしない作りなので、`captureAllFixtures({ lang: "en" })` を走らせるだけで `docs/help/assets/screenshots/en/*.png` 群が生成される。前提として i18n バンドルに en 訳が用意されていること（`src/i18n.js`）と、`docs/help/en/*.md` の章が存在していること（[FIXTURE_ROADMAP.md](FIXTURE_ROADMAP.md) Phase VIII）。
+fixture 定義は lang を気にしない作りなので、`captureAllFixtures({ lang: "en" })` を走らせるだけで `docs/help/assets/screenshots/en/*.png` 群が生成される。前提として i18n バンドルに en 訳が用意されていること（`src/i18n.js`）と、`docs/help/en/*.md` の章が存在していること。

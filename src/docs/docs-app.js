@@ -1,6 +1,6 @@
 // Docs-mode entry point. Served from /docs.html as a vite multi-page input
 // so the main app shell never mounts here and state cannot leak across.
-// See docs/help/FIXTURE_ROADMAP.md for the fixture system design.
+// See docs/help/CAPTURE.md for the fixture capture workflow.
 
 import { html, render } from "htm/preact";
 import { useEffect, useState } from "preact/hooks";

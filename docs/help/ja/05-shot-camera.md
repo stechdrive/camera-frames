@@ -17,7 +17,6 @@ related-files:
 screenshots:
   - id: shot-camera-manager
     alt: カメラ一覧セクション
-    scenario: shot-camera-manager
     annotations:
       - { n: 1, label: "追加" }
       - { n: 2, label: "複製" }
@@ -25,10 +24,8 @@ screenshots:
       - { n: 4, label: "ショット一覧" }
   - id: shot-camera-properties
     alt: カメラプロパティセクション
-    scenario: shot-camera-properties
   - id: camera-mode-render-box
     alt: カメラモードで用紙枠が表示された状態
-    scenario: camera-mode-render-box
 shortcuts:
   - key: Escape
     action: レンズ / ロール調整モードを終了

@@ -13,8 +13,7 @@ export const helloFixture = {
 			</p>
 			<p>
 				This placeholder exists to verify that the docs.html multi-page
-				entry boots independently of the main app shell. Real fixtures
-				land in later PRs (see <code>docs/help/FIXTURE_ROADMAP.md</code>).
+				entry boots independently of the main app shell.
 			</p>
 		</div>
 	`,

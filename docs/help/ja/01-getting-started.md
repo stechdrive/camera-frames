@@ -10,7 +10,6 @@ related-files:
 screenshots:
   - id: first-scene-loaded
     alt: シーンを開いた直後の画面
-    scenario: first-scene-loaded
 last-updated: 2026-04-24
 ---
 

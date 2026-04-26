@@ -19,7 +19,6 @@ related-files:
 screenshots:
   - id: shot-camera-panel
     alt: Shot Camera パネル
-    scenario: shot-camera-panel-open
     annotations:
       - { n: 1, label: "追加ボタン" }
       - { n: 2, label: "shot 一覧" }
@@ -49,7 +48,6 @@ last-updated: 2026-04-18
 |---|---|
 | `id` | 出力ファイル名 `<id>.png` の元。対応する fixture 定義（`src/docs/fixtures/<id>.js`）の `id` と 1:1 で一致させる（`npm test` が parity を検証） |
 | `alt` | alt text（Markdown img 記法の alt にも使う） |
-| `scenario` | Legacy: 旧 `test/docs-capture.js` が撮影に使っていたシナリオ名。Phase VI で scenario pipeline は撤去され、フィールドは fixture id と同一値を保持する歴史的 alias として残している |
 | `annotations` | 本文の連番対応表と合わせるための参考メモ。実際のオーバーレイ描画は fixture 定義の `annotations: [{ n, selector, label }]` が担う |
 
 ### `shortcuts` サブフィールド
