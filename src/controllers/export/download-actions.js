@@ -9,16 +9,29 @@ function buildWritePhaseState(
 	}
 
 	const completedIds = new Set(currentPhaseState.completedIds ?? []);
+	const writePhaseIndex = currentPhaseState.definitions.findIndex(
+		(phase) => phase.id === "write",
+	);
+	if (writePhaseIndex > 0) {
+		for (const phase of currentPhaseState.definitions.slice(
+			0,
+			writePhaseIndex,
+		)) {
+			completedIds.add(phase.id);
+		}
+	}
 	const activeId =
-		currentPhaseState.definitions.find((phase) => phase.id === "write")?.id ??
-		null;
+		writePhaseIndex >= 0
+			? currentPhaseState.definitions[writePhaseIndex].id
+			: null;
 	return {
 		...currentPhaseState,
 		id: activeId,
 		activeId,
 		label:
-			currentPhaseState.definitions.find((phase) => phase.id === "write")
-				?.label ?? "",
+			writePhaseIndex >= 0
+				? currentPhaseState.definitions[writePhaseIndex].label
+				: "",
 		detail: getPhaseDefaultDetail("write", exportFormat, t),
 		completedIds,
 	};

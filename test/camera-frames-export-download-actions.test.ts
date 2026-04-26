@@ -193,4 +193,71 @@ import {
 	assert.deepEqual(calls.at(-1), ["updateUi"]);
 }
 
+{
+	const calls = [];
+	await runOutputExport({
+		targetDocuments: [{ id: "camera-a", name: "Camera A" }],
+		getExportSettings: () => ({ exportFormat: "psd" }),
+		renderSnapshot: async (
+			_documentState,
+			_index,
+			_targetDocuments,
+			onProgress,
+		) => {
+			onProgress?.({
+				id: "reference-images",
+				activeId: "reference-images",
+				label: "References",
+				detail: "reference detail",
+				definitions: [
+					{ id: "prepare", label: "Prepare" },
+					{ id: "beauty", label: "Beauty" },
+					{ id: "reference-images", label: "References" },
+					{ id: "write", label: "Write" },
+				],
+				completedIds: new Set(["prepare", "beauty"]),
+			});
+			calls.push(["render"]);
+			return { width: 800, height: 600 };
+		},
+		downloadPngSnapshot: () => calls.push(["downloadPng"]),
+		downloadPsdSnapshot: () => calls.push(["downloadPsd"]),
+		setExportStatus: (...args) => calls.push(["setExportStatus", ...args]),
+		setSummary: (value) => calls.push(["setSummary", value]),
+		setStatus: (value) => calls.push(["setStatus", value]),
+		updateUi: () => calls.push(["updateUi"]),
+		clearExportOverlay: () => calls.push(["clearExportOverlay"]),
+		showExportErrorOverlay: (error) => calls.push(["showError", error.message]),
+		setExportProgressOverlay: (...args) => calls.push(["overlay", ...args]),
+		getPhaseDefaultDetail: (id, format, t) => `${id}:${format}:${t("detail")}`,
+		requireTargetsMessage: "missing",
+		t: (key, values = {}) => `${key}:${JSON.stringify(values)}`,
+		now: () => 67890,
+		waitForWritePhasePaint: () => calls.push(["paint"]),
+	});
+
+	assert.deepEqual(calls[4], [
+		"overlay",
+		[{ id: "camera-a", name: "Camera A" }],
+		0,
+		"psd",
+		67890,
+		{
+			id: "write",
+			activeId: "write",
+			label: "Write",
+			detail: "write:psd:detail:{}",
+			definitions: [
+				{ id: "prepare", label: "Prepare" },
+				{ id: "beauty", label: "Beauty" },
+				{ id: "reference-images", label: "References" },
+				{ id: "write", label: "Write" },
+			],
+			completedIds: new Set(["prepare", "beauty", "reference-images"]),
+		},
+	]);
+	assert.deepEqual(calls[5], ["paint"]);
+	assert.deepEqual(calls[6], ["downloadPsd"]);
+}
+
 console.log("✅ CAMERA_FRAMES export download actions tests passed!");
