@@ -2,25 +2,37 @@
 
 ## English
 
-CAMERA_FRAMES is a production-oriented shot-layout and export app built for Japanese animation workflows.
+CAMERA_FRAMES is a production-oriented layout and background key drawing app built for Japanese animation workflows.
 
-It is made for practical layout work: using 3DGS and GLB scene assets from real or modeled locations as background reference, deciding framing per camera, placing multiple FRAMEs for PAN / TU / TB style instructions, and exporting PNG / PSD sheets that stay aligned with the Camera View output.
+It is made for Japanese animation layout and background key drawing work: using 3D Gaussian Splatting and GLB scene assets from real or modeled locations as background reference, deciding framing per camera, placing multiple FRAMEs for PAN / TU / TB style instructions, and exporting PNG / PSD sheets that stay aligned with the Camera View output.
+
+The app is not a general-purpose 3DGS viewer. It is focused on paper-first composition, shot cameras, reference images, frame instructions, and export results that match the authored Camera View.
 
 ### Who This Is For
 
-- Artists creating layout sheets or background key drawings for Japanese animation.
+- Artists creating layout sheets and background key drawings for Japanese animation.
 - Teams working from modeled locations, scanned environments, or photogrammetry-derived scene reference.
 - People who need framing, camera instructions, reference-image alignment, and export in one place.
 
 ### Why This App Exists
 
-- Background-layout workflow instead of a generic viewer.
+- Japanese animation layout / background key drawing workflow instead of a generic 3D viewer.
 - Paper-first composition around the final output area.
 - Multiple FRAMEs on one sheet for pan / track-up / track-back style instructions.
 - Camera View preview aligned with PNG / PSD export.
 - Reference-image aware workflow with per-camera adjustments.
-- 3DGS + GLB hybrid scene setup for practical background work.
+- 3DGS + GLB hybrid scene setup with depth-aware composition for practical background work.
 - Per-camera export settings and layered PSD delivery.
+- Fast Spark 2.0 based 3DGS rendering for interactive layout decisions.
+
+### What You Can Do
+
+- Load 3DGS scene assets (`.ply`, `.spz`, `.splat`, `.ksplat`, `.zip`, `.sog`, `.rad`), GLB / GLTF assets, and CAMERA_FRAMES project files (`.ssproj`).
+- Build layouts across multiple shot cameras.
+- Place, transform, duplicate, and mask multiple FRAMEs on the Camera View.
+- Import reference images (`.png`, `.jpg`, `.jpeg`, `.webp`, `.psd`) and adjust them per camera.
+- Edit individual splats when a source needs local cleanup.
+- Export aligned PNG / layered PSD outputs.
 
 ### Quick Links
 
@@ -30,9 +42,11 @@ It is made for practical layout work: using 3DGS and GLB scene assets from real 
 
 ## 日本語
 
-CAMERA_FRAMES は、日本のアニメ制作で背景原図やレイアウトを作るための、実制作向けのレイアウト作成・書き出しアプリです。
+CAMERA_FRAMES は、日本のアニメ制作におけるレイアウトと背景原図作成のための、実制作向けのレイアウト作成・書き出しアプリです。
 
-モデル地のある作品や、フォトグラメトリ、スキャン、3D モデルから起こした空間資料をもとに、3D Gaussian Splatting で表現したロケ地や空間資料と、GLB 形式のプロップや当たり用の 3DCG オブジェクトを組み合わせて構図を決め、PAN / TU / TB などの撮影指示フレームを 1 枚の紙面上に配置し、カメラビューと揃った PNG / PSD を出力できるようにしています。
+モデル地のある作品や、フォトグラメトリ、スキャン、3D モデルから起こした空間資料をもとに、日本のアニメ制作で使うレイアウト・背景原図を作るためのツールです。3D Gaussian Splatting で表現したロケ地や空間資料と、GLB 形式のプロップや当たり用の 3DCG オブジェクトを組み合わせて構図を決め、PAN / TU / TB などの撮影指示フレームを 1 枚の紙面上に配置し、カメラビューと揃った PNG / PSD を出力できるようにしています。
+
+汎用の 3DGS ビューアではなく、最終的な紙面、ショットカメラ、下絵、撮影指示フレーム、書き出し結果の一致を中心にした作業アプリです。
 
 ### どういう人向けか
 
@@ -42,13 +56,14 @@ CAMERA_FRAMES は、日本のアニメ制作で背景原図やレイアウトを
 
 ### このツールの価値
 
-- 3DGS ビューアではなく背景原図・レイアウト作業のためのツール。
+- 3DGS ビューアではなく、日本のアニメ制作におけるレイアウト・背景原図作業のためのツール。
 - 最終出力の範囲を基準にした紙面設計。
 - 複数の撮影指示フレームを 1 枚に置いて整理できる。
 - カメラビューの見えと PNG / PSD の書き出し結果を揃えやすい。
 - 下絵の読み込み、プリセット管理、カメラごとの調整に対応。
-- 3D Gaussian Splatting で表現したロケ地・空間資料と、GLB 形式の 3DCG オブジェクトを同じシーンで扱える。
+- 3D Gaussian Splatting で表現したロケ地・空間資料と、GLB 形式の 3DCG オブジェクトを同じシーンで扱い、前後関係を持った構図確認ができる。
 - カメラごとに書き出し設定を持ち、PSD のレイヤー出力にも対応。
+- Spark 2.0 ベースの高速な 3DGS 描画で、実制作の構図検討をインタラクティブに行える。
 
 ### 主なリンク
 
@@ -83,13 +98,6 @@ CAMERA_FRAMES は、日本のアニメ制作で背景原図やレイアウトを
 - シーン: `.ply`, `.spz`, `.splat`, `.ksplat`, `.zip`, `.sog`, `.rad`, `.glb`, `.gltf`, `.ssproj`
 - 下絵: `.png`, `.jpg`, `.jpeg`, `.webp`, `.psd`
 - 書き出し: `.png`, `.psd`
-
-## ローカル開発
-
-```powershell
-npm install
-npm run develop
-```
 
 ## ライセンス
 
