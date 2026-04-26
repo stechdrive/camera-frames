@@ -90,9 +90,7 @@ function normalizeLodSplatsForRadBuild(lodSplats) {
 		return null;
 	}
 	const packedArray =
-		lodSplats.packedArray instanceof Uint32Array
-			? lodSplats.packedArray
-			: null;
+		lodSplats.packedArray instanceof Uint32Array ? lodSplats.packedArray : null;
 	if (!packedArray || packedArray.length === 0) {
 		return null;
 	}

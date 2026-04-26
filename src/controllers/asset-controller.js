@@ -12,8 +12,8 @@ import {
 	isProjectPackageFileSource,
 	isProjectPackagePackedSplatSource,
 } from "../project/package-legacy.js";
-import { createSceneAssetBoundsController } from "./scene-assets/bounds.js";
 import { createSceneAssetAutoLodController } from "./scene-assets/auto-lod.js";
+import { createSceneAssetBoundsController } from "./scene-assets/bounds.js";
 import { createSceneAssetDocumentMutationsController } from "./scene-assets/document-mutations.js";
 import { createAssetImportRuntime } from "./scene-assets/import-runtime.js";
 import { createSceneAssetLifecycle } from "./scene-assets/lifecycle.js";

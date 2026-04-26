@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { registerProjectRadBundle } from "../../engine/rad-bundle-service-worker-client.js";
-import { enableSparkSplatMeshWorldToView } from "../../engine/spark-integration/spark-splat-mesh-adapter.js";
 import { refreshSparkPackedSplatMesh } from "../../engine/spark-integration/spark-packed-splats-adapter.js";
+import { enableSparkSplatMeshWorldToView } from "../../engine/spark-integration/spark-splat-mesh-adapter.js";
 import {
 	PackedSplats,
 	PagedSplats,

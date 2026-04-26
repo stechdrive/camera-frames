@@ -42,6 +42,10 @@ import { createViewSyncCommands } from "./app/view-sync-commands.js";
 import { createViewportAxisGizmoControllerBindings } from "./app/viewport-axis-gizmo-controller-bindings.js";
 import { createViewportEditingCommands } from "./app/viewport-editing-commands.js";
 import { createViewportLodScaleRuntimeBinding } from "./app/viewport-lod-scale-runtime-binding.js";
+import {
+	readPersistedViewportLodUserScale,
+	resolveEffectiveViewportLodScale,
+} from "./app/viewport-lod-scale.js";
 import { createViewportProjectionControllerBindings } from "./app/viewport-projection-controller-bindings.js";
 import { createViewportToolControllerBindings } from "./app/viewport-tool-controller-bindings.js";
 import {
@@ -99,10 +103,6 @@ import {
 import { createHelpCommands } from "./ui/help/help-commands.js";
 import { createMobileUiScaleCommands } from "./ui/settings/mobile-ui-scale-commands.js";
 import { createViewportLodScaleCommands } from "./ui/viewport-lod-scale-commands.js";
-import {
-	readPersistedViewportLodUserScale,
-	resolveEffectiveViewportLodScale,
-} from "./app/viewport-lod-scale.js";
 import {
 	WORKSPACE_PANE_CAMERA,
 	WORKSPACE_PANE_VIEWPORT,

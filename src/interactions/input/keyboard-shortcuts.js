@@ -26,7 +26,5 @@ export function isNativeHistoryTarget(target) {
 
 export function isHistoryShortcut(event) {
 	const hasHistoryModifier = event.ctrlKey || event.metaKey;
-	return (
-		hasHistoryModifier && (event.code === "KeyZ" || event.code === "KeyY")
-	);
+	return hasHistoryModifier && (event.code === "KeyZ" || event.code === "KeyY");
 }

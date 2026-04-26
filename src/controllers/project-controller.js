@@ -1,3 +1,4 @@
+import { getProjectStatusDisplay } from "../app/project-status.js";
 import {
 	buildSparkRadBundleFromPackedSplats,
 	supportsSparkRadBundleBuild,
@@ -24,7 +25,6 @@ import {
 	saveCameraFramesWorkingState,
 	supportsWorkingProjectStateStorage,
 } from "../project/working-state.js";
-import { getProjectStatusDisplay } from "../app/project-status.js";
 import { createProjectDirtyStateController } from "./project/dirty-state.js";
 import { createProjectOpenWorkflow } from "./project/open-workflow.js";
 import {
