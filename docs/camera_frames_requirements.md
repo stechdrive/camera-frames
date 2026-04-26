@@ -495,6 +495,7 @@ PSD layer 順の詳細契約:
 - 全体:
   - `npm run build`
   - `npm test`
+  - local `.ssproj` fixture がある保守環境では、必要に応じて `npm run test:local-scenarios` も実行する（手順は `docs/local-test-scenarios.md`）
 - architecture / dependency boundary:
   - `test/camera-frames-architecture-boundaries.test.ts`
 - project / save:
