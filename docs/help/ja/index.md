@@ -3,7 +3,7 @@ id: index
 title: CAMERA_FRAMES ヘルプ
 section: 0
 lang: ja
-last-updated: 2026-04-24
+last-updated: 2026-04-26
 ---
 
 # CAMERA_FRAMES ヘルプ
@@ -14,6 +14,7 @@ last-updated: 2026-04-24
 
 - アプリから `F1` キー、または HUD の `?` ボタンで開けます
 - 各パネルのタイトルバーの `?` を押すと、該当章に直接ジャンプします
+- 表示中のアプリ版: v{{appVersion}}
 
 ## 目次
 

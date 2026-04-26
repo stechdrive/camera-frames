@@ -6,7 +6,7 @@
 //   inline `{ key: value, ... }` and `[ a, b ]` literals.
 // - Body blocks: heading (#–######), paragraph, fenced code (```), hr (---),
 //   unordered list, ordered list, table (|...|), blockquote (>).
-// - Inline: **bold**, *italic*, `code`, [text](href), ![alt](src), {{icon:name}}.
+// - Inline: **bold**, *italic*, `code`, [text](href), ![alt](src), {{icon:name}}, {{appVersion}}.
 
 const FRONTMATTER_FENCE = "---";
 
@@ -438,6 +438,15 @@ export function tokenizeInline(text) {
 				flushBuffer();
 				tokens.push({ type: "icon", name: source.slice(i + 7, end).trim() });
 				i = end + 2;
+				continue;
+			}
+		}
+		if (source.startsWith("{{", i)) {
+			const match = source.slice(i).match(/^\{\{([A-Za-z][\w]*)\}\}/);
+			if (match) {
+				flushBuffer();
+				tokens.push({ type: "variable", name: match[1] });
+				i += match[0].length;
 				continue;
 			}
 		}

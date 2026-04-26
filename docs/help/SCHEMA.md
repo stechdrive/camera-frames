@@ -61,6 +61,7 @@ last-updated: 2026-04-18
 
 - GFM 拡張（heading, table, code block, link, image）
 - アイコン参照: `{{icon:<icon-name>}}` — レンダラが `workbench-icons.js` の SVG へ展開
+- 変数参照: `{{appVersion}}` — build 時の `package.json` version へ展開
 - パネル名・ボタン名は太字: `**Shot Camera**`
 - ショートカット表記はコードスパン: `` `Ctrl+S` ``
 - 章間リンクは通常の Markdown: `[Output Frame](06-output-frame-and-frames.md#anchor)` — アプリ側は `.md` を剥がして deep link へ変換する

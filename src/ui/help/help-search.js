@@ -48,7 +48,8 @@ export function stripInlineMarkers(text) {
 		.replace(/\*\*([^*]+)\*\*/g, "$1")
 		.replace(/\*([^*]+)\*/g, "$1")
 		.replace(/`([^`]+)`/g, "$1")
-		.replace(/\{\{icon:[^}]+\}\}/g, "");
+		.replace(/\{\{icon:[^}]+\}\}/g, "")
+		.replace(/\{\{([A-Za-z][\w]*)\}\}/g, "$1");
 }
 
 export function searchHelpChapters(query, lang = "ja") {

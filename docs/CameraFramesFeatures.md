@@ -10,7 +10,7 @@
 
 ## 1. 現在の baseline
 
-- app version: `1.0.3`
+- app version: `package.json` の `version` を正とする
 - project format: `camera-frames-project` version `3`
 - major feature set は概ね揃っている
 - 今の開発主眼は「既存機能を壊さず強くすること」

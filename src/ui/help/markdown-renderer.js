@@ -121,9 +121,19 @@ function renderInlineToken(token, index, options) {
 			return renderImage(token, index, options);
 		case "icon":
 			return html`<span key=${index} class="help-icon-inline"><${WorkbenchIcon} name=${token.name} size=${14}/></span>`;
+		case "variable":
+			return resolveInlineVariable(token.name, options);
 		default:
 			return null;
 	}
+}
+
+export function resolveInlineVariable(name, options = {}) {
+	const value = options.variables?.[name];
+	if (value === undefined || value === null) {
+		return `{{${name}}}`;
+	}
+	return String(value);
 }
 
 function renderLink(token, index, options) {

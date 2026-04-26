@@ -110,6 +110,9 @@ assert.ok(iconNames.size > 0, "src/ui/svg/ must contain at least one icon");
 // not be validated against the real icon set.
 const iconRefRegex = /(?<!`)\{\{icon:([^}]+)\}\}/g;
 const referencedIcons = new Set<string>();
+const variableRefRegex = /(?<!`)\{\{([A-Za-z][\w]*)\}\}/g;
+const knownInlineVariables = new Set(["appVersion"]);
+const referencedVariables = new Set<string>();
 
 function collectIconRefsFromLang(lang: string) {
 	const chaptersDir = join(repoRoot, "docs", "help", lang);
@@ -129,6 +132,11 @@ function collectIconRefsFromLang(lang: string) {
 		while ((match = iconRefRegex.exec(content)) !== null) {
 			referencedIcons.add(match[1].trim());
 		}
+		variableRefRegex.lastIndex = 0;
+		// biome-ignore lint/suspicious/noAssignInExpressions: canonical regex.exec loop
+		while ((match = variableRefRegex.exec(content)) !== null) {
+			referencedVariables.add(match[1].trim());
+		}
 	}
 }
 
@@ -138,6 +146,13 @@ for (const name of referencedIcons) {
 	assert.ok(
 		iconNames.has(name),
 		`{{icon:${name}}} referenced in chapter Markdown is missing from src/ui/svg/`,
+	);
+}
+
+for (const name of referencedVariables) {
+	assert.ok(
+		knownInlineVariables.has(name),
+		`{{${name}}} referenced in chapter Markdown is not a known inline variable`,
 	);
 }
 
@@ -217,5 +232,5 @@ for (const [file, ids] of chapterIdsByFile) {
 }
 
 console.log(
-	`✅ CAMERA_FRAMES docs fixture registry tests passed! (${allFixtures.length} runtime fixtures, ${allFixtureIds.size} static, ${totalReferencedIds} chapter refs, ${iconNames.size} icons, ${referencedIcons.size} referenced from chapters)`,
+	`✅ CAMERA_FRAMES docs fixture registry tests passed! (${allFixtures.length} runtime fixtures, ${allFixtureIds.size} static, ${totalReferencedIds} chapter refs, ${iconNames.size} icons, ${referencedIcons.size} icons referenced, ${referencedVariables.size} variables referenced)`,
 );

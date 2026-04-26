@@ -1,5 +1,6 @@
 import { html } from "htm/preact";
 import { useEffect, useRef } from "preact/hooks";
+import { BUILD_INFO } from "../../build-info.js";
 import { WorkbenchIcon } from "../workbench-icons.js";
 import {
 	getHelpChapterByFilename,
@@ -88,6 +89,9 @@ export function HelpModal({ store, controller }) {
 		findChapterByFilename: (filename) =>
 			getHelpChapterByFilename(filename, lang),
 		assetsBaseUrl: ASSETS_BASE_URL,
+		variables: {
+			appVersion: BUILD_INFO.version,
+		},
 	};
 
 	const searchResults = searchQuery
