@@ -424,7 +424,7 @@ const MESSAGES = {
 			controlOrbit: "左ドラッグ: 見回す",
 			controlPan: "右ドラッグ: 左右 / 上下に移動",
 			controlDolly: "ホイール: 前進 / 後退",
-			controlAnchorOrbit: "Ctrl + 左ドラッグ: 指した位置を中心に回転",
+			controlAnchorOrbit: "Ctrl + 左ドラッグ: クリック位置を中心に回転",
 		},
 		badge: {
 			horizontalFov: "水平FOV",
