@@ -23,7 +23,7 @@ CAMERA_FRAMES の共有 contract を Git 管理するための基点です。
 
 ## 1. 現在の基準
 
-- app version は `1.0.0`
+- app version は `1.0.1`
 - Spark dependency baseline は npm 公開版 `@sparkjsdev/spark@2.0.0`
 - portable project format は `camera-frames-project` version `3`
 - この repo は「新機能を大量に増やす段階」より、「既存 contract を壊さず hardening する段階」に入っている
@@ -53,6 +53,7 @@ CAMERA_FRAMES の共有 contract を Git 管理するための基点です。
 
 - 起動の composition root は `src/controller.js`
 - bootstrap は `src/main.js`
+- UI ではない local preference / status helper は `src/app/` を正本にし、`src/ui/` 側は必要な表示 shim に留める
 - 現行 UI は single-pane 前提で運用する
 - `WORKSPACE_LAYOUT_QUAD` 定数は残っているが、現行の product baseline には含めない
 - 将来 split view / multi-pane を導入する余地は残すが、現行 contract には pane ごとの個別 camera 割当てや viewport state 保存を含めない
@@ -473,10 +474,10 @@ PSD layer 順の詳細契約:
 - bootstrap / composition: `src/main.js`, `src/controller.js`
 - project schema: `src/project/document.js`, `src/project/file/`
 - working save: `src/project/working-state.js`, `src/controllers/project-controller.js`
-- project open workflow / staging: `src/controllers/project/open-workflow.js`, `src/controllers/project/source-staging.js`
+- project open / save / dirty workflow: `src/controllers/project-controller.js`, `src/controllers/project/open-workflow.js`, `src/controllers/project/package-save-assets.js`, `src/controllers/project/dirty-state.js`, `src/controllers/project/source-staging.js`
 - import routing: `src/app/file-open-routing.js`, `src/controllers/scene-assets/import-runtime.js`
 - scene asset ordering / scene manager display: `src/engine/scene-asset-order.js`, `src/controllers/scene-assets/selection-order.js`, `src/ui/workbench-scene-sections.js`, `src/ui/workbench-browser-sections.js`
-- scene asset import prioritization / order persistence: `src/controllers/scene-assets/import-runtime.js`, `src/controllers/asset-controller.js`, `src/controllers/scene-assets/project-state.js`, `src/controllers/scene-assets/state-persistence.js`
+- scene asset import / source loading / order persistence: `src/controllers/asset-controller.js`, `src/controllers/scene-assets/import-runtime.js`, `src/controllers/scene-assets/source-loading.js`, `src/controllers/scene-assets/auto-lod.js`, `src/controllers/scene-assets/project-state.js`, `src/controllers/scene-assets/state-persistence.js`
 - shot camera / output frame / FRAME: `src/workspace-model.js`, `src/controllers/camera-controller.js`, `src/controllers/output-frame-controller.js`, `src/controllers/frame-controller.js`, `src/engine/frame-trajectory.js`, `src/ui/frame-layer.js`
 - projection: `src/engine/projection.js`, `src/controllers/projection-controller.js`, `src/controllers/viewport-projection-controller.js`
 - reference image: `src/reference-image-model.js`, `src/controllers/reference-image/`, `src/controllers/reference-image-render-controller.js`
@@ -484,8 +485,8 @@ PSD layer 順の詳細契約:
 - export: `src/controllers/export/`, `src/engine/export-pass-plan.js`, `src/engine/frame-mask-export.js`
 - PSD layer assembly / reference image export ordering: `src/controllers/export/reference-images.js`, `src/controllers/export/layer-documents.js`, `src/controllers/export/psd-document.js`
 - per-splat edit: `src/controllers/per-splat-edit-controller.js`
-- input / shortcut: `src/interactions/input-router.js`
-- UI local preferences: `src/ui/mobile-ui-scale.js`, `src/ui/viewport-lod-scale.js`, `src/app/viewport-lod-scale-runtime-binding.js`
+- input / shortcut: `src/interactions/input-router.js`, `src/interactions/input/`
+- UI local preferences / status helpers: `src/app/mobile-ui-scale.js`, `src/app/viewport-lod-scale.js`, `src/app/project-status.js`, `src/ui/mobile-ui-scale.js`, `src/ui/viewport-lod-scale.js`, `src/ui/project-status.js`, `src/app/viewport-lod-scale-runtime-binding.js`
 
 ## 12. Verification Baseline
 
@@ -494,6 +495,8 @@ PSD layer 順の詳細契約:
 - 全体:
   - `npm run build`
   - `npm test`
+- architecture / dependency boundary:
+  - `test/camera-frames-architecture-boundaries.test.ts`
 - project / save:
   - `test/camera-frames-project-controller.test.ts`
   - `test/camera-frames-project-file.test.ts`

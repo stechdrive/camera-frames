@@ -10,7 +10,7 @@
 
 ## 1. 現在の baseline
 
-- app version: `1.0.0`
+- app version: `1.0.1`
 - project format: `camera-frames-project` version `3`
 - major feature set は概ね揃っている
 - 今の開発主眼は「既存機能を壊さず強くすること」
@@ -271,6 +271,7 @@ PSD export の主な構成:
 - `test/camera-frames-viewport-lod-scale-runtime-binding.test.ts`
 - `test/camera-frames-viewport-project-status-hud.test.ts`
 - `test/camera-frames-input-router.test.ts`
+- `test/camera-frames-architecture-boundaries.test.ts`
 
 ## 5. 現在 baseline に含めないもの
 
