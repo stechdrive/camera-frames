@@ -13,10 +13,14 @@ import { createInteractionControllerBindings } from "../src/app/interaction-cont
 		store: { id: "store" },
 		state,
 		viewportShell: { id: "shell" },
+		viewportCanvas: { id: "canvas" },
 		assetController: { id: "asset" },
 		fpsMovement: { id: "fps" },
 		pointerControls: { id: "pointer" },
 		getActiveCamera: () => ({ id: "camera" }),
+		getActiveViewportCamera: () => ({ id: "viewport-camera" }),
+		getActiveCameraViewCamera: () => ({ id: "camera-view" }),
+		getActiveOutputCamera: () => ({ id: "output-camera" }),
 		workspacePaneCamera: "camera",
 		t: (value) => `t:${value}`,
 		setStatus: (value) => calls.push(["status", value]),
@@ -51,6 +55,12 @@ import { createInteractionControllerBindings } from "../src/app/interaction-cont
 
 	assert.equal(bindings.store.id, "store");
 	assert.equal(bindings.viewportShell.id, "shell");
+	assert.equal(bindings.viewportCanvas.id, "canvas");
+	assert.deepEqual(bindings.getActiveViewportCamera(), {
+		id: "viewport-camera",
+	});
+	assert.deepEqual(bindings.getActiveCameraViewCamera(), { id: "camera-view" });
+	assert.deepEqual(bindings.getActiveOutputCamera(), { id: "output-camera" });
 	assert.equal(bindings.getViewZoomFactor(), 1.25);
 	bindings.setViewZoomFactor(2);
 	assert.deepEqual(calls.at(-1), ["zoom", 2]);

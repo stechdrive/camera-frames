@@ -6,6 +6,11 @@ import {
 	snapStandardFrameHorizontalEquivalentMm,
 } from "../engine/camera-lens.js";
 import {
+	buildPointerRay,
+	isClientPointInsideContext,
+	resolveActiveViewInteractionContext,
+} from "../engine/view-interaction-context.js";
+import {
 	buildViewportPieActions,
 	getViewportPieHoveredActionId,
 	getViewportPieMetrics,
@@ -15,10 +20,14 @@ export function createInteractionController({
 	store,
 	state,
 	viewportShell,
+	viewportCanvas,
 	assetController,
 	fpsMovement,
 	pointerControls,
 	getActiveCamera,
+	getActiveViewportCamera,
+	getActiveCameraViewCamera,
+	getActiveOutputCamera,
 	workspacePaneCamera,
 	t,
 	setStatus,
@@ -677,9 +686,24 @@ export function createInteractionController({
 		return 0.18;
 	}
 
+	function resolveOrbitInteractionContext() {
+		return resolveActiveViewInteractionContext({
+			state,
+			viewportShell,
+			viewportCanvas,
+			workspacePaneCamera,
+			getActiveViewportCamera,
+			getActiveCameraViewCamera,
+			getActiveOutputCamera,
+		});
+	}
+
 	function pickOrbitAroundHitPoint(event) {
-		const camera = getActiveCamera?.();
-		if (!camera) {
+		const context = resolveOrbitInteractionContext();
+		if (
+			!context ||
+			!isClientPointInsideContext(event.clientX, event.clientY, context)
+		) {
 			return null;
 		}
 
@@ -688,16 +712,13 @@ export function createInteractionController({
 			return null;
 		}
 
-		const viewportRect = viewportShell.getBoundingClientRect();
-		if (viewportRect.width <= 0 || viewportRect.height <= 0) {
-			return null;
-		}
-
-		orbitPointerNdc.set(
-			((event.clientX - viewportRect.left) / viewportRect.width) * 2 - 1,
-			-(((event.clientY - viewportRect.top) / viewportRect.height) * 2 - 1),
+		buildPointerRay(
+			event.clientX,
+			event.clientY,
+			context,
+			orbitRaycaster,
+			orbitPointerNdc,
 		);
-		orbitRaycaster.setFromCamera(orbitPointerNdc, camera);
 		const intersections = orbitRaycaster.intersectObjects(targets, true);
 		for (const intersection of intersections) {
 			const asset = assetController?.getSceneAssetForObject?.(
