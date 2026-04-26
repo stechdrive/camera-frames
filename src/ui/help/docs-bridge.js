@@ -1,7 +1,7 @@
 // Dev-only bridge for driving help screenshot capture. Mounted on
 // globalThis.__CF_DOCS__ from src/main.js when import.meta.env.DEV is
-// true. The bridge is orchestrated from outside the page (e.g. Claude
-// Preview preview_eval) and exposes the fixture capture pipeline used
+// true. The bridge is orchestrated from outside the page (e.g.
+// preview_eval) and exposes the fixture capture pipeline used
 // by docs/help/CAPTURE.md plus a lightweight project loader
 // for regenerating static backdrop PNGs.
 

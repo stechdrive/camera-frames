@@ -256,7 +256,7 @@ function signalReady(fixtureId) {
 	requestAnimationFrame(() => {
 		requestAnimationFrame(finish);
 	});
-	// Fallback: backgrounded / hidden tabs (e.g. Claude Preview running
+	// Fallback: backgrounded / hidden tabs (e.g. an external preview runner
 	// the browser off-screen) can throttle rAF down to 0 Hz, leaving the
 	// signal stuck forever. setTimeout remains callable under heavy
 	// throttling (clamped to ~1s in hidden tabs) and still gives capture

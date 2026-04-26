@@ -1,6 +1,6 @@
 # ヘルプスクリーンショット撮影
 
-`docs/help/ja/*.md` の frontmatter に定義された `screenshots[].id` ごとに、fixture システムが静的な PNG を生成して `docs/help/assets/screenshots/ja/<id>.png` に配置します。撮影は dev サーバと Claude Preview MCP 経由で駆動します（完全自動化された CI は無し）。
+`docs/help/ja/*.md` の frontmatter に定義された `screenshots[].id` ごとに、fixture システムが静的な PNG を生成して `docs/help/assets/screenshots/ja/<id>.png` に配置します。撮影は dev サーバと preview MCP / CDP 経由で駆動します（完全自動化された CI は無し）。
 
 ## アーキテクチャ概要
 
@@ -25,7 +25,7 @@ fixture 定義の型は [`src/docs/types.d.ts`](../../src/docs/types.d.ts)、fro
 
 ## Codex / Windows での実ブラウザ smoke
 
-Claude Preview の `preview_eval` と同じ dev-only bridge / state verification を、Codex や通常の Windows shell から確認するために CDP smoke runner を用意している。
+preview MCP の `preview_eval` と同じ dev-only bridge / state verification を、Codex や通常の Windows shell から確認するために CDP smoke runner を用意している。
 
 ```powershell
 npm run test:browser
@@ -50,7 +50,7 @@ npm run test:browser -- --browser "C:\Program Files\Google\Chrome\Application\ch
 
 `CF_CHROME_PATH` を指定すると、既定探索より優先してそのブラウザを使う。`.local/cf-test/` は git 管理外なので、fixture がない環境では project smoke は失敗する。通常の `npm test` には含めず、実ブラウザ確認が必要な変更で明示的に実行する。
 
-## 撮影フロー（Claude 向け手順）
+## 撮影フロー（preview MCP 手順）
 
 ### 1. preview を起動
 

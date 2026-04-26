@@ -5,7 +5,7 @@
  * Verifies that store state matches expected values from project.json
  * after loading cf-test.ssproj.
  *
- * Usage (Claude Preview):
+ * Usage (preview MCP):
  *   1. preview_start("camera-frames-dev")
  *   2. preview_eval: await __cfLoadProject()
  *   3. preview_eval: __cfVerifyState(__CF_EXPECTED)
@@ -19,8 +19,8 @@
  *
  * Usage (Codex / CDP):
  *   scripts/browser-smoke.mjs injects this file into the dev app and calls
- *   __cfRunProjectSmoke(). Keep the public global names stable so Claude
- *   Preview, manual console checks, and Codex share the same assertions.
+ *   __cfRunProjectSmoke(). Keep the public global names stable so preview
+ *   automation, manual console checks, and Codex share the same assertions.
  */
 
 (function installCameraFramesUiStateVerification(root) {
