@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { getSparkSplatTextureCapacity } from "../src/engine/spark-integration/spark-texture-capacity.js";
 import { createSplatSelectionHighlightController } from "../src/engine/splat-selection-highlight.js";
 
 class FakeRgbaArray {
@@ -200,6 +201,62 @@ function createSplatMesh(colors) {
 		Array.from(mesh.splatRgba.array.slice(0, 4)),
 		[102, 102, 102, 0],
 	);
+}
+
+{
+	const largeCount = 2048 * 2048 + 1;
+	const expectedCapacity = getSparkSplatTextureCapacity(largeCount);
+	const previousRgba = {
+		array: new Uint8Array(largeCount * 4),
+	};
+	previousRgba.array[(largeCount - 1) * 4 + 3] = 255;
+	const mesh = {
+		splats: {
+			getNumSplats() {
+				return largeCount;
+			},
+		},
+		splatRgba: previousRgba,
+		updateGeneratorCalls: 0,
+		updateGenerator() {
+			this.updateGeneratorCalls += 1;
+		},
+		forEachSplat() {
+			throw new Error("Existing RGBA data should be reused for large meshes.");
+		},
+	};
+	const asset = {
+		id: "large-splat-highlight",
+		kind: "splat",
+		disposeTarget: mesh,
+	};
+	const controller = createSplatSelectionHighlightController({
+		RgbaArrayImpl: FakeRgbaArray,
+		highlightRgba: { r: 255, g: 0, b: 0 },
+		highlightMix: 1,
+	});
+
+	controller.sync({
+		scopeAssets: [asset],
+		selectedSplatsByAssetId: new Map([
+			["large-splat-highlight", new Set([largeCount - 1])],
+		]),
+	});
+
+	assert.equal(mesh.splatRgba.count, largeCount);
+	assert.equal(mesh.splatRgba.capacity, expectedCapacity);
+	assert.equal(mesh.splatRgba.array.length, expectedCapacity * 4);
+	assert.deepEqual(
+		Array.from(
+			mesh.splatRgba.array.slice((largeCount - 1) * 4, largeCount * 4),
+		),
+		[255, 0, 0, 255],
+		"Selection highlight RGBA data must be padded for Spark 2D array texture uploads.",
+	);
+
+	controller.clear();
+
+	assert.equal(mesh.splatRgba, previousRgba);
 }
 
 console.log("✅ CAMERA_FRAMES splat selection highlight tests passed!");

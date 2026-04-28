@@ -1,9 +1,10 @@
+import { getSparkSplatTextureCapacity } from "../../engine/spark-integration/spark-texture-capacity.js";
+
 const RAD_ROOT_MAGIC = "RAD0";
 const RAD_CHUNK_MAGIC = "RADC";
-const SPLAT_TEX_WIDTH = 2048;
-const SPLAT_TEX_HEIGHT = 2048;
-const SPLAT_TEX_MIN_HEIGHT = 1;
 const textDecoder = new TextDecoder();
+
+export const getSparkPackedSplatCapacity = getSparkSplatTextureCapacity;
 
 function toUint8ArrayView(value) {
 	if (value instanceof Uint8Array) {
@@ -365,18 +366,6 @@ async function readChunkBytes(
 		return rootBytes.subarray(offset, offset + byteLength);
 	}
 	throw new Error(`RAD bundle is missing chunk ${index + 1}.`);
-}
-
-export function getSparkPackedSplatCapacity(numSplats) {
-	if (numSplats <= 0) {
-		return 0;
-	}
-	const height = Math.max(
-		SPLAT_TEX_MIN_HEIGHT,
-		Math.min(SPLAT_TEX_HEIGHT, Math.ceil(numSplats / SPLAT_TEX_WIDTH)),
-	);
-	const depth = Math.ceil(numSplats / (SPLAT_TEX_WIDTH * height));
-	return SPLAT_TEX_WIDTH * height * depth;
 }
 
 function cloneEditableSplatEncoding(splatEncoding) {

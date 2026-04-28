@@ -5,6 +5,7 @@ import {
 	setSparkSplatMeshColorBuffer,
 } from "./spark-integration/spark-splat-mesh-adapter.js";
 import { RgbaArray } from "./spark-integration/spark-symbols.js";
+import { getSparkSplatTextureCapacity } from "./spark-integration/spark-texture-capacity.js";
 
 const DEFAULT_HIGHLIGHT_RGBA = {
 	r: 92,
@@ -21,8 +22,17 @@ function getSplatCount(splatMesh) {
 	return getSparkSplatMeshCount(splatMesh);
 }
 
+function createPaddedRgbaArray(count, sourceArray = null) {
+	const capacity = getSparkSplatTextureCapacity(count);
+	const array = new Uint8Array(capacity * 4);
+	if (sourceArray instanceof Uint8Array && sourceArray.length > 0) {
+		array.set(sourceArray.subarray(0, Math.min(sourceArray.length, count * 4)));
+	}
+	return array;
+}
+
 function buildBaseRgbaArray(splatMesh, count) {
-	const array = new Uint8Array(count * 4);
+	const array = createPaddedRgbaArray(count);
 	if (count <= 0 || typeof splatMesh?.forEachSplat !== "function") {
 		return array;
 	}
@@ -44,7 +54,7 @@ function copyBaseRgbaArray(splatMesh, count) {
 		existingArray instanceof Uint8Array &&
 		existingArray.length >= count * 4
 	) {
-		return existingArray.slice(0, count * 4);
+		return createPaddedRgbaArray(count, existingArray);
 	}
 	return buildBaseRgbaArray(splatMesh, count);
 }
@@ -128,10 +138,11 @@ export function createSplatSelectionHighlightController({
 			return null;
 		}
 		const baseArray = copyBaseRgbaArray(splatMesh, count);
+		const capacity = baseArray.length / 4;
 		const rgbaArray = new RgbaArrayImpl({
 			array: baseArray.slice(),
 			count,
-			capacity: count,
+			capacity,
 		});
 		rgbaArray.getTexture?.();
 		const previousEnableLod = splatMesh.enableLod;
