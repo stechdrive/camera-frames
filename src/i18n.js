@@ -521,9 +521,9 @@ const MESSAGES = {
 			errorDetails: "詳細",
 			packageSaveTitle: "プロジェクトを書き出し",
 			packageSaveMessage:
-				"共有や他の環境への持ち出し用に、プロジェクトを .ssproj として書き出します。",
+				"このプロジェクトを持ち運び用の .ssproj ファイルとして保存します。",
 			packageSaveMessageWithOverwrite:
-				"共有や他の環境への持ち出し用に、プロジェクトを .ssproj として書き出します。現在のファイル {name} に上書き保存するか、別名で保存するかを選んでください。",
+				"このプロジェクトを持ち運び用の .ssproj ファイルとして保存します。",
 			exportTitle: "書き出し中",
 			exportMessage:
 				"書き出しが終わるまで少し待ってください。完了するまで他の操作は無効です。",
@@ -613,16 +613,16 @@ const MESSAGES = {
 			},
 			packageFieldSaveMode: "保存モード",
 			packageSaveMode: {
-				fast: "Fast — 素早く保存",
+				fast: "Fast — 作業中の高速保存",
 				fastHint:
-					"ファイルを小さく保ち、保存は瞬時。描画用の LoD は次回ロード時にバックグラウンドで自動構築されます。",
-				quality: "Quality — 最適化して保存",
+					"保存は速いですが、次回開いた直後の読み込みや表示が重くなりやすいです。作業途中のこまめな保存向けです。",
+				quality: "Quality — 推奨：快適に開ける保存",
 				qualityHint:
-					"LoD/RAD を事前計算し、既定では RAD だけを保存します。元 FullData も残す場合は詳細オプションで選びます。",
+					"保存に少し時間がかかりますが、次回開いた直後から軽く表示できます。作業終了時や共有用の保存におすすめです。",
 				qualityHintPreserve:
-					"既に Quality で焼込み済み。既定では RAD-only として保存します。",
+					"既存の最適化データを再利用し、必要な部分だけ更新します。作業終了時や共有用の保存におすすめです。",
 				qualityHintUpgrade:
-					"Quick で焼込み済みのデータを Quality RAD に再計算して保存します。",
+					"保存に少し時間をかけて、次回開いた直後から軽く表示できる状態にします。",
 			},
 			packageAdvancedOptions: "詳細オプション",
 			packageQualityOptions: "Quality 詳細オプション",
@@ -630,7 +630,7 @@ const MESSAGES = {
 			packageFieldSogCompressDisabled:
 				"未編集 3DGS を SOG 圧縮（この環境/シーンでは利用不可）",
 			packageFieldPreserveSplatFullData:
-				"元の 3DGS FullData も .ssproj に保持する",
+				"元の 3DGS データも .ssproj 内に保存する（ファイルサイズ増）",
 			packageBakeLodStage: {
 				start: "LoD を事前計算中…",
 				asset: "{name} の LoD を計算中（{index}/{total}）…",
@@ -1424,10 +1424,9 @@ const MESSAGES = {
 				"This link could not be opened directly from the app.",
 			errorDetails: "Details",
 			packageSaveTitle: "Export Project",
-			packageSaveMessage:
-				"Export a portable .ssproj project file for sharing or moving to another environment.",
+			packageSaveMessage: "Save this project as a portable .ssproj file.",
 			packageSaveMessageWithOverwrite:
-				"Export a portable .ssproj project file for sharing or moving to another environment. Choose whether to overwrite {name} or save to a new file.",
+				"Save this project as a portable .ssproj file.",
 			exportTitle: "Exporting",
 			exportMessage:
 				"Please wait until export finishes. Other interactions are temporarily disabled.",
@@ -1515,16 +1514,16 @@ const MESSAGES = {
 			},
 			packageFieldSaveMode: "Save mode",
 			packageSaveMode: {
-				fast: "Fast — quick save",
+				fast: "Fast — quick working save",
 				fastHint:
-					"Keeps the file small and saves instantly. LoD is built in the background on next load.",
-				quality: "Quality — optimized save",
+					"Saves quickly, but the project can take longer to initialize and feel heavier right after the next open. Best for frequent in-progress saves.",
+				quality: "Quality — recommended optimized save",
 				qualityHint:
-					"Precomputes LoD/RAD and saves RAD-only by default. Enable the Quality option to keep original FullData too.",
+					"Takes a little longer to save, but opens into a lighter, faster display next time. Recommended for final or shared saves.",
 				qualityHintPreserve:
-					"Already baked at Quality. Saves as RAD-only by default.",
+					"Reuses existing optimized data and updates only what is needed. Recommended for final or shared saves.",
 				qualityHintUpgrade:
-					"Upgrades existing Quick-baked data to Quality RAD at save time.",
+					"Takes a little longer to prepare the project so it opens into a lighter, faster display next time.",
 			},
 			packageAdvancedOptions: "Advanced options",
 			packageQualityOptions: "Quality options",
@@ -1533,7 +1532,7 @@ const MESSAGES = {
 			packageFieldSogCompressDisabled:
 				"Compress untouched 3DGS as SOG (unavailable in this environment/scene)",
 			packageFieldPreserveSplatFullData:
-				"Keep original 3DGS FullData in the .ssproj too",
+				"Keep original 3DGS data inside the .ssproj too (larger file)",
 			packageBakeLodStage: {
 				start: "Baking LoD…",
 				asset: "Baking LoD for {name} ({index}/{total})…",
