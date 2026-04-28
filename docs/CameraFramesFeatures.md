@@ -40,13 +40,13 @@
 
 - new project
 - working save
-- portable `.ssproj` save (`Fast` / `Quality`)
+- portable `.ssproj` save (`Quality` RAD-only が既定、`Fast` も選択可)
 - `.ssproj` open 時の compatible working save restore
 - viewport 右上 HUD の `name / * / PKG` で dirty 状態を見分けられる
 - desktop では同じ HUD の `プレビュー品質` で 3DGS viewport 表示の軽さと細部確認のしやすさを端末ごとに調整できる
 - モバイル UI では下部ドック右端の歯車から `UI 倍率` を調整できる。設定は端末ローカルの localStorage に保存され、WebGL viewport / 用紙 / FRAME / 下絵 / export output には影響しない
 - `Fast` package save は通常保存で、条件が揃う場合のみ advanced option として未編集 3DGS の SOG compression を選べる
-- `Quality` package save は Spark LoD と chunked `radBundle` を事前計算し、既定では `packedArray` / `extraArrays` / `lodSplats` を重複保存しない RAD-only `.ssproj` を作る
+- `Quality` package save は Spark LoD と chunked `radBundle` を事前計算し、既定では `packedArray` / `extraArrays` / `lodSplats` を重複保存しない RAD-only `.ssproj` を作る。未編集で既存 RAD bundle が使えるアセットは、FullData 展開や RAD rebuild なしで既存 RAD を再格納する
 - Quality の詳細オプションで元の 3DGS FullData 保持を選んだ時だけ、従来どおり root FullData と `lodSplats` も保存する
 - RAD 生成に失敗した asset はデータ消失を避けるため FullData + `lodSplats` 保存へ戻し、保存自体は継続する
 - baked LoD / RAD-only 付き `.ssproj` は load 直後から prebuilt LoD / RAD streaming を使い、必要な時だけ editable FullData を materialize する

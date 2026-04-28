@@ -696,14 +696,15 @@ function createHarness(overrides = {}) {
 }
 
 // Radio primary choice is Fast / Quality only — no SOG at the top level.
-// Disclosure group ("advanced") holds SOG compression and its sub-options.
+// Quality is the default package-save path, producing RAD-only output unless
+// the user explicitly asks to keep FullData too.
 await withNavigator({ gpu: {} }, async () => {
 	const harness = createHarness();
 	await harness.projectController.exportProject();
 	const overlay = harness.store.overlay.value;
 	const saveModeField = overlay?.fields?.find((f) => f.id === "saveMode");
 	assert.equal(saveModeField?.type, "radio");
-	assert.equal(saveModeField?.value, "fast");
+	assert.equal(saveModeField?.value, "quality");
 	assert.deepEqual(
 		saveModeField?.options?.map((o) => o.value),
 		["fast", "quality"],
@@ -720,6 +721,148 @@ await withNavigator({ gpu: {} }, async () => {
 	assert.ok(
 		qualityGroup?.fields?.some((f) => f.id === "preserveSplatFullData"),
 		"Quality group must expose the FullData preservation toggle.",
+	);
+});
+
+// A RAD-backed .ssproj that has not entered per-splat editing should be able
+// to save as default Quality/RAD-only by repackaging the existing RAD bundle.
+// It must not materialize FullData or rebuild RAD just to drop duplicated data.
+await withNavigator({ gpu: {} }, async () => {
+	let ensureFullDataCalls = 0;
+	let radBuildCalls = 0;
+	const rootBytes = new Uint8Array([0x52, 0x41, 0x44, 0x30, 1, 2, 3, 4]);
+	const chunkBytes = new Uint8Array([0x52, 0x41, 0x44, 0x43, 5, 6, 7, 8]);
+	const scopeAsset = {
+		id: "splat-existing-rad",
+		kind: "splat",
+		label: "existing-rad",
+		disposeTarget: { pagedSplats: {} },
+		source: {
+			sourceType: "project-file-packed-splat",
+			kind: "splat",
+			fileName: "existing-rad.rawsplat",
+			inputBytes: new Uint8Array(),
+			extraFiles: {},
+			fileType: null,
+			packedArray: new Uint32Array([11, 12, 13, 14]),
+			numSplats: 1,
+			extra: { sh1: new Uint32Array([21, 22, 23, 24]) },
+			splatEncoding: null,
+			lodSplats: {
+				packedArray: new Uint32Array([31, 32, 33, 34]),
+				numSplats: 1,
+				extra: {},
+				splatEncoding: null,
+				bakedQuality: "quality",
+			},
+			radBundle: {
+				kind: "spark-rad-bundle",
+				version: 1,
+				root: {
+					name: "existing-rad-lod.rad",
+					bytes: rootBytes,
+					size: rootBytes.byteLength,
+				},
+				chunks: [
+					{
+						name: "existing-rad-lod-1.radc",
+						bytes: chunkBytes,
+						size: chunkBytes.byteLength,
+					},
+				],
+				sourceFingerprint: { numSplats: 1 },
+				bounds: null,
+				sparkVersion: "2.0.0",
+				build: { mode: "quality", chunked: true },
+			},
+			fullDataPolicy: null,
+			projectAssetState: null,
+			legacyState: null,
+			resource: null,
+		},
+	};
+	const harness = createHarness({
+		assetController: {
+			getSceneAssets: () => [scopeAsset],
+			ensureFullDataForSplatAssets: async () => {
+				ensureFullDataCalls += 1;
+				return true;
+			},
+		},
+		supportsSparkRadBundleBuildImpl: () => true,
+		buildSparkRadBundleFromPackedSplatsImpl: async () => {
+			radBuildCalls += 1;
+			throw new Error("RAD rebuild should not run");
+		},
+		captureProjectStateSpy: () => ({
+			workspace: {
+				activeShotCameraId: "",
+				viewport: {
+					baseFovX: 55,
+					pose: {
+						position: { x: 0, y: 0, z: 0 },
+						quaternion: { x: 0, y: 0, z: 0, w: 1 },
+						up: { x: 0, y: 1, z: 0 },
+					},
+				},
+			},
+			shotCameras: [],
+			scene: {
+				assets: [scopeAsset],
+				referenceImages: createDefaultReferenceImageDocument(),
+			},
+		}),
+	});
+	const originalShowSaveFilePicker = globalThis.showSaveFilePicker;
+	const originalRequestAnimationFrame = globalThis.requestAnimationFrame;
+	const originalIndexedDb = globalThis.indexedDB;
+	globalThis.requestAnimationFrame = (cb) => setTimeout(cb, 0);
+	globalThis.indexedDB = createCompletingIndexedDb();
+	const savedPackage = createCollectingProjectFileHandle(
+		"existing-rad-repacked.ssproj",
+	);
+	globalThis.showSaveFilePicker = async () => savedPackage.fileHandle;
+	try {
+		await harness.projectController.exportProject();
+		const saveMode = harness.store.overlay.value?.fields?.find(
+			(f) => f.id === "saveMode",
+		)?.value;
+		await harness.store.overlay.value.onSubmit({
+			saveMode,
+			sogCompress: false,
+			sogMaxShBands: "2",
+			sogIterations: "10",
+		});
+	} finally {
+		globalThis.showSaveFilePicker = originalShowSaveFilePicker;
+		globalThis.requestAnimationFrame = originalRequestAnimationFrame;
+		if (originalIndexedDb === undefined) {
+			// biome-ignore lint/performance/noDelete: Restore the original global shape in this test harness.
+			delete globalThis.indexedDB;
+		} else {
+			globalThis.indexedDB = originalIndexedDb;
+		}
+	}
+	assert.equal(ensureFullDataCalls, 0);
+	assert.equal(radBuildCalls, 0);
+	assert.equal(scopeAsset.source.fullDataPolicy, "derive-from-rad");
+
+	const savedArchiveBytes = await collectWritableChunks(savedPackage.chunks);
+	const savedProject = await readCameraFramesProject(
+		new File([savedArchiveBytes], "existing-rad-repacked.ssproj"),
+	);
+	const savedSource = savedProject.assetEntries[0]?.source;
+	assert.equal(isProjectFilePackedSplatSource(savedSource), true);
+	assert.equal(savedSource.fullDataPolicy, "derive-from-rad");
+	assert.equal(savedSource.packedArray.length, 0);
+	assert.equal(savedSource.lodSplats, null);
+	assert.equal(savedSource.radBundle.root.name, "existing-rad-lod.rad");
+	assert.equal(savedSource.radBundle.chunks[0].name, "existing-rad-lod-1.radc");
+	assert.deepEqual(
+		Array.from(
+			new Uint8Array(await savedSource.radBundle.root.blob.arrayBuffer()),
+		),
+		Array.from(rootBytes),
 	);
 });
 

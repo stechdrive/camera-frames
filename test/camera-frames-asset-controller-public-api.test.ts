@@ -3,11 +3,32 @@ import * as THREE from "three";
 import { createAssetControllerBindings } from "../src/app/asset-controller-bindings.js";
 import { createAssetController } from "../src/controllers/asset-controller.js";
 import { SplatMesh } from "../src/engine/spark-integration/spark-symbols.js";
+import { createSplatSelectionHighlightController } from "../src/engine/splat-selection-highlight.js";
 import {
+	PROJECT_FILE_PACKED_SPLAT_FULL_DATA_POLICY_DERIVE_FROM_RAD,
 	createProjectFileEmbeddedFileSource,
 	createProjectFilePackedSplatSource,
 } from "../src/project/document.js";
+import { materializeRadBundleToPackedSplatData } from "../src/project/file/rad-unlod.js";
 import { createCameraFramesStore } from "../src/store.js";
+import { createSyntheticRadBundle } from "./helpers/rad-bundle-fixture.ts";
+
+class FakeRgbaArray {
+	constructor({ array, count, capacity } = {}) {
+		this.array = array ?? new Uint8Array((count ?? 0) * 4);
+		this.count = count ?? 0;
+		this.capacity = capacity ?? this.count;
+		this.needsUpdate = false;
+		this.texture = { needsUpdate: false };
+	}
+
+	getTexture() {
+		this.texture.needsUpdate = true;
+		return this.texture;
+	}
+
+	dispose() {}
+}
 
 function createAssetControllerForPublicApiTest() {
 	const store = createCameraFramesStore();
@@ -291,6 +312,111 @@ function createAssetControllerForPublicApiTest() {
 		"fallback FullData source must not keep the stale RAD bundle",
 	);
 	assert.equal(warnings.length, 1);
+}
+
+{
+	const harness = createAssetControllerForPublicApiTest();
+	const packedArray = new Uint32Array([
+		0x01020304, 0x05060708, 0x090a0b0c, 0x0d0e0f10, 0x11121314, 0x15161718,
+		0x191a1b1c, 0x1d1e1f20, 0x21222324, 0x25262728, 0x292a2b2c, 0x2d2e2f30,
+	]);
+	const radBundle = createSyntheticRadBundle({
+		packedArray,
+		numSplats: 3,
+		childCounts: new Uint16Array([2, 0, 0]),
+	});
+	let fullDataLoads = 0;
+	let runtimeUnregisters = 0;
+	const source = createProjectFilePackedSplatSource({
+		fileName: "rad-only-unlod.rawsplat",
+		packedArray: new Uint32Array(),
+		numSplats: 3,
+		radBundle,
+		fullDataPolicy: PROJECT_FILE_PACKED_SPLAT_FULL_DATA_POLICY_DERIVE_FROM_RAD,
+		deferredFullData: {
+			async loadFullData() {
+				fullDataLoads += 1;
+				return await materializeRadBundleToPackedSplatData(radBundle);
+			},
+		},
+		skipClone: true,
+	});
+	const mesh = {
+		paged: { dispose() {} },
+		enableLod: true,
+		context: {
+			splats: null,
+			numSplats: { value: 0 },
+			enableLod: { value: true },
+		},
+		updateGeneratorCalls: 0,
+		updateVersionCalls: 0,
+		updateGenerator() {
+			this.updateGeneratorCalls += 1;
+		},
+		updateVersion() {
+			this.updateVersionCalls += 1;
+		},
+		forEachSplat(callback) {
+			const count =
+				this.packedSplats?.getNumSplats?.() ??
+				this.packedSplats?.numSplats ??
+				0;
+			for (let index = 0; index < count; index += 1) {
+				callback(index, null, null, null, 1, { r: 0.1, g: 0.2, b: 0.3 });
+			}
+		},
+	};
+	const asset = {
+		id: "rad-only-highlight",
+		kind: "splat",
+		label: "RAD-only highlight",
+		object: new THREE.Group(),
+		contentObject: new THREE.Group(),
+		disposeTarget: mesh,
+		source,
+		radBundleRuntime: {
+			async unregister() {
+				runtimeUnregisters += 1;
+			},
+		},
+	};
+	harness.sceneState.assets.push(asset);
+
+	await harness.controller.ensureFullDataForSplatAssets([asset.id]);
+
+	assert.equal(fullDataLoads, 1);
+	assert.equal(runtimeUnregisters, 1);
+	assert.equal(mesh.paged, undefined);
+	assert.ok(mesh.packedSplats, "RAD-only ensure must attach PackedSplats");
+	assert.equal(mesh.splats, mesh.packedSplats);
+	assert.equal(mesh.context.splats, mesh.packedSplats);
+	assert.equal(mesh.context.enableLod.value, false);
+	assert.equal(asset.source.radBundle, null);
+	assert.equal(asset.source.fullDataPolicy, null);
+	assert.equal(asset.source.lodSplats, null);
+	assert.equal(asset.source.extra.lodTree, undefined);
+	assert.equal(asset.source.numSplats, 2);
+
+	const highlightController = createSplatSelectionHighlightController({
+		RgbaArrayImpl: FakeRgbaArray,
+		highlightRgba: { r: 255, g: 0, b: 0 },
+		highlightMix: 1,
+	});
+	highlightController.sync({
+		scopeAssets: [asset],
+		selectedSplatsByAssetId: new Map([[String(asset.id), new Set([0])]]),
+	});
+
+	assert.ok(mesh.splatRgba instanceof FakeRgbaArray);
+	assert.equal(mesh.splatRgba.count, 2);
+	assert.equal(mesh.enableLod, false);
+	assert.deepEqual(
+		Array.from(mesh.splatRgba.array.slice(0, 4)),
+		[255, 0, 0, 255],
+	);
+	highlightController.clear();
+	assert.equal(mesh.enableLod, true);
 }
 
 console.log("✅ CAMERA_FRAMES asset controller public API tests passed!");

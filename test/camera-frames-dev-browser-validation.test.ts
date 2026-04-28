@@ -92,6 +92,15 @@ function createRadAsset() {
 			};
 			return true;
 		},
+		selectAllSplats() {
+			const asset = assets[0];
+			asset.disposeTarget.splatRgba = {
+				count: asset.disposeTarget.packedSplats.numSplats,
+				needsUpdate: true,
+			};
+			asset.disposeTarget.enableLod = false;
+			return asset.disposeTarget.packedSplats.numSplats;
+		},
 	};
 
 	const result = await runRadSsprojDevValidation({
@@ -107,6 +116,7 @@ function createRadAsset() {
 			["rad-backed-paged-assets", true],
 			["object-transform-keeps-rad-streaming", true],
 			["splat-edit-materializes-full-data", true],
+			["splat-edit-first-selection-highlights-full-data", true],
 		],
 	);
 }

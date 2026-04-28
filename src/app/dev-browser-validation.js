@@ -182,6 +182,23 @@ export async function runRadSsprojDevValidation({
 			observations.afterSplatEditMode,
 		);
 
+		await maybeAwait(controller.selectAllSplats?.());
+		observations.afterFirstSplatSelection = {
+			hasSplatRgba: Boolean(radAsset.disposeTarget?.splatRgba),
+			splatRgbaCount: radAsset.disposeTarget?.splatRgba?.count ?? null,
+			splatRgbaNeedsUpdate:
+				radAsset.disposeTarget?.splatRgba?.needsUpdate ?? null,
+			enableLod: radAsset.disposeTarget?.enableLod ?? null,
+			numSplats: getAssetNumSplats(radAsset),
+		};
+		check(
+			"splat-edit-first-selection-highlights-full-data",
+			Boolean(radAsset.disposeTarget?.splatRgba) &&
+				radAsset.disposeTarget?.enableLod === false &&
+				Number(radAsset.disposeTarget?.splatRgba?.count ?? 0) > 0,
+			observations.afterFirstSplatSelection,
+		);
+
 		await maybeAwait(controller.setSplatEditMode?.(false, { silent: true }));
 	} catch (error) {
 		check("dev-validation-error", false, createErrorDetails(error));

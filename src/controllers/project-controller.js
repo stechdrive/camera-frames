@@ -86,7 +86,7 @@ export function createProjectController({
 	let currentProjectSourceStagingCleanup = null;
 	let pendingAfterSuccessfulSave = null;
 	let preferredPackageSaveOptions = {
-		saveMode: "fast",
+		saveMode: "quality",
 		sogCompress: false,
 		sogMaxShBands: DEFAULT_SOG_MAX_SH_BANDS,
 		sogIterations: DEFAULT_SOG_ITERATIONS,

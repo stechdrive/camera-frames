@@ -120,9 +120,10 @@ CAMERA_FRAMES の共有 contract を Git 管理するための基点です。
   - lighting
   - reference image assets / presets / per-shot binding
   - project identity (`projectId`, `packageRevision`, `resources`)
-- package save dialog の top-level 保存モードは `Fast` / `Quality`
+- package save dialog の top-level 保存モードは `Fast` / `Quality`。初期値は `Quality` で、既定では RAD-only package save とする
   - `Fast` は通常の package save。未編集 PLY / SPZ があり WebGPU + worker が使える場合だけ、advanced option として SOG compression を選べる
   - `Quality` は package snapshot capture 前に必要な splat asset へ Spark `PackedSplats.createLodSplats({ quality: true })` を実行し、WASM RAD encoder で `radBundle` を作る。既定では `packedArray` / `extraArrays` / `lodSplats` を重複保存せず、RAD-only の `raw-packed-splat` として `.ssproj` に含める
+  - per-splat edit されておらず既存 `radBundle` が有効な splat は、Quality RAD-only 保存時に FullData materialize / RAD rebuild を行わず、既存 RAD bundle をそのまま package へ再格納できる
   - Quality の詳細オプションで元の 3DGS FullData 保持を明示した時だけ、従来どおり root `packedArray` / `extraArrays` / `lodSplats` も `.ssproj` に保存する
   - RAD build に失敗した asset はデータ消失を避けるため FullData + `lodSplats` 保存へ fallback し、空の RAD-only source は保存しない
   - SOG compression と Quality LoD bake は同時に使わない
