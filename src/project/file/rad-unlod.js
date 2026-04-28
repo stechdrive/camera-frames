@@ -1,6 +1,8 @@
 const RAD_ROOT_MAGIC = "RAD0";
 const RAD_CHUNK_MAGIC = "RADC";
 const SPLAT_TEX_WIDTH = 2048;
+const SPLAT_TEX_HEIGHT = 2048;
+const SPLAT_TEX_MIN_HEIGHT = 1;
 const textDecoder = new TextDecoder();
 
 function toUint8ArrayView(value) {
@@ -365,11 +367,16 @@ async function readChunkBytes(
 	throw new Error(`RAD bundle is missing chunk ${index + 1}.`);
 }
 
-function paddedSplatCapacity(numSplats) {
+export function getSparkPackedSplatCapacity(numSplats) {
 	if (numSplats <= 0) {
 		return 0;
 	}
-	return Math.ceil(numSplats / SPLAT_TEX_WIDTH) * SPLAT_TEX_WIDTH;
+	const height = Math.max(
+		SPLAT_TEX_MIN_HEIGHT,
+		Math.min(SPLAT_TEX_HEIGHT, Math.ceil(numSplats / SPLAT_TEX_WIDTH)),
+	);
+	const depth = Math.ceil(numSplats / (SPLAT_TEX_WIDTH * height));
+	return SPLAT_TEX_WIDTH * height * depth;
 }
 
 function cloneEditableSplatEncoding(splatEncoding) {
@@ -393,7 +400,7 @@ function copyLeafPackedData(fullData) {
 		}
 	}
 	const numSplats = leafIndices.length;
-	const capacity = paddedSplatCapacity(numSplats);
+	const capacity = getSparkPackedSplatCapacity(numSplats);
 	const packedArray = new Uint32Array(capacity * 4);
 	const extra = {};
 	for (let outIndex = 0; outIndex < numSplats; outIndex += 1) {

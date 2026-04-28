@@ -1,9 +1,28 @@
 import assert from "node:assert/strict";
-import { materializeRadBundleToPackedSplatData } from "../src/project/file/rad-unlod.js";
+import {
+	getSparkPackedSplatCapacity,
+	materializeRadBundleToPackedSplatData,
+} from "../src/project/file/rad-unlod.js";
 import { createSyntheticRadBundle } from "./helpers/rad-bundle-fixture.ts";
 
 function splatWords(array: Uint32Array, index: number): number[] {
 	return Array.from(array.slice(index * 4, index * 4 + 4));
+}
+
+{
+	const textureLayerSplats = 2048 * 2048;
+
+	assert.equal(getSparkPackedSplatCapacity(1), 2048);
+	assert.equal(getSparkPackedSplatCapacity(2048 + 1), 2048 * 2);
+	assert.equal(
+		getSparkPackedSplatCapacity(textureLayerSplats),
+		textureLayerSplats,
+	);
+	assert.equal(
+		getSparkPackedSplatCapacity(textureLayerSplats + 1),
+		textureLayerSplats * 2,
+		"Large editable RAD materialization must allocate full array-texture layers for Spark.",
+	);
 }
 
 {
