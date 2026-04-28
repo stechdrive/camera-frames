@@ -1,6 +1,6 @@
 # CAMERA_FRAMES 機能一覧 / 回帰チェック観点
 
-最終更新: 2026-04-26
+最終更新: 2026-04-28
 
 ## 0. この文書の役割
 
@@ -46,7 +46,8 @@
 - desktop では同じ HUD の `プレビュー品質` で 3DGS viewport 表示の軽さと細部確認のしやすさを端末ごとに調整できる
 - モバイル UI では下部ドック右端の歯車から `UI 倍率` を調整できる。設定は端末ローカルの localStorage に保存され、WebGL viewport / 用紙 / FRAME / 下絵 / export output には影響しない
 - `Fast` package save は通常保存で、条件が揃う場合のみ advanced option として未編集 3DGS の SOG compression を選べる
-- `Quality` package save は Spark LoD と chunked `radBundle` を事前計算し、既定では `packedArray` / `extraArrays` / `lodSplats` を重複保存しない RAD-only `.ssproj` を作る。未編集で既存 RAD bundle が使えるアセットは、FullData 展開や RAD rebuild なしで既存 RAD を再格納する
+- `Quality` package save は Spark LoD と chunked `radBundle` を事前計算し、既定では `packedArray` / `extraArrays` / `lodSplats` を重複保存しない RAD-only `.ssproj` を作る。未編集で既存 Quality RAD bundle が使えるアセットは、FullData 展開や RAD rebuild なしで既存 RAD を再格納する
+- quick / 不明 metadata の既存 RAD bundle は RAD-only source of truth として再利用せず、RAD encoder が使える時は Quality RAD を再生成し、使えない時は FullData + `lodSplats` 保存へ戻す
 - Quality の詳細オプションで元の 3DGS FullData 保持を選んだ時だけ、従来どおり root FullData と `lodSplats` も保存する
 - RAD 生成に失敗した asset はデータ消失を避けるため FullData + `lodSplats` 保存へ戻し、保存自体は継続する
 - baked LoD / RAD-only 付き `.ssproj` は load 直後から prebuilt LoD / RAD streaming を使い、必要な時だけ editable FullData を materialize する

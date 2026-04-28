@@ -1,6 +1,6 @@
 # CAMERA_FRAMES 実装要件 / 保守基点
 
-最終更新: 2026-04-26
+最終更新: 2026-04-28
 
 ## 0. この文書の役割
 
@@ -123,7 +123,8 @@ CAMERA_FRAMES の共有 contract を Git 管理するための基点です。
 - package save dialog の top-level 保存モードは `Fast` / `Quality`。初期値は `Quality` で、既定では RAD-only package save とする
   - `Fast` は通常の package save。未編集 PLY / SPZ があり WebGPU + worker が使える場合だけ、advanced option として SOG compression を選べる
   - `Quality` は package snapshot capture 前に必要な splat asset へ Spark `PackedSplats.createLodSplats({ quality: true })` を実行し、WASM RAD encoder で `radBundle` を作る。既定では `packedArray` / `extraArrays` / `lodSplats` を重複保存せず、RAD-only の `raw-packed-splat` として `.ssproj` に含める
-  - per-splat edit されておらず既存 `radBundle` が有効な splat は、Quality RAD-only 保存時に FullData materialize / RAD rebuild を行わず、既存 RAD bundle をそのまま package へ再格納できる
+  - per-splat edit されておらず既存 `radBundle` が Quality build metadata (`build.mode === "quality"`) を持つ splat は、Quality RAD-only 保存時に FullData materialize / RAD rebuild を行わず、既存 RAD bundle をそのまま package へ再格納できる
+  - quick / 不明 metadata の既存 RAD bundle は RAD-only source of truth として再利用しない。RAD encoder が使える時は Quality RAD を再生成し、使えない時は FullData + `lodSplats` 保持へ fallback する
   - Quality の詳細オプションで元の 3DGS FullData 保持を明示した時だけ、従来どおり root `packedArray` / `extraArrays` / `lodSplats` も `.ssproj` に保存する
   - RAD build に失敗した asset はデータ消失を避けるため FullData + `lodSplats` 保存へ fallback し、空の RAD-only source は保存しない
   - SOG compression と Quality LoD bake は同時に使わない
