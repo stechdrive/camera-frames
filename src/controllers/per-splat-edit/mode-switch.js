@@ -31,6 +31,8 @@ export function createSplatEditModeSwitch({
 	clearActiveTransformDrag,
 	finalizeSplatTransformDragHistory,
 }) {
+	let activationRequestId = 0;
+
 	function isSplatEditModeAvailable() {
 		return state.mode === "viewport" || state.mode === "camera";
 	}
@@ -95,6 +97,7 @@ export function createSplatEditModeSwitch({
 		if (!isSplatEditModeActive()) {
 			return false;
 		}
+		activationRequestId += 1;
 		if (getActiveBoxDrag()?.historyStarted) {
 			cancelHistoryTransaction?.();
 		}
@@ -111,6 +114,7 @@ export function createSplatEditModeSwitch({
 	}
 
 	function resetForSceneChange() {
+		activationRequestId += 1;
 		clearSplatSelection();
 		clearActiveBrushStroke();
 		clearBrushPreview({ syncUi: false });
@@ -147,6 +151,7 @@ export function createSplatEditModeSwitch({
 		}
 
 		if (!nextEnabled) {
+			activationRequestId += 1;
 			const wasActive = isSplatEditModeActive();
 			if (store.viewportToolMode.value === "splat-edit") {
 				store.viewportToolMode.value = "none";
@@ -179,7 +184,19 @@ export function createSplatEditModeSwitch({
 			return false;
 		}
 
-		const activateSplatEditMode = () => {
+		activationRequestId += 1;
+		const requestId = activationRequestId;
+		const wasActive = isSplatEditModeActive();
+		const previousViewportToolMode = store.viewportToolMode.value;
+		const previousScopeAssetIds = getSplatEditScopeAssetIds();
+		const previousRememberedScopeAssetIds = [
+			...(store.splatEdit.rememberedScopeAssetIds.value ?? []),
+		];
+
+		const enterPendingSplatEditMode = () => {
+			if (wasActive) {
+				return;
+			}
 			setMeasurementMode?.(false, { silent: true });
 			setViewportSelectMode?.(false);
 			setViewportReferenceImageEditMode?.(false);
@@ -187,6 +204,44 @@ export function createSplatEditModeSwitch({
 			setViewportPivotEditMode?.(false);
 			applyNavigateInteractionMode?.({ silent: true });
 			store.viewportToolMode.value = "splat-edit";
+			store.splatEdit.scopeAssetIds.value = [];
+			store.splatEdit.rememberedScopeAssetIds.value = [...scopeAssetIds];
+			syncSelectionCount();
+			syncSceneHelper();
+			syncSelectionHighlight();
+			syncControlsToMode?.();
+			updateUi?.();
+		};
+
+		const restorePendingSplatEditMode = () => {
+			if (requestId !== activationRequestId) {
+				return;
+			}
+			store.viewportToolMode.value = previousViewportToolMode;
+			store.splatEdit.scopeAssetIds.value = [...previousScopeAssetIds];
+			store.splatEdit.rememberedScopeAssetIds.value = [
+				...previousRememberedScopeAssetIds,
+			];
+			syncSelectionCount();
+			syncSceneHelper();
+			syncSelectionHighlight();
+			syncControlsToMode?.();
+			updateUi?.();
+		};
+
+		const activateSplatEditMode = () => {
+			if (requestId !== activationRequestId) {
+				return false;
+			}
+			if (!isSplatEditModeActive()) {
+				setMeasurementMode?.(false, { silent: true });
+				setViewportSelectMode?.(false);
+				setViewportReferenceImageEditMode?.(false);
+				setViewportTransformMode?.(false);
+				setViewportPivotEditMode?.(false);
+				applyNavigateInteractionMode?.({ silent: true });
+				store.viewportToolMode.value = "splat-edit";
+			}
 			const previousScopeAssetIds = getSplatEditScopeAssetIds();
 			store.splatEdit.scopeAssetIds.value = [...scopeAssetIds];
 			store.splatEdit.rememberedScopeAssetIds.value = [...scopeAssetIds];
@@ -215,6 +270,7 @@ export function createSplatEditModeSwitch({
 		};
 
 		const handleFullDataError = (error) => {
+			restorePendingSplatEditMode();
 			console.error(error);
 			if (!silent) {
 				setStatus?.(error?.message ?? String(error));
@@ -224,17 +280,23 @@ export function createSplatEditModeSwitch({
 
 		if (typeof ensureFullDataForSplatAssets === "function") {
 			try {
+				enterPendingSplatEditMode();
 				const ensureResult = ensureFullDataForSplatAssets(scopeAssetIds, {
 					silent,
 				});
 				if (ensureResult && typeof ensureResult.then === "function") {
 					return ensureResult
-						.then((ensured) =>
-							ensured === false ? false : activateSplatEditMode(),
-						)
+						.then((ensured) => {
+							if (ensured === false) {
+								restorePendingSplatEditMode();
+								return false;
+							}
+							return activateSplatEditMode();
+						})
 						.catch(handleFullDataError);
 				}
 				if (ensureResult === false) {
+					restorePendingSplatEditMode();
 					return false;
 				}
 			} catch (error) {

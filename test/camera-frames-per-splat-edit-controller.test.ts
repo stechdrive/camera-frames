@@ -695,8 +695,13 @@ async function createPackedSplatAsset({ id, label, centers }) {
 				ensureCalls.push([...assetIds]);
 				assert.equal(
 					harness.store.splatEdit.active.value,
-					false,
-					"FullData must be ensured before splat edit mode becomes active",
+					true,
+					"Clicking the per-splat tool must show the mode as active while FullData is being prepared.",
+				);
+				assert.deepEqual(
+					harness.store.splatEdit.scopeAssetIds.value,
+					[],
+					"The editable scope must stay disconnected until FullData is ready.",
 				);
 				await Promise.resolve();
 				return true;
@@ -718,6 +723,31 @@ async function createPackedSplatAsset({ id, label, centers }) {
 		"splat-1",
 		"splat-2",
 	]);
+}
+
+{
+	let resolveFullData = null;
+	const harness = createHarness({
+		assetControllerOverrides: {
+			ensureFullDataForSplatAssets: () =>
+				new Promise((resolve) => {
+					resolveFullData = resolve;
+				}),
+		},
+	});
+	harness.store.sceneAssets.value = [{ id: "splat-1", kind: "splat" }];
+	harness.store.selectedSceneAssetIds.value = ["splat-1"];
+
+	const pendingEnable = harness.controller.setSplatEditMode(true);
+
+	assert.equal(harness.controller.isSplatEditModeActive(), true);
+	assert.deepEqual(harness.store.splatEdit.scopeAssetIds.value, []);
+	assert.equal(harness.controller.setSplatEditMode(false), true);
+	assert.equal(harness.controller.isSplatEditModeActive(), false);
+	resolveFullData?.(true);
+	assert.equal(await pendingEnable, false);
+	assert.equal(harness.controller.isSplatEditModeActive(), false);
+	assert.deepEqual(harness.store.splatEdit.scopeAssetIds.value, []);
 }
 
 {
