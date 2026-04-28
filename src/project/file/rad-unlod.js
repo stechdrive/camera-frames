@@ -372,6 +372,19 @@ function paddedSplatCapacity(numSplats) {
 	return Math.ceil(numSplats / SPLAT_TEX_WIDTH) * SPLAT_TEX_WIDTH;
 }
 
+function cloneEditableSplatEncoding(splatEncoding) {
+	if (!splatEncoding || typeof splatEncoding !== "object") {
+		return null;
+	}
+	const nextEncoding = JSON.parse(JSON.stringify(splatEncoding));
+	if (nextEncoding.lodOpacity === true) {
+		// Unlod output is plain editable PackedSplats; keeping this flag makes
+		// Spark interpret alpha as LoD opacity and can hide the materialized mesh.
+		nextEncoding.lodOpacity = false;
+	}
+	return nextEncoding;
+}
+
 function copyLeafPackedData(fullData) {
 	const leafIndices = [];
 	for (let index = 0; index < fullData.totalSplats; index += 1) {
@@ -416,10 +429,7 @@ function copyLeafPackedData(fullData) {
 		packedArray,
 		numSplats,
 		extra,
-		splatEncoding:
-			fullData.splatEncoding && typeof fullData.splatEncoding === "object"
-				? JSON.parse(JSON.stringify(fullData.splatEncoding))
-				: null,
+		splatEncoding: cloneEditableSplatEncoding(fullData.splatEncoding),
 	};
 }
 

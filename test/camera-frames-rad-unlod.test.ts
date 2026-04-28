@@ -19,7 +19,7 @@ function splatWords(array: Uint32Array, index: number): number[] {
 		packedArray,
 		numSplats: 3,
 		extra: { sh2 },
-		splatEncoding: { rgbMin: 0, rgbMax: 1, sh2Max: 1 },
+		splatEncoding: { rgbMin: 0, rgbMax: 1, sh2Max: 1, lodOpacity: true },
 		childCounts: new Uint16Array([2, 0, 0]),
 	});
 	const fullData = await materializeRadBundleToPackedSplatData(radBundle);
@@ -45,6 +45,11 @@ function splatWords(array: Uint32Array, index: number): number[] {
 	);
 	assert.equal(fullData.extra.lodTree, undefined);
 	assert.equal(fullData.extra.radMeta, undefined);
+	assert.equal(
+		fullData.splatEncoding?.lodOpacity,
+		false,
+		"Editable unlod data must not retain LoD opacity encoding.",
+	);
 }
 
 {

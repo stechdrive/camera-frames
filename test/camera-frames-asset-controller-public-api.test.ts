@@ -323,6 +323,7 @@ function createAssetControllerForPublicApiTest() {
 	const radBundle = createSyntheticRadBundle({
 		packedArray,
 		numSplats: 3,
+		splatEncoding: { rgbMin: 0, rgbMax: 1, lodOpacity: true },
 		childCounts: new Uint16Array([2, 0, 0]),
 	});
 	let fullDataLoads = 0;
@@ -397,6 +398,11 @@ function createAssetControllerForPublicApiTest() {
 	assert.equal(asset.source.lodSplats, null);
 	assert.equal(asset.source.extra.lodTree, undefined);
 	assert.equal(asset.source.numSplats, 2);
+	assert.equal(
+		asset.source.splatEncoding?.lodOpacity,
+		false,
+		"RAD-only ensure must switch to a non-LoD editable encoding.",
+	);
 
 	const highlightController = createSplatSelectionHighlightController({
 		RgbaArrayImpl: FakeRgbaArray,

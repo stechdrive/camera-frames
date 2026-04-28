@@ -1483,7 +1483,7 @@ const radOnlyBundle = createSyntheticRadBundle({
 	packedArray: radOnlyPackedArray,
 	numSplats: 3,
 	extra: { sh2: radOnlySh2 },
-	splatEncoding: { rgbMin: 0, rgbMax: 1, sh2Max: 1 },
+	splatEncoding: { rgbMin: 0, rgbMax: 1, sh2Max: 1, lodOpacity: true },
 	childCounts: new Uint16Array([1, 0, 0]),
 	rootName: "rad-only-lod.rad",
 	chunkName: "rad-only-lod-0.radc",
@@ -1508,6 +1508,7 @@ const radOnlyProjectSnapshot = {
 						rgbMin: 0,
 						rgbMax: 1,
 						sh2Max: 1,
+						lodOpacity: true,
 					},
 					lodSplats: {
 						packedArray: new Uint32Array([71, 72, 73, 74]),
@@ -1564,6 +1565,11 @@ assert.equal(radOnlyFullSource.fullDataPolicy, null);
 assert.equal(radOnlyFullSource.radBundle, null);
 assert.equal(radOnlyFullSource.lodSplats, null);
 assert.equal(radOnlyFullSource.numSplats, 2);
+assert.equal(
+	radOnlyFullSource.splatEncoding?.lodOpacity,
+	false,
+	"RAD-only FullData materialization must clear LoD opacity encoding for editable PackedSplats.",
+);
 assert.deepEqual(
 	Array.from(radOnlyFullSource.packedArray.slice(0, 8)),
 	Array.from(radOnlyPackedArray.slice(4, 12)),
