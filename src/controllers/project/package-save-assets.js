@@ -139,6 +139,13 @@ export function createProjectPackageSaveAssetsController({
 		return null;
 	}
 
+	function hasReusableQualityRadBundle(asset) {
+		return (
+			Boolean(asset?.source?.radBundle?.root) &&
+			asset.source.radBundle?.build?.mode === "quality"
+		);
+	}
+
 	function getSceneBakedLodState() {
 		const splats = getSceneSplatAssetsForPackageSave();
 		if (splats.length === 0) {
@@ -392,10 +399,14 @@ export function createProjectPackageSaveAssetsController({
 	} = {}) {
 		if (radOnly) {
 			for (const asset of getSceneSplatAssetsForPackageSave()) {
-				if (asset.source?.radBundle?.root) {
+				if (hasReusableQualityRadBundle(asset)) {
 					updatePackedSplatSourcePackagePolicy(asset, {
 						fullDataPolicy:
 							PROJECT_FILE_PACKED_SPLAT_FULL_DATA_POLICY_DERIVE_FROM_RAD,
+					});
+				} else {
+					updatePackedSplatSourcePackagePolicy(asset, {
+						fullDataPolicy: null,
 					});
 				}
 			}
@@ -412,15 +423,17 @@ export function createProjectPackageSaveAssetsController({
 			const asset = assets[index];
 			const assetLabel = asset.label || asset?.source?.fileName || "3DGS";
 			const existingQuality = getAssetBakedQuality(asset);
+			const hasQualityRadBundle = hasReusableQualityRadBundle(asset);
+			const canReuseExistingRadOnly = !radOnly || hasQualityRadBundle;
 			// Smart skip: already baked at the requested quality and the source
 			// still carries a matching lodSplats bundle (edits clear it via the
 			// default-null path in createProjectFilePackedSplatSource).
 			if (
 				existingQuality === bakedQuality &&
 				asset.source?.lodSplats?.packedArray?.length &&
-				(!canBuildRadBundle || asset.source?.radBundle?.root)
+				(!canBuildRadBundle || canReuseExistingRadOnly)
 			) {
-				if (radOnly && asset.source?.radBundle?.root) {
+				if (radOnly && hasQualityRadBundle) {
 					updatePackedSplatSourcePackagePolicy(asset, {
 						fullDataPolicy:
 							PROJECT_FILE_PACKED_SPLAT_FULL_DATA_POLICY_DERIVE_FROM_RAD,
