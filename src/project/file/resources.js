@@ -218,7 +218,16 @@ function cloneRawPackedSplatRadBundleResource(radBundle) {
 }
 
 export function cloneRawPackedSplatResource(resource) {
-	return {
+	const packedArray =
+		typeof resource.packedArray?.path === "string" &&
+		typeof resource.packedArray?.sha256 === "string"
+			? {
+					path: resource.packedArray.path,
+					sha256: resource.packedArray.sha256,
+					size: Number(resource.packedArray?.size ?? 0),
+				}
+			: null;
+	const cloned = {
 		type: PROJECT_RESOURCE_RAW_PACKED_SPLAT,
 		assetKind: "splat",
 		originalName: resource.originalName,
@@ -227,11 +236,7 @@ export function cloneRawPackedSplatResource(resource) {
 			resource.splatEncoding && typeof resource.splatEncoding === "object"
 				? JSON.parse(JSON.stringify(resource.splatEncoding))
 				: null,
-		packedArray: {
-			path: resource.packedArray?.path,
-			sha256: resource.packedArray?.sha256,
-			size: Number(resource.packedArray?.size ?? 0),
-		},
+		packedArray,
 		extraArrays: (resource.extraArrays ?? []).map((entry) => ({
 			name: entry.name,
 			path: entry.path,
@@ -245,6 +250,10 @@ export function cloneRawPackedSplatResource(resource) {
 		lodSplats: cloneRawPackedSplatLodResource(resource.lodSplats),
 		radBundle: cloneRawPackedSplatRadBundleResource(resource.radBundle),
 	};
+	if (resource.fullDataPolicy === "derive-from-rad") {
+		cloned.fullDataPolicy = "derive-from-rad";
+	}
+	return cloned;
 }
 
 export function createBinaryEntryBytes(value) {

@@ -36,7 +36,7 @@ shortcuts:
     action: 選択スプラットを削除
   - key: Backspace
     action: 選択スプラットを削除
-last-updated: 2026-04-25
+last-updated: 2026-04-28
 ---
 
 # スプラット編集
@@ -61,7 +61,7 @@ last-updated: 2026-04-25
 
 編集後の現在の表示を軽くしたい場合は、スプラット編集ツールバーの `LoD 最適化` を実行します。次回読込み直後から高速化したい場合は、次回のパッケージ保存で `Quality` を選んで焼き直してください。
 
-RAD streaming cache 付きのアセットでも、編集に入る時は FullData に切り替えてから操作します。編集後の RAD cache は破棄され、次回 `Quality` 保存で作り直されます。
+RAD-only / RAD streaming 付きのアセットでも、編集に入る時は editable FullData に切り替えてから操作します。RAD-only の場合は RAD を全展開し、LoD 内部ノードを除いた leaf splat だけを編集対象にします。編集後の RAD は破棄され、次回 `Quality` 保存で作り直されます。
 
 シーンマネージャーで 3DGS オブジェクト自体を移動・回転・拡縮する操作はスプラット内容を変えないため、RAD streaming cache と焼込み済み LoD は維持されます。
 

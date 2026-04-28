@@ -26,6 +26,7 @@ import {
 	createReferenceImageAsset,
 	createReferenceImageItem,
 } from "../src/reference-image-model.js";
+import { createSyntheticRadBundle } from "./helpers/rad-bundle-fixture.ts";
 
 function createCollectingWritable() {
 	const chunks = [];
@@ -1469,6 +1470,111 @@ assert.equal(
 	null,
 	"FullData materialization clears the streaming cache so edits do not reuse stale RAD",
 );
+
+const radOnlyPackedArray = new Uint32Array([
+	0x01020304, 0x05060708, 0x090a0b0c, 0x0d0e0f10, 0x11121314, 0x15161718,
+	0x191a1b1c, 0x1d1e1f20, 0x21222324, 0x25262728, 0x292a2b2c, 0x2d2e2f30,
+]);
+const radOnlySh2 = new Uint32Array([
+	0x00010203, 0x04050607, 0x08090a0b, 0x00000c0d, 0x10111213, 0x14151617,
+	0x18191a1b, 0x00001c1d, 0x20212223, 0x24252627, 0x28292a2b, 0x00002c2d,
+]);
+const radOnlyBundle = createSyntheticRadBundle({
+	packedArray: radOnlyPackedArray,
+	numSplats: 3,
+	extra: { sh2: radOnlySh2 },
+	splatEncoding: { rgbMin: 0, rgbMax: 1, sh2Max: 1 },
+	childCounts: new Uint16Array([1, 0, 0]),
+	rootName: "rad-only-lod.rad",
+	chunkName: "rad-only-lod-0.radc",
+});
+const radOnlyProjectSnapshot = {
+	workspace: projectSnapshot.workspace,
+	shotCameras: projectSnapshot.shotCameras,
+	scene: {
+		assets: [
+			{
+				...bakedLodProjectSnapshot.scene.assets[0],
+				id: "asset-rad-only",
+				label: "RAD Only Splat",
+				source: createProjectFilePackedSplatSource({
+					fileName: "rad-only.rawsplat",
+					packedArray: radOnlyPackedArray,
+					numSplats: 3,
+					extra: {
+						sh2: radOnlySh2,
+					},
+					splatEncoding: {
+						rgbMin: 0,
+						rgbMax: 1,
+						sh2Max: 1,
+					},
+					lodSplats: {
+						packedArray: new Uint32Array([71, 72, 73, 74]),
+						numSplats: 1,
+						extra: { lodTree: new Uint32Array([75, 76, 0, 0]) },
+						splatEncoding: null,
+						bakedAt: "2026-04-28T00:00:00.000Z",
+						bakedQuality: "quality",
+					},
+					radBundle: radOnlyBundle,
+					fullDataPolicy: "derive-from-rad",
+					skipClone: true,
+				}),
+			},
+		],
+		lighting: projectSnapshot.scene.lighting,
+		referenceImages: createDefaultReferenceImageDocument(),
+	},
+};
+const radOnlyArchive = await buildCameraFramesProjectArchive(
+	radOnlyProjectSnapshot,
+	{ preferRadOnlyPackedSplats: true },
+);
+const radOnlyReader = await ZipReader.from(
+	new File([radOnlyArchive], "rad-only.ssproj"),
+);
+const radOnlyProjectJson = JSON.parse(
+	await radOnlyReader.text(PROJECT_DOCUMENT_PATH),
+);
+const radOnlyResource = radOnlyProjectJson.resources["resource-1"];
+assert.equal(radOnlyResource.fullDataPolicy, "derive-from-rad");
+assert.equal(radOnlyResource.packedArray, null);
+assert.deepEqual(radOnlyResource.extraArrays, []);
+assert.equal(radOnlyResource.lodSplats, null);
+assert.ok(radOnlyResource.radBundle?.root?.path);
+assert.equal(
+	radOnlyReader.entries.has(radOnlyResource.radBundle.root.path),
+	true,
+	"RAD-only package must still write the RAD root entry.",
+);
+await radOnlyReader.close();
+
+const radOnlyResult = await readCameraFramesProject(
+	new File([radOnlyArchive], "rad-only-read.ssproj"),
+);
+const radOnlySource = radOnlyResult.assetEntries[0].source;
+assert.equal(isProjectFilePackedSplatSource(radOnlySource), true);
+assert.equal(radOnlySource.fullDataPolicy, "derive-from-rad");
+assert.equal(radOnlySource.packedArray.length, 0);
+assert.ok(radOnlySource.radBundle?.root?.blob instanceof Blob);
+const radOnlyFullSource =
+	await materializeProjectFilePackedSplatFullData(radOnlySource);
+assert.equal(radOnlyFullSource.fullDataPolicy, null);
+assert.equal(radOnlyFullSource.radBundle, null);
+assert.equal(radOnlyFullSource.lodSplats, null);
+assert.equal(radOnlyFullSource.numSplats, 2);
+assert.deepEqual(
+	Array.from(radOnlyFullSource.packedArray.slice(0, 8)),
+	Array.from(radOnlyPackedArray.slice(4, 12)),
+	"RAD-only FullData materialization must unlod to leaf splats only.",
+);
+assert.deepEqual(
+	Array.from(radOnlyFullSource.extra.sh2.slice(0, 8)),
+	Array.from(radOnlySh2.slice(4, 12)),
+	"RAD-only FullData materialization must remap SH arrays with leaf splats.",
+);
+assert.equal(radOnlyFullSource.extra.lodTree, undefined);
 
 const volatileArchiveState = { failReads: false };
 const volatileArchive = new VolatileArchiveBlob(

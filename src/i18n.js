@@ -618,16 +618,19 @@ const MESSAGES = {
 					"ファイルを小さく保ち、保存は瞬時。描画用の LoD は次回ロード時にバックグラウンドで自動構築されます。",
 				quality: "Quality — 最適化して保存",
 				qualityHint:
-					"LoD を事前計算して保存します。次回読込みから即座に最適化された描画が得られますが、保存に数十秒かかります。",
+					"LoD/RAD を事前計算し、既定では RAD だけを保存します。元 FullData も残す場合は詳細オプションで選びます。",
 				qualityHintPreserve:
-					"既に Quality で焼込み済み。このまま維持して保存します（再計算なし）。",
+					"既に Quality で焼込み済み。既定では RAD-only として保存します。",
 				qualityHintUpgrade:
-					"Quick で焼込み済みのデータを Quality に再計算して保存します。",
+					"Quick で焼込み済みのデータを Quality RAD に再計算して保存します。",
 			},
 			packageAdvancedOptions: "詳細オプション",
+			packageQualityOptions: "Quality 詳細オプション",
 			packageFieldSogCompress: "未編集 3DGS を SOG 圧縮でさらに小さく保存",
 			packageFieldSogCompressDisabled:
 				"未編集 3DGS を SOG 圧縮（この環境/シーンでは利用不可）",
+			packageFieldPreserveSplatFullData:
+				"元の 3DGS FullData も .ssproj に保持する",
 			packageBakeLodStage: {
 				start: "LoD を事前計算中…",
 				asset: "{name} の LoD を計算中（{index}/{total}）…",
@@ -640,7 +643,7 @@ const MESSAGES = {
 			packageDetailBuildRadStage:
 				"{name} の RAD bundle を生成中（{index}/{total}）: {stage}",
 			packageDetailBuildRadFailed:
-				"{name} の RAD bundle 生成に失敗しました。RAD なしで保存を継続します: {message}",
+				"{name} の RAD bundle 生成に失敗しました。FullData 保存に戻して継続します: {message}",
 			packageRadBuildStage: {
 				"load-wasm": "RAD encoder を読み込み中…",
 				"build-lod": "Quality LoD を生成中…",
@@ -1517,17 +1520,20 @@ const MESSAGES = {
 					"Keeps the file small and saves instantly. LoD is built in the background on next load.",
 				quality: "Quality — optimized save",
 				qualityHint:
-					"Precomputes the LoD so the next load renders optimized immediately. Save takes tens of seconds.",
+					"Precomputes LoD/RAD and saves RAD-only by default. Enable the Quality option to keep original FullData too.",
 				qualityHintPreserve:
-					"Already baked at Quality. Save will preserve it as-is (no recomputation).",
+					"Already baked at Quality. Saves as RAD-only by default.",
 				qualityHintUpgrade:
-					"Upgrades existing Quick-baked data to Quality at save time.",
+					"Upgrades existing Quick-baked data to Quality RAD at save time.",
 			},
 			packageAdvancedOptions: "Advanced options",
+			packageQualityOptions: "Quality options",
 			packageFieldSogCompress:
 				"Compress untouched 3DGS as SOG to shrink the file further",
 			packageFieldSogCompressDisabled:
 				"Compress untouched 3DGS as SOG (unavailable in this environment/scene)",
+			packageFieldPreserveSplatFullData:
+				"Keep original 3DGS FullData in the .ssproj too",
 			packageBakeLodStage: {
 				start: "Baking LoD…",
 				asset: "Baking LoD for {name} ({index}/{total})…",
@@ -1540,7 +1546,7 @@ const MESSAGES = {
 			packageDetailBuildRadStage:
 				"Generating RAD bundle for {name} ({index}/{total}): {stage}",
 			packageDetailBuildRadFailed:
-				"RAD bundle generation failed for {name}. Saving continues without RAD: {message}",
+				"RAD bundle generation failed for {name}. Saving falls back to FullData: {message}",
 			packageRadBuildStage: {
 				"load-wasm": "Loading RAD encoder…",
 				"build-lod": "Building Quality LoD…",

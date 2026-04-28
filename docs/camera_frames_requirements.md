@@ -122,20 +122,24 @@ CAMERA_FRAMES の共有 contract を Git 管理するための基点です。
   - project identity (`projectId`, `packageRevision`, `resources`)
 - package save dialog の top-level 保存モードは `Fast` / `Quality`
   - `Fast` は通常の package save。未編集 PLY / SPZ があり WebGPU + worker が使える場合だけ、advanced option として SOG compression を選べる
-  - `Quality` は package snapshot capture 前に必要な splat asset へ Spark `PackedSplats.createLodSplats({ quality: true })` を実行し、baked LoD を `.ssproj` に含める
+  - `Quality` は package snapshot capture 前に必要な splat asset へ Spark `PackedSplats.createLodSplats({ quality: true })` を実行し、WASM RAD encoder で `radBundle` を作る。既定では `packedArray` / `extraArrays` / `lodSplats` を重複保存せず、RAD-only の `raw-packed-splat` として `.ssproj` に含める
+  - Quality の詳細オプションで元の 3DGS FullData 保持を明示した時だけ、従来どおり root `packedArray` / `extraArrays` / `lodSplats` も `.ssproj` に保存する
+  - RAD build に失敗した asset はデータ消失を避けるため FullData + `lodSplats` 保存へ fallback し、空の RAD-only source は保存しない
   - SOG compression と Quality LoD bake は同時に使わない
-- baked LoD は `raw-packed-splat` resource の optional `lodSplats` sidecar として保存する
-- baked LoD を持つ `.ssproj` は load 時に prebuilt LoD を runtime に attach し、auto-LoD を待たずに使う
-- baked LoD 付き `.ssproj` でも runtime render / edit 用には root FullData が正本であり、LoD preview bundle だけを asset 本体として扱わない
-- LoD-first に lazy materialize した raw-packed splat source は、編集 / package save / FullData gate が必要になった時に root `packedArray` / `extra` を materialize する
+- FullData 保持付き Quality save では、baked LoD を `raw-packed-splat` resource の optional `lodSplats` sidecar として保存する
+- baked LoD または RAD-only を持つ `.ssproj` は load 時に prebuilt LoD / RAD streaming を runtime に attach し、auto-LoD を待たずに使う
+- FullData 保持付き `.ssproj` では root FullData が正本であり、RAD bundle は高速表示用 cache として扱う
+- RAD-only Quality `.ssproj` では RAD が quantized source of truth であり、元 PLY/SOG 相当の完全 FullData は package 内に存在しない
+- LoD-first / RAD-first に lazy materialize した raw-packed splat source は、編集 / FullData gate が必要になった時に root `packedArray` / `extra` を materialize する。RAD-only source は `radBundle` を全展開し、`child_count === 0` の leaf splat だけを editable `PackedSplats` に戻す
 - splat 内容を変える per-splat edit 内の delete / separate / duplicate / transform は existing baked LoD を invalidate する。scene object transform は splat 内容を変えないため baked LoD / RAD cache を維持する。現在 session の表示最適化は splat edit toolbar の `LoD 最適化`、次回 load 用の永続化は package `Quality` save で行う
 - `raw-packed-splat` resource は optional derived cache として `radBundle` を持てる
   - `kind: "spark-rad-bundle"` / `version: 1` / `root` / `chunks[]` / `sourceFingerprint` / `bounds` / `sparkVersion` / `build` を持つ
   - RAD root / chunk entries は `.ssproj` ZIP 内で stored/uncompressed として保存し、stored entry Blob を Service Worker から `Range` 対応 URL として配信する
-  - `.ssproj` open は valid な `radBundle` があれば Spark `PagedSplats` + `SplatMesh({ paged })` を優先し、stored entry 条件 / source fingerprint / Service Worker / Range / RAD decode の失敗時は root FullData path に fallback する
-  - FullData が正本であり、RAD bundle は高速表示用 cache として扱う。per-splat edit / FullData gate に入ると FullData/PackedSplats へ swap し、runtime 上の RAD cache は stale として外す
+  - `.ssproj` open は valid な `radBundle` があれば Spark `PagedSplats` + `SplatMesh({ paged })` を優先する。FullData 付き source では stored entry 条件 / source fingerprint / Service Worker / Range / RAD decode の失敗時に root FullData path へ fallback し、RAD-only source では RAD bundle の full decode へ fallback する
+  - RAD-only resource は `fullDataPolicy: "derive-from-rad"` を持てる。この場合、Service Worker / Range streaming が使えない時も RAD bundle を full decode して editable `PackedSplats` へ fallback できる
+  - per-splat edit / FullData gate に入ると FullData/PackedSplats へ swap し、runtime 上の RAD cache は stale として外す。RAD-only から展開した editable data には `lodTree` / `radMeta` を持ち込まない
   - Quality save は package snapshot capture 前に browser module worker + WASM RAD encoder を lazy load し、生成できた asset だけ `radBundle` を同梱する
-  - RAD 生成は asset 単位の best-effort とし、worker load / encode / unsupported input で失敗しても既存 Quality `.ssproj` 保存は継続する。失敗した asset は `lodSplats` だけを保存し、`radBundle` は付けない
+  - RAD 生成は asset 単位の best-effort とし、worker load / encode / unsupported input で失敗しても既存 Quality `.ssproj` 保存は継続する。失敗した asset は FullData + `lodSplats` 保存へ戻し、`radBundle` は付けない
   - dev build では `?cfDevValidation=rad-ssproj&projectUrl=...` と `globalThis.__CF_BROWSER_VALIDATE__` で、browser-use から RAD package open / object transform / per-splat FullData swap を JSON 検証できる
 - `.ssproj` ZIP entry の圧縮方針は package open / RAD Range / 大容量 save の contract として扱う
   - JSON と raw PLY は deflate level 6 を基本にする

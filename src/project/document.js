@@ -25,6 +25,8 @@ export const DEFAULT_PROJECT_FILENAME = "camera-frames-project.ssproj";
 export const PROJECT_FILE_EMBEDDED_FILE_SOURCE = "project-file-embedded-file";
 export const PROJECT_FILE_PACKED_SPLAT_SOURCE = "project-file-packed-splat";
 export const PROJECT_RESOURCE_RAW_PACKED_SPLAT = "raw-packed-splat";
+export const PROJECT_FILE_PACKED_SPLAT_FULL_DATA_POLICY_DERIVE_FROM_RAD =
+	"derive-from-rad";
 export const PROJECT_ASSET_LABEL_MAX_LENGTH = 128;
 
 function isFiniteNumber(value) {
@@ -486,6 +488,12 @@ function cloneJsonObject(value, { skipClone = false } = {}) {
 	return skipClone ? value : JSON.parse(JSON.stringify(value));
 }
 
+function normalizePackedSplatFullDataPolicy(value) {
+	return value === PROJECT_FILE_PACKED_SPLAT_FULL_DATA_POLICY_DERIVE_FROM_RAD
+		? PROJECT_FILE_PACKED_SPLAT_FULL_DATA_POLICY_DERIVE_FROM_RAD
+		: null;
+}
+
 function clonePackedSplatExtra(extra = null) {
 	if (!extra || typeof extra !== "object") {
 		return {};
@@ -546,6 +554,13 @@ export function getProjectResourceStableKey(resource) {
 		typeof resource.packedArray?.sha256 === "string"
 	) {
 		return `raw-packed-splat:${resource.packedArray.sha256}:${resource.originalName ?? ""}`;
+	}
+
+	if (
+		resource.type === PROJECT_RESOURCE_RAW_PACKED_SPLAT &&
+		typeof resource.radBundle?.root?.sha256 === "string"
+	) {
+		return `raw-packed-splat-rad:${resource.radBundle.root.sha256}:${resource.originalName ?? ""}`;
 	}
 
 	return null;
@@ -756,6 +771,7 @@ export function createProjectFilePackedSplatSource({
 	splatEncoding = null,
 	lodSplats = null,
 	radBundle = null,
+	fullDataPolicy = null,
 	projectAssetState = null,
 	legacyState = null,
 	resource = null,
@@ -784,6 +800,7 @@ export function createProjectFilePackedSplatSource({
 		splatEncoding: cloneSplatEncoding(splatEncoding, { skipClone }),
 		lodSplats: cloneBakedLodSplats(lodSplats, { skipClone }),
 		radBundle: cloneRadBundle(radBundle, { skipClone }),
+		fullDataPolicy: normalizePackedSplatFullDataPolicy(fullDataPolicy),
 		projectAssetState,
 		legacyState,
 		resource,
@@ -820,6 +837,7 @@ export async function loadProjectFilePackedSplatFullDataSource(source) {
 		splatEncoding: fullData?.splatEncoding ?? source.splatEncoding ?? null,
 		lodSplats: fullData?.lodSplats ?? source.lodSplats ?? null,
 		radBundle: fullData?.radBundle ?? null,
+		fullDataPolicy: fullData?.fullDataPolicy ?? null,
 		projectAssetState:
 			fullData?.projectAssetState ?? source.projectAssetState ?? null,
 		legacyState: fullData?.legacyState ?? source.legacyState ?? null,

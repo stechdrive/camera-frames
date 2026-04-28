@@ -2,6 +2,7 @@ import { compressEmbeddedSplatSourceAsSogInWorker } from "../../engine/sog-compr
 import { readSerializedSogColumnsFromInput } from "../../engine/sog-data-table.js";
 import { REFERENCE_IMAGE_ASSET_KIND } from "../../reference-image-model.js";
 import {
+	PROJECT_FILE_PACKED_SPLAT_FULL_DATA_POLICY_DERIVE_FROM_RAD,
 	buildProjectResourcePath,
 	getProjectMediaTypeFromFileName,
 	isProjectFileEmbeddedFileSource,
@@ -422,10 +423,87 @@ async function serializeRawPackedSplatRadBundle(
 	};
 }
 
-async function serializeRawPackedSplatProjectSource(
+function getRadOnlyNumSplats(source) {
+	const fingerprintCount = source?.radBundle?.sourceFingerprint?.numSplats;
+	if (Number.isFinite(fingerprintCount) && fingerprintCount >= 0) {
+		return Math.floor(fingerprintCount);
+	}
+	return Number.isFinite(source?.numSplats) && source.numSplats >= 0
+		? Math.floor(source.numSplats)
+		: 0;
+}
+
+function shouldSerializeRadOnlyPackedSplatSource(
+	source,
+	{ preferRadOnlyPackedSplats = false } = {},
+) {
+	return (
+		preferRadOnlyPackedSplats === true &&
+		isProjectFilePackedSplatSource(source) &&
+		source.fullDataPolicy ===
+			PROJECT_FILE_PACKED_SPLAT_FULL_DATA_POLICY_DERIVE_FROM_RAD &&
+		Boolean(source.radBundle?.root)
+	);
+}
+
+async function serializeRadOnlyPackedSplatProjectSource(
 	source,
 	{ onProgress = null, progress = null } = {},
 ) {
+	if (progress) {
+		await notifyPackageProgress(onProgress, {
+			...progress,
+			stage: "copy-packed-splat",
+		});
+	}
+	const originalName = normalizeProjectFileName(
+		source.fileName,
+		"derived.rawsplat",
+	);
+	const archiveEntries = {};
+	const archiveEntryLabels = {};
+	const radBundleResource = await serializeRawPackedSplatRadBundle(
+		source.radBundle,
+		originalName,
+		archiveEntries,
+		archiveEntryLabels,
+	);
+	if (!radBundleResource) {
+		throw new Error(
+			`RAD-only package save for "${originalName}" has no readable RAD bundle.`,
+		);
+	}
+	const resource = cloneRawPackedSplatResource({
+		type: "raw-packed-splat",
+		assetKind: "splat",
+		originalName,
+		numSplats: getRadOnlyNumSplats(source),
+		splatEncoding: source.splatEncoding ?? null,
+		packedArray: null,
+		extraArrays: [],
+		radMeta: null,
+		lodSplats: null,
+		radBundle: radBundleResource,
+		fullDataPolicy: PROJECT_FILE_PACKED_SPLAT_FULL_DATA_POLICY_DERIVE_FROM_RAD,
+	});
+	source.resource = resource;
+	return {
+		resource,
+		archiveEntries,
+		archiveEntryLabels,
+	};
+}
+
+async function serializeRawPackedSplatProjectSource(
+	source,
+	{ onProgress = null, progress = null, radOnly = false } = {},
+) {
+	if (radOnly) {
+		return await serializeRadOnlyPackedSplatProjectSource(source, {
+			onProgress,
+			progress,
+		});
+	}
 	if (progress) {
 		await notifyPackageProgress(onProgress, {
 			...progress,
@@ -495,6 +573,7 @@ async function serializeRawPackedSplatProjectSource(
 		radMeta: source.extra?.radMeta ?? null,
 		lodSplats: lodSplatsResource,
 		radBundle: radBundleResource,
+		fullDataPolicy: null,
 	});
 	source.resource = resource;
 	return {
@@ -512,11 +591,15 @@ export async function serializeProjectAssetSource(
 		compressSplatsToSog = false,
 		sogMaxShBands = DEFAULT_SOG_MAX_SH_BANDS,
 		sogIterations = DEFAULT_SOG_ITERATIONS,
+		preferRadOnlyPackedSplats = false,
 		onProgress = null,
 	} = {},
 ) {
 	let source = asset.source;
-	if (isProjectFilePackedSplatSource(source)) {
+	const serializeRadOnly = shouldSerializeRadOnlyPackedSplatSource(source, {
+		preferRadOnlyPackedSplats,
+	});
+	if (isProjectFilePackedSplatSource(source) && !serializeRadOnly) {
 		source = await materializeProjectFilePackedSplatFullData(source);
 	}
 	const progress = {
@@ -558,6 +641,17 @@ export async function serializeProjectAssetSource(
 	}
 
 	if (isProjectFilePackedSplatSource(source)) {
+		if (
+			shouldSerializeRadOnlyPackedSplatSource(source, {
+				preferRadOnlyPackedSplats,
+			})
+		) {
+			return await serializeRawPackedSplatProjectSource(source, {
+				onProgress,
+				progress,
+				radOnly: true,
+			});
+		}
 		if ((source.packedArray?.length ?? 0) > 0) {
 			return await serializeRawPackedSplatProjectSource(source, {
 				onProgress,

@@ -1,4 +1,5 @@
 import {
+	PROJECT_FILE_PACKED_SPLAT_FULL_DATA_POLICY_DERIVE_FROM_RAD,
 	createProjectFilePackedSplatSource,
 	isProjectFilePackedSplatSource,
 	sha256Hex,
@@ -113,21 +114,33 @@ export function createProjectPackageSaveAssetsController({
 	supportsSparkRadBundleBuildImpl,
 	buildSparkRadBundleFromPackedSplatsImpl,
 }) {
-	function getSceneSplatAssetsForBake() {
+	function getSceneSplatAssetsForPackageSave() {
 		const assets = assetController?.getSceneAssets?.() ?? [];
-		return assets.filter(
-			(asset) =>
-				asset?.kind === "splat" && asset?.disposeTarget?.packedSplats != null,
+		return assets.filter((asset) => asset?.kind === "splat");
+	}
+
+	function getSceneSplatAssetsForBake() {
+		return getSceneSplatAssetsForPackageSave().filter(
+			(asset) => asset?.disposeTarget?.packedSplats != null,
 		);
 	}
 
 	function getAssetBakedQuality(asset) {
 		const value = asset?.source?.lodSplats?.bakedQuality;
-		return value === "quality" || value === "quick" ? value : null;
+		if (value === "quality" || value === "quick") {
+			return value;
+		}
+		if (
+			asset?.source?.radBundle?.root &&
+			asset.source.radBundle?.build?.mode === "quality"
+		) {
+			return "quality";
+		}
+		return null;
 	}
 
 	function getSceneBakedLodState() {
-		const splats = getSceneSplatAssetsForBake();
+		const splats = getSceneSplatAssetsForPackageSave();
 		if (splats.length === 0) {
 			return {
 				hasAnyBaked: false,
@@ -185,6 +198,7 @@ export function createProjectPackageSaveAssetsController({
 				legacyState: asset.source.legacyState ?? null,
 				resource: asset.source.resource ?? null,
 				radBundle: null,
+				fullDataPolicy: null,
 				skipClone: true,
 			});
 			return true;
@@ -212,6 +226,26 @@ export function createProjectPackageSaveAssetsController({
 			legacyState: asset.source?.legacyState ?? null,
 			resource: null,
 			radBundle: null,
+			fullDataPolicy: null,
+			skipClone: true,
+		});
+		return true;
+	}
+
+	function updatePackedSplatSourcePackagePolicy(
+		asset,
+		{
+			radBundle = asset?.source?.radBundle ?? null,
+			fullDataPolicy = null,
+		} = {},
+	) {
+		if (!asset || !isProjectFilePackedSplatSource(asset.source)) {
+			return false;
+		}
+		asset.source = createProjectFilePackedSplatSource({
+			...asset.source,
+			radBundle,
+			fullDataPolicy,
 			skipClone: true,
 		});
 		return true;
@@ -220,7 +254,7 @@ export function createProjectPackageSaveAssetsController({
 	async function attachRadBundleToAssetSource(
 		asset,
 		radBuildResult,
-		{ quality = false } = {},
+		{ quality = false, radOnly = false } = {},
 	) {
 		if (!asset || !isProjectFilePackedSplatSource(asset.source)) {
 			return false;
@@ -291,6 +325,9 @@ export function createProjectPackageSaveAssetsController({
 		asset.source = createProjectFilePackedSplatSource({
 			...asset.source,
 			radBundle,
+			fullDataPolicy: radOnly
+				? PROJECT_FILE_PACKED_SPLAT_FULL_DATA_POLICY_DERIVE_FROM_RAD
+				: null,
 			skipClone: true,
 		});
 		return true;
@@ -307,7 +344,12 @@ export function createProjectPackageSaveAssetsController({
 
 	async function buildRadBundleForPackageSave(
 		asset,
-		{ quality = false, lodSplats = null, onProgress = null } = {},
+		{
+			quality = false,
+			lodSplats = null,
+			radOnly = false,
+			onProgress = null,
+		} = {},
 	) {
 		if (!supportsSparkRadBundleBuildImpl()) {
 			return false;
@@ -337,13 +379,27 @@ export function createProjectPackageSaveAssetsController({
 				onProgress,
 			},
 		);
-		return await attachRadBundleToAssetSource(asset, result, { quality });
+		return await attachRadBundleToAssetSource(asset, result, {
+			quality,
+			radOnly,
+		});
 	}
 
 	async function bakeAllSplatLodsForPackageSave({
 		quality = false,
+		radOnly = false,
 		startedAt = Date.now(),
 	} = {}) {
+		if (radOnly) {
+			for (const asset of getSceneSplatAssetsForPackageSave()) {
+				if (asset.source?.radBundle?.root) {
+					updatePackedSplatSourcePackagePolicy(asset, {
+						fullDataPolicy:
+							PROJECT_FILE_PACKED_SPLAT_FULL_DATA_POLICY_DERIVE_FROM_RAD,
+					});
+				}
+			}
+		}
 		const assets = getSceneSplatAssetsForBake();
 		const total = assets.length;
 		if (total === 0) {
@@ -364,6 +420,16 @@ export function createProjectPackageSaveAssetsController({
 				asset.source?.lodSplats?.packedArray?.length &&
 				(!canBuildRadBundle || asset.source?.radBundle?.root)
 			) {
+				if (radOnly && asset.source?.radBundle?.root) {
+					updatePackedSplatSourcePackagePolicy(asset, {
+						fullDataPolicy:
+							PROJECT_FILE_PACKED_SPLAT_FULL_DATA_POLICY_DERIVE_FROM_RAD,
+					});
+				} else {
+					updatePackedSplatSourcePackagePolicy(asset, {
+						fullDataPolicy: null,
+					});
+				}
 				continue;
 			}
 			let capture =
@@ -417,6 +483,7 @@ export function createProjectPackageSaveAssetsController({
 				await buildRadBundleForPackageSave(asset, {
 					quality,
 					lodSplats: capture,
+					radOnly,
 					onProgress: async (progress) => {
 						const stage = resolvePackageRadBuildStageLabel(progress?.stage);
 						setOverlay(
@@ -436,6 +503,10 @@ export function createProjectPackageSaveAssetsController({
 					},
 				});
 			} catch (error) {
+				updatePackedSplatSourcePackagePolicy(asset, {
+					radBundle: null,
+					fullDataPolicy: null,
+				});
 				console.warn(
 					`[camera-frames] RAD bundle generation failed for "${assetLabel}". Quality save will continue without RAD for this asset.`,
 					error,

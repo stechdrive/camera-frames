@@ -90,6 +90,7 @@ export function createProjectController({
 		sogCompress: false,
 		sogMaxShBands: DEFAULT_SOG_MAX_SH_BANDS,
 		sogIterations: DEFAULT_SOG_ITERATIONS,
+		preserveSplatFullData: false,
 	};
 	const {
 		clearDirtyBaselines,
@@ -563,6 +564,9 @@ export function createProjectController({
 		flushDirtySplatSources?.();
 		const packageSaveMode = normalizeSaveMode(values.saveMode);
 		const bakeLod = packageSaveMode === "quality";
+		const preserveSplatFullData =
+			bakeLod && values.preserveSplatFullData === true;
+		const preferRadOnlyPackedSplats = bakeLod && !preserveSplatFullData;
 		// SOG is only meaningful in Fast mode — Quality always promotes sources
 		// to raw-packed-splat to carry the baked LoD, which bypasses SOG's
 		// embedded-file code path.
@@ -579,6 +583,7 @@ export function createProjectController({
 			sogIterations: PACKAGE_SOG_ITERATION_OPTIONS.includes(sogIterations)
 				? sogIterations
 				: DEFAULT_SOG_ITERATIONS,
+			preserveSplatFullData,
 		};
 
 		currentProjectName =
@@ -612,9 +617,11 @@ export function createProjectController({
 			);
 			await new Promise((resolve) => requestAnimationFrame(resolve));
 
-			await assetController.ensureFullDataForSplatAssets?.(null, {
-				silent: true,
-			});
+			if (!preferRadOnlyPackedSplats) {
+				await assetController.ensureFullDataForSplatAssets?.(null, {
+					silent: true,
+				});
+			}
 
 			// Must run before captureProjectState — the bake mutates
 			// `asset.source.lodSplats`, and the snapshot pipeline below
@@ -625,6 +632,7 @@ export function createProjectController({
 			if (bakeLod) {
 				await bakeAllSplatLodsForPackageSave({
 					quality: true,
+					radOnly: preferRadOnlyPackedSplats,
 					startedAt: progressStartedAt,
 				});
 			}
@@ -646,6 +654,7 @@ export function createProjectController({
 						compressSplatsToSog: sogCompress,
 						sogMaxShBands: preferredPackageSaveOptions.sogMaxShBands,
 						sogIterations: preferredPackageSaveOptions.sogIterations,
+						preferRadOnlyPackedSplats,
 						onProgress: async (progress) => {
 							const detail = buildPackageProgressDetail(t, progress);
 							setOverlay(
@@ -804,6 +813,21 @@ export function createProjectController({
 								value: String(value),
 								label: t(`overlay.packageSogIterations.${value}`),
 							})),
+						},
+					],
+				},
+				{
+					id: "qualityOptions",
+					type: "group",
+					label: t("overlay.packageQualityOptions"),
+					open: false,
+					hidden: (values) => values.saveMode !== "quality",
+					fields: [
+						{
+							id: "preserveSplatFullData",
+							type: "checkbox",
+							label: t("overlay.packageFieldPreserveSplatFullData"),
+							value: preferredPackageSaveOptions.preserveSplatFullData === true,
 						},
 					],
 				},

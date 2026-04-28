@@ -1,11 +1,13 @@
 import { REFERENCE_IMAGE_ASSET_KIND } from "../../reference-image-model.js";
 import {
+	PROJECT_FILE_PACKED_SPLAT_FULL_DATA_POLICY_DERIVE_FROM_RAD,
 	PROJECT_RESOURCE_RAW_PACKED_SPLAT,
 	createProjectFileEmbeddedFileSource,
 	createProjectFilePackedSplatSource,
 	toUint32Array,
 } from "../document.js";
 import { notifyProjectReadProgress } from "./progress.js";
+import { materializeRadBundleToPackedSplatData } from "./rad-unlod.js";
 import {
 	cloneFileResource,
 	clonePackedSplatResource,
@@ -28,7 +30,7 @@ function getResourceFileCount(resource) {
 	}
 	if (resource.type === PROJECT_RESOURCE_RAW_PACKED_SPLAT) {
 		return (
-			1 +
+			(resource.packedArray?.path ? 1 : 0) +
 			(resource.extraArrays?.length ?? 0) +
 			(resource.lodSplats?.packedArray?.path ? 1 : 0) +
 			(resource.lodSplats?.extraArrays?.length ?? 0) +
@@ -53,6 +55,11 @@ export function cloneResourceForSource(resource, kind) {
 }
 
 async function readRawPackedSplatFullData(reader, resource) {
+	if (!resource.packedArray?.path) {
+		throw new Error(
+			`raw-packed-splat resource "${resource.originalName ?? "rawsplat"}" has no FullData packedArray.`,
+		);
+	}
 	const [packedArrayBytes, ...extraBytesArray] = await Promise.all([
 		reader.bytes(resource.packedArray?.path),
 		...(resource.extraArrays ?? []).map((ea) => reader.bytes(ea.path)),
@@ -74,6 +81,9 @@ async function readRawPackedSplatFullData(reader, resource) {
 
 async function captureRawPackedSplatFullDataReader(reader, resource) {
 	const packedArrayPath = resource.packedArray?.path;
+	if (!packedArrayPath) {
+		return null;
+	}
 	const extraEntries = [...(resource.extraArrays ?? [])];
 	return {
 		async read() {
@@ -187,16 +197,23 @@ function isRawPackedSplatRadBundleFingerprintCompatible(
 	return true;
 }
 
-async function readRawPackedSplatRadBundle(reader, radBundleResource) {
+async function readRawPackedSplatRadBundle(
+	reader,
+	radBundleResource,
+	{ allowByteFallback = false } = {},
+) {
 	if (!radBundleResource?.root?.path) {
 		return null;
 	}
 	const rootEntry = reader.getEntry(radBundleResource.root.path);
-	const rootBlob = await reader.getStoredEntryBlob(
-		radBundleResource.root.path,
-		rootEntry,
-	);
-	if (!rootBlob) {
+	const rootBlob =
+		(await reader.getStoredEntryBlob(radBundleResource.root.path, rootEntry)) ??
+		null;
+	const rootBytes =
+		!rootBlob && allowByteFallback
+			? await reader.bytes(radBundleResource.root.path)
+			: null;
+	if (!rootBlob && !rootBytes) {
 		return null;
 	}
 	const chunks = [];
@@ -205,13 +222,16 @@ async function readRawPackedSplatRadBundle(reader, radBundleResource) {
 			continue;
 		}
 		const zipEntry = reader.getEntry(entry.path);
-		const blob = await reader.getStoredEntryBlob(entry.path, zipEntry);
-		if (!blob) {
+		const blob =
+			(await reader.getStoredEntryBlob(entry.path, zipEntry)) ?? null;
+		const bytes =
+			!blob && allowByteFallback ? await reader.bytes(entry.path) : null;
+		if (!blob && !bytes) {
 			return null;
 		}
 		chunks.push({
 			...entry,
-			blob,
+			...(blob ? { blob } : { bytes }),
 		});
 	}
 	return {
@@ -219,7 +239,7 @@ async function readRawPackedSplatRadBundle(reader, radBundleResource) {
 		version: radBundleResource.version ?? 1,
 		root: {
 			...radBundleResource.root,
-			blob: rootBlob,
+			...(rootBlob ? { blob: rootBlob } : { bytes: rootBytes }),
 		},
 		chunks,
 		sourceFingerprint: radBundleResource.sourceFingerprint ?? null,
@@ -227,6 +247,14 @@ async function readRawPackedSplatRadBundle(reader, radBundleResource) {
 		sparkVersion: radBundleResource.sparkVersion ?? null,
 		build: radBundleResource.build ?? null,
 	};
+}
+
+function isRawPackedSplatRadOnlyResource(resource) {
+	return (
+		resource?.fullDataPolicy ===
+			PROJECT_FILE_PACKED_SPLAT_FULL_DATA_POLICY_DERIVE_FROM_RAD ||
+		(resource?.radBundle?.root?.path && !resource?.packedArray?.path)
+	);
 }
 
 export async function materializeProjectAssetResource({
@@ -297,13 +325,57 @@ export async function materializeProjectAssetResource({
 			resource,
 			resource.radBundle,
 		)
-			? await readRawPackedSplatRadBundle(reader, resource.radBundle)
+			? await readRawPackedSplatRadBundle(reader, resource.radBundle, {
+					allowByteFallback: isRawPackedSplatRadOnlyResource(resource),
+				})
 			: null;
 		if (radBundle) {
+			if (isRawPackedSplatRadOnlyResource(resource)) {
+				await notifyAssetProgress("extract-project-asset-complete");
+				return createProjectFilePackedSplatSource({
+					fileName: resource.originalName,
+					packedArray: new Uint32Array(),
+					numSplats: resource.numSplats ?? 0,
+					extra: {},
+					splatEncoding: resource.splatEncoding ?? null,
+					lodSplats: null,
+					radBundle,
+					fullDataPolicy:
+						PROJECT_FILE_PACKED_SPLAT_FULL_DATA_POLICY_DERIVE_FROM_RAD,
+					projectAssetState: asset,
+					legacyState: asset.legacyState ?? null,
+					resource: cloneRawPackedSplatResource(resource),
+					deferredFullData: {
+						loadFullData: async () => {
+							const fullData =
+								await materializeRadBundleToPackedSplatData(radBundle);
+							return {
+								fileName: resource.originalName,
+								packedArray: fullData.packedArray,
+								numSplats: fullData.numSplats,
+								extra: fullData.extra,
+								splatEncoding: fullData.splatEncoding,
+								lodSplats: null,
+								radBundle: null,
+								fullDataPolicy: null,
+								projectAssetState: asset,
+								legacyState: asset.legacyState ?? null,
+								resource: cloneRawPackedSplatResource(resource),
+							};
+						},
+					},
+					skipClone: true,
+				});
+			}
 			const fullDataReader = await captureRawPackedSplatFullDataReader(
 				reader,
 				resource,
 			);
+			if (!fullDataReader) {
+				throw new Error(
+					`raw-packed-splat resource "${resource.originalName ?? "rawsplat"}" has RAD cache but no readable FullData.`,
+				);
+			}
 			const lodBundleReader = await captureRawPackedSplatLodBundleReader(
 				reader,
 				resource.lodSplats,
@@ -317,6 +389,7 @@ export async function materializeProjectAssetResource({
 				splatEncoding: resource.splatEncoding ?? null,
 				lodSplats: null,
 				radBundle,
+				fullDataPolicy: null,
 				projectAssetState: asset,
 				legacyState: asset.legacyState ?? null,
 				resource: cloneRawPackedSplatResource(resource),
@@ -333,6 +406,8 @@ export async function materializeProjectAssetResource({
 							extra: fullData.extra,
 							splatEncoding: fullData.splatEncoding,
 							lodSplats,
+							radBundle: null,
+							fullDataPolicy: null,
 							projectAssetState: asset,
 							legacyState: asset.legacyState ?? null,
 							resource: cloneRawPackedSplatResource(resource),
@@ -341,6 +416,11 @@ export async function materializeProjectAssetResource({
 				},
 				skipClone: true,
 			});
+		}
+		if (isRawPackedSplatRadOnlyResource(resource)) {
+			throw new Error(
+				`RAD-only splat resource "${resource.originalName ?? "rawsplat"}" is missing a readable RAD bundle.`,
+			);
 		}
 		const lodSplats = await readRawPackedSplatLodBundle(
 			reader,

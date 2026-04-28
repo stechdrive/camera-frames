@@ -46,10 +46,12 @@
 - desktop では同じ HUD の `プレビュー品質` で 3DGS viewport 表示の軽さと細部確認のしやすさを端末ごとに調整できる
 - モバイル UI では下部ドック右端の歯車から `UI 倍率` を調整できる。設定は端末ローカルの localStorage に保存され、WebGL viewport / 用紙 / FRAME / 下絵 / export output には影響しない
 - `Fast` package save は通常保存で、条件が揃う場合のみ advanced option として未編集 3DGS の SOG compression を選べる
-- `Quality` package save は Spark LoD を事前計算し、`raw-packed-splat` の `lodSplats` sidecar として `.ssproj` に保存する
-- `Quality` package save は生成可能な splat asset について WASM RAD encoder で chunked `radBundle` を作り、`.ssproj` 内の stored entry として同梱する。RAD 生成に失敗した asset でも保存は止めず、既存の `lodSplats` 保存に戻る
-- baked LoD 付き `.ssproj` は load 直後から prebuilt LoD を使い、必要な時だけ root FullData を materialize する
-- `raw-packed-splat` は derived cache として `radBundle` を持てる。RAD bundle 付き `.ssproj` は Service Worker の `Range` 配信経由で Spark `PagedSplats` 表示を優先し、失敗時は FullData 読み込みに戻る
+- `Quality` package save は Spark LoD と chunked `radBundle` を事前計算し、既定では `packedArray` / `extraArrays` / `lodSplats` を重複保存しない RAD-only `.ssproj` を作る
+- Quality の詳細オプションで元の 3DGS FullData 保持を選んだ時だけ、従来どおり root FullData と `lodSplats` も保存する
+- RAD 生成に失敗した asset はデータ消失を避けるため FullData + `lodSplats` 保存へ戻し、保存自体は継続する
+- baked LoD / RAD-only 付き `.ssproj` は load 直後から prebuilt LoD / RAD streaming を使い、必要な時だけ editable FullData を materialize する
+- `raw-packed-splat` は `radBundle` と `fullDataPolicy: "derive-from-rad"` を持てる。RAD-only source は RAD が quantized source of truth で、per-splat edit に入る時に leaf splat だけの editable `PackedSplats` へ展開する
+- RAD bundle 付き `.ssproj` は Service Worker の `Range` 配信経由で Spark `PagedSplats` 表示を優先する。FullData 付き source は失敗時に FullData 読み込みへ戻り、RAD-only source は RAD の full decode へ戻る
 - `.ssproj` ZIP では RAD / GLB / image / SOG / SPZ / packed companion binary / raw-packed binary を stored entry として保存し、JSON と raw PLY は deflate を使う
 
 ### 2.3 Scene assets

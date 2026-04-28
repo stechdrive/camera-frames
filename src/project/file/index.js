@@ -5,6 +5,7 @@ import {
 import { normalizeReferenceImageDocument } from "../../reference-image-model.js";
 import {
 	PROJECT_DOCUMENT_PATH,
+	PROJECT_FILE_PACKED_SPLAT_FULL_DATA_POLICY_DERIVE_FROM_RAD,
 	PROJECT_MANIFEST_PATH,
 	buildProjectFingerprint,
 	buildProjectManifest,
@@ -55,11 +56,14 @@ async function serializeCameraFramesProjectPackageContents(
 		compressSplatsToSog = false,
 		sogMaxShBands = DEFAULT_SOG_MAX_SH_BANDS,
 		sogIterations = DEFAULT_SOG_ITERATIONS,
+		preferRadOnlyPackedSplats = false,
 		onProgress = null,
 	} = {},
 ) {
 	const normalizedProject = normalizeProjectDocument(projectSnapshot);
-	await materializeDeferredPackedSplatSources(normalizedProject);
+	await materializeDeferredPackedSplatSources(normalizedProject, {
+		preferRadOnlyPackedSplats,
+	});
 	const archiveEntries = {};
 	const resources = {};
 	const serializedAssets = [];
@@ -80,6 +84,7 @@ async function serializeCameraFramesProjectPackageContents(
 				compressSplatsToSog,
 				sogMaxShBands,
 				sogIterations,
+				preferRadOnlyPackedSplats,
 				onProgress,
 			},
 		);
@@ -141,9 +146,32 @@ async function serializeCameraFramesProjectPackageContents(
 	};
 }
 
-async function materializeDeferredPackedSplatSources(project) {
+function shouldKeepRadOnlyPackedSplatSource(
+	source,
+	{ preferRadOnlyPackedSplats },
+) {
+	return (
+		preferRadOnlyPackedSplats === true &&
+		isProjectFilePackedSplatSource(source) &&
+		source.fullDataPolicy ===
+			PROJECT_FILE_PACKED_SPLAT_FULL_DATA_POLICY_DERIVE_FROM_RAD &&
+		Boolean(source.radBundle?.root)
+	);
+}
+
+async function materializeDeferredPackedSplatSources(
+	project,
+	{ preferRadOnlyPackedSplats = false } = {},
+) {
 	for (const asset of project?.scene?.assets ?? []) {
 		if (isProjectFilePackedSplatSource(asset?.source)) {
+			if (
+				shouldKeepRadOnlyPackedSplatSource(asset.source, {
+					preferRadOnlyPackedSplats,
+				})
+			) {
+				continue;
+			}
 			await materializeProjectFilePackedSplatFullData(asset.source);
 		}
 	}
@@ -155,6 +183,7 @@ export async function buildCameraFramesProjectPackage(
 		compressSplatsToSog = false,
 		sogMaxShBands = DEFAULT_SOG_MAX_SH_BANDS,
 		sogIterations = DEFAULT_SOG_ITERATIONS,
+		preferRadOnlyPackedSplats = false,
 		onProgress = null,
 	} = {},
 ) {
@@ -164,6 +193,7 @@ export async function buildCameraFramesProjectPackage(
 			compressSplatsToSog,
 			sogMaxShBands,
 			sogIterations,
+			preferRadOnlyPackedSplats,
 			onProgress,
 		},
 	);
@@ -182,11 +212,21 @@ export async function buildCameraFramesProjectPackage(
 	};
 }
 
-function countSerializedSourceEntries(source) {
+function countSerializedSourceEntries(
+	source,
+	{ preferRadOnlyPackedSplats = false } = {},
+) {
 	if (isProjectFileEmbeddedFileSource(source)) {
 		return 1;
 	}
 	if (isProjectFilePackedSplatSource(source)) {
+		if (
+			shouldKeepRadOnlyPackedSplatSource(source, {
+				preferRadOnlyPackedSplats,
+			})
+		) {
+			return 1 + (source.radBundle?.chunks?.length ?? 0);
+		}
 		if ((source.packedArray?.length ?? 0) > 0) {
 			return (
 				1 +
@@ -203,10 +243,17 @@ function countSerializedSourceEntries(source) {
 	return 0;
 }
 
-function countProjectArchiveEntries(project) {
+function countProjectArchiveEntries(
+	project,
+	{ preferRadOnlyPackedSplats = false } = {},
+) {
 	return (
 		project.scene.assets.reduce(
-			(total, asset) => total + countSerializedSourceEntries(asset.source),
+			(total, asset) =>
+				total +
+				countSerializedSourceEntries(asset.source, {
+					preferRadOnlyPackedSplats,
+				}),
 			0,
 		) +
 		normalizeReferenceImageDocument(
@@ -228,10 +275,13 @@ export async function writeCameraFramesProjectPackageToWritable(
 		compressSplatsToSog = false,
 		sogMaxShBands = DEFAULT_SOG_MAX_SH_BANDS,
 		sogIterations = DEFAULT_SOG_ITERATIONS,
+		preferRadOnlyPackedSplats = false,
 		onProgress = null,
 	} = options ?? {};
 	const normalizedProject = normalizeProjectDocument(projectSnapshot);
-	await materializeDeferredPackedSplatSources(normalizedProject);
+	await materializeDeferredPackedSplatSources(normalizedProject, {
+		preferRadOnlyPackedSplats,
+	});
 	const resources = {};
 	const serializedAssets = [];
 	const normalizedReferenceImages = normalizeReferenceImageDocument(
@@ -240,7 +290,9 @@ export async function writeCameraFramesProjectPackageToWritable(
 	const serializedReferenceImageAssets = [];
 	const totalAssets = normalizedProject.scene.assets.length;
 	const totalReferenceImageAssets = normalizedReferenceImages.assets.length;
-	const totalEntries = countProjectArchiveEntries(normalizedProject);
+	const totalEntries = countProjectArchiveEntries(normalizedProject, {
+		preferRadOnlyPackedSplats,
+	});
 	let writtenEntries = 0;
 	const writtenArchiveEntryPaths = new Set();
 	const zipWriter = createArchiveWritableStream(writable, {
@@ -257,6 +309,7 @@ export async function writeCameraFramesProjectPackageToWritable(
 				compressSplatsToSog,
 				sogMaxShBands,
 				sogIterations,
+				preferRadOnlyPackedSplats,
 				onProgress,
 			},
 		);
