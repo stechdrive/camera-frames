@@ -30,6 +30,7 @@ export function createRuntimeAnimateLoop({
 	syncViewportTransformGizmo,
 	syncViewportAxisGizmo,
 	updateOutputFrameOverlay,
+	updateCameraSummary,
 	syncReferenceImagePreview,
 	syncProjectPresentation,
 	navigationHistory,
@@ -84,6 +85,7 @@ export function createRuntimeAnimateLoop({
 			state.mode === WORKSPACE_PANE_CAMERA && getShotCameraRollLock?.()
 				? Number(store.shotCamera.rollDeg.value)
 				: null;
+		const poseChangedBeforeUpdate = hasCameraPoseChanged(activeCamera);
 		snapshotCameraPose(activeCamera);
 		const navigationActiveBeforeUpdate =
 			hasKeyboardNavigationActivity() || hasPointerNavigationActivity();
@@ -92,7 +94,8 @@ export function createRuntimeAnimateLoop({
 		if (Number.isFinite(lockedRollDegrees)) {
 			setShotCameraRollAngleDegrees?.(lockedRollDegrees);
 		}
-		const poseChanged = hasCameraPoseChanged(activeCamera);
+		const poseChanged =
+			poseChangedBeforeUpdate || hasCameraPoseChanged(activeCamera);
 		snapshotCameraPose(activeCamera);
 		navigationHistory.noteFrame({
 			targetKey: getActiveCameraHistoryTargetKey(),
@@ -106,6 +109,7 @@ export function createRuntimeAnimateLoop({
 		});
 		if (poseChanged) {
 			syncProjectPresentation?.();
+			updateCameraSummary?.();
 		}
 
 		if (timing) t1 = performance.now();

@@ -307,6 +307,7 @@ export function createRuntimeController({
 		syncViewportTransformGizmo,
 		syncViewportAxisGizmo,
 		updateOutputFrameOverlay,
+		updateCameraSummary,
 		syncReferenceImagePreview,
 		syncProjectPresentation,
 		navigationHistory,
