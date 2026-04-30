@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { spawn, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
 	existsSync,
 	mkdirSync,
@@ -16,6 +17,16 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { initializeCanvas, readPsd } from "ag-psd";
+import { ZipReader } from "../src/project-archive.js";
+import {
+	PROJECT_DOCUMENT_PATH,
+	PROJECT_FILE_PACKED_SPLAT_FULL_DATA_POLICY_DERIVE_FROM_RAD,
+	isProjectFilePackedSplatSource,
+} from "../src/project/document.js";
+import {
+	buildCameraFramesProjectArchive,
+	readCameraFramesProject,
+} from "../src/project/file/index.js";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const DEFAULT_HOST = "127.0.0.1";
@@ -124,6 +135,26 @@ export const DEFAULT_SCENARIOS = [
 		assetIndex: 0,
 	},
 	{
+		id: "quality-rad-shot-camera-resave",
+		kind: "quality-rad-reuse-save",
+		description:
+			"Create a temporary RAD-only package from a Quality RAD package, reopen it, change only shot camera lens, then verify Quality save reuses RAD resources.",
+		project: "/.local/cf-test/cf-test-quality-rad.ssproj",
+		optional: true,
+		forceRadStreamingFallback: false,
+		generateRadOnlyFirst: true,
+		cdpCommandTimeoutMs: 600000,
+		mutate: {
+			baseFovXDelta: 0.5,
+		},
+		expect: {
+			minRadBundles: 1,
+			requireRadOnly: true,
+			requireRadMetadataReuse: true,
+			requireFullDataRuntime: false,
+		},
+	},
+	{
 		id: "trajectory-fixture",
 		kind: "docs-fixture",
 		description: "Open a high-risk frame trajectory help fixture.",
@@ -138,6 +169,7 @@ const SUPPORTED_KINDS = new Set([
 	"project-summary",
 	"psd-export",
 	"rad-ssproj",
+	"quality-rad-reuse-save",
 	"docs-fixture",
 ]);
 
@@ -634,6 +666,408 @@ export function evaluatePsdGoldenExpectations(
 	};
 }
 
+async function inspectProjectPackageRadSummaryFromFile(filePath) {
+	const bytes = readFileSync(filePath);
+	const reader = await ZipReader.from(new Blob([bytes]));
+	try {
+		const project = JSON.parse(await reader.text(PROJECT_DOCUMENT_PATH));
+		return inspectProjectPackageRadSummary(project, reader, {
+			file: relativePath(filePath),
+			byteLength: bytes.byteLength,
+		});
+	} finally {
+		await reader.close();
+	}
+}
+
+async function createRadOnlyPackageFromQualityRadFile(inputFile, outputFile) {
+	const bytes = readFileSync(inputFile);
+	const fileName = inputFile.split(/[\\/]/).pop() || "project.ssproj";
+	const readResult = await readCameraFramesProject(new File([bytes], fileName));
+	const assetEntries = readResult.assetEntries.map((asset) => {
+		const source = asset?.source;
+		if (
+			isProjectFilePackedSplatSource(source) &&
+			source.radBundle?.root &&
+			source.radBundle?.build?.mode === "quality"
+		) {
+			source.fullDataPolicy =
+				PROJECT_FILE_PACKED_SPLAT_FULL_DATA_POLICY_DERIVE_FROM_RAD;
+			source.packedArray = new Uint32Array();
+			source.extra = {};
+			source.lodSplats = null;
+		}
+		return asset;
+	});
+	const project = {
+		...readResult.project,
+		scene: {
+			...readResult.project.scene,
+			assets: assetEntries,
+		},
+	};
+	const archive = await buildCameraFramesProjectArchive(project, {
+		preferRadOnlyPackedSplats: true,
+	});
+	mkdirSync(dirname(outputFile), { recursive: true });
+	writeFileSync(outputFile, archive);
+	return await inspectProjectPackageRadSummaryFromFile(outputFile);
+}
+
+function inspectProjectPackageRadSummary(project, reader, source = {}) {
+	const radBundles = [];
+	for (const [resourceId, resource] of Object.entries(
+		project?.resources ?? {},
+	)) {
+		const radBundle = resource?.radBundle ?? null;
+		if (!radBundle?.root?.path) {
+			continue;
+		}
+		radBundles.push({
+			resourceId,
+			originalName: resource?.originalName ?? null,
+			fullDataPolicy: resource?.fullDataPolicy ?? null,
+			hasPackedArray: Boolean(resource?.packedArray?.path),
+			hasLodSplats: Boolean(resource?.lodSplats?.packedArray?.path),
+			numSplats: Number.isFinite(resource?.numSplats)
+				? resource.numSplats
+				: null,
+			buildMode: radBundle?.build?.mode ?? null,
+			root: summarizeRadPackageEntry(radBundle.root, reader),
+			chunks: (radBundle.chunks ?? []).map((entry) =>
+				summarizeRadPackageEntry(entry, reader),
+			),
+		});
+	}
+	return {
+		...source,
+		entryCount: reader.listFilenames().length,
+		resourceCount: Object.keys(project?.resources ?? {}).length,
+		project: summarizePackageProject(project),
+		radBundles,
+	};
+}
+
+function summarizeRadPackageEntry(entry, reader) {
+	const zipEntry = entry?.path ? reader.entries.get(entry.path) : null;
+	return {
+		name: entry?.name ?? null,
+		path: entry?.path ?? null,
+		sha256: entry?.sha256 ?? null,
+		size: Number.isFinite(entry?.size) ? entry.size : null,
+		exists: Boolean(zipEntry),
+		zipSize: Number.isFinite(zipEntry?.uncompressedSize)
+			? zipEntry.uncompressedSize
+			: null,
+	};
+}
+
+function summarizePackageProject(project) {
+	const activeShotCameraId = project?.workspace?.activeShotCameraId ?? null;
+	const shotCameras = Array.isArray(project?.shotCameras)
+		? project.shotCameras
+		: [];
+	const activeShot =
+		shotCameras.find((shot) => shot?.id === activeShotCameraId) ??
+		shotCameras[0] ??
+		null;
+	return {
+		projectId: project?.projectId ?? null,
+		packageRevision: project?.packageRevision ?? null,
+		activeShotCameraId,
+		activeShotCamera: activeShot
+			? {
+					id: activeShot.id ?? null,
+					name: activeShot.name ?? null,
+					baseFovX: activeShot.lens?.baseFovX ?? null,
+					viewZoom: activeShot.outputFrame?.viewZoom ?? null,
+				}
+			: null,
+		shotCameraCount: shotCameras.length,
+	};
+}
+
+function buildInputQualityRadPackageChecks(summary, expectations = {}) {
+	const minRadBundles = Number(expectations.minRadBundles ?? 1);
+	const radBundles = summary?.radBundles ?? [];
+	const qualityBundles = radBundles.filter(
+		(bundle) => bundle.buildMode === "quality",
+	);
+	const missingEntries = radBundles.flatMap((bundle) =>
+		[bundle.root, ...(bundle.chunks ?? [])].filter((entry) => !entry.exists),
+	);
+	return [
+		{
+			name: "input-quality-rad-bundles-min",
+			ok: qualityBundles.length >= minRadBundles,
+			details: {
+				file: summary?.file ?? null,
+				qualityBundles: qualityBundles.length,
+				radBundles: radBundles.length,
+				minRadBundles,
+			},
+		},
+		{
+			name: "input-rad-archive-entries-present",
+			ok: missingEntries.length === 0,
+			details: {
+				missingEntries,
+				radBundles: radBundles.map((bundle) => ({
+					originalName: bundle.originalName,
+					root: bundle.root?.path,
+					chunks: bundle.chunks?.length ?? 0,
+				})),
+			},
+		},
+	];
+}
+
+function buildGeneratedRadOnlyPackageChecks(summary, expectations = {}) {
+	const minRadBundles = Number(expectations.minRadBundles ?? 1);
+	const radBundles = summary?.radBundles ?? [];
+	const missingEntries = radBundles.flatMap((bundle) =>
+		[bundle.root, ...(bundle.chunks ?? [])].filter((entry) => !entry.exists),
+	);
+	return [
+		{
+			name: "generated-rad-only-bundles-min",
+			ok: radBundles.length >= minRadBundles,
+			details: {
+				file: summary?.file ?? null,
+				radBundles: radBundles.length,
+				minRadBundles,
+			},
+		},
+		{
+			name: "generated-rad-only-resources",
+			ok:
+				radBundles.length > 0 &&
+				radBundles.every(
+					(bundle) =>
+						bundle.fullDataPolicy === "derive-from-rad" &&
+						bundle.hasPackedArray === false &&
+						bundle.hasLodSplats === false &&
+						bundle.buildMode === "quality",
+				),
+			details: {
+				radBundles: radBundles.map((bundle) => ({
+					originalName: bundle.originalName,
+					fullDataPolicy: bundle.fullDataPolicy,
+					hasPackedArray: bundle.hasPackedArray,
+					hasLodSplats: bundle.hasLodSplats,
+					buildMode: bundle.buildMode,
+				})),
+			},
+		},
+		{
+			name: "generated-rad-only-archive-entries-present",
+			ok: missingEntries.length === 0,
+			details: { missingEntries },
+		},
+	];
+}
+
+function evaluateQualityRadReuseSaveExpectations({
+	inputSummary,
+	outputSummary,
+	browserObservations,
+	expectations = {},
+}) {
+	const checks = [];
+	function check(name, ok, details = {}) {
+		const entry = { name, ok: Boolean(ok), details };
+		checks.push(entry);
+		return entry;
+	}
+
+	const inputQualityBundles = (inputSummary?.radBundles ?? []).filter(
+		(bundle) => bundle.buildMode === "quality",
+	);
+	const outputBundles = outputSummary?.radBundles ?? [];
+	const outputBySignature = new Map(
+		outputBundles.map((bundle) => [buildRadBundleSignature(bundle), bundle]),
+	);
+	const reused = [];
+	const missing = [];
+	const changedPaths = [];
+	for (const inputBundle of inputQualityBundles) {
+		const signature = buildRadBundleSignature(inputBundle);
+		const outputBundle = outputBySignature.get(signature);
+		if (!outputBundle) {
+			missing.push({
+				originalName: inputBundle.originalName,
+				rootSha256: inputBundle.root?.sha256 ?? null,
+			});
+			continue;
+		}
+		reused.push({
+			originalName: inputBundle.originalName,
+			rootSha256: inputBundle.root?.sha256 ?? null,
+		});
+		if (!radBundlePathsEqual(inputBundle, outputBundle)) {
+			changedPaths.push({
+				originalName: inputBundle.originalName,
+				inputRoot: inputBundle.root?.path ?? null,
+				outputRoot: outputBundle.root?.path ?? null,
+			});
+		}
+	}
+
+	const minRadBundles = Number(expectations.minRadBundles ?? 1);
+	check("saved-rad-bundles-min", outputBundles.length >= minRadBundles, {
+		outputRadBundles: outputBundles.length,
+		minRadBundles,
+	});
+	if (expectations.requireRadMetadataReuse !== false) {
+		check(
+			"saved-rad-metadata-reused",
+			inputQualityBundles.length > 0 &&
+				missing.length === 0 &&
+				changedPaths.length === 0,
+			{
+				inputQualityBundles: inputQualityBundles.length,
+				reused: reused.length,
+				missing,
+				changedPaths,
+			},
+		);
+	}
+	if (expectations.requireRadOnly !== false) {
+		check(
+			"saved-rad-only-resources",
+			outputBundles.length > 0 &&
+				outputBundles.every(
+					(bundle) =>
+						bundle.fullDataPolicy === "derive-from-rad" &&
+						bundle.hasPackedArray === false &&
+						bundle.hasLodSplats === false,
+				),
+			{
+				outputBundles: outputBundles.map((bundle) => ({
+					originalName: bundle.originalName,
+					fullDataPolicy: bundle.fullDataPolicy,
+					hasPackedArray: bundle.hasPackedArray,
+					hasLodSplats: bundle.hasLodSplats,
+				})),
+			},
+		);
+	}
+	check(
+		"saved-rad-build-mode-quality",
+		outputBundles.length > 0 &&
+			outputBundles.every((bundle) => bundle.buildMode === "quality"),
+		{
+			outputBundles: outputBundles.map((bundle) => ({
+				originalName: bundle.originalName,
+				buildMode: bundle.buildMode,
+			})),
+		},
+	);
+	check(
+		"saved-rad-archive-entries-present",
+		outputBundles.every((bundle) =>
+			[bundle.root, ...(bundle.chunks ?? [])].every(
+				(entry) =>
+					entry.exists === true &&
+					(!Number.isFinite(entry.size) || entry.zipSize === entry.size),
+			),
+		),
+		{
+			outputBundles: outputBundles.map((bundle) => ({
+				originalName: bundle.originalName,
+				root: bundle.root,
+				chunks: bundle.chunks?.length ?? 0,
+			})),
+		},
+	);
+
+	if (expectations.requireFullDataRuntime !== false) {
+		const fallbackAssets = (browserObservations?.assetsAfterLoad ?? []).filter(
+			(asset) =>
+				asset.kind === "splat" &&
+				asset.hasPackedSplats &&
+				!asset.hasPaged &&
+				asset.sourceHasRad &&
+				asset.sourceRadBuildMode === "quality",
+		);
+		check(
+			"loaded-quality-rad-fallback-preserved-cache",
+			fallbackAssets.length > 0,
+			{
+				fallbackAssets,
+			},
+		);
+	}
+
+	return {
+		ok: checks.every((entry) => entry.ok),
+		checks,
+		observations: {
+			inputQualityBundles: inputQualityBundles.length,
+			outputRadBundles: outputBundles.length,
+			reusedRadBundles: reused.length,
+			missingRadBundles: missing,
+			changedPaths,
+		},
+	};
+}
+
+function buildRadBundleSignature(bundle) {
+	const parts = [
+		bundle?.root?.sha256 ?? "",
+		...(bundle?.chunks ?? []).map((entry) => entry?.sha256 ?? ""),
+	];
+	return createHash("sha256").update(parts.join("|")).digest("hex");
+}
+
+function radBundlePathsEqual(left, right) {
+	const leftPaths = [
+		left?.root?.path,
+		...(left?.chunks ?? []).map((entry) => entry.path),
+	];
+	const rightPaths = [
+		right?.root?.path,
+		...(right?.chunks ?? []).map((entry) => entry.path),
+	];
+	return JSON.stringify(leftPaths) === JSON.stringify(rightPaths);
+}
+
+function compactRadPackageSummary(summary) {
+	return {
+		file: summary?.file ?? null,
+		byteLength: summary?.byteLength ?? null,
+		entryCount: summary?.entryCount ?? null,
+		resourceCount: summary?.resourceCount ?? null,
+		project: summary?.project ?? null,
+		radBundles: (summary?.radBundles ?? []).map((bundle) => ({
+			resourceId: bundle.resourceId,
+			originalName: bundle.originalName,
+			fullDataPolicy: bundle.fullDataPolicy,
+			hasPackedArray: bundle.hasPackedArray,
+			hasLodSplats: bundle.hasLodSplats,
+			numSplats: bundle.numSplats,
+			buildMode: bundle.buildMode,
+			root: {
+				name: bundle.root?.name ?? null,
+				path: bundle.root?.path ?? null,
+				sha256: bundle.root?.sha256 ?? null,
+				size: bundle.root?.size ?? null,
+				exists: bundle.root?.exists ?? false,
+			},
+			chunkCount: bundle.chunks?.length ?? 0,
+			chunkSha256: (bundle.chunks ?? []).map((entry) => entry.sha256),
+		})),
+	};
+}
+
+function isExpectedRadStreamingBypassIssue(issue) {
+	const text = String(issue?.text ?? "");
+	return (
+		text.includes("__cf_rad_bundle__") ||
+		text.includes("RAD bundle service worker returned non-RAD root data")
+	);
+}
+
 function normalizeScenario(entry, index) {
 	const kind = String(entry?.kind ?? "").trim();
 	if (!SUPPORTED_KINDS.has(kind)) {
@@ -655,7 +1089,8 @@ function normalizeScenario(entry, index) {
 	if (
 		(kind === "project-state" ||
 			kind === "project-summary" ||
-			kind === "psd-export") &&
+			kind === "psd-export" ||
+			kind === "quality-rad-reuse-save") &&
 		!entry.project
 	) {
 		throw new Error(`Scenario "${id}" requires "project".`);
@@ -748,6 +1183,12 @@ async function runScenario({ scenario, verificationSource, issues }) {
 			});
 		case "rad-ssproj":
 			return await runRadSsprojScenario({ scenario, issues });
+		case "quality-rad-reuse-save":
+			return await runQualityRadReuseSaveScenario({
+				scenario,
+				verificationSource,
+				issues,
+			});
 		case "docs-fixture":
 			return await runDocsFixtureScenario({ scenario, issues });
 		default:
@@ -990,6 +1431,539 @@ async function runRadSsprojScenario({ scenario, issues }) {
 		{ awaitPromise: true },
 	);
 	return finishScenarioResult(scenario, result, issues);
+}
+
+async function runQualityRadReuseSaveScenario({
+	scenario,
+	verificationSource,
+	issues,
+}) {
+	const projectFile = resolveProjectPathToFile(scenario.project);
+	const inputSummary =
+		await inspectProjectPackageRadSummaryFromFile(projectFile);
+	let generatedRadOnlySummary = null;
+	let browserScenario = scenario;
+	if (scenario.generateRadOnlyFirst !== false) {
+		const generatedPath = join(
+			outDir,
+			"generated",
+			`${safeFileName(scenario.id)}-rad-only-input.ssproj`,
+		);
+		generatedRadOnlySummary = await createRadOnlyPackageFromQualityRadFile(
+			projectFile,
+			generatedPath,
+		);
+		browserScenario = {
+			...scenario,
+			project: `/${relativePath(generatedPath).replace(/\\/g, "/")}`,
+			generateRadOnlyFirst: false,
+		};
+	}
+	const forceRadStreamingFallback =
+		browserScenario.forceRadStreamingFallback !== false;
+	if (forceRadStreamingFallback) {
+		await cdp.send("Network.enable");
+		await cdp.send("Network.setBypassServiceWorker", { bypass: true });
+	}
+
+	await openApp();
+	await evaluate(cdp, verificationSource, { awaitPromise: false });
+	const previousCommandTimeoutMs = cdp.commandTimeoutMs;
+	const scenarioCommandTimeoutMs = Number(
+		browserScenario.cdpCommandTimeoutMs ??
+			browserScenario.commandTimeoutMs ??
+			Number.NaN,
+	);
+	if (
+		Number.isFinite(scenarioCommandTimeoutMs) &&
+		scenarioCommandTimeoutMs > previousCommandTimeoutMs
+	) {
+		cdp.commandTimeoutMs = scenarioCommandTimeoutMs;
+	}
+	let browserResult = null;
+	try {
+		browserResult = await evaluate(
+			cdp,
+			createBrowserQualityRadReuseSaveExpression(browserScenario),
+			{ awaitPromise: true },
+		);
+	} finally {
+		cdp.commandTimeoutMs = previousCommandTimeoutMs;
+	}
+
+	if (forceRadStreamingFallback) {
+		await cdp
+			.send("Network.setBypassServiceWorker", { bypass: false })
+			.catch(() => {});
+	}
+
+	const reuseSourceSummary =
+		browserResult?.observations?.radOnlyPackage ??
+		generatedRadOnlySummary ??
+		inputSummary;
+	const expectation = evaluateQualityRadReuseSaveExpectations({
+		inputSummary: reuseSourceSummary,
+		outputSummary: browserResult?.observations?.savedPackage ?? null,
+		browserObservations: browserResult?.observations ?? {},
+		expectations: scenario.expect ?? {},
+	});
+	const checks = [
+		...buildInputQualityRadPackageChecks(inputSummary, scenario.expect ?? {}),
+		...(generatedRadOnlySummary
+			? buildGeneratedRadOnlyPackageChecks(
+					generatedRadOnlySummary,
+					scenario.expect ?? {},
+				)
+			: []),
+		...(Array.isArray(browserResult?.checks) ? browserResult.checks : []),
+		...expectation.checks,
+	];
+	const scenarioIssues = forceRadStreamingFallback
+		? issues.filter((issue) => !isExpectedRadStreamingBypassIssue(issue))
+		: issues;
+	await maybeCaptureScenarioScreenshot(scenario, "quality-rad-reuse-save");
+	return finishScenarioResult(
+		scenario,
+		{
+			ok: checks.every((entry) => entry.ok),
+			checks,
+			observations: {
+				inputPackage: compactRadPackageSummary(inputSummary),
+				generatedRadOnlyPackage: compactRadPackageSummary(
+					generatedRadOnlySummary,
+				),
+				reuseSourcePackage: compactRadPackageSummary(reuseSourceSummary),
+				browser: browserResult?.observations ?? null,
+				comparison: expectation.observations,
+			},
+		},
+		scenarioIssues,
+	);
+}
+
+function createBrowserQualityRadReuseSaveExpression(scenario) {
+	const config = {
+		project: scenario.project,
+		settleMs: Number(scenario.settleMs ?? 500),
+		saveTimeoutMs: Number(scenario.saveTimeoutMs ?? 120000),
+		generateRadOnlyFirst: scenario.generateRadOnlyFirst !== false,
+		mutate: {
+			baseFovXDelta: Number(scenario.mutate?.baseFovXDelta ?? 0.5),
+		},
+		expect: scenario.expect ?? {},
+	};
+	return `(async () => {
+		const config = ${JSON.stringify(config)};
+		const checks = [];
+		const observations = {
+			project: config.project,
+			startedAt: new Date().toISOString(),
+		};
+		const check = (name, ok, details = {}) => {
+			const entry = { name, ok: Boolean(ok), details };
+			checks.push(entry);
+			return entry;
+		};
+		const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+		const waitFor = async (predicate, timeoutMs, label) => {
+			const started = Date.now();
+			while (Date.now() - started < timeoutMs) {
+				if (predicate()) return true;
+				await sleep(100);
+			}
+			check(label || "wait-timeout", false, { timeoutMs });
+			return false;
+		};
+		const maybeAwait = async (value) => value && typeof value.then === "function" ? await value : value;
+
+		function cloneWritableChunk(chunk) {
+			if (chunk instanceof Blob) return chunk;
+			if (chunk instanceof ArrayBuffer) return chunk.slice(0);
+			if (ArrayBuffer.isView(chunk)) {
+				return chunk.buffer.slice(chunk.byteOffset, chunk.byteOffset + chunk.byteLength);
+			}
+			if (typeof chunk === "string") {
+				return new TextEncoder().encode(chunk);
+			}
+			throw new Error("Unsupported package save chunk: " + Object.prototype.toString.call(chunk));
+		}
+
+		function installFakeSavePicker() {
+			const state = { saves: [] };
+			Object.defineProperty(globalThis, "showSaveFilePicker", {
+				configurable: true,
+				value: async (options = {}) => {
+					const save = {
+						name: options.suggestedName || "quality-rad-reuse.ssproj",
+						options,
+						chunks: [],
+						closed: false,
+						aborted: false,
+						byteLength: 0,
+						blob: null,
+					};
+					state.saves.push(save);
+					return {
+						name: save.name,
+						async createWritable() {
+							const stream = new WritableStream({
+								write(chunk) {
+									save.chunks.push(cloneWritableChunk(chunk));
+								},
+								abort() {
+									save.aborted = true;
+								},
+							});
+							return {
+								writable: stream,
+								async close() {
+									save.closed = true;
+									save.blob = new Blob(save.chunks, {
+										type: "application/x-camera-frames-project",
+									});
+									save.byteLength = save.blob.size;
+								},
+								async abort() {
+									save.aborted = true;
+									try {
+										await stream.abort?.();
+									} catch {}
+								},
+							};
+						},
+					};
+				},
+			});
+			globalThis.__CF_FAKE_PACKAGE_SAVE__ = state;
+			return state;
+		}
+
+		function summarizeAssets() {
+			const assets = globalThis.__CF_TEST__?.controller?.__debugGetSceneAssets?.() ?? [];
+			return assets.map((asset) => {
+				const mesh = asset?.disposeTarget ?? null;
+				const packedSplats = mesh?.packedSplats ?? null;
+				return {
+					id: asset?.id ?? null,
+					label: asset?.label ?? null,
+					kind: asset?.kind ?? null,
+					hasPaged: Boolean(mesh?.paged),
+					hasPackedSplats: Boolean(packedSplats),
+					hasRadRuntime: Boolean(asset?.radBundleRuntime),
+					sourceHasRad: Boolean(asset?.source?.radBundle?.root),
+					sourceRadBuildMode: asset?.source?.radBundle?.build?.mode ?? null,
+					sourceFullDataPolicy: asset?.source?.fullDataPolicy ?? null,
+					sourceHasLodSplats: Boolean(asset?.source?.lodSplats),
+					packedArrayLength: packedSplats?.packedArray?.length ?? null,
+					lodSplats: Boolean(packedSplats?.lodSplats),
+				};
+			});
+		}
+
+		function readActiveShotSummary() {
+			const store = globalThis.__CF_TEST__?.store;
+			const activeShot = store?.workspace?.activeShotCamera?.value ?? null;
+			return {
+				activeShotCameraId: store?.workspace?.activeShotCameraId?.value ?? null,
+				activeShotCameraName: activeShot?.name ?? null,
+				baseFovX: store?.baseFovX?.value ?? null,
+				viewZoom: store?.renderBox?.viewZoom?.value ?? null,
+				shotCameraCount: store?.workspace?.shotCameras?.value?.length ?? null,
+			};
+		}
+
+		async function openProjectFile(file, extra = {}) {
+			const test = globalThis.__CF_TEST__;
+			await maybeAwait(
+				test.controller.openProjectSource(file, { skipReplaceConfirm: true }),
+			);
+			await waitFor(
+				() => test.store.overlay.value?.kind !== "progress",
+				30000,
+				"project-open-progress-dismissed",
+			);
+			return {
+				ok: true,
+				fileName: file.name,
+				size: file.size,
+				shotCameras: test.store.workspace.shotCameras.value.length,
+				sceneAssets: test.controller.__debugGetSceneAssets?.().length ?? null,
+				...extra,
+			};
+		}
+
+		async function loadProjectViaController(path) {
+			const response = await fetch(path, { cache: "no-store" });
+			if (!response.ok) {
+				return {
+					ok: false,
+					error: "fetch failed: " + response.status + " " + response.statusText,
+				};
+			}
+			const blob = await response.blob();
+			const fileName = path.split("/").pop() || "project.ssproj";
+			const file = new File([blob], fileName, {
+				type: blob.type || "application/x-camera-frames-project",
+			});
+			return await openProjectFile(file);
+		}
+
+		async function loadProjectBlob(blob, fileName) {
+			const file = new File([blob], fileName, {
+				type: blob.type || "application/x-camera-frames-project",
+			});
+			return await openProjectFile(file, { fromCapturedSave: true });
+		}
+
+		function summarizePackageProject(project) {
+			const activeShotCameraId = project?.workspace?.activeShotCameraId ?? null;
+			const shotCameras = Array.isArray(project?.shotCameras)
+				? project.shotCameras
+				: [];
+			const activeShot =
+				shotCameras.find((shot) => shot?.id === activeShotCameraId) ??
+				shotCameras[0] ??
+				null;
+			return {
+				projectId: project?.projectId ?? null,
+				packageRevision: project?.packageRevision ?? null,
+				activeShotCameraId,
+				activeShotCamera: activeShot
+					? {
+							id: activeShot.id ?? null,
+							name: activeShot.name ?? null,
+							baseFovX: activeShot.lens?.baseFovX ?? null,
+							viewZoom: activeShot.outputFrame?.viewZoom ?? null,
+						}
+					: null,
+				shotCameraCount: shotCameras.length,
+			};
+		}
+
+		function summarizeRadEntry(entry, reader) {
+			const zipEntry = entry?.path ? reader.entries?.get?.(entry.path) : null;
+			return {
+				name: entry?.name ?? null,
+				path: entry?.path ?? null,
+				sha256: entry?.sha256 ?? null,
+				size: Number.isFinite(entry?.size) ? entry.size : null,
+				exists: Boolean(zipEntry),
+				zipSize: Number.isFinite(zipEntry?.uncompressedSize)
+					? zipEntry.uncompressedSize
+					: null,
+			};
+		}
+
+		async function inspectSsprojBlob(blob) {
+			const [{ ZipReader }, { PROJECT_DOCUMENT_PATH }] = await Promise.all([
+				import("/src/project-archive.js"),
+				import("/src/project/document.js"),
+			]);
+			const reader = await ZipReader.from(blob);
+			try {
+				const project = JSON.parse(await reader.text(PROJECT_DOCUMENT_PATH));
+				const radBundles = [];
+				for (const [resourceId, resource] of Object.entries(project?.resources ?? {})) {
+					const radBundle = resource?.radBundle ?? null;
+					if (!radBundle?.root?.path) continue;
+					radBundles.push({
+						resourceId,
+						originalName: resource?.originalName ?? null,
+						fullDataPolicy: resource?.fullDataPolicy ?? null,
+						hasPackedArray: Boolean(resource?.packedArray?.path),
+						hasLodSplats: Boolean(resource?.lodSplats?.packedArray?.path),
+						numSplats: Number.isFinite(resource?.numSplats)
+							? resource.numSplats
+							: null,
+						buildMode: radBundle?.build?.mode ?? null,
+						root: summarizeRadEntry(radBundle.root, reader),
+						chunks: (radBundle.chunks ?? []).map((entry) =>
+							summarizeRadEntry(entry, reader),
+						),
+					});
+				}
+				return {
+					entryCount: reader.listFilenames().length,
+					resourceCount: Object.keys(project?.resources ?? {}).length,
+					project: summarizePackageProject(project),
+					radBundles,
+				};
+			} finally {
+				await reader.close();
+			}
+		}
+
+		async function submitQualityPackageSave(saveState) {
+			const test = globalThis.__CF_TEST__;
+			const beforeSaveCount = saveState.saves.length;
+			await maybeAwait(test.controller.exportProject?.());
+			const overlayReady = await waitFor(
+				() => test.store.overlay.value?.kind === "confirm",
+				10000,
+				"package-save-confirm-overlay",
+			);
+			const overlay = test.store.overlay.value;
+			check("package-save-overlay-ready", overlayReady && Boolean(overlay?.onSubmit), {
+				kind: overlay?.kind ?? null,
+				title: overlay?.title ?? null,
+			});
+			if (!overlayReady || typeof overlay?.onSubmit !== "function") {
+				return null;
+			}
+			await maybeAwait(
+				overlay.onSubmit({
+					saveMode: "quality",
+					preserveSplatFullData: false,
+					sogCompress: false,
+					sogMaxShBands: "2",
+					sogIterations: "10",
+				}),
+			);
+			await waitFor(
+				() => {
+					const save = saveState.saves.at(-1);
+					return saveState.saves.length > beforeSaveCount && save?.closed === true;
+				},
+				Number.isFinite(config.saveTimeoutMs) ? config.saveTimeoutMs : 120000,
+				"package-save-finished",
+			);
+			const save = saveState.saves.at(-1) ?? null;
+			check("package-save-captured", Boolean(save?.blob) && save.byteLength > 0, {
+				name: save?.name ?? null,
+				byteLength: save?.byteLength ?? 0,
+				closed: save?.closed ?? false,
+				aborted: save?.aborted ?? false,
+			});
+			return save?.blob ?? null;
+		}
+
+		const test = globalThis.__CF_TEST__;
+		check("test-bridge-ready", Boolean(test?.controller && test?.store));
+		check(
+			"project-loader-ready",
+			typeof test?.controller?.openProjectSource === "function",
+		);
+		if (!test?.controller || !test?.store || typeof test.controller.openProjectSource !== "function") {
+			return { ok: false, checks, observations };
+		}
+
+		try {
+			const saveState = installFakeSavePicker();
+			const load = await loadProjectViaController(config.project);
+			observations.initialLoad = load;
+			check("project-load", load?.ok === true, load ?? {});
+			if (load?.ok !== true) {
+				return { ok: false, checks, observations };
+			}
+			await sleep(Number.isFinite(config.settleMs) ? config.settleMs : 500);
+
+			let reusableRadOnlyBlob = null;
+			if (config.generateRadOnlyFirst) {
+				reusableRadOnlyBlob = await submitQualityPackageSave(saveState);
+				if (reusableRadOnlyBlob) {
+					observations.radOnlyPackage =
+						await inspectSsprojBlob(reusableRadOnlyBlob);
+					const firstRadBundles = observations.radOnlyPackage.radBundles ?? [];
+					check(
+						"rad-only-bootstrap-package",
+						firstRadBundles.length > 0 &&
+							firstRadBundles.every(
+								(bundle) =>
+									bundle.fullDataPolicy === "derive-from-rad" &&
+									bundle.hasPackedArray === false &&
+									bundle.hasLodSplats === false &&
+									bundle.buildMode === "quality",
+							),
+						{
+							radBundles: firstRadBundles.map((bundle) => ({
+								originalName: bundle.originalName,
+								fullDataPolicy: bundle.fullDataPolicy,
+								hasPackedArray: bundle.hasPackedArray,
+								hasLodSplats: bundle.hasLodSplats,
+								buildMode: bundle.buildMode,
+							})),
+						},
+					);
+					const reopen = await loadProjectBlob(
+						reusableRadOnlyBlob,
+						"quality-rad-reuse-input.ssproj",
+					);
+					observations.reopenRadOnly = reopen;
+					check("rad-only-bootstrap-reopen", reopen?.ok === true, reopen ?? {});
+					await sleep(Number.isFinite(config.settleMs) ? config.settleMs : 500);
+				}
+			}
+
+			observations.assetsAfterLoad = summarizeAssets();
+			const fallbackAssets = observations.assetsAfterLoad.filter(
+				(asset) =>
+					asset.kind === "splat" &&
+					asset.hasPackedSplats &&
+					!asset.hasPaged &&
+					asset.sourceHasRad &&
+					asset.sourceRadBuildMode === "quality",
+			);
+			if (config.expect.requireFullDataRuntime !== false) {
+				check("quality-rad-fallback-full-data-runtime", fallbackAssets.length > 0, {
+					assets: observations.assetsAfterLoad,
+				});
+			} else {
+				check(
+					"quality-rad-reopen-assets-loaded",
+					observations.assetsAfterLoad.some(
+						(asset) => asset.kind === "splat" && asset.sourceHasRad,
+					),
+					{ assets: observations.assetsAfterLoad },
+				);
+			}
+
+			observations.beforeMutation = readActiveShotSummary();
+			const nextFov =
+				Number(observations.beforeMutation.baseFovX) +
+				(Number.isFinite(config.mutate.baseFovXDelta)
+					? config.mutate.baseFovXDelta
+					: 0.5);
+			await maybeAwait(test.controller.setBaseFovX?.(nextFov));
+			await sleep(100);
+			observations.afterMutation = readActiveShotSummary();
+			check(
+				"shot-camera-lens-mutated",
+				Math.abs(Number(observations.afterMutation.baseFovX) - nextFov) < 1e-6,
+				{
+					before: observations.beforeMutation,
+					after: observations.afterMutation,
+					expected: nextFov,
+				},
+			);
+
+			const savedBlob = await submitQualityPackageSave(saveState);
+			if (savedBlob) {
+				observations.savedPackage = await inspectSsprojBlob(savedBlob);
+				const savedFov =
+					observations.savedPackage?.project?.activeShotCamera?.baseFovX;
+				check(
+					"saved-shot-camera-lens-mutated",
+					Math.abs(Number(savedFov) - nextFov) < 1e-6,
+					{
+						savedFov,
+						expected: nextFov,
+						project: observations.savedPackage?.project ?? null,
+					},
+				);
+			}
+		} catch (error) {
+			check("quality-rad-reuse-browser-error", false, {
+				message: error?.message ?? String(error),
+				stack: error?.stack ?? null,
+			});
+		}
+
+		return {
+			ok: checks.every((entry) => entry.ok),
+			checks,
+			observations,
+		};
+	})()`;
 }
 
 async function runDocsFixtureScenario({ scenario, issues }) {

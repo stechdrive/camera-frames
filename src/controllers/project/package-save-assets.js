@@ -100,9 +100,67 @@ function normalizeLodSplatsForRadBuild(lodSplats) {
 		numSplats: Number.isFinite(lodSplats.numSplats)
 			? Math.max(0, Math.floor(lodSplats.numSplats))
 			: Math.floor(packedArray.length / 4),
-		extra: lodSplats.extra ?? {},
-		splatEncoding: lodSplats.splatEncoding ?? null,
+		extra: cloneRadBuildExtraArrays(lodSplats.extra),
+		splatEncoding: sanitizeJsonCompatibleValue(lodSplats.splatEncoding),
 	};
+}
+
+function cloneRadBuildExtraArrays(extra) {
+	if (!extra || typeof extra !== "object") {
+		return {};
+	}
+	const cloned = {};
+	for (const key of [
+		"lodTree",
+		"sh1",
+		"sh2",
+		"sh3",
+		"sh1Codes",
+		"sh2Codes",
+		"sh3Codes",
+	]) {
+		const value = extra[key];
+		if (value instanceof Uint32Array && value.length > 0) {
+			cloned[key] = value;
+		}
+	}
+	return cloned;
+}
+
+function sanitizeJsonCompatibleValue(value, seen = new WeakSet()) {
+	if (value === null || value === undefined) {
+		return null;
+	}
+	if (
+		typeof value === "string" ||
+		typeof value === "number" ||
+		typeof value === "boolean"
+	) {
+		return value;
+	}
+	if (typeof value !== "object") {
+		return undefined;
+	}
+	if (seen.has(value)) {
+		return undefined;
+	}
+	seen.add(value);
+	if (Array.isArray(value)) {
+		const sanitized = value
+			.map((entry) => sanitizeJsonCompatibleValue(entry, seen))
+			.filter((entry) => entry !== undefined);
+		seen.delete(value);
+		return sanitized;
+	}
+	const sanitized = {};
+	for (const [key, entry] of Object.entries(value)) {
+		const nextValue = sanitizeJsonCompatibleValue(entry, seen);
+		if (nextValue !== undefined) {
+			sanitized[key] = nextValue;
+		}
+	}
+	seen.delete(value);
+	return sanitized;
 }
 
 export function createProjectPackageSaveAssetsController({
@@ -369,18 +427,30 @@ export function createProjectPackageSaveAssetsController({
 			local: serializeBox3(asset.localBoundsHint),
 			center: serializeBox3(asset.localCenterBoundsHint),
 		};
+		const normalizedLodSplats = normalizeLodSplatsForRadBuild(
+			lodSplats ?? asset.source?.lodSplats,
+		);
+		const rootBuildInput = normalizedLodSplats
+			? {
+					packedArray: new Uint32Array(),
+					extraArrays: {},
+					splatEncoding: null,
+				}
+			: {
+					packedArray: packedSplats.packedArray ?? new Uint32Array(),
+					extraArrays: cloneRadBuildExtraArrays(packedSplats.extra),
+					splatEncoding: sanitizeJsonCompatibleValue(
+						packedSplats.splatEncoding,
+					),
+				};
 		const result = await buildSparkRadBundleFromPackedSplatsImpl(
 			{
 				fileName: asset.source.fileName || asset.label || "asset",
-				packedArray: packedSplats.packedArray ?? new Uint32Array(),
-				extraArrays: packedSplats.extra ?? {},
-				splatEncoding: packedSplats.splatEncoding ?? null,
+				...rootBuildInput,
 				numSplats: packedSplats.getNumSplats?.() ?? packedSplats.numSplats ?? 0,
 				bounds,
 				quality: Boolean(quality),
-				lodSplats: normalizeLodSplatsForRadBuild(
-					lodSplats ?? asset.source?.lodSplats,
-				),
+				lodSplats: normalizedLodSplats,
 			},
 			{
 				onProgress,
@@ -425,6 +495,13 @@ export function createProjectPackageSaveAssetsController({
 			const existingQuality = getAssetBakedQuality(asset);
 			const hasQualityRadBundle = hasReusableQualityRadBundle(asset);
 			const canReuseExistingRadOnly = !radOnly || hasQualityRadBundle;
+			if (radOnly && hasQualityRadBundle) {
+				updatePackedSplatSourcePackagePolicy(asset, {
+					fullDataPolicy:
+						PROJECT_FILE_PACKED_SPLAT_FULL_DATA_POLICY_DERIVE_FROM_RAD,
+				});
+				continue;
+			}
 			// Smart skip: already baked at the requested quality and the source
 			// still carries a matching lodSplats bundle (edits clear it via the
 			// default-null path in createProjectFilePackedSplatSource).

@@ -1,6 +1,6 @@
 # Local `.ssproj` Scenario Tests
 
-最終更新: 2026-04-26
+最終更新: 2026-04-30
 
 この文書は、Git 管理しない `.local/cf-test/` の `.ssproj` 実データを使った保守用ブラウザ smoke の運用手順をまとめる。
 
@@ -59,9 +59,12 @@ manifest は Git 管理しない `.local/cf-test/scenarios.json` に置く。形
 | `project-summary` | project を開き、shot / frame 数など summary 条件を検証する |
 | `psd-export` | project を開いて browser 上の実 export を走らせ、生成 PSD を `ag-psd` で読み戻す |
 | `rad-ssproj` | RAD-backed `.ssproj` を開き、object transform と FullData swap を検証する |
+| `quality-rad-reuse-save` | Quality RAD `.ssproj` を開き、必要なら RAD streaming fallback を強制した上で shot camera だけ変更し、Quality 再保存が既存 RAD metadata を流用して RAD-only のままになるか検証する |
 | `docs-fixture` | `/docs.html?fixture=...` を開き、fixture ready と console error を確認する |
 
 `optional: true` を付けた scenario は、対象 local file が存在しない環境では skip される。必須 scenario の local file が欠けている場合は fail する。
+
+大きい `.ssproj` の open-save scenario は `cdpCommandTimeoutMs` を scenario 側に指定できる。`quality-rad-reuse-save` のように 3DGS RAD bundle を含む実データをブラウザで開いて保存する検証では、既定の CDP command timeout より長い値を使う。
 
 `psd-export` の主な `expect`:
 

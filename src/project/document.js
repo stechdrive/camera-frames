@@ -821,11 +821,23 @@ export function hasProjectFilePackedSplatDeferredFullData(source) {
 	);
 }
 
-export async function loadProjectFilePackedSplatFullDataSource(source) {
+function isReusableQualityRadBundle(radBundle) {
+	return Boolean(radBundle?.root) && radBundle?.build?.mode === "quality";
+}
+
+export async function loadProjectFilePackedSplatFullDataSource(
+	source,
+	{ preserveReusableQualityRadBundle = false } = {},
+) {
 	if (!hasProjectFilePackedSplatDeferredFullData(source)) {
 		return source;
 	}
 	const fullData = await source.deferredFullData.loadFullData(source);
+	const preservedRadBundle =
+		preserveReusableQualityRadBundle &&
+		isReusableQualityRadBundle(source.radBundle)
+			? source.radBundle
+			: null;
 	return createProjectFilePackedSplatSource({
 		fileName: fullData?.fileName ?? source.fileName,
 		inputBytes: fullData?.inputBytes ?? source.inputBytes ?? new Uint8Array(),
@@ -836,8 +848,10 @@ export async function loadProjectFilePackedSplatFullDataSource(source) {
 		extra: fullData?.extra ?? {},
 		splatEncoding: fullData?.splatEncoding ?? source.splatEncoding ?? null,
 		lodSplats: fullData?.lodSplats ?? source.lodSplats ?? null,
-		radBundle: fullData?.radBundle ?? null,
-		fullDataPolicy: fullData?.fullDataPolicy ?? null,
+		radBundle: fullData?.radBundle ?? preservedRadBundle,
+		fullDataPolicy: preservedRadBundle
+			? PROJECT_FILE_PACKED_SPLAT_FULL_DATA_POLICY_DERIVE_FROM_RAD
+			: (fullData?.fullDataPolicy ?? null),
 		projectAssetState:
 			fullData?.projectAssetState ?? source.projectAssetState ?? null,
 		legacyState: fullData?.legacyState ?? source.legacyState ?? null,
@@ -846,11 +860,16 @@ export async function loadProjectFilePackedSplatFullDataSource(source) {
 	});
 }
 
-export async function materializeProjectFilePackedSplatFullData(source) {
+export async function materializeProjectFilePackedSplatFullData(
+	source,
+	{ preserveReusableQualityRadBundle = false } = {},
+) {
 	if (!hasProjectFilePackedSplatDeferredFullData(source)) {
 		return source;
 	}
-	const fullSource = await loadProjectFilePackedSplatFullDataSource(source);
+	const fullSource = await loadProjectFilePackedSplatFullDataSource(source, {
+		preserveReusableQualityRadBundle,
+	});
 	Object.assign(source, fullSource);
 	source.previewPackedSplats = null;
 	source.deferredFullData = null;

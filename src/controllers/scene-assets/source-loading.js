@@ -419,7 +419,9 @@ export function createSceneAssetSourceLoadingController({
 						sourceKind: "raw-packed-splat",
 					});
 					return await loadSplatAssetFromSource(
-						await materializeProjectFilePackedSplatFullData(source),
+						await materializeProjectFilePackedSplatFullData(source, {
+							preserveReusableQualityRadBundle: true,
+						}),
 						{ insertIndex, onProgress },
 					);
 				}

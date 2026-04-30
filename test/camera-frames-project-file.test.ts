@@ -1582,6 +1582,25 @@ assert.deepEqual(
 );
 assert.equal(radOnlyFullSource.extra.lodTree, undefined);
 
+const radOnlyPreserveResult = await readCameraFramesProject(
+	new File([radOnlyArchive], "rad-only-preserve-read.ssproj"),
+);
+const radOnlyPreserveSource = radOnlyPreserveResult.assetEntries[0].source;
+assert.equal(isProjectFilePackedSplatSource(radOnlyPreserveSource), true);
+const radOnlyPreservedFullSource =
+	await materializeProjectFilePackedSplatFullData(radOnlyPreserveSource, {
+		preserveReusableQualityRadBundle: true,
+	});
+assert.equal(
+	radOnlyPreservedFullSource.fullDataPolicy,
+	"derive-from-rad",
+	"RAD streaming fallback can preserve a reusable Quality RAD bundle for package save.",
+);
+assert.ok(radOnlyPreservedFullSource.radBundle?.root?.blob instanceof Blob);
+assert.equal(radOnlyPreservedFullSource.radBundle.build?.mode, "quality");
+assert.equal(radOnlyPreservedFullSource.lodSplats, null);
+assert.equal(radOnlyPreservedFullSource.numSplats, 2);
+
 const volatileArchiveState = { failReads: false };
 const volatileArchive = new VolatileArchiveBlob(
 	[radBundleArchive],

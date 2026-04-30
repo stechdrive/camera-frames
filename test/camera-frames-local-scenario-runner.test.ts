@@ -25,15 +25,22 @@ const runner = await import("../scripts/local-cf-test-scenarios.mjs");
 					project: "/.local/cf-test/example.ssproj",
 					expect: { requiredLayerNames: ["Render"] },
 				},
+				{
+					id: "quality-rad-reuse",
+					kind: "quality-rad-reuse-save",
+					project: "/.local/cf-test/example-quality-rad.ssproj",
+					expect: { minRadBundles: 1 },
+				},
 			],
 		},
 		{ source: "unit" },
 	);
 	assert.equal(manifest.source, "unit");
-	assert.equal(manifest.scenarios.length, 3);
+	assert.equal(manifest.scenarios.length, 4);
 	assert.equal(manifest.scenarios[0].id, "ui");
 	assert.equal(manifest.scenarios[1].optional, false);
 	assert.equal(manifest.scenarios[2].kind, "psd-export");
+	assert.equal(manifest.scenarios[3].kind, "quality-rad-reuse-save");
 }
 
 {

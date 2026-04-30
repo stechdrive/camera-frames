@@ -866,6 +866,141 @@ await withNavigator({ gpu: {} }, async () => {
 	);
 });
 
+// If RAD streaming fell back to FullData but kept the reusable Quality RAD
+// cache, default Quality save should still repackage that RAD-only bundle.
+// Shot-camera/layout edits do not edit the 3DGS source, so this path must not
+// bake or rebuild RAD just because the runtime now has PackedSplats.
+await withNavigator({ gpu: {} }, async () => {
+	let radBuildCalls = 0;
+	const rootBytes = new Uint8Array([0x52, 0x41, 0x44, 0x30, 9, 8, 7, 6]);
+	const fakePackedSplats = {
+		packedArray: new Uint32Array([201, 202, 203, 204]),
+		numSplats: 1,
+		getNumSplats() {
+			return this.numSplats;
+		},
+		extra: {},
+		splatEncoding: null,
+		async createLodSplats() {
+			assert.fail("Reusable Quality RAD should skip Quality LoD bake.");
+		},
+	};
+	const scopeAsset = {
+		id: "splat-existing-rad-full-data",
+		kind: "splat",
+		label: "existing-rad-full-data",
+		disposeTarget: { packedSplats: fakePackedSplats },
+		source: {
+			sourceType: "project-file-packed-splat",
+			kind: "splat",
+			fileName: "existing-rad-full-data.rawsplat",
+			inputBytes: new Uint8Array(),
+			extraFiles: {},
+			fileType: null,
+			packedArray: fakePackedSplats.packedArray,
+			numSplats: fakePackedSplats.numSplats,
+			extra: {},
+			splatEncoding: null,
+			lodSplats: null,
+			radBundle: {
+				kind: "spark-rad-bundle",
+				version: 1,
+				root: {
+					name: "existing-rad-full-data-lod.rad",
+					bytes: rootBytes,
+					size: rootBytes.byteLength,
+				},
+				chunks: [],
+				sourceFingerprint: { numSplats: 1 },
+				bounds: null,
+				sparkVersion: "2.0.0",
+				build: { mode: "quality", chunked: false },
+			},
+			fullDataPolicy: "derive-from-rad",
+			projectAssetState: null,
+			legacyState: null,
+			resource: null,
+		},
+	};
+	const harness = createHarness({
+		assetController: {
+			getSceneAssets: () => [scopeAsset],
+		},
+		supportsSparkRadBundleBuildImpl: () => true,
+		buildSparkRadBundleFromPackedSplatsImpl: async () => {
+			radBuildCalls += 1;
+			throw new Error("Reusable Quality RAD should skip RAD rebuild.");
+		},
+		captureProjectStateSpy: () => ({
+			workspace: {
+				activeShotCameraId: "",
+				viewport: {
+					baseFovX: 55,
+					pose: {
+						position: { x: 0, y: 0, z: 0 },
+						quaternion: { x: 0, y: 0, z: 0, w: 1 },
+						up: { x: 0, y: 1, z: 0 },
+					},
+				},
+			},
+			shotCameras: [],
+			scene: {
+				assets: [scopeAsset],
+				referenceImages: createDefaultReferenceImageDocument(),
+			},
+		}),
+	});
+	const originalShowSaveFilePicker = globalThis.showSaveFilePicker;
+	const originalRequestAnimationFrame = globalThis.requestAnimationFrame;
+	const originalIndexedDb = globalThis.indexedDB;
+	globalThis.requestAnimationFrame = (cb) => setTimeout(cb, 0);
+	globalThis.indexedDB = createCompletingIndexedDb();
+	const savedPackage = createCollectingProjectFileHandle(
+		"existing-rad-full-data-repacked.ssproj",
+	);
+	globalThis.showSaveFilePicker = async () => savedPackage.fileHandle;
+	try {
+		await harness.projectController.exportProject();
+		await harness.store.overlay.value.onSubmit({
+			saveMode: "quality",
+			sogCompress: false,
+			sogMaxShBands: "2",
+			sogIterations: "10",
+		});
+	} finally {
+		globalThis.showSaveFilePicker = originalShowSaveFilePicker;
+		globalThis.requestAnimationFrame = originalRequestAnimationFrame;
+		if (originalIndexedDb === undefined) {
+			// biome-ignore lint/performance/noDelete: Restore the original global shape in this test harness.
+			delete globalThis.indexedDB;
+		} else {
+			globalThis.indexedDB = originalIndexedDb;
+		}
+	}
+	assert.equal(radBuildCalls, 0);
+	assert.equal(scopeAsset.source.fullDataPolicy, "derive-from-rad");
+
+	const savedArchiveBytes = await collectWritableChunks(savedPackage.chunks);
+	const savedProject = await readCameraFramesProject(
+		new File([savedArchiveBytes], "existing-rad-full-data-repacked.ssproj"),
+	);
+	const savedSource = savedProject.assetEntries[0]?.source;
+	assert.equal(isProjectFilePackedSplatSource(savedSource), true);
+	assert.equal(savedSource.fullDataPolicy, "derive-from-rad");
+	assert.equal(savedSource.packedArray.length, 0);
+	assert.equal(savedSource.lodSplats, null);
+	assert.equal(
+		savedSource.radBundle.root.name,
+		"existing-rad-full-data-lod.rad",
+	);
+	assert.deepEqual(
+		Array.from(
+			new Uint8Array(await savedSource.radBundle.root.blob.arrayBuffer()),
+		),
+		Array.from(rootBytes),
+	);
+});
+
 // A pre-existing RAD bundle is only reusable as RAD-only source-of-truth when
 // it is known to be a Quality RAD. Quick/unknown RAD is a cache and must be
 // replaced before default Quality save drops FullData.
@@ -876,8 +1011,15 @@ await withNavigator({ gpu: {} }, async () => {
 		getNumSplats() {
 			return this.numSplats;
 		},
-		extra: {},
-		splatEncoding: null,
+		extra: {
+			sh1: new Uint32Array([201, 202, 203, 204]),
+		},
+		splatEncoding: {
+			rgbMin: 0,
+			update() {
+				return true;
+			},
+		},
 	};
 	const oldRootBytes = new Uint8Array([0x52, 0x41, 0x44, 0x30, 1]);
 	const newRootBytes = new Uint8Array([0x52, 0x41, 0x44, 0x30, 2]);
@@ -931,6 +1073,7 @@ await withNavigator({ gpu: {} }, async () => {
 		},
 		supportsSparkRadBundleBuildImpl: () => true,
 		buildSparkRadBundleFromPackedSplatsImpl: async (input) => {
+			structuredClone(input);
 			radBuildCalls.push(input);
 			return {
 				root: {
@@ -996,6 +1139,8 @@ await withNavigator({ gpu: {} }, async () => {
 		Array.from(radBuildCalls[0].lodSplats.packedArray),
 		[111, 112, 113, 114],
 	);
+	assert.deepEqual(radBuildCalls[0].extraArrays, {});
+	assert.equal(radBuildCalls[0].splatEncoding, null);
 	assert.equal(scopeAsset.source.fullDataPolicy, "derive-from-rad");
 	assert.equal(
 		scopeAsset.source.radBundle.root.name,
