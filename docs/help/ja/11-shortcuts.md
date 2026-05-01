@@ -5,12 +5,13 @@ section: 11
 lang: ja
 related-files:
   - src/interactions/input-router.js
+  - src/interactions/input/paste-routing.js
   - src/engine/viewport-pie.js
   - src/app/viewport-editing-commands.js
   - src/controllers/interaction-controller.js
   - src/controllers/viewport-tool-controller.js
   - src/controllers/per-splat-edit-controller.js
-last-updated: 2026-04-24
+last-updated: 2026-05-01
 ---
 
 # キーボードショートカット一覧
@@ -27,6 +28,7 @@ last-updated: 2026-04-24
 |---|---|---|
 | `Ctrl+N` | 新規プロジェクトを作成 | 常時 |
 | `Ctrl+O` | ファイルを開く（ファイルダイアログ） | 常時 |
+| `Ctrl+V` | クリップボード画像を下絵として読み込み | テキスト入力中でない時 |
 | `Ctrl+S` | 作業保存（IndexedDB へ保存） | 常時 |
 | `Ctrl+Shift+S` | パッケージ保存（`.ssproj` としてダウンロード） | 常時 |
 

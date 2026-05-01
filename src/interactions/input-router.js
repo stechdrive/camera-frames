@@ -6,6 +6,7 @@ import {
 	isHistoryShortcut,
 	isNativeHistoryTarget,
 } from "./input/keyboard-shortcuts.js";
+import { getPastedReferenceImageFiles } from "./input/paste-routing.js";
 import {
 	isMiddleMouseButton,
 	isViewportOverlayControlTarget,
@@ -555,6 +556,29 @@ export function bindInputRouter({
 					await assetController.importDroppedFiles(assetFiles);
 				}
 			}
+		} catch (error) {
+			console.error(error);
+			setStatus(error.message);
+		}
+	});
+
+	listen(window, "paste", async (event) => {
+		if (
+			isInteractionBlocked?.() ||
+			isInteractiveTextTarget(event.target) ||
+			typeof importReferenceImageFiles !== "function"
+		) {
+			return;
+		}
+		const files = getPastedReferenceImageFiles(event.clipboardData, {
+			supportsReferenceImageFile,
+		});
+		if (files.length === 0) {
+			return;
+		}
+		event.preventDefault();
+		try {
+			await importReferenceImageFiles(files);
 		} catch (error) {
 			console.error(error);
 			setStatus(error.message);

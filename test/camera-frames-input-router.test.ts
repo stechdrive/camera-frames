@@ -878,6 +878,90 @@ function createInputRouterHarness(overrides = {}) {
 {
 	const harness = createInputRouterHarness();
 	try {
+		const paste = harness.listeners.get(harness.windowRef).get("paste");
+		let prevented = false;
+		await paste({
+			target: createClosestTarget({}),
+			clipboardData: {
+				items: [
+					{
+						kind: "file",
+						getAsFile: () =>
+							new File([new Uint8Array([1])], "", { type: "image/png" }),
+					},
+				],
+			},
+			preventDefault() {
+				prevented = true;
+			},
+		});
+		assert.equal(prevented, true);
+		assert.equal(harness.calls.length, 1);
+		assert.equal(harness.calls[0][0], "import-references");
+		assert.equal(harness.calls[0][1].length, 1);
+		assert.match(harness.calls[0][1][0], /^clipboard-\d{8}-\d{6}\.png$/);
+	} finally {
+		harness.restore();
+	}
+}
+
+{
+	const harness = createInputRouterHarness();
+	try {
+		const paste = harness.listeners.get(harness.windowRef).get("paste");
+		let prevented = false;
+		await paste({
+			target: createClosestTarget({ input: {} }),
+			clipboardData: {
+				items: [
+					{
+						kind: "file",
+						getAsFile: () =>
+							new File([new Uint8Array([1])], "", { type: "image/png" }),
+					},
+				],
+			},
+			preventDefault() {
+				prevented = true;
+			},
+		});
+		assert.equal(prevented, false);
+		assert.deepEqual(harness.calls, []);
+	} finally {
+		harness.restore();
+	}
+}
+
+{
+	const harness = createInputRouterHarness();
+	try {
+		const paste = harness.listeners.get(harness.windowRef).get("paste");
+		let prevented = false;
+		await paste({
+			target: createClosestTarget({}),
+			clipboardData: {
+				items: [
+					{
+						kind: "file",
+						getAsFile: () =>
+							new File([new Uint8Array([1])], "", { type: "image/bmp" }),
+					},
+				],
+			},
+			preventDefault() {
+				prevented = true;
+			},
+		});
+		assert.equal(prevented, false);
+		assert.deepEqual(harness.calls, []);
+	} finally {
+		harness.restore();
+	}
+}
+
+{
+	const harness = createInputRouterHarness();
+	try {
 		const dragover = harness.listeners
 			.get(harness.viewportShell)
 			.get("dragover");

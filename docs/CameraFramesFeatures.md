@@ -1,6 +1,6 @@
 # CAMERA_FRAMES 機能一覧 / 回帰チェック観点
 
-最終更新: 2026-04-28
+最終更新: 2026-05-01
 
 ## 0. この文書の役割
 
@@ -21,6 +21,7 @@
 
 - `Open...` で scene asset / reference image / `.ssproj` を扱える
 - drag and drop でも同じ import routing を使う
+- テキスト入力中でない時は、clipboard の実体画像を `Ctrl+V` で reference image として読み込める（PNG / JPG / WebP 相当の bitmap）
 - remote URL 欄から scene asset URL を読み込める
 - startup `?load=` による確認付き remote import がある
 - remote URL 欄や startup `?load=` で単独 `.ssproj` URL が渡った場合は、asset import ではなく project open workflow へ送る

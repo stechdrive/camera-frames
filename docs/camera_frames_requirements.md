@@ -1,6 +1,6 @@
 # CAMERA_FRAMES 実装要件 / 保守基点
 
-最終更新: 2026-04-28
+最終更新: 2026-05-01
 
 ## 0. この文書の役割
 
@@ -73,11 +73,13 @@ CAMERA_FRAMES の共有 contract を Git 管理するための基点です。
 - drag and drop でも同じ振り分けを使う
 - remote URL 欄は `http://` / `https://` の URL 群を読み込める
 - startup `?load=` は確認付きで読み込めるが、`https` のみ許可し、localhost / private host は拒否する
+- paste は、テキスト入力中でない時に browser が clipboard data として渡した実体画像 (`image/png`, `image/jpeg`, `image/webp`) だけを reference image として読み込める。`text/html` の `<img>` や URL 文字列は fetch しない
 - legacy `document.json` ベース package は fallback import path で読める
 
 補足:
 
 - reference image の PSD import は 1 枚の PSD を複数 layer item に展開する
+- clipboard paste の reference image は貼り付け時点の bitmap 1 枚として扱い、PSD layer 展開とは別経路にする
 - legacy package から import するのは splat / model 系 asset が中心で、`refs/` の画像類は現 baseline の import asset には含めない
 
 ## 5. Save / Project Lifecycle の契約
