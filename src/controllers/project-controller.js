@@ -15,6 +15,7 @@ import {
 } from "../project/document.js";
 import {
 	getDefaultProjectFilename,
+	materializeProjectPackageSaveInputs,
 	writeCameraFramesProjectPackageToWritable,
 } from "../project/file/index.js";
 import { ZipReader } from "../project/package-legacy.js";
@@ -644,6 +645,11 @@ export function createProjectController({
 			normalizedProject.packageRevision =
 				Math.max(0, currentPackageRevision) + 1;
 
+			if (resolvedSaveTarget.saveMode === "overwrite") {
+				await materializeProjectPackageSaveInputs(normalizedProject, {
+					preferRadOnlyPackedSplats,
+				});
+			}
 			const writable = await resolvedSaveTarget.fileHandle.createWritable();
 			let packageResult = null;
 			try {

@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { createProjectController } from "../src/controllers/project-controller.js";
 import { buildZipArchiveBytes } from "../src/project-archive.js";
-import { materializeProjectFilePackedSplatFullData } from "../src/project/document.js";
+import {
+	PROJECT_FILE_PACKED_SPLAT_FULL_DATA_POLICY_DERIVE_FROM_RAD,
+	createProjectFilePackedSplatSource,
+	materializeProjectFilePackedSplatFullData,
+} from "../src/project/document.js";
 import {
 	buildCameraFramesProjectArchive,
 	isProjectFilePackedSplatSource,
@@ -244,6 +248,24 @@ class HugeCountingProjectBlob extends Blob {
 
 	async arrayBuffer() {
 		this.state.arrayBufferCalls = (this.state.arrayBufferCalls ?? 0) + 1;
+		return await super.arrayBuffer();
+	}
+}
+
+class SaveInvalidatedBlob extends Blob {
+	constructor(parts, state, options) {
+		super(parts, options);
+		this.state = state;
+	}
+
+	async arrayBuffer() {
+		this.state.arrayBufferCalls = (this.state.arrayBufferCalls ?? 0) + 1;
+		if (this.state.writableOpened) {
+			throw new DOMException(
+				"A requested file or directory could not be found at the time an operation was processed.",
+				"NotFoundError",
+			);
+		}
 		return await super.arrayBuffer();
 	}
 }
@@ -1332,6 +1354,128 @@ await withNavigator({ gpu: {} }, async () => {
 		assert.equal(harness.store.overlay.value, null);
 	} finally {
 		globalThis.showSaveFilePicker = originalShowSaveFilePicker;
+	}
+}
+
+// Quality overwrite materializes stale package-backed RAD blobs before opening
+// the destination writable, because createWritable() can invalidate them.
+{
+	const originalShowSaveFilePicker = globalThis.showSaveFilePicker;
+	const originalRequestAnimationFrame = globalThis.requestAnimationFrame;
+	const originalIndexedDb = globalThis.indexedDB;
+	const invalidatedState = {
+		writableOpened: false,
+		arrayBufferCalls: 0,
+	};
+	const chunks = [];
+	const fileHandle = {
+		name: "overwrite-stale-rad.ssproj",
+		async createWritable() {
+			invalidatedState.writableOpened = true;
+			const stream = new WritableStream({
+				write(chunk) {
+					chunks.push(chunk);
+				},
+			});
+			return {
+				writable: stream,
+				async close() {},
+				async abort() {
+					await stream.abort?.();
+				},
+			};
+		},
+	};
+	globalThis.showSaveFilePicker = async () => fileHandle;
+	globalThis.requestAnimationFrame = (cb) => setTimeout(cb, 0);
+	globalThis.indexedDB = createCompletingIndexedDb();
+	try {
+		const harness = createHarness({
+			supportsSparkRadBundleBuildImpl: () => false,
+		});
+		await harness.projectController.exportProject();
+		await harness.store.overlay.value.onSubmit({
+			saveMode: "quality",
+			sogCompress: false,
+			sogMaxShBands: "2",
+			sogIterations: "10",
+		});
+		assert.equal(harness.store.overlay.value, null);
+
+		const staleRadBlob = new SaveInvalidatedBlob(
+			[new Uint8Array([0x52, 0x41, 0x44, 0x30])],
+			invalidatedState,
+		);
+		const staleRadAsset = {
+			id: "splat-stale-overwrite",
+			kind: "splat",
+			label: "stale-overwrite",
+			source: createProjectFilePackedSplatSource({
+				fileName: "stale-overwrite.rawsplat",
+				packedArray: new Uint32Array(),
+				numSplats: 1,
+				extra: {},
+				splatEncoding: null,
+				radBundle: {
+					kind: "spark-rad-bundle",
+					version: 1,
+					root: {
+						name: "stale-overwrite.rad",
+						blob: staleRadBlob,
+						size: staleRadBlob.size,
+					},
+					chunks: [],
+					sourceFingerprint: { numSplats: 1 },
+					build: { mode: "quality" },
+				},
+				fullDataPolicy:
+					PROJECT_FILE_PACKED_SPLAT_FULL_DATA_POLICY_DERIVE_FROM_RAD,
+				skipClone: true,
+			}),
+		};
+		harness.setProjectState({
+			workspace: {
+				activeShotCameraId: "",
+				viewport: {
+					baseFovX: 55,
+					pose: {
+						position: { x: 0, y: 0, z: 0 },
+						quaternion: { x: 0, y: 0, z: 0, w: 1 },
+						up: { x: 0, y: 1, z: 0 },
+					},
+				},
+			},
+			shotCameras: [],
+			scene: {
+				assets: [staleRadAsset],
+				referenceImages: createDefaultReferenceImageDocument(),
+			},
+		});
+		invalidatedState.writableOpened = false;
+		chunks.length = 0;
+
+		await harness.projectController.exportProject();
+		const overwriteAction = harness.store.overlay.value.actions.find(
+			(action) => action.label === "action.overwritePackage",
+		);
+		await overwriteAction.onClick({
+			saveMode: "quality",
+			sogCompress: false,
+			sogMaxShBands: "2",
+			sogIterations: "10",
+		});
+		assert.equal(harness.store.overlay.value, null);
+		assert.equal(invalidatedState.arrayBufferCalls > 0, true);
+		assert.equal(chunks.length > 0, true);
+	} finally {
+		globalThis.showSaveFilePicker = originalShowSaveFilePicker;
+		globalThis.requestAnimationFrame = originalRequestAnimationFrame;
+		if (originalIndexedDb === undefined) {
+			// biome-ignore lint/performance/noDelete: Restore the original global shape in this test harness.
+			delete globalThis.indexedDB;
+		} else {
+			globalThis.indexedDB = originalIndexedDb;
+		}
 	}
 }
 

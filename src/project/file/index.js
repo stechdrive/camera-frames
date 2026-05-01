@@ -177,6 +177,81 @@ async function materializeDeferredPackedSplatSources(
 	}
 }
 
+function buildMemoryBackedFile(file, bytes, fallbackName) {
+	const fileName = file?.name || fallbackName || "asset.bin";
+	return new File([bytes], fileName, {
+		type: file?.type || undefined,
+		lastModified: Number.isFinite(file?.lastModified)
+			? file.lastModified
+			: undefined,
+	});
+}
+
+async function materializeEmbeddedProjectFileSource(source) {
+	if (!isProjectFileEmbeddedFileSource(source)) {
+		return;
+	}
+	if (!source.file || typeof source.file.arrayBuffer !== "function") {
+		return;
+	}
+	const bytes = new Uint8Array(await source.file.arrayBuffer());
+	source.file = buildMemoryBackedFile(source.file, bytes, source.fileName);
+}
+
+async function materializeRadBundleEntry(entry) {
+	if (!entry || typeof entry !== "object") {
+		return null;
+	}
+	if (entry.bytes instanceof Uint8Array && entry.bytes.byteLength > 0) {
+		return entry;
+	}
+	if (!(entry.blob instanceof Blob)) {
+		return entry;
+	}
+	const bytes = new Uint8Array(await entry.blob.arrayBuffer());
+	const nextEntry = {
+		...entry,
+		bytes,
+	};
+	nextEntry.blob = undefined;
+	return nextEntry;
+}
+
+async function materializeRadBundleEntries(source) {
+	if (!isProjectFilePackedSplatSource(source) || !source.radBundle?.root) {
+		return;
+	}
+	source.radBundle = {
+		...source.radBundle,
+		root: await materializeRadBundleEntry(source.radBundle.root),
+		chunks: await Promise.all(
+			(source.radBundle.chunks ?? []).map((entry) =>
+				materializeRadBundleEntry(entry),
+			),
+		),
+	};
+}
+
+export async function materializeProjectPackageSaveInputs(
+	project,
+	{ preferRadOnlyPackedSplats = false } = {},
+) {
+	await materializeDeferredPackedSplatSources(project, {
+		preferRadOnlyPackedSplats,
+	});
+	for (const asset of project?.scene?.assets ?? []) {
+		await materializeEmbeddedProjectFileSource(asset?.source);
+		await materializeRadBundleEntries(asset?.source);
+	}
+	const normalizedReferenceImages = normalizeReferenceImageDocument(
+		project?.scene?.referenceImages,
+	);
+	for (const asset of normalizedReferenceImages.assets ?? []) {
+		await materializeEmbeddedProjectFileSource(asset?.source);
+	}
+	project.scene.referenceImages = normalizedReferenceImages;
+}
+
 export async function buildCameraFramesProjectPackage(
 	projectSnapshot,
 	{
