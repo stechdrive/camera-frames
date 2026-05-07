@@ -85,6 +85,18 @@ function mirrorPointAcrossCenter(point, center) {
 	};
 }
 
+export function shouldShowFrameTrajectoryOverlay({
+	frameMaskShape,
+	trajectoryEditMode,
+	frameSelectionActive,
+} = {}) {
+	return (
+		Boolean(frameSelectionActive) &&
+		(frameMaskShape === FRAME_MASK_SHAPE_TRAJECTORY ||
+			Boolean(trajectoryEditMode))
+	);
+}
+
 function FrameTrajectoryOverlay({
 	controller,
 	exportWidth,
@@ -94,14 +106,20 @@ function FrameTrajectoryOverlay({
 	trajectoryMode,
 	trajectoryNodesByFrameId,
 	trajectoryEditMode,
+	frameSelectionActive,
 	activeTrajectoryNodeMode,
 	activeFrameId,
 	selectedFrameIds,
 	interactionsEnabled,
 }) {
-	const showTrajectory =
-		frameMaskShape === FRAME_MASK_SHAPE_TRAJECTORY || trajectoryEditMode;
-	if (!showTrajectory || frames.length === 0) {
+	if (
+		!shouldShowFrameTrajectoryOverlay({
+			frameMaskShape,
+			trajectoryEditMode,
+			frameSelectionActive,
+		}) ||
+		frames.length === 0
+	) {
 		return null;
 	}
 
@@ -537,6 +555,7 @@ export function FrameLayer({
 						trajectoryMode=${trajectoryMode}
 						trajectoryNodesByFrameId=${trajectoryNodesByFrameId}
 						trajectoryEditMode=${trajectoryEditMode}
+						frameSelectionActive=${frameSelectionActive}
 						activeTrajectoryNodeMode=${activeTrajectoryNodeMode}
 						activeFrameId=${activeFrameId}
 						selectedFrameIds=${selectedFrameIds}
