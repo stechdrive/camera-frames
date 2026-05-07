@@ -243,6 +243,7 @@ PSD export の主な構成:
 - PNG / PSD の分岐
 - guide / reference / frame / mask / model / splat の layering
 - PSD trajectory layer source の反映
+- PSD hidden frame mask は viewport の `mode=off` でも素材レイヤーとして保持
 - export 時の reference image session toggle
 
 代表テスト:

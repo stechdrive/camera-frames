@@ -411,7 +411,8 @@ PSD export:
 - frame mask は PSD の hidden layer として持てる
 - `trajectoryExportSource` は `none` / `center` / `top-left` / `top-right` / `bottom-right` / `bottom-left`
 - `Frames` group には frame overlay pass に加えて optional trajectory layer が入る
-- hidden `Frame Mask` は `frameMask.mode`, `selectedIds`, `shape` をそのまま使い、`trajectory` の時は viewport と同じ sweep area を rasterize する
+- hidden `Frame Mask` は `selectedIds`, `shape` を使い、`trajectory` の時は viewport と同じ sweep area を rasterize する
+- PSD の hidden `Frame Mask` は viewport 上で `frameMask.mode=off` の時も素材として出力する。その場合は `preferredMode` を使い、未指定なら `all` として扱う
 - export pipeline は `src/controllers/export/` に分割済み
 
 PSD layer 順の詳細契約:

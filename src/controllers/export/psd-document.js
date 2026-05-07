@@ -42,6 +42,18 @@ function buildReferenceImageGroupDocument(
 	};
 }
 
+function resolvePsdFrameMaskSettings(frameMaskSettings) {
+	if (frameMaskSettings?.mode !== "off") {
+		return frameMaskSettings;
+	}
+	const preferredMode =
+		frameMaskSettings.preferredMode === "selected" ? "selected" : "all";
+	return {
+		...frameMaskSettings,
+		mode: preferredMode,
+	};
+}
+
 export function buildPsdExportDocument(
 	bundle,
 	frames = [],
@@ -173,7 +185,10 @@ export function buildPsdExportDocument(
 				],
 			}
 		: null;
-	const maskedFrames = resolveFrameMaskFrames(frames, bundle.frameMaskSettings);
+	const psdFrameMaskSettings = resolvePsdFrameMaskSettings(
+		bundle.frameMaskSettings,
+	);
+	const maskedFrames = resolveFrameMaskFrames(frames, psdFrameMaskSettings);
 	const frameMaskLayerDocument =
 		maskedFrames.length > 0
 			? createFrameMaskLayerDocument(
@@ -181,7 +196,7 @@ export function buildPsdExportDocument(
 					bundle.width,
 					bundle.height,
 					{
-						frameMaskSettings: bundle.frameMaskSettings,
+						frameMaskSettings: psdFrameMaskSettings,
 						createCanvas,
 					},
 				)
