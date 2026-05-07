@@ -25,6 +25,7 @@ export function createOutputFrameAnchorSession({
 	renderBox,
 	updateUi,
 	getActiveShotCameraDocument,
+	setOutputFrameAnchor = () => {},
 	selectOutputFrame,
 	clearOutputFramePan,
 	beginHistoryTransaction,
@@ -91,7 +92,7 @@ export function createOutputFrameAnchorSession({
 			return;
 		}
 
-		state.outputFrame.anchor = nextAnchor;
+		setOutputFrameAnchor(nextAnchor);
 		updateUi();
 	}
 

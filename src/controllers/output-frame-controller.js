@@ -32,6 +32,7 @@ export function createOutputFrameController({
 	getActiveShotCameraDocument,
 	getShotCameraDocument,
 	getActiveShotCameraEntry,
+	getReferenceImageController,
 	shotCameraRegistry,
 	getActiveFrames,
 	getFrameAnchorDocument,
@@ -127,6 +128,7 @@ export function createOutputFrameController({
 		renderBox,
 		updateUi,
 		getActiveShotCameraDocument,
+		setOutputFrameAnchor,
 		selectOutputFrame,
 		clearOutputFramePan: panSession.clearOutputFramePan,
 		beginHistoryTransaction,
@@ -155,7 +157,6 @@ export function createOutputFrameController({
 	});
 
 	const inspectorOps = createOutputFrameInspectorOps({
-		state,
 		runHistoryAction,
 		updateUi,
 		getActiveShotCameraDocument,
@@ -167,11 +168,33 @@ export function createOutputFrameController({
 		handleResize: fitState.handleResize,
 		invalidateAutoLayoutSignature: fitState.invalidateAutoLayoutSignature,
 		invalidateFitLayoutSignature: fitState.invalidateFitLayoutSignature,
+		setOutputFrameAnchor,
 	});
 
 	function selectOutputFrame() {
 		clearFrameSelection();
 		state.outputFrameSelected = true;
+	}
+
+	function setOutputFrameAnchor(nextAnchor) {
+		updateActiveShotCameraDocument((documentState) => {
+			const previousAnchor =
+				documentState?.outputFrame?.anchor ?? state.outputFrame.anchor;
+			if (!documentState?.outputFrame || previousAnchor === nextAnchor) {
+				return documentState;
+			}
+			getReferenceImageController?.()
+				?.preserveReferenceImagesForOutputFrameAnchorChange?.(
+					documentState,
+					{
+						previousAnchorKey: previousAnchor,
+						nextAnchorKey: nextAnchor,
+						outputSize: metrics.getOutputSizeState(documentState),
+					},
+				);
+			documentState.outputFrame.anchor = nextAnchor;
+			return documentState;
+		});
 	}
 
 	function clearOutputFrameSelection() {

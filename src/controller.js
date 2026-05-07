@@ -647,6 +647,7 @@ export function createCameraFramesController(elements, store) {
 			getActiveShotCameraDocument,
 			getShotCameraDocument,
 			getActiveShotCameraEntry,
+			getReferenceImageController: () => referenceImageController,
 			shotCameraRegistry,
 			getBaseFovX: () => state.baseFovX,
 			updateActiveShotCameraDocument,

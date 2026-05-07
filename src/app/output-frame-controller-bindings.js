@@ -17,6 +17,7 @@ export function createOutputFrameControllerBindings({
 	getActiveShotCameraDocument,
 	getShotCameraDocument,
 	getActiveShotCameraEntry,
+	getReferenceImageController,
 	shotCameraRegistry,
 	getBaseFovX,
 	updateActiveShotCameraDocument,
@@ -44,6 +45,7 @@ export function createOutputFrameControllerBindings({
 		getActiveShotCameraDocument,
 		getShotCameraDocument,
 		getActiveShotCameraEntry,
+		getReferenceImageController,
 		shotCameraRegistry,
 		getActiveFrames: () => getFrameController?.()?.getActiveFrames?.() ?? [],
 		getFrameAnchorDocument: (frame) =>

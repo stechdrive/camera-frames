@@ -6,10 +6,12 @@ import {
 } from "../src/controllers/reference-image-controller.js";
 import {
 	REFERENCE_IMAGE_DEFAULT_PRESET_ID,
+	applyRenderBoxOffsetCorrection,
 	createDefaultReferenceImageDocument,
 	createReferenceImageAsset,
 	createReferenceImageItem,
 	createReferenceImagePreset,
+	getReferenceImageRenderBoxAnchor,
 } from "../src/reference-image-model.js";
 import { createCameraFramesStore } from "../src/store.js";
 import {
@@ -205,6 +207,82 @@ function createTestControllerWithHistory() {
 	assert.equal(store.referenceImages.items.value[0].name, "Board Layer");
 	assert.equal(store.referenceImages.items.value[0].assetId, asset.id);
 	assert.notEqual(store.referenceImages.items.value[0].id, "reference-item-a");
+}
+
+{
+	const { store, controller, getShotCameraDocument } = createTestController();
+	const asset = createReferenceImageAsset({
+		id: "reference-asset-anchor",
+		label: "Anchor Board",
+		sourceMeta: createSourceMeta("anchor-board.png"),
+	});
+	const preset = createReferenceImagePreset({
+		id: "reference-preset-anchor",
+		name: "Anchor Board",
+		baseRenderBox: { w: 1000, h: 500 },
+		items: [
+			createReferenceImageItem({
+				id: "reference-item-anchor",
+				assetId: asset.id,
+				name: "Anchor Board Layer",
+				offsetPx: { x: 0, y: 0 },
+				anchor: { ax: 0.5, ay: 0.5 },
+			}),
+		],
+	});
+	const documentState = createDefaultReferenceImageDocument();
+	documentState.assets.push(asset);
+	documentState.presets.push(preset);
+	documentState.activePresetId = preset.id;
+	const shotCameraDocument = getShotCameraDocument();
+	shotCameraDocument.referenceImages.presetId = preset.id;
+	store.referenceImages.document.value = documentState;
+	controller.syncUiState();
+
+	const outputSize = { width: 2000, height: 500 };
+	const previousEffectiveOffset = applyRenderBoxOffsetCorrection(
+		preset.items[0].offsetPx,
+		preset.items[0].anchor,
+		preset.baseRenderBox,
+		outputSize,
+		getReferenceImageRenderBoxAnchor("center"),
+		{ x: 0, y: 0 },
+	);
+	const previousAnchorPoint = {
+		x: outputSize.width * preset.items[0].anchor.ax - previousEffectiveOffset.x,
+		y:
+			outputSize.height * preset.items[0].anchor.ay -
+			previousEffectiveOffset.y,
+	};
+
+	const compensated =
+		controller.preserveReferenceImagesForOutputFrameAnchorChange(
+			shotCameraDocument,
+			{
+				previousAnchorKey: "center",
+				nextAnchorKey: "middle-left",
+				outputSize,
+			},
+		);
+	shotCameraDocument.outputFrame.anchor = "middle-left";
+	const override =
+		shotCameraDocument.referenceImages.overridesByPresetId[preset.id];
+	const nextEffectiveOffset = applyRenderBoxOffsetCorrection(
+		preset.items[0].offsetPx,
+		preset.items[0].anchor,
+		preset.baseRenderBox,
+		outputSize,
+		getReferenceImageRenderBoxAnchor(shotCameraDocument.outputFrame.anchor),
+		override.renderBoxCorrection,
+	);
+	const nextAnchorPoint = {
+		x: outputSize.width * preset.items[0].anchor.ax - nextEffectiveOffset.x,
+		y: outputSize.height * preset.items[0].anchor.ay - nextEffectiveOffset.y,
+	};
+
+	assert.equal(compensated, true);
+	assert.deepEqual(override.renderBoxCorrection, { x: -500, y: 0 });
+	assert.deepEqual(nextAnchorPoint, previousAnchorPoint);
 }
 
 {

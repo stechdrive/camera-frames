@@ -568,6 +568,38 @@ export function applyRenderBoxOffsetCorrection(
 	};
 }
 
+export function getRenderBoxAnchorCorrectionDelta({
+	previousRenderBoxAnchor,
+	nextRenderBoxAnchor,
+	baseRenderBox,
+	currentSize,
+}) {
+	const normalizedBaseRenderBox = normalizeReferenceImageSize(
+		baseRenderBox,
+		BASE_RENDER_BOX,
+	);
+	const normalizedCurrentSize = normalizeReferenceImageSize(
+		currentSize,
+		normalizedBaseRenderBox,
+	);
+	const previousAnchor = normalizeReferenceImageAnchor(
+		previousRenderBoxAnchor,
+		getReferenceImageRenderBoxAnchor("center"),
+	);
+	const nextAnchor = normalizeReferenceImageAnchor(
+		nextRenderBoxAnchor,
+		previousAnchor,
+	);
+	return {
+		x:
+			(nextAnchor.ax - previousAnchor.ax) *
+			(normalizedCurrentSize.w - normalizedBaseRenderBox.w),
+		y:
+			(nextAnchor.ay - previousAnchor.ay) *
+			(normalizedCurrentSize.h - normalizedBaseRenderBox.h),
+	};
+}
+
 export function removeRenderBoxOffsetCorrection(
 	offsetPx,
 	anchor,

@@ -1,7 +1,6 @@
 import { clampViewZoom } from "../../engine/projection.js";
 
 export function createOutputFrameInspectorOps({
-	state,
 	runHistoryAction,
 	updateUi,
 	getActiveShotCameraDocument,
@@ -13,6 +12,7 @@ export function createOutputFrameInspectorOps({
 	handleResize,
 	invalidateAutoLayoutSignature,
 	invalidateFitLayoutSignature,
+	setOutputFrameAnchor = () => {},
 }) {
 	function setBoxWidthPercent(nextValue) {
 		runHistoryAction?.("output-frame.width", () => {
@@ -94,7 +94,7 @@ export function createOutputFrameInspectorOps({
 	function setAnchor(nextValue) {
 		selectOutputFrame();
 		runHistoryAction?.("output-frame.anchor-preset", () => {
-			state.outputFrame.anchor = nextValue;
+			setOutputFrameAnchor(nextValue);
 		});
 		updateUi();
 	}

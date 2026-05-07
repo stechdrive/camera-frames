@@ -8,6 +8,8 @@ import {
 	createReferenceImagePreset,
 	createShotCameraReferenceImagesState,
 	findReferenceImagePreset,
+	getReferenceImageRenderBoxAnchor,
+	getRenderBoxAnchorCorrectionDelta,
 	getShotReferenceImagePresetId,
 	normalizeReferenceImageDocument,
 	removeRenderBoxOffsetCorrection,
@@ -745,6 +747,77 @@ export function createReferenceImageController({
 		);
 	}
 
+	function preserveReferenceImagesForOutputFrameAnchorChange(
+		shotCameraDocument,
+		{ previousAnchorKey = "center", nextAnchorKey = "center", outputSize = null } =
+			{},
+	) {
+		if (!shotCameraDocument || previousAnchorKey === nextAnchorKey) {
+			return false;
+		}
+		const documentState = getDocument();
+		const nextReferenceImages = createShotCameraReferenceImagesState(
+			shotCameraDocument.referenceImages,
+		);
+		const presetId = getShotReferenceImagePresetId(
+			documentState,
+			nextReferenceImages,
+		);
+		const relatedPresetIds = new Set(
+			Object.keys(nextReferenceImages.overridesByPresetId ?? {}),
+		);
+		if (presetId) {
+			relatedPresetIds.add(presetId);
+		}
+		if (relatedPresetIds.size === 0) {
+			return false;
+		}
+		const nextOverridesByPresetId = {
+			...nextReferenceImages.overridesByPresetId,
+		};
+		const previousRenderBoxAnchor =
+			getReferenceImageRenderBoxAnchor(previousAnchorKey);
+		const nextRenderBoxAnchor = getReferenceImageRenderBoxAnchor(nextAnchorKey);
+		const resolvedOutputSize = outputSize ?? getOutputSizeState?.();
+		let changed = false;
+		for (const relatedPresetId of relatedPresetIds) {
+			const preset =
+				documentState.presets.find((entry) => entry.id === relatedPresetId) ??
+				null;
+			if (!preset || (preset.items?.length ?? 0) === 0) {
+				continue;
+			}
+			const delta = getRenderBoxAnchorCorrectionDelta({
+				previousRenderBoxAnchor,
+				nextRenderBoxAnchor,
+				baseRenderBox: preset.baseRenderBox,
+				currentSize: resolvedOutputSize,
+			});
+			if (Math.abs(delta.x) <= 1e-8 && Math.abs(delta.y) <= 1e-8) {
+				continue;
+			}
+			const nextOverride = createReferenceImageCameraPresetOverride(
+				nextOverridesByPresetId?.[preset.id] ?? null,
+			);
+			nextOverride.renderBoxCorrection = {
+				x: nextOverride.renderBoxCorrection.x + delta.x,
+				y: nextOverride.renderBoxCorrection.y + delta.y,
+			};
+			if (isReferenceImageOverrideEmpty(nextOverride)) {
+				delete nextOverridesByPresetId[preset.id];
+			} else {
+				nextOverridesByPresetId[preset.id] = nextOverride;
+			}
+			changed = true;
+		}
+		if (!changed) {
+			return false;
+		}
+		nextReferenceImages.overridesByPresetId = nextOverridesByPresetId;
+		shotCameraDocument.referenceImages = nextReferenceImages;
+		return true;
+	}
+
 	function openReferenceImageFiles() {
 		referenceImageInput?.click?.();
 	}
@@ -1317,6 +1390,7 @@ export function createReferenceImageController({
 		offsetReferenceImageBoundsPosition,
 		getReferenceImageLogicalBounds,
 		getSelectedReferenceImageTransformSession,
+		preserveReferenceImagesForOutputFrameAnchorChange,
 		setReferenceImageOffsetPx,
 		setReferenceImageBoundsPosition,
 		setReferenceImageGroup,

@@ -8,6 +8,9 @@ import {
 	createReferenceImageItem,
 	createReferenceImagePreset,
 	createShotCameraReferenceImagesState,
+	applyRenderBoxOffsetCorrection,
+	getReferenceImageRenderBoxAnchor,
+	getRenderBoxAnchorCorrectionDelta,
 	getReferenceImageCompositeItems,
 	getReferenceImageDisplayItems,
 	getReferenceImageOrderForImportIndex,
@@ -108,6 +111,47 @@ assert.equal(getReferenceImageOrderForImportIndex(1, 4), 5);
 		getShotReferenceImagePresetId(documentState, shotState),
 		REFERENCE_IMAGE_DEFAULT_PRESET_ID,
 	);
+}
+
+{
+	const itemAnchor = { ax: 0.5, ay: 0.5 };
+	const baseRenderBox = { w: 1754, h: 1240 };
+	const currentSize = { w: 3508, h: 1240 };
+	const previousRenderBoxAnchor = getReferenceImageRenderBoxAnchor("center");
+	const nextRenderBoxAnchor = getReferenceImageRenderBoxAnchor("middle-left");
+	const previousEffectiveOffset = applyRenderBoxOffsetCorrection(
+		{ x: 0, y: 0 },
+		itemAnchor,
+		baseRenderBox,
+		currentSize,
+		previousRenderBoxAnchor,
+		{ x: 0, y: 0 },
+	);
+	const previousAnchorPoint = {
+		x: currentSize.w * itemAnchor.ax - previousEffectiveOffset.x,
+		y: currentSize.h * itemAnchor.ay - previousEffectiveOffset.y,
+	};
+	const correctionDelta = getRenderBoxAnchorCorrectionDelta({
+		previousRenderBoxAnchor,
+		nextRenderBoxAnchor,
+		baseRenderBox,
+		currentSize,
+	});
+	const nextEffectiveOffset = applyRenderBoxOffsetCorrection(
+		{ x: 0, y: 0 },
+		itemAnchor,
+		baseRenderBox,
+		currentSize,
+		nextRenderBoxAnchor,
+		correctionDelta,
+	);
+	const nextAnchorPoint = {
+		x: currentSize.w * itemAnchor.ax - nextEffectiveOffset.x,
+		y: currentSize.h * itemAnchor.ay - nextEffectiveOffset.y,
+	};
+
+	assert.deepEqual(correctionDelta, { x: -877, y: 0 });
+	assert.deepEqual(nextAnchorPoint, previousAnchorPoint);
 }
 
 {
