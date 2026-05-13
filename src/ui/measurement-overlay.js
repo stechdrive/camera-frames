@@ -101,6 +101,17 @@ export function MeasurementOverlay({ store, controller, t }) {
 				`
 			}
 			${
+				overlay.axisSnap?.active &&
+				html`
+					<div
+						class=${`measurement-overlay__axis-badge measurement-overlay__axis-badge--${overlay.axisSnap.axisKey}`}
+						style=${getAbsoluteStyle(overlay.axisSnap)}
+					>
+						${overlay.axisSnap.label}
+					</div>
+				`
+			}
+			${
 				overlay.chip.visible &&
 				html`
 					<div

@@ -1,6 +1,6 @@
 # CAMERA_FRAMES 機能一覧 / 回帰チェック観点
 
-最終更新: 2026-05-01
+最終更新: 2026-05-13
 
 ## 0. この文書の役割
 
@@ -135,6 +135,7 @@
   - per-splat edit
 - viewport pie menu を持つ
 - keyboard shortcut / pointer routing は一元化されている
+- measurement は 2 点距離の計測に加え、1 点目配置後の `Shift` で world `X` / `Y` / `Z` 軸方向に 2 点目をスナップできる
 
 ### 2.8 Per-splat edit
 

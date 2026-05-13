@@ -11,6 +11,7 @@ related-files:
   - src/controllers/measurement-controller.js
   - src/app/viewport-editing-commands.js
   - src/engine/viewport-pie.js
+  - src/engine/measurement-axis-snap.js
   - src/engine/measurement-scene-helper.js
   - src/ui/side-panel.js
   - src/ui/viewport-axis-gizmo.js
@@ -41,7 +42,7 @@ shortcuts:
     action: 下絵編集モード切替
   - key: R
     action: 下絵プレビュー切替
-last-updated: 2026-04-26
+last-updated: 2026-05-13
 ---
 
 # ビューポートとツール
@@ -180,6 +181,8 @@ last-updated: 2026-04-26
 5. 入力チップに「この 2 点を X メートルにしたい」と数値を入れて `Enter`
 6. 選択アセットが倍率でスケールされる
 
+1 点目を置いた後、`Shift` を押しながらカーソルを動かすと、始点から見た world `X` / `Y` / `Z` 軸のうち画面上のマウス方向に最も近い軸へ仮の 2 点目がスナップします。そのままクリックすると、シーン表面へのヒットではなく、その固定軸上の点として 2 点目を確定します。
+
 ### 8.2 条件
 
 `Enter` によるスケール適用は、次が全て満たされる時のみ有効:
@@ -193,6 +196,7 @@ last-updated: 2026-04-26
 - **始点** — オレンジ（`#ffb26d`）
 - **終点** — 水色（`#7ddcff`）
 - **線** — 2 点を結ぶ線
+- **軸バッジ** — `Shift` スナップ中の `X` / `Y` / `Z`
 - **入力チップ** — 画面下部の入力欄（現在距離表示 + 数値入力）
 
 ## 9. スプラット編集ツール（`Shift+E`）

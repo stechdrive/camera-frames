@@ -1,4 +1,9 @@
 import * as THREE from "three";
+import {
+	WORLD_MEASUREMENT_AXES,
+	getMeasurementAxisPlaneNormal,
+	resolveMeasurementAxisSnap,
+} from "../engine/measurement-axis-snap.js";
 import { createMeasurementSceneHelper } from "../engine/measurement-scene-helper.js";
 import {
 	buildPointerRay,
@@ -14,11 +19,7 @@ const AXIS_PIXEL_DISTANCE = 82;
 const CHIP_EDGE_PADDING = 18;
 const POINT_RADIUS_PIXELS = 6;
 const DRAG_DISTANCE_EPSILON = 1e-5;
-const WORLD_AXES = {
-	x: new THREE.Vector3(1, 0, 0),
-	y: new THREE.Vector3(0, 1, 0),
-	z: new THREE.Vector3(0, 0, 1),
-};
+const WORLD_AXES = WORLD_MEASUREMENT_AXES;
 const MOVE_AXIS_HANDLE_NAMES = ["move-x", "move-y", "move-z"];
 const MOVE_PLANE_HANDLE_NAMES = ["move-xy", "move-yz", "move-zx"];
 
@@ -29,6 +30,7 @@ const EMPTY_OVERLAY = {
 	draftEnd: { visible: false, x: 0, y: 0 },
 	lineVisible: false,
 	lineUsesDraft: false,
+	axisSnap: { active: false, axisKey: null, x: 0, y: 0, label: "" },
 	chip: { visible: false, x: 0, y: 0, label: "", placement: "dock-bottom" },
 	gizmo: {
 		visible: false,
@@ -73,25 +75,6 @@ function formatMeasurementLength(value) {
 	return value.toFixed(value >= 10 ? 2 : 3).replace(/\.?0+$/u, "");
 }
 
-function getMoveAxisPlaneNormal(axisWorld, camera) {
-	const cameraDirection = camera
-		.getWorldDirection(new THREE.Vector3())
-		.normalize();
-	const cameraUp = new THREE.Vector3(0, 1, 0)
-		.applyQuaternion(camera.getWorldQuaternion(new THREE.Quaternion()))
-		.normalize();
-	const helper = new THREE.Vector3().crossVectors(axisWorld, cameraDirection);
-	if (helper.lengthSq() < 1e-6) {
-		helper.crossVectors(axisWorld, cameraUp);
-	}
-	if (helper.lengthSq() < 1e-6) {
-		return null;
-	}
-	return new THREE.Vector3()
-		.crossVectors(helper.normalize(), axisWorld)
-		.normalize();
-}
-
 function createPlaneFromNormalAndPoint(normal, point, targetPlane) {
 	return targetPlane.setFromNormalAndCoplanarPoint(
 		normal.clone().normalize(),
@@ -131,6 +114,21 @@ function overlayEntryEquals(a, b, epsilon = 0.25) {
 	);
 }
 
+function axisSnapStateEquals(a, b, epsilon = 0.25) {
+	if (a?.active !== b?.active) {
+		return false;
+	}
+	if (!a?.active && !b?.active) {
+		return true;
+	}
+	return (
+		a?.axisKey === b?.axisKey &&
+		a?.label === b?.label &&
+		Math.abs((a?.x ?? 0) - (b?.x ?? 0)) <= epsilon &&
+		Math.abs((a?.y ?? 0) - (b?.y ?? 0)) <= epsilon
+	);
+}
+
 function overlayStateEquals(a, b) {
 	if (!a || !b) {
 		return false;
@@ -142,6 +140,7 @@ function overlayStateEquals(a, b) {
 		overlayEntryEquals(a.draftEnd, b.draftEnd) &&
 		a.lineVisible === b.lineVisible &&
 		a.lineUsesDraft === b.lineUsesDraft &&
+		axisSnapStateEquals(a.axisSnap, b.axisSnap) &&
 		overlayEntryEquals(a.chip, b.chip) &&
 		a.chip.label === b.chip.label &&
 		a.chip.placement === b.chip.placement &&
@@ -191,6 +190,7 @@ export function createMeasurementController({
 	const projectedPoint = new THREE.Vector3();
 	const measurementSceneHelper = createMeasurementSceneHelper();
 	let activeAxisDrag = null;
+	let draftAxisSnapKey = null;
 
 	guides?.add?.(measurementSceneHelper.group);
 
@@ -214,8 +214,9 @@ export function createMeasurementController({
 		store.measurement.endPointWorld.value = toPlainPoint(nextPoint);
 	}
 
-	function setDraftEndPointWorld(nextPoint) {
+	function setDraftEndPointWorld(nextPoint, { axisKey = null } = {}) {
 		store.measurement.draftEndPointWorld.value = toPlainPoint(nextPoint);
+		draftAxisSnapKey = nextPoint ? axisKey : null;
 	}
 
 	function getPointWorldByKey(pointKey) {
@@ -260,6 +261,7 @@ export function createMeasurementController({
 
 	function clearMeasurementSession({ keepActive = false } = {}) {
 		activeAxisDrag = null;
+		draftAxisSnapKey = null;
 		store.measurement.active.value = Boolean(keepActive);
 		store.measurement.startPointWorld.value = null;
 		store.measurement.endPointWorld.value = null;
@@ -355,6 +357,19 @@ export function createMeasurementController({
 		return null;
 	}
 
+	function pickAxisSnapPoint(event, context, startPoint) {
+		if (!event.shiftKey || !startPoint) {
+			return null;
+		}
+		return resolveMeasurementAxisSnap({
+			startPointWorld: startPoint,
+			clientX: event.clientX,
+			clientY: event.clientY,
+			context,
+			raycaster,
+		});
+	}
+
 	function commitMeasurementEndPoint(nextPoint) {
 		setEndPointWorld(nextPoint);
 		setDraftEndPointWorld(null);
@@ -404,6 +419,11 @@ export function createMeasurementController({
 			event.preventDefault();
 			event.stopPropagation();
 			event.stopImmediatePropagation?.();
+			const axisSnapPoint = pickAxisSnapPoint(event, context, startPoint);
+			if (axisSnapPoint?.pointWorld) {
+				commitMeasurementEndPoint(axisSnapPoint.pointWorld);
+				return true;
+			}
 			const hitPoint = pickScenePoint(event, context);
 			if (!hitPoint) {
 				return true;
@@ -431,6 +451,14 @@ export function createMeasurementController({
 			!isClientPointInsideContext(event.clientX, event.clientY, context)
 		) {
 			setDraftEndPointWorld(null);
+			return;
+		}
+
+		const axisSnapPoint = pickAxisSnapPoint(event, context, startPoint);
+		if (axisSnapPoint?.pointWorld) {
+			setDraftEndPointWorld(axisSnapPoint.pointWorld, {
+				axisKey: axisSnapPoint.axisKey,
+			});
 			return;
 		}
 
@@ -518,7 +546,7 @@ export function createMeasurementController({
 			if (!axisWorld) {
 				return false;
 			}
-			const planeNormal = getMoveAxisPlaneNormal(axisWorld, camera);
+			const planeNormal = getMeasurementAxisPlaneNormal(axisWorld, camera);
 			if (!planeNormal) {
 				return false;
 			}
@@ -788,6 +816,8 @@ export function createMeasurementController({
 		const lineTarget = endPoint ?? draftEnd;
 		const lineTargetScreen = endPoint ? endScreen : draftEndScreen;
 		const lineVisible = startScreen.visible && lineTargetScreen.visible;
+		const axisSnapActive =
+			Boolean(!endPoint && draftEnd && draftAxisSnapKey) && lineVisible;
 		const selectedPointKey = endPoint ? getSelectedPointKey() : "start";
 		const gizmoWorld = selectedPointKey
 			? selectedPointKey === "end" && endPoint
@@ -837,6 +867,15 @@ export function createMeasurementController({
 			draftEnd: draftEndScreen,
 			lineVisible,
 			lineUsesDraft: Boolean(!endPoint && draftEnd),
+			axisSnap: axisSnapActive
+				? {
+						active: true,
+						axisKey: draftAxisSnapKey,
+						x: lineTargetScreen.x,
+						y: lineTargetScreen.y,
+						label: draftAxisSnapKey.toUpperCase(),
+					}
+				: { active: false, axisKey: null, x: 0, y: 0, label: "" },
 			chip: {
 				visible: Boolean(endPoint) && chipScreen.visible,
 				x: chipScreen.x,

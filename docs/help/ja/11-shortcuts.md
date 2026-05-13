@@ -11,7 +11,7 @@ related-files:
   - src/controllers/interaction-controller.js
   - src/controllers/viewport-tool-controller.js
   - src/controllers/per-splat-edit-controller.js
-last-updated: 2026-05-01
+last-updated: 2026-05-13
 ---
 
 # キーボードショートカット一覧
@@ -123,6 +123,12 @@ last-updated: 2026-05-01
 |---|---|
 | なし | 単独選択に置き換え |
 | `Shift` / `Ctrl` / `Meta` | 加算選択（切替） |
+
+### 測定ツール
+
+| 修飾キー | 効果 |
+|---|---|
+| 1 点目の後に `Shift` | 2 点目を world `X` / `Y` / `Z` 軸上にスナップ |
 
 ### スプラット編集ブラシ
 

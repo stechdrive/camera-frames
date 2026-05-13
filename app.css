@@ -2777,6 +2777,37 @@ body[data-interaction-mode="roll"] .viewport-axis-gizmo {
 	display: none;
 }
 
+.measurement-overlay__axis-badge {
+	position: absolute;
+	left: 0;
+	top: 0;
+	transform: translate(0.65rem, -50%);
+	min-width: 1.15rem;
+	height: 1.15rem;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 999px;
+	border: 1px solid currentColor;
+	background: rgba(5, 15, 27, 0.88);
+	color: rgba(255, 241, 216, 0.96);
+	box-shadow: 0 6px 14px rgba(0, 0, 0, 0.28);
+	font: 800 0.64rem / 1 "IBM Plex Sans", "Segoe UI", sans-serif;
+	pointer-events: none;
+}
+
+.measurement-overlay__axis-badge--x {
+	color: #ff6157;
+}
+
+.measurement-overlay__axis-badge--y {
+	color: #53d36b;
+}
+
+.measurement-overlay__axis-badge--z {
+	color: #6ba8ff;
+}
+
 .measurement-overlay__chip {
 	position: absolute;
 	left: 0;

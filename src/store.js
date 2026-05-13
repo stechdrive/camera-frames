@@ -73,6 +73,7 @@ export function createCameraFramesStore(runtimeInfo = null) {
 		draftEnd: { visible: false, x: 0, y: 0 },
 		lineVisible: false,
 		lineUsesDraft: false,
+		axisSnap: { active: false, axisKey: null, x: 0, y: 0, label: "" },
 		chip: { visible: false, x: 0, y: 0, label: "", placement: "above" },
 		gizmo: {
 			visible: false,
