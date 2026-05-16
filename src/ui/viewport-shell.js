@@ -848,6 +848,10 @@ export function ViewportShell({ store, controller, refs, t }) {
 				store=${store}
 				viewportShellRef=${refs.viewportShellRef}
 			/>
+			<div class="viewport-orbit-reticle" aria-hidden="true">
+				<div class="viewport-orbit-reticle__ring"></div>
+				<div class="viewport-orbit-reticle__dot"></div>
+			</div>
 			${
 				splatEditActive &&
 				html`<${SplatEditToolbar}

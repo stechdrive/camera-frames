@@ -79,8 +79,45 @@ function createInputRouterHarness(overrides = {}) {
 		}
 		targetListeners.set(type, handler);
 	};
+	const viewportShellClasses = new Set<string>();
+	const viewportShellStyle = new Map<string, string>();
 	const viewportShell = {
 		id: "viewport-shell",
+		classList: {
+			add(...values: string[]) {
+				for (const value of values) {
+					viewportShellClasses.add(value);
+				}
+			},
+			remove(...values: string[]) {
+				for (const value of values) {
+					viewportShellClasses.delete(value);
+				}
+			},
+			toggle(value: string, force?: boolean) {
+				const enabled = force ?? !viewportShellClasses.has(value);
+				if (enabled) {
+					viewportShellClasses.add(value);
+				} else {
+					viewportShellClasses.delete(value);
+				}
+				return enabled;
+			},
+			contains(value: string) {
+				return viewportShellClasses.has(value);
+			},
+		},
+		style: {
+			setProperty(name: string, value: string) {
+				viewportShellStyle.set(name, value);
+			},
+			getPropertyValue(name: string) {
+				return viewportShellStyle.get(name) ?? "";
+			},
+		},
+		getBoundingClientRect() {
+			return { left: 0, top: 0, width: 800, height: 600 };
+		},
 		setPointerCapture() {},
 	};
 	const dropHint = {
@@ -150,7 +187,7 @@ function createInputRouterHarness(overrides = {}) {
 		updateUi: () => calls.push(["update-ui"]),
 		updateOutputFrameOverlay: () => {},
 		setStatus: (message) => calls.push(["status", message]),
-		startOrbitAroundHitDrag: () => false,
+		startOrbitAroundHitDrag: overrides.startOrbitAroundHitDrag ?? (() => false),
 		startZoomToolDrag: () => false,
 		startLensAdjustDrag: () => false,
 		startShotCameraRollDrag: () => false,
@@ -299,6 +336,8 @@ function createInputRouterHarness(overrides = {}) {
 	return {
 		listeners,
 		viewportShell,
+		viewportShellClasses,
+		viewportShellStyle,
 		renderBoxTarget,
 		anchorDot,
 		windowRef,
@@ -346,6 +385,170 @@ function createInputRouterHarness(overrides = {}) {
 			target: viewportTarget,
 		});
 		assert.equal(harness.pointerControls.reverseRotate, false);
+	} finally {
+		harness.restore();
+	}
+}
+
+{
+	const harness = createInputRouterHarness();
+	try {
+		const pointerdown = harness.listeners
+			.get(harness.viewportShell)
+			.get("pointerdown");
+		const pointermove = harness.listeners
+			.get(harness.windowRef)
+			.get("pointermove");
+		const pointerup = harness.listeners.get(harness.windowRef).get("pointerup");
+		const viewportTarget = new globalThis.Element();
+		viewportTarget.closest = (selector: string) => {
+			if (selector === "#viewport") {
+				return {};
+			}
+			return null;
+		};
+		pointerdown({
+			pointerId: 31,
+			pointerType: "mouse",
+			button: 0,
+			clientX: 120,
+			clientY: 140,
+			target: viewportTarget,
+		});
+		assert.equal(
+			harness.viewportShellClasses.has("is-orbit-reticle-active"),
+			false,
+		);
+		pointermove({
+			pointerId: 31,
+			pointerType: "mouse",
+			clientX: 121,
+			clientY: 141,
+			target: viewportTarget,
+		});
+		assert.equal(
+			harness.viewportShellClasses.has("is-orbit-reticle-active"),
+			false,
+		);
+		pointermove({
+			pointerId: 31,
+			pointerType: "mouse",
+			clientX: 128,
+			clientY: 140,
+			target: viewportTarget,
+		});
+		assert.equal(
+			harness.viewportShellClasses.has("is-orbit-reticle-active"),
+			true,
+		);
+		assert.equal(
+			harness.viewportShellStyle.get("--cf-orbit-reticle-x"),
+			"120px",
+		);
+		assert.equal(
+			harness.viewportShellStyle.get("--cf-orbit-reticle-y"),
+			"140px",
+		);
+		pointerup({
+			pointerId: 31,
+			pointerType: "mouse",
+			clientX: 128,
+			clientY: 140,
+			target: viewportTarget,
+		});
+		assert.equal(
+			harness.viewportShellClasses.has("is-orbit-reticle-active"),
+			false,
+		);
+	} finally {
+		harness.restore();
+	}
+}
+
+{
+	const harness = createInputRouterHarness();
+	try {
+		const pointerdown = harness.listeners
+			.get(harness.viewportShell)
+			.get("pointerdown");
+		const pointermove = harness.listeners
+			.get(harness.windowRef)
+			.get("pointermove");
+		const viewportTarget = new globalThis.Element();
+		viewportTarget.closest = (selector: string) => {
+			if (selector === "#viewport") {
+				return {};
+			}
+			return null;
+		};
+		pointerdown({
+			pointerId: 32,
+			pointerType: "touch",
+			button: 0,
+			clientX: 120,
+			clientY: 140,
+			target: viewportTarget,
+		});
+		pointermove({
+			pointerId: 32,
+			pointerType: "touch",
+			clientX: 160,
+			clientY: 140,
+			target: viewportTarget,
+		});
+		assert.equal(
+			harness.viewportShellClasses.has("is-orbit-reticle-active"),
+			false,
+		);
+	} finally {
+		harness.restore();
+	}
+}
+
+{
+	const harness = createInputRouterHarness({
+		startOrbitAroundHitDrag: () => true,
+	});
+	try {
+		const pointerdown = harness.listeners
+			.get(harness.viewportShell)
+			.get("pointerdown");
+		const pointerup = harness.listeners.get(harness.windowRef).get("pointerup");
+		const viewportTarget = new globalThis.Element();
+		viewportTarget.closest = (selector: string) => {
+			if (selector === "#viewport") {
+				return {};
+			}
+			return null;
+		};
+		pointerdown({
+			pointerId: 33,
+			pointerType: "mouse",
+			button: 0,
+			ctrlKey: true,
+			clientX: 160,
+			clientY: 180,
+			target: viewportTarget,
+		});
+		assert.equal(
+			harness.viewportShellClasses.has("is-orbit-reticle-active"),
+			true,
+		);
+		assert.equal(
+			harness.viewportShellClasses.has("is-orbit-reticle-anchor"),
+			true,
+		);
+		pointerup({
+			pointerId: 33,
+			pointerType: "mouse",
+			clientX: 160,
+			clientY: 180,
+			target: viewportTarget,
+		});
+		assert.equal(
+			harness.viewportShellClasses.has("is-orbit-reticle-active"),
+			false,
+		);
 	} finally {
 		harness.restore();
 	}

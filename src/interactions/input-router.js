@@ -133,11 +133,13 @@ export function bindInputRouter({
 	let splatEditBrushStrokePointerId = null;
 	let viewportOrthoRotationGesture = null;
 	let viewportPieTouchHoldState = null;
+	let orbitReticleGesture = null;
 	const activeTouchNavigationPointerIds = new Set();
 	let touchNavigationBaseReverseRotate = null;
 	const VIEWPORT_PIE_TOUCH_HOLD_MS = 320;
 	const VIEWPORT_PIE_TOUCH_HOLD_DISTANCE_PX = 12;
 	const VIEWPORT_POINTER_CLICK_DISTANCE_PX = 8;
+	const VIEWPORT_ORBIT_RETICLE_SHOW_DISTANCE_PX = 3;
 
 	function syncInteractiveInputNavigationState(isInteractiveInputFocused) {
 		if (isInteractiveInputFocused) {
@@ -228,6 +230,136 @@ export function bindInputRouter({
 	function clearTouchNavigationPointerControls() {
 		activeTouchNavigationPointerIds.clear();
 		restoreTouchNavigationPointerControls();
+	}
+
+	function getViewportShellLocalPoint(event) {
+		const rect = viewportShell.getBoundingClientRect?.();
+		if (rect) {
+			return {
+				x: event.clientX - rect.left,
+				y: event.clientY - rect.top,
+			};
+		}
+		return {
+			x: event.clientX,
+			y: event.clientY,
+		};
+	}
+
+	function showOrbitReticle(gesture) {
+		const style = viewportShell.style;
+		style?.setProperty?.("--cf-orbit-reticle-x", `${Math.round(gesture.x)}px`);
+		style?.setProperty?.("--cf-orbit-reticle-y", `${Math.round(gesture.y)}px`);
+		viewportShell.classList?.toggle?.(
+			"is-orbit-reticle-anchor",
+			gesture.kind === "anchor",
+		);
+		viewportShell.classList?.add?.("is-orbit-reticle-active");
+		gesture.visible = true;
+	}
+
+	function clearOrbitReticle() {
+		orbitReticleGesture = null;
+		viewportShell.classList?.remove?.(
+			"is-orbit-reticle-active",
+			"is-orbit-reticle-anchor",
+		);
+	}
+
+	function isMouseOrbitReticleCandidate(event) {
+		if (event.pointerType !== "mouse" || event.button !== 0) {
+			return false;
+		}
+		if (event.ctrlKey || event.metaKey) {
+			return false;
+		}
+		if (state.interactionMode !== "navigate") {
+			return false;
+		}
+		if (isPieInteractionMode?.() || isZoomInteractionMode?.()) {
+			return false;
+		}
+		if (isLensInteractionMode?.() || isRollInteractionMode?.()) {
+			return false;
+		}
+		if (isSplatEditModeActive?.() || isSplatEditBrushActive?.()) {
+			return false;
+		}
+		if (isViewportSelectMode?.() || isViewportReferenceImageEditMode?.()) {
+			return false;
+		}
+		const target = event.target instanceof Element ? event.target : null;
+		if (!target || isViewportOverlayControlTarget(target)) {
+			return false;
+		}
+		if (isInteractiveTextTarget(target)) {
+			return false;
+		}
+		if (target.closest("#viewport") === null) {
+			return false;
+		}
+		if (
+			target.closest(
+				".viewport-pie, .viewport-axis-gizmo, #viewport-gizmo, .frame-item, .frame-trajectory-layer, .reference-image-layer__entry, .reference-image-selection-layer, .measurement-overlay__point, .measurement-overlay__chip, .viewport-splat-edit-toolbar, .viewport-splat-edit-popover",
+			)
+		) {
+			return false;
+		}
+		return true;
+	}
+
+	function armOrbitReticle(event, kind = "orbit", { visible = false } = {}) {
+		if (event.pointerType !== "mouse") {
+			return;
+		}
+		const point = getViewportShellLocalPoint(event);
+		orbitReticleGesture = {
+			pointerId: event.pointerId,
+			startClientX: event.clientX,
+			startClientY: event.clientY,
+			x: point.x,
+			y: point.y,
+			kind,
+			visible: false,
+		};
+		if (visible) {
+			showOrbitReticle(orbitReticleGesture);
+		}
+	}
+
+	function armMouseOrbitReticle(event) {
+		if (!isMouseOrbitReticleCandidate(event)) {
+			return;
+		}
+		armOrbitReticle(event, "orbit");
+	}
+
+	function handleOrbitReticleMove(event) {
+		if (
+			!orbitReticleGesture ||
+			event.pointerId !== orbitReticleGesture.pointerId
+		) {
+			return;
+		}
+		if (orbitReticleGesture.visible) {
+			return;
+		}
+		const deltaX = event.clientX - orbitReticleGesture.startClientX;
+		const deltaY = event.clientY - orbitReticleGesture.startClientY;
+		if (Math.hypot(deltaX, deltaY) < VIEWPORT_ORBIT_RETICLE_SHOW_DISTANCE_PX) {
+			return;
+		}
+		showOrbitReticle(orbitReticleGesture);
+	}
+
+	function handleOrbitReticleEnd(event) {
+		if (
+			!orbitReticleGesture ||
+			event.pointerId !== orbitReticleGesture.pointerId
+		) {
+			return;
+		}
+		clearOrbitReticle();
 	}
 
 	function isTouchNavigationTarget(event) {
@@ -359,6 +491,7 @@ export function bindInputRouter({
 				}
 			}
 			if (startOrbitAroundHitDrag?.(event)) {
+				armOrbitReticle(event, "anchor", { visible: true });
 				return;
 			}
 		},
@@ -727,6 +860,8 @@ export function bindInputRouter({
 				startPose: getCameraPoseSignature(),
 			};
 		}
+
+		armMouseOrbitReticle(event);
 	});
 
 	listen(window, "pointermove", handleZoomToolDragMove);
@@ -789,6 +924,9 @@ export function bindInputRouter({
 	listen(window, "pointermove", handleOrbitAroundHitDragMove);
 	listen(window, "pointerup", handleOrbitAroundHitDragEnd);
 	listen(window, "pointercancel", handleOrbitAroundHitDragEnd);
+	listen(window, "pointermove", handleOrbitReticleMove);
+	listen(window, "pointerup", handleOrbitReticleEnd);
+	listen(window, "pointercancel", handleOrbitReticleEnd);
 	listen(window, "pointermove", handleLensAdjustDragMove);
 	listen(window, "pointerup", handleLensAdjustDragEnd);
 	listen(window, "pointercancel", handleLensAdjustDragEnd);
@@ -1175,6 +1313,7 @@ export function bindInputRouter({
 	listen(window, "blur", () => {
 		clearViewportPieTouchHold();
 		clearTouchNavigationPointerControls();
+		clearOrbitReticle();
 		closeViewportPieMenu?.();
 		flushNavigationHistory?.();
 	});
