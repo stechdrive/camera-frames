@@ -348,6 +348,7 @@ interaction の基準:
 - orthographic は viewport-only
 - orthographic 操作中でも click-like gesture の時は元の投影状態へ戻す
 - desktop mouse の navigate left drag は camera / viewport の orbit 操作として扱い、drag 中は開始点に orbit reticle を表示して相対入力であることを示す
+- desktop mouse の navigate right drag は通常の shot camera / viewport camera の pan / slide 操作として扱い、drag 中だけ握る手の cursor を表示する
 - touch の 1 本指 navigate は mouse drag と符号を分離し、画面上の内容を指でつかむ direct manipulation として扱う
 - direct manipulation は transaction 単位で undo/redo にまとめる
 - 測定ツールでは 1 点目配置後に `Shift` を押すと、2 点目の draft / click 確定を scene hit ではなく world `X` / `Y` / `Z` 軸上に制約する。軸は始点から見た各 world 軸のスクリーン投影とマウス方向の近さで選ぶ

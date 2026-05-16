@@ -120,6 +120,7 @@
 - viewport-only orthographic を持つ
 - orthographic は viewport-only で、shot camera へ昇格しない
 - PC の mouse navigate では、orbit drag 中に開始点へ円形 reticle を表示し、画像をつかむ操作ではなく camera / viewport の相対操作であることを示す
+- PC の mouse navigate では、通常の shot camera / viewport camera の右ドラッグを pan / slide として扱い、drag 中だけ握る手の cursor を表示する
 - touch の 1 本指 navigate は mouse drag と分離し、画面上の内容を指でつかむ向きで扱う
 - current baseline は single-pane であり、pane ごとの個別 camera 割当てや viewport state 保存は未提供
 - ただし将来 split view を入れる余地は残し、shot camera と viewport camera を同一概念へ潰さない

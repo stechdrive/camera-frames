@@ -281,7 +281,10 @@ function createInputRouterHarness(overrides = {}) {
 		finishViewportPieMenu: () => null,
 		closeViewportPieMenu: () => {},
 		handleViewportPieAction: () => {},
-		state: { mode: "viewport", interactionMode: "navigate" },
+		state: {
+			mode: overrides.mode ?? "viewport",
+			interactionMode: overrides.interactionMode ?? "navigate",
+		},
 		fpsMovement,
 		pointerControls,
 		isFrameSelectionActive: () => overrides.isFrameSelectionActive ?? false,
@@ -385,6 +388,122 @@ function createInputRouterHarness(overrides = {}) {
 			target: viewportTarget,
 		});
 		assert.equal(harness.pointerControls.reverseRotate, false);
+	} finally {
+		harness.restore();
+	}
+}
+
+{
+	const harness = createInputRouterHarness();
+	try {
+		const pointerdown = harness.listeners
+			.get(harness.viewportShell)
+			.get("pointerdown");
+		const pointerup = harness.listeners.get(harness.windowRef).get("pointerup");
+		const viewportTarget = new globalThis.Element();
+		viewportTarget.closest = (selector: string) => {
+			if (selector === "#viewport") {
+				return {};
+			}
+			return null;
+		};
+		pointerdown({
+			pointerId: 41,
+			pointerType: "mouse",
+			button: 2,
+			clientX: 200,
+			clientY: 210,
+			target: viewportTarget,
+		});
+		assert.equal(
+			harness.viewportShellClasses.has("is-camera-pan-dragging"),
+			true,
+		);
+		pointerup({
+			pointerId: 41,
+			pointerType: "mouse",
+			clientX: 210,
+			clientY: 220,
+			target: viewportTarget,
+		});
+		assert.equal(
+			harness.viewportShellClasses.has("is-camera-pan-dragging"),
+			false,
+		);
+	} finally {
+		harness.restore();
+	}
+}
+
+{
+	const harness = createInputRouterHarness({ mode: "camera" });
+	try {
+		const pointerdown = harness.listeners
+			.get(harness.viewportShell)
+			.get("pointerdown");
+		const pointercancel = harness.listeners
+			.get(harness.windowRef)
+			.get("pointercancel");
+		const viewportTarget = new globalThis.Element();
+		viewportTarget.closest = (selector: string) => {
+			if (selector === "#viewport") {
+				return {};
+			}
+			return null;
+		};
+		pointerdown({
+			pointerId: 42,
+			pointerType: "mouse",
+			button: 2,
+			clientX: 200,
+			clientY: 210,
+			target: viewportTarget,
+		});
+		assert.equal(
+			harness.viewportShellClasses.has("is-camera-pan-dragging"),
+			true,
+		);
+		pointercancel({
+			pointerId: 42,
+			pointerType: "mouse",
+			clientX: 210,
+			clientY: 220,
+			target: viewportTarget,
+		});
+		assert.equal(
+			harness.viewportShellClasses.has("is-camera-pan-dragging"),
+			false,
+		);
+	} finally {
+		harness.restore();
+	}
+}
+
+{
+	const harness = createInputRouterHarness({ isSplatEditModeActive: true });
+	try {
+		const pointerdown = harness.listeners
+			.get(harness.viewportShell)
+			.get("pointerdown");
+		const viewportTarget = new globalThis.Element();
+		viewportTarget.closest = (selector: string) => {
+			if (selector === "#viewport") {
+				return {};
+			}
+			return null;
+		};
+		pointerdown({
+			pointerId: 43,
+			pointerType: "mouse",
+			button: 2,
+			clientX: 200,
+			clientY: 210,
+			target: viewportTarget,
+		});
+		assert.equal(
+			harness.viewportShellClasses.has("is-camera-pan-dragging"),
+			false,
+		);
 	} finally {
 		harness.restore();
 	}

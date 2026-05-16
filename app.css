@@ -2576,6 +2576,13 @@ body[data-interaction-mode="roll"] .viewport-axis-gizmo {
 	cursor: ew-resize !important;
 }
 
+.viewport-shell.is-camera-pan-dragging,
+.viewport-shell.is-camera-pan-dragging *,
+.viewport-shell.is-ortho-panning,
+.viewport-shell.is-ortho-panning * {
+	cursor: grabbing !important;
+}
+
 .viewport-orbit-reticle {
 	--cf-orbit-reticle-color: 143, 210, 255;
 	position: absolute;

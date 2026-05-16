@@ -134,6 +134,7 @@ export function bindInputRouter({
 	let viewportOrthoRotationGesture = null;
 	let viewportPieTouchHoldState = null;
 	let orbitReticleGesture = null;
+	let cameraPanCursorPointerId = null;
 	const activeTouchNavigationPointerIds = new Set();
 	let touchNavigationBaseReverseRotate = null;
 	const VIEWPORT_PIE_TOUCH_HOLD_MS = 320;
@@ -360,6 +361,71 @@ export function bindInputRouter({
 			return;
 		}
 		clearOrbitReticle();
+	}
+
+	function isMouseCameraPanCursorCandidate(event) {
+		if (event.pointerType !== "mouse" || event.button !== 2) {
+			return false;
+		}
+		if (state.mode !== "viewport" && state.mode !== "camera") {
+			return false;
+		}
+		if (state.interactionMode !== "navigate") {
+			return false;
+		}
+		if (isPieInteractionMode?.() || isZoomInteractionMode?.()) {
+			return false;
+		}
+		if (isLensInteractionMode?.() || isRollInteractionMode?.()) {
+			return false;
+		}
+		if (isViewportOrthographicActive?.()) {
+			return false;
+		}
+		if (isSplatEditModeActive?.() || isSplatEditBrushActive?.()) {
+			return false;
+		}
+		if (isViewportSelectMode?.() || isViewportReferenceImageEditMode?.()) {
+			return false;
+		}
+		const target = event.target instanceof Element ? event.target : null;
+		if (!target || isViewportOverlayControlTarget(target)) {
+			return false;
+		}
+		if (isInteractiveTextTarget(target)) {
+			return false;
+		}
+		if (target.closest("#viewport") === null) {
+			return false;
+		}
+		if (
+			target.closest(
+				".viewport-pie, .viewport-axis-gizmo, #viewport-gizmo, .frame-item, .frame-trajectory-layer, .reference-image-layer__entry, .reference-image-selection-layer, .measurement-overlay__point, .measurement-overlay__chip, .viewport-splat-edit-toolbar, .viewport-splat-edit-popover",
+			)
+		) {
+			return false;
+		}
+		return true;
+	}
+
+	function armMouseCameraPanCursor(event) {
+		if (!isMouseCameraPanCursorCandidate(event)) {
+			return;
+		}
+		cameraPanCursorPointerId = event.pointerId;
+		viewportShell.classList?.add?.("is-camera-pan-dragging");
+	}
+
+	function clearMouseCameraPanCursor() {
+		cameraPanCursorPointerId = null;
+		viewportShell.classList?.remove?.("is-camera-pan-dragging");
+	}
+
+	function handleMouseCameraPanCursorEnd(event) {
+		if (event.pointerId !== cameraPanCursorPointerId) {
+			return;
+		}
+		clearMouseCameraPanCursor();
 	}
 
 	function isTouchNavigationTarget(event) {
@@ -862,6 +928,7 @@ export function bindInputRouter({
 		}
 
 		armMouseOrbitReticle(event);
+		armMouseCameraPanCursor(event);
 	});
 
 	listen(window, "pointermove", handleZoomToolDragMove);
@@ -927,6 +994,8 @@ export function bindInputRouter({
 	listen(window, "pointermove", handleOrbitReticleMove);
 	listen(window, "pointerup", handleOrbitReticleEnd);
 	listen(window, "pointercancel", handleOrbitReticleEnd);
+	listen(window, "pointerup", handleMouseCameraPanCursorEnd);
+	listen(window, "pointercancel", handleMouseCameraPanCursorEnd);
 	listen(window, "pointermove", handleLensAdjustDragMove);
 	listen(window, "pointerup", handleLensAdjustDragEnd);
 	listen(window, "pointercancel", handleLensAdjustDragEnd);
@@ -1314,6 +1383,7 @@ export function bindInputRouter({
 		clearViewportPieTouchHold();
 		clearTouchNavigationPointerControls();
 		clearOrbitReticle();
+		clearMouseCameraPanCursor();
 		closeViewportPieMenu?.();
 		flushNavigationHistory?.();
 	});
