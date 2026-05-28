@@ -555,7 +555,7 @@ export function DisclosureBlock({
 									onOpenHelp(helpSectionId);
 								}}
 							>
-								<${WorkbenchIcon} name="help" size=${12} />
+								<${WorkbenchIcon} name="help" size=${14} />
 							</button>
 						`
 					}
