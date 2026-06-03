@@ -184,7 +184,7 @@ PSD export の主な構成:
 - save の主軸は `working save + .ssproj`
 - Viewport と Camera View は統合しない
 - shot camera と viewport camera は将来の multi-pane 拡張を塞がないよう別概念のまま保つ
-- current baseline は Spark 2.0 上の現行実装であり、旧 `camera-frames` branch の stable 契約をそのまま移植したものではない
+- current baseline は Spark 2.1 上の現行実装であり、旧 `camera-frames` branch の stable 契約をそのまま移植したものではない
 - `exportSplatLayers` の既定値や reference image model は旧文書より現 repo 実装を優先する
 - ただし旧 `.ssproj` の読込み互換は migration contract として維持する。詳細は [legacy-ssproj-compatibility.md](./legacy-ssproj-compatibility.md)
 

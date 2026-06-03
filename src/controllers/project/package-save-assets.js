@@ -377,7 +377,7 @@ export function createProjectPackageSaveAssetsController({
 			sparkVersion:
 				typeof metadata.sparkVersion === "string"
 					? metadata.sparkVersion
-					: "2.0.0",
+					: "2.1.0",
 			build: {
 				...(metadata.build && typeof metadata.build === "object"
 					? metadata.build

@@ -18,8 +18,8 @@ checked-in smoke fixture.
 
 ## Spark Version
 
-- npm package baseline: `@sparkjsdev/spark@2.0.0`
-- source tag used for fixture generation: `v2.0.0`
+- current repo dependency baseline: `@sparkjsdev/spark@2.1.0`
+- source tag used for this fixture generation: `v2.0.0`
 - source commit observed at generation time: `ea56ee73f1ec015deac852998870e1dc80f21a7f`
 
 ## Regeneration

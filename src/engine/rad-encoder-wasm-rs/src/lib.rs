@@ -103,7 +103,7 @@ pub fn encode_packed_rad_bundle(
     Reflect::set(
         &metadata,
         &JsValue::from_str("sparkVersion"),
-        &JsValue::from_str("2.0.0"),
+        &JsValue::from_str("2.1.0"),
     )?;
     Reflect::set(&metadata, &JsValue::from_str("bounds"), &bounds)?;
     Reflect::set(
