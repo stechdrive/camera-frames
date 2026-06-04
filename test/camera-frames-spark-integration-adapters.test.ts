@@ -79,8 +79,10 @@ import {
 	assert.deepEqual(captureSparkReadinessState(null), {
 		supported: false,
 		pending: false,
+		advisoryPending: false,
 		pendingCounts: {},
 		pendingReasons: [],
+		advisoryReasons: [],
 	});
 }
 
@@ -130,6 +132,7 @@ import {
 
 	assert.equal(state.supported, true);
 	assert.equal(state.pending, true);
+	assert.equal(state.advisoryPending, true);
 	assert.deepEqual(state.pendingCounts, {
 		renderDirty: 1,
 		updateTimeout: 0,
@@ -153,10 +156,6 @@ import {
 		"renderDirty:1",
 		"sortDirty:1",
 		"sortTimeout:1",
-		"sortWorkerMessages:1",
-		"lodDirty:1",
-		"lodWorkerExclusive:1",
-		"lodWorkerMessages:2",
 		"lodInitQueue:1",
 		"lodUpdates:1",
 		"pagerFetchers:1",
@@ -164,6 +163,12 @@ import {
 		"pagerNewUploads:1",
 		"pagerLodTreeUpdates:1",
 		"pagerFetchBacklog:1",
+	]);
+	assert.deepEqual(state.advisoryReasons, [
+		"sortWorkerMessages:1",
+		"lodDirty:1",
+		"lodWorkerExclusive:1",
+		"lodWorkerMessages:2",
 	]);
 }
 
@@ -198,7 +203,9 @@ import {
 
 	assert.equal(idle.supported, true);
 	assert.equal(idle.pending, false);
+	assert.equal(idle.advisoryPending, false);
 	assert.deepEqual(idle.pendingReasons, []);
+	assert.deepEqual(idle.advisoryReasons, []);
 }
 
 {

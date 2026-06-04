@@ -212,6 +212,11 @@ export function createExportController({
 		toggleExportPreset,
 		setReferenceImageExportSessionEnabled,
 		isRenderLocked: outputRuntime.isRenderLocked,
+		__debugSetExportReadinessPolicyOverride:
+			outputRuntime.setReadinessPolicyOverride,
+		__debugGetExportReadinessPolicyOverride:
+			outputRuntime.getReadinessPolicyOverride,
+		__debugGetLastExportReadiness: outputRuntime.getLastExportReadiness,
 		dispose: outputRuntime.dispose,
 	};
 }

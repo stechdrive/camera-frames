@@ -33,6 +33,7 @@ assert.deepEqual(
 		maxWaitMs: 0,
 	}),
 	{
+		readinessStrategy: "probe-safe",
 		minWarmupPasses: 0,
 		splatWarmupPasses: 4,
 		splatSettledPasses: 2,
@@ -45,7 +46,9 @@ assert.deepEqual(
 		sceneAssets: [{ kind: "model" }],
 	});
 	assert.equal(plan.requiresSplatWarmup, false);
+	assert.equal(plan.usesSparkProbe, false);
 	assert.equal(plan.warmupPasses, 0);
+	assert.equal(plan.warmupPassesRequired, 0);
 	assert.equal(plan.settledPasses, 0);
 	assert.deepEqual(plan.assetCounts, {
 		splatCount: 0,
@@ -59,7 +62,9 @@ assert.deepEqual(
 		sceneAssets: [{ kind: "splat" }, { kind: "model" }],
 	});
 	assert.equal(plan.requiresSplatWarmup, true);
+	assert.equal(plan.usesSparkProbe, true);
 	assert.equal(plan.warmupPasses, 2);
+	assert.equal(plan.warmupPassesRequired, 2);
 	assert.equal(plan.settledPasses, 2);
 	assert.deepEqual(
 		finalizeExportReadiness(plan, {
@@ -77,8 +82,10 @@ assert.deepEqual(
 			timedOut: true,
 		}),
 		{
+			readinessStrategy: "probe-safe",
 			maxWaitMs: 1500,
 			warmupPassesPlanned: 2,
+			warmupPassesRequired: 2,
 			completedWarmupPasses: 1,
 			completedRenderPasses: 2,
 			settledPassesPlanned: 2,
@@ -99,8 +106,30 @@ assert.deepEqual(
 					pendingReasons: ["pagerFetchers:1"],
 				},
 			},
+			trace: null,
 		},
 	);
+}
+
+{
+	const legacyPlan = buildExportReadinessPlan({
+		sceneAssets: [{ kind: "splat" }],
+		policy: { readinessStrategy: "legacy" },
+	});
+	assert.equal(legacyPlan.readinessStrategy, "legacy");
+	assert.equal(legacyPlan.usesSparkProbe, false);
+	assert.equal(legacyPlan.warmupPassesRequired, 2);
+	assert.equal(legacyPlan.settledPasses, 0);
+
+	const earlyPlan = buildExportReadinessPlan({
+		sceneAssets: [{ kind: "splat" }],
+		policy: { readinessStrategy: "probe-early", minWarmupPasses: 1 },
+	});
+	assert.equal(earlyPlan.readinessStrategy, "probe-early");
+	assert.equal(earlyPlan.usesSparkProbe, true);
+	assert.equal(earlyPlan.warmupPasses, 2);
+	assert.equal(earlyPlan.warmupPassesRequired, 1);
+	assert.equal(earlyPlan.settledPasses, 2);
 }
 
 console.log("✅ CAMERA_FRAMES export readiness tests passed!");

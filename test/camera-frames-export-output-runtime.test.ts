@@ -109,7 +109,7 @@ import { createExportOutputRuntime } from "../src/controllers/export/output-runt
 					sceneAssets: [],
 					exportSettings: { exportSplatLayers: true },
 				});
-				return { ok: true };
+				return { ok: true, readiness: { state: "captured" } };
 			},
 			renderScenePixelsWithReadinessFn: async (config) => {
 				calls.push(["readiness", config.readinessPolicy]);
@@ -145,11 +145,16 @@ import { createExportOutputRuntime } from "../src/controllers/export/output-runt
 			},
 		},
 	);
+	runtime.setReadinessPolicyOverride({ readinessStrategy: "legacy" });
+	assert.deepEqual(runtime.getReadinessPolicyOverride(), {
+		readinessStrategy: "legacy",
+	});
 
 	const result = await runtime.renderOutputSnapshotForShotCamera("camera-a", {
 		onProgress: () => {},
 	});
-	assert.deepEqual(result, { ok: true });
+	assert.deepEqual(result, { ok: true, readiness: { state: "captured" } });
+	assert.deepEqual(runtime.getLastExportReadiness(), { state: "captured" });
 	assert.deepEqual(calls[0], ["session", "camera-a"]);
 	assert.deepEqual(calls[1], [
 		"render",
@@ -163,10 +168,13 @@ import { createExportOutputRuntime } from "../src/controllers/export/output-runt
 	assert.deepEqual(
 		calls.filter((entry) => entry[0] === "readiness").map((entry) => entry[1]),
 		Array.from({ length: 5 }, () => ({
+			readinessStrategy: "legacy",
 			splatWarmupPasses: 3,
 			maxWaitMs: 2000,
 		})),
 	);
+	runtime.setReadinessPolicyOverride(null);
+	assert.equal(runtime.getReadinessPolicyOverride(), null);
 
 	runtime.dispose();
 	assert.deepEqual(calls.at(-1), ["dispose"]);

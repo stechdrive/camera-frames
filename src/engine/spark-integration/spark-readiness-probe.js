@@ -83,13 +83,44 @@ function countPagerFetchBacklog(pager) {
 	return backlog;
 }
 
+const BLOCKING_PENDING_COUNT_NAMES = new Set([
+	"renderDirty",
+	"updateTimeout",
+	"sortDirty",
+	"sortTimeout",
+	"lodInitQueue",
+	"lodUpdates",
+	"pagerFetchers",
+	"pagerFetched",
+	"pagerNewUploads",
+	"pagerReadyUploads",
+	"pagerLodTreeUpdates",
+	"pagerFetchBacklog",
+]);
+
+const ADVISORY_PENDING_COUNT_NAMES = new Set([
+	"sorting",
+	"sortWorkerMessages",
+	"lodDirty",
+	"lodWorkerExclusive",
+	"lodWorkerMessages",
+]);
+
+function buildPendingReasons(pendingCounts, names) {
+	return Object.entries(pendingCounts)
+		.filter(([name, count]) => names.has(name) && count > 0)
+		.map(([name, count]) => `${name}:${count}`);
+}
+
 export function captureSparkReadinessState(sourceSpark) {
 	if (!isObject(sourceSpark)) {
 		return {
 			supported: false,
 			pending: false,
+			advisoryPending: false,
 			pendingCounts: {},
 			pendingReasons: [],
+			advisoryReasons: [],
 		};
 	}
 
@@ -113,14 +144,21 @@ export function captureSparkReadinessState(sourceSpark) {
 		pagerLodTreeUpdates: countArray(pager?.lodTreeUpdates),
 		pagerFetchBacklog: countPagerFetchBacklog(pager),
 	};
-	const pendingReasons = Object.entries(pendingCounts)
-		.filter(([, count]) => count > 0)
-		.map(([name, count]) => `${name}:${count}`);
+	const pendingReasons = buildPendingReasons(
+		pendingCounts,
+		BLOCKING_PENDING_COUNT_NAMES,
+	);
+	const advisoryReasons = buildPendingReasons(
+		pendingCounts,
+		ADVISORY_PENDING_COUNT_NAMES,
+	);
 
 	return {
 		supported: true,
 		pending: pendingReasons.length > 0,
+		advisoryPending: advisoryReasons.length > 0,
 		pendingCounts,
 		pendingReasons,
+		advisoryReasons,
 	};
 }

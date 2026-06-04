@@ -119,6 +119,20 @@ export function createSparkExportRendererManager({ sourceSpark }) {
 		assignSparkExportBufferState(sourceSpark, previousState);
 	}
 
+	async function withAutoUpdateDisabled(callback) {
+		if (!sourceSpark || !("autoUpdate" in sourceSpark)) {
+			return callback();
+		}
+
+		const previousAutoUpdate = sourceSpark.autoUpdate;
+		sourceSpark.autoUpdate = false;
+		try {
+			return await callback();
+		} finally {
+			sourceSpark.autoUpdate = previousAutoUpdate;
+		}
+	}
+
 	async function withExportTarget(config, callback) {
 		const previousState = captureBufferState();
 		assignExportTarget(config);
@@ -160,13 +174,15 @@ export function createSparkExportRendererManager({ sourceSpark }) {
 		superXY = DEFAULT_EXPORT_SUPER_XY,
 	}) {
 		ensureExportTarget({ width, height, superXY });
-		return withExportTarget({ width, height, superXY }, () => {
-			clearExportTarget({ width, height, superXY });
-			return sourceSpark.renderTarget({
-				scene,
-				camera,
-			});
-		});
+		return withExportTarget({ width, height, superXY }, () =>
+			withAutoUpdateDisabled(() => {
+				clearExportTarget({ width, height, superXY });
+				return sourceSpark.renderTarget({
+					scene,
+					camera,
+				});
+			}),
+		);
 	}
 
 	async function readPixels({

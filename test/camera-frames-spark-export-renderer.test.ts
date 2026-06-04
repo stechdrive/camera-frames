@@ -58,10 +58,13 @@ function createRendererStub() {
 		superPixels: null,
 		targetPixels: null,
 		encodeLinear: false,
+		autoUpdate: true,
 		update() {},
 		renderTargetCalls: 0,
+		autoUpdateDuringRender: null,
 		renderTarget() {
 			this.renderTargetCalls += 1;
+			this.autoUpdateDuringRender = this.autoUpdate;
 		},
 		readTarget() {
 			return new Uint8Array();
@@ -69,7 +72,7 @@ function createRendererStub() {
 	};
 
 	const manager = createSparkExportRendererManager({ sourceSpark });
-	manager.renderFrame({
+	await manager.renderFrame({
 		scene: {},
 		camera: {},
 		width: 16,
@@ -84,6 +87,8 @@ function createRendererStub() {
 	assert.notEqual(clearIndex, -1);
 	assert.notEqual(renderIndex, -1);
 	assert.equal(sourceSpark.renderTargetCalls, 1);
+	assert.equal(sourceSpark.autoUpdateDuringRender, false);
+	assert.equal(sourceSpark.autoUpdate, true);
 	assert.equal(renderer.getClearAlpha(), 1);
 	assert.equal(renderer.getClearColor(new THREE.Color()).getHex(), 0xffffff);
 }

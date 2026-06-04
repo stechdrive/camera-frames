@@ -113,6 +113,8 @@ export function createExportOutputRuntime(
 ) {
 	let exportRenderLock = false;
 	let activeReadinessPolicy = null;
+	let readinessPolicyOverride = null;
+	let lastExportReadiness = null;
 	const exportRenderBackend = createSparkExportRendererManagerFn({
 		sourceSpark: spark,
 	});
@@ -191,6 +193,17 @@ export function createExportOutputRuntime(
 				renderBackend: exportRenderBackend,
 			},
 		);
+	}
+
+	function mergeReadinessPolicy(basePolicy, overridePolicy) {
+		if (!overridePolicy) {
+			return basePolicy ?? null;
+		}
+
+		return {
+			...(basePolicy ?? {}),
+			...overridePolicy,
+		};
 	}
 
 	function renderConfiguredSceneCapture(config) {
@@ -296,9 +309,12 @@ export function createExportOutputRuntime(
 				readinessPolicy,
 			}) => {
 				const previousReadinessPolicy = activeReadinessPolicy;
-				activeReadinessPolicy = readinessPolicy ?? null;
+				activeReadinessPolicy = mergeReadinessPolicy(
+					readinessPolicy,
+					readinessPolicyOverride,
+				);
 				try {
-					return await renderOutputSnapshotSessionFn(
+					const snapshot = await renderOutputSnapshotSessionFn(
 						{
 							scene,
 							targetDocument,
@@ -341,6 +357,8 @@ export function createExportOutputRuntime(
 								renderReferenceImageLayersForShotCameraFn,
 						},
 					);
+					lastExportReadiness = snapshot?.readiness ?? null;
+					return snapshot;
 				} finally {
 					activeReadinessPolicy = previousReadinessPolicy;
 				}
@@ -352,6 +370,18 @@ export function createExportOutputRuntime(
 		return exportRenderLock;
 	}
 
+	function setReadinessPolicyOverride(policy = null) {
+		readinessPolicyOverride = policy ? { ...policy } : null;
+	}
+
+	function getReadinessPolicyOverride() {
+		return readinessPolicyOverride ? { ...readinessPolicyOverride } : null;
+	}
+
+	function getLastExportReadiness() {
+		return lastExportReadiness;
+	}
+
 	function dispose() {
 		exportRenderBackend.dispose();
 	}
@@ -359,6 +389,9 @@ export function createExportOutputRuntime(
 	return {
 		renderOutputSnapshotForShotCamera,
 		isRenderLocked,
+		setReadinessPolicyOverride,
+		getReadinessPolicyOverride,
+		getLastExportReadiness,
 		dispose,
 	};
 }

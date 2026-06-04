@@ -337,6 +337,12 @@ export function createControllerApi({
 		downloadOutput: exportController.downloadOutput,
 		downloadPng: exportController.downloadPng,
 		downloadPsd: exportController.downloadPsd,
+		__debugSetExportReadinessPolicyOverride:
+			exportController.__debugSetExportReadinessPolicyOverride,
+		__debugGetExportReadinessPolicyOverride:
+			exportController.__debugGetExportReadinessPolicyOverride,
+		__debugGetLastExportReadiness:
+			exportController.__debugGetLastExportReadiness,
 		__debugGetSceneAssets: () => assetController?.getSceneAssets?.() ?? [],
 		__debugEnsureFullDataForSplatAssets: (...args) =>
 			assetController?.ensureFullDataForSplatAssets?.(...args),

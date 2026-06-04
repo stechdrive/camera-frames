@@ -9,6 +9,19 @@ function clampSettledPasses(value) {
 	return nextValue;
 }
 
+function clampWarmupPasses(value) {
+	const nextValue = Math.floor(Number(value));
+	if (!Number.isFinite(nextValue) || nextValue < 0) {
+		return 0;
+	}
+
+	return nextValue;
+}
+
+function measureElapsed(getNowMs, startMs) {
+	return Math.max(0, getNowMs() - startMs);
+}
+
 export async function renderGuideLayerPixels(
 	{
 		camera,
@@ -63,22 +76,36 @@ export async function renderScenePixelsWithReadiness(
 		sceneAssets,
 		policy: readinessPolicy,
 	});
-	const deadline = getNowMs() + readinessPlan.maxWaitMs;
+	const startedAt = getNowMs();
+	const deadline = startedAt + readinessPlan.maxWaitMs;
 	let completedWarmupPasses = 0;
 	let completedRenderPasses = 0;
 	let completedSettledPasses = 0;
 	let lastReadinessProbe = null;
+	const warmupPassesRequired = clampWarmupPasses(
+		readinessPlan.warmupPassesRequired ?? readinessPlan.warmupPasses,
+	);
 	const hasReadinessProbe =
 		typeof renderBackend.captureReadinessState === "function";
 	let settledPassesPlanned = hasReadinessProbe
 		? clampSettledPasses(readinessPlan.settledPasses)
 		: 0;
 	let probeSupported = hasReadinessProbe && settledPassesPlanned > 0;
+	const trace = {
+		strategy: readinessPlan.readinessStrategy ?? "probe-safe",
+		maxWaitMs: readinessPlan.maxWaitMs,
+		warmupPassesPlanned: readinessPlan.warmupPasses,
+		warmupPassesRequired,
+		settledPassesPlanned,
+		passes: [],
+		readPixelsMs: 0,
+		elapsedMs: 0,
+	};
 
 	while (true) {
 		const canWait = getNowMs() <= deadline;
 		const needsWarmup =
-			completedWarmupPasses < readinessPlan.warmupPasses && canWait;
+			completedWarmupPasses < warmupPassesRequired && canWait;
 		const needsFinalPass =
 			completedRenderPasses < completedWarmupPasses + 1;
 		const needsSettled =
@@ -90,6 +117,23 @@ export async function renderScenePixelsWithReadiness(
 			break;
 		}
 
+		const passStartedAt = getNowMs();
+		const pass = {
+			index: completedRenderPasses + 1,
+			elapsedStartMs: Math.max(0, passStartedAt - startedAt),
+			needsWarmup,
+			needsFinalPass,
+			needsSettled,
+			prepareMs: 0,
+			renderMs: 0,
+			probeMs: 0,
+			passMs: 0,
+			completedWarmupPasses,
+			completedSettledPasses,
+			probe: null,
+		};
+
+		const prepareStartedAt = getNowMs();
 		await renderBackend.prepareFrame({
 			scene,
 			camera,
@@ -97,12 +141,16 @@ export async function renderScenePixelsWithReadiness(
 			height,
 			update: true,
 		});
+		pass.prepareMs = measureElapsed(getNowMs, prepareStartedAt);
+
+		const renderStartedAt = getNowMs();
 		await renderBackend.renderFrame({
 			scene,
 			camera,
 			width,
 			height,
 		});
+		pass.renderMs = measureElapsed(getNowMs, renderStartedAt);
 		completedRenderPasses += 1;
 
 		if (needsWarmup) {
@@ -110,12 +158,15 @@ export async function renderScenePixelsWithReadiness(
 		}
 
 		if (probeSupported) {
+			const probeStartedAt = getNowMs();
 			lastReadinessProbe = renderBackend.captureReadinessState({
 				scene,
 				camera,
 				width,
 				height,
 			});
+			pass.probeMs = measureElapsed(getNowMs, probeStartedAt);
+			pass.probe = lastReadinessProbe;
 
 			if (lastReadinessProbe?.supported === false) {
 				probeSupported = false;
@@ -127,13 +178,24 @@ export async function renderScenePixelsWithReadiness(
 				completedSettledPasses += 1;
 			}
 		}
+
+		pass.completedWarmupPasses = completedWarmupPasses;
+		pass.completedSettledPasses = completedSettledPasses;
+		pass.passMs = measureElapsed(getNowMs, passStartedAt);
+		trace.passes.push(pass);
 	}
 
+	const readStartedAt = getNowMs();
+	const pixels = await renderBackend.readPixels({
+		width,
+		height,
+	});
+	trace.readPixelsMs = measureElapsed(getNowMs, readStartedAt);
+	trace.elapsedMs = measureElapsed(getNowMs, startedAt);
+	trace.settledPassesPlanned = settledPassesPlanned;
+
 	return {
-		pixels: await renderBackend.readPixels({
-			width,
-			height,
-		}),
+		pixels,
 		readiness: finalizeReadiness(readinessPlan, {
 			completedWarmupPasses,
 			completedRenderPasses,
@@ -142,8 +204,9 @@ export async function renderScenePixelsWithReadiness(
 			probeSupported,
 			lastReadinessProbe,
 			timedOut:
-				completedWarmupPasses < readinessPlan.warmupPasses ||
+				completedWarmupPasses < warmupPassesRequired ||
 				(probeSupported && completedSettledPasses < settledPassesPlanned),
+			trace,
 		}),
 	};
 }

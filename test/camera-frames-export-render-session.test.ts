@@ -155,7 +155,22 @@ import {
 	);
 
 	assert.deepEqual(Array.from(result.pixels), [9, 8, 7, 6]);
-	assert.deepEqual(result.readiness, {
+	const firstTrace = result.readiness.state.trace;
+	assert.equal(firstTrace.strategy, "probe-safe");
+	assert.equal(firstTrace.passes.length, 3);
+	assert.equal(firstTrace.passes[0].needsWarmup, true);
+	assert.equal(firstTrace.passes[2].needsFinalPass, true);
+	assert.equal(firstTrace.readPixelsMs > 0, true);
+	assert.equal(firstTrace.elapsedMs >= firstTrace.readPixelsMs, true);
+	assert.deepEqual(
+		{
+			...result.readiness,
+			state: {
+				...result.readiness.state,
+				trace: "checked",
+			},
+		},
+		{
 		plan: { warmupPasses: 2, maxWaitMs: 100 },
 		state: {
 			completedWarmupPasses: 2,
@@ -165,8 +180,10 @@ import {
 			probeSupported: false,
 			lastReadinessProbe: null,
 			timedOut: false,
+			trace: "checked",
 		},
-	});
+		},
+	);
 	assert.equal(
 		backendCalls.filter(([kind]) => kind === "prepareFrame").length,
 		3,
@@ -256,7 +273,19 @@ import {
 		backendCalls.filter(([kind]) => kind === "captureReadinessState").length,
 		3,
 	);
-	assert.deepEqual(result.readiness.state, {
+	const settledTrace = result.readiness.state.trace;
+	assert.equal(settledTrace.strategy, "probe-safe");
+	assert.equal(settledTrace.passes.length, 3);
+	assert.deepEqual(
+		settledTrace.passes.map((pass) => pass.probe?.pending),
+		[true, false, false],
+	);
+	assert.deepEqual(
+		{
+			...result.readiness.state,
+			trace: "checked",
+		},
+		{
 		completedWarmupPasses: 1,
 		completedRenderPasses: 3,
 		settledPassesPlanned: 2,
@@ -269,7 +298,9 @@ import {
 			pendingReasons: [],
 		},
 		timedOut: false,
-	});
+		trace: "checked",
+		},
+	);
 }
 
 {
@@ -321,7 +352,15 @@ import {
 		backendCalls.filter(([kind]) => kind === "renderFrame").length,
 		1,
 	);
-	assert.deepEqual(result.readiness.state, {
+	const noProbeTrace = result.readiness.state.trace;
+	assert.equal(noProbeTrace.passes.length, 1);
+	assert.equal(noProbeTrace.passes[0].probe, null);
+	assert.deepEqual(
+		{
+			...result.readiness.state,
+			trace: "checked",
+		},
+		{
 		completedWarmupPasses: 0,
 		completedRenderPasses: 1,
 		settledPassesPlanned: 0,
@@ -329,7 +368,91 @@ import {
 		probeSupported: false,
 		lastReadinessProbe: null,
 		timedOut: false,
-	});
+		trace: "checked",
+		},
+	);
+}
+
+{
+	const backendCalls = [];
+	let now = 0;
+	const result = await renderScenePixelsWithReadiness(
+		{
+			scene: { id: "scene" },
+			camera: { id: "camera" },
+			width: 16,
+			height: 8,
+			sceneAssets: [{ id: "asset-a" }],
+		},
+		{
+			buildReadinessPlan: () => ({
+				readinessStrategy: "probe-early",
+				warmupPasses: 2,
+				warmupPassesRequired: 0,
+				settledPasses: 2,
+				maxWaitMs: 100,
+			}),
+			finalizeReadiness: (plan, state) => ({ plan, state }),
+			getNowMs: () => {
+				now += 1;
+				return now;
+			},
+			renderBackend: {
+				async prepareFrame(config) {
+					backendCalls.push(["prepareFrame", config]);
+				},
+				async renderFrame(config) {
+					backendCalls.push(["renderFrame", config]);
+				},
+				captureReadinessState(config) {
+					backendCalls.push(["captureReadinessState", config]);
+					return {
+						supported: true,
+						pending: false,
+						pendingCounts: {},
+						pendingReasons: [],
+					};
+				},
+				async readPixels(config) {
+					backendCalls.push(["readPixels", config]);
+					return new Uint8Array([3, 3, 3, 3]);
+				},
+			},
+		},
+	);
+
+	assert.deepEqual(Array.from(result.pixels), [3, 3, 3, 3]);
+	assert.equal(
+		backendCalls.filter(([kind]) => kind === "prepareFrame").length,
+		2,
+	);
+	assert.deepEqual(
+		{
+			...result.readiness.state,
+			trace: {
+				strategy: result.readiness.state.trace.strategy,
+				passes: result.readiness.state.trace.passes.length,
+			},
+		},
+		{
+			completedWarmupPasses: 0,
+			completedRenderPasses: 2,
+			settledPassesPlanned: 2,
+			completedSettledPasses: 2,
+			probeSupported: true,
+			lastReadinessProbe: {
+				supported: true,
+				pending: false,
+				pendingCounts: {},
+				pendingReasons: [],
+			},
+			timedOut: false,
+			trace: {
+				strategy: "probe-early",
+				passes: 2,
+			},
+		},
+	);
 }
 
 console.log("✅ CAMERA_FRAMES export render session tests passed!");

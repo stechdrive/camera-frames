@@ -2,6 +2,12 @@ const DEFAULT_MIN_WARMUP_PASSES = 0;
 const DEFAULT_SPLAT_WARMUP_PASSES = 2;
 const DEFAULT_SPLAT_SETTLED_PASSES = 2;
 const DEFAULT_MAX_WAIT_MS = 1500;
+const DEFAULT_READINESS_STRATEGY = "probe-safe";
+const READINESS_STRATEGIES = new Set([
+	"legacy",
+	"probe-safe",
+	"probe-early",
+]);
 
 function clampInteger(value, fallback, minimum = 0) {
 	const nextValue = Math.floor(Number(value));
@@ -19,6 +25,13 @@ function clampPositiveInteger(value, fallback) {
 	}
 
 	return nextValue;
+}
+
+function normalizeReadinessStrategy(value) {
+	const strategy = String(value ?? DEFAULT_READINESS_STRATEGY);
+	return READINESS_STRATEGIES.has(strategy)
+		? strategy
+		: DEFAULT_READINESS_STRATEGY;
 }
 
 export function countExportSceneAssets(sceneAssets = []) {
@@ -45,6 +58,7 @@ export function countExportSceneAssets(sceneAssets = []) {
 
 export function normalizeExportReadinessPolicy(policy = {}) {
 	return {
+		readinessStrategy: normalizeReadinessStrategy(policy.readinessStrategy),
 		minWarmupPasses: clampInteger(
 			policy.minWarmupPasses,
 			DEFAULT_MIN_WARMUP_PASSES,
@@ -68,13 +82,19 @@ export function buildExportReadinessPlan({
 	const normalizedPolicy = normalizeExportReadinessPolicy(policy);
 	const assetCounts = countExportSceneAssets(sceneAssets);
 	const requiresSplatWarmup = assetCounts.splatCount > 0;
+	const usesSparkProbe =
+		requiresSplatWarmup && normalizedPolicy.readinessStrategy !== "legacy";
 	const warmupPasses = requiresSplatWarmup
 		? Math.max(
 				normalizedPolicy.minWarmupPasses,
 				normalizedPolicy.splatWarmupPasses,
 			)
 		: normalizedPolicy.minWarmupPasses;
-	const settledPasses = requiresSplatWarmup
+	const warmupPassesRequired =
+		normalizedPolicy.readinessStrategy === "probe-early"
+			? normalizedPolicy.minWarmupPasses
+			: warmupPasses;
+	const settledPasses = usesSparkProbe
 		? normalizedPolicy.splatSettledPasses
 		: 0;
 
@@ -82,7 +102,9 @@ export function buildExportReadinessPlan({
 		...normalizedPolicy,
 		assetCounts,
 		requiresSplatWarmup,
+		usesSparkProbe,
 		warmupPasses,
+		warmupPassesRequired,
 		settledPasses,
 	};
 }
@@ -99,8 +121,10 @@ export function finalizeExportReadiness(plan, result = {}) {
 		0,
 	);
 	return {
+		readinessStrategy: plan.readinessStrategy,
 		maxWaitMs: plan.maxWaitMs,
 		warmupPassesPlanned: plan.warmupPasses,
+		warmupPassesRequired: plan.warmupPassesRequired ?? plan.warmupPasses,
 		completedWarmupPasses,
 		completedRenderPasses,
 		settledPassesPlanned,
@@ -112,5 +136,6 @@ export function finalizeExportReadiness(plan, result = {}) {
 			supported: Boolean(result.probeSupported),
 			lastState: result.lastReadinessProbe ?? null,
 		},
+		trace: result.trace ?? null,
 	};
 }

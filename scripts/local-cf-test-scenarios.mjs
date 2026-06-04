@@ -186,6 +186,7 @@ const headed = Boolean(args.headed);
 const keepBrowser = Boolean(args["keep-browser"]);
 const noDevServer = Boolean(args["no-dev-server"]);
 const updateGolden = Boolean(args["update-golden"]);
+const readinessPolicyOverride = buildReadinessPolicyOverride(args);
 const outDir = resolve(
 	repoRoot,
 	String(args["out-dir"] ?? join(".local", "local-scenario-smoke")),
@@ -213,9 +214,19 @@ if (isMainModule()) {
 async function main() {
 	const manifest = loadScenarioManifest(manifestPath);
 	const selectedIds = parseScenarioFilter(args.scenario);
-	const scenarios = manifest.scenarios.filter((scenario) =>
-		selectedIds ? selectedIds.has(scenario.id) : true,
-	);
+	const scenarios = manifest.scenarios
+		.filter((scenario) => (selectedIds ? selectedIds.has(scenario.id) : true))
+		.map((scenario) =>
+			readinessPolicyOverride
+				? {
+						...scenario,
+						readinessPolicy: {
+							...(scenario.readinessPolicy ?? {}),
+							...readinessPolicyOverride,
+						},
+					}
+				: scenario,
+		);
 
 	if (selectedIds) {
 		const knownIds = new Set(manifest.scenarios.map((scenario) => scenario.id));
@@ -2101,6 +2112,7 @@ function createBrowserPsdExportExpression(scenario) {
 		exportTarget: scenario.exportTarget ?? "current",
 		forceExportFormat: scenario.forceExportFormat !== false,
 		settleMs: Number(scenario.settleMs ?? 500),
+		readinessPolicy: scenario.readinessPolicy ?? null,
 	};
 	return `(async () => {
 		const config = ${JSON.stringify(config)};
@@ -2140,6 +2152,8 @@ function createBrowserPsdExportExpression(scenario) {
 			if (config.forceExportFormat) {
 				test.controller.setShotCameraExportFormat?.("psd");
 			}
+			const previousReadinessPolicy =
+				test.controller.__debugGetExportReadinessPolicyOverride?.() ?? null;
 
 			const beforeDownloadCount =
 				globalThis.__CF_DOWNLOAD_CAPTURE__?.downloads?.length ?? 0;
@@ -2160,7 +2174,21 @@ function createBrowserPsdExportExpression(scenario) {
 				exportFormat: test.store.shotCamera.exportFormat.value,
 			});
 
-			await test.controller.downloadOutput();
+			let exportElapsedMs = null;
+			try {
+				if (config.readinessPolicy) {
+					test.controller.__debugSetExportReadinessPolicyOverride?.(
+						config.readinessPolicy,
+					);
+				}
+				const exportStartedAt = performance.now();
+				await test.controller.downloadOutput();
+				exportElapsedMs = performance.now() - exportStartedAt;
+			} finally {
+				test.controller.__debugSetExportReadinessPolicyOverride?.(
+					previousReadinessPolicy,
+				);
+			}
 			const downloads = await globalThis.__CF_DOWNLOAD_CAPTURE__?.wait?.();
 			await new Promise((resolve) => setTimeout(resolve, 250));
 			const afterDownloadCount =
@@ -2170,6 +2198,10 @@ function createBrowserPsdExportExpression(scenario) {
 			observations.exportSummary = test.store.exportSummary.value;
 			observations.exportStatusKey = test.store.exportStatusKey.value;
 			observations.statusLine = test.store.statusLine.value;
+			observations.readinessPolicy = config.readinessPolicy;
+			observations.exportElapsedMs = exportElapsedMs;
+			observations.readiness =
+				test.controller.__debugGetLastExportReadiness?.() ?? null;
 			check("download-captured", afterDownloadCount > beforeDownloadCount, {
 				beforeDownloadCount,
 				afterDownloadCount,
@@ -2267,6 +2299,33 @@ function parseArgs(argv) {
 		}
 	}
 	return parsed;
+}
+
+function buildReadinessPolicyOverride(parsedArgs) {
+	const override = {};
+	if (parsedArgs["readiness-strategy"] !== undefined) {
+		override.readinessStrategy = String(parsedArgs["readiness-strategy"]);
+	}
+	if (parsedArgs["readiness-min-warmup-passes"] !== undefined) {
+		override.minWarmupPasses = Number(
+			parsedArgs["readiness-min-warmup-passes"],
+		);
+	}
+	if (parsedArgs["readiness-splat-warmup-passes"] !== undefined) {
+		override.splatWarmupPasses = Number(
+			parsedArgs["readiness-splat-warmup-passes"],
+		);
+	}
+	if (parsedArgs["readiness-splat-settled-passes"] !== undefined) {
+		override.splatSettledPasses = Number(
+			parsedArgs["readiness-splat-settled-passes"],
+		);
+	}
+	if (parsedArgs["readiness-max-wait-ms"] !== undefined) {
+		override.maxWaitMs = Number(parsedArgs["readiness-max-wait-ms"]);
+	}
+
+	return Object.keys(override).length > 0 ? override : null;
 }
 
 function appendArgValue(current, value) {
