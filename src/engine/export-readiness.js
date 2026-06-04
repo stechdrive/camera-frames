@@ -1,5 +1,6 @@
 const DEFAULT_MIN_WARMUP_PASSES = 0;
 const DEFAULT_SPLAT_WARMUP_PASSES = 2;
+const DEFAULT_SPLAT_SETTLED_PASSES = 2;
 const DEFAULT_MAX_WAIT_MS = 1500;
 
 function clampInteger(value, fallback, minimum = 0) {
@@ -52,6 +53,10 @@ export function normalizeExportReadinessPolicy(policy = {}) {
 			policy.splatWarmupPasses,
 			DEFAULT_SPLAT_WARMUP_PASSES,
 		),
+		splatSettledPasses: clampInteger(
+			policy.splatSettledPasses,
+			DEFAULT_SPLAT_SETTLED_PASSES,
+		),
 		maxWaitMs: clampPositiveInteger(policy.maxWaitMs, DEFAULT_MAX_WAIT_MS),
 	};
 }
@@ -69,23 +74,43 @@ export function buildExportReadinessPlan({
 				normalizedPolicy.splatWarmupPasses,
 			)
 		: normalizedPolicy.minWarmupPasses;
+	const settledPasses = requiresSplatWarmup
+		? normalizedPolicy.splatSettledPasses
+		: 0;
 
 	return {
 		...normalizedPolicy,
 		assetCounts,
 		requiresSplatWarmup,
 		warmupPasses,
+		settledPasses,
 	};
 }
 
 export function finalizeExportReadiness(plan, result = {}) {
 	const completedWarmupPasses = clampInteger(result.completedWarmupPasses, 0);
+	const completedRenderPasses = clampInteger(result.completedRenderPasses, 0);
+	const settledPassesPlanned = clampInteger(
+		result.settledPassesPlanned,
+		plan.settledPasses ?? 0,
+	);
+	const completedSettledPasses = clampInteger(
+		result.completedSettledPasses,
+		0,
+	);
 	return {
 		maxWaitMs: plan.maxWaitMs,
 		warmupPassesPlanned: plan.warmupPasses,
 		completedWarmupPasses,
+		completedRenderPasses,
+		settledPassesPlanned,
+		completedSettledPasses,
 		timedOut: Boolean(result.timedOut),
 		requiresSplatWarmup: plan.requiresSplatWarmup,
 		assetCounts: plan.assetCounts,
+		sparkReadinessProbe: {
+			supported: Boolean(result.probeSupported),
+			lastState: result.lastReadinessProbe ?? null,
+		},
 	};
 }

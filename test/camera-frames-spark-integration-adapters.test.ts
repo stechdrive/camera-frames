@@ -4,6 +4,7 @@ import {
 	captureSparkExportBufferOutputs,
 	captureSparkExportBufferState,
 } from "../src/engine/spark-integration/spark-export-buffer-state.js";
+import { captureSparkReadinessState } from "../src/engine/spark-integration/spark-readiness-probe.js";
 import * as SparkSymbols from "../src/engine/spark-integration/spark-symbols.js";
 
 {
@@ -73,6 +74,132 @@ import {
 	restoreSparkSplatMeshColorBuffer,
 	setSparkSplatMeshColorBuffer,
 } from "../src/engine/spark-integration/spark-splat-mesh-adapter.js";
+
+{
+	assert.deepEqual(captureSparkReadinessState(null), {
+		supported: false,
+		pending: false,
+		pendingCounts: {},
+		pendingReasons: [],
+	});
+}
+
+{
+	const splatsA = { id: "splats-a" };
+	const splatsB = { id: "splats-b" };
+	const residentChunk = { page: 0, lru: 1 };
+	const pager = {
+		maxPages: 3,
+		fetchers: [{ splats: splatsA, chunk: 1, promise: Promise.resolve() }],
+		fetched: [{ splats: splatsB, chunk: 1, data: {} }],
+		newUploads: [{ page: 1 }],
+		readyUploads: [],
+		lodTreeUpdates: [{ page: 2 }],
+		fetchPriority: [
+			{ splats: splatsA, chunk: 0 },
+			{ splats: splatsA, chunk: 1 },
+			{ splats: splatsB, chunk: 0 },
+			{ splats: splatsB, chunk: 1 },
+		],
+		getSplatsChunk(splats, chunk) {
+			if (splats === splatsA && chunk === 0) {
+				return residentChunk;
+			}
+			return undefined;
+		},
+	};
+	const state = captureSparkReadinessState({
+		dirty: true,
+		updateTimeoutId: -1,
+		sortDirty: true,
+		sortTimeoutId: 12,
+		sorting: false,
+		sortWorker: {
+			queue: null,
+			messages: { 1: {} },
+		},
+		lodDirty: true,
+		lodWorker: {
+			queue: [],
+			messages: { 2: {}, 3: {} },
+		},
+		lodInitQueue: [{}],
+		lodUpdates: [{ lodId: 1 }],
+		pager,
+	});
+
+	assert.equal(state.supported, true);
+	assert.equal(state.pending, true);
+	assert.deepEqual(state.pendingCounts, {
+		renderDirty: 1,
+		updateTimeout: 0,
+		sortDirty: 1,
+		sortTimeout: 1,
+		sorting: 0,
+		sortWorkerMessages: 1,
+		lodDirty: 1,
+		lodWorkerExclusive: 1,
+		lodWorkerMessages: 2,
+		lodInitQueue: 1,
+		lodUpdates: 1,
+		pagerFetchers: 1,
+		pagerFetched: 1,
+		pagerNewUploads: 1,
+		pagerReadyUploads: 0,
+		pagerLodTreeUpdates: 1,
+		pagerFetchBacklog: 1,
+	});
+	assert.deepEqual(state.pendingReasons, [
+		"renderDirty:1",
+		"sortDirty:1",
+		"sortTimeout:1",
+		"sortWorkerMessages:1",
+		"lodDirty:1",
+		"lodWorkerExclusive:1",
+		"lodWorkerMessages:2",
+		"lodInitQueue:1",
+		"lodUpdates:1",
+		"pagerFetchers:1",
+		"pagerFetched:1",
+		"pagerNewUploads:1",
+		"pagerLodTreeUpdates:1",
+		"pagerFetchBacklog:1",
+	]);
+}
+
+{
+	const idle = captureSparkReadinessState({
+		dirty: false,
+		updateTimeoutId: -1,
+		sortDirty: false,
+		sortTimeoutId: -1,
+		sorting: false,
+		sortWorker: {
+			queue: null,
+			messages: {},
+		},
+		lodDirty: false,
+		lodWorker: {
+			queue: null,
+			messages: {},
+		},
+		lodInitQueue: [],
+		lodUpdates: [],
+		pager: {
+			maxPages: 1,
+			fetchers: [],
+			fetched: [],
+			newUploads: [],
+			readyUploads: [],
+			lodTreeUpdates: [],
+			fetchPriority: [],
+		},
+	});
+
+	assert.equal(idle.supported, true);
+	assert.equal(idle.pending, false);
+	assert.deepEqual(idle.pendingReasons, []);
+}
 
 {
 	const sourceSpark = {

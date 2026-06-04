@@ -4,6 +4,7 @@ import {
 	captureSparkExportBufferOutputs,
 	captureSparkExportBufferState,
 } from "./spark-integration/spark-export-buffer-state.js";
+import { captureSparkReadinessState } from "./spark-integration/spark-readiness-probe.js";
 
 export const DEFAULT_EXPORT_SUPER_XY = 1;
 
@@ -182,6 +183,10 @@ export function createSparkExportRendererManager({ sourceSpark }) {
 		);
 	}
 
+	function captureReadinessState() {
+		return captureSparkReadinessState(sourceSpark);
+	}
+
 	async function capturePixels({
 		scene,
 		camera,
@@ -221,6 +226,7 @@ export function createSparkExportRendererManager({ sourceSpark }) {
 		prepareFrame,
 		renderFrame,
 		readPixels,
+		captureReadinessState,
 		capturePixels,
 		dispose,
 	};

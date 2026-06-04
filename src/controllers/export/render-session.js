@@ -1,5 +1,14 @@
 import * as THREE from "three";
 
+function clampSettledPasses(value) {
+	const nextValue = Math.floor(Number(value));
+	if (!Number.isFinite(nextValue) || nextValue < 0) {
+		return 0;
+	}
+
+	return nextValue;
+}
+
 export async function renderGuideLayerPixels(
 	{
 		camera,
@@ -56,11 +65,31 @@ export async function renderScenePixelsWithReadiness(
 	});
 	const deadline = getNowMs() + readinessPlan.maxWaitMs;
 	let completedWarmupPasses = 0;
+	let completedRenderPasses = 0;
+	let completedSettledPasses = 0;
+	let lastReadinessProbe = null;
+	const hasReadinessProbe =
+		typeof renderBackend.captureReadinessState === "function";
+	let settledPassesPlanned = hasReadinessProbe
+		? clampSettledPasses(readinessPlan.settledPasses)
+		: 0;
+	let probeSupported = hasReadinessProbe && settledPassesPlanned > 0;
 
-	while (
-		completedWarmupPasses < readinessPlan.warmupPasses &&
-		getNowMs() <= deadline
-	) {
+	while (true) {
+		const canWait = getNowMs() <= deadline;
+		const needsWarmup =
+			completedWarmupPasses < readinessPlan.warmupPasses && canWait;
+		const needsFinalPass =
+			completedRenderPasses < completedWarmupPasses + 1;
+		const needsSettled =
+			probeSupported &&
+			completedSettledPasses < settledPassesPlanned &&
+			canWait;
+
+		if (!needsWarmup && !needsFinalPass && !needsSettled) {
+			break;
+		}
+
 		await renderBackend.prepareFrame({
 			scene,
 			camera,
@@ -74,22 +103,31 @@ export async function renderScenePixelsWithReadiness(
 			width,
 			height,
 		});
-		completedWarmupPasses += 1;
-	}
+		completedRenderPasses += 1;
 
-	await renderBackend.prepareFrame({
-		scene,
-		camera,
-		width,
-		height,
-		update: true,
-	});
-	await renderBackend.renderFrame({
-		scene,
-		camera,
-		width,
-		height,
-	});
+		if (needsWarmup) {
+			completedWarmupPasses += 1;
+		}
+
+		if (probeSupported) {
+			lastReadinessProbe = renderBackend.captureReadinessState({
+				scene,
+				camera,
+				width,
+				height,
+			});
+
+			if (lastReadinessProbe?.supported === false) {
+				probeSupported = false;
+				settledPassesPlanned = 0;
+				completedSettledPasses = 0;
+			} else if (lastReadinessProbe?.pending) {
+				completedSettledPasses = 0;
+			} else {
+				completedSettledPasses += 1;
+			}
+		}
+	}
 
 	return {
 		pixels: await renderBackend.readPixels({
@@ -98,7 +136,14 @@ export async function renderScenePixelsWithReadiness(
 		}),
 		readiness: finalizeReadiness(readinessPlan, {
 			completedWarmupPasses,
-			timedOut: completedWarmupPasses < readinessPlan.warmupPasses,
+			completedRenderPasses,
+			settledPassesPlanned,
+			completedSettledPasses,
+			probeSupported,
+			lastReadinessProbe,
+			timedOut:
+				completedWarmupPasses < readinessPlan.warmupPasses ||
+				(probeSupported && completedSettledPasses < settledPassesPlanned),
 		}),
 	};
 }

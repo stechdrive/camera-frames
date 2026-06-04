@@ -165,6 +165,7 @@
 - shot camera ごとに export settings を持つ
 - export run ごとに `Include Reference Images` を切り替えられる
 - PNG / PSD とも preview 側の output frame 契約に沿って出す
+- splat export は warmup pass と Spark pending probe を併用し、sort / LoD / pager / worker の明確な未処理状態が連続して空になってから capture する。ただし Spark 側の offline 完了 token ではなく、deadline 付きの best-effort readiness として扱う
 
 PSD export の主な構成:
 
@@ -298,7 +299,7 @@ PSD export の主な構成:
 - preview / export correctness の詰め
 - reference image の true back-layer composition の最終 hardening
 - very large project save/load の hardening
-- LoD readiness heuristic の実 scene 追加検証
+- Spark pending probe を含む LoD readiness の実 scene 追加検証
 - `focus selected / fit scene` の productized workflow
 
 ## 7. この文書の使い方

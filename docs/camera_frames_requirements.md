@@ -389,6 +389,7 @@ export のルール:
 - `exportSplatLayers` は `exportModelLayers` が有効な時だけ有効
 - guide layer mode は `bottom` / `overlay`
 - reference image の export 参加条件は `exportEnabled` と export session toggle の両方
+- splat を含む scene export では、既定 warmup pass に加えて Spark の sort / LoD / pager / worker の pending state を読み取り専用 probe で確認し、pending が連続して空になった時点を capture ready として扱う。これは Spark の DCC 的な完了保証ではなく、既定 deadline 内での best-effort readiness として扱う
 
 PNG export:
 

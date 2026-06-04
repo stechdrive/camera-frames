@@ -159,6 +159,11 @@ import {
 		plan: { warmupPasses: 2, maxWaitMs: 100 },
 		state: {
 			completedWarmupPasses: 2,
+			completedRenderPasses: 3,
+			settledPassesPlanned: 0,
+			completedSettledPasses: 0,
+			probeSupported: false,
+			lastReadinessProbe: null,
 			timedOut: false,
 		},
 	});
@@ -174,6 +179,157 @@ import {
 		"readPixels",
 		{ width: 100, height: 50 },
 	]);
+}
+
+{
+	const backendCalls = [];
+	const probes = [
+		{
+			supported: true,
+			pending: true,
+			pendingCounts: { pagerFetchers: 1 },
+			pendingReasons: ["pagerFetchers:1"],
+		},
+		{
+			supported: true,
+			pending: false,
+			pendingCounts: {},
+			pendingReasons: [],
+		},
+		{
+			supported: true,
+			pending: false,
+			pendingCounts: {},
+			pendingReasons: [],
+		},
+	];
+	let now = 0;
+	const result = await renderScenePixelsWithReadiness(
+		{
+			scene: { id: "scene" },
+			camera: { id: "camera" },
+			width: 64,
+			height: 32,
+			sceneAssets: [{ id: "asset-a" }],
+		},
+		{
+			buildReadinessPlan: () => ({
+				warmupPasses: 1,
+				settledPasses: 2,
+				maxWaitMs: 100,
+			}),
+			finalizeReadiness: (plan, state) => ({ plan, state }),
+			getNowMs: () => {
+				now += 5;
+				return now;
+			},
+			renderBackend: {
+				async prepareFrame(config) {
+					backendCalls.push(["prepareFrame", config]);
+				},
+				async renderFrame(config) {
+					backendCalls.push(["renderFrame", config]);
+				},
+				captureReadinessState(config) {
+					const probe = probes.shift();
+					backendCalls.push(["captureReadinessState", config, probe]);
+					return probe;
+				},
+				async readPixels(config) {
+					backendCalls.push(["readPixels", config]);
+					return new Uint8Array([1, 1, 1, 1]);
+				},
+			},
+		},
+	);
+
+	assert.deepEqual(Array.from(result.pixels), [1, 1, 1, 1]);
+	assert.equal(
+		backendCalls.filter(([kind]) => kind === "prepareFrame").length,
+		3,
+	);
+	assert.equal(
+		backendCalls.filter(([kind]) => kind === "renderFrame").length,
+		3,
+	);
+	assert.equal(
+		backendCalls.filter(([kind]) => kind === "captureReadinessState").length,
+		3,
+	);
+	assert.deepEqual(result.readiness.state, {
+		completedWarmupPasses: 1,
+		completedRenderPasses: 3,
+		settledPassesPlanned: 2,
+		completedSettledPasses: 2,
+		probeSupported: true,
+		lastReadinessProbe: {
+			supported: true,
+			pending: false,
+			pendingCounts: {},
+			pendingReasons: [],
+		},
+		timedOut: false,
+	});
+}
+
+{
+	const backendCalls = [];
+	let now = 0;
+	const result = await renderScenePixelsWithReadiness(
+		{
+			scene: { id: "scene" },
+			camera: { id: "camera" },
+			width: 32,
+			height: 16,
+			sceneAssets: [{ id: "model-a" }],
+		},
+		{
+			buildReadinessPlan: () => ({
+				warmupPasses: 0,
+				settledPasses: 0,
+				maxWaitMs: 100,
+			}),
+			finalizeReadiness: (plan, state) => ({ plan, state }),
+			getNowMs: () => {
+				now += 5;
+				return now;
+			},
+			renderBackend: {
+				async prepareFrame(config) {
+					backendCalls.push(["prepareFrame", config]);
+				},
+				async renderFrame(config) {
+					backendCalls.push(["renderFrame", config]);
+				},
+				captureReadinessState() {
+					throw new Error("readiness probe should not run");
+				},
+				async readPixels(config) {
+					backendCalls.push(["readPixels", config]);
+					return new Uint8Array([2, 2, 2, 2]);
+				},
+			},
+		},
+	);
+
+	assert.deepEqual(Array.from(result.pixels), [2, 2, 2, 2]);
+	assert.equal(
+		backendCalls.filter(([kind]) => kind === "prepareFrame").length,
+		1,
+	);
+	assert.equal(
+		backendCalls.filter(([kind]) => kind === "renderFrame").length,
+		1,
+	);
+	assert.deepEqual(result.readiness.state, {
+		completedWarmupPasses: 0,
+		completedRenderPasses: 1,
+		settledPassesPlanned: 0,
+		completedSettledPasses: 0,
+		probeSupported: false,
+		lastReadinessProbe: null,
+		timedOut: false,
+	});
 }
 
 console.log("✅ CAMERA_FRAMES export render session tests passed!");
