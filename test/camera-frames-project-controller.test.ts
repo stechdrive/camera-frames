@@ -67,6 +67,26 @@ async function withNavigator(value, callback) {
 	}
 }
 
+async function withCapturedConsole(methodNames, callback) {
+	const originals = new Map();
+	const calls = Object.fromEntries(
+		methodNames.map((methodName) => [methodName, []]),
+	);
+	for (const methodName of methodNames) {
+		originals.set(methodName, console[methodName]);
+		console[methodName] = (...args) => {
+			calls[methodName].push(args);
+		};
+	}
+	try {
+		return await callback(calls);
+	} finally {
+		for (const [methodName, original] of originals) {
+			console[methodName] = original;
+		}
+	}
+}
+
 function createCollectingProjectFileHandle(name = "mock.ssproj") {
 	const chunks = [];
 	const fileHandle = {
@@ -335,7 +355,8 @@ function createHarness(overrides = {}) {
 		},
 		t,
 		prewarmSogCompressionWorkerImpl: overrides.prewarmSogCompressionWorkerImpl,
-		supportsSogCompressionImpl: overrides.supportsSogCompressionImpl,
+		supportsSogCompressionImpl:
+			overrides.supportsSogCompressionImpl ?? (() => false),
 		supportsSparkRadBundleBuildImpl: overrides.supportsSparkRadBundleBuildImpl,
 		buildSparkRadBundleFromPackedSplatsImpl:
 			overrides.buildSparkRadBundleFromPackedSplatsImpl,
@@ -1310,16 +1331,27 @@ await withNavigator({ gpu: {} }, async () => {
 // Fast + SOG submit path still routes through SOG worker prewarm + error handling.
 await withNavigator({ gpu: {} }, async () => {
 	const harness = createHarness({
+		supportsSogCompressionImpl: () => true,
 		prewarmSogCompressionWorkerImpl: async () => {
 			throw new Error("boom");
 		},
 	});
-	await harness.projectController.exportProject();
-	await harness.store.overlay.value.onSubmit({
-		saveMode: "fast",
-		sogCompress: true,
-		sogMaxShBands: "2",
-		sogIterations: "10",
+	await withCapturedConsole(["warn", "error"], async (consoleCalls) => {
+		await harness.projectController.exportProject();
+		await harness.store.overlay.value.onSubmit({
+			saveMode: "fast",
+			sogCompress: true,
+			sogMaxShBands: "2",
+			sogIterations: "10",
+		});
+		assert.equal(consoleCalls.warn.length, 2);
+		assert.match(String(consoleCalls.warn[0][0]), /SOG worker warmup failed/);
+		assert.match(String(consoleCalls.warn[1][0]), /SOG worker warmup failed/);
+		assert.equal(consoleCalls.error.length, 1);
+		assert.match(
+			consoleCalls.error[0][0]?.message ?? "",
+			/SOG compression worker/,
+		);
 	});
 	assert.equal(harness.store.overlay.value?.kind, "error");
 	assert.match(
@@ -2132,12 +2164,20 @@ await withNavigator({ gpu: {} }, async () => {
 	);
 	globalThis.showSaveFilePicker = async () => savedPackage.fileHandle;
 	try {
-		await harness.projectController.exportProject();
-		await harness.store.overlay.value.onSubmit({
-			saveMode: "quality",
-			sogCompress: false,
-			sogMaxShBands: "2",
-			sogIterations: "10",
+		await withCapturedConsole(["warn"], async (consoleCalls) => {
+			await harness.projectController.exportProject();
+			await harness.store.overlay.value.onSubmit({
+				saveMode: "quality",
+				sogCompress: false,
+				sogMaxShBands: "2",
+				sogIterations: "10",
+			});
+			assert.equal(consoleCalls.warn.length, 1);
+			assert.match(
+				String(consoleCalls.warn[0][0]),
+				/RAD bundle generation failed/,
+			);
+			assert.equal(consoleCalls.warn[0][1]?.message, "encoder unavailable");
 		});
 	} finally {
 		globalThis.showSaveFilePicker = originalShowSaveFilePicker;
