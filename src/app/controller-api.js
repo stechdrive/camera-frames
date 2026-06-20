@@ -138,6 +138,9 @@ export function createControllerApi({
 			cameraController.setShotCameraExportModelLayers,
 		setShotCameraExportSplatLayers:
 			cameraController.setShotCameraExportSplatLayers,
+		setCompositionGuideEnabled: cameraController.setCompositionGuideEnabled,
+		setCompositionGuideScope: cameraController.setCompositionGuideScope,
+		setCompositionGuidePattern: cameraController.setCompositionGuidePattern,
 		setExportTarget: exportController.setExportTarget,
 		toggleExportPreset: exportController.toggleExportPreset,
 		setReferenceImageExportSessionEnabled:

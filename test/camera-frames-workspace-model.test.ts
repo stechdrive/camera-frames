@@ -2,6 +2,11 @@ import assert from "node:assert/strict";
 import { DEFAULT_CAMERA_FAR, DEFAULT_CAMERA_NEAR } from "../src/constants.js";
 import { DEFAULT_SHOT_CAMERA_BASE_FOVX } from "../src/engine/camera-lens.js";
 import {
+	COMPOSITION_GUIDE_PATTERN_GRID,
+	COMPOSITION_GUIDE_PATTERN_THIRDS,
+	COMPOSITION_GUIDE_SCOPE_SELECTED_FRAME,
+} from "../src/engine/composition-guides.js";
+import {
 	WORKSPACE_PANE_CAMERA,
 	WORKSPACE_PANE_VIEWPORT,
 	createDefaultShotCameraDocuments,
@@ -65,6 +70,11 @@ assert.equal(shotCameras[0].frameMask.trajectoryMode, "line");
 assert.equal(shotCameras[0].frameMask.trajectoryExportSource, "none");
 assert.deepEqual(shotCameras[0].frameMask.trajectory.nodesByFrameId, {});
 assert.equal(shotCameras[0].navigation.rollLock, false);
+assert.deepEqual(shotCameras[0].compositionGuide, {
+	enabled: false,
+	scope: COMPOSITION_GUIDE_SCOPE_SELECTED_FRAME,
+	pattern: COMPOSITION_GUIDE_PATTERN_THIRDS,
+});
 assert.equal(shotCameras[0].frames.length, 1);
 assert.equal(shotCameras[0].activeFrameId, "frame-1");
 assert.equal(shotCameras[0].frames[0].name, "FRAME A");
@@ -105,6 +115,11 @@ assert.equal(duplicatedShotCamera.frameMask.trajectoryMode, "line");
 assert.equal(duplicatedShotCamera.frameMask.trajectoryExportSource, "none");
 assert.deepEqual(duplicatedShotCamera.frameMask.trajectory.nodesByFrameId, {});
 assert.equal(duplicatedShotCamera.navigation.rollLock, false);
+assert.deepEqual(duplicatedShotCamera.compositionGuide, {
+	enabled: false,
+	scope: COMPOSITION_GUIDE_SCOPE_SELECTED_FRAME,
+	pattern: COMPOSITION_GUIDE_PATTERN_THIRDS,
+});
 assert.notEqual(duplicatedShotCamera.outputFrame, shotCameras[0].outputFrame);
 assert.notEqual(
 	duplicatedShotCamera.exportSettings,
@@ -112,6 +127,10 @@ assert.notEqual(
 );
 assert.notEqual(duplicatedShotCamera.frameMask, shotCameras[0].frameMask);
 assert.notEqual(duplicatedShotCamera.navigation, shotCameras[0].navigation);
+assert.notEqual(
+	duplicatedShotCamera.compositionGuide,
+	shotCameras[0].compositionGuide,
+);
 assert.notEqual(duplicatedShotCamera.frames, shotCameras[0].frames);
 assert.equal(duplicatedShotCamera.frames[0].id, "frame-1");
 assert.deepEqual(duplicatedShotCamera.frames[0].anchor, { x: 0.5, y: 0.5 });
@@ -190,6 +209,24 @@ const sanitizedShotCamera = createShotCameraDocument({
 });
 assert.equal(sanitizedShotCamera.frames[0].name, "Odd Frame Name");
 assert.deepEqual(sanitizedShotCamera.frameMask.selectedIds, ["frame-1"]);
+
+const sanitizedShotCameraWithCompositionGuide = createShotCameraDocument({
+	id: getShotCameraDocumentId(3),
+	name: "Camera 3",
+	source: {
+		...shotCameras[0],
+		compositionGuide: {
+			enabled: true,
+			scope: COMPOSITION_GUIDE_SCOPE_SELECTED_FRAME,
+			pattern: COMPOSITION_GUIDE_PATTERN_GRID,
+		},
+	},
+});
+assert.deepEqual(sanitizedShotCameraWithCompositionGuide.compositionGuide, {
+	enabled: true,
+	scope: COMPOSITION_GUIDE_SCOPE_SELECTED_FRAME,
+	pattern: COMPOSITION_GUIDE_PATTERN_GRID,
+});
 
 const multiFrameShotCamera = createShotCameraDocument({
 	id: getShotCameraDocumentId(4),

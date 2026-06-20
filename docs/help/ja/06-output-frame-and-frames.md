@@ -12,9 +12,11 @@ related-files:
   - src/engine/frame-transform.js
   - src/engine/frame-overlay.js
   - src/engine/frame-trajectory.js
+  - src/engine/composition-guides.js
   - src/ui/workbench-camera-export-sections.js
   - src/ui/workbench-lighting-frame-sections.js
   - src/ui/frame-layer.js
+  - src/ui/composition-guide-layer.js
   - src/controllers/export/mask-pixels.js
 screenshots:
   - id: output-frame-section
@@ -35,7 +37,7 @@ shortcuts:
     action: フレームマスク（all）を切替
   - key: Shift+F
     action: フレームマスク（selected）を切替
-last-updated: 2026-04-24
+last-updated: 2026-06-20
 ---
 
 # 用紙とフレーム
@@ -109,6 +111,30 @@ CAMERA_FRAMES の中心機能のひとつ。
 | **8 リサイズハンドル** | 各辺 / 各角をドラッグして紙面サイズを変更（アンカー固定） |
 | **4 パンエッジ** | 各辺中央をドラッグして紙面中心を平行移動 |
 | **アンカー点** | 現在のアンカー位置を視覚化（表示のみ） |
+
+### 2.6 構図ガイド
+
+カメラタブの **用紙** セクションにある **構図ガイド** を有効にすると、Camera View 上に構図確認用の補助線を表示できます。
+
+- 表示は Camera View 限定で、Viewport には出ません
+- PNG / PSD 書き出しには含まれません
+- 設定はショットカメラごとに保存されます
+
+**対象** は 2 種類です。
+
+| 対象 | 挙動 |
+|---|---|
+| 選択FRAME | FRAME 選択中は選択中のアクティブ FRAME、選択がなければアクティブ FRAME に合わせる。FRAME が回転している場合、補助線も同じ角度で回転する |
+| 全FRAME | 全 FRAME の回転済み corner を含む外接矩形に合わせる。複数 FRAME 全体を確認しやすいよう、矩形は紙面に対して水平垂直になる |
+
+**種類** は 4 種類です。
+
+| 種類 | 用途 |
+|---|---|
+| 三分割 | 画面を 3 等分する基本の構図確認 |
+| 黄金比 | 黄金比の内側位置を確認 |
+| 中央分割 | 中心線と 1/4・3/4 位置を確認 |
+| グリッド | 表示サイズに応じた細かい水平垂直ガイド。Lightroom の自動補正時のように傾きや垂直を確認する用途 |
 
 ## 3. フレーム
 

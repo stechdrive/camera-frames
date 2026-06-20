@@ -77,6 +77,9 @@ const MESSAGES = {
 			outputFrameWidth: "用紙サイズ 幅",
 			outputFrameHeight: "用紙サイズ 高",
 			cameraViewZoom: "表示ズーム",
+			compositionGuide: "構図ガイド",
+			compositionGuideScope: "対象",
+			compositionGuidePattern: "種類",
 			anchor: "用紙サイズ変更基準点",
 			assetScale: "スケール",
 			assetPosition: "位置",
@@ -201,6 +204,16 @@ const MESSAGES = {
 			topRight: "右上",
 			bottomRight: "右下",
 			bottomLeft: "左下",
+		},
+		compositionGuideScope: {
+			selectedFrame: "選択FRAME",
+			allFrames: "全FRAME",
+		},
+		compositionGuidePattern: {
+			thirds: "三分割",
+			golden: "黄金比",
+			center: "中央分割",
+			grid: "グリッド",
 		},
 		clipMode: {
 			auto: "自動",
@@ -371,6 +384,12 @@ const MESSAGES = {
 				"フルサイズ換算の焦点距離です。数値を変えるとアクティブなショットカメラの画角が変わります。",
 			outputFrameAnchorField:
 				"用紙サイズを変える時に、どの基準点を固定してフレームを広げるかを選びます。",
+			compositionGuideField:
+				"Camera View にだけ表示する構図確認用の補助線です。PNG / PSD 書き出しには含めません。",
+			compositionGuideScopeField:
+				"選択中またはアクティブな FRAME に合わせるか、すべての FRAME を含む矩形に合わせるかを選びます。",
+			compositionGuidePatternField:
+				"三分割、黄金比、中央分割、または水平垂直を確認しやすいグリッドを切り替えます。",
 			shotCameraExportName:
 				"書き出しファイル名のテンプレートです。%cam は現在のカメラ名に置き換わります。",
 			exportFormatField:
@@ -973,6 +992,9 @@ const MESSAGES = {
 			outputFrameWidth: "Paper Width",
 			outputFrameHeight: "Paper Height",
 			cameraViewZoom: "View Zoom",
+			compositionGuide: "Composition Guide",
+			compositionGuideScope: "Target",
+			compositionGuidePattern: "Pattern",
 			anchor: "Anchor",
 			assetScale: "Scale",
 			assetPosition: "Position",
@@ -1098,6 +1120,16 @@ const MESSAGES = {
 			topRight: "Top Right",
 			bottomRight: "Bottom Right",
 			bottomLeft: "Bottom Left",
+		},
+		compositionGuideScope: {
+			selectedFrame: "Selected FRAME",
+			allFrames: "All FRAMEs",
+		},
+		compositionGuidePattern: {
+			thirds: "Rule of Thirds",
+			golden: "Golden Ratio",
+			center: "Center Split",
+			grid: "Grid",
 		},
 		clipMode: {
 			auto: "Auto",
@@ -1272,6 +1304,12 @@ const MESSAGES = {
 				"Full-frame-equivalent focal length. Changing it updates the active shot camera lens angle.",
 			outputFrameAnchorField:
 				"Choose which point stays fixed when the paper size changes.",
+			compositionGuideField:
+				"Preview-only composition guide shown in Camera View. It is not included in PNG or PSD exports.",
+			compositionGuideScopeField:
+				"Choose whether the guide follows the selected or active FRAME, or the bounds covering every FRAME.",
+			compositionGuidePatternField:
+				"Switch between thirds, golden ratio, center split, or a grid for checking horizontal and vertical alignment.",
 			shotCameraExportName:
 				"Template for the exported filename. %cam is replaced with the current camera name.",
 			exportFormatField:

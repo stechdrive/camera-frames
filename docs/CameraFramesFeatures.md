@@ -80,6 +80,7 @@
 - anchor 3x3 を持てる
 - center / fit / view zoom を持てる
 - shot camera の custom frustum で、指定 anchor / center の構図を保ったまま領域変更できる
+- Camera View 限定の preview-only composition guide を shot camera ごとに持てる。対象は選択 / アクティブ FRAME または全 FRAME 外接矩形、pattern は三分割 / 黄金比 / 中央分割 / 自動グリッド
 - `FRAME` は複数配置できる
 - `FRAME` は移動 / 回転 / 拡縮 / anchor 編集に対応する
 - 軌道編集は `FRAME` center を結ぶ path を基準に行う

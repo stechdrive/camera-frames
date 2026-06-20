@@ -15,6 +15,7 @@ import {
 	buildViewportPieActions,
 } from "../engine/viewport-pie.js";
 import { BackgroundTaskIndicator } from "./background-task-indicator.js";
+import { CompositionGuideLayer } from "./composition-guide-layer.js";
 import { computeDropHintStyle, getOverlayBounds } from "./drop-hint-layout.js";
 import { FrameLayer } from "./frame-layer.js";
 import { MeasurementOverlay } from "./measurement-overlay.js";
@@ -1033,6 +1034,7 @@ export function ViewportShell({ store, controller, refs, t }) {
 						: "render-box"
 				}
 			>
+				<${CompositionGuideLayer} store=${store} />
 				<${FrameLayer}
 					store=${store}
 					controller=${controller}

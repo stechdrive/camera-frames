@@ -12,6 +12,12 @@ assert.equal(translate("ja", "clipMode.auto"), "自動");
 assert.equal(translate("en", "field.shotCameraClipMode"), "Clip Range");
 assert.equal(translate("ja", "field.activeShotCamera"), "カメラ");
 assert.equal(translate("en", "field.assetScale"), "Scale");
+assert.equal(translate("ja", "field.compositionGuide"), "構図ガイド");
+assert.equal(
+	translate("ja", "compositionGuideScope.selectedFrame"),
+	"選択FRAME",
+);
+assert.equal(translate("en", "compositionGuidePattern.grid"), "Grid");
 assert.equal(translate("ja", "section.frames"), "FRAME");
 assert.equal(translate("en", "action.newFrame"), "Add FRAME");
 assert.equal(translate("en", "action.newShotCamera"), "Add Camera");

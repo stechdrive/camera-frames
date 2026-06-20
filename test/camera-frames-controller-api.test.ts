@@ -29,6 +29,9 @@ const api = createControllerApi({
 		setShotCameraExportGridLayerMode: () => {},
 		setShotCameraExportModelLayers: () => {},
 		setShotCameraExportSplatLayers: () => {},
+		setCompositionGuideEnabled: () => "guide-enabled",
+		setCompositionGuideScope: () => "guide-scope",
+		setCompositionGuidePattern: () => "guide-pattern",
 		selectShotCamera: () => {},
 		createShotCamera: () => {},
 		duplicateActiveShotCamera: () => {},
@@ -253,6 +256,9 @@ assert.equal(api.copyViewportToShotCamera(), "copy-v2s");
 assert.equal(api.copyShotCameraToViewport(), "copy-s2v");
 assert.equal(api.resetActiveView(), "reset");
 assert.equal(api.downloadOutput(), "download-output");
+assert.equal(api.setCompositionGuideEnabled(true), "guide-enabled");
+assert.equal(api.setCompositionGuideScope("all-frames"), "guide-scope");
+assert.equal(api.setCompositionGuidePattern("grid"), "guide-pattern");
 assert.equal(api.duplicateSelectedSceneAssets(), "duplicate-assets");
 assert.equal(api.setViewportLodScale(0.8), "set-lod:0.8");
 assert.equal(api.resetViewportLodScale(), "reset-lod");

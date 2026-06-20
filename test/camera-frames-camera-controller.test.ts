@@ -6,6 +6,10 @@ import {
 	resolveShotCameraExportNameTemplate,
 	sanitizeExportName,
 } from "../src/controllers/camera-controller.js";
+import {
+	COMPOSITION_GUIDE_PATTERN_GRID,
+	COMPOSITION_GUIDE_SCOPE_ALL_FRAMES,
+} from "../src/engine/composition-guides.js";
 
 assert.equal(sanitizeExportName(" Camera 1 "), "Camera-1");
 assert.equal(
@@ -82,6 +86,11 @@ function createCameraControllerHarness({
 							preferredMode: "all",
 							opacityPct: 80,
 							selectedIds: ["frame-1"],
+						},
+						compositionGuide: {
+							enabled: false,
+							scope: "selected-frame",
+							pattern: "thirds",
 						},
 						navigation: { rollLock: false },
 						referenceImages: { presets: [], items: [], assets: [] },
@@ -184,6 +193,19 @@ function createCameraControllerHarness({
 		y: 3,
 		z: 4,
 	});
+}
+
+{
+	const { controller, store, calls } = createCameraControllerHarness();
+	controller.setCompositionGuideEnabled(true);
+	controller.setCompositionGuideScope(COMPOSITION_GUIDE_SCOPE_ALL_FRAMES);
+	controller.setCompositionGuidePattern(COMPOSITION_GUIDE_PATTERN_GRID);
+	assert.deepEqual(store.workspace.shotCameras.value[0].compositionGuide, {
+		enabled: true,
+		scope: COMPOSITION_GUIDE_SCOPE_ALL_FRAMES,
+		pattern: COMPOSITION_GUIDE_PATTERN_GRID,
+	});
+	assert.ok(calls.some(([label]) => label === "update-ui"));
 }
 
 console.log("✅ CAMERA_FRAMES camera controller tests passed!");

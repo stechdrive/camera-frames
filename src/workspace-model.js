@@ -8,6 +8,10 @@ import {
 } from "./constants.js";
 import { DEFAULT_SHOT_CAMERA_BASE_FOVX } from "./engine/camera-lens.js";
 import {
+	cloneCompositionGuideState,
+	createDefaultCompositionGuideState,
+} from "./engine/composition-guides.js";
+import {
 	FRAME_MASK_SHAPE_BOUNDS,
 	FRAME_TRAJECTORY_EXPORT_SOURCE_NONE,
 	FRAME_TRAJECTORY_MODE_LINE,
@@ -363,6 +367,7 @@ export function createShotCameraDocument({ id, name, source } = {}) {
 				navigation: {
 					rollLock: false,
 				},
+				compositionGuide: createDefaultCompositionGuideState(),
 				referenceImages: createShotCameraReferenceImagesState(),
 				frames: createDefaultFrameDocuments(),
 				activeFrameId: getFrameDocumentId(1),
@@ -522,6 +527,9 @@ export function cloneShotCameraDocument(documentState) {
 		navigation: {
 			rollLock: Boolean(documentState.navigation?.rollLock),
 		},
+		compositionGuide: cloneCompositionGuideState(
+			documentState.compositionGuide,
+		),
 		referenceImages: cloneShotCameraReferenceImagesState(
 			documentState.referenceImages,
 		),

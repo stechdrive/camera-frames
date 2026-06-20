@@ -1,5 +1,11 @@
 import assert from "node:assert/strict";
 import {
+	COMPOSITION_GUIDE_PATTERN_GOLDEN,
+	COMPOSITION_GUIDE_PATTERN_THIRDS,
+	COMPOSITION_GUIDE_SCOPE_ALL_FRAMES,
+	COMPOSITION_GUIDE_SCOPE_SELECTED_FRAME,
+} from "../src/engine/composition-guides.js";
+import {
 	PROJECT_VERSION,
 	normalizeProjectDocument,
 	sanitizeProjectAssetLabel,
@@ -51,5 +57,44 @@ assert.deepEqual(normalized.workspace.viewport.orthographic, {
 		z: 5,
 	},
 });
+
+const normalizedWithCompositionGuide = normalizeProjectDocument({
+	shotCameras: [
+		{
+			id: "shot-camera-1",
+			name: "Camera 1",
+			compositionGuide: {
+				enabled: true,
+				scope: COMPOSITION_GUIDE_SCOPE_ALL_FRAMES,
+				pattern: COMPOSITION_GUIDE_PATTERN_GOLDEN,
+			},
+		},
+		{
+			id: "shot-camera-2",
+			name: "Camera 2",
+			compositionGuide: {
+				enabled: true,
+				scope: "bad-scope",
+				pattern: "bad-pattern",
+			},
+		},
+	],
+});
+assert.deepEqual(
+	normalizedWithCompositionGuide.shotCameras[0].compositionGuide,
+	{
+		enabled: true,
+		scope: COMPOSITION_GUIDE_SCOPE_ALL_FRAMES,
+		pattern: COMPOSITION_GUIDE_PATTERN_GOLDEN,
+	},
+);
+assert.deepEqual(
+	normalizedWithCompositionGuide.shotCameras[1].compositionGuide,
+	{
+		enabled: true,
+		scope: COMPOSITION_GUIDE_SCOPE_SELECTED_FRAME,
+		pattern: COMPOSITION_GUIDE_PATTERN_THIRDS,
+	},
+);
 
 console.log("✅ CAMERA_FRAMES project document tests passed!");

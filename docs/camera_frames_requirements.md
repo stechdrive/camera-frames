@@ -249,6 +249,9 @@ viewport projection 切替の契約:
 - centered off-axis framing を維持するため、frustum は anchor / center / scale を反映して再計算する
 - output frame resize では anchor 側の frustum 上の固定点を維持し、領域変更だけを行う
 - `FRAME` の center / anchor も render box 変更時に新しい紙面へ remap される
+- composition guide は shot camera ごとの preview-only UI state として保持し、Camera View でのみ表示する。PNG / PSD / package export のレンダリング結果には含めない
+- composition guide の対象は `selected-frame` / `all-frames`。`selected-frame` は選択中 FRAME があればアクティブ選択 FRAME、なければアクティブ FRAME に追従し、FRAME の回転にも追従する。`all-frames` は全 FRAME の回転済み corner を含む外接矩形に対して axis-aligned に表示する
+- composition guide の pattern は `thirds` / `golden` / `center` / `grid`。`grid` は表示サイズに応じて水平垂直確認用の分割数を自動調整する
 
 FRAME / frame mask の基準:
 

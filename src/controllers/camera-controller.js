@@ -1,4 +1,5 @@
 import { createCameraActiveShotController } from "./camera/active-shot.js";
+import { createCameraCompositionGuideController } from "./camera/composition-guide.js";
 import { createCameraDocumentOpsController } from "./camera/document-ops.js";
 import { createCameraExportSettingsController } from "./camera/export-naming.js";
 import { createCameraLensClippingController } from "./camera/lens-clipping.js";
@@ -99,6 +100,12 @@ export function createCameraController({
 		updateActiveShotCameraDocument: activeShot.updateActiveShotCameraDocument,
 	});
 
+	const compositionGuide = createCameraCompositionGuideController({
+		runHistoryAction,
+		updateUi,
+		updateActiveShotCameraDocument: activeShot.updateActiveShotCameraDocument,
+	});
+
 	const documentOps = createCameraDocumentOpsController({
 		store,
 		shotCameraRegistry,
@@ -182,6 +189,9 @@ export function createCameraController({
 			exportSettings.setShotCameraExportModelLayers,
 		setShotCameraExportSplatLayers:
 			exportSettings.setShotCameraExportSplatLayers,
+		setCompositionGuideEnabled: compositionGuide.setCompositionGuideEnabled,
+		setCompositionGuideScope: compositionGuide.setCompositionGuideScope,
+		setCompositionGuidePattern: compositionGuide.setCompositionGuidePattern,
 		selectShotCamera: activeShot.selectShotCamera,
 		createShotCamera: documentOps.createShotCamera,
 		duplicateActiveShotCamera: documentOps.duplicateActiveShotCamera,

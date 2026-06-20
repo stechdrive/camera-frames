@@ -7,6 +7,14 @@ import {
 	MIN_OUTPUT_FRAME_SCALE_PCT,
 } from "../constants.js";
 import {
+	COMPOSITION_GUIDE_PATTERN_CENTER,
+	COMPOSITION_GUIDE_PATTERN_GOLDEN,
+	COMPOSITION_GUIDE_PATTERN_GRID,
+	COMPOSITION_GUIDE_PATTERN_THIRDS,
+	COMPOSITION_GUIDE_SCOPE_ALL_FRAMES,
+	COMPOSITION_GUIDE_SCOPE_SELECTED_FRAME,
+} from "../engine/composition-guides.js";
+import {
 	DirectionalScrubControl,
 	HistoryRangeInput,
 	INTERACTIVE_FIELD_PROPS,
@@ -611,6 +619,39 @@ export function OutputFrameSection({
 	widthLabel,
 }) {
 	const anchorValue = store.renderBox.anchor.value;
+	const compositionGuideEnabled =
+		store.shotCamera.compositionGuideEnabled.value;
+	const compositionGuideScope = store.shotCamera.compositionGuideScope.value;
+	const compositionGuidePattern =
+		store.shotCamera.compositionGuidePattern.value;
+	const compositionGuideScopeOptions = [
+		{
+			value: COMPOSITION_GUIDE_SCOPE_SELECTED_FRAME,
+			label: t("compositionGuideScope.selectedFrame"),
+		},
+		{
+			value: COMPOSITION_GUIDE_SCOPE_ALL_FRAMES,
+			label: t("compositionGuideScope.allFrames"),
+		},
+	];
+	const compositionGuidePatternOptions = [
+		{
+			value: COMPOSITION_GUIDE_PATTERN_THIRDS,
+			label: t("compositionGuidePattern.thirds"),
+		},
+		{
+			value: COMPOSITION_GUIDE_PATTERN_GOLDEN,
+			label: t("compositionGuidePattern.golden"),
+		},
+		{
+			value: COMPOSITION_GUIDE_PATTERN_CENTER,
+			label: t("compositionGuidePattern.center"),
+		},
+		{
+			value: COMPOSITION_GUIDE_PATTERN_GRID,
+			label: t("compositionGuidePattern.grid"),
+		},
+	];
 
 	return html`
 		<${DisclosureBlock}
@@ -694,6 +735,87 @@ export function OutputFrameSection({
 						)}
 					</div>
 				</div>
+			</div>
+			<div class="composition-guide-panel">
+				<label class="switch-toggle composition-guide-panel__toggle">
+					<input
+						id="composition-guide-enabled"
+						type="checkbox"
+						checked=${compositionGuideEnabled}
+						onChange=${(event) =>
+							controller()?.setCompositionGuideEnabled?.(
+								event.currentTarget.checked,
+							)}
+					/>
+					<span class="switch-toggle__control" aria-hidden="true">
+						<span class="switch-toggle__thumb"></span>
+					</span>
+					<span class="switch-toggle__label field-label-tooltip">
+						${t("field.compositionGuide")}
+						<${TooltipBubble}
+							title=${t("field.compositionGuide")}
+							description=${t("tooltip.compositionGuideField")}
+							placement="right"
+						/>
+					</span>
+				</label>
+				${
+					compositionGuideEnabled &&
+					html`
+						<div class="composition-guide-panel__settings">
+							<label class="field">
+								<span class="field-label-tooltip">
+									${t("field.compositionGuideScope")}
+									<${TooltipBubble}
+										title=${t("field.compositionGuideScope")}
+										description=${t("tooltip.compositionGuideScopeField")}
+										placement="right"
+									/>
+								</span>
+								<select
+									id="composition-guide-scope"
+									value=${compositionGuideScope}
+									...${INTERACTIVE_FIELD_PROPS}
+									onChange=${(event) =>
+										controller()?.setCompositionGuideScope?.(
+											event.currentTarget.value,
+										)}
+								>
+									${compositionGuideScopeOptions.map(
+										(option) => html`
+											<option value=${option.value}>${option.label}</option>
+										`,
+									)}
+								</select>
+							</label>
+							<label class="field">
+								<span class="field-label-tooltip">
+									${t("field.compositionGuidePattern")}
+									<${TooltipBubble}
+										title=${t("field.compositionGuidePattern")}
+										description=${t("tooltip.compositionGuidePatternField")}
+										placement="right"
+									/>
+								</span>
+								<select
+									id="composition-guide-pattern"
+									value=${compositionGuidePattern}
+									...${INTERACTIVE_FIELD_PROPS}
+									onChange=${(event) =>
+										controller()?.setCompositionGuidePattern?.(
+											event.currentTarget.value,
+										)}
+								>
+									${compositionGuidePatternOptions.map(
+										(option) => html`
+											<option value=${option.value}>${option.label}</option>
+										`,
+									)}
+								</select>
+							</label>
+						</div>
+					`
+				}
 			</div>
 		<//>
 	`;

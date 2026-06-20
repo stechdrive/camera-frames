@@ -15,6 +15,7 @@ import {
 	getStandardFrameHorizontalEquivalentMm,
 	getStandardFrameHorizontalFovDegrees,
 } from "./engine/camera-lens.js";
+import { sanitizeCompositionGuideState } from "./engine/composition-guides.js";
 import { getFrameTrajectoryNodeMode } from "./engine/frame-trajectory.js";
 import {
 	DEFAULT_VIEWPORT_ORTHO_DISTANCE,
@@ -329,6 +330,18 @@ export function createCameraFramesStore(runtimeInfo = null) {
 			Boolean(activeShotCamera.value?.exportSettings?.exportModelLayers) &&
 			Boolean(activeShotCamera.value?.exportSettings?.exportSplatLayers),
 	);
+	const activeCompositionGuide = computed(() =>
+		sanitizeCompositionGuideState(activeShotCamera.value?.compositionGuide),
+	);
+	const activeCompositionGuideEnabled = computed(
+		() => activeCompositionGuide.value.enabled,
+	);
+	const activeCompositionGuideScope = computed(
+		() => activeCompositionGuide.value.scope,
+	);
+	const activeCompositionGuidePattern = computed(
+		() => activeCompositionGuide.value.pattern,
+	);
 	const activeRollLock = computed(() =>
 		Boolean(activeShotCamera.value?.navigation?.rollLock),
 	);
@@ -508,6 +521,10 @@ export function createCameraFramesStore(runtimeInfo = null) {
 			exportGridLayerMode: activeExportGridLayerMode,
 			exportModelLayers: activeExportModelLayers,
 			exportSplatLayers: activeExportSplatLayers,
+			compositionGuide: activeCompositionGuide,
+			compositionGuideEnabled: activeCompositionGuideEnabled,
+			compositionGuideScope: activeCompositionGuideScope,
+			compositionGuidePattern: activeCompositionGuidePattern,
 		},
 		frames: {
 			documents: frameDocuments,

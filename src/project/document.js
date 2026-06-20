@@ -1,4 +1,5 @@
 import { DEFAULT_SHOT_CAMERA_BASE_FOVX } from "../engine/camera-lens.js";
+import { sanitizeCompositionGuideState } from "../engine/composition-guides.js";
 import { cloneFrameTrajectoryNodesByFrameId } from "../engine/frame-trajectory.js";
 import {
 	cloneViewportOrthoState,
@@ -259,6 +260,9 @@ export function sanitizeShotCameraDocument(
 		navigation: {
 			rollLock: Boolean(normalized.navigation?.rollLock),
 		},
+		compositionGuide: sanitizeCompositionGuideState(
+			normalized.compositionGuide,
+		),
 		referenceImages: sanitizeShotCameraReferenceImagesState(
 			normalized.referenceImages,
 			{ availablePresetIds },

@@ -4869,6 +4869,24 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	align-self: end;
 }
 
+.composition-guide-panel {
+	display: flex;
+	flex-direction: column;
+	gap: 0.55rem;
+	padding-top: 0.05rem;
+}
+
+.composition-guide-panel__toggle {
+	align-self: flex-start;
+}
+
+.composition-guide-panel__settings {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+	gap: 0.55rem 0.75rem;
+	width: 100%;
+}
+
 .asset-card__header {
 	display: flex;
 	align-items: flex-start;
@@ -4982,6 +5000,42 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	left: 0;
 	display: block;
 	pointer-events: none;
+}
+
+.composition-guide-layer {
+	position: absolute;
+	inset: 0;
+	z-index: 1;
+	pointer-events: none;
+	overflow: visible;
+}
+
+.composition-guide-layer__svg {
+	display: block;
+	width: 100%;
+	height: 100%;
+	overflow: visible;
+}
+
+.composition-guide-layer__outline {
+	fill: none;
+	stroke: rgba(255, 255, 255, 0.3);
+	stroke-width: 1px;
+	stroke-dasharray: 8 6;
+	vector-effect: non-scaling-stroke;
+	filter: drop-shadow(0 0 1px rgba(5, 8, 14, 0.95));
+}
+
+.composition-guide-layer__line {
+	stroke: rgba(255, 255, 255, 0.58);
+	stroke-width: 1px;
+	vector-effect: non-scaling-stroke;
+	filter: drop-shadow(0 0 1px rgba(5, 8, 14, 0.95));
+}
+
+.composition-guide-layer__line--major {
+	stroke: rgba(255, 236, 190, 0.78);
+	stroke-width: 1.35px;
 }
 
 .frame-trajectory-layer {
