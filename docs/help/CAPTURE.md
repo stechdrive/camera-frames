@@ -39,7 +39,7 @@ npm run test:browser
 - browser console / runtime exception に error が出ていない
 - `.local/browser-smoke/` に `project-smoke.png` と `fixture-hello.png` を保存する
 
-補足: CSS 回帰確認のために実アプリを操作して撮影する場合は、help fixture の `__CF_DOCS__.captureFixture()` ではなく、`npm run test:local-scenarios -- --include-built-ins --scenario css-visual-baseline,css-visual-mobile-baseline` の `app-visual-flow` を使う。
+補足: CSS 回帰確認のために実アプリを操作して撮影する場合は、help fixture の `__CF_DOCS__.captureFixture()` ではなく、`npm run test:local-scenarios -- --include-built-ins --scenario css-visual-baseline,css-visual-mobile-baseline` の `app-visual-flow` を使う。右パネルや mobile drawer のように scrollbar が出る UI は、`app-visual-flow` 側で top / bottom を別 screenshot として撮り、`.local/local-scenario-smoke/local-scenarios.json` の scroll metrics と一緒に確認する。
 
 主なオプション:
 

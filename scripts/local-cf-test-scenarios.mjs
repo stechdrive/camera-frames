@@ -79,6 +79,19 @@ const DEFAULT_PSD_EXPORT_EXPECTED = {
 	},
 };
 
+const VISUAL_INSPECTOR_SCROLL_TARGET = [
+	".workbench-column--right",
+	".workbench-column--right *",
+	".workbench-card--mobile-drawer",
+	".workbench-card--mobile-drawer *",
+].join(", ");
+const VISUAL_CAMERA_SCROLL_TARGET = [
+	".workbench-column--right .workbench-inspector-split__top",
+	".workbench-column--right .shot-camera-manager__list",
+	".workbench-card--mobile-drawer .workbench-inspector-split__top",
+	".workbench-card--mobile-drawer .shot-camera-manager__list",
+].join(", ");
+
 export const DEFAULT_SCENARIOS = [
 	{
 		id: "ui-baseline",
@@ -115,21 +128,84 @@ export const DEFAULT_SCENARIOS = [
 			{
 				id: "scene-tab",
 				click: { selector: ".workbench-tab", index: 0 },
+			},
+			{
+				id: "scene-tab-top",
+				scroll: {
+					selector: VISUAL_INSPECTOR_SCROLL_TARGET,
+					position: "top",
+				},
+				capture: true,
+			},
+			{
+				id: "scene-tab-bottom",
+				scroll: {
+					selector: VISUAL_INSPECTOR_SCROLL_TARGET,
+					position: "bottom",
+				},
 				capture: true,
 			},
 			{
 				id: "camera-tab",
 				click: { selector: ".workbench-tab", index: 1 },
+			},
+			{
+				id: "camera-tab-top",
+				scroll: {
+					selector: VISUAL_CAMERA_SCROLL_TARGET,
+					position: "top",
+					minScrollDistance: 1,
+				},
+				capture: true,
+			},
+			{
+				id: "camera-tab-bottom",
+				scroll: {
+					selector: VISUAL_CAMERA_SCROLL_TARGET,
+					position: "bottom",
+					minScrollDistance: 1,
+					requireScrollable: true,
+				},
 				capture: true,
 			},
 			{
 				id: "reference-tab",
 				click: { selector: ".workbench-tab", index: 2 },
+			},
+			{
+				id: "reference-tab-top",
+				scroll: {
+					selector: VISUAL_INSPECTOR_SCROLL_TARGET,
+					position: "top",
+				},
+				capture: true,
+			},
+			{
+				id: "reference-tab-bottom",
+				scroll: {
+					selector: VISUAL_INSPECTOR_SCROLL_TARGET,
+					position: "bottom",
+				},
 				capture: true,
 			},
 			{
 				id: "export-tab",
 				click: { selector: ".workbench-tab", index: 3 },
+			},
+			{
+				id: "export-tab-top",
+				scroll: {
+					selector: VISUAL_INSPECTOR_SCROLL_TARGET,
+					position: "top",
+				},
+				capture: true,
+			},
+			{
+				id: "export-tab-bottom",
+				scroll: {
+					selector: VISUAL_INSPECTOR_SCROLL_TARGET,
+					position: "bottom",
+				},
 				capture: true,
 			},
 			{
@@ -224,8 +300,26 @@ export const DEFAULT_SCENARIOS = [
 				capture: true,
 			},
 			{
+				id: "mobile-camera-drawer-bottom",
+				scroll: {
+					selector: VISUAL_CAMERA_SCROLL_TARGET,
+					position: "bottom",
+					minScrollDistance: 1,
+					requireScrollable: true,
+				},
+				capture: true,
+			},
+			{
 				id: "mobile-export-drawer",
 				click: { selector: ".workbench-tab", index: 3 },
+				capture: true,
+			},
+			{
+				id: "mobile-export-drawer-bottom",
+				scroll: {
+					selector: VISUAL_INSPECTOR_SCROLL_TARGET,
+					position: "bottom",
+				},
 				capture: true,
 			},
 			{
@@ -1513,6 +1607,20 @@ async function runAppVisualFlowScenario({ scenario, issues }) {
 				check(`visual-${stepId}-key`, keyResult?.ok === true, keyResult);
 			}
 
+			if (step.scroll) {
+				const scrollResult = await evaluate(
+					cdp,
+					`scrollVisualFlowTarget(${JSON.stringify(step.scroll)})`,
+					{ awaitPromise: false },
+				);
+				stepObservation.scroll = scrollResult;
+				check(
+					`visual-${stepId}-scroll`,
+					scrollResult?.ok === true,
+					scrollResult,
+				);
+			}
+
 			const waitConfig = step.wait ?? {};
 			await waitVisualFlowStep(waitConfig);
 
@@ -1592,6 +1700,51 @@ async function installVisualFlowHelpers() {
 				node?.textContent ||
 				""
 			).trim();
+			const scrollMetricsOf = (node) => {
+				if (!node) {
+					return {
+						scrollTop: 0,
+						scrollLeft: 0,
+						scrollHeight: 0,
+						scrollWidth: 0,
+						clientHeight: 0,
+						clientWidth: 0,
+						maxScrollTop: 0,
+						maxScrollLeft: 0,
+						canScrollY: false,
+						canScrollX: false,
+					};
+				}
+				const maxScrollTop = Math.max(0, node.scrollHeight - node.clientHeight);
+				const maxScrollLeft = Math.max(0, node.scrollWidth - node.clientWidth);
+				return {
+					scrollTop: node.scrollTop,
+					scrollLeft: node.scrollLeft,
+					scrollHeight: node.scrollHeight,
+					scrollWidth: node.scrollWidth,
+					clientHeight: node.clientHeight,
+					clientWidth: node.clientWidth,
+					maxScrollTop,
+					maxScrollLeft,
+					canScrollY: maxScrollTop > 1,
+					canScrollX: maxScrollLeft > 1,
+				};
+			};
+			const describeNode = (node) => {
+				if (!node) return null;
+				return {
+					tagName: node.tagName,
+					className: typeof node.className === "string" ? node.className : "",
+					role: node.getAttribute?.("role") || null,
+					ariaLabel: node.getAttribute?.("aria-label") || null,
+				};
+			};
+			const summarizeEntry = (entry) => ({
+				index: entry.candidateIndex,
+				node: describeNode(entry.node),
+				metrics: entry.metrics,
+			});
+			const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 			globalThis.clickVisualFlowTarget = (config = {}) => {
 				const selector = config.selector || "button,[role='button'],[role='tab'],input,article";
 				const text = String(config.text || "").trim();
@@ -1625,6 +1778,86 @@ async function installVisualFlowHelpers() {
 					matchedText: textOf(target),
 					tagName: target.tagName,
 					role: target.getAttribute?.("role") || null,
+				};
+			};
+			globalThis.scrollVisualFlowTarget = (config = {}) => {
+				const selector = config.selector || ".workbench-card--inspector, .workbench-inspector-stack";
+				const index = Number.isFinite(Number(config.index)) ? Number(config.index) : null;
+				const position = String(config.position || "top");
+				const offset = Number.isFinite(Number(config.offset)) ? Number(config.offset) : 0;
+				const preferScrollable = config.preferScrollable !== false;
+				const requireScrollable = config.requireScrollable === true;
+				const minScrollDistance = Number.isFinite(Number(config.minScrollDistance))
+					? Math.max(0, Number(config.minScrollDistance))
+					: 8;
+				const isMeaningfullyScrollable = (metrics) =>
+					metrics.maxScrollTop > minScrollDistance ||
+					metrics.maxScrollLeft > minScrollDistance;
+				const candidates = Array.from(document.querySelectorAll(selector));
+				const measured = candidates.map((node, candidateIndex) => ({
+					node,
+					candidateIndex,
+					metrics: scrollMetricsOf(node),
+				}));
+				const scrollableEntries = measured.filter((entry) =>
+					isMeaningfullyScrollable(entry.metrics),
+				);
+				const targetEntry = index !== null
+					? measured[index] ?? null
+					: preferScrollable
+					? scrollableEntries
+							.sort(
+								(a, b) =>
+									b.metrics.maxScrollTop - a.metrics.maxScrollTop ||
+									b.metrics.maxScrollLeft - a.metrics.maxScrollLeft,
+							)[0] ?? measured[0] ?? null
+					: measured[0] ?? null;
+				if (!targetEntry?.node) {
+					return {
+						ok: false,
+						selector,
+						index,
+						position,
+						minScrollDistance,
+						candidateCount: candidates.length,
+						scrollableCandidates: scrollableEntries.slice(0, 12).map(summarizeEntry),
+						error: "target not found",
+					};
+				}
+				const target = targetEntry.node;
+				const before = scrollMetricsOf(target);
+				let nextScrollTop = before.scrollTop;
+				if (position === "bottom") {
+					nextScrollTop = before.maxScrollTop;
+				} else if (position === "middle") {
+					nextScrollTop = before.maxScrollTop / 2;
+				} else if (position === "top") {
+					nextScrollTop = 0;
+				} else if (Number.isFinite(Number(position))) {
+					nextScrollTop = Number(position);
+				}
+				target.scrollTop = clamp(nextScrollTop + offset, 0, before.maxScrollTop);
+				target.dispatchEvent(new Event("scroll", { bubbles: true }));
+				const after = scrollMetricsOf(target);
+				const hasRequiredScroll = isMeaningfullyScrollable(before);
+				return {
+					ok: !requireScrollable || hasRequiredScroll,
+					selector,
+					index,
+					position,
+					offset,
+					minScrollDistance,
+					candidateCount: candidates.length,
+					selectedIndex: targetEntry.candidateIndex,
+					selected: describeNode(target),
+					scrollableCandidates: scrollableEntries.slice(0, 12).map(summarizeEntry),
+					requireScrollable,
+					before,
+					after,
+					error:
+						requireScrollable && !hasRequiredScroll
+							? "target is not scrollable"
+							: null,
 				};
 			};
 			globalThis.dispatchVisualFlowKey = (key) => {

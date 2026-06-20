@@ -1,6 +1,6 @@
 # Local `.ssproj` Scenario Tests
 
-最終更新: 2026-04-30
+最終更新: 2026-06-21
 
 この文書は、Git 管理しない `.local/cf-test/` の `.ssproj` 実データを使った保守用ブラウザ smoke の運用手順をまとめる。
 
@@ -67,6 +67,8 @@ manifest は Git 管理しない `.local/cf-test/scenarios.json` に置く。形
 
 `app-visual-flow` は help 用 screenshot fixture ではなく、起動した本物の app DOM を操作して `Page.captureScreenshot` で画面を保存する。`__CF_TEST__` の dev bridge を使って `.ssproj` load / readiness wait / controller 操作を行い、`__CF_DOCS__.captureFixture()` には依存しない。
 
+`app-visual-flow` の step には `scroll` を指定できる。runner は指定 selector の候補から実際に scroll 可能な要素を選び、`top` / `middle` / `bottom` へ移動してから撮影する。`requireScrollable: true` の step は、対象に scroll 余地がない場合に fail する。scroll step の結果は `.local/local-scenario-smoke/local-scenarios.json` に selected element、`scrollHeight` / `clientHeight`、before / after の `scrollTop` として残る。
+
 組み込みの `css-visual-baseline` / `css-visual-mobile-baseline` は CSS 整理前の baseline 用。ローカル manifest が存在する環境でも `--include-built-ins` を付けると選択できる。
 
 ```powershell
@@ -74,7 +76,7 @@ npm run test:local-scenarios -- --include-built-ins --scenario css-visual-baseli
 npm run test:local-scenarios -- --include-built-ins --scenario css-visual-mobile-baseline
 ```
 
-desktop baseline は起動、File menu、project load、Scene / Camera / Reference / Export tabs、Viewport mode、pie menu、zoom popover、measurement、reference edit、splat edit toolbar、frame tool popover、collapsed inspector を撮る。mobile baseline は project load、mobile drawer、Export drawer、UI scale modal を撮る。
+desktop baseline は起動、File menu、project load、Scene / Camera / Reference / Export tabs の top / bottom、Viewport mode、pie menu、zoom popover、measurement、reference edit、splat edit toolbar、frame tool popover、collapsed inspector を撮る。mobile baseline は project load、mobile drawer の top / bottom、Export drawer の top / bottom、UI scale modal を撮る。右パネルや drawer に scrollbar が出る viewport では、見えている一折りだけを比較対象にせず、対応する bottom screenshot と scroll metrics も併せて確認する。
 
 結果は `.local/local-scenario-smoke/css-visual-baseline-*.png` / `.local/local-scenario-smoke/css-visual-mobile-baseline-*.png` と `.local/local-scenario-smoke/local-scenarios.json` に出る。CSS 本体の整理前には、この baseline に必要な step を追加してから撮影し、整理後に同じ scenario を再実行して差分を確認する。
 
