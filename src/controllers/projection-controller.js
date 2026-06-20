@@ -1,9 +1,12 @@
 import * as THREE from "three";
+import { clampShotCameraLensShiftFactor } from "../engine/camera-lens.js";
 import {
 	composeCameraQuaternionFromPoseAngles,
 	decomposeCameraPoseAngles,
 } from "../engine/camera-pose.js";
 import {
+	applyLensShiftToFrustumExtents,
+	getBaseFrustumExtents,
 	getFrustumCenterRayDirection,
 	getPreviewFrustumExtents,
 	getTargetFrustumExtents,
@@ -44,17 +47,28 @@ export function createProjectionController({
 		}
 		syncActiveShotCameraFromDocument();
 		const shotCamera = getActiveShotCamera();
-		const outputFrameDocument =
-			getActiveShotCameraDocument()?.outputFrame ?? {};
+		const shotCameraDocument = getActiveShotCameraDocument() ?? {};
+		const outputFrameDocument = shotCameraDocument.outputFrame ?? {};
+		const lensDocument = shotCameraDocument.lens ?? {};
 		const exportSize = getOutputSizeState();
 		const metrics = getOutputFrameMetrics();
-		const targetFrustum = getTargetFrustumExtents({
+		const baseFrustum = getBaseFrustumExtents({
+			near: shotCamera.near,
+			horizontalFovDegrees: state.baseFovX,
+		});
+		const layoutFrustum = getTargetFrustumExtents({
 			near: shotCamera.near,
 			horizontalFovDegrees: state.baseFovX,
 			widthScale: state.outputFrame.widthScale,
 			heightScale: state.outputFrame.heightScale,
 			centerX: outputFrameDocument.centerX,
 			centerY: outputFrameDocument.centerY,
+		});
+		const targetFrustum = applyLensShiftToFrustumExtents({
+			frustum: layoutFrustum,
+			baseFrustum,
+			shiftX: clampShotCameraLensShiftFactor(lensDocument.shiftX),
+			shiftY: clampShotCameraLensShiftFactor(lensDocument.shiftY),
 		});
 		const previewFrustum = getPreviewFrustumExtents({
 			targetFrustum,
@@ -64,6 +78,8 @@ export function createProjectionController({
 		cachedProjectionState = {
 			exportSize,
 			metrics,
+			baseFrustum,
+			layoutFrustum,
 			targetFrustum,
 			previewFrustum,
 		};
@@ -152,10 +168,10 @@ export function createProjectionController({
 			return null;
 		}
 
-		const { targetFrustum } = getProjectionState();
+		const { layoutFrustum } = getProjectionState();
 		const centerRay = getFrustumCenterRayDirection({
 			near: shotCamera.near,
-			frustum: targetFrustum,
+			frustum: layoutFrustum,
 		});
 
 		return new THREE.Vector3(centerRay.x, centerRay.y, centerRay.z).normalize();

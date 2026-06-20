@@ -70,7 +70,8 @@
 - 複数 shot camera を持てる
 - shot camera は保存対象の camera object で、DCC の個別 camera object に相当する
 - shot camera は custom frustum を使う shot layout camera で、anchor / center を基準に構図維持できる
-- shot camera ごとに pose / lens / clipping / output frame / export settings / frames / frame mask / reference binding を持てる
+- shot camera ごとに pose / lens / lens shift / clipping / output frame / export settings / frames / frame mask / reference binding を持てる
+- lens shift は camera を回転せず投影中心だけをずらす。UI は `%`、保存値は factor (`0.1` = `10%`) で、標準 FRAME の幅 / 高さを基準単位にする
 - shot camera ごとに export name を持てる
 - roll lock を持てる
 
@@ -212,6 +213,7 @@ PSD export の主な構成:
 
 - output frame scale clamp
 - off-axis framing
+- lens shift を加えた off-axis projection と、shift 前 layout frustum を使う pose / roll 軸維持
 - anchor fixed のままの paper resize
 - viewport-only orthographic
 - frame drag / resize / rotate / anchor
@@ -222,6 +224,7 @@ PSD export の主な構成:
 代表テスト:
 
 - `test/camera-frames-projection.test.ts`
+- `test/camera-frames-projection-controller.test.ts`
 - `test/camera-frames-output-frame-controller.test.ts`
 - `test/camera-frames-frame-controller.test.ts`
 - `test/camera-frames-frame-trajectory.test.ts`

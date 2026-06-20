@@ -196,6 +196,7 @@ shot camera は複数持てる。保存される主な state:
 
 - `pose`
 - `lens.baseFovX`
+- `lens.shiftX` / `lens.shiftY`
 - `clipping`
 - `outputFrame`
 - `exportSettings`
@@ -209,6 +210,8 @@ shot camera の責務:
 
 - shot camera は単なる pose preset ではなく、DCC の個別 camera object に相当する保存単位として扱う
 - shot camera は custom frustum を前提にした shot layout camera であり、anchor / center を基準に構図維持することを core contract とする
+- lens shift は camera を回転せずに投影中心だけをずらす shot camera lens state として扱う。UI では `%`、保存値は factor (`0.1` = `10%`) とし、標準 FRAME の幅 / 高さを基準単位にする
+- lens shift は render / preview / export の実投影に反映するが、pose の yaw / pitch / roll 分解や roll 軸は shift 前の output frame layout frustum を基準にし、既存の camera 操作 contract を変えない
 - custom frustum / output frame / export / reference image binding は shot camera 側の責務として保存する
 - current camera view では active shot camera を使う
 
@@ -233,6 +236,7 @@ viewport projection 切替の契約:
 - shot camera 初期数は 1
 - 初期 camera 名は `Camera 1`
 - clipping 初期値は `mode=auto`, `near=0.1`, `far=1000`
+- lens shift 初期値は `shiftX=0`, `shiftY=0`
 - export 初期値は `exportName=cf-%cam`, `exportFormat=psd`
 - grid は初期 ON
 - PSD の model layer / splat layer は初期 ON
@@ -248,6 +252,7 @@ viewport projection 切替の契約:
 - anchor は 3x3 の preset を持つ
 - centered off-axis framing を維持するため、frustum は anchor / center / scale を反映して再計算する
 - output frame resize では anchor 側の frustum 上の固定点を維持し、領域変更だけを行う
+- lens shift は output frame の anchor / center / scale で決まる layout frustum の後段で実投影に加える。shift 量変更で output frame resize の anchor 固定計算や FRAME remap を変更しない
 - `FRAME` の center / anchor も render box 変更時に新しい紙面へ remap される
 - composition guide は shot camera ごとの preview-only UI state として保持し、Camera View でのみ表示する。PNG / PSD / package export のレンダリング結果には含めない
 - composition guide の対象は `selected-frame` / `all-frames`。`selected-frame` は選択中 FRAME があればアクティブ選択 FRAME、なければアクティブ FRAME に追従し、FRAME の回転にも追従する。`all-frames` は全 FRAME の回転済み corner を含む外接矩形に対して axis-aligned に表示する

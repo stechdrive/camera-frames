@@ -11,6 +11,7 @@ import {
 import {
 	DEFAULT_SHOT_CAMERA_BASE_FOVX,
 	DEFAULT_VIEWPORT_CAMERA_BASE_FOVX,
+	clampShotCameraLensShiftFactor,
 	getBaseHorizontalFovDegreesForStandardFrameHorizontalEquivalentMm,
 	getStandardFrameHorizontalEquivalentMm,
 	getStandardFrameHorizontalFovDegrees,
@@ -283,6 +284,18 @@ export function createCameraFramesStore(runtimeInfo = null) {
 		() =>
 			activeShotCamera.value?.lens.baseFovX ?? DEFAULT_SHOT_CAMERA_BASE_FOVX,
 	);
+	const lensShiftX = computed(() =>
+		clampShotCameraLensShiftFactor(activeShotCamera.value?.lens?.shiftX),
+	);
+	const lensShiftY = computed(() =>
+		clampShotCameraLensShiftFactor(activeShotCamera.value?.lens?.shiftY),
+	);
+	const lensShiftXPercent = computed(() =>
+		Number((lensShiftX.value * 100).toFixed(2)),
+	);
+	const lensShiftYPercent = computed(() =>
+		Number((lensShiftY.value * 100).toFixed(2)),
+	);
 	const widthScale = computed(
 		() => activeShotCamera.value?.outputFrame.widthScale ?? 1,
 	);
@@ -511,6 +524,10 @@ export function createCameraFramesStore(runtimeInfo = null) {
 			positionX: shotCameraPositionX,
 			positionY: shotCameraPositionY,
 			positionZ: shotCameraPositionZ,
+			lensShiftX,
+			lensShiftY,
+			lensShiftXPercent,
+			lensShiftYPercent,
 			yawDeg: shotCameraYawDeg,
 			pitchDeg: shotCameraPitchDeg,
 			rollDeg: shotCameraRollDeg,

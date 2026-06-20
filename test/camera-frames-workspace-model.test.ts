@@ -42,6 +42,8 @@ const shotCameras = createDefaultShotCameraDocuments();
 assert.equal(shotCameras.length, 1);
 assert.equal(shotCameras[0].id, "shot-camera-1");
 assert.equal(shotCameras[0].lens.baseFovX, DEFAULT_SHOT_CAMERA_BASE_FOVX);
+assert.equal(shotCameras[0].lens.shiftX, 0);
+assert.equal(shotCameras[0].lens.shiftY, 0);
 assert.equal(shotCameras[0].clipping.mode, "auto");
 assert.equal(shotCameras[0].clipping.near, DEFAULT_CAMERA_NEAR);
 assert.equal(shotCameras[0].clipping.far, DEFAULT_CAMERA_FAR);
@@ -99,6 +101,8 @@ const duplicatedShotCamera = createShotCameraDocument({
 });
 assert.equal(duplicatedShotCamera.id, "shot-camera-2");
 assert.equal(duplicatedShotCamera.name, "Camera 2");
+assert.equal(duplicatedShotCamera.lens.shiftX, 0);
+assert.equal(duplicatedShotCamera.lens.shiftY, 0);
 assert.equal(duplicatedShotCamera.outputFrame.anchor, "center");
 assert.equal(duplicatedShotCamera.outputFrame.viewportCenterAuto, true);
 assert.equal(duplicatedShotCamera.exportSettings.exportFormat, "psd");
@@ -121,6 +125,7 @@ assert.deepEqual(duplicatedShotCamera.compositionGuide, {
 	pattern: COMPOSITION_GUIDE_PATTERN_THIRDS,
 });
 assert.notEqual(duplicatedShotCamera.outputFrame, shotCameras[0].outputFrame);
+assert.notEqual(duplicatedShotCamera.lens, shotCameras[0].lens);
 assert.notEqual(
 	duplicatedShotCamera.exportSettings,
 	shotCameras[0].exportSettings,
@@ -209,6 +214,22 @@ const sanitizedShotCamera = createShotCameraDocument({
 });
 assert.equal(sanitizedShotCamera.frames[0].name, "Odd Frame Name");
 assert.deepEqual(sanitizedShotCamera.frameMask.selectedIds, ["frame-1"]);
+
+const sanitizedShotCameraWithLensShift = createShotCameraDocument({
+	id: getShotCameraDocumentId(3),
+	name: "Camera 3",
+	source: {
+		...shotCameras[0],
+		lens: {
+			baseFovX: 60,
+			shiftX: 1.25,
+			shiftY: Number.NaN,
+		},
+	},
+});
+assert.equal(sanitizedShotCameraWithLensShift.lens.baseFovX, 60);
+assert.equal(sanitizedShotCameraWithLensShift.lens.shiftX, 1);
+assert.equal(sanitizedShotCameraWithLensShift.lens.shiftY, 0);
 
 const sanitizedShotCameraWithCompositionGuide = createShotCameraDocument({
 	id: getShotCameraDocumentId(3),

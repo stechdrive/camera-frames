@@ -7,6 +7,10 @@ import {
 	MIN_OUTPUT_FRAME_SCALE_PCT,
 } from "../constants.js";
 import {
+	MAX_SHOT_CAMERA_LENS_SHIFT_PCT,
+	MIN_SHOT_CAMERA_LENS_SHIFT_PCT,
+} from "../engine/camera-lens.js";
+import {
 	COMPOSITION_GUIDE_PATTERN_CENTER,
 	COMPOSITION_GUIDE_PATTERN_GOLDEN,
 	COMPOSITION_GUIDE_PATTERN_GRID,
@@ -187,6 +191,12 @@ export function ShotCameraPropertiesSection({
 	const shotCameraYawDeg = Number(store.shotCamera.yawDeg.value).toFixed(2);
 	const shotCameraPitchDeg = Number(store.shotCamera.pitchDeg.value).toFixed(2);
 	const shotCameraRollDeg = Number(store.shotCamera.rollDeg.value).toFixed(2);
+	const shotCameraLensShiftXPercent = Number(
+		store.shotCamera.lensShiftXPercent?.value ?? 0,
+	).toFixed(1);
+	const shotCameraLensShiftYPercent = Number(
+		store.shotCamera.lensShiftYPercent?.value ?? 0,
+	).toFixed(1);
 	const shotCameraRollLock = store.shotCamera.rollLock.value;
 
 	return html`
@@ -245,6 +255,42 @@ export function ShotCameraPropertiesSection({
 				</div>
 				<p class="summary">${t("field.shotCameraFov")} ${fovLabel}</p>
 			</label>
+			<div class="camera-property-inline-row">
+				<span class="camera-property-inline-row__label field-label-tooltip">
+					${t("field.shotCameraLensShift")}
+					<${TooltipBubble}
+						title=${t("field.shotCameraLensShift")}
+						description=${t("tooltip.shotCameraLensShiftField")}
+						placement="right"
+					/>
+				</span>
+				<div class="camera-property-inline-row__content camera-property-inline-row__content--pair">
+					<${CameraPropertyInlineField}
+						prefix="X"
+						id="shot-camera-lens-shift-x"
+						value=${shotCameraLensShiftXPercent}
+						controller=${controller}
+						historyLabel="camera.lens-shift.x"
+						min=${MIN_SHOT_CAMERA_LENS_SHIFT_PCT}
+						max=${MAX_SHOT_CAMERA_LENS_SHIFT_PCT}
+						step="0.1"
+						onCommit=${(nextValue) =>
+							controller()?.setShotCameraLensShiftXPercent?.(nextValue)}
+					/>
+					<${CameraPropertyInlineField}
+						prefix="Y"
+						id="shot-camera-lens-shift-y"
+						value=${shotCameraLensShiftYPercent}
+						controller=${controller}
+						historyLabel="camera.lens-shift.y"
+						min=${MIN_SHOT_CAMERA_LENS_SHIFT_PCT}
+						max=${MAX_SHOT_CAMERA_LENS_SHIFT_PCT}
+						step="0.1"
+						onCommit=${(nextValue) =>
+							controller()?.setShotCameraLensShiftYPercent?.(nextValue)}
+					/>
+				</div>
+			</div>
 			<div class="pose-action-row">
 				<${IconButton}
 					id="copy-viewport-to-shot"

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import {
+	applyLensShiftToFrustumExtents,
 	clampOutputFrameCenterPx,
 	getBaseFrustumExtents,
 	getExportSize,
@@ -88,6 +89,62 @@ function almostEqual(actual, expected, message) {
 		"centered frustum ray should keep vertical center",
 	);
 	almostEqual(centerRay.z, -1, "centered frustum ray should point forward");
+}
+
+{
+	const base = getBaseFrustumExtents({ near: 0.1, horizontalFovDegrees: 60 });
+	const layout = getTargetFrustumExtents({
+		near: 0.1,
+		horizontalFovDegrees: 60,
+		widthScale: 1.5,
+		heightScale: 0.75,
+		centerX: 0.5,
+		centerY: 0.5,
+	});
+	const shifted = applyLensShiftToFrustumExtents({
+		frustum: layout,
+		baseFrustum: base,
+		shiftX: 0.1,
+		shiftY: -0.25,
+	});
+
+	almostEqual(
+		shifted.width,
+		layout.width,
+		"lens shift should not change frustum width",
+	);
+	almostEqual(
+		shifted.height,
+		layout.height,
+		"lens shift should not change frustum height",
+	);
+	almostEqual(
+		shifted.left - layout.left,
+		base.width * 0.1,
+		"horizontal lens shift should use the standard frame width unit",
+	);
+	almostEqual(
+		shifted.top - layout.top,
+		base.height * -0.25,
+		"vertical lens shift should use the standard frame height unit",
+	);
+
+	const layoutRay = getFrustumCenterRayDirection({
+		near: 0.1,
+		frustum: layout,
+	});
+	const shiftedRay = getFrustumCenterRayDirection({
+		near: 0.1,
+		frustum: shifted,
+	});
+	assert.ok(
+		shiftedRay.x > layoutRay.x,
+		"positive lens shift X should move the center ray to the right",
+	);
+	assert.ok(
+		shiftedRay.y < layoutRay.y,
+		"negative lens shift Y should move the center ray downward",
+	);
 }
 
 {

@@ -59,6 +59,11 @@ export function createControllerApi({
 		setMode: cameraController.setMode,
 		setLocale,
 		setBaseFovX: cameraController.setBaseFovX,
+		setShotCameraLensShiftAxis: cameraController.setShotCameraLensShiftAxis,
+		setShotCameraLensShiftXPercent:
+			cameraController.setShotCameraLensShiftXPercent,
+		setShotCameraLensShiftYPercent:
+			cameraController.setShotCameraLensShiftYPercent,
 		setViewportBaseFovX: cameraController.setViewportBaseFovX,
 		setViewportTransformSpace: viewportToolController.setViewportTransformSpace,
 		setViewportTransformMode,

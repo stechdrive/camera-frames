@@ -6,7 +6,10 @@ import {
 	DEFAULT_CAMERA_NEAR,
 	FRAME_MAX_COUNT,
 } from "./constants.js";
-import { DEFAULT_SHOT_CAMERA_BASE_FOVX } from "./engine/camera-lens.js";
+import {
+	DEFAULT_SHOT_CAMERA_BASE_FOVX,
+	clampShotCameraLensShiftFactor,
+} from "./engine/camera-lens.js";
 import {
 	cloneCompositionGuideState,
 	createDefaultCompositionGuideState,
@@ -335,6 +338,8 @@ export function createShotCameraDocument({ id, name, source } = {}) {
 		: {
 				lens: {
 					baseFovX: DEFAULT_SHOT_CAMERA_BASE_FOVX,
+					shiftX: 0,
+					shiftY: 0,
 				},
 				clipping: {
 					mode: "auto",
@@ -458,6 +463,11 @@ export function cloneShotCameraDocument(documentState) {
 		...documentState,
 		lens: {
 			...documentState.lens,
+			baseFovX: Number.isFinite(Number(documentState.lens?.baseFovX))
+				? Number(documentState.lens.baseFovX)
+				: DEFAULT_SHOT_CAMERA_BASE_FOVX,
+			shiftX: clampShotCameraLensShiftFactor(documentState.lens?.shiftX),
+			shiftY: clampShotCameraLensShiftFactor(documentState.lens?.shiftY),
 		},
 		clipping: {
 			...documentState.clipping,
