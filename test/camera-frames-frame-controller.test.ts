@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { createFrameController } from "../src/controllers/frame-controller.js";
+import { buildFrameGeometry } from "../src/controllers/frame/geometry.js";
 import { createCameraFramesStore } from "../src/store.js";
 import {
 	createShotCameraDocument,
@@ -10,11 +11,21 @@ if (typeof globalThis.Element === "undefined") {
 	globalThis.Element = class {};
 }
 
-function createHarness() {
+function createHarness(options = {}) {
 	const store = createCameraFramesStore();
 	let shotCameraDocument = createShotCameraDocument({
 		name: "Camera 1",
 	});
+	const getOutputFrameMetrics =
+		options.getOutputFrameMetrics ??
+		(() => ({
+			boxWidth: 1536,
+			boxHeight: 864,
+			exportWidth: 1536,
+			exportHeight: 864,
+			boxLeft: 0,
+			boxTop: 0,
+		}));
 	let statusMessage = "";
 	const historyLabels: string[] = [];
 	const transactionEvents: Array<{ kind: string; label?: string }> = [];
@@ -48,14 +59,7 @@ function createHarness() {
 			shotCameraDocument = updater(shotCameraDocument);
 			return shotCameraDocument;
 		},
-		getOutputFrameMetrics: () => ({
-			boxWidth: 1536,
-			boxHeight: 864,
-			exportWidth: 1536,
-			exportHeight: 864,
-			boxLeft: 0,
-			boxTop: 0,
-		}),
+		getOutputFrameMetrics,
 		runHistoryAction: (label, applyChange) => {
 			historyLabels.push(label);
 			applyChange?.();
@@ -81,6 +85,25 @@ function createHarness() {
 		getStatusMessage: () => statusMessage,
 		getHistoryLabels: () => historyLabels.slice(),
 		getTransactionEvents: () => transactionEvents.slice(),
+	};
+}
+
+function getFrameEdgeScreenPoint(frame, metrics, edgeIndex = 0) {
+	const geometry = buildFrameGeometry(frame, metrics);
+	const start = geometry.corners[edgeIndex];
+	const end = geometry.corners[(edgeIndex + 1) % geometry.corners.length];
+	const logicalPoint = {
+		x: (start.x + end.x) / 2,
+		y: (start.y + end.y) / 2,
+	};
+	return {
+		clientX:
+			metrics.boxLeft +
+			(logicalPoint.x / Math.max(metrics.exportWidth, 1e-6)) * metrics.boxWidth,
+		clientY:
+			metrics.boxTop +
+			(logicalPoint.y / Math.max(metrics.exportHeight, 1e-6)) *
+				metrics.boxHeight,
 	};
 }
 
@@ -200,6 +223,71 @@ function createHarness() {
 				out: { x: 0.16000000000000003, y: -0.08000000000000002 },
 			},
 		},
+	);
+}
+
+{
+	let metrics = {
+		boxWidth: 1024,
+		boxHeight: 576,
+		exportWidth: 1536,
+		exportHeight: 864,
+		boxLeft: 48,
+		boxTop: 32,
+	};
+	const harness = createHarness({
+		getOutputFrameMetrics: () => metrics,
+	});
+	const frame = harness.getShotCameraDocument().frames[0];
+	frame.x = 0.36;
+	frame.y = 0.62;
+	frame.scale = 0.46;
+	frame.rotation = 37;
+	frame.anchor = { x: 0.36, y: 0.62 };
+
+	const initialEdgePoint = getFrameEdgeScreenPoint(frame, metrics);
+	assert.equal(
+		harness.controller.getFrameSelectHitAtPointer(initialEdgePoint)?.frameId,
+		frame.id,
+	);
+
+	metrics = {
+		boxWidth: 720,
+		boxHeight: 405,
+		exportWidth: 1754,
+		exportHeight: 1240,
+		boxLeft: 360,
+		boxTop: 112,
+	};
+	const resizedEdgePoint = getFrameEdgeScreenPoint(frame, metrics);
+	assert.equal(
+		harness.controller.getFrameSelectHitAtPointer(resizedEdgePoint)?.frameId,
+		frame.id,
+	);
+	assert.equal(
+		harness.controller.getFrameSelectHitAtPointer(initialEdgePoint),
+		null,
+	);
+}
+
+{
+	const harness = createHarness();
+	const document = harness.getShotCameraDocument();
+	const firstFrame = document.frames[0];
+	const secondFrame = {
+		...firstFrame,
+		id: getFrameDocumentId(2),
+		name: "FRAME 2",
+		anchor: { ...firstFrame.anchor },
+	};
+	document.frames.push(secondFrame);
+
+	assert.equal(
+		harness.controller.getFrameSelectHitAtPointer({
+			clientX: 768,
+			clientY: 2,
+		})?.frameId,
+		secondFrame.id,
 	);
 }
 
