@@ -6,6 +6,7 @@ import {
 	createRuntimeInfo,
 	getCodeStampValue,
 } from "./build-info.js";
+import { createDevTestBridge } from "./app/dev-test-bridge.js";
 import { createCameraFramesController } from "./controller.js";
 import { DEFAULT_LOCALE, translate } from "./i18n.js";
 import { createCameraFramesStore } from "./store.js";
@@ -61,10 +62,15 @@ function CameraFramesApp({ runtimeInfo }) {
 		);
 
 		if (import.meta.env.DEV) {
-			globalThis.__CF_TEST__ = { store, controller: controllerRef.current };
+			const testBridge = createDevTestBridge({
+				store,
+				getController: () => controllerRef.current,
+			});
+			globalThis.__CF_TEST__ = testBridge;
 			globalThis.__CF_DOCS__ = createDocsBridge({
 				store,
 				getController: () => controllerRef.current,
+				testBridge,
 			});
 			void import("./app/dev-browser-validation.js").then(
 				({ installDevBrowserValidation }) => {

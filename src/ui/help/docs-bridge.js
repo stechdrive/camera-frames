@@ -2,10 +2,12 @@
 // globalThis.__CF_DOCS__ from src/main.js when import.meta.env.DEV is
 // true. The bridge is orchestrated from outside the page (e.g.
 // preview_eval) and exposes the fixture capture pipeline used
-// by docs/help/CAPTURE.md plus a lightweight project loader
-// for regenerating static backdrop PNGs.
+// by docs/help/CAPTURE.md. Real app project loading is provided by
+// the dev test bridge and re-exposed here only for existing docs capture
+// workflows that regenerate static backdrop PNGs.
 
 import { domToPng } from "modern-screenshot";
+import { createDevTestBridge } from "../../app/dev-test-bridge.js";
 
 const SCREENSHOT_ENDPOINT = "/__screenshot";
 const DEFAULT_CAPTURE_PIXEL_RATIO = 1;
@@ -13,90 +15,21 @@ const DOCS_PAGE_PATH = "/docs.html";
 const DEFAULT_FIXTURE_CAPTURE_TIMEOUT_MS = 15000;
 const DEFAULT_IFRAME_POLL_MS = 32;
 
-export function createDocsBridge({ store, getController }) {
-	async function waitForReady({ frames = 8, delayMs = 0 } = {}) {
-		for (let i = 0; i < frames; i++) {
-			await new Promise((resolve) => requestAnimationFrame(resolve));
-		}
-		if (delayMs > 0) {
-			await new Promise((resolve) => setTimeout(resolve, delayMs));
-		}
-	}
-
-	async function waitForOverlayDismissed({ timeoutMs = 30000 } = {}) {
-		const start = Date.now();
-		while (Date.now() - start < timeoutMs) {
-			const overlay = store.overlay.value;
-			if (!overlay) return;
-			if (overlay.kind !== "progress") return;
-			await new Promise((resolve) => setTimeout(resolve, 60));
-		}
-	}
-
-	function findDiscardAction(overlay) {
-		if (!overlay?.actions) return null;
-		return (
-			overlay.actions.find((action) =>
-				/discard|破棄|保存せず/i.test(action?.label ?? ""),
-			) ?? null
-		);
-	}
-
-	async function tryAutoConfirmOverlay({ timeoutMs = 2000 } = {}) {
-		const start = Date.now();
-		while (Date.now() - start < timeoutMs) {
-			const overlay = store.overlay.value;
-			if (
-				overlay?.kind === "confirm" &&
-				Array.isArray(overlay.actions) &&
-				overlay.actions.length > 0
-			) {
-				// Prefer a "discard"-style action so we never end up in a nested
-				// save flow. Fall back to any non-primary, non-cancel action, then
-				// finally force-close the overlay.
-				const discardAction = findDiscardAction(overlay);
-				const fallbackAction =
-					overlay.actions.find(
-						(action) =>
-							!action?.primary &&
-							!/cancel|キャンセル/i.test(action?.label ?? ""),
-					) ?? null;
-				const chosen = discardAction ?? fallbackAction;
-				try {
-					if (chosen && typeof chosen.onClick === "function") {
-						await chosen.onClick();
-					} else {
-						store.overlay.value = null;
-					}
-				} catch (_error) {
-					store.overlay.value = null;
-				}
-				await new Promise((resolve) => setTimeout(resolve, 150));
-				return true;
-			}
-			await new Promise((resolve) => setTimeout(resolve, 50));
-		}
-		return false;
-	}
+export function createDocsBridge({
+	store,
+	getController,
+	testBridge = createDevTestBridge({ store, getController }),
+}) {
+	const { waitForReady, waitForOverlayDismissed } = testBridge;
 
 	async function loadProject(path) {
-		const controller = getController();
-		if (!controller) throw new Error("Controller not ready");
-		const response = await fetch(path, { cache: "no-store" });
-		if (!response.ok) {
-			throw new Error(`Failed to fetch ${path}: ${response.status}`);
+		const result = await testBridge.loadProject(path);
+		if (!result?.ok) {
+			throw new Error(
+				`Failed to load ${path}: ${result?.error ?? "unknown error"}`,
+			);
 		}
-		const blob = await response.blob();
-		const filename = path.split("/").pop() || "project.ssproj";
-		const file = new File([blob], filename, { type: blob.type });
-		controller.handleAssetInputChange({
-			currentTarget: { files: [file] },
-		});
-		// Auto-dismiss any "replace current project?" confirm that the app
-		// raises when loading a new project on top of an existing one.
-		await tryAutoConfirmOverlay();
-		await waitForOverlayDismissed();
-		await waitForReady({ frames: 16 });
+		return result;
 	}
 
 	async function postScreenshotDataUrl(name, dataUrl, { lang = "ja" } = {}) {
@@ -308,10 +241,10 @@ export function createDocsBridge({ store, getController }) {
 
 	const bridge = {
 		get store() {
-			return store;
+			return testBridge.store;
 		},
 		get controller() {
-			return getController();
+			return testBridge.controller;
 		},
 		waitForReady,
 		waitForOverlayDismissed,

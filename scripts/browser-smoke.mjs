@@ -101,7 +101,7 @@ async function main() {
 	await navigate(cdp, `${baseUrl}/`);
 	await waitForExpression(
 		cdp,
-		"Boolean(globalThis.__CF_TEST__ && globalThis.__CF_DOCS__)",
+		"Boolean(globalThis.__CF_TEST__?.loadProject)",
 		timeoutMs,
 	);
 	await evaluate(cdp, verificationSource, { awaitPromise: false });

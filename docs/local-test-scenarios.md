@@ -24,6 +24,7 @@ npm run test:local-scenarios -- --scenario cf-test-project
 npm run test:local-scenarios -- --scenario cf-test-project,rad-full-data-swap
 npm run test:local-scenarios -- --scenario cf-test-psd-export
 npm run test:local-scenarios -- --scenario cf-test-psd-export --update-golden
+npm run test:local-scenarios -- --include-built-ins --scenario css-visual-baseline
 npm run test:local-scenarios -- --headed
 npm run test:local-scenarios -- --manifest .local/cf-test/scenarios.json
 ```
@@ -55,12 +56,23 @@ manifest は Git 管理しない `.local/cf-test/scenarios.json` に置く。形
 | kind | 用途 |
 |---|---|
 | `ui-smoke` | app 起動後、rendered UI の最小操作を実行する |
+| `app-visual-flow` | CSS 回帰確認向けに、実アプリを CDP で操作しながら複数 UI 状態の screenshot を保存する |
 | `project-state` | `test/ui-state-verification.js` の既定期待値または manifest の `expected` で project state を検証する |
 | `project-summary` | project を開き、shot / frame 数など summary 条件を検証する |
 | `psd-export` | project を開いて browser 上の実 export を走らせ、生成 PSD を `ag-psd` で読み戻す |
 | `rad-ssproj` | RAD-backed `.ssproj` を開き、object transform と FullData swap を検証する |
 | `quality-rad-reuse-save` | Quality RAD `.ssproj` を開き、必要なら RAD streaming fallback を強制した上で shot camera だけ変更し、Quality 再保存が既存 RAD metadata を流用して RAD-only のままになるか検証する |
 | `docs-fixture` | `/docs.html?fixture=...` を開き、fixture ready と console error を確認する |
+
+`app-visual-flow` は help 用 screenshot fixture ではなく、起動した本物の app DOM を操作して `Page.captureScreenshot` で画面を保存する。`__CF_TEST__` の dev bridge を使って `.ssproj` load / readiness wait を行い、`__CF_DOCS__.captureFixture()` には依存しない。
+
+組み込みの `css-visual-baseline` は CSS 整理前の最小 baseline 用。ローカル manifest が存在する環境でも `--include-built-ins` を付けると選択できる。
+
+```powershell
+npm run test:local-scenarios -- --include-built-ins --scenario css-visual-baseline
+```
+
+結果は `.local/local-scenario-smoke/css-visual-baseline-*.png` と `.local/local-scenario-smoke/local-scenarios.json` に出る。CSS 本体の整理前には、この baseline に必要な step を追加してから撮影し、整理後に同じ scenario を再実行して差分を確認する。
 
 `optional: true` を付けた scenario は、対象 local file が存在しない環境では skip される。必須 scenario の local file が欠けている場合は fail する。
 

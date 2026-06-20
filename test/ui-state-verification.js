@@ -40,8 +40,12 @@
 		}
 
 		try {
-			if (root.__CF_DOCS__?.loadProject) {
-				await root.__CF_DOCS__.loadProject(path);
+			const bridgeLoader =
+				(typeof test.loadProject === "function" && test.loadProject) ||
+				(typeof root.__CF_DOCS__?.loadProject === "function" &&
+					root.__CF_DOCS__.loadProject);
+			if (bridgeLoader) {
+				await bridgeLoader(path);
 				return {
 					ok: true,
 					fileName: path.split("/").pop() || "project.ssproj",

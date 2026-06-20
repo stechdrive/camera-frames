@@ -20,6 +20,12 @@ const runner = await import("../scripts/local-cf-test-scenarios.mjs");
 					expect: { minShotCameraCount: 1 },
 				},
 				{
+					id: "visual",
+					kind: "app-visual-flow",
+					project: "/.local/cf-test/example.ssproj",
+					steps: [{ id: "boot", capture: true }],
+				},
+				{
 					id: "psd",
 					kind: "psd-export",
 					project: "/.local/cf-test/example.ssproj",
@@ -36,11 +42,32 @@ const runner = await import("../scripts/local-cf-test-scenarios.mjs");
 		{ source: "unit" },
 	);
 	assert.equal(manifest.source, "unit");
-	assert.equal(manifest.scenarios.length, 4);
+	assert.equal(manifest.scenarios.length, 5);
 	assert.equal(manifest.scenarios[0].id, "ui");
 	assert.equal(manifest.scenarios[1].optional, false);
-	assert.equal(manifest.scenarios[2].kind, "psd-export");
-	assert.equal(manifest.scenarios[3].kind, "quality-rad-reuse-save");
+	assert.equal(manifest.scenarios[2].kind, "app-visual-flow");
+	assert.equal(manifest.scenarios[3].kind, "psd-export");
+	assert.equal(manifest.scenarios[4].kind, "quality-rad-reuse-save");
+}
+
+{
+	const manifest = runner.normalizeScenarioManifest(
+		{
+			version: 1,
+			scenarios: [{ id: "local-only", kind: "ui-smoke" }],
+		},
+		{ source: "unit" },
+	);
+	const merged = runner.includeBuiltInScenarios(manifest);
+	assert.equal(merged.source, "unit+built-in");
+	assert.equal(
+		merged.scenarios.some((scenario) => scenario.id === "local-only"),
+		true,
+	);
+	assert.equal(
+		merged.scenarios.some((scenario) => scenario.id === "css-visual-baseline"),
+		true,
+	);
 }
 
 {

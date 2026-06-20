@@ -87,6 +87,39 @@ export const DEFAULT_SCENARIOS = [
 		screenshot: true,
 	},
 	{
+		id: "css-visual-baseline",
+		kind: "app-visual-flow",
+		description:
+			"Capture real app UI states used as the baseline before CSS refactors.",
+		project: "/.local/cf-test/cf-test.ssproj",
+		optional: true,
+		viewport: {
+			width: 1440,
+			height: 1000,
+			deviceScaleFactor: 1,
+		},
+		steps: [
+			{ id: "boot", capture: true },
+			{
+				id: "file-menu",
+				click: { text: "ファイル", selector: "button,[role='button']" },
+				capture: true,
+			},
+			{ id: "dismiss-file-menu", key: "Escape" },
+			{
+				id: "project-loaded",
+				loadProject: true,
+				wait: { frames: 20, delayMs: 500 },
+				capture: true,
+			},
+			{
+				id: "export-tab",
+				click: { selector: ".workbench-tab", index: 3 },
+				capture: true,
+			},
+		],
+	},
+	{
 		id: "cf-test-project",
 		kind: "project-state",
 		description: "Load the main local current-format fixture.",
@@ -165,6 +198,7 @@ export const DEFAULT_SCENARIOS = [
 
 const SUPPORTED_KINDS = new Set([
 	"ui-smoke",
+	"app-visual-flow",
 	"project-state",
 	"project-summary",
 	"psd-export",
@@ -212,7 +246,9 @@ if (isMainModule()) {
 }
 
 async function main() {
-	const manifest = loadScenarioManifest(manifestPath);
+	const manifest = args["include-built-ins"]
+		? includeBuiltInScenarios(loadScenarioManifest(manifestPath))
+		: loadScenarioManifest(manifestPath);
 	const selectedIds = parseScenarioFilter(args.scenario);
 	const scenarios = manifest.scenarios
 		.filter((scenario) => (selectedIds ? selectedIds.has(scenario.id) : true))
@@ -380,6 +416,25 @@ export function normalizeScenarioManifest(value, { source = "inline" } = {}) {
 		description: String(value?.description ?? ""),
 		source,
 		scenarios,
+	};
+}
+
+export function includeBuiltInScenarios(manifest) {
+	const scenarioById = new Map(
+		(manifest?.scenarios ?? []).map((scenario) => [scenario.id, scenario]),
+	);
+	for (const scenario of DEFAULT_SCENARIOS) {
+		if (!scenarioById.has(scenario.id)) {
+			scenarioById.set(
+				scenario.id,
+				normalizeScenario(scenario, scenarioById.size),
+			);
+		}
+	}
+	return {
+		...manifest,
+		source: `${manifest?.source ?? "inline"}+built-in`,
+		scenarios: [...scenarioById.values()],
 	};
 }
 
@@ -1100,6 +1155,7 @@ function normalizeScenario(entry, index) {
 	if (
 		(kind === "project-state" ||
 			kind === "project-summary" ||
+			kind === "app-visual-flow" ||
 			kind === "psd-export" ||
 			kind === "quality-rad-reuse-save") &&
 		!entry.project
@@ -1174,6 +1230,8 @@ async function runScenario({ scenario, verificationSource, issues }) {
 	switch (scenario.kind) {
 		case "ui-smoke":
 			return await runUiSmokeScenario({ scenario, issues });
+		case "app-visual-flow":
+			return await runAppVisualFlowScenario({ scenario, issues });
 		case "project-state":
 			return await runProjectStateScenario({
 				scenario,
@@ -1228,7 +1286,7 @@ async function runUiSmokeScenario({ scenario, issues }) {
 			const button = (label) => Array.from(document.querySelectorAll("button,[role='button']"))
 				.find((node) => textOf(node).includes(label));
 
-			check("test-bridge-ready", Boolean(globalThis.__CF_TEST__ && globalThis.__CF_DOCS__));
+			check("test-bridge-ready", Boolean(globalThis.__CF_TEST__?.loadProject));
 			const store = globalThis.__CF_TEST__?.store;
 			const beforeCount = store?.workspace?.shotCameras?.value?.length ?? null;
 			const addButton = button("カメラを追加");
@@ -1263,6 +1321,190 @@ async function runUiSmokeScenario({ scenario, issues }) {
 	);
 	await maybeCaptureScenarioScreenshot(scenario, "ui-smoke");
 	return finishScenarioResult(scenario, result, issues);
+}
+
+async function runAppVisualFlowScenario({ scenario, issues }) {
+	await applyScenarioViewport(scenario.viewport);
+	await openApp();
+	await installVisualFlowHelpers();
+	const checks = [];
+	const observations = {
+		screenshots: [],
+		steps: [],
+	};
+	const check = (name, ok, details = {}) => {
+		const entry = { name, ok: Boolean(ok), details };
+		checks.push(entry);
+		return entry.ok;
+	};
+
+	const steps = Array.isArray(scenario.steps) ? scenario.steps : [];
+	check("visual-steps-present", steps.length > 0, { count: steps.length });
+	if (steps.length === 0) {
+		return finishScenarioResult(
+			scenario,
+			{ ok: false, checks, observations },
+			issues,
+		);
+	}
+
+	for (let index = 0; index < steps.length; index++) {
+		const step = steps[index] ?? {};
+		const stepId = safeFileName(step.id ?? `step-${index + 1}`);
+		const stepObservation = { id: stepId, index };
+		try {
+			if (step.loadProject) {
+				const loadResult = await evaluate(
+					cdp,
+					`globalThis.__CF_TEST__.loadProject(${JSON.stringify(
+						scenario.project,
+					)}, ${JSON.stringify(step.loadOptions ?? {})})`,
+					{ awaitPromise: true },
+				);
+				stepObservation.loadProject = loadResult;
+				check(`visual-${stepId}-load-project`, loadResult?.ok === true, {
+					loadResult,
+				});
+			}
+
+			if (step.click) {
+				const clickResult = await evaluate(
+					cdp,
+					`clickVisualFlowTarget(${JSON.stringify(step.click)})`,
+					{ awaitPromise: false },
+				);
+				stepObservation.click = clickResult;
+				check(`visual-${stepId}-click`, clickResult?.ok === true, clickResult);
+			}
+
+			if (step.key) {
+				const keyResult = await evaluate(
+					cdp,
+					`dispatchVisualFlowKey(${JSON.stringify(step.key)})`,
+					{ awaitPromise: false },
+				);
+				stepObservation.key = keyResult;
+				check(`visual-${stepId}-key`, keyResult?.ok === true, keyResult);
+			}
+
+			const waitConfig = step.wait ?? {};
+			await waitVisualFlowStep(waitConfig);
+
+			if (step.capture === true) {
+				const filePath = join(
+					outDir,
+					`${safeFileName(scenario.id)}-${String(index + 1).padStart(
+						2,
+						"0",
+					)}-${stepId}.png`,
+				);
+				await captureScreenshot(cdp, filePath);
+				const screenshot = relativePath(filePath);
+				observations.screenshots.push(screenshot);
+				stepObservation.screenshot = screenshot;
+			}
+		} catch (error) {
+			check(`visual-${stepId}-exception`, false, {
+				message: error?.message ?? String(error),
+				stack: error?.stack ?? null,
+			});
+		}
+		observations.steps.push(stepObservation);
+	}
+
+	return finishScenarioResult(
+		scenario,
+		{ ok: checks.every((entry) => entry.ok), checks, observations },
+		issues,
+	);
+}
+
+async function applyScenarioViewport(viewport = {}) {
+	if (!viewport || typeof viewport !== "object") return;
+	const width = Number(viewport.width);
+	const height = Number(viewport.height);
+	if (!Number.isFinite(width) || !Number.isFinite(height)) return;
+	const deviceScaleFactor = Number.isFinite(Number(viewport.deviceScaleFactor))
+		? Number(viewport.deviceScaleFactor)
+		: 1;
+	await cdp.send("Emulation.setDeviceMetricsOverride", {
+		width,
+		height,
+		deviceScaleFactor,
+		mobile: viewport.mobile === true,
+	});
+}
+
+async function installVisualFlowHelpers() {
+	await evaluate(
+		cdp,
+		`(() => {
+			const textOf = (node) => (
+				node?.getAttribute?.("aria-label") ||
+				node?.getAttribute?.("title") ||
+				node?.dataset?.tooltip ||
+				node?.textContent ||
+				""
+			).trim();
+			globalThis.clickVisualFlowTarget = (config = {}) => {
+				const selector = config.selector || "button,[role='button'],[role='tab'],input,article";
+				const text = String(config.text || "").trim();
+				const exact = config.exact === true;
+				const index = Number.isFinite(Number(config.index)) ? Number(config.index) : null;
+				const candidates = Array.from(document.querySelectorAll(selector));
+				const target = index !== null
+					? candidates[index] ?? null
+					: config.selector && !text
+					? candidates[0]
+					: candidates.find((node) => {
+							const label = textOf(node);
+							return exact ? label === text : label.includes(text);
+						});
+				if (!target) {
+					return {
+						ok: false,
+						text,
+						selector,
+						index,
+						candidateCount: candidates.length,
+					};
+				}
+				target.scrollIntoView?.({ block: "center", inline: "center" });
+				target.click();
+				return {
+					ok: true,
+					text,
+					selector,
+					index,
+					matchedText: textOf(target),
+					tagName: target.tagName,
+					role: target.getAttribute?.("role") || null,
+				};
+			};
+			globalThis.dispatchVisualFlowKey = (key) => {
+				document.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
+				return { ok: true, key };
+			};
+		})()`,
+		{ awaitPromise: false },
+	);
+}
+
+async function waitVisualFlowStep(waitConfig = {}) {
+	const frames = Number.isFinite(Number(waitConfig.frames))
+		? Number(waitConfig.frames)
+		: 4;
+	const delayMs = Number.isFinite(Number(waitConfig.delayMs))
+		? Number(waitConfig.delayMs)
+		: 120;
+	await evaluate(
+		cdp,
+		`globalThis.__CF_TEST__?.waitForReady?.(${JSON.stringify({
+			frames,
+			delayMs,
+		})})`,
+		{ awaitPromise: true },
+	);
 }
 
 async function runProjectStateScenario({
@@ -2234,7 +2476,7 @@ async function openApp() {
 	await navigate(cdp, `${baseUrl}/`);
 	await waitForExpression(
 		cdp,
-		"Boolean(globalThis.__CF_TEST__ && globalThis.__CF_DOCS__)",
+		"Boolean(globalThis.__CF_TEST__?.loadProject)",
 		timeoutMs,
 	);
 }

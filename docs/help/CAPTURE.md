@@ -18,7 +18,7 @@ fixture 定義の型は [`src/docs/types.d.ts`](../../src/docs/types.d.ts)、fro
 | `captureFixture(id, options?)` | `/docs.html?fixture=<id>` を iframe で開き、`__DOCS_FIXTURE_READY` を待って `.docs-stage` を PNG 化、POST 保存 |
 | `captureAllFixtures(options?)` | `listFixtureIds()` を舐めて一括実行 |
 | `listFixtureIds()` | fixture 一覧を iframe 経由で取得 |
-| `loadProject(path)` | 本物の `.ssproj` を dev サーバに読み込ませる（mock scene backdrop 再撮影のみ用途） |
+| `loadProject(path)` | 本物の `.ssproj` を dev サーバに読み込ませる（mock scene backdrop 再撮影用。実アプリの visual regression では `__CF_TEST__.loadProject` を使う） |
 | `postScreenshotDataUrl(name, dataUrl)` | 任意の data URL を指定名で `/__screenshot` に保存（backdrop 撮影時に直接 POST するのに使う） |
 
 `options` は全 API 共通で `{ lang = "ja", pixelRatio = 1, settleMs = 0, timeoutMs = 15000 }`。
@@ -38,6 +38,8 @@ npm run test:browser
 - `/docs.html?fixture=hello` が registered fixture として表示できる
 - browser console / runtime exception に error が出ていない
 - `.local/browser-smoke/` に `project-smoke.png` と `fixture-hello.png` を保存する
+
+補足: CSS 回帰確認のために実アプリを操作して撮影する場合は、help fixture の `__CF_DOCS__.captureFixture()` ではなく、`npm run test:local-scenarios -- --include-built-ins --scenario css-visual-baseline` の `app-visual-flow` を使う。
 
 主なオプション:
 

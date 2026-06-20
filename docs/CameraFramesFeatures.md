@@ -337,7 +337,8 @@ PSD export の主な構成:
 
 - Help モーダル本体 / Markdown renderer / 検索 / deep link: `src/ui/help/`
 - 各 Inspector パネルの `?` ボタン: `src/ui/workbench-primitives.js` の `DisclosureBlock`（`helpSectionId` / `onOpenHelp` props）
-- 撮影ブリッジ（dev のみ）: `src/main.js` + `src/ui/help/docs-bridge.js`（`globalThis.__CF_DOCS__`）
+- 実アプリ検証ブリッジ（dev のみ）: `src/main.js` + `src/app/dev-test-bridge.js`（`globalThis.__CF_TEST__`）
+- Help 撮影ブリッジ（dev のみ）: `src/main.js` + `src/ui/help/docs-bridge.js`（`globalThis.__CF_DOCS__`）
 - RAD `.ssproj` browser-use 検証ブリッジ（dev のみ）: `src/main.js` + `src/app/dev-browser-validation.js`（`globalThis.__CF_BROWSER_VALIDATE__`, `?cfDevValidation=rad-ssproj&projectUrl=...`）
 - Fixture 定義 / レジストリ: `src/docs/fixtures/` + `src/docs/mock/` + `src/docs/docs-app.js`（撮影手順は [docs/help/CAPTURE.md](help/CAPTURE.md)）
 - 画像保存エンドポイント（dev のみ）: `vite.config.js` の `screenshotServePlugin`（`/__screenshot` と `/__backdrop`）
