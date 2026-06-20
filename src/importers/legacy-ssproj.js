@@ -179,7 +179,7 @@ function mapLegacyFrames(cameraFramesState) {
 }
 
 function resolveLegacyActiveFrameId(mappedFrames, cameraFramesState) {
-	const selectedFrame = mappedFrames.find((frame, index) => {
+	const selectedFrame = mappedFrames.find((_frame, index) => {
 		const sourceFrame = cameraFramesState?.frames?.[index];
 		return sourceFrame?.selected;
 	});

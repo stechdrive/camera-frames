@@ -4,59 +4,9 @@ import {
 	getBuildVersionLabel,
 	getCodeStampLabel,
 } from "../build-info.js";
-import {
-	InspectorBrowserSection,
-	ReferenceBrowserSection,
-	ReferenceManagerSection,
-	ReferencePresetSection,
-	SceneBrowserSection,
-	ShotCameraSection,
-} from "./workbench-browser-sections.js";
-import {
-	DisplayZoomSection,
-	ExportSection,
-	ExportSettingsSection,
-	OutputFrameSection,
-	ShotCameraPropertiesSection,
-	ViewSettingsSection,
-} from "./workbench-camera-export-sections.js";
 import { INTERACTIVE_FIELD_PROPS } from "./workbench-controls.js";
 import { WorkbenchIcon } from "./workbench-icons.js";
-import {
-	FramesSection,
-	LightingSection,
-} from "./workbench-lighting-frame-sections.js";
 import { HeaderMenu, HeaderWordmark } from "./workbench-primitives.js";
-import {
-	ReferencePropertiesSection,
-	SelectedSceneAssetInspector,
-} from "./workbench-property-sections.js";
-import { ReferenceSection } from "./workbench-reference-sections.js";
-import {
-	SceneSection,
-	SceneWorkspaceSection,
-} from "./workbench-scene-sections.js";
-import {
-	INSPECTOR_BROWSER_REFERENCE,
-	INSPECTOR_BROWSER_SCENE,
-	INSPECTOR_QUICK_SECTION_DISPLAY_ZOOM,
-	INSPECTOR_QUICK_SECTION_EXPORT,
-	INSPECTOR_QUICK_SECTION_EXPORT_SETTINGS,
-	INSPECTOR_QUICK_SECTION_LIGHTING,
-	INSPECTOR_QUICK_SECTION_OUTPUT_FRAME,
-	INSPECTOR_QUICK_SECTION_REFERENCE_MANAGER,
-	INSPECTOR_QUICK_SECTION_REFERENCE_PRESETS,
-	INSPECTOR_QUICK_SECTION_REFERENCE_PROPERTIES,
-	INSPECTOR_QUICK_SECTION_SCENE,
-	INSPECTOR_QUICK_SECTION_SHOT_CAMERA,
-	INSPECTOR_QUICK_SECTION_SHOT_CAMERA_PROPERTIES,
-	INSPECTOR_QUICK_SECTION_TRANSFORM,
-	INSPECTOR_QUICK_SECTION_VIEW,
-	INSPECTOR_TAB_CAMERA,
-	INSPECTOR_TAB_EXPORT,
-	INSPECTOR_TAB_REFERENCE,
-	INSPECTOR_TAB_SCENE,
-} from "./workbench-section-ids.js";
 export {
 	INSPECTOR_BROWSER_REFERENCE,
 	INSPECTOR_BROWSER_SCENE,

@@ -813,7 +813,6 @@ export function createMeasurementController({
 			context,
 			projectedPoint.clone(),
 		);
-		const lineTarget = endPoint ?? draftEnd;
 		const lineTargetScreen = endPoint ? endScreen : draftEndScreen;
 		const lineVisible = startScreen.visible && lineTargetScreen.visible;
 		const axisSnapActive =

@@ -12,7 +12,6 @@ import {
 	DEFAULT_SHOT_CAMERA_BASE_FOVX,
 	DEFAULT_VIEWPORT_CAMERA_BASE_FOVX,
 	clampShotCameraLensShiftFactor,
-	getBaseHorizontalFovDegreesForStandardFrameHorizontalEquivalentMm,
 	getStandardFrameHorizontalEquivalentMm,
 	getStandardFrameHorizontalFovDegrees,
 } from "./engine/camera-lens.js";

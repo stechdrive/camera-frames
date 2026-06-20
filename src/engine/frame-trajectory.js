@@ -173,13 +173,6 @@ function getDocumentVectorFromLogical(vector, logicalWidth, logicalHeight) {
 	};
 }
 
-function getLogicalVectorFromDocument(vector, logicalWidth, logicalHeight) {
-	return {
-		x: vector.x * logicalWidth,
-		y: vector.y * logicalHeight,
-	};
-}
-
 function addPoints(a, b) {
 	return {
 		x: a.x + b.x,

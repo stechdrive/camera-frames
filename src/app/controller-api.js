@@ -1,7 +1,6 @@
 import { WORKSPACE_PANE_CAMERA } from "../workspace-model.js";
 
 export function createControllerApi({
-	store,
 	state,
 	cameraController,
 	exportController,

@@ -142,8 +142,6 @@ export function createRuntimeController({
 	getActiveViewportCamera,
 	updateCameraSummary,
 	t,
-	formatNumber,
-	frameAllCameras,
 	placeAllCamerasAtHome,
 	applyInitialNavigateInteractionMode,
 	loadStartupUrls,

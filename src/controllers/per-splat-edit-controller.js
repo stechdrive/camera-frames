@@ -61,29 +61,20 @@ export function createPerSplatEditController({
 	guides?.add?.(sceneHelper.group);
 
 	// Forward-declared module references (late-bound via closure)
-	// biome-ignore lint/style/useConst: Late-bound controller modules reference each other through closures.
 	let scope;
-	// biome-ignore lint/style/useConst: Late-bound controller modules reference each other through closures.
 	let selectionState;
 	// biome-ignore lint/style/useConst: Late-bound controller modules reference each other through closures.
 	let persistence;
-	// biome-ignore lint/style/useConst: Late-bound controller modules reference each other through closures.
 	let boxTool;
-	// biome-ignore lint/style/useConst: Late-bound controller modules reference each other through closures.
 	let brushTool;
-	// biome-ignore lint/style/useConst: Late-bound controller modules reference each other through closures.
 	let transformTool;
 	// biome-ignore lint/style/useConst: Late-bound controller modules reference each other through closures.
 	let actions;
-	// biome-ignore lint/style/useConst: Late-bound controller modules reference each other through closures.
 	let sceneHelperSync;
-	// biome-ignore lint/style/useConst: Late-bound controller modules reference each other through closures.
 	let historyBridge;
 	// biome-ignore lint/style/useConst: Late-bound controller modules reference each other through closures.
 	let contentMutations;
-	// biome-ignore lint/style/useConst: Late-bound controller modules reference each other through closures.
 	let gizmo;
-	// biome-ignore lint/style/useConst: Late-bound controller modules reference each other through closures.
 	let modeSwitch;
 
 	const getSceneSplatAssets = createSceneSplatAssetAccessor({

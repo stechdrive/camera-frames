@@ -14,7 +14,6 @@ export function createCameraFrameSelectionController({
 	updateUi,
 	clearOutputFrameSelection,
 	getActiveFrames,
-	getActiveShotCameraDocument,
 	updateActiveShotCameraDocument,
 	getOutputFrameMetrics,
 	setFrameMaskSelectedIds,

@@ -1,4 +1,3 @@
-import * as THREE from "three";
 import { DEFAULT_CAMERA_NEAR } from "../constants.js";
 
 const AUTO_NEAR_FACTOR = 0.05;

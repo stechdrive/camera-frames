@@ -2,7 +2,7 @@ import { html } from "htm/preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 import * as THREE from "three";
 import { getBuildVersionLabel } from "../build-info.js";
-import { BASE_FRAME, VIEWPORT_PIXEL_RATIO } from "../constants.js";
+import { VIEWPORT_PIXEL_RATIO } from "../constants.js";
 import {
 	drawFrameMaskToContext,
 	resolveFrameMaskFrames,
@@ -564,14 +564,9 @@ function getReferenceImageAnchorHandleKey(anchorAx, anchorAy) {
 
 export function ViewportShell({ store, controller, refs, t }) {
 	const splatEditHudDragRef = useRef(null);
-	const mode = store.mode.value;
 	const workbenchCollapsed = store.workbenchCollapsed.value;
 	const splatEditActive = store.splatEdit.active.value;
-	const splatEditScopeCount = store.splatEdit.scopeAssetIds.value.length;
 	const splatEditHudPosition = store.splatEdit.hudPosition.value;
-	const splatEditLastOperation = store.splatEdit.lastOperation.value;
-	const frames = store.frames.documents.value;
-	const selectedFrameIds = new Set(store.frames.selectedIds.value ?? []);
 	const referenceImageEditMode = store.viewportReferenceImageEditMode.value;
 	const blockOverlayInteractions = referenceImageEditMode || splatEditActive;
 	const outputFrameLabel = t("section.outputFrame");

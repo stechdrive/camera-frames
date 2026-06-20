@@ -206,34 +206,6 @@ export function createExportBundleManifest(bundle = {}) {
 	};
 }
 
-function drawPixelLayer(context, layer, bundleWidth, bundleHeight) {
-	if (!layer?.pixels) {
-		return;
-	}
-
-	const layerWidth = Math.max(1, Number(layer.width) || bundleWidth);
-	const layerHeight = Math.max(1, Number(layer.height) || bundleHeight);
-	const previousAlpha = context.globalAlpha;
-	const previousBlendMode = context.globalCompositeOperation;
-	context.globalAlpha = Number.isFinite(layer.opacity) ? layer.opacity : 1;
-	context.globalCompositeOperation = layer.blendMode ?? DEFAULT_BLEND_MODE;
-	const layerCanvas = document.createElement("canvas");
-	layerCanvas.width = layerWidth;
-	layerCanvas.height = layerHeight;
-	const layerContext = layerCanvas.getContext("2d");
-	if (!layerContext) {
-		throw new Error("Failed to acquire the 2D context for pixel layer.");
-	}
-
-	const imageData = layerContext.createImageData(layerWidth, layerHeight);
-	imageData.data.set(layer.pixels);
-	layerContext.putImageData(imageData, 0, 0);
-	context.drawImage(layerCanvas, layer.left ?? 0, layer.top ?? 0);
-
-	context.globalAlpha = previousAlpha;
-	context.globalCompositeOperation = previousBlendMode;
-}
-
 export function renderExportBundleToCanvas({
 	width,
 	height,

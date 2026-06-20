@@ -62,7 +62,6 @@ async function withNavigator(value, callback) {
 		if (descriptor) {
 			Object.defineProperty(globalThis, "navigator", descriptor);
 		} else {
-			// biome-ignore lint/performance/noDelete: Restore the original global shape in this test harness.
 			delete globalThis.navigator;
 		}
 	}
@@ -859,7 +858,6 @@ await withNavigator({ gpu: {} }, async () => {
 		globalThis.showSaveFilePicker = originalShowSaveFilePicker;
 		globalThis.requestAnimationFrame = originalRequestAnimationFrame;
 		if (originalIndexedDb === undefined) {
-			// biome-ignore lint/performance/noDelete: Restore the original global shape in this test harness.
 			delete globalThis.indexedDB;
 		} else {
 			globalThis.indexedDB = originalIndexedDb;
@@ -993,7 +991,6 @@ await withNavigator({ gpu: {} }, async () => {
 		globalThis.showSaveFilePicker = originalShowSaveFilePicker;
 		globalThis.requestAnimationFrame = originalRequestAnimationFrame;
 		if (originalIndexedDb === undefined) {
-			// biome-ignore lint/performance/noDelete: Restore the original global shape in this test harness.
 			delete globalThis.indexedDB;
 		} else {
 			globalThis.indexedDB = originalIndexedDb;
@@ -1150,7 +1147,6 @@ await withNavigator({ gpu: {} }, async () => {
 		globalThis.showSaveFilePicker = originalShowSaveFilePicker;
 		globalThis.requestAnimationFrame = originalRequestAnimationFrame;
 		if (originalIndexedDb === undefined) {
-			// biome-ignore lint/performance/noDelete: Restore the original global shape in this test harness.
 			delete globalThis.indexedDB;
 		} else {
 			globalThis.indexedDB = originalIndexedDb;
@@ -1288,7 +1284,6 @@ await withNavigator({ gpu: {} }, async () => {
 		globalThis.showSaveFilePicker = originalShowSaveFilePicker;
 		globalThis.requestAnimationFrame = originalRequestAnimationFrame;
 		if (originalIndexedDb === undefined) {
-			// biome-ignore lint/performance/noDelete: Restore the original global shape in this test harness.
 			delete globalThis.indexedDB;
 		} else {
 			globalThis.indexedDB = originalIndexedDb;
@@ -1538,7 +1533,6 @@ await withNavigator({ gpu: {} }, async () => {
 		globalThis.showSaveFilePicker = originalShowSaveFilePicker;
 		globalThis.requestAnimationFrame = originalRequestAnimationFrame;
 		if (originalIndexedDb === undefined) {
-			// biome-ignore lint/performance/noDelete: Restore the original global shape in this test harness.
 			delete globalThis.indexedDB;
 		} else {
 			globalThis.indexedDB = originalIndexedDb;
@@ -1599,7 +1593,7 @@ await withNavigator({ gpu: {} }, async () => {
 		lodSplats: null,
 		needsUpdate: false,
 		bakeCompleted: false,
-		async createLodSplats({ quality }) {
+		async createLodSplats() {
 			await new Promise((resolve) => setTimeout(resolve, 5));
 			this.lodSplats = {
 				packedArray: new Uint32Array([9, 9, 9, 9]),
@@ -1694,7 +1688,6 @@ await withNavigator({ gpu: {} }, async () => {
 		globalThis.showSaveFilePicker = originalShowSaveFilePicker;
 		globalThis.requestAnimationFrame = originalRequestAnimationFrame;
 		if (originalIndexedDb === undefined) {
-			// biome-ignore lint/performance/noDelete: Restore the original global shape in this test harness.
 			delete globalThis.indexedDB;
 		} else {
 			globalThis.indexedDB = originalIndexedDb;
@@ -1886,7 +1879,6 @@ await withNavigator({ gpu: {} }, async () => {
 		globalThis.showSaveFilePicker = originalShowSaveFilePicker;
 		globalThis.requestAnimationFrame = originalRequestAnimationFrame;
 		if (originalIndexedDb === undefined) {
-			// biome-ignore lint/performance/noDelete: Restore the original global shape in this test harness.
 			delete globalThis.indexedDB;
 		} else {
 			globalThis.indexedDB = originalIndexedDb;
@@ -2032,7 +2024,6 @@ await withNavigator({ gpu: {} }, async () => {
 		globalThis.showSaveFilePicker = originalShowSaveFilePicker;
 		globalThis.requestAnimationFrame = originalRequestAnimationFrame;
 		if (originalIndexedDb === undefined) {
-			// biome-ignore lint/performance/noDelete: Restore the original global shape in this test harness.
 			delete globalThis.indexedDB;
 		} else {
 			globalThis.indexedDB = originalIndexedDb;
@@ -2152,7 +2143,6 @@ await withNavigator({ gpu: {} }, async () => {
 		globalThis.showSaveFilePicker = originalShowSaveFilePicker;
 		globalThis.requestAnimationFrame = originalRequestAnimationFrame;
 		if (originalIndexedDb === undefined) {
-			// biome-ignore lint/performance/noDelete: Restore the original global shape in this test harness.
 			delete globalThis.indexedDB;
 		} else {
 			globalThis.indexedDB = originalIndexedDb;

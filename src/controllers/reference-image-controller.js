@@ -124,9 +124,7 @@ export function createReferenceImageController({
 				: null;
 	}
 
-	function initializeMultiSelectionTransformBox(
-		items = store.referenceImages.items.value,
-	) {
+	function initializeMultiSelectionTransformBox() {
 		const context = getTransformContext();
 		if (!context) {
 			setStoredSelectionBox(null);
@@ -1171,7 +1169,6 @@ export function createReferenceImageController({
 
 	const {
 		ensureActiveShotPresetBinding,
-		updateAllShotCameraReferenceImages,
 		dropReferencePresetFromAllShotCameras,
 		removeReferenceItemsFromAllShotCameras,
 	} = createReferenceImageCameraBindings({
@@ -1211,7 +1208,7 @@ export function createReferenceImageController({
 		clampPointerToViewportShell,
 	});
 
-	const { syncSelectionState, syncUiState } = createReferenceImageUiStateSync({
+	const { syncUiState } = createReferenceImageUiStateSync({
 		store,
 		referenceImageDefaultPresetId: REFERENCE_IMAGE_DEFAULT_PRESET_ID,
 		buildReferenceImageSizeLabel,

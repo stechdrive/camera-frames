@@ -1,8 +1,5 @@
 import { IS_DEV_RUNTIME, hasEnabledQueryFlag } from "../build-info.js";
-import {
-	getAllExportBundlePasses,
-	renderExportPassToCanvas,
-} from "../engine/export-bundle.js";
+import { renderExportPassToCanvas } from "../engine/export-bundle.js";
 import { buildSnapshotExportBundle } from "./export/bundle-build.js";
 import { createCanvasFromPixels } from "./export/canvas-utils.js";
 import {
@@ -52,7 +49,6 @@ export function createExportController({
 	setStatus,
 	setExportStatus,
 	updateUi,
-	getTotalLoadedItems,
 	getSceneAssets,
 	getShotCameraDocument,
 	getActiveShotCameraDocument,
@@ -189,14 +185,6 @@ export function createExportController({
 		t,
 		setStatus,
 	});
-
-	function isRenderLocked() {
-		return exportRenderLock;
-	}
-
-	function dispose() {
-		exportRenderBackend.dispose();
-	}
 
 	return {
 		getExportTargetShotCameras,

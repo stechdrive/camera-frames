@@ -26,7 +26,6 @@ export function downloadPngFromSnapshot(
 	sequenceIndex = null,
 	{
 		frames = [],
-		frameMaskSettings = documentState?.frameMask ?? null,
 		drawFramesToContext,
 		previewContextError = "error.previewContext",
 		buildFilename,

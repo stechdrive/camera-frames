@@ -45,7 +45,6 @@ export function HelpModal({ store, controller }) {
 		return () => document.removeEventListener("keydown", handleKey);
 	}, [open, searchQuery, controller]);
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: sectionId must reset the scroll position when the visible chapter changes.
 	useEffect(() => {
 		if (!open || searchQuery) return;
 		const element = contentRef.current;

@@ -264,7 +264,6 @@ function createHarness() {
 
 {
 	const harness = createHarness();
-	const document = harness.getShotCameraDocument();
 	harness.controller.duplicateActiveFrame();
 	const firstFrameId = getFrameDocumentId(1);
 	const secondFrameId = getFrameDocumentId(2);

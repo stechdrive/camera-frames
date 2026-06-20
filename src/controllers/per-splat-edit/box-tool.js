@@ -3,7 +3,7 @@ import {
 	debugSplatPerf,
 	isSplatPerfDebugEnabled,
 } from "../../debug/splat-perf-debug.js";
-import { getAssetIdKey, getSplatAssetWorldMatrix } from "./asset-accessors.js";
+import { getAssetIdKey } from "./asset-accessors.js";
 import {
 	DEFAULT_BOX_SIZE,
 	WORLD_AXES,
@@ -44,7 +44,6 @@ export function createSplatEditBoxTool({
 	getActiveCameraViewCamera,
 	getViewportRect,
 	getPrimaryViewRect,
-	cancelHistoryTransaction,
 	runSynchronousHistoryTransaction,
 	getSplatEditScopeAssets,
 	getSplatEditScopeAssetIds,

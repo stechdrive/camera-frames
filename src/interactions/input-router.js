@@ -19,7 +19,6 @@ export { isViewportOverlayControlTarget } from "./input/viewport-targets.js";
 export function bindInputRouter({
 	listen,
 	viewportShell,
-	dropHint,
 	anchorDot,
 	importOpenedFiles,
 	assetController,
@@ -213,7 +212,7 @@ export function bindInputRouter({
 		viewportPieTouchHoldState = null;
 	}
 
-	function isTouchViewportPieCandidate(event) {
+	function isTouchViewportPieCandidate() {
 		return false;
 	}
 

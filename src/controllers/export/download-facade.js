@@ -128,7 +128,7 @@ export function createExportDownloadFacade({
 		return runPngExportFn({
 			targetDocuments,
 			renderSnapshot: (documentState) => renderSnapshot(documentState.id),
-			downloadSnapshot: (documentState, snapshot, index, targetDocuments) =>
+			downloadSnapshot: (documentState, snapshot) =>
 				downloadPngFromSnapshot(
 					documentState,
 					snapshot,
@@ -160,7 +160,7 @@ export function createExportDownloadFacade({
 		return runPsdExportFn({
 			targetDocuments,
 			renderSnapshot: (documentState) => renderSnapshot(documentState.id),
-			downloadSnapshot: (documentState, snapshot, index, targetDocuments) =>
+			downloadSnapshot: (documentState, snapshot) =>
 				downloadPsdFromSnapshot(
 					documentState,
 					snapshot,

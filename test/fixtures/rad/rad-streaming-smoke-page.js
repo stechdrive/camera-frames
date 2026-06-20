@@ -99,7 +99,7 @@ export async function runRadStreamingSmoke({
 				let byteLength = null;
 				try {
 					byteLength = (await clone.arrayBuffer()).byteLength;
-				} catch (error) {
+				} catch {
 					byteLength = null;
 				}
 				fetchLog.push({

@@ -5,7 +5,35 @@ import {
 	captureSparkExportBufferState,
 } from "../src/engine/spark-integration/spark-export-buffer-state.js";
 import { captureSparkReadinessState } from "../src/engine/spark-integration/spark-readiness-probe.js";
-import * as SparkSymbols from "../src/engine/spark-integration/spark-symbols.js";
+import {
+	FpsMovement,
+	PackedSplats,
+	PlyReader,
+	PointerControls,
+	RgbaArray,
+	SparkRenderer,
+	SplatMesh,
+	SpzReader,
+	dyno,
+	flipPixels,
+	fromHalf,
+	unpackSplats,
+} from "../src/engine/spark-integration/spark-symbols.js";
+
+const SparkSymbols = {
+	FpsMovement,
+	PointerControls,
+	SparkRenderer,
+	SplatMesh,
+	flipPixels,
+	PackedSplats,
+	unpackSplats,
+	fromHalf,
+	PlyReader,
+	SpzReader,
+	RgbaArray,
+	dyno,
+};
 
 {
 	// Contract: spark-symbols.js must re-export every Spark symbol consumed by
@@ -75,16 +103,14 @@ import {
 	setSparkSplatMeshColorBuffer,
 } from "../src/engine/spark-integration/spark-splat-mesh-adapter.js";
 
-{
-	assert.deepEqual(captureSparkReadinessState(null), {
-		supported: false,
-		pending: false,
-		advisoryPending: false,
-		pendingCounts: {},
-		pendingReasons: [],
-		advisoryReasons: [],
-	});
-}
+assert.deepEqual(captureSparkReadinessState(null), {
+	supported: false,
+	pending: false,
+	advisoryPending: false,
+	pendingCounts: {},
+	pendingReasons: [],
+	advisoryReasons: [],
+});
 
 {
 	const splatsA = { id: "splats-a" };

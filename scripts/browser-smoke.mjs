@@ -534,20 +534,6 @@ async function captureScreenshot(cdp, filePath) {
 	writeFileSync(filePath, Buffer.from(result.data, "base64"));
 }
 
-async function withTimeout(promise, timeoutMs, message) {
-	let timeout;
-	try {
-		return await Promise.race([
-			promise,
-			new Promise((_, reject) => {
-				timeout = setTimeout(() => reject(new Error(message)), timeoutMs);
-			}),
-		]);
-	} finally {
-		clearTimeout(timeout);
-	}
-}
-
 function sleep(ms) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }

@@ -108,7 +108,7 @@ export function createSceneAssetTransformController({
 
 	function resetAssetWorkingPivot(assetId) {
 		const asset = getSceneAsset(assetId);
-		if (!asset || !asset.workingPivotLocal) {
+		if (!asset?.workingPivotLocal) {
 			return;
 		}
 
@@ -350,11 +350,7 @@ export function createSceneAssetTransformController({
 
 	function applyAssetTransform(assetId) {
 		const asset = getSceneAsset(assetId);
-		if (
-			!asset ||
-			!asset.contentObject ||
-			asset.contentObject === asset.object
-		) {
+		if (!asset?.contentObject || asset.contentObject === asset.object) {
 			return;
 		}
 

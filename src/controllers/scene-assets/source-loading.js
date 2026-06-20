@@ -236,7 +236,6 @@ export function createSceneAssetSourceLoadingController({
 	}
 
 	async function createPackedSplatsFromSourceData({
-		fileName,
 		inputBytes,
 		extraFiles = undefined,
 		fileType = undefined,
@@ -326,7 +325,6 @@ export function createSceneAssetSourceLoadingController({
 			lodSplats = undefined,
 		}) => {
 			const packedSplats = await createPackedSplatsFromSourceData({
-				fileName,
 				inputBytes,
 				extraFiles,
 				fileType,
@@ -645,7 +643,7 @@ export function createSceneAssetSourceLoadingController({
 
 	async function replaceSplatAssetFromSource(assetId, source) {
 		const existingAsset = getSceneAsset(assetId);
-		if (!existingAsset || existingAsset.kind !== "splat") {
+		if (existingAsset?.kind !== "splat") {
 			return null;
 		}
 		const existingIndex = sceneState.assets.findIndex(

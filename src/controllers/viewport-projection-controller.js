@@ -495,7 +495,7 @@ export function createViewportProjectionController({
 		return clampViewportOrthoEntryDepth(depth);
 	}
 
-	function resolveViewportEntryFocusPoint(currentState, referencePoint = null) {
+	function resolveViewportEntryFocusPoint(referencePoint = null) {
 		const nextReferencePoint = cloneFiniteVector3(referencePoint);
 		if (nextReferencePoint) {
 			return nextReferencePoint;
@@ -652,10 +652,7 @@ export function createViewportProjectionController({
 				}
 			: (() => {
 					const referencePoint = resolveViewportEntryReferencePoint();
-					const focusPoint = resolveViewportEntryFocusPoint(
-						currentState,
-						referencePoint,
-					);
+					const focusPoint = resolveViewportEntryFocusPoint(referencePoint);
 					const distance = resolveViewportEntryDepth(
 						currentState,
 						referencePoint ?? focusPoint,

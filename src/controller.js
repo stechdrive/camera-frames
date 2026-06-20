@@ -50,7 +50,6 @@ import {
 import { createViewportProjectionControllerBindings } from "./app/viewport-projection-controller-bindings.js";
 import { createViewportToolControllerBindings } from "./app/viewport-tool-controller-bindings.js";
 import {
-	BASE_RENDER_BOX,
 	DEFAULT_CAMERA_FAR,
 	DEFAULT_CAMERA_NEAR,
 	DEFAULT_FPS_MOVE_SPEED,
@@ -79,10 +78,7 @@ import { createViewportAxisGizmoController } from "./controllers/viewport-axis-g
 import { createViewportProjectionController } from "./controllers/viewport-projection-controller.js";
 import { createViewportToolController } from "./controllers/viewport-tool-controller.js";
 import { drawFramesToContext } from "./engine/frame-overlay.js";
-import {
-	GUIDE_GRID_LAYER_MODE_BOTTOM,
-	createGuideOverlay,
-} from "./engine/guide-overlays.js";
+import { createGuideOverlay } from "./engine/guide-overlays.js";
 import { horizontalToVerticalFovDegrees } from "./engine/projection.js";
 import {
 	formatAssetWorldScale,
@@ -104,10 +100,7 @@ import {
 import { createHelpCommands } from "./ui/help/help-commands.js";
 import { createMobileUiScaleCommands } from "./ui/settings/mobile-ui-scale-commands.js";
 import { createViewportLodScaleCommands } from "./ui/viewport-lod-scale-commands.js";
-import {
-	WORKSPACE_PANE_CAMERA,
-	WORKSPACE_PANE_VIEWPORT,
-} from "./workspace-model.js";
+import { WORKSPACE_PANE_CAMERA } from "./workspace-model.js";
 
 export function createCameraFramesController(elements, store) {
 	const {
@@ -209,21 +202,12 @@ export function createCameraFramesController(elements, store) {
 		setShotCameraDocuments,
 		getShotCameraExportBaseName,
 		getActiveFrames,
-		resolveFrameAxis,
-		resolveFrameAnchor,
-		getFrameAnchorDocument,
-		isFrameSelectionActive,
-		clearFrameDrag,
 		clearFrameSelection,
 		clearOutputFramePan,
-		clearOutputFrameAnchorDrag,
-		clearOutputFrameResize,
-		selectOutputFrame,
 		clearOutputFrameSelection,
 		getActiveShotCamera,
 		getActiveCameraViewCamera,
 		getActiveOutputCamera,
-		getAutoClipRange,
 		updateShotCameraHelpers,
 		syncShotCameraEntryFromDocument,
 		syncActiveShotCameraFromDocument,
@@ -256,21 +240,13 @@ export function createCameraFramesController(elements, store) {
 		getViewportProjectionController: () => viewportProjectionController,
 		updateUi: () => updateUi(),
 	});
+	const { getOutputSizeState, getOutputFrameMetrics } =
+		createOutputFrameAccessors({
+			getActiveShotCameraDocument,
+			getOutputFrameController: () => outputFrameController,
+		});
 	const {
-		getOutputFrameDocumentState,
-		getOutputSizeState,
-		getViewportSize,
-		syncOutputFrameFitState,
-		getOutputFrameMetrics,
-	} = createOutputFrameAccessors({
-		getActiveShotCameraDocument,
-		getOutputFrameController: () => outputFrameController,
-	});
-	const {
-		isZoomToolActive,
 		isInteractiveTextTarget,
-		clearZoomToolDrag,
-		applyInteractionMode,
 		toggleZoomTool,
 		startZoomToolDrag,
 		handleZoomToolDragMove,
@@ -297,7 +273,6 @@ export function createCameraFramesController(elements, store) {
 		updateOutputFrameOverlay,
 		syncReferenceImagePreview,
 		updateDropHint,
-		updateSceneSummary,
 		syncGuideOverlayState,
 		updateCameraSummary,
 	} = createViewSyncCommands({
@@ -316,13 +291,10 @@ export function createCameraFramesController(elements, store) {
 		syncShotProjection,
 		applyCameraViewProjection,
 		syncViewportProjection,
-		clearControlMomentum,
 		syncControlsToMode,
 		setViewportProjectionMode,
 		alignViewportToOrthographicView,
 		toggleViewportOrthographicAxis,
-		copyPose,
-		frameCamera,
 		frameAllCameras,
 		placeAllCamerasAtHome,
 		handleResize,
@@ -378,7 +350,6 @@ export function createCameraFramesController(elements, store) {
 	const {
 		setLocale,
 		setStatus,
-		safeSyncReferenceImageUi,
 		safeSyncReferenceImagePreview,
 		setExportStatus,
 		updateUi,
@@ -414,7 +385,6 @@ export function createCameraFramesController(elements, store) {
 		getViewportToolController: () => viewportToolController,
 	});
 	const {
-		setViewportToolMode,
 		setViewportPivotEditMode,
 		setViewportSelectMode,
 		setViewportReferenceImageEditMode,
@@ -690,15 +660,9 @@ export function createCameraFramesController(elements, store) {
 	);
 
 	const {
-		captureActiveShotCameraEditorState,
-		storeShotCameraEditorState,
-		clearActiveShotCameraEditorState,
 		restoreShotCameraEditorState,
 		captureShotCameraEditorStates,
 		restoreShotCameraEditorStates,
-		pruneShotCameraEditorStates,
-		prepareForShotCameraSwitch,
-		restoreAfterShotCameraSwitch,
 	} = createShotCameraEditorStateAccessors({
 		getShotCameraEditorStateController: () => shotCameraEditorStateController,
 	});

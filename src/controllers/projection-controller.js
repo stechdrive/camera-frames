@@ -10,7 +10,6 @@ import {
 	getFrustumCenterRayDirection,
 	getPreviewFrustumExtents,
 	getTargetFrustumExtents,
-	horizontalToVerticalFovDegrees,
 } from "../engine/projection.js";
 
 export function createProjectionController({
@@ -106,12 +105,6 @@ export function createProjectionController({
 			frustum.top,
 			frustum.bottom,
 		);
-	}
-
-	function applySymmetricProjection(camera, aspect, horizontalFovDegrees) {
-		camera.aspect = aspect;
-		camera.fov = horizontalToVerticalFovDegrees(horizontalFovDegrees, aspect);
-		camera.updateProjectionMatrix();
 	}
 
 	function syncShotProjection() {

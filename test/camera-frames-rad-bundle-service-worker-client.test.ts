@@ -110,19 +110,16 @@ function installBrowserGlobals(serviceWorker) {
 		if (originalWindow) {
 			Object.defineProperty(globalThis, "window", originalWindow);
 		} else {
-			// biome-ignore lint/performance/noDelete: Restore the original global shape in this test harness.
 			delete globalThis.window;
 		}
 		if (originalNavigator) {
 			Object.defineProperty(globalThis, "navigator", originalNavigator);
 		} else {
-			// biome-ignore lint/performance/noDelete: Restore the original global shape in this test harness.
 			delete globalThis.navigator;
 		}
 		if (originalFetch) {
 			Object.defineProperty(globalThis, "fetch", originalFetch);
 		} else {
-			// biome-ignore lint/performance/noDelete: Restore the original global shape in this test harness.
 			delete globalThis.fetch;
 		}
 	}

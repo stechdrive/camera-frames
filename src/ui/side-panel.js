@@ -10,7 +10,7 @@ import {
 	shouldUseCompactDesktopWorkbenchLayout,
 	shouldUseMobileWorkbenchLayout,
 } from "./workbench-layout-mode.js";
-import { HeaderMenu, IconButton } from "./workbench-primitives.js";
+import { IconButton } from "./workbench-primitives.js";
 import {
 	ExportSection,
 	ExportSettingsSection,
@@ -26,7 +26,6 @@ import {
 	INSPECTOR_QUICK_SECTION_SHOT_CAMERA_PROPERTIES,
 	INSPECTOR_QUICK_SECTION_TRANSFORM,
 	INSPECTOR_TAB_CAMERA,
-	INSPECTOR_TAB_EXPORT,
 	INSPECTOR_TAB_REFERENCE,
 	INSPECTOR_TAB_SCENE,
 	InspectorRailSection,
@@ -562,10 +561,7 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 		];
 	};
 
-	const renderInspectorSection = (
-		sectionId,
-		{ quick = false, desktopFull = false } = {},
-	) => {
+	const renderInspectorSection = (sectionId, { desktopFull = false } = {}) => {
 		const pinAction = getQuickSectionPinButton(sectionId);
 		const open = isInspectorSectionOpen(sectionId);
 		const onToggle = (nextOpen) => setInspectorSectionOpen(sectionId, nextOpen);

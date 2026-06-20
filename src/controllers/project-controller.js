@@ -18,7 +18,6 @@ import {
 	materializeProjectPackageSaveInputs,
 	writeCameraFramesProjectPackageToWritable,
 } from "../project/file/index.js";
-import { ZipReader } from "../project/package-legacy.js";
 import {
 	cleanupCameraFramesWorkingState,
 	deleteCameraFramesWorkingState,
@@ -39,11 +38,9 @@ import {
 	createSogCompressionUnavailableError,
 	ensureProjectFileName,
 	getProjectBaseName,
-	getProjectPickerTypes,
 	pickProjectSaveHandle,
 	supportsProjectFileSave,
 	supportsSogCompression,
-	writeProjectFileHandle,
 } from "./project/picker-options.js";
 import { cleanupStaleProjectOpenSources } from "./project/source-staging.js";
 import {
@@ -99,7 +96,6 @@ export function createProjectController({
 		markCurrentPackageClean,
 		isProjectDirty,
 		isPackageDirty,
-		hasMeaningfulProjectContent,
 		shouldWarnBeforeUnload,
 	} = createProjectDirtyStateController({
 		captureProjectState,
@@ -177,16 +173,6 @@ export function createProjectController({
 				error,
 			};
 		}
-	}
-
-	function getCompressSplatsFieldLabel(sogCompressionAvailability) {
-		if (sogCompressionAvailability.available) {
-			return t("overlay.packageFieldCompressSplats");
-		}
-		if (sogCompressionAvailability.reason === "worker-unavailable") {
-			return t("overlay.packageFieldCompressSplatsWorkerUnavailable");
-		}
-		return t("overlay.packageFieldCompressSplatsDisabled");
 	}
 
 	function syncProjectPresentation(projectSnapshot = captureProjectState()) {
@@ -400,15 +386,6 @@ export function createProjectController({
 				name: projectContext.projectName || "",
 			}),
 		);
-	}
-
-	async function tryApplyCompatibleWorkingState(projectContext) {
-		const record = await probeCompatibleWorkingState(projectContext);
-		if (!record) {
-			return false;
-		}
-		await applyProbedWorkingState(record, projectContext);
-		return true;
 	}
 
 	async function runWorkingStateCleanup(

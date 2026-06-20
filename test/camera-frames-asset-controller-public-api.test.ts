@@ -191,7 +191,7 @@ function createAssetControllerForPublicApiTest({
 		},
 	};
 	const originalSetTimeout = globalThis.setTimeout;
-	globalThis.setTimeout = ((callback, delay) => {
+	globalThis.setTimeout = ((_callback, delay) => {
 		timeoutCalls.push(delay);
 		return 0;
 	}) as typeof setTimeout;

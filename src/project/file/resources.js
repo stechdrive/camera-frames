@@ -1,7 +1,6 @@
 import { SPLAT_EXTENSIONS } from "../../constants.js";
 import {
 	PROJECT_RESOURCE_RAW_PACKED_SPLAT,
-	getProjectMediaTypeFromFileName,
 	getProjectPathExtension,
 	isProjectFileEmbeddedFileSource,
 	isProjectFilePackedSplatSource,

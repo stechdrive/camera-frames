@@ -59,10 +59,6 @@ export function createViewportToolController({
 		return store.viewportToolMode.value === "transform";
 	}
 
-	function isReferenceImageEditMode() {
-		return store.viewportToolMode.value === "reference";
-	}
-
 	function isViewportToolMode() {
 		return (
 			state.mode === WORKSPACE_PANE_VIEWPORT ||
@@ -296,7 +292,7 @@ export function createViewportToolController({
 		}
 
 		const asset = getSelectedTransformAsset();
-		if (!asset || !asset.object.visible) {
+		if (!asset?.object?.visible) {
 			return false;
 		}
 
