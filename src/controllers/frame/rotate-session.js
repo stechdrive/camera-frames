@@ -48,6 +48,9 @@ export function createCameraFrameRotateSession({
 		if (state.mode !== workspacePaneCamera || isZoomToolActive()) {
 			return;
 		}
+		if (event.button !== 0) {
+			return;
+		}
 
 		const frame = getFrameDocumentById(getActiveFrames(), frameId);
 		if (!frame) {

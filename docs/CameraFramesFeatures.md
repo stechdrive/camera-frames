@@ -97,6 +97,7 @@
 - output frame resize 時は `FRAME` center / anchor に加えて stored trajectory node vectors も新しい紙面位置へ remap される
 - PSD trajectory layer は `none` / `center` / `top-left` / `top-right` / `bottom-right` / `bottom-left` を選べる
 - PSD trajectory layer が有効なとき、各 FRAME 基点に軌道線と直交する tick mark を同一レイヤーに描く
+- Camera View の未選択 output frame / FRAME は、枠線近傍の click-like 操作で選択し、左ドラッグは camera orbit を優先する。直接移動 / リサイズ / 回転 / アンカー編集は対象を一度選択してから行う
 
 ### 2.6 Reference images
 
@@ -123,6 +124,7 @@
 - viewport-only orthographic を持つ
 - orthographic は viewport-only で、shot camera へ昇格しない
 - PC の mouse navigate では、orbit drag 中に開始点へ円形 reticle を表示し、画像をつかむ操作ではなく camera / viewport の相対操作であることを示す
+- PC の mouse navigate では、未選択の用紙枠 / FRAME の選択 hit band から左ドラッグを始めても camera / viewport の orbit が優先される
 - PC の mouse navigate では、通常の shot camera / viewport camera の右ドラッグを pan / slide として扱い、drag 中だけ握る手の cursor を表示する
 - touch の 1 本指 navigate は mouse drag と分離し、画面上の内容を指でつかむ向きで扱う
 - current baseline は single-pane であり、pane ごとの個別 camera 割当てや viewport state 保存は未提供

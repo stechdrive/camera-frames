@@ -42,6 +42,9 @@ export function createOutputFrameAnchorSession({
 		if (state.mode !== workspacePaneCamera || isZoomToolActive()) {
 			return;
 		}
+		if (event.button !== 0) {
+			return;
+		}
 
 		const activeDocument = getActiveShotCameraDocument();
 		if (!activeDocument) {

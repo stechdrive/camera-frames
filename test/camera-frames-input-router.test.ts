@@ -294,6 +294,12 @@ function createInputRouterHarness(overrides = {}) {
 		clearReferenceImageSelection: () =>
 			calls.push(["clear-reference-selection"]),
 		clearOutputFrameSelection: () => {},
+		selectFrame: (frameId) => calls.push(["select-frame", frameId]),
+		getFrameSelectHitAtPointer:
+			overrides.getFrameSelectHitAtPointer ?? (() => null),
+		selectOutputFrame: () => calls.push(["select-output-frame"]),
+		isOutputFrameSelectHitAtPointer:
+			overrides.isOutputFrameSelectHitAtPointer ?? (() => false),
 		handleOrbitAroundHitDragMove: () => {},
 		handleOrbitAroundHitDragEnd: () => {},
 		handleZoomToolDragMove: () => {},
@@ -1374,6 +1380,137 @@ function createInputRouterHarness(overrides = {}) {
 			stopPropagation() {},
 		});
 		assert.deepEqual(harness.calls, []);
+	} finally {
+		harness.restore();
+	}
+}
+
+{
+	const harness = createInputRouterHarness({
+		mode: "camera",
+		getFrameSelectHitAtPointer: () => ({ frameId: "frame-2" }),
+	});
+	try {
+		const pointerdown = harness.listeners
+			.get(harness.viewportShell)
+			.get("pointerdown");
+		const pointerup = harness.listeners.get(harness.windowRef).get("pointerup");
+		const viewportTarget = new globalThis.Element();
+		viewportTarget.closest = (selector: string) => {
+			const selectors = selector.split(",").map((item) => item.trim());
+			if (selectors.includes("#viewport")) {
+				return {};
+			}
+			return null;
+		};
+		pointerdown({
+			button: 0,
+			pointerId: 91,
+			pointerType: "mouse",
+			clientX: 100,
+			clientY: 100,
+			target: viewportTarget,
+			preventDefault() {
+				harness.calls.push(["prevent-default"]);
+			},
+			stopPropagation() {
+				harness.calls.push(["stop-propagation"]);
+			},
+		});
+		assert.deepEqual(harness.calls, []);
+		pointerup({
+			pointerId: 91,
+			clientX: 102,
+			clientY: 101,
+		});
+		assert.deepEqual(harness.calls, [["select-frame", "frame-2"]]);
+	} finally {
+		harness.restore();
+	}
+}
+
+{
+	const harness = createInputRouterHarness({
+		mode: "camera",
+		isFrameSelectionActive: true,
+		getFrameSelectHitAtPointer: () => ({ frameId: "frame-3" }),
+	});
+	try {
+		const pointerdown = harness.listeners
+			.get(harness.viewportShell)
+			.get("pointerdown");
+		const pointerup = harness.listeners.get(harness.windowRef).get("pointerup");
+		const viewportTarget = new globalThis.Element();
+		viewportTarget.closest = (selector: string) => {
+			const selectors = selector.split(",").map((item) => item.trim());
+			if (selectors.includes("#viewport")) {
+				return {};
+			}
+			return null;
+		};
+		pointerdown({
+			button: 0,
+			pointerId: 92,
+			pointerType: "mouse",
+			clientX: 100,
+			clientY: 100,
+			target: viewportTarget,
+			preventDefault() {
+				harness.calls.push(["prevent-default"]);
+			},
+			stopPropagation() {
+				harness.calls.push(["stop-propagation"]);
+			},
+		});
+		pointerup({
+			pointerId: 92,
+			clientX: 120,
+			clientY: 100,
+		});
+		assert.deepEqual(harness.calls, []);
+	} finally {
+		harness.restore();
+	}
+}
+
+{
+	const harness = createInputRouterHarness({
+		mode: "camera",
+		isOutputFrameSelectHitAtPointer: () => true,
+	});
+	try {
+		const pointerdown = harness.listeners
+			.get(harness.viewportShell)
+			.get("pointerdown");
+		const pointerup = harness.listeners.get(harness.windowRef).get("pointerup");
+		const viewportTarget = new globalThis.Element();
+		viewportTarget.closest = (selector: string) => {
+			const selectors = selector.split(",").map((item) => item.trim());
+			if (selectors.includes("#viewport")) {
+				return {};
+			}
+			return null;
+		};
+		pointerdown({
+			button: 0,
+			pointerId: 93,
+			pointerType: "mouse",
+			clientX: 100,
+			clientY: 100,
+			target: viewportTarget,
+			preventDefault() {
+				harness.calls.push(["prevent-default"]);
+			},
+			stopPropagation() {
+				harness.calls.push(["stop-propagation"]);
+			},
+		});
+		pointerup({
+			pointerId: 93,
+			clientX: 100,
+			clientY: 100,
+		});
+		assert.deepEqual(harness.calls, [["select-output-frame"], ["update-ui"]]);
 	} finally {
 		harness.restore();
 	}

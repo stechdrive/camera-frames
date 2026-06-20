@@ -90,6 +90,10 @@ export function bindInputRouter({
 	clearFrameSelection,
 	clearReferenceImageSelection,
 	clearOutputFrameSelection,
+	selectFrame = () => {},
+	getFrameSelectHitAtPointer = () => null,
+	selectOutputFrame = () => {},
+	isOutputFrameSelectHitAtPointer = () => false,
 	handleOrbitAroundHitDragMove,
 	handleOrbitAroundHitDragEnd,
 	handleZoomToolDragMove,
@@ -130,6 +134,7 @@ export function bindInputRouter({
 	let viewportSelectClickCandidate = null;
 	let splatEditClickCandidate = null;
 	let splatEditBrushStrokePointerId = null;
+	let overlaySelectionClickCandidate = null;
 	let viewportOrthoRotationGesture = null;
 	let viewportPieTouchHoldState = null;
 	let orbitReticleGesture = null;
@@ -182,6 +187,54 @@ export function bindInputRouter({
 					].join("|")
 				: "perspective",
 		].join("|");
+	}
+
+	function getOverlaySelectionHitAtPointer(event, target) {
+		if (event.button !== 0) {
+			return null;
+		}
+		if (state.mode !== "camera") {
+			return null;
+		}
+		if (isPieInteractionMode?.() || isZoomInteractionMode?.()) {
+			return null;
+		}
+		if (isLensInteractionMode?.() || isRollInteractionMode?.()) {
+			return null;
+		}
+		if (isSplatEditModeActive?.() || isSplatEditBrushActive?.()) {
+			return null;
+		}
+		if (isViewportReferenceImageEditMode?.()) {
+			return null;
+		}
+		if (!target || isViewportOverlayControlTarget(target)) {
+			return null;
+		}
+		if (isInteractiveTextTarget(target) || !isViewportPointerTarget(target)) {
+			return null;
+		}
+		if (
+			target.closest(
+				".viewport-pie, .viewport-axis-gizmo, #viewport-gizmo, .reference-image-layer__entry, .reference-image-selection-layer, .measurement-overlay__point, .measurement-overlay__chip, .viewport-splat-edit-toolbar, .viewport-splat-edit-popover",
+			)
+		) {
+			return null;
+		}
+
+		const frameHit = getFrameSelectHitAtPointer?.(event);
+		if (frameHit?.frameId) {
+			return {
+				type: "frame",
+				frameId: frameHit.frameId,
+			};
+		}
+		if (isOutputFrameSelectHitAtPointer?.(event)) {
+			return {
+				type: "output-frame",
+			};
+		}
+		return null;
 	}
 
 	function shouldOpenViewportPie(event) {
@@ -856,6 +909,17 @@ export function bindInputRouter({
 		if (target?.closest("#viewport-gizmo")) {
 			return;
 		}
+		overlaySelectionClickCandidate = null;
+		const overlaySelectionHit = getOverlaySelectionHitAtPointer(event, target);
+		if (overlaySelectionHit) {
+			overlaySelectionClickCandidate = {
+				...overlaySelectionHit,
+				pointerId: event.pointerId,
+				startClientX: event.clientX,
+				startClientY: event.clientY,
+				startPose: getCameraPoseSignature(),
+			};
+		}
 		if (
 			isSplatEditModeActive?.() &&
 			event.button === 0 &&
@@ -902,11 +966,19 @@ export function bindInputRouter({
 			state.outputFrameSelected ||
 			isFrameSelectionActive() ||
 			isReferenceImageSelectionActive?.();
-		if (hadSelection) {
+		if (hadSelection && !overlaySelectionClickCandidate) {
 			clearReferenceImageSelection?.();
 			clearFrameSelection();
 			clearOutputFrameSelection();
 			updateUi();
+		}
+		if (
+			isViewportSelectMode?.() &&
+			event.button === 0 &&
+			overlaySelectionClickCandidate
+		) {
+			viewportSelectClickCandidate = null;
+			return;
 		}
 		if (
 			isViewportSelectMode?.() &&
@@ -1077,6 +1149,39 @@ export function bindInputRouter({
 	listen(window, "pointercancel", (event) => {
 		if (splatEditClickCandidate?.pointerId === event.pointerId) {
 			splatEditClickCandidate = null;
+		}
+	});
+	listen(window, "pointerup", (event) => {
+		if (
+			!overlaySelectionClickCandidate ||
+			event.pointerId !== overlaySelectionClickCandidate.pointerId
+		) {
+			return;
+		}
+		const completedClick = overlaySelectionClickCandidate;
+		const deltaX = event.clientX - completedClick.startClientX;
+		const deltaY = event.clientY - completedClick.startClientY;
+		const isClickLike =
+			Math.hypot(deltaX, deltaY) <= VIEWPORT_POINTER_CLICK_DISTANCE_PX;
+		const cameraPoseChanged =
+			completedClick.startPose !== getCameraPoseSignature();
+		const shouldSelect = isClickLike && !cameraPoseChanged;
+		overlaySelectionClickCandidate = null;
+		if (!shouldSelect) {
+			return;
+		}
+		if (completedClick.type === "frame") {
+			selectFrame?.(completedClick.frameId, event);
+			return;
+		}
+		if (completedClick.type === "output-frame") {
+			selectOutputFrame?.();
+			updateUi();
+		}
+	});
+	listen(window, "pointercancel", (event) => {
+		if (overlaySelectionClickCandidate?.pointerId === event.pointerId) {
+			overlaySelectionClickCandidate = null;
 		}
 	});
 	listen(window, "pointerup", (event) => {

@@ -237,6 +237,7 @@ export function createFrameController({
 		clearFrameTrajectoryHandlePoint: trajectory.clearFrameTrajectoryHandlePoint,
 		syncFrameSelectionTransformState:
 			selection.syncFrameSelectionTransformState,
+		getFrameSelectHitAtPointer: selection.getFrameSelectHitAtPointer,
 		clearFrameDrag: dragSession.clearFrameDrag,
 		clearFrameInteraction,
 		clearFrameSelection: selection.clearFrameSelection,

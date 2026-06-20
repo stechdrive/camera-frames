@@ -57,6 +57,9 @@ export function createCameraFrameResizeSession({
 		if (state.mode !== workspacePaneCamera || isZoomToolActive()) {
 			return;
 		}
+		if (event.button !== 0) {
+			return;
+		}
 
 		const frame = getFrameDocumentById(getActiveFrames(), frameId);
 		const handle = FRAME_RESIZE_HANDLES[handleKey];

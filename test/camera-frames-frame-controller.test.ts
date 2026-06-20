@@ -288,6 +288,58 @@ function createHarness() {
 
 {
 	const harness = createHarness();
+	const frameId = getFrameDocumentId(1);
+	const frame = harness.getShotCameraDocument().frames[0];
+	const startX = frame.x;
+	const startY = frame.y;
+
+	assert.equal(
+		harness.controller.getFrameSelectHitAtPointer({
+			clientX: 768,
+			clientY: 2,
+		})?.frameId,
+		frameId,
+	);
+	assert.equal(
+		harness.controller.getFrameSelectHitAtPointer({
+			clientX: 768,
+			clientY: 432,
+		}),
+		null,
+	);
+
+	harness.controller.startFrameDrag(frameId, {
+		button: 0,
+		pointerId: 1,
+		clientX: 768,
+		clientY: 2,
+		shiftKey: false,
+		metaKey: false,
+		ctrlKey: false,
+		preventDefault() {},
+		stopPropagation() {},
+	});
+	harness.controller.handleFrameDragMove({
+		pointerId: 1,
+		clientX: 900,
+		clientY: 120,
+		shiftKey: false,
+	});
+
+	assert.equal(harness.getShotCameraDocument().activeFrameId, frameId);
+	assert.equal(harness.getShotCameraDocument().frames[0].x, startX);
+	assert.equal(harness.getShotCameraDocument().frames[0].y, startY);
+	assert.equal(
+		harness.controller.getFrameSelectHitAtPointer({
+			clientX: 768,
+			clientY: 2,
+		}),
+		null,
+	);
+}
+
+{
+	const harness = createHarness();
 	const document = harness.getShotCameraDocument();
 	document.frames[0].x = 0.2;
 	document.frames[0].y = 0.2;

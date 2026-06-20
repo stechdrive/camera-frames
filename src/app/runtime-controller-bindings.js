@@ -192,6 +192,11 @@ export function createRuntimeControllerBindings({
 		clearReferenceImageSelection: () =>
 			referenceImageController?.clearReferenceImageSelection?.(),
 		clearOutputFrameSelection: outputFrameController.clearOutputFrameSelection,
+		selectFrame: frameController.selectFrame,
+		getFrameSelectHitAtPointer: frameController.getFrameSelectHitAtPointer,
+		selectOutputFrame: outputFrameController.selectOutputFrame,
+		isOutputFrameSelectHitAtPointer:
+			outputFrameController.isOutputFrameSelectHitAtPointer,
 		handleOrbitAroundHitDragMove: (...args) =>
 			interactionController?.handleOrbitAroundHitDragMove(...args),
 		handleOrbitAroundHitDragEnd: (...args) =>

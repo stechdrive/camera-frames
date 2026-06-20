@@ -41,6 +41,9 @@ export function createCameraFrameDragSession({
 		if (state.mode !== workspacePaneCamera || isZoomToolActive()) {
 			return;
 		}
+		if (event.button !== 0) {
+			return;
+		}
 
 		const frame = getFrameDocumentById(getActiveFrames(), frameId);
 		if (!frame) {
@@ -57,11 +60,9 @@ export function createCameraFrameDragSession({
 				updateUi();
 			}
 		} else {
-			dragFrame = activateFrameSelection(frameId, event) ?? frame;
+			activateFrameSelection(frameId, event);
 			updateUi();
-			if (event.shiftKey || event.metaKey || event.ctrlKey) {
-				return;
-			}
+			return;
 		}
 
 		const selectionState = buildFrameSelectionTransformState();

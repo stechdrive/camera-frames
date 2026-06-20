@@ -6,6 +6,49 @@ import {
 	projectSelectionBoxLogicalToScreen,
 } from "./geometry.js";
 
+const FRAME_EDGE_SELECT_HIT_RADIUS_PX = 3;
+
+function getPointToSegmentDistance(point, start, end) {
+	const segmentX = end.x - start.x;
+	const segmentY = end.y - start.y;
+	const segmentLengthSq = segmentX * segmentX + segmentY * segmentY;
+	if (segmentLengthSq <= 1e-9) {
+		return Math.hypot(point.x - start.x, point.y - start.y);
+	}
+	const projection =
+		((point.x - start.x) * segmentX + (point.y - start.y) * segmentY) /
+		segmentLengthSq;
+	const clampedProjection = Math.min(1, Math.max(0, projection));
+	const closestX = start.x + segmentX * clampedProjection;
+	const closestY = start.y + segmentY * clampedProjection;
+	return Math.hypot(point.x - closestX, point.y - closestY);
+}
+
+function getFrameScreenCorners(geometry, metrics) {
+	return (geometry?.corners ?? []).map((corner) => ({
+		x:
+			metrics.boxLeft +
+			(corner.x / Math.max(metrics.exportWidth, 1e-6)) * metrics.boxWidth,
+		y:
+			metrics.boxTop +
+			(corner.y / Math.max(metrics.exportHeight, 1e-6)) * metrics.boxHeight,
+	}));
+}
+
+function isPointNearFrameScreenEdge(point, corners, radiusPx) {
+	if (!Array.isArray(corners) || corners.length < 4) {
+		return false;
+	}
+	for (let index = 0; index < corners.length; index += 1) {
+		const start = corners[index];
+		const end = corners[(index + 1) % corners.length];
+		if (getPointToSegmentDistance(point, start, end) <= radiusPx) {
+			return true;
+		}
+	}
+	return false;
+}
+
 export function createCameraFrameSelectionController({
 	store,
 	renderBox,
@@ -192,6 +235,44 @@ export function createCameraFrameSelectionController({
 		setStoredFrameSelectionBox(selectionBoxLogical, null);
 	}
 
+	function getFrameSelectHitAtPointer(event) {
+		const clientX = Number(event?.clientX);
+		const clientY = Number(event?.clientY);
+		if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) {
+			return null;
+		}
+		const metrics = getOutputFrameMetrics();
+		if (
+			!metrics ||
+			!(metrics.boxWidth > 0) ||
+			!(metrics.boxHeight > 0) ||
+			!(metrics.exportWidth > 0) ||
+			!(metrics.exportHeight > 0)
+		) {
+			return null;
+		}
+
+		const pointer = { x: clientX, y: clientY };
+		const frames = [...getActiveFrames()].reverse();
+		for (const frame of frames) {
+			if (!frame?.id || isFrameSelected(frame.id)) {
+				continue;
+			}
+			const geometry = buildFrameGeometry(frame, metrics);
+			const corners = getFrameScreenCorners(geometry, metrics);
+			if (
+				isPointNearFrameScreenEdge(
+					pointer,
+					corners,
+					FRAME_EDGE_SELECT_HIT_RADIUS_PX,
+				)
+			) {
+				return { type: "frame", frameId: frame.id };
+			}
+		}
+		return null;
+	}
+
 	function clearFrameSelection() {
 		store.frames.selectionActive.value = false;
 		setSelectedFrameIds([]);
@@ -293,6 +374,7 @@ export function createCameraFrameSelectionController({
 		setStoredFrameSelectionBox,
 		buildFrameSelectionTransformState,
 		syncFrameSelectionTransformState,
+		getFrameSelectHitAtPointer,
 		clearFrameSelection,
 		activateFrameSelection,
 		focusSelectedFrame,

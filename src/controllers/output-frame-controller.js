@@ -7,6 +7,8 @@ import { createOutputFrameOverlayRenderer } from "./output-frame/overlay-render.
 import { createOutputFramePanSession } from "./output-frame/pan-session.js";
 import { createOutputFrameResizeSession } from "./output-frame/resize-session.js";
 
+const OUTPUT_FRAME_EDGE_SELECT_HIT_RADIUS_PX = 5;
+
 export {
 	computeWorkbenchAutoCollapseState,
 	computeWorkbenchLayoutState,
@@ -204,12 +206,46 @@ export function createOutputFrameController({
 		resizeSession.clearOutputFrameResize();
 	}
 
+	function isOutputFrameSelectHitAtPointer(event) {
+		if (state.outputFrameSelected) {
+			return false;
+		}
+		if (state.mode !== workspacePaneCamera || isZoomToolActive()) {
+			return false;
+		}
+		const clientX = Number(event?.clientX);
+		const clientY = Number(event?.clientY);
+		if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) {
+			return false;
+		}
+		const bounds = renderBox.getBoundingClientRect();
+		if (!(bounds.width > 0) || !(bounds.height > 0)) {
+			return false;
+		}
+		const left = bounds.left;
+		const top = bounds.top;
+		const right = left + bounds.width;
+		const bottom = top + bounds.height;
+		const radius = OUTPUT_FRAME_EDGE_SELECT_HIT_RADIUS_PX;
+		const withinX = clientX >= left - radius && clientX <= right + radius;
+		const withinY = clientY >= top - radius && clientY <= bottom + radius;
+		return (
+			(withinX &&
+				(Math.abs(clientY - top) <= radius ||
+					Math.abs(clientY - bottom) <= radius)) ||
+			(withinY &&
+				(Math.abs(clientX - left) <= radius ||
+					Math.abs(clientX - right) <= radius))
+		);
+	}
+
 	return {
 		clearOutputFramePan: panSession.clearOutputFramePan,
 		clearOutputFrameAnchorDrag: anchorSession.clearOutputFrameAnchorDrag,
 		clearOutputFrameResize: resizeSession.clearOutputFrameResize,
 		clearOutputFrameSelection,
 		selectOutputFrame,
+		isOutputFrameSelectHitAtPointer,
 		getOutputFrameDocumentState: metrics.getOutputFrameDocumentState,
 		getOutputSizeState: metrics.getOutputSizeState,
 		getViewportSize: metrics.getViewportSize,

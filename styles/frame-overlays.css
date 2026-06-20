@@ -242,6 +242,11 @@
 	border: 0;
 	background: transparent;
 	padding: 0;
+	pointer-events: none;
+	cursor: pointer;
+}
+
+.frame-item--selected .frame-item__edge {
 	pointer-events: auto;
 	cursor: move;
 }

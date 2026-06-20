@@ -258,6 +258,8 @@ viewport projection 切替の契約:
 - composition guide は shot camera ごとの preview-only UI state として保持し、Camera View でのみ表示する。PNG / PSD / package export のレンダリング結果には含めない
 - composition guide の対象は `selected-frame` / `all-frames`。`selected-frame` は選択中 FRAME があればアクティブ選択 FRAME、なければアクティブ FRAME に追従し、FRAME の回転にも追従する。`all-frames` は全 FRAME の回転済み corner を含む外接矩形に対して axis-aligned に表示する
 - composition guide の pattern は `thirds` / `golden` / `center` / `grid`。`grid` は表示サイズに応じて水平垂直確認用の分割数を自動調整する
+- desktop mouse の Camera View では、未選択の output frame / FRAME は枠線近傍の click-like 操作だけで選択する。左ドラッグになった場合は selection / direct manipulation を開始せず、通常の camera orbit を優先する
+- output frame / FRAME の pan / move / resize / rotate / anchor 直接編集は、対象が選択済みの時だけ開始する
 
 FRAME / frame mask の基準:
 
@@ -357,6 +359,7 @@ interaction の基準:
 - orthographic は viewport-only
 - orthographic 操作中でも click-like gesture の時は元の投影状態へ戻す
 - desktop mouse の navigate left drag は camera / viewport の orbit 操作として扱い、drag 中は開始点に orbit reticle を表示して相対入力であることを示す
+- desktop mouse の navigate left drag は、開始点が未選択の output frame / FRAME の選択 hit band 上でも camera / viewport の orbit 操作を優先する。未選択枠の選択は pointerup 時に click-like と判定できる場合だけ確定する
 - desktop mouse の navigate right drag は通常の shot camera / viewport camera の pan / slide 操作として扱い、drag 中だけ握る手の cursor を表示する
 - touch の 1 本指 navigate は mouse drag と符号を分離し、画面上の内容を指でつかむ direct manipulation として扱う
 - direct manipulation は transaction 単位で undo/redo にまとめる

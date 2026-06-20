@@ -31,6 +31,9 @@ export function createOutputFramePanSession({
 		if (state.mode !== workspacePaneCamera || isZoomToolActive()) {
 			return;
 		}
+		if (event.button !== 0) {
+			return;
+		}
 
 		const activeDocument = getActiveShotCameraDocument();
 		if (!activeDocument) {
@@ -43,6 +46,7 @@ export function createOutputFramePanSession({
 		if (!state.outputFrameSelected) {
 			selectOutputFrame();
 			updateUi();
+			return;
 		}
 
 		const metrics = getOutputFrameMetrics(activeDocument);
