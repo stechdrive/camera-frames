@@ -1,0 +1,556 @@
+.frame-layer {
+	position: absolute;
+	inset: 0;
+	z-index: 2;
+	pointer-events: none;
+}
+
+.frame-layer--canvas {
+	z-index: 1;
+}
+
+.frame-layer--items {
+	z-index: 3;
+}
+
+.frame-layer--noninteractive .frame-item__edge,
+.frame-layer--noninteractive .frame-item__resize-handle,
+.frame-layer--noninteractive .frame-item__rotation-zone,
+.frame-layer--noninteractive .frame-item__anchor,
+.frame-layer--noninteractive .frame-item__label,
+.frame-layer--noninteractive .frame-item__label-delete,
+.frame-layer--noninteractive .frame-trajectory-layer__node-hit,
+.frame-layer--noninteractive .frame-trajectory-layer__node,
+.frame-layer--noninteractive .frame-trajectory-layer__handle-hit,
+.frame-layer--noninteractive .frame-trajectory-layer__handle {
+	pointer-events: none !important;
+}
+
+.frame-layer__canvas {
+	position: absolute;
+	top: 0;
+	left: 0;
+	display: block;
+	pointer-events: none;
+}
+
+.composition-guide-layer {
+	position: absolute;
+	inset: 0;
+	z-index: 1;
+	pointer-events: none;
+	overflow: visible;
+}
+
+.composition-guide-layer__svg {
+	display: block;
+	width: 100%;
+	height: 100%;
+	overflow: visible;
+}
+
+.composition-guide-layer__outline {
+	fill: none;
+	stroke: rgba(255, 255, 255, 0.3);
+	stroke-width: 1px;
+	stroke-dasharray: 8 6;
+	vector-effect: non-scaling-stroke;
+	filter: drop-shadow(0 0 1px rgba(5, 8, 14, 0.95));
+}
+
+.composition-guide-layer__line {
+	stroke: rgba(255, 255, 255, 0.58);
+	stroke-width: 1px;
+	vector-effect: non-scaling-stroke;
+	filter: drop-shadow(0 0 1px rgba(5, 8, 14, 0.95));
+}
+
+.composition-guide-layer__line--major {
+	stroke: rgba(255, 236, 190, 0.78);
+	stroke-width: 1.35px;
+}
+
+.frame-trajectory-layer {
+	position: absolute;
+	inset: 0;
+	z-index: 8;
+	pointer-events: none;
+}
+
+.frame-trajectory-layer__svg {
+	display: block;
+	width: 100%;
+	height: 100%;
+	overflow: visible;
+}
+
+.frame-trajectory-layer__path {
+	fill: none;
+	stroke: rgba(255, 121, 88, 0.72);
+	stroke-width: 3px;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+	vector-effect: non-scaling-stroke;
+}
+
+.frame-trajectory-layer__path--editing {
+	stroke: rgba(255, 170, 120, 0.92);
+	stroke-width: 4px;
+}
+
+.frame-trajectory-layer__handle-guide {
+	stroke: rgba(255, 215, 188, 0.68);
+	stroke-width: 2px;
+	stroke-dasharray: 10 8;
+	vector-effect: non-scaling-stroke;
+	filter: drop-shadow(0 0 1px rgba(6, 10, 18, 0.92));
+}
+
+.frame-trajectory-layer__handle-guide--in {
+	stroke: rgba(145, 222, 255, 0.84);
+}
+
+.frame-trajectory-layer__handle-guide--out {
+	stroke: rgba(255, 208, 158, 0.84);
+}
+
+.frame-trajectory-layer__handle-guide--ghost {
+	stroke-dasharray: 6 6;
+	opacity: 0.8;
+}
+
+.frame-trajectory-layer__node-hit,
+.frame-trajectory-layer__handle-hit {
+	pointer-events: auto;
+	fill: rgba(0, 0, 0, 0.001);
+	stroke: none;
+}
+
+.frame-trajectory-layer__node-hit {
+	cursor: move;
+}
+
+.frame-trajectory-layer__handle-hit {
+	cursor: grab;
+}
+
+.frame-trajectory-layer__node,
+.frame-trajectory-layer__handle {
+	pointer-events: auto;
+	stroke: rgba(9, 16, 25, 0.86);
+	stroke-width: 2px;
+	cursor: move;
+	vector-effect: non-scaling-stroke;
+	paint-order: stroke fill;
+}
+
+.frame-trajectory-layer__node {
+	fill: rgba(255, 121, 88, 0.78);
+}
+
+.frame-trajectory-layer__node--selected {
+	fill: rgba(255, 151, 112, 0.92);
+}
+
+.frame-trajectory-layer__node--active {
+	fill: rgba(255, 225, 190, 0.98);
+}
+
+.frame-trajectory-layer__handle {
+	fill: rgba(255, 235, 220, 0.96);
+	cursor: grab;
+	filter: drop-shadow(0 0 1px rgba(10, 18, 28, 0.96))
+		drop-shadow(0 0 6px rgba(0, 0, 0, 0.26));
+}
+
+.frame-trajectory-layer__handle--in {
+	fill: rgba(192, 239, 255, 0.98);
+}
+
+.frame-trajectory-layer__handle--out {
+	fill: rgba(255, 236, 210, 0.98);
+}
+
+.frame-trajectory-layer__handle--ghost {
+	fill-opacity: 0.55;
+	stroke: rgba(255, 255, 255, 0.8);
+	stroke-dasharray: 4 3;
+}
+
+.frame-trajectory-layer__handle-contrast,
+.frame-trajectory-layer__handle-core {
+	pointer-events: none;
+	vector-effect: non-scaling-stroke;
+}
+
+.frame-trajectory-layer__handle-contrast {
+	fill: none;
+	stroke: rgba(7, 14, 22, 0.78);
+	stroke-width: 5px;
+	filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.22));
+}
+
+.frame-trajectory-layer__handle-contrast--in {
+	stroke: rgba(8, 22, 34, 0.8);
+}
+
+.frame-trajectory-layer__handle-contrast--out {
+	stroke: rgba(23, 15, 8, 0.8);
+}
+
+.frame-trajectory-layer__handle-contrast--ghost {
+	opacity: 0.52;
+	stroke-dasharray: 8 6;
+}
+
+.frame-trajectory-layer__handle-core {
+	stroke: rgba(255, 255, 255, 0.92);
+	stroke-width: 1.5px;
+	filter: drop-shadow(0 0 1px rgba(8, 15, 24, 0.84));
+}
+
+.frame-trajectory-layer__handle-core--in {
+	fill: rgba(46, 118, 154, 0.98);
+}
+
+.frame-trajectory-layer__handle-core--out {
+	fill: rgba(163, 92, 34, 0.98);
+}
+
+.frame-trajectory-layer__handle-core--ghost {
+	opacity: 0.68;
+}
+
+.frame-item {
+	position: absolute;
+	overflow: visible;
+	pointer-events: none;
+}
+
+.frame-item--selected {
+	z-index: 5;
+}
+
+.frame-item--active {
+	z-index: 6;
+}
+
+.frame-item__edge {
+	position: absolute;
+	z-index: 2;
+	appearance: none;
+	border: 0;
+	background: transparent;
+	padding: 0;
+	pointer-events: auto;
+	cursor: move;
+}
+
+.frame-item__edge--top {
+	top: calc(var(--frame-hit-area) * -0.5);
+	left: 0;
+	right: 0;
+	height: var(--frame-hit-area);
+}
+
+.frame-item__edge--right {
+	top: 0;
+	right: calc(var(--frame-hit-area) * -0.5);
+	bottom: 0;
+	width: var(--frame-hit-area);
+}
+
+.frame-item__edge--bottom {
+	right: 0;
+	bottom: calc(var(--frame-hit-area) * -0.5);
+	left: 0;
+	height: var(--frame-hit-area);
+}
+
+.frame-item__edge--left {
+	top: 0;
+	bottom: 0;
+	left: calc(var(--frame-hit-area) * -0.5);
+	width: var(--frame-hit-area);
+}
+
+.frame-item__resize-handle {
+	position: absolute;
+	z-index: 4;
+	width: 18px;
+	height: 18px;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	opacity: 0;
+	pointer-events: none;
+}
+
+.frame-item__resize-handle::before {
+	content: "";
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: 8px;
+	height: 8px;
+	border: 1px solid rgba(255, 255, 255, 0.96);
+	background: rgba(255, 103, 77, 0.96);
+	box-shadow: 0 0 0 1px rgba(8, 17, 29, 0.68);
+	transform: translate(-50%, -50%);
+}
+
+.frame-item--active .frame-item__resize-handle {
+	opacity: 1;
+	pointer-events: auto;
+}
+
+.frame-item[data-anchor-handle="top-left"] .frame-item__resize-handle--top-left,
+.frame-item[data-anchor-handle="top"] .frame-item__resize-handle--top,
+.frame-item[data-anchor-handle="top-right"]
+	.frame-item__resize-handle--top-right,
+.frame-item[data-anchor-handle="right"] .frame-item__resize-handle--right,
+.frame-item[data-anchor-handle="bottom-right"]
+	.frame-item__resize-handle--bottom-right,
+.frame-item[data-anchor-handle="bottom"] .frame-item__resize-handle--bottom,
+.frame-item[data-anchor-handle="bottom-left"]
+	.frame-item__resize-handle--bottom-left,
+.frame-item[data-anchor-handle="left"] .frame-item__resize-handle--left {
+	opacity: 0;
+	pointer-events: none;
+}
+
+.frame-item__resize-handle--top-left {
+	top: -9px;
+	left: -9px;
+	cursor: nwse-resize;
+}
+
+.frame-item__resize-handle--top {
+	top: -9px;
+	left: 50%;
+	transform: translateX(-50%);
+	cursor: ns-resize;
+}
+
+.frame-item__resize-handle--top-right {
+	top: -9px;
+	right: -9px;
+	cursor: nesw-resize;
+}
+
+.frame-item__resize-handle--right {
+	top: 50%;
+	right: -9px;
+	transform: translateY(-50%);
+	cursor: ew-resize;
+}
+
+.frame-item__resize-handle--bottom-right {
+	right: -9px;
+	bottom: -9px;
+	cursor: nwse-resize;
+}
+
+.frame-item__resize-handle--bottom {
+	bottom: -9px;
+	left: 50%;
+	transform: translateX(-50%);
+	cursor: ns-resize;
+}
+
+.frame-item__resize-handle--bottom-left {
+	bottom: -9px;
+	left: -9px;
+	cursor: nesw-resize;
+}
+
+.frame-item__resize-handle--left {
+	top: 50%;
+	left: -9px;
+	transform: translateY(-50%);
+	cursor: ew-resize;
+}
+
+.frame-item__rotation-zone {
+	position: absolute;
+	z-index: 5;
+	width: 26px;
+	height: 26px;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	opacity: 0;
+	pointer-events: none;
+	cursor: grab;
+}
+
+.frame-item__rotation-zone--top-left {
+	top: -28px;
+	left: -28px;
+}
+
+.frame-item__rotation-zone--top {
+	top: -28px;
+	left: 22px;
+	right: 22px;
+	width: auto;
+	height: 22px;
+}
+
+.frame-item__rotation-zone--top-right {
+	top: -28px;
+	right: -28px;
+}
+
+.frame-item__rotation-zone--right {
+	top: 22px;
+	right: -28px;
+	bottom: 22px;
+	width: 22px;
+	height: auto;
+}
+
+.frame-item__rotation-zone--bottom-right {
+	right: -28px;
+	bottom: -28px;
+}
+
+.frame-item__rotation-zone--bottom {
+	right: 22px;
+	bottom: -28px;
+	left: 22px;
+	width: auto;
+	height: 22px;
+}
+
+.frame-item__rotation-zone--bottom-left {
+	bottom: -28px;
+	left: -28px;
+}
+
+.frame-item__rotation-zone--left {
+	top: 22px;
+	bottom: 22px;
+	left: -28px;
+	width: 22px;
+	height: auto;
+}
+
+.frame-item--active .frame-item__rotation-zone {
+	opacity: 1;
+	pointer-events: auto;
+}
+
+.frame-item__anchor {
+	position: absolute;
+	z-index: 6;
+	width: 18px;
+	height: 18px;
+	padding: 0;
+	border: 0;
+	border-radius: 50%;
+	background: transparent;
+	opacity: 0;
+	transform: translate(-50%, -50%);
+	pointer-events: none;
+	cursor: grab;
+}
+
+.frame-item__anchor::before {
+	content: "";
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: 10px;
+	height: 10px;
+	border: 2px solid rgba(255, 245, 240, 0.98);
+	border-radius: 50%;
+	background: rgba(8, 17, 29, 0.92);
+	box-shadow: 0 0 0 1px rgba(255, 103, 77, 0.82);
+	transform: translate(-50%, -50%);
+}
+
+.frame-item--active .frame-item__anchor {
+	opacity: 1;
+	pointer-events: auto;
+}
+
+.frame-item__anchor:active {
+	cursor: grabbing;
+}
+
+.frame-item__label {
+	position: absolute;
+	top: -1.7rem;
+	left: 0;
+	z-index: 7;
+	display: inline-flex;
+	align-items: center;
+	gap: 0.3rem;
+	padding: 0.18rem 0.24rem 0.18rem 0.45rem;
+	border-radius: 999px;
+	background: rgba(255, 87, 72, 0.18);
+	color: #ffd8d1;
+	font:
+		600 0.68rem / 1 "Consolas",
+		"Andale Mono",
+		monospace;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+	white-space: nowrap;
+	opacity: 0;
+	pointer-events: auto;
+}
+
+.frame-item--selected .frame-item__label {
+	opacity: 1;
+}
+
+.frame-item__label-text {
+	display: inline-block;
+}
+
+.frame-item__label-input {
+	min-width: 4.8rem;
+	max-width: 11rem;
+	padding: 0;
+	border: none;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	letter-spacing: inherit;
+	text-transform: none;
+}
+
+.frame-item__label-input:focus {
+	outline: none;
+}
+
+.frame-item__label-scale {
+	display: inline-block;
+	opacity: 0.88;
+}
+
+.frame-item__label-delete {
+	display: inline-grid;
+	place-items: center;
+	width: 1rem;
+	height: 1rem;
+	padding: 0;
+	border: none;
+	border-radius: 999px;
+	background: rgba(255, 87, 72, 0.28);
+	color: inherit;
+	cursor: pointer;
+	pointer-events: auto;
+	flex: 0 0 auto;
+}
+
+.frame-item__label-delete:hover,
+.frame-item__label-delete:focus-visible {
+	background: rgba(255, 87, 72, 0.4);
+}
+
+.frame-item__label-delete:active {
+	background: rgba(255, 87, 72, 0.5);
+}

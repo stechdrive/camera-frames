@@ -6,21 +6,33 @@ function escapeRegExp(value) {
 	return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function getCssRuleBody(css, selector) {
-	const match = css.match(
-		new RegExp(`${escapeRegExp(selector)}\\s*\\{(?<body>[^}]*)\\}`, "m"),
-	);
-	assert.ok(match?.groups?.body, `missing CSS rule: ${selector}`);
-	return match.groups.body;
+function getCssRuleBodies(css, selector) {
+	const bodies = [];
+	const rulePattern = /(?<selectors>[^{}]+)\{(?<body>[^{}]*)\}/gm;
+	for (const match of css.matchAll(rulePattern)) {
+		const selectors =
+			match.groups?.selectors
+				?.split(",")
+				.map((entry) => entry.trim())
+				.filter(Boolean) ?? [];
+		if (selectors.includes(selector) && match.groups?.body) {
+			bodies.push(match.groups.body);
+		}
+	}
+	assert.ok(bodies.length > 0, `missing CSS rule: ${selector}`);
+	return bodies;
 }
 
 function getCssDeclaration(css, selector, property) {
-	const body = getCssRuleBody(css, selector);
-	const match = body.match(
-		new RegExp(`${escapeRegExp(property)}\\s*:\\s*(?<value>[^;]+);`),
-	);
-	assert.ok(match?.groups?.value, `missing ${property} in ${selector}`);
-	return match.groups.value.trim();
+	for (const body of getCssRuleBodies(css, selector)) {
+		const match = body.match(
+			new RegExp(`${escapeRegExp(property)}\\s*:\\s*(?<value>[^;]+);`),
+		);
+		if (match?.groups?.value) {
+			return match.groups.value.trim();
+		}
+	}
+	assert.fail(`missing ${property} in ${selector}`);
 }
 
 function getCssNumberDeclaration(css, selector, property) {
@@ -28,6 +40,17 @@ function getCssNumberDeclaration(css, selector, property) {
 	const parsed = Number.parseFloat(value);
 	assert.ok(Number.isFinite(parsed), `${selector} ${property} is not numeric`);
 	return parsed;
+}
+
+function readCssWithImports(url, seen = new Set()) {
+	const key = url.href;
+	if (seen.has(key)) return "";
+	seen.add(key);
+	const css = readFileSync(url, "utf8");
+	return css.replace(/^@import\s+"(?<path>[^"]+)";\s*$/gm, (...args) => {
+		const groups = args.at(-1);
+		return readCssWithImports(new URL(groups.path, url), seen);
+	});
 }
 
 {
@@ -95,7 +118,7 @@ function getCssNumberDeclaration(css, selector, property) {
 }
 
 {
-	const css = readFileSync(new URL("../app.css", import.meta.url), "utf8");
+	const css = readCssWithImports(new URL("../app.css", import.meta.url));
 	const backReferenceZ = getCssNumberDeclaration(
 		css,
 		".reference-image-layer--back",
