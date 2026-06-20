@@ -3,6 +3,10 @@ import {
 	DEFAULT_CAMERA_FAR,
 	DEFAULT_CAMERA_NEAR,
 } from "../../constants.js";
+import {
+	clampShotCameraLensShiftFactor,
+	clampShotCameraLensShiftPercent,
+} from "../../engine/camera-lens.js";
 
 export function clampClipNear(value) {
 	return Math.max(DEFAULT_CAMERA_NEAR, Number(value) || DEFAULT_CAMERA_NEAR);
@@ -90,6 +94,31 @@ export function createCameraLensClippingController({
 		updateUi();
 	}
 
+	function setShotCameraLensShiftAxis(axis, nextPercent) {
+		const axisKey = axis === "y" ? "shiftY" : "shiftX";
+		const historyAxis = axis === "y" ? "y" : "x";
+		runHistoryAction?.(`camera.lens-shift.${historyAxis}`, () => {
+			updateActiveShotCameraDocument((documentState) => {
+				documentState.lens = {
+					...documentState.lens,
+					[axisKey]: clampShotCameraLensShiftFactor(
+						clampShotCameraLensShiftPercent(nextPercent) / 100,
+					),
+				};
+				return documentState;
+			});
+		});
+		updateUi();
+	}
+
+	function setShotCameraLensShiftXPercent(nextPercent) {
+		setShotCameraLensShiftAxis("x", nextPercent);
+	}
+
+	function setShotCameraLensShiftYPercent(nextPercent) {
+		setShotCameraLensShiftAxis("y", nextPercent);
+	}
+
 	function setViewportBaseFovX(nextValue) {
 		runHistoryAction?.("viewport.lens", () => {
 			state.viewportBaseFovX = Number(nextValue);
@@ -144,6 +173,9 @@ export function createCameraLensClippingController({
 		syncShotCameraEntryFromDocument,
 		syncActiveShotCameraFromDocument,
 		setBaseFovX,
+		setShotCameraLensShiftAxis,
+		setShotCameraLensShiftXPercent,
+		setShotCameraLensShiftYPercent,
 		setViewportBaseFovX,
 		setShotCameraClippingMode,
 		setShotCameraNear,

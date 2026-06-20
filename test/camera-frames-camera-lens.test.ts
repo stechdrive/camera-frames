@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import {
+	clampShotCameraLensShiftFactor,
+	clampShotCameraLensShiftPercent,
 	clampStandardFrameHorizontalEquivalentMm,
 	getBaseHorizontalFovDegreesForStandardFrameHorizontalEquivalentMm,
 	getStandardFrameCropFactor,
@@ -27,5 +29,13 @@ assert.equal(clampStandardFrameHorizontalEquivalentMm(10), 14);
 assert.equal(clampStandardFrameHorizontalEquivalentMm(240), 200);
 assert.equal(snapStandardFrameHorizontalEquivalentMm(74), 75);
 assert.equal(snapStandardFrameHorizontalEquivalentMm(72), 72);
+assert.equal(clampShotCameraLensShiftFactor(Number.NaN), 0);
+assert.equal(clampShotCameraLensShiftFactor(-2), -1);
+assert.equal(clampShotCameraLensShiftFactor(0.125), 0.125);
+assert.equal(clampShotCameraLensShiftFactor(2), 1);
+assert.equal(clampShotCameraLensShiftPercent(Number.NaN), 0);
+assert.equal(clampShotCameraLensShiftPercent(-240), -100);
+assert.equal(clampShotCameraLensShiftPercent(12.5), 12.5);
+assert.equal(clampShotCameraLensShiftPercent(240), 100);
 
 console.log("✅ CAMERA_FRAMES camera lens tests passed!");

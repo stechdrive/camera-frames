@@ -16,6 +16,8 @@ const api = createControllerApi({
 	cameraController: {
 		setMode: () => {},
 		setBaseFovX: () => {},
+		setShotCameraLensShiftXPercent: () => "shift-x",
+		setShotCameraLensShiftYPercent: () => "shift-y",
 		setViewportBaseFovX: () => {},
 		setShotCameraClippingMode: () => {},
 		setShotCameraNear: () => {},
@@ -255,6 +257,8 @@ assert.equal(startedNewProject, true);
 assert.equal(api.copyViewportToShotCamera(), "copy-v2s");
 assert.equal(api.copyShotCameraToViewport(), "copy-s2v");
 assert.equal(api.resetActiveView(), "reset");
+assert.equal(api.setShotCameraLensShiftXPercent(12), "shift-x");
+assert.equal(api.setShotCameraLensShiftYPercent(-8), "shift-y");
 assert.equal(api.downloadOutput(), "download-output");
 assert.equal(api.setCompositionGuideEnabled(true), "guide-enabled");
 assert.equal(api.setCompositionGuideScope("all-frames"), "guide-scope");

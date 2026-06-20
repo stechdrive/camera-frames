@@ -1,4 +1,7 @@
-import { DEFAULT_SHOT_CAMERA_BASE_FOVX } from "../engine/camera-lens.js";
+import {
+	DEFAULT_SHOT_CAMERA_BASE_FOVX,
+	clampShotCameraLensShiftFactor,
+} from "../engine/camera-lens.js";
 import { sanitizeCompositionGuideState } from "../engine/composition-guides.js";
 import { cloneFrameTrajectoryNodesByFrameId } from "../engine/frame-trajectory.js";
 import {
@@ -210,6 +213,8 @@ export function sanitizeShotCameraDocument(
 			baseFovX: Number(
 				normalized.lens?.baseFovX ?? DEFAULT_SHOT_CAMERA_BASE_FOVX,
 			),
+			shiftX: clampShotCameraLensShiftFactor(normalized.lens?.shiftX),
+			shiftY: clampShotCameraLensShiftFactor(normalized.lens?.shiftY),
 		},
 		clipping: {
 			mode: normalized.clipping?.mode === "manual" ? "manual" : "auto",

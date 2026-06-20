@@ -284,7 +284,7 @@ const projectSnapshot = {
 				quaternion: { x: 0, y: 0, z: 0, w: 1 },
 				up: { x: 0, y: 1, z: 0 },
 			},
-			lens: { baseFovX: 48 },
+			lens: { baseFovX: 48, shiftX: 0.15, shiftY: -0.08 },
 			clipping: { mode: "manual", near: 0.2, far: 200 },
 			outputFrame: {
 				widthScale: 1.1,
@@ -419,6 +419,11 @@ assert.equal(result.project.workspace.activeShotCameraId, "shot-camera-1");
 assert.equal(result.project.workspace.viewport.baseFovX, 55);
 assert.equal(result.project.shotCameras.length, 1);
 assert.equal(result.project.shotCameras[0].pose.position.x, 4);
+assert.deepEqual(result.project.shotCameras[0].lens, {
+	baseFovX: 48,
+	shiftX: 0.15,
+	shiftY: -0.08,
+});
 assert.equal(result.project.scene.assets.length, 2);
 assert.equal(result.project.scene.assets[0].contentTransform.position.x, 0.25);
 assert.equal(result.project.scene.assets[0].contentTransform.scale.x, 1.2);

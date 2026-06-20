@@ -8,8 +8,10 @@ related-files:
   - src/controllers/camera/
   - src/app/camera-controller-bindings.js
   - src/app/camera-pose-commands.js
+  - src/controllers/projection-controller.js
   - src/engine/camera-pose.js
   - src/engine/camera-lens.js
+  - src/engine/projection.js
   - src/engine/clip-range.js
   - src/ui/workbench-camera-export-sections.js
   - src/ui/workbench-browser-sections.js
@@ -29,7 +31,7 @@ screenshots:
 shortcuts:
   - key: Escape
     action: レンズ / ロール調整モードを終了
-last-updated: 2026-04-24
+last-updated: 2026-06-20
 ---
 
 # ショットカメラ
@@ -85,7 +87,20 @@ CAMERA_FRAMES の **ショットカメラ** は、構図ごとに保存するカ
 
 内部では水平 FOV（度）で持っており、Equivalent MM は表示用の換算値です（互いに変換されます）。
 
-### 3.2 位置・回転
+### 3.2 レンズシフト
+
+カメラを回転せず、投影中心だけを X / Y 方向にずらします。建築写真のシフトレンズと同じ用途で、パースを保ったまま上下左右の入り方を調整できます。
+
+| フィールド | 単位 | 意味 |
+|---|---|---|
+| X | % | 正の値で右側が広く入る |
+| Y | % | 正の値で上側が広く入る |
+
+UI の単位は `%` です。内部保存値は factor で、`10%` は `0.1` として `.ssproj` に保存されます。基準は標準 FRAME の幅 / 高さです。
+
+レンズシフトは実際の Camera View / 書き出し投影に反映されますが、カメラの位置・回転そのものは変わりません。Yaw / Pitch / Roll の編集やロール軸は、シフト前の用紙レイアウトを基準に扱われます。
+
+### 3.3 位置・回転
 
 カメラの姿勢は位置と回転（クォータニオン）で構成されます。
 
@@ -109,7 +124,7 @@ CAMERA_FRAMES の **ショットカメラ** は、構図ごとに保存するカ
 - **← Copy Shot to ビューポート** — アクティブなショットカメラの視点をビューポートにコピー
 - **↺ Reset Active View** — 視点をデフォルトに戻す
 
-### 3.3 クリッピング（Near / Far）
+### 3.4 クリッピング（Near / Far）
 
 | フィールド | 初期値 | 制約 |
 |---|---|---|
@@ -119,7 +134,7 @@ CAMERA_FRAMES の **ショットカメラ** は、構図ごとに保存するカ
 
 `Auto Clipping` が ON の時、シーンの深度範囲から Near / Far が自動計算されます（Near は最近点 × 0.05 などの補正、Far は最遠点 × 1.15 の余白）。
 
-### 3.4 ロールロック
+### 3.5 ロールロック
 
 回転行の右端にあるロックアイコン。
 
@@ -128,7 +143,7 @@ CAMERA_FRAMES の **ショットカメラ** は、構図ごとに保存するカ
 
 ショット構図を整える場面では ON が便利です。
 
-### 3.5 ローカル移動グリッド
+### 3.6 ローカル移動グリッド
 
 カメラ自身の軸を基準に、細かく視点をオフセットするボタン群。
 

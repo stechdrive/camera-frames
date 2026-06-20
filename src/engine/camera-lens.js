@@ -6,6 +6,12 @@ export const MIN_STANDARD_FRAME_HORIZONTAL_EQUIVALENT_MM = 14;
 export const MAX_STANDARD_FRAME_HORIZONTAL_EQUIVALENT_MM = 200;
 export const STANDARD_FRAME_HORIZONTAL_EQUIVALENT_MM_SNAP_POINTS =
 	Object.freeze([14, 18, 21, 24, 28, 35, 50, 70, 75, 85, 100, 135, 200]);
+export const MIN_SHOT_CAMERA_LENS_SHIFT_PCT = -100;
+export const MAX_SHOT_CAMERA_LENS_SHIFT_PCT = 100;
+
+function clamp(value, min, max) {
+	return Math.min(max, Math.max(min, value));
+}
 
 export function getStandardFrameCropFactor() {
 	return BASE_RENDER_BOX.width / BASE_FRAME.width;
@@ -35,9 +41,36 @@ export function clampStandardFrameHorizontalEquivalentMm(value) {
 		return MIN_STANDARD_FRAME_HORIZONTAL_EQUIVALENT_MM;
 	}
 
-	return Math.min(
+	return clamp(
+		nextValue,
+		MIN_STANDARD_FRAME_HORIZONTAL_EQUIVALENT_MM,
 		MAX_STANDARD_FRAME_HORIZONTAL_EQUIVALENT_MM,
-		Math.max(MIN_STANDARD_FRAME_HORIZONTAL_EQUIVALENT_MM, nextValue),
+	);
+}
+
+export function clampShotCameraLensShiftFactor(value) {
+	const nextValue = Number(value);
+	if (!Number.isFinite(nextValue)) {
+		return 0;
+	}
+
+	return clamp(
+		nextValue,
+		MIN_SHOT_CAMERA_LENS_SHIFT_PCT / 100,
+		MAX_SHOT_CAMERA_LENS_SHIFT_PCT / 100,
+	);
+}
+
+export function clampShotCameraLensShiftPercent(value) {
+	const nextValue = Number(value);
+	if (!Number.isFinite(nextValue)) {
+		return 0;
+	}
+
+	return clamp(
+		nextValue,
+		MIN_SHOT_CAMERA_LENS_SHIFT_PCT,
+		MAX_SHOT_CAMERA_LENS_SHIFT_PCT,
 	);
 }
 

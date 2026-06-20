@@ -197,9 +197,16 @@ function createCameraControllerHarness({
 
 {
 	const { controller, store, calls } = createCameraControllerHarness();
+	controller.setShotCameraLensShiftXPercent(12.5);
+	controller.setShotCameraLensShiftYPercent(-7.5);
 	controller.setCompositionGuideEnabled(true);
 	controller.setCompositionGuideScope(COMPOSITION_GUIDE_SCOPE_ALL_FRAMES);
 	controller.setCompositionGuidePattern(COMPOSITION_GUIDE_PATTERN_GRID);
+	assert.deepEqual(store.workspace.shotCameras.value[0].lens, {
+		baseFovX: 60,
+		shiftX: 0.125,
+		shiftY: -0.075,
+	});
 	assert.deepEqual(store.workspace.shotCameras.value[0].compositionGuide, {
 		enabled: true,
 		scope: COMPOSITION_GUIDE_SCOPE_ALL_FRAMES,

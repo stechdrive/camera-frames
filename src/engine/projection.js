@@ -210,6 +210,42 @@ export function getTargetFrustumExtents({
 	return withFrustumSize({ left, right, top, bottom });
 }
 
+export function applyLensShiftToFrustumExtents({
+	frustum,
+	baseFrustum,
+	shiftX = 0,
+	shiftY = 0,
+}) {
+	const resolvedFrustum = frustum ?? {
+		left: 0,
+		right: 0,
+		top: 0,
+		bottom: 0,
+		width: 0,
+		height: 0,
+	};
+	const resolvedBaseFrustum = baseFrustum ?? resolvedFrustum;
+	const normalizedShiftX = Number(shiftX);
+	const normalizedShiftY = Number(shiftY);
+	const baseWidth = Number.isFinite(resolvedBaseFrustum.width)
+		? resolvedBaseFrustum.width
+		: (resolvedBaseFrustum.right ?? 0) - (resolvedBaseFrustum.left ?? 0);
+	const baseHeight = Number.isFinite(resolvedBaseFrustum.height)
+		? resolvedBaseFrustum.height
+		: (resolvedBaseFrustum.top ?? 0) - (resolvedBaseFrustum.bottom ?? 0);
+	const offsetX =
+		baseWidth * (Number.isFinite(normalizedShiftX) ? normalizedShiftX : 0);
+	const offsetY =
+		baseHeight * (Number.isFinite(normalizedShiftY) ? normalizedShiftY : 0);
+
+	return withFrustumSize({
+		left: resolvedFrustum.left + offsetX,
+		right: resolvedFrustum.right + offsetX,
+		top: resolvedFrustum.top + offsetY,
+		bottom: resolvedFrustum.bottom + offsetY,
+	});
+}
+
 export function getFrustumCenterRayDirection({ near, frustum }) {
 	const depth = Math.max(Math.abs(Number(near)) || 0, 1e-6);
 	const centerX = ((frustum?.left ?? 0) + (frustum?.right ?? 0)) * 0.5;

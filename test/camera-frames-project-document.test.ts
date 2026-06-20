@@ -47,6 +47,8 @@ const normalized = normalizeProjectDocument({
 assert.equal(normalized.version, PROJECT_VERSION);
 assert.equal(normalized.scene.assets[0].label, "Hero Model");
 assert.equal(normalized.workspace.viewport.projectionMode, "orthographic");
+assert.equal(normalized.shotCameras[0].lens.shiftX, 0);
+assert.equal(normalized.shotCameras[0].lens.shiftY, 0);
 assert.deepEqual(normalized.workspace.viewport.orthographic, {
 	viewId: "negY",
 	size: 14,
@@ -63,6 +65,11 @@ const normalizedWithCompositionGuide = normalizeProjectDocument({
 		{
 			id: "shot-camera-1",
 			name: "Camera 1",
+			lens: {
+				baseFovX: 55,
+				shiftX: 0.125,
+				shiftY: -0.25,
+			},
 			compositionGuide: {
 				enabled: true,
 				scope: COMPOSITION_GUIDE_SCOPE_ALL_FRAMES,
@@ -72,6 +79,11 @@ const normalizedWithCompositionGuide = normalizeProjectDocument({
 		{
 			id: "shot-camera-2",
 			name: "Camera 2",
+			lens: {
+				baseFovX: 48,
+				shiftX: 4,
+				shiftY: Number.NaN,
+			},
 			compositionGuide: {
 				enabled: true,
 				scope: "bad-scope",
@@ -96,5 +108,15 @@ assert.deepEqual(
 		pattern: COMPOSITION_GUIDE_PATTERN_THIRDS,
 	},
 );
+assert.deepEqual(normalizedWithCompositionGuide.shotCameras[0].lens, {
+	baseFovX: 55,
+	shiftX: 0.125,
+	shiftY: -0.25,
+});
+assert.deepEqual(normalizedWithCompositionGuide.shotCameras[1].lens, {
+	baseFovX: 48,
+	shiftX: 1,
+	shiftY: 0,
+});
 
 console.log("✅ CAMERA_FRAMES project document tests passed!");

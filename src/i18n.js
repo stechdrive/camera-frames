@@ -55,6 +55,7 @@ const MESSAGES = {
 			shotCameraName: "カメラ名",
 			shotCameraFov: "標準FRAME水平FOV",
 			shotCameraEquivalentMm: "フルサイズ焦点距離",
+			shotCameraLensShift: "レンズシフト (%)",
 			viewportFov: "ビューポート水平FOV",
 			viewportEquivalentMm: "ビューポート フルサイズ焦点距離",
 			shotCameraClipMode: "クリップ範囲",
@@ -382,6 +383,8 @@ const MESSAGES = {
 			unpinQuickSection: "この項目を右レールのショートカットから外します。",
 			shotCameraEquivalentMmField:
 				"フルサイズ換算の焦点距離です。数値を変えるとアクティブなショットカメラの画角が変わります。",
+			shotCameraLensShiftField:
+				"カメラを回転せずに投影中心をずらします。+X は右側、+Y は上側を広く入れます。",
 			outputFrameAnchorField:
 				"用紙サイズを変える時に、どの基準点を固定してフレームを広げるかを選びます。",
 			compositionGuideField:
@@ -970,6 +973,7 @@ const MESSAGES = {
 			shotCameraName: "Camera Name",
 			shotCameraFov: "Standard FRAME H-FOV",
 			shotCameraEquivalentMm: "Full-Frame Focal Length",
+			shotCameraLensShift: "Lens Shift (%)",
 			viewportFov: "Viewport H-FOV",
 			viewportEquivalentMm: "Viewport Full-Frame Focal Length",
 			shotCameraClipMode: "Clip Range",
@@ -1302,6 +1306,8 @@ const MESSAGES = {
 			unpinQuickSection: "Remove this section from the right rail shortcuts.",
 			shotCameraEquivalentMmField:
 				"Full-frame-equivalent focal length. Changing it updates the active shot camera lens angle.",
+			shotCameraLensShiftField:
+				"Moves the projection center without rotating the camera. +X includes more of the right side, and +Y includes more of the upper side.",
 			outputFrameAnchorField:
 				"Choose which point stays fixed when the paper size changes.",
 			compositionGuideField:
