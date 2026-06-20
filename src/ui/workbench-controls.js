@@ -44,10 +44,59 @@ export const DEFAULT_NUMERIC_SCRUB_MODIFIERS = Object.freeze({
 	altShift: 0.025,
 });
 const NUMERIC_SCRUB_EDGE_MARGIN_PX = 12;
-const NUMERIC_SCRUB_EDGE_SLOW_ZONE_PX = 84;
-const NUMERIC_SCRUB_EDGE_SLOW_MIN_FACTOR = 0.55;
-const NUMERIC_SCRUB_EDGE_HOLD_DELAY_MS = 90;
-const NUMERIC_SCRUB_EDGE_HOLD_RATE_PX_PER_FRAME = 1.0;
+const NUMERIC_SCRUB_EDGE_HOLD_MIN_VELOCITY_PX_PER_MS = 0.001;
+const NUMERIC_SCRUB_EDGE_HOLD_MAX_VELOCITY_PX_PER_MS = 2.4;
+
+function clampNumericScrubEdgeHoldVelocityPxPerMs(value) {
+	const numericValue = Number(value);
+	if (!Number.isFinite(numericValue)) {
+		return 0;
+	}
+	const direction = Math.sign(numericValue);
+	const magnitude = Math.min(
+		Math.abs(numericValue),
+		NUMERIC_SCRUB_EDGE_HOLD_MAX_VELOCITY_PX_PER_MS,
+	);
+	return magnitude >= NUMERIC_SCRUB_EDGE_HOLD_MIN_VELOCITY_PX_PER_MS
+		? direction * magnitude
+		: 0;
+}
+
+export function getNumericScrubPointerVelocityPxPerMs({
+	deltaPixels,
+	elapsedMs,
+}) {
+	const elapsed = Math.max(1, Number(elapsedMs) || 0);
+	return clampNumericScrubEdgeHoldVelocityPxPerMs(
+		Number(deltaPixels) / elapsed,
+	);
+}
+
+export function getNumericScrubEdgeHoldVelocityAfterPointerMove({
+	currentVelocityPxPerMs,
+	movementVelocityPxPerMs,
+}) {
+	const currentVelocity = clampNumericScrubEdgeHoldVelocityPxPerMs(
+		currentVelocityPxPerMs,
+	);
+	const movementVelocity = clampNumericScrubEdgeHoldVelocityPxPerMs(
+		movementVelocityPxPerMs,
+	);
+	if (!currentVelocity) {
+		return movementVelocity;
+	}
+	if (!movementVelocity) {
+		return currentVelocity;
+	}
+	if (Math.sign(currentVelocity) === Math.sign(movementVelocity)) {
+		return movementVelocity;
+	}
+
+	const nextVelocity = currentVelocity + movementVelocity;
+	return Math.sign(nextVelocity) === Math.sign(currentVelocity)
+		? clampNumericScrubEdgeHoldVelocityPxPerMs(nextVelocity)
+		: 0;
+}
 
 export function NumericUnitLabel({ value, title = "", className = "" }) {
 	return html`
@@ -310,34 +359,13 @@ export function NumericDraftInput({
 		return Number.isFinite(width) && width > 0 ? width : null;
 	}
 
-	function getEdgeApproachFactor(currentClientX, viewportWidth, deltaPixels) {
-		if (viewportWidth === null || Math.abs(deltaPixels) <= 0) {
-			return 1;
+	function getPointerEventTimestampMs(event) {
+		const timestamp = Number(event?.timeStamp);
+		if (Number.isFinite(timestamp) && timestamp > 0) {
+			return timestamp;
 		}
-
-		let distanceToEdge = null;
-		if (deltaPixels < 0) {
-			distanceToEdge = currentClientX;
-		} else if (deltaPixels > 0) {
-			distanceToEdge = viewportWidth - currentClientX;
-		}
-
-		if (
-			distanceToEdge === null ||
-			distanceToEdge >= NUMERIC_SCRUB_EDGE_SLOW_ZONE_PX
-		) {
-			return 1;
-		}
-
-		const normalizedDistance = Math.max(
-			0,
-			Math.min(1, distanceToEdge / NUMERIC_SCRUB_EDGE_SLOW_ZONE_PX),
-		);
-		const easedDistance = normalizedDistance * normalizedDistance;
-		return (
-			NUMERIC_SCRUB_EDGE_SLOW_MIN_FACTOR +
-			(1 - NUMERIC_SCRUB_EDGE_SLOW_MIN_FACTOR) * easedDistance
-		);
+		const now = globalThis.performance?.now?.();
+		return Number.isFinite(now) ? now : Date.now();
 	}
 
 	function finishScrub(mode = "commit") {
@@ -389,10 +417,11 @@ export function NumericDraftInput({
 			pointerId: event.pointerId,
 			handle,
 			lastClientX: event.clientX,
+			lastMoveTimestamp: getPointerEventTimestampMs(event),
 			appliedValue: startValue,
 			edgeHoldDirection: 0,
+			edgeHoldVelocityPxPerMs: 0,
 			edgeHoldMultiplier: 1,
-			edgeHoldEngagedAt: 0,
 			edgeHoldLastTimestamp: 0,
 			edgeHoldFrameId: 0,
 			onMove: null,
@@ -427,57 +456,59 @@ export function NumericDraftInput({
 				globalThis.cancelAnimationFrame(scrubState.edgeHoldFrameId);
 			}
 			scrubState.edgeHoldDirection = 0;
+			scrubState.edgeHoldVelocityPxPerMs = 0;
 			scrubState.edgeHoldFrameId = 0;
-			scrubState.edgeHoldEngagedAt = 0;
 			scrubState.edgeHoldLastTimestamp = 0;
 		};
 
 		const runEdgeHold = (timestamp) => {
 			if (
 				scrubStateRef.current !== scrubState ||
-				!scrubState.edgeHoldDirection
+				!scrubState.edgeHoldDirection ||
+				!scrubState.edgeHoldVelocityPxPerMs
 			) {
 				scrubState.edgeHoldFrameId = 0;
 				return;
-			}
-			if (!scrubState.edgeHoldEngagedAt) {
-				scrubState.edgeHoldEngagedAt = timestamp;
 			}
 			if (!scrubState.edgeHoldLastTimestamp) {
 				scrubState.edgeHoldLastTimestamp = timestamp;
 			}
 
-			const elapsedMs = timestamp - scrubState.edgeHoldLastTimestamp;
+			const elapsedMs = Math.max(
+				0,
+				timestamp - scrubState.edgeHoldLastTimestamp,
+			);
 			scrubState.edgeHoldLastTimestamp = timestamp;
-			if (
-				timestamp - scrubState.edgeHoldEngagedAt >=
-				NUMERIC_SCRUB_EDGE_HOLD_DELAY_MS
-			) {
-				const frameScale = elapsedMs / 16.6667;
-				const deltaPixels =
-					scrubState.edgeHoldDirection *
-					NUMERIC_SCRUB_EDGE_HOLD_RATE_PX_PER_FRAME *
-					frameScale;
-				applyNumericDelta(
-					deltaPixels * getStepValue() * scrubState.edgeHoldMultiplier,
-				);
-			}
+			const deltaPixels = scrubState.edgeHoldVelocityPxPerMs * elapsedMs;
+			applyNumericDelta(
+				deltaPixels * getStepValue() * scrubState.edgeHoldMultiplier,
+			);
 
 			scrubState.edgeHoldFrameId =
 				globalThis.requestAnimationFrame(runEdgeHold);
 		};
 
-		const ensureEdgeHold = (direction, multiplier) => {
-			if (
-				scrubState.edgeHoldDirection === direction &&
-				Math.abs(scrubState.edgeHoldMultiplier - multiplier) <= 1e-8 &&
-				scrubState.edgeHoldFrameId
-			) {
+		const ensureEdgeHold = (velocityPxPerMs, multiplier) => {
+			const velocity =
+				clampNumericScrubEdgeHoldVelocityPxPerMs(velocityPxPerMs);
+			if (!velocity) {
+				stopEdgeHold();
 				return;
 			}
-			stopEdgeHold();
+			const direction = Math.sign(velocity);
+			const isContinuing =
+				scrubState.edgeHoldDirection === direction &&
+				scrubState.edgeHoldFrameId;
+			if (scrubState.edgeHoldDirection && !isContinuing) {
+				stopEdgeHold();
+			}
 			scrubState.edgeHoldDirection = direction;
+			scrubState.edgeHoldVelocityPxPerMs = velocity;
 			scrubState.edgeHoldMultiplier = multiplier;
+			if (isContinuing) {
+				return;
+			}
+			scrubState.edgeHoldLastTimestamp = 0;
 			scrubState.edgeHoldFrameId =
 				globalThis.requestAnimationFrame(runEdgeHold);
 		};
@@ -490,31 +521,51 @@ export function NumericDraftInput({
 			moveEvent.preventDefault();
 			const currentClientX = moveEvent.clientX;
 			const deltaPixels = currentClientX - scrubState.lastClientX;
+			const timestamp = getPointerEventTimestampMs(moveEvent);
+			const elapsedMs = Math.max(1, timestamp - scrubState.lastMoveTimestamp);
 			const viewportWidth = getViewportClientWidth();
 			const hitLeftEdge = currentClientX <= NUMERIC_SCRUB_EDGE_MARGIN_PX;
 			const hitRightEdge =
 				viewportWidth !== null &&
 				currentClientX >= viewportWidth - NUMERIC_SCRUB_EDGE_MARGIN_PX;
+			const scrubMultiplier = getScrubMultiplier(moveEvent);
 
 			if (Math.abs(deltaPixels) <= 0) {
+				scrubState.lastMoveTimestamp = timestamp;
+				if (scrubState.edgeHoldDirection) {
+					scrubState.edgeHoldMultiplier = scrubMultiplier;
+				}
 				return;
 			}
 
-			const scrubMultiplier = getScrubMultiplier(moveEvent);
-			const approachFactor = getEdgeApproachFactor(
-				currentClientX,
-				viewportWidth,
+			const movementVelocityPxPerMs = getNumericScrubPointerVelocityPxPerMs({
 				deltaPixels,
-			);
+				elapsedMs,
+			});
+			const activeHoldDirection = scrubState.edgeHoldDirection;
+			const moveDirection = Math.sign(deltaPixels);
 			scrubState.lastClientX = currentClientX;
-			applyNumericDelta(
-				deltaPixels * getStepValue() * scrubMultiplier * approachFactor,
-			);
+			scrubState.lastMoveTimestamp = timestamp;
+
+			if (activeHoldDirection && moveDirection !== activeHoldDirection) {
+				const nextVelocity = getNumericScrubEdgeHoldVelocityAfterPointerMove({
+					currentVelocityPxPerMs: scrubState.edgeHoldVelocityPxPerMs,
+					movementVelocityPxPerMs,
+				});
+				if (nextVelocity && Math.sign(nextVelocity) === activeHoldDirection) {
+					ensureEdgeHold(nextVelocity, scrubMultiplier);
+				} else {
+					stopEdgeHold();
+				}
+				return;
+			}
+
+			applyNumericDelta(deltaPixels * getStepValue() * scrubMultiplier);
 
 			if (deltaPixels < 0 && hitLeftEdge) {
-				ensureEdgeHold(-1, scrubMultiplier * approachFactor);
+				ensureEdgeHold(movementVelocityPxPerMs, scrubMultiplier);
 			} else if (deltaPixels > 0 && hitRightEdge) {
-				ensureEdgeHold(1, scrubMultiplier * approachFactor);
+				ensureEdgeHold(movementVelocityPxPerMs, scrubMultiplier);
 			} else {
 				stopEdgeHold();
 			}

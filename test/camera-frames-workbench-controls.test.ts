@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { isDraftInputCompositionActive } from "../src/ui/draft-input-events.js";
 import { formatNumericDraftDisplayValue } from "../src/ui/numeric-draft-format.js";
+import {
+	getNumericScrubEdgeHoldVelocityAfterPointerMove,
+	getNumericScrubPointerVelocityPxPerMs,
+} from "../src/ui/workbench-controls.js";
 
 assert.equal(
 	formatNumericDraftDisplayValue(12.34567, {
@@ -68,5 +72,41 @@ assert.equal(
 
 assert.equal(isDraftInputCompositionActive({}, true), true);
 assert.equal(isDraftInputCompositionActive({}, false), false);
+
+function assertNearlyEqual(actual: number, expected: number, epsilon = 1e-9) {
+	assert.ok(
+		Math.abs(actual - expected) <= epsilon,
+		`expected ${actual} to be within ${epsilon} of ${expected}`,
+	);
+}
+
+assert.equal(
+	getNumericScrubPointerVelocityPxPerMs({
+		deltaPixels: 24,
+		elapsedMs: 16,
+	}),
+	1.5,
+);
+assert.equal(
+	getNumericScrubPointerVelocityPxPerMs({
+		deltaPixels: 240,
+		elapsedMs: 16,
+	}),
+	2.4,
+);
+assertNearlyEqual(
+	getNumericScrubEdgeHoldVelocityAfterPointerMove({
+		currentVelocityPxPerMs: 1.2,
+		movementVelocityPxPerMs: -0.35,
+	}),
+	0.85,
+);
+assert.equal(
+	getNumericScrubEdgeHoldVelocityAfterPointerMove({
+		currentVelocityPxPerMs: 0.2,
+		movementVelocityPxPerMs: -0.35,
+	}),
+	0,
+);
 
 console.log("✅ CAMERA_FRAMES workbench controls tests passed!");
