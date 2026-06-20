@@ -90,7 +90,7 @@ export const DEFAULT_SCENARIOS = [
 		id: "css-visual-baseline",
 		kind: "app-visual-flow",
 		description:
-			"Capture real app UI states used as the baseline before CSS refactors.",
+			"Capture desktop real app UI states used as the baseline before CSS refactors.",
 		project: "/.local/cf-test/cf-test.ssproj",
 		optional: true,
 		viewport: {
@@ -113,8 +113,124 @@ export const DEFAULT_SCENARIOS = [
 				capture: true,
 			},
 			{
+				id: "scene-tab",
+				click: { selector: ".workbench-tab", index: 0 },
+				capture: true,
+			},
+			{
+				id: "camera-tab",
+				click: { selector: ".workbench-tab", index: 1 },
+				capture: true,
+			},
+			{
+				id: "reference-tab",
+				click: { selector: ".workbench-tab", index: 2 },
+				capture: true,
+			},
+			{
 				id: "export-tab",
 				click: { selector: ".workbench-tab", index: 3 },
+				capture: true,
+			},
+			{
+				id: "viewport-mode",
+				click: { selector: "#mode-viewport" },
+				capture: true,
+			},
+			{
+				id: "viewport-pie-menu",
+				evaluate:
+					"globalThis.__CF_TEST__.controller.openViewportPieMenuAtCenter();",
+				capture: true,
+			},
+			{
+				id: "zoom-tool-popover",
+				evaluate: [
+					"globalThis.__CF_TEST__.controller.closeViewportPieMenu({ silent: true });",
+					"globalThis.__CF_TEST__.controller.toggleZoomTool();",
+				],
+				capture: true,
+			},
+			{
+				id: "measurement-tool",
+				evaluate: [
+					"globalThis.__CF_TEST__.controller.toggleZoomTool();",
+					"globalThis.__CF_TEST__.controller.toggleMeasurementMode();",
+				],
+				capture: true,
+			},
+			{
+				id: "reference-edit-tool",
+				evaluate: [
+					"globalThis.__CF_TEST__.controller.toggleMeasurementMode();",
+					"globalThis.__CF_TEST__.controller.setMode('camera');",
+					"globalThis.__CF_TEST__.controller.setViewportReferenceImageEditMode(true);",
+				],
+				capture: true,
+			},
+			{
+				id: "splat-edit-toolbar",
+				evaluate: [
+					"globalThis.__CF_TEST__.controller.setViewportReferenceImageEditMode(false);",
+					"await globalThis.__CF_TEST__.controller.setSplatEditMode(true, { silent: true });",
+				],
+				capture: true,
+			},
+			{
+				id: "frame-tool-popover",
+				evaluate:
+					"await globalThis.__CF_TEST__.controller.setSplatEditMode(false, { silent: true });",
+				click: {
+					text: "フレームツール",
+					selector: "button,[role='button']",
+				},
+				capture: true,
+			},
+			{
+				id: "inspector-collapsed",
+				key: "Escape",
+				click: { selector: ".workbench-inspector-toggle" },
+				capture: true,
+			},
+		],
+	},
+	{
+		id: "css-visual-mobile-baseline",
+		kind: "app-visual-flow",
+		description:
+			"Capture mobile real app UI states used as the baseline before CSS refactors.",
+		project: "/.local/cf-test/cf-test.ssproj",
+		optional: true,
+		viewport: {
+			width: 390,
+			height: 844,
+			deviceScaleFactor: 2,
+			mobile: true,
+		},
+		steps: [
+			{
+				id: "mobile-project-loaded",
+				loadProject: true,
+				wait: { frames: 24, delayMs: 500 },
+				capture: true,
+			},
+			{
+				id: "mobile-camera-drawer",
+				evaluate: [
+					"globalThis.__CF_TEST__.store.workbenchManualCollapsed.value = false;",
+					"globalThis.__CF_TEST__.store.workbenchManualExpanded.value = true;",
+				],
+				wait: { frames: 12, delayMs: 150 },
+				capture: true,
+			},
+			{
+				id: "mobile-export-drawer",
+				click: { selector: ".workbench-tab", index: 3 },
+				capture: true,
+			},
+			{
+				id: "mobile-ui-scale-modal",
+				evaluate: "globalThis.__CF_TEST__.controller.openMobileUiSettings();",
 				capture: true,
 			},
 		],
@@ -1367,6 +1483,16 @@ async function runAppVisualFlowScenario({ scenario, issues }) {
 				});
 			}
 
+			if (step.evaluate) {
+				const evaluateResult = await runVisualFlowEvaluation(step.evaluate);
+				stepObservation.evaluate = evaluateResult;
+				check(
+					`visual-${stepId}-evaluate`,
+					evaluateResult.every((entry) => entry.ok),
+					{ results: evaluateResult },
+				);
+			}
+
 			if (step.click) {
 				const clickResult = await evaluate(
 					cdp,
@@ -1417,6 +1543,26 @@ async function runAppVisualFlowScenario({ scenario, issues }) {
 		{ ok: checks.every((entry) => entry.ok), checks, observations },
 		issues,
 	);
+}
+
+async function runVisualFlowEvaluation(stepEvaluation) {
+	const evaluations = Array.isArray(stepEvaluation)
+		? stepEvaluation
+		: [stepEvaluation];
+	const results = [];
+	for (const entry of evaluations) {
+		const source =
+			typeof entry === "string" ? entry : String(entry?.expression ?? "");
+		if (!source.trim()) {
+			results.push({ ok: false, error: "empty evaluation source" });
+			continue;
+		}
+		const result = await evaluate(cdp, `(async () => { ${source}\n })()`, {
+			awaitPromise: true,
+		});
+		results.push({ ok: true, result: result ?? null });
+	}
+	return results;
 }
 
 async function applyScenarioViewport(viewport = {}) {

@@ -25,6 +25,7 @@ npm run test:local-scenarios -- --scenario cf-test-project,rad-full-data-swap
 npm run test:local-scenarios -- --scenario cf-test-psd-export
 npm run test:local-scenarios -- --scenario cf-test-psd-export --update-golden
 npm run test:local-scenarios -- --include-built-ins --scenario css-visual-baseline
+npm run test:local-scenarios -- --include-built-ins --scenario css-visual-mobile-baseline
 npm run test:local-scenarios -- --headed
 npm run test:local-scenarios -- --manifest .local/cf-test/scenarios.json
 ```
@@ -64,15 +65,18 @@ manifest は Git 管理しない `.local/cf-test/scenarios.json` に置く。形
 | `quality-rad-reuse-save` | Quality RAD `.ssproj` を開き、必要なら RAD streaming fallback を強制した上で shot camera だけ変更し、Quality 再保存が既存 RAD metadata を流用して RAD-only のままになるか検証する |
 | `docs-fixture` | `/docs.html?fixture=...` を開き、fixture ready と console error を確認する |
 
-`app-visual-flow` は help 用 screenshot fixture ではなく、起動した本物の app DOM を操作して `Page.captureScreenshot` で画面を保存する。`__CF_TEST__` の dev bridge を使って `.ssproj` load / readiness wait を行い、`__CF_DOCS__.captureFixture()` には依存しない。
+`app-visual-flow` は help 用 screenshot fixture ではなく、起動した本物の app DOM を操作して `Page.captureScreenshot` で画面を保存する。`__CF_TEST__` の dev bridge を使って `.ssproj` load / readiness wait / controller 操作を行い、`__CF_DOCS__.captureFixture()` には依存しない。
 
-組み込みの `css-visual-baseline` は CSS 整理前の最小 baseline 用。ローカル manifest が存在する環境でも `--include-built-ins` を付けると選択できる。
+組み込みの `css-visual-baseline` / `css-visual-mobile-baseline` は CSS 整理前の baseline 用。ローカル manifest が存在する環境でも `--include-built-ins` を付けると選択できる。
 
 ```powershell
 npm run test:local-scenarios -- --include-built-ins --scenario css-visual-baseline
+npm run test:local-scenarios -- --include-built-ins --scenario css-visual-mobile-baseline
 ```
 
-結果は `.local/local-scenario-smoke/css-visual-baseline-*.png` と `.local/local-scenario-smoke/local-scenarios.json` に出る。CSS 本体の整理前には、この baseline に必要な step を追加してから撮影し、整理後に同じ scenario を再実行して差分を確認する。
+desktop baseline は起動、File menu、project load、Scene / Camera / Reference / Export tabs、Viewport mode、pie menu、zoom popover、measurement、reference edit、splat edit toolbar、frame tool popover、collapsed inspector を撮る。mobile baseline は project load、mobile drawer、Export drawer、UI scale modal を撮る。
+
+結果は `.local/local-scenario-smoke/css-visual-baseline-*.png` / `.local/local-scenario-smoke/css-visual-mobile-baseline-*.png` と `.local/local-scenario-smoke/local-scenarios.json` に出る。CSS 本体の整理前には、この baseline に必要な step を追加してから撮影し、整理後に同じ scenario を再実行して差分を確認する。
 
 `optional: true` を付けた scenario は、対象 local file が存在しない環境では skip される。必須 scenario の local file が欠けている場合は fail する。
 
