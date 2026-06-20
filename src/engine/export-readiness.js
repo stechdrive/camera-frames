@@ -3,11 +3,7 @@ const DEFAULT_SPLAT_WARMUP_PASSES = 2;
 const DEFAULT_SPLAT_SETTLED_PASSES = 2;
 const DEFAULT_MAX_WAIT_MS = 1500;
 const DEFAULT_READINESS_STRATEGY = "probe-safe";
-const READINESS_STRATEGIES = new Set([
-	"legacy",
-	"probe-safe",
-	"probe-early",
-]);
+const READINESS_STRATEGIES = new Set(["legacy", "probe-safe", "probe-early"]);
 
 function clampInteger(value, fallback, minimum = 0) {
 	const nextValue = Math.floor(Number(value));
@@ -116,10 +112,7 @@ export function finalizeExportReadiness(plan, result = {}) {
 		result.settledPassesPlanned,
 		plan.settledPasses ?? 0,
 	);
-	const completedSettledPasses = clampInteger(
-		result.completedSettledPasses,
-		0,
-	);
+	const completedSettledPasses = clampInteger(result.completedSettledPasses, 0);
 	return {
 		readinessStrategy: plan.readinessStrategy,
 		maxWaitMs: plan.maxWaitMs,

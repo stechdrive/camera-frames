@@ -104,10 +104,8 @@ export async function renderScenePixelsWithReadiness(
 
 	while (true) {
 		const canWait = getNowMs() <= deadline;
-		const needsWarmup =
-			completedWarmupPasses < warmupPassesRequired && canWait;
-		const needsFinalPass =
-			completedRenderPasses < completedWarmupPasses + 1;
+		const needsWarmup = completedWarmupPasses < warmupPassesRequired && canWait;
+		const needsFinalPass = completedRenderPasses < completedWarmupPasses + 1;
 		const needsSettled =
 			probeSupported &&
 			completedSettledPasses < settledPassesPlanned &&

@@ -1029,10 +1029,14 @@ function getFetchUrl(input) {
 function getFetchRange(input, init) {
 	const headers = new Headers();
 	if (input instanceof Request) {
-		input.headers.forEach((value, key) => headers.set(key, value));
+		input.headers.forEach((value, key) => {
+			headers.set(key, value);
+		});
 	}
 	if (init?.headers) {
-		new Headers(init.headers).forEach((value, key) => headers.set(key, value));
+		new Headers(init.headers).forEach((value, key) => {
+			headers.set(key, value);
+		});
 	}
 	return headers.get("Range") ?? headers.get("range");
 }

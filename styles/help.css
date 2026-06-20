@@ -183,8 +183,8 @@
 	padding: 1px 6px;
 	border-radius: 3px;
 	font-size: 0.88em;
-	font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono",
-		monospace;
+	font-family:
+		ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
 }
 
 .help-code {
@@ -196,8 +196,8 @@
 	font-size: 0.85em;
 	line-height: 1.5;
 	margin: 0.8em 0;
-	font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono",
-		monospace;
+	font-family:
+		ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
 }
 
 .help-table-wrap {
@@ -396,8 +396,11 @@
 	align-items: center;
 	justify-content: center;
 	flex: 0 0 auto;
-	transition: opacity 0.15s ease, background 0.15s ease,
-		border-color 0.15s ease, box-shadow 0.15s ease;
+	transition:
+		opacity 0.15s ease,
+		background 0.15s ease,
+		border-color 0.15s ease,
+		box-shadow 0.15s ease;
 }
 
 .panel-disclosure__help:hover,

@@ -183,15 +183,14 @@ export function createOutputFrameController({
 			if (!documentState?.outputFrame || previousAnchor === nextAnchor) {
 				return documentState;
 			}
-			getReferenceImageController?.()
-				?.preserveReferenceImagesForOutputFrameAnchorChange?.(
-					documentState,
-					{
-						previousAnchorKey: previousAnchor,
-						nextAnchorKey: nextAnchor,
-						outputSize: metrics.getOutputSizeState(documentState),
-					},
-				);
+			getReferenceImageController?.()?.preserveReferenceImagesForOutputFrameAnchorChange?.(
+				documentState,
+				{
+					previousAnchorKey: previousAnchor,
+					nextAnchorKey: nextAnchor,
+					outputSize: metrics.getOutputSizeState(documentState),
+				},
+			);
 			documentState.outputFrame.anchor = nextAnchor;
 			return documentState;
 		});

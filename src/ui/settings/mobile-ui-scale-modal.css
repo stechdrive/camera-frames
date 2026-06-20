@@ -99,8 +99,11 @@
 }
 
 .mobile-ui-scale-modal__value {
-	font: 700 calc(1.6rem * var(--cf-ui-scale, 1)) / 1 "IBM Plex Mono",
-		"SFMono-Regular", Consolas, monospace;
+	font:
+		700 calc(1.6rem * var(--cf-ui-scale, 1)) / 1 "IBM Plex Mono",
+		"SFMono-Regular",
+		Consolas,
+		monospace;
 	color: var(--text);
 }
 
@@ -117,8 +120,11 @@
 	display: flex;
 	justify-content: space-between;
 	color: var(--text-dim);
-	font: 600 calc(0.72rem * var(--cf-ui-scale, 1)) / 1 "IBM Plex Mono",
-		"SFMono-Regular", Consolas, monospace;
+	font:
+		600 calc(0.72rem * var(--cf-ui-scale, 1)) / 1 "IBM Plex Mono",
+		"SFMono-Regular",
+		Consolas,
+		monospace;
 	letter-spacing: 0.04em;
 }
 
@@ -142,7 +148,9 @@
 	background: transparent;
 	border: none;
 	color: var(--accent-cool);
-	font: 600 calc(0.78rem * var(--cf-ui-scale, 1)) / 1 "Avenir Next", "Segoe UI",
+	font:
+		600 calc(0.78rem * var(--cf-ui-scale, 1)) / 1 "Avenir Next",
+		"Segoe UI",
 		sans-serif;
 	cursor: pointer;
 	padding: calc(0.25rem * var(--cf-ui-scale, 1))
@@ -158,8 +166,11 @@
 
 .mobile-ui-scale-modal__auto-active {
 	color: var(--accent-cool);
-	font: 700 calc(0.7rem * var(--cf-ui-scale, 1)) / 1 "IBM Plex Mono",
-		"SFMono-Regular", Consolas, monospace;
+	font:
+		700 calc(0.7rem * var(--cf-ui-scale, 1)) / 1 "IBM Plex Mono",
+		"SFMono-Regular",
+		Consolas,
+		monospace;
 	letter-spacing: 0.08em;
 	text-transform: uppercase;
 }
@@ -208,7 +219,9 @@
 	border-radius: calc(12px * var(--cf-ui-scale, 1));
 	background: rgba(255, 255, 255, 0.04);
 	color: var(--text);
-	font: 600 calc(0.86rem * var(--cf-ui-scale, 1)) / 1 "Avenir Next", "Segoe UI",
+	font:
+		600 calc(0.86rem * var(--cf-ui-scale, 1)) / 1 "Avenir Next",
+		"Segoe UI",
 		sans-serif;
 	cursor: pointer;
 }
@@ -245,8 +258,10 @@
 	border-radius: calc(10px * var(--cf-ui-scale, 1));
 	background: rgba(2, 8, 16, 0.6);
 	color: var(--text);
-	font: 500 calc(0.86rem * var(--cf-ui-scale, 1)) / 1.2 "Consolas",
-		"Andale Mono", monospace;
+	font:
+		500 calc(0.86rem * var(--cf-ui-scale, 1)) / 1.2 "Consolas",
+		"Andale Mono",
+		monospace;
 }
 
 .mobile-ui-scale-modal__footer {
@@ -267,7 +282,9 @@
 	border-radius: calc(14px * var(--cf-ui-scale, 1));
 	background: rgba(255, 255, 255, 0.06);
 	color: var(--text);
-	font: 600 calc(0.88rem * var(--cf-ui-scale, 1)) / 1 "Avenir Next", "Segoe UI",
+	font:
+		600 calc(0.88rem * var(--cf-ui-scale, 1)) / 1 "Avenir Next",
+		"Segoe UI",
 		sans-serif;
 	cursor: pointer;
 }

@@ -41,7 +41,10 @@
 .eyebrow {
 	margin: 0;
 	color: var(--accent-cool);
-	font: 600 0.7rem / 1.2 "Consolas", "Andale Mono", monospace;
+	font:
+		600 0.7rem / 1.2 "Consolas",
+		"Andale Mono",
+		monospace;
 	letter-spacing: 0.12em;
 	text-transform: uppercase;
 }
@@ -64,7 +67,10 @@
 	border-radius: 10px;
 	background: rgba(2, 8, 16, 0.62);
 	color: var(--text);
-	font: 500 0.88rem / 1.2 "Consolas", "Andale Mono", monospace;
+	font:
+		500 0.88rem / 1.2 "Consolas",
+		"Andale Mono",
+		monospace;
 }
 
 .panel-header h1 {
@@ -95,7 +101,10 @@
 	align-items: center;
 	justify-content: center;
 	flex: 0 0 auto;
-	transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+	transition:
+		border-color 0.15s ease,
+		background 0.15s ease,
+		color 0.15s ease;
 }
 
 .workbench-collapse-toggle:hover {
@@ -116,7 +125,10 @@
 	align-items: center;
 	justify-content: center;
 	flex: 0 0 auto;
-	transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+	transition:
+		border-color 0.15s ease,
+		background 0.15s ease,
+		color 0.15s ease;
 }
 
 .workbench-inspector-toggle:hover {
@@ -142,7 +154,10 @@
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+	transition:
+		border-color 0.15s ease,
+		background 0.15s ease,
+		color 0.15s ease;
 }
 
 .workbench-menu__trigger::-webkit-details-marker {
@@ -206,7 +221,10 @@
 	min-width: 0;
 	padding: 0.05rem 0.12rem 0.36rem;
 	color: var(--text-dim);
-	font: 600 0.72rem / 1 "Avenir Next", "Segoe UI", sans-serif;
+	font:
+		600 0.72rem / 1 "Avenir Next",
+		"Segoe UI",
+		sans-serif;
 	letter-spacing: 0.04em;
 }
 
@@ -235,7 +253,11 @@
 	border: 1px solid rgba(255, 184, 140, 0.28);
 	background: rgba(255, 148, 104, 0.12);
 	color: #ffc6a8;
-	font: 700 0.64rem / 1 "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+	font:
+		700 0.64rem / 1 "IBM Plex Mono",
+		"SFMono-Regular",
+		Consolas,
+		monospace;
 	letter-spacing: 0.02em;
 }
 
@@ -257,9 +279,15 @@
 	gap: 0.48rem;
 	min-height: 2.12rem;
 	padding: 0.46rem 0.64rem;
-	font: 600 0.84rem / 1 "Avenir Next", "Segoe UI", sans-serif;
+	font:
+		600 0.84rem / 1 "Avenir Next",
+		"Segoe UI",
+		sans-serif;
 	text-align: left;
-	transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+	transition:
+		border-color 0.15s ease,
+		background 0.15s ease,
+		color 0.15s ease;
 	width: 100%;
 }
 
@@ -299,7 +327,11 @@
 	border-radius: 999px;
 	background: rgba(255, 255, 255, 0.04);
 	color: var(--text-dim);
-	font: 600 0.7rem / 1 "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+	font:
+		600 0.7rem / 1 "IBM Plex Mono",
+		"SFMono-Regular",
+		Consolas,
+		monospace;
 	padding: 0.22rem 0.48rem;
 	letter-spacing: 0.01em;
 }
@@ -326,7 +358,10 @@
 	border-radius: 10px;
 	background: rgba(2, 8, 16, 0.62);
 	color: var(--text);
-	font: 500 0.86rem / 1.2 "Consolas", "Andale Mono", monospace;
+	font:
+		500 0.86rem / 1.2 "Consolas",
+		"Andale Mono",
+		monospace;
 }
 
 .workbench-collapse-chip-wrap {
@@ -441,7 +476,10 @@
 	justify-content: center;
 	width: 2.35rem;
 	height: 2.35rem;
-	transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+	transition:
+		border-color 0.15s ease,
+		background 0.15s ease,
+		color 0.15s ease;
 }
 
 .workbench-tool-rail__button {
@@ -487,7 +525,10 @@
 	width: auto;
 	height: 2rem;
 	padding: 0;
-	transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+	transition:
+		border-color 0.15s ease,
+		background 0.15s ease,
+		color 0.15s ease;
 }
 
 .workbench-tool-rail__segmented--vertical .workbench-tool-rail__segment {
@@ -574,7 +615,11 @@
 	width: 100%;
 	min-width: 0;
 	margin: 0;
-	font: 600 0.86rem / 1.3 "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+	font:
+		600 0.86rem / 1.3 "IBM Plex Mono",
+		"SFMono-Regular",
+		Consolas,
+		monospace;
 	color: var(--text);
 }
 
@@ -599,7 +644,11 @@
 	border-radius: 10px;
 	background: var(--bg);
 	color: var(--text);
-	font: 600 0.82rem / 1.2 "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+	font:
+		600 0.82rem / 1.2 "IBM Plex Mono",
+		"SFMono-Regular",
+		Consolas,
+		monospace;
 }
 
 .workbench-tool-rail__popover-select:disabled {

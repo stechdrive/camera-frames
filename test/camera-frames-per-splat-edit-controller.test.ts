@@ -509,7 +509,9 @@ function createSplatAsset({
 		};
 	}
 	mesh.forEachSplat = function forEachSplat(callback) {
-		centers.forEach((center, index) => callback(index, center.clone()));
+		centers.forEach((center, index) => {
+			callback(index, center.clone());
+		});
 	};
 	mesh.getBoundingBox = function getBoundingBox() {
 		return centerBounds?.clone?.() ?? null;
@@ -549,7 +551,9 @@ function createPlanarBrushSplatAsset({ id, centers, planeZ = 0 } = {}) {
 		});
 	};
 	mesh.forEachSplat = function forEachSplat(callback) {
-		centers.forEach((center, index) => callback(index, center.clone()));
+		centers.forEach((center, index) => {
+			callback(index, center.clone());
+		});
 	};
 	mesh.getBoundingBox = function getBoundingBox() {
 		return new THREE.Box3().setFromPoints(centers);

@@ -749,8 +749,11 @@ export function createReferenceImageController({
 
 	function preserveReferenceImagesForOutputFrameAnchorChange(
 		shotCameraDocument,
-		{ previousAnchorKey = "center", nextAnchorKey = "center", outputSize = null } =
-			{},
+		{
+			previousAnchorKey = "center",
+			nextAnchorKey = "center",
+			outputSize = null,
+		} = {},
 	) {
 		if (!shotCameraDocument || previousAnchorKey === nextAnchorKey) {
 			return false;

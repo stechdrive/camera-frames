@@ -159,18 +159,18 @@ function createGizmoHarness({ camera }) {
 		classList: createClassList(),
 		dataset: {},
 		querySelector(selector) {
-			const match = selector.match(/\[data-gizmo-handle="([^\"]+)"\]/);
+			const match = selector.match(/\[data-gizmo-handle="([^"]+)"\]/);
 			return match ? (handleElements.get(match[1]) ?? null) : null;
 		},
 	};
 	const viewportGizmoSvg = {
 		attributes: new Map(),
 		querySelector(selector) {
-			const ringMatch = selector.match(/\[data-gizmo-ring="([^\"]+)"\]/);
+			const ringMatch = selector.match(/\[data-gizmo-ring="([^"]+)"\]/);
 			if (ringMatch) {
 				return ringElements.get(ringMatch[1]) ?? null;
 			}
-			const planeMatch = selector.match(/\[data-gizmo-plane="([^\"]+)"\]/);
+			const planeMatch = selector.match(/\[data-gizmo-plane="([^"]+)"\]/);
 			return planeMatch ? (planeElements.get(planeMatch[1]) ?? null) : null;
 		},
 		setAttribute(name, value) {

@@ -210,7 +210,10 @@
 	border-radius: 999px;
 	background: var(--accent-soft);
 	color: var(--accent);
-	font: 600 0.66rem / 1 "Consolas", "Andale Mono", monospace;
+	font:
+		600 0.66rem / 1 "Consolas",
+		"Andale Mono",
+		monospace;
 	letter-spacing: 0.08em;
 	text-transform: uppercase;
 }
@@ -256,10 +259,15 @@
 	cursor: pointer;
 	min-height: 2.1rem;
 	padding: 0.46rem 0.66rem;
-	font: 600 0.78rem / 1 "Avenir Next", "Segoe UI", sans-serif;
+	font:
+		600 0.78rem / 1 "Avenir Next",
+		"Segoe UI",
+		sans-serif;
 	letter-spacing: 0.01em;
-	transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s
-		ease;
+	transition:
+		transform 0.15s ease,
+		border-color 0.15s ease,
+		background 0.15s ease;
 }
 
 .button:hover {
@@ -361,8 +369,10 @@
 	border: 1px solid var(--line);
 	border-radius: 999px;
 	background: rgba(2, 8, 16, 0.48);
-	transition: border-color 120ms ease, background-color 120ms ease, box-shadow
-		120ms ease;
+	transition:
+		border-color 120ms ease,
+		background-color 120ms ease,
+		box-shadow 120ms ease;
 }
 
 .switch-toggle__thumb {
@@ -372,7 +382,9 @@
 	border-radius: 999px;
 	background: rgba(255, 255, 255, 0.88);
 	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28);
-	transition: transform 120ms ease, background-color 120ms ease;
+	transition:
+		transform 120ms ease,
+		background-color 120ms ease;
 }
 
 .switch-toggle__label {
@@ -467,7 +479,10 @@
 	padding: 0.5rem 0.62rem;
 	cursor: pointer;
 	color: var(--text);
-	font: 600 0.7rem / 1 "Avenir Next", "Segoe UI", sans-serif;
+	font:
+		600 0.7rem / 1 "Avenir Next",
+		"Segoe UI",
+		sans-serif;
 	letter-spacing: 0.06em;
 	text-transform: uppercase;
 }
@@ -559,7 +574,10 @@
 	border-radius: 10px;
 	background: rgba(2, 8, 16, 0.62);
 	color: var(--text);
-	font: 500 0.8rem / 1.2 "Consolas", "Andale Mono", monospace;
+	font:
+		500 0.8rem / 1.2 "Consolas",
+		"Andale Mono",
+		monospace;
 }
 
 .field input[type="number"] {
@@ -587,7 +605,10 @@
 	min-width: 3.25rem;
 	text-align: right;
 	color: var(--accent-cool);
-	font: 600 0.76rem / 1 "Consolas", "Andale Mono", monospace;
+	font:
+		600 0.76rem / 1 "Consolas",
+		"Andale Mono",
+		monospace;
 }
 
 .numeric-unit {
@@ -621,7 +642,10 @@
 	cursor: ew-resize;
 	pointer-events: none;
 	box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
-	transition: opacity 120ms ease, background-color 120ms ease, color 120ms ease,
+	transition:
+		opacity 120ms ease,
+		background-color 120ms ease,
+		color 120ms ease,
 		box-shadow 120ms ease;
 }
 
@@ -666,7 +690,10 @@
 	border-radius: 999px;
 	background: rgba(255, 255, 255, 0.04);
 	color: var(--accent-cool);
-	font: 600 0.72rem / 1 "Consolas", "Andale Mono", monospace;
+	font:
+		600 0.72rem / 1 "Consolas",
+		"Andale Mono",
+		monospace;
 	letter-spacing: 0.02em;
 }
 
@@ -682,7 +709,10 @@
 	border-radius: 6px;
 	background: rgba(102, 191, 255, 0.04);
 	color: var(--accent-cool);
-	font: 600 0.55rem / 1 "Consolas", "Andale Mono", monospace;
+	font:
+		600 0.55rem / 1 "Consolas",
+		"Andale Mono",
+		monospace;
 	letter-spacing: 0;
 	white-space: nowrap;
 }
@@ -711,8 +741,11 @@
 	);
 	color: var(--text);
 	cursor: grab;
-	transition: border-color 120ms ease, background 120ms ease, transform 120ms
-		ease, box-shadow 120ms ease;
+	transition:
+		border-color 120ms ease,
+		background 120ms ease,
+		transform 120ms ease,
+		box-shadow 120ms ease;
 }
 
 .lighting-direction-control__surface:hover,
@@ -931,8 +964,8 @@ input[type="range"] {
 	border-radius: 12px;
 	background: rgb(0 0 0 / 24%);
 	color: rgb(233 239 248 / 88%);
-	font-family: ui-monospace, "SFMono-Regular", "Cascadia Code", Consolas,
-		monospace;
+	font-family:
+		ui-monospace, "SFMono-Regular", "Cascadia Code", Consolas, monospace;
 	font-size: 12px;
 	line-height: 1.45;
 	white-space: pre-wrap;
@@ -983,7 +1016,10 @@ input[type="range"] {
 	border-radius: 12px;
 	background: rgb(255 255 255 / 5%);
 	color: rgb(245 247 251 / 96%);
-	font: 500 13px / 1.3 "Consolas", "Andale Mono", monospace;
+	font:
+		500 13px / 1.3 "Consolas",
+		"Andale Mono",
+		monospace;
 }
 
 .overlay-field select {
@@ -1243,8 +1279,9 @@ input[type="range"] {
 .overlay-phase-step--active .overlay-phase-step__marker {
 	border-color: rgb(255 184 77 / 92%);
 	background: rgb(255 184 77 / 98%);
-	box-shadow: 0 0 0 0.2rem rgb(8 16 29 / 92%), 0 0 0 0.42rem
-		rgb(255 184 77 / 18%);
+	box-shadow:
+		0 0 0 0.2rem rgb(8 16 29 / 92%),
+		0 0 0 0.42rem rgb(255 184 77 / 18%);
 }
 
 .overlay-phase-step--active .overlay-phase-step__marker::after {
@@ -1377,10 +1414,16 @@ input[type="range"] {
 	cursor: pointer;
 	min-height: 1.86rem;
 	padding: 0.28rem 0.42rem;
-	font: 600 0.68rem / 1 "Consolas", "Andale Mono", monospace;
+	font:
+		600 0.68rem / 1 "Consolas",
+		"Andale Mono",
+		monospace;
 	letter-spacing: 0.05em;
 	text-transform: uppercase;
-	transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease,
+	transition:
+		border-color 0.15s ease,
+		background 0.15s ease,
+		color 0.15s ease,
 		box-shadow 0.15s ease;
 }
 
@@ -1415,7 +1458,10 @@ input[type="range"] {
 	gap: 0.34rem;
 	padding: 0 0.15rem 0.28rem;
 	color: var(--text-dim);
-	font: 600 0.72rem / 1 "Avenir Next", "Segoe UI", sans-serif;
+	font:
+		600 0.72rem / 1 "Avenir Next",
+		"Segoe UI",
+		sans-serif;
 	letter-spacing: 0.04em;
 	text-transform: uppercase;
 }
@@ -1446,8 +1492,11 @@ input[type="range"] {
 	background: rgba(255, 255, 255, 0.04);
 	color: var(--accent-cool);
 	cursor: ew-resize;
-	transition: border-color 120ms ease, background-color 120ms ease, color 120ms
-		ease, transform 120ms ease;
+	transition:
+		border-color 120ms ease,
+		background-color 120ms ease,
+		color 120ms ease,
+		transform 120ms ease;
 }
 
 .directional-scrub__surface:hover,
@@ -1509,8 +1558,9 @@ input[type="range"] {
 	border-radius: 999px;
 	background: currentColor;
 	opacity: 0.95;
-	box-shadow: -3px 0 0 rgba(255, 255, 255, 0.12), 3px 0 0
-		rgba(255, 255, 255, 0.12);
+	box-shadow:
+		-3px 0 0 rgba(255, 255, 255, 0.12),
+		3px 0 0 rgba(255, 255, 255, 0.12);
 }
 
 .directional-scrub.is-scrubbing .directional-scrub__thumb {
@@ -1570,7 +1620,10 @@ input[type="range"] {
 }
 
 .workbench-tooltip__title {
-	font: 600 0.74rem / 1.2 "Avenir Next", "Segoe UI", sans-serif;
+	font:
+		600 0.74rem / 1.2 "Avenir Next",
+		"Segoe UI",
+		sans-serif;
 	letter-spacing: 0.03em;
 }
 
@@ -1596,7 +1649,10 @@ input[type="range"] {
 	border-radius: 8px;
 	background: rgba(255, 255, 255, 0.05);
 	color: var(--accent-cool);
-	font: 600 0.68rem / 1 "Consolas", "Andale Mono", monospace;
+	font:
+		600 0.68rem / 1 "Consolas",
+		"Andale Mono",
+		monospace;
 }
 
 .scene-asset-row__icon-button {
@@ -1754,7 +1810,10 @@ input[type="range"] {
 	backdrop-filter: blur(14px);
 	pointer-events: auto;
 	color: var(--text-dim);
-	font: 600 0.72rem / 1 "Avenir Next", "Segoe UI", sans-serif;
+	font:
+		600 0.72rem / 1 "Avenir Next",
+		"Segoe UI",
+		sans-serif;
 	letter-spacing: 0.02em;
 	line-height: 1;
 }
@@ -1776,7 +1835,10 @@ input[type="range"] {
 
 .viewport-lod-scale__label {
 	white-space: nowrap;
-	font: 700 0.64rem / 1 "Avenir Next", "Segoe UI", sans-serif;
+	font:
+		700 0.64rem / 1 "Avenir Next",
+		"Segoe UI",
+		sans-serif;
 	letter-spacing: 0.02em;
 	color: rgba(203, 216, 232, 0.78);
 }
@@ -1795,7 +1857,11 @@ input[type="range"] {
 	justify-content: flex-end;
 	width: 2.35rem;
 	color: #d7ebff;
-	font: 700 0.64rem / 1 "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+	font:
+		700 0.64rem / 1 "IBM Plex Mono",
+		"SFMono-Regular",
+		Consolas,
+		monospace;
 	letter-spacing: 0;
 	font-variant-numeric: tabular-nums;
 }
@@ -1832,7 +1898,11 @@ input[type="range"] {
 	border: 1px solid rgba(255, 184, 140, 0.28);
 	background: rgba(255, 148, 104, 0.12);
 	color: #ffc6a8;
-	font: 700 0.64rem / 1 "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+	font:
+		700 0.64rem / 1 "IBM Plex Mono",
+		"SFMono-Regular",
+		Consolas,
+		monospace;
 	letter-spacing: 0.02em;
 }
 
@@ -1859,11 +1929,16 @@ input[type="range"] {
 	backdrop-filter: blur(14px);
 	pointer-events: none;
 	color: var(--text-dim);
-	font: 600 0.7rem / 1 "Avenir Next", "Segoe UI", sans-serif;
+	font:
+		600 0.7rem / 1 "Avenir Next",
+		"Segoe UI",
+		sans-serif;
 	letter-spacing: 0.04em;
 	line-height: 1.2;
 	animation: background-task-pill-in 200ms ease-out;
-	transition: opacity 400ms ease-out, transform 400ms ease-out;
+	transition:
+		opacity 400ms ease-out,
+		transform 400ms ease-out;
 }
 
 @keyframes background-task-pill-in {
@@ -2039,7 +2114,11 @@ input[type="range"] {
 
 .viewport-splat-edit-toolbar__info {
 	color: rgba(203, 216, 232, 0.88);
-	font: 600 0.62rem / 1 "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+	font:
+		600 0.62rem / 1 "IBM Plex Mono",
+		"SFMono-Regular",
+		Consolas,
+		monospace;
 	letter-spacing: 0.04em;
 	white-space: nowrap;
 	padding: 0 0.2rem;
@@ -2057,37 +2136,34 @@ input[type="range"] {
 	height: 100%;
 	border-radius: 999px;
 	border: 1.5px solid rgba(132, 219, 255, 0.96);
-	background: radial-gradient(
-			circle,
-			rgba(115, 200, 255, 0.1) 0 54%,
-			transparent 62%
-		), radial-gradient(circle, rgba(132, 219, 255, 0.18) 0 100%);
-	box-shadow: 0 0 0 1px rgba(9, 18, 28, 0.78) inset, 0 0 22px
-		rgba(82, 181, 232, 0.28);
+	background:
+		radial-gradient(circle, rgba(115, 200, 255, 0.1) 0 54%, transparent 62%),
+		radial-gradient(circle, rgba(132, 219, 255, 0.18) 0 100%);
+	box-shadow:
+		0 0 0 1px rgba(9, 18, 28, 0.78) inset,
+		0 0 22px rgba(82, 181, 232, 0.28);
 }
 
 .viewport-splat-edit-brush-preview--painting
 	.viewport-splat-edit-brush-preview__ring {
 	border-color: rgba(165, 236, 255, 0.98);
-	background: radial-gradient(
-			circle,
-			rgba(132, 219, 255, 0.2) 0 58%,
-			transparent 66%
-		), radial-gradient(circle, rgba(132, 219, 255, 0.22) 0 100%);
-	box-shadow: 0 0 0 1px rgba(9, 18, 28, 0.84) inset, 0 0 30px
-		rgba(82, 181, 232, 0.42);
+	background:
+		radial-gradient(circle, rgba(132, 219, 255, 0.2) 0 58%, transparent 66%),
+		radial-gradient(circle, rgba(132, 219, 255, 0.22) 0 100%);
+	box-shadow:
+		0 0 0 1px rgba(9, 18, 28, 0.84) inset,
+		0 0 30px rgba(82, 181, 232, 0.42);
 }
 
 .viewport-splat-edit-brush-preview--subtract
 	.viewport-splat-edit-brush-preview__ring {
 	border-color: rgba(255, 170, 132, 0.96);
-	background: radial-gradient(
-			circle,
-			rgba(255, 174, 122, 0.14) 0 54%,
-			transparent 62%
-		), radial-gradient(circle, rgba(255, 170, 132, 0.16) 0 100%);
-	box-shadow: 0 0 0 1px rgba(24, 11, 8, 0.82) inset, 0 0 24px
-		rgba(255, 140, 96, 0.28);
+	background:
+		radial-gradient(circle, rgba(255, 174, 122, 0.14) 0 54%, transparent 62%),
+		radial-gradient(circle, rgba(255, 170, 132, 0.16) 0 100%);
+	box-shadow:
+		0 0 0 1px rgba(24, 11, 8, 0.82) inset,
+		0 0 24px rgba(255, 140, 96, 0.28);
 }
 
 .viewport-splat-edit-brush-preview__depth-bar {
@@ -2123,7 +2199,11 @@ input[type="range"] {
 	border-radius: 999px;
 	background: rgba(7, 12, 20, 0.9);
 	color: rgba(241, 247, 255, 0.96);
-	font: 700 0.6rem / 1 "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+	font:
+		700 0.6rem / 1 "IBM Plex Mono",
+		"SFMono-Regular",
+		Consolas,
+		monospace;
 	letter-spacing: 0.04em;
 	white-space: nowrap;
 	box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
@@ -2135,13 +2215,20 @@ input[type="range"] {
 	border-radius: 7px;
 	background: rgba(255, 255, 255, 0.04);
 	color: rgba(230, 237, 246, 0.84);
-	font: 700 0.62rem / 1 "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+	font:
+		700 0.62rem / 1 "IBM Plex Mono",
+		"SFMono-Regular",
+		Consolas,
+		monospace;
 	letter-spacing: 0.03em;
 	padding: 0.32rem 0.52rem;
 	cursor: pointer;
 	white-space: nowrap;
 	flex: 0 0 auto;
-	transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+	transition:
+		background 140ms ease,
+		border-color 140ms ease,
+		color 140ms ease;
 }
 
 .viewport-splat-edit-toolbar__btn:hover {
@@ -2245,7 +2332,10 @@ input[type="range"] {
 
 .viewport-splat-edit-toolbar__detail-label {
 	color: rgba(203, 216, 232, 0.72);
-	font: 700 0.54rem / 1 "IBM Plex Sans", "Segoe UI", sans-serif;
+	font:
+		700 0.54rem / 1 "IBM Plex Sans",
+		"Segoe UI",
+		sans-serif;
 	letter-spacing: 0.06em;
 	white-space: nowrap;
 	flex-shrink: 0;
@@ -2381,7 +2471,9 @@ body[data-interaction-mode="roll"] .viewport-axis-gizmo {
 	stroke-linecap: round;
 	opacity: 0.92;
 	filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.42));
-	transition: stroke-width 120ms ease, opacity 120ms ease;
+	transition:
+		stroke-width 120ms ease,
+		opacity 120ms ease;
 }
 
 .viewport-axis-gizmo__line--x {
@@ -2435,7 +2527,9 @@ body[data-interaction-mode="roll"] .viewport-axis-gizmo {
 	border-radius: inherit;
 	background: rgb(var(--viewport-axis-rgb, 137 208 255) / 0);
 	opacity: 0;
-	transition: opacity 120ms ease, background-color 120ms ease;
+	transition:
+		opacity 120ms ease,
+		background-color 120ms ease;
 	z-index: 0;
 }
 
@@ -2462,7 +2556,10 @@ body[data-interaction-mode="roll"] .viewport-axis-gizmo {
 .viewport-axis-gizmo__button--positive {
 	width: 1.08rem;
 	height: 1.08rem;
-	font: 700 0.46rem / 1 "Consolas", "Andale Mono", monospace;
+	font:
+		700 0.46rem / 1 "Consolas",
+		"Andale Mono",
+		monospace;
 	letter-spacing: 0.01em;
 	text-transform: uppercase;
 	text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
@@ -2482,7 +2579,10 @@ body[data-interaction-mode="roll"] .viewport-axis-gizmo {
 	width: 1.08rem;
 	height: 1.08rem;
 	background: rgba(6, 17, 30, 0.96);
-	font: 700 0.46rem / 1 "Consolas", "Andale Mono", monospace;
+	font:
+		700 0.46rem / 1 "Consolas",
+		"Andale Mono",
+		monospace;
 	letter-spacing: 0.01em;
 	text-transform: uppercase;
 }
@@ -2497,7 +2597,9 @@ body[data-interaction-mode="roll"] .viewport-axis-gizmo {
 
 .viewport-axis-gizmo__button.is-active {
 	background: rgba(8, 18, 30, 0.94);
-	box-shadow: 0 14px 24px rgba(0, 0, 0, 0.42), 0 0 0 2px currentColor;
+	box-shadow:
+		0 14px 24px rgba(0, 0, 0, 0.42),
+		0 0 0 2px currentColor;
 }
 
 .viewport-axis-gizmo__button.is-active::before {
@@ -2513,7 +2615,9 @@ body[data-interaction-mode="roll"] .viewport-axis-gizmo {
 	.viewport-axis-gizmo__button:hover {
 		transform: translate(-50%, -50%) scale(1.06);
 		background: rgba(14, 28, 48, 0.98);
-		box-shadow: 0 14px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px currentColor;
+		box-shadow:
+			0 14px 24px rgba(0, 0, 0, 0.4),
+			0 0 0 1px currentColor;
 	}
 }
 
@@ -2594,7 +2698,9 @@ body[data-interaction-mode="roll"] .viewport-axis-gizmo {
 	transform: translate(-50%, -50%) scale(0.92);
 	opacity: 0;
 	pointer-events: none;
-	transition: opacity 0.08s ease, transform 0.08s ease;
+	transition:
+		opacity 0.08s ease,
+		transform 0.08s ease;
 }
 
 .viewport-shell.is-orbit-reticle-active .viewport-orbit-reticle {
@@ -2636,8 +2742,9 @@ body[data-interaction-mode="roll"] .viewport-axis-gizmo {
 	inset: 5px;
 	border: 1px solid rgba(var(--cf-orbit-reticle-color), 0.82);
 	border-radius: 50%;
-	box-shadow: 0 0 0 1px rgba(4, 12, 22, 0.72), 0 0 18px
-		rgba(var(--cf-orbit-reticle-color), 0.22);
+	box-shadow:
+		0 0 0 1px rgba(4, 12, 22, 0.72),
+		0 0 18px rgba(var(--cf-orbit-reticle-color), 0.22);
 }
 
 .viewport-orbit-reticle__ring::before,
@@ -2670,8 +2777,9 @@ body[data-interaction-mode="roll"] .viewport-axis-gizmo {
 	border-radius: 50%;
 	transform: translate(-50%, -50%);
 	background: rgba(var(--cf-orbit-reticle-color), 0.96);
-	box-shadow: 0 0 0 2px rgba(4, 12, 22, 0.84), 0 0 12px
-		rgba(var(--cf-orbit-reticle-color), 0.4);
+	box-shadow:
+		0 0 0 2px rgba(4, 12, 22, 0.84),
+		0 0 12px rgba(var(--cf-orbit-reticle-color), 0.4);
 }
 
 @media (pointer: coarse) {
@@ -2686,7 +2794,8 @@ body[data-interaction-mode="roll"] .viewport-axis-gizmo {
 	display: block;
 	outline: none;
 	touch-action: none;
-	background: radial-gradient(
+	background:
+		radial-gradient(
 			circle at 20% 20%,
 			rgba(255, 255, 255, 0.08),
 			transparent 22%
@@ -2728,8 +2837,10 @@ body[data-interaction-mode="roll"] .viewport-axis-gizmo {
 
 .viewport-pie__center-label {
 	color: rgba(245, 247, 251, 0.94);
-	font: 700 calc(0.64rem * var(--cf-pie-scale, 1)) / 1.15 "Avenir Next",
-		"Segoe UI", sans-serif;
+	font:
+		700 calc(0.64rem * var(--cf-pie-scale, 1)) / 1.15 "Avenir Next",
+		"Segoe UI",
+		sans-serif;
 	letter-spacing: 0.08em;
 	text-transform: uppercase;
 	text-align: center;
@@ -2771,8 +2882,10 @@ body[data-interaction-mode="roll"] .viewport-axis-gizmo {
 	);
 	border-color: rgba(255, 172, 146, 0.98);
 	color: rgba(255, 241, 236, 1);
-	box-shadow: 0 18px 32px rgba(255, 103, 77, 0.26), 0 0 0 2px
-		rgba(255, 134, 102, 0.34), inset 0 1px 0 rgba(255, 220, 208, 0.12);
+	box-shadow:
+		0 18px 32px rgba(255, 103, 77, 0.26),
+		0 0 0 2px rgba(255, 134, 102, 0.34),
+		inset 0 1px 0 rgba(255, 220, 208, 0.12);
 }
 
 .viewport-pie__item--disabled {
@@ -2789,8 +2902,9 @@ body[data-interaction-mode="roll"] .viewport-axis-gizmo {
 	background: rgba(16, 30, 48, 0.98);
 	border-color: rgba(255, 255, 255, 0.34);
 	color: rgba(250, 252, 255, 1);
-	box-shadow: 0 16px 30px rgba(0, 0, 0, 0.38), 0 0 0 1px
-		rgba(255, 255, 255, 0.08);
+	box-shadow:
+		0 16px 30px rgba(0, 0, 0, 0.38),
+		0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
 .viewport-pie__item-icon {
@@ -2896,7 +3010,10 @@ body[data-interaction-mode="roll"] .viewport-axis-gizmo {
 	background: rgba(5, 15, 27, 0.88);
 	color: rgba(255, 241, 216, 0.96);
 	box-shadow: 0 6px 14px rgba(0, 0, 0, 0.28);
-	font: 800 0.64rem / 1 "IBM Plex Sans", "Segoe UI", sans-serif;
+	font:
+		800 0.64rem / 1 "IBM Plex Sans",
+		"Segoe UI",
+		sans-serif;
 	pointer-events: none;
 }
 
@@ -2946,7 +3063,10 @@ body[data-interaction-mode="roll"] .viewport-axis-gizmo {
 
 .measurement-overlay__chip-field > span {
 	color: rgba(255, 244, 239, 0.98);
-	font: 700 0.68rem / 1.05 "Consolas", "Andale Mono", monospace;
+	font:
+		700 0.68rem / 1.05 "Consolas",
+		"Andale Mono",
+		monospace;
 	letter-spacing: 0.04em;
 }
 
@@ -2966,12 +3086,18 @@ body[data-interaction-mode="roll"] .viewport-axis-gizmo {
 	border: 1px solid rgba(255, 255, 255, 0.14);
 	background: rgba(255, 255, 255, 0.06);
 	color: rgba(255, 248, 242, 0.96);
-	font: 600 0.74rem / 1 "Consolas", "Andale Mono", monospace;
+	font:
+		600 0.74rem / 1 "Consolas",
+		"Andale Mono",
+		monospace;
 }
 
 .measurement-overlay__chip-unit {
 	color: rgba(203, 216, 232, 0.82);
-	font: 700 0.65rem / 1 "Consolas", "Andale Mono", monospace;
+	font:
+		700 0.65rem / 1 "Consolas",
+		"Andale Mono",
+		monospace;
 	letter-spacing: 0.06em;
 }
 
@@ -2986,7 +3112,10 @@ body[data-interaction-mode="roll"] .viewport-axis-gizmo {
 	border-radius: 8px;
 	background: rgba(255, 170, 84, 0.2);
 	color: rgba(255, 245, 233, 0.96);
-	font: 700 0.66rem / 1 "IBM Plex Sans", "Segoe UI", sans-serif;
+	font:
+		700 0.66rem / 1 "IBM Plex Sans",
+		"Segoe UI",
+		sans-serif;
 	letter-spacing: 0.04em;
 	cursor: pointer;
 	white-space: nowrap;
@@ -3017,13 +3146,19 @@ body[data-interaction-mode="roll"] .viewport-axis-gizmo {
 
 .viewport-lens-hud strong {
 	color: rgba(255, 244, 239, 0.98);
-	font: 700 0.8rem / 1 "Consolas", "Andale Mono", monospace;
+	font:
+		700 0.8rem / 1 "Consolas",
+		"Andale Mono",
+		monospace;
 	letter-spacing: 0.04em;
 }
 
 .viewport-lens-hud span {
 	color: rgba(203, 216, 232, 0.88);
-	font: 600 0.66rem / 1 "Consolas", "Andale Mono", monospace;
+	font:
+		600 0.66rem / 1 "Consolas",
+		"Andale Mono",
+		monospace;
 	letter-spacing: 0.06em;
 }
 
@@ -3061,7 +3196,9 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	cursor: grab;
 	filter: drop-shadow(0 0 2px rgba(8, 17, 29, 0.9));
 	opacity: 0.92;
-	transition: opacity 0.12s ease, stroke-width 0.12s ease;
+	transition:
+		opacity 0.12s ease,
+		stroke-width 0.12s ease;
 }
 
 .viewport-gizmo__ring.is-hidden {
@@ -3096,7 +3233,10 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	cursor: grab;
 	filter: drop-shadow(0 0 2px rgba(8, 17, 29, 0.9));
 	opacity: 0.9;
-	transition: opacity 0.12s ease, fill 0.12s ease, stroke-width 0.12s ease;
+	transition:
+		opacity 0.12s ease,
+		fill 0.12s ease,
+		stroke-width 0.12s ease;
 }
 
 .viewport-gizmo__plane.is-hidden {
@@ -3132,7 +3272,10 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	pointer-events: auto;
 	cursor: grab;
 	user-select: none;
-	font: 700 0.72rem / 1 "Consolas", "Andale Mono", monospace;
+	font:
+		700 0.72rem / 1 "Consolas",
+		"Andale Mono",
+		monospace;
 	letter-spacing: 0.04em;
 	--gizmo-angle: 0deg;
 }
@@ -3385,7 +3528,10 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	background: rgba(8, 17, 29, 0.88);
 	border: 1px solid rgba(255, 255, 255, 0.16);
 	color: rgba(245, 247, 251, 0.92);
-	font: 700 0.58rem / 1 "Consolas", "Andale Mono", monospace;
+	font:
+		700 0.58rem / 1 "Consolas",
+		"Andale Mono",
+		monospace;
 	letter-spacing: 0.08em;
 	text-transform: uppercase;
 	white-space: nowrap;
@@ -3450,7 +3596,10 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 
 .drop-hint__meta {
 	color: var(--accent-cool);
-	font: 600 0.72rem / 1.2 "Consolas", "Andale Mono", monospace;
+	font:
+		600 0.72rem / 1.2 "Consolas",
+		"Andale Mono",
+		monospace;
 	letter-spacing: 0.08em;
 }
 
@@ -3863,7 +4012,10 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	background: rgba(8, 17, 29, 0.82);
 	border: 1px solid rgba(114, 227, 157, 0.42);
 	color: #dafbe4;
-	font: 600 0.72rem / 1 "Consolas", "Andale Mono", monospace;
+	font:
+		600 0.72rem / 1 "Consolas",
+		"Andale Mono",
+		monospace;
 	letter-spacing: 0.06em;
 	text-transform: uppercase;
 	white-space: nowrap;
@@ -3937,11 +4089,9 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	aspect-ratio: 1754 / 1240;
 	border: 1px solid var(--line);
 	border-radius: 16px;
-	background: linear-gradient(
-			180deg,
-			rgba(255, 255, 255, 0.04),
-			rgba(255, 255, 255, 0)
-		), rgba(2, 8, 16, 0.75);
+	background:
+		linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0)),
+		rgba(2, 8, 16, 0.75);
 }
 
 @media (max-width: 960px) {
@@ -4089,7 +4239,9 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	min-height: 1.68rem !important;
 	padding: 0.28rem 0.42rem !important;
 	font-size: 0.76rem !important;
-	transition: border-color 0.15s, background-color 0.15s;
+	transition:
+		border-color 0.15s,
+		background-color 0.15s;
 }
 
 .shot-camera-manager__inline-name-input[data-draft-editing="false"] {
@@ -4151,8 +4303,11 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	background: rgba(255, 255, 255, 0.03);
 	color: var(--text-dim);
 	cursor: pointer;
-	transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s
-		ease, transform 0.15s ease;
+	transition:
+		border-color 0.15s ease,
+		background-color 0.15s ease,
+		color 0.15s ease,
+		transform 0.15s ease;
 }
 
 .reference-preset-picker__toggle .workbench-icon {
@@ -4198,7 +4353,10 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	border-radius: 10px;
 	background: rgba(255, 255, 255, 0.02);
 	color: var(--text);
-	font: 600 0.75rem / 1.2 "Avenir Next", "Segoe UI", sans-serif;
+	font:
+		600 0.75rem / 1.2 "Avenir Next",
+		"Segoe UI",
+		sans-serif;
 	text-align: left;
 	cursor: pointer;
 }
@@ -4298,7 +4456,10 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 
 .camera-property-axis-field__prefix {
 	color: var(--text-dim);
-	font: 600 0.7rem / 1 "Consolas", "Andale Mono", monospace;
+	font:
+		600 0.7rem / 1 "Consolas",
+		"Andale Mono",
+		monospace;
 	white-space: nowrap;
 }
 
@@ -4454,7 +4615,9 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	min-height: 1.68rem !important;
 	padding: 0.28rem 0.42rem !important;
 	font-size: 0.84rem !important;
-	transition: border-color 0.15s, background-color 0.15s;
+	transition:
+		border-color 0.15s,
+		background-color 0.15s;
 }
 
 .scene-asset-row__inline-name-input[data-draft-editing="false"] {
@@ -4635,8 +4798,10 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	background: rgba(9, 17, 29, 0.78);
 	color: var(--text-dim);
 	cursor: pointer;
-	transition: background-color 120ms ease, box-shadow 120ms ease, transform
-		120ms ease;
+	transition:
+		background-color 120ms ease,
+		box-shadow 120ms ease,
+		transform 120ms ease;
 }
 
 .anchor-matrix__cell:hover {
@@ -4649,8 +4814,9 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 
 .anchor-matrix__cell--active {
 	background: rgba(114, 227, 157, 0.2);
-	box-shadow: inset 0 0 0 1px rgba(114, 227, 157, 0.42), inset 0 0 14px
-		rgba(114, 227, 157, 0.08);
+	box-shadow:
+		inset 0 0 0 1px rgba(114, 227, 157, 0.42),
+		inset 0 0 14px rgba(114, 227, 157, 0.08);
 }
 
 .browser-marker {
@@ -4672,7 +4838,10 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 
 .browser-frame-scale {
 	color: var(--text-dim);
-	font: 600 0.68rem / 1 "Consolas", "Andale Mono", monospace;
+	font:
+		600 0.68rem / 1 "Consolas",
+		"Andale Mono",
+		monospace;
 	letter-spacing: 0.04em;
 }
 
@@ -4702,9 +4871,15 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	border-radius: 10px;
 	background: rgba(255, 255, 255, 0.03);
 	color: var(--text-dim);
-	font: 600 0.7rem / 1 "Avenir Next", "Segoe UI", sans-serif;
+	font:
+		600 0.7rem / 1 "Avenir Next",
+		"Segoe UI",
+		sans-serif;
 	cursor: pointer;
-	transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+	transition:
+		border-color 0.15s ease,
+		background 0.15s ease,
+		color 0.15s ease;
 }
 
 .inspector-browser__tab:hover {
@@ -4748,7 +4923,10 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	border-radius: 999px;
 	background: rgba(255, 255, 255, 0.04);
 	color: var(--text);
-	font: 700 0.66rem / 1 "Avenir Next", "Segoe UI", sans-serif;
+	font:
+		700 0.66rem / 1 "Avenir Next",
+		"Segoe UI",
+		sans-serif;
 	line-height: 1;
 	vertical-align: middle;
 	cursor: pointer;
@@ -4962,7 +5140,10 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 .export-selection-item__meta {
 	grid-column: 2;
 	color: var(--text-dim);
-	font: 0.78rem / 1.3 "Consolas", "Andale Mono", monospace;
+	font:
+		0.78rem / 1.3 "Consolas",
+		"Andale Mono",
+		monospace;
 	word-break: break-word;
 }
 
@@ -5459,7 +5640,10 @@ body[data-interaction-mode="roll"] .viewport-gizmo {
 	border-radius: 999px;
 	background: rgba(255, 87, 72, 0.18);
 	color: #ffd8d1;
-	font: 600 0.68rem / 1 "Consolas", "Andale Mono", monospace;
+	font:
+		600 0.68rem / 1 "Consolas",
+		"Andale Mono",
+		monospace;
 	letter-spacing: 0.05em;
 	text-transform: uppercase;
 	white-space: nowrap;

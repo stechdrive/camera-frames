@@ -251,8 +251,7 @@ function createTestControllerWithHistory() {
 	const previousAnchorPoint = {
 		x: outputSize.width * preset.items[0].anchor.ax - previousEffectiveOffset.x,
 		y:
-			outputSize.height * preset.items[0].anchor.ay -
-			previousEffectiveOffset.y,
+			outputSize.height * preset.items[0].anchor.ay - previousEffectiveOffset.y,
 	};
 
 	const compensated =

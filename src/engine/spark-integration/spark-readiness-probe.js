@@ -50,7 +50,9 @@ function getPagerChunkPage(pager, splats, chunk) {
 }
 
 function countPagerFetchBacklog(pager) {
-	const priority = Array.isArray(pager?.fetchPriority) ? pager.fetchPriority : [];
+	const priority = Array.isArray(pager?.fetchPriority)
+		? pager.fetchPriority
+		: [];
 	const maxPages = Number.isFinite(Number(pager?.maxPages))
 		? Math.max(0, Math.floor(Number(pager.maxPages)))
 		: Number.POSITIVE_INFINITY;
