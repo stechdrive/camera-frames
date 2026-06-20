@@ -7,6 +7,7 @@ import {
 } from "../src/engine/composition-guides.js";
 import {
 	PROJECT_VERSION,
+	getProjectMediaTypeFromFileName,
 	normalizeProjectDocument,
 	sanitizeProjectAssetLabel,
 } from "../src/project/document.js";
@@ -118,5 +119,11 @@ assert.deepEqual(normalizedWithCompositionGuide.shotCameras[1].lens, {
 	shiftX: 1,
 	shiftY: 0,
 });
+
+assert.equal(getProjectMediaTypeFromFileName("layout.fbx"), "model/fbx");
+assert.equal(
+	getProjectMediaTypeFromFileName("layout.glb"),
+	"model/gltf-binary",
+);
 
 console.log("✅ CAMERA_FRAMES project document tests passed!");

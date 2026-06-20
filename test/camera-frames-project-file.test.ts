@@ -699,6 +699,56 @@ assert.equal(
 	"multiple placements of the same GLB must survive streaming package save",
 );
 
+const fbxProjectSnapshot = {
+	workspace: projectSnapshot.workspace,
+	shotCameras: projectSnapshot.shotCameras,
+	scene: {
+		assets: [
+			{
+				id: "asset-fbx-model",
+				kind: "model",
+				label: "FBX Prop",
+				source: createProjectFileEmbeddedFileSource({
+					kind: "model",
+					file: new File([new Uint8Array([0x46, 0x42, 0x58])], "prop.fbx", {
+						type: "model/fbx",
+					}),
+					fileName: "prop.fbx",
+				}),
+				transform: {
+					position: { x: 0, y: 0, z: 0 },
+					quaternion: { x: 0, y: 0, z: 0, w: 1 },
+				},
+				worldScale: 1,
+				unitMode: "meters",
+				visible: true,
+				exportRole: "beauty",
+				maskGroup: "",
+				workingPivotLocal: null,
+			},
+		],
+		lighting: projectSnapshot.scene.lighting,
+		referenceImages: createDefaultReferenceImageDocument(),
+	},
+};
+const fbxArchive = await buildCameraFramesProjectArchive(fbxProjectSnapshot);
+const fbxReader = await ZipReader.from(new File([fbxArchive], "fbx.ssproj"));
+const fbxDocument = JSON.parse(await fbxReader.text(PROJECT_DOCUMENT_PATH));
+const fbxResource = fbxDocument.resources["resource-1"];
+assert.equal(fbxResource.mediaType, "model/fbx");
+assert.equal(
+	fbxReader.entries.get(fbxResource.path)?.compressionMethod,
+	0,
+	"FBX resources should be stored without deflate in .ssproj archives",
+);
+await fbxReader.close();
+const fbxResult = await readCameraFramesProject(
+	new File([fbxArchive], "fbx-roundtrip.ssproj"),
+);
+assert.equal(fbxResult.assetEntries.length, 1);
+assert.equal(fbxResult.assetEntries[0].source.file.name, "prop.fbx");
+assert.equal(fbxResult.assetEntries[0].source.file.type, "model/fbx");
+
 const duplicateBaked3dgsProjectSnapshot = {
 	workspace: projectSnapshot.workspace,
 	shotCameras: projectSnapshot.shotCameras,

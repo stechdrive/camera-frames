@@ -1,6 +1,6 @@
 # CAMERA_FRAMES 機能一覧 / 回帰チェック観点
 
-最終更新: 2026-05-16
+最終更新: 2026-06-20
 
 ## 0. この文書の役割
 
@@ -33,7 +33,7 @@
 
 対応形式:
 
-- scene asset: `.ply`, `.spz`, `.splat`, `.ksplat`, `.zip`, `.sog`, `.rad`, `.glb`, `.gltf`
+- scene asset: `.ply`, `.spz`, `.splat`, `.ksplat`, `.zip`, `.sog`, `.rad`, `.glb`, `.gltf`, `.fbx`
 - project: `.ssproj`
 - reference image: `.png`, `.jpg`, `.jpeg`, `.webp`, `.psd`
 
@@ -54,11 +54,12 @@
 - baked LoD / RAD-only 付き `.ssproj` は load 直後から prebuilt LoD / RAD streaming を使い、必要な時だけ editable FullData を materialize する
 - `raw-packed-splat` は `radBundle` と `fullDataPolicy: "derive-from-rad"` を持てる。RAD-only source は RAD が quantized source of truth で、per-splat edit に入る時に leaf splat だけの editable `PackedSplats` へ展開する
 - RAD bundle 付き `.ssproj` は Service Worker の `Range` 配信経由で Spark `PagedSplats` 表示を優先する。FullData 付き source は失敗時に FullData 読み込みへ戻り、RAD-only source は RAD の full decode へ戻る
-- `.ssproj` ZIP では RAD / GLB / image / SOG / SPZ / packed companion binary / raw-packed binary を stored entry として保存し、JSON と raw PLY は deflate を使う
+- `.ssproj` ZIP では RAD / GLB / FBX / image / SOG / SPZ / packed companion binary / raw-packed binary を stored entry として保存し、JSON と raw PLY は deflate を使う
 
 ### 2.3 Scene assets
 
 - splat と model を同じ scene に置ける
+- FBX は Three.js `FBXLoader` の対応範囲で best-effort に model として読み込める。外部テクスチャ参照や特殊 material は完全再現を保証しない
 - asset の表示 / 順序 / transform / content transform / scale / unit を管理できる
 - export role と mask group を持てる
 - working pivot を持てる

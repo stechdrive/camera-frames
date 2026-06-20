@@ -14,7 +14,7 @@ import { SceneBrowserSection } from "../../ui/workbench-browser-sections.js";
 import { createMockController } from "../mock/controller.js";
 import { createMockStore } from "../mock/store.js";
 
-// The live DOM renders the kind heading ("GLB / モデル") comfortably on a
+// The live DOM renders the kind heading ("GLB / FBX / モデル") comfortably on a
 // single line inside the 318.4 px flex row. During modern-screenshot's
 // domToPng clone the flex basis of .browser-group__heading strong is
 // recomputed differently and the last character ("ル") gets pushed to a

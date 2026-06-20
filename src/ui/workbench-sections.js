@@ -159,7 +159,7 @@ export function WorkbenchHeader({
 										<input
 											id="header-url-input"
 											type="text"
-											placeholder="https://.../scene.spz or model.glb"
+											placeholder="https://.../scene.spz or model.fbx"
 											value=${remoteUrl}
 											...${INTERACTIVE_FIELD_PROPS}
 											onInput=${(event) =>

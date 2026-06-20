@@ -128,6 +128,8 @@ export function getProjectMediaTypeFromFileName(
 			return "model/gltf-binary";
 		case "gltf":
 			return "model/gltf+json";
+		case "fbx":
+			return "model/fbx";
 		case "psd":
 			return "image/vnd.adobe.photoshop";
 		case "png":

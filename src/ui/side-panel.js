@@ -265,7 +265,7 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 				<input
 					id="header-url-input"
 					type="text"
-					placeholder="https://.../scene.spz or model.glb"
+					placeholder="https://.../scene.spz or model.fbx"
 					value=${store.remoteUrl.value}
 					onInput=${(event) => {
 						store.remoteUrl.value = event.currentTarget.value;

@@ -180,6 +180,19 @@ function createHarness(overrides = {}) {
 
 {
 	const { runtime, calls } = createHarness();
+	const imported = await runtime.importDroppedFiles([
+		new File([new Uint8Array([1])], "layout.fbx"),
+	]);
+	assert.equal(imported, true);
+	assert.deepEqual(
+		calls.loadedModels.map((source) => source.name),
+		["layout.fbx"],
+	);
+	assert.equal(calls.loadedSplats.length, 0);
+}
+
+{
+	const { runtime, calls } = createHarness();
 	assert.equal(typeof runtime.expandProjectPackageSources, "function");
 	const projectFile = new File([new Uint8Array([1])], "scene.ssproj");
 	const imported = await runtime.importDroppedFiles([projectFile]);

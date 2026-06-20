@@ -30,7 +30,17 @@ class FakeRgbaArray {
 	dispose() {}
 }
 
-function createAssetControllerForPublicApiTest() {
+function createAssetControllerForPublicApiTest({
+	gltfLoader = {
+		loadAsync: async () => ({
+			scene: new THREE.Group(),
+			scenes: [new THREE.Group()],
+		}),
+	},
+	fbxLoader = {
+		loadAsync: async () => new THREE.Group(),
+	},
+} = {}) {
 	const store = createCameraFramesStore();
 	const sceneState = { assets: [], nextAssetId: 1 };
 	const statusEvents = [];
@@ -39,11 +49,10 @@ function createAssetControllerForPublicApiTest() {
 			sceneState,
 			assetInput: { click() {} },
 			store,
-			loader: {
-				loadAsync: async () => ({
-					scene: new THREE.Group(),
-					scenes: [new THREE.Group()],
-				}),
+			loader: gltfLoader,
+			modelLoaders: {
+				gltf: gltfLoader,
+				fbx: fbxLoader,
 			},
 			splatRoot: new THREE.Group(),
 			modelRoot: new THREE.Group(),
@@ -84,6 +93,54 @@ function createAssetControllerForPublicApiTest() {
 		store,
 		statusEvents,
 	};
+}
+
+{
+	const gltfCalls = [];
+	const fbxCalls = [];
+	const harness = createAssetControllerForPublicApiTest({
+		gltfLoader: {
+			loadAsync: async (url) => {
+				gltfCalls.push(url);
+				return {
+					scene: new THREE.Group(),
+					scenes: [],
+				};
+			},
+		},
+		fbxLoader: {
+			loadAsync: async (url) => {
+				fbxCalls.push(url);
+				return new THREE.Group();
+			},
+		},
+	});
+
+	await harness.controller.loadModelFromSource(
+		createProjectFileEmbeddedFileSource({
+			kind: "model",
+			file: new File([new Uint8Array([1])], "robot.glb", {
+				type: "model/gltf-binary",
+			}),
+			fileName: "robot.glb",
+		}),
+	);
+	await harness.controller.loadModelFromSource(
+		createProjectFileEmbeddedFileSource({
+			kind: "model",
+			file: new File([new Uint8Array([2])], "prop.fbx", {
+				type: "model/fbx",
+			}),
+			fileName: "prop.fbx",
+		}),
+	);
+
+	assert.equal(gltfCalls.length, 1);
+	assert.equal(fbxCalls.length, 1);
+	assert.deepEqual(
+		harness.sceneState.assets.map((asset) => asset.label),
+		["robot.glb", "prop.fbx"],
+	);
 }
 
 {

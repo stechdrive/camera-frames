@@ -73,7 +73,7 @@ const MESSAGES = {
 			exportGridOverlay: "ガイドを含める",
 			exportReferenceImages: "下絵を含める",
 			exportGridLayerMode: "グリッド重ね順",
-			exportModelLayers: "GLB をレイヤー化",
+			exportModelLayers: "モデルをレイヤー化",
 			exportSplatLayers: "3DGS をレイヤー化",
 			outputFrameWidth: "用紙サイズ 幅",
 			outputFrameHeight: "用紙サイズ 高",
@@ -401,10 +401,9 @@ const MESSAGES = {
 				"Infinite Grid と Eye Level を書き出しに含めます。",
 			exportGridLayerModeField:
 				"ガイドを出力画像の下に入れるか、上に重ねるかを選びます。",
-			exportModelLayersField:
-				"PSD 書き出し時に GLB モデルを個別レイヤー化します。",
+			exportModelLayersField: "PSD 書き出し時にモデルを個別レイヤー化します。",
 			exportSplatLayersField:
-				"PSD 書き出し時に 3DGS を個別レイヤー化します。GLB レイヤー化が前提です。",
+				"PSD 書き出し時に 3DGS を個別レイヤー化します。モデルレイヤー化が前提です。",
 			exportTargetField:
 				"現在のカメラ、全カメラ、または選択したカメラだけを書き出します。",
 			exportPresetSelectionField:
@@ -422,11 +421,11 @@ const MESSAGES = {
 			shotCameraClip:
 				"自動では ショットカメラ ごとの Near を保持しつつ、Far をシーン境界から決めます。手動では Near/Far を ショットカメラ ごとに固定します。",
 			shotCameraExport:
-				"書き出し形式とガイド・レイヤー設定は ショットカメラ ごとに保持します。PSD の 3DGS レイヤー化は GLB レイヤー化が前提です。",
+				"書き出し形式とガイド・レイヤー設定は ショットカメラ ごとに保持します。PSD の 3DGS レイヤー化はモデルレイヤー化が前提です。",
 			outputFrame:
 				"カメラビューでは off-axis projection を使い、出力フレーム内の構図を最終出力と一致させます。",
 			sceneCalibration:
-				"3DGS は raw 1x で入るので、必要に応じてワールドスケールを補正します。GLB も必要なら個別に調整できます。",
+				"3DGS は raw 1x で入るので、必要に応じてワールドスケールを補正します。モデルも必要なら個別に調整できます。",
 			sceneOrder:
 				"一覧の順序は PSD のオブジェクトレイヤー順の基準です。表示の切替は viewport と export の両方に反映します。",
 			lightDirection:
@@ -441,7 +440,7 @@ const MESSAGES = {
 		},
 		drop: {
 			title: "画面にファイルをドロップして開く",
-			body: "3Dデータ（PLY / SPZ / SOG / SPLAT / GLB など）、プロジェクトパッケージ（.ssproj）、下絵（PNG / JPG / WEBP / PSD）を読み込めます。",
+			body: "3Dデータ（PLY / SPZ / SOG / SPLAT / GLB / FBX など）、プロジェクトパッケージ（.ssproj）、下絵（PNG / JPG / WEBP / PSD）を読み込めます。",
 			controlsTitle: "カメラ操作",
 			controlOrbit: "左ドラッグ: 見回す",
 			controlPan: "右ドラッグ: 左右 / 上下に移動",
@@ -556,7 +555,7 @@ const MESSAGES = {
 			exportPhaseGuides: "ガイド",
 			exportPhaseMasks: "マスク",
 			exportPhasePsdBase: "PSDベース",
-			exportPhaseModelLayers: "GLBレイヤー",
+			exportPhaseModelLayers: "モデルレイヤー",
 			exportPhaseSplatLayers: "3DGSレイヤー",
 			exportPhaseReferenceImages: "下絵",
 			exportPhaseWrite: "書き出し",
@@ -570,9 +569,9 @@ const MESSAGES = {
 			exportPhaseDetailMasks: "マスクを構築しています…",
 			exportPhaseDetailMaskBatch: "{index}/{count} {name} のマスクを作成中…",
 			exportPhaseDetailPsdBase: "PSD のベース画像を構築しています…",
-			exportPhaseDetailModelLayers: "GLB レイヤーを準備しています…",
+			exportPhaseDetailModelLayers: "モデルレイヤーを準備しています…",
 			exportPhaseDetailModelLayersBatch:
-				"{index}/{count} {name} の GLB レイヤーを構築中…",
+				"{index}/{count} {name} のモデルレイヤーを構築中…",
 			exportPhaseDetailSplatLayers: "3DGS レイヤーを準備しています…",
 			exportPhaseDetailSplatLayersBatch:
 				"{index}/{count} {name} の 3DGS レイヤーを構築中…",
@@ -830,13 +829,13 @@ const MESSAGES = {
 		scene: {
 			badgeEmpty: "空",
 			summaryEmpty:
-				"`.ply`, `.spz`, `.splat`, `.ksplat`, `.zip`, `.sog`, `.rad`, `.glb`, `.gltf`, `.ssproj` をドロップまたは読み込みできます。",
+				"`.ply`, `.spz`, `.splat`, `.ksplat`, `.zip`, `.sog`, `.rad`, `.glb`, `.gltf`, `.fbx`, `.ssproj` をドロップまたは読み込みできます。",
 			scaleDefault:
-				"シーン契約: 1 unit = 1 meter。GLB は meters 前提、3DGS は raw 1x で読み込みます。",
+				"シーン契約: 1 unit = 1 meter。モデルは meters 前提、3DGS は raw 1x で読み込みます。",
 			loaded: "{count} 件を読込: {badge}。",
 			bounds: "境界 {x} × {y} × {z} m。",
 			worldContract: "ワールド契約 1u = 1m。",
-			glbMeter: "GLB は meter-native として扱います。",
+			glbMeter: "GLB / glTF / FBX は meter-native として扱います。",
 			splatRaw: "3DGS は raw 1x で入るため、校正までは暫定スケールです。",
 			splatCount: "3DGS {count}件",
 			modelCount: "モデル {count}件",
@@ -844,7 +843,7 @@ const MESSAGES = {
 		},
 		assetKind: {
 			splat: "3DGS",
-			model: "GLB / モデル",
+			model: "GLB / FBX / モデル",
 		},
 		assetVisibility: {
 			visible: "表示",
@@ -906,6 +905,8 @@ const MESSAGES = {
 			unsupportedFileType: "未対応のファイル形式です: {name}",
 			emptyProjectPackage: "{name} に読み込める 3D asset がありません。",
 			emptyGltf: "GLTF scene が空です。",
+			emptyFbx: "FBX scene が空です。",
+			fbxLoaderUnavailable: "この build では FBX loader を利用できません。",
 			missingRoot: "CAMERA_FRAMES の root 要素が見つかりませんでした。",
 		},
 		referenceImage: {
@@ -991,7 +992,7 @@ const MESSAGES = {
 			exportGridOverlay: "Include Guides",
 			exportReferenceImages: "Include Reference Images",
 			exportGridLayerMode: "Grid Layering",
-			exportModelLayers: "Layer GLB Models",
+			exportModelLayers: "Layer Models",
 			exportSplatLayers: "Layer 3DGS Objects",
 			outputFrameWidth: "Paper Width",
 			outputFrameHeight: "Paper Height",
@@ -1324,9 +1325,9 @@ const MESSAGES = {
 				"Include Infinite Grid and Eye Level in the export.",
 			exportGridLayerModeField:
 				"Choose whether guide overlays render below or above the beauty image.",
-			exportModelLayersField: "Write GLB models as separate PSD layers.",
+			exportModelLayersField: "Write models as separate PSD layers.",
 			exportSplatLayersField:
-				"Write 3DGS objects as separate PSD layers. GLB model layers must also be enabled.",
+				"Write 3DGS objects as separate PSD layers. Model layers must also be enabled.",
 			exportTargetField:
 				"Export only the current camera, every camera, or a selected subset.",
 			exportPresetSelectionField:
@@ -1344,11 +1345,11 @@ const MESSAGES = {
 			shotCameraClip:
 				"Auto keeps the per-Camera near clip and derives far from scene bounds. Manual stores both near and far per Camera.",
 			shotCameraExport:
-				"Export format, guide layering, and PSD layer settings are stored per Camera. 3DGS object layers in PSD require GLB layered export to be enabled.",
+				"Export format, guide layering, and PSD layer settings are stored per Camera. 3DGS object layers in PSD require model layered export to be enabled.",
 			outputFrame:
 				"Camera View uses off-axis projection so framing inside the Output Frame matches final output.",
 			sceneCalibration:
-				"3DGS assets enter at raw 1x, so adjust world scale when needed. GLB assets can also be tuned per asset when necessary.",
+				"3DGS assets enter at raw 1x, so adjust world scale when needed. Models can also be tuned per asset when necessary.",
 			sceneOrder:
 				"List order becomes the PSD object-layer order. Visibility affects both viewport and export.",
 			lightDirection:
@@ -1364,7 +1365,7 @@ const MESSAGES = {
 		},
 		drop: {
 			title: "Drop files here",
-			body: "Load 3D data (PLY / SPZ / SOG / SPLAT / GLB and more), project packages (.ssproj), or reference images (PNG / JPG / WEBP / PSD).",
+			body: "Load 3D data (PLY / SPZ / SOG / SPLAT / GLB / FBX and more), project packages (.ssproj), or reference images (PNG / JPG / WEBP / PSD).",
 			controlsTitle: "Camera Controls",
 			controlOrbit: "Left drag: look around",
 			controlPan: "Right drag: slide left / right / up / down",
@@ -1481,7 +1482,7 @@ const MESSAGES = {
 			exportPhaseGuides: "Guides",
 			exportPhaseMasks: "Masks",
 			exportPhasePsdBase: "PSD Base",
-			exportPhaseModelLayers: "GLB Layers",
+			exportPhaseModelLayers: "Model Layers",
 			exportPhaseSplatLayers: "3DGS Layers",
 			exportPhaseReferenceImages: "Reference Images",
 			exportPhaseWrite: "Writing",
@@ -1493,9 +1494,9 @@ const MESSAGES = {
 			exportPhaseDetailMasks: "Building mask passes…",
 			exportPhaseDetailMaskBatch: "Building mask {index}/{count}: {name}…",
 			exportPhaseDetailPsdBase: "Preparing the PSD base image…",
-			exportPhaseDetailModelLayers: "Preparing GLB layer exports…",
+			exportPhaseDetailModelLayers: "Preparing model layer exports…",
 			exportPhaseDetailModelLayersBatch:
-				"Building GLB layer {index}/{count}: {name}…",
+				"Building model layer {index}/{count}: {name}…",
 			exportPhaseDetailSplatLayers: "Preparing 3DGS layer exports…",
 			exportPhaseDetailSplatLayersBatch:
 				"Building 3DGS layer {index}/{count}: {name}…",
@@ -1748,13 +1749,13 @@ const MESSAGES = {
 		scene: {
 			badgeEmpty: "Empty",
 			summaryEmpty:
-				"Drop or load `.ply`, `.spz`, `.splat`, `.ksplat`, `.zip`, `.sog`, `.rad`, `.glb`, `.gltf`, or `.ssproj` files.",
+				"Drop or load `.ply`, `.spz`, `.splat`, `.ksplat`, `.zip`, `.sog`, `.rad`, `.glb`, `.gltf`, `.fbx`, or `.ssproj` files.",
 			scaleDefault:
-				"Scene contract: 1 unit = 1 meter. GLB defaults to meters; 3DGS enters at raw 1x.",
+				"Scene contract: 1 unit = 1 meter. Models default to meters; 3DGS enters at raw 1x.",
 			loaded: "Loaded {count} item(s): {badge}.",
 			bounds: "Bounds {x} × {y} × {z} m.",
 			worldContract: "World contract 1u = 1m.",
-			glbMeter: "GLB assets are treated as meter-native.",
+			glbMeter: "GLB, glTF, and FBX assets are treated as meter-native.",
 			splatRaw:
 				"3DGS assets enter at raw 1x, so scale stays provisional until calibrated.",
 			splatCount: "{count} splat{plural}",
@@ -1763,7 +1764,7 @@ const MESSAGES = {
 		},
 		assetKind: {
 			splat: "3DGS",
-			model: "GLB / Model",
+			model: "GLB / FBX / Model",
 		},
 		assetVisibility: {
 			visible: "Visible",
@@ -1824,6 +1825,8 @@ const MESSAGES = {
 			unsupportedFileType: "Unsupported file type: {name}",
 			emptyProjectPackage: "No supported 3D assets were found in {name}.",
 			emptyGltf: "GLTF scene is empty.",
+			emptyFbx: "FBX scene is empty.",
+			fbxLoaderUnavailable: "FBX loader is unavailable in this build.",
 			missingRoot: "CAMERA_FRAMES root element was not found.",
 		},
 		referenceImage: {

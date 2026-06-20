@@ -136,7 +136,7 @@ import {
 
 // ---------- MODEL_EXTENSIONS ----------
 {
-	const expected = ["glb", "gltf"];
+	const expected = ["glb", "gltf", "fbx"];
 	assert.ok(MODEL_EXTENSIONS instanceof Set, "MODEL_EXTENSIONS must be a Set");
 	assert.equal(MODEL_EXTENSIONS.size, expected.length);
 	for (const ext of expected) {

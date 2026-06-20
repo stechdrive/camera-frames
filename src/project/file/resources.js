@@ -12,6 +12,7 @@ import {
 const SOG_SERIALIZABLE_EXTENSIONS = new Set(["ply", "spz"]);
 const DEFAULT_PROJECT_ARCHIVE_ENTRY_LEVEL = 6;
 const STORED_FILE_EXTENSIONS = new Set([
+	"fbx",
 	"glb",
 	"jpg",
 	"jpeg",

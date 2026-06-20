@@ -7,7 +7,7 @@ related-files:
   - docs/camera_frames_requirements.md
   - docs/legacy-ssproj-compatibility.md
   - docs/CameraFramesFeatures.md
-last-updated: 2026-04-24
+last-updated: 2026-06-20
 ---
 
 # 用語集とトラブルシューティング
@@ -50,7 +50,7 @@ last-updated: 2026-04-24
 
 - **シーンアセット** — 3D シーンに配置する個別オブジェクト。`スプラット` か `model` の 2 種類。[→ 4](04-scene-assets.md)
 - **スプラット** — Gaussian splatting アセット。`.ply` / `.spz` / `.splat` / `.kSplat` / `.sog` / `.rad` / `.zip`。スプラット編集対応。[→ 4](04-scene-assets.md)
-- **モデル** — glTF / glb モデル。スプラット編集非対応。[→ 4](04-scene-assets.md)
+- **モデル** — glTF / glb / FBX モデル。スプラット編集非対応。[→ 4](04-scene-assets.md)
 - **baseScale / worldScale** — アセットのスケールは `baseScale × worldScale` で計算される。読み込み時のスケール（baseScale）を保ったまま倍率（worldScale）だけ変更する設計。[→ 4](04-scene-assets.md)
 - **コンテンツ変形** — アセットの外側オブジェクトと中身オブジェクトの 2 段階構造のうち、中身オブジェクト側の変形。通常は `Apply Transform` で確定される。[→ 4](04-scene-assets.md)
 - **作業ピボット** — 変形ツールのピボット（回転 / スケールの中心）。ピボットツールで編集。[→ 4](04-scene-assets.md)
@@ -215,7 +215,7 @@ last-updated: 2026-04-24
 
 #### Q. モデルアセットをスプラット編集できない
 
-スプラット編集は **スプラットアセットのみ**対応です。モデル（glTF / glb）には適用できません。
+スプラット編集は **スプラットアセットのみ**対応です。モデル（glTF / glb / FBX）には適用できません。
 
 #### Q. モードを抜けたら選択が消えた
 

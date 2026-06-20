@@ -1,6 +1,6 @@
 # CAMERA_FRAMES 実装要件 / 保守基点
 
-最終更新: 2026-05-16
+最終更新: 2026-06-20
 
 ## 0. この文書の役割
 
@@ -68,7 +68,7 @@ CAMERA_FRAMES の共有 contract を Git 管理するための基点です。
 - 単独の `.ssproj` を開いた時は project open として扱う
 - それ以外の複数ファイル選択は、scene asset import と reference image import に振り分ける
 - local file picker で受ける形式:
-  - scene asset / project: `.ply`, `.spz`, `.splat`, `.ksplat`, `.zip`, `.sog`, `.rad`, `.glb`, `.gltf`, `.ssproj`
+  - scene asset / project: `.ply`, `.spz`, `.splat`, `.ksplat`, `.zip`, `.sog`, `.rad`, `.glb`, `.gltf`, `.fbx`, `.ssproj`
   - reference image: `.png`, `.jpg`, `.jpeg`, `.webp`, `.psd`
 - drag and drop でも同じ振り分けを使う
 - remote URL 欄は `http://` / `https://` の URL 群を読み込める
@@ -81,6 +81,7 @@ CAMERA_FRAMES の共有 contract を Git 管理するための基点です。
 - reference image の PSD import は 1 枚の PSD を複数 layer item に展開する
 - clipboard paste の reference image は貼り付け時点の bitmap 1 枚として扱い、PSD layer 展開とは別経路にする
 - legacy package から import するのは splat / model 系 asset が中心で、`refs/` の画像類は現 baseline の import asset には含めない
+- FBX は Three.js `FBXLoader` が対応できる範囲の best-effort model import として扱う。単体 `.fbx` と埋め込みテクスチャを優先し、外部テクスチャ参照、古い FBX version、特殊 shader / layered texture の完全再現は保証しない
 
 ## 5. Save / Project Lifecycle の契約
 
@@ -147,7 +148,7 @@ CAMERA_FRAMES の共有 contract を Git 管理するための基点です。
   - dev build では `?cfDevValidation=rad-ssproj&projectUrl=...` と `globalThis.__CF_BROWSER_VALIDATE__` で、browser-use から RAD package open / object transform / per-splat FullData swap を JSON 検証できる
 - `.ssproj` ZIP entry の圧縮方針は package open / RAD Range / 大容量 save の contract として扱う
   - JSON と raw PLY は deflate level 6 を基本にする
-  - GLB、image (`jpg` / `jpeg` / `png` / `webp`)、SOG、SPZ、ZIP、RAD、packed splat companion binary、raw-packed `packedArray` / `extraArrays` / `lodSplats` binary は stored/uncompressed とする
+  - GLB / FBX、image (`jpg` / `jpeg` / `png` / `webp`)、SOG、SPZ、ZIP、RAD、packed splat companion binary、raw-packed `packedArray` / `extraArrays` / `lodSplats` binary は stored/uncompressed とする
   - stored entry は ZIP Blob から `Blob.slice()` できる fast path として扱い、RAD root / chunk の Range 配信にも使う
 
 ## 6. Scene / Camera / Reference Image の契約

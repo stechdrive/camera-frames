@@ -12,6 +12,7 @@ import { applyLegacyAssetState } from "../../importers/legacy-ssproj.js";
 import {
 	createProjectFileEmbeddedFileSource,
 	createProjectFilePackedSplatSource,
+	getProjectPathExtension,
 	hasProjectFilePackedSplatDeferredFullData,
 	isProjectFileEmbeddedFileSource,
 	isProjectFilePackedSplatSource,
@@ -126,6 +127,7 @@ function attachRadBundleRuntimeCleanup(mesh, runtime) {
 export function createSceneAssetSourceLoadingController({
 	sceneState,
 	loader,
+	modelLoaders = null,
 	splatRoot,
 	modelRoot,
 	SplatMesh,
@@ -148,6 +150,31 @@ export function createSceneAssetSourceLoadingController({
 	t,
 	kickAutoLodBake,
 }) {
+	const gltfLoader = modelLoaders?.gltf ?? loader;
+	const fbxLoader = modelLoaders?.fbx ?? null;
+
+	function getModelSourceFileName(source) {
+		if (isProjectFileLazyResourceSource(source)) {
+			return source.fileName;
+		}
+		if (isProjectFileEmbeddedFileSource(source)) {
+			return source.fileName ?? source.file?.name;
+		}
+		if (isProjectPackageFileSource(source)) {
+			return source.fileName ?? source.file?.name;
+		}
+		if (typeof source === "string") {
+			return source;
+		}
+		return source?.fileName ?? source?.name ?? "";
+	}
+
+	function getModelSourceExtension(source, fallbackName = "") {
+		return getProjectPathExtension(
+			getModelSourceFileName(source) || fallbackName,
+		);
+	}
+
 	function createSplatContainer({
 		mesh,
 		displayName,
@@ -656,6 +683,7 @@ export function createSceneAssetSourceLoadingController({
 		const displayName = getDisplayName(source);
 		const projectAssetState = getProjectAssetState(source);
 		let persistentSource = null;
+		let sourceExtension = getModelSourceExtension(source, displayName);
 
 		if (isProjectFileEmbeddedFileSource(source)) {
 			url = URL.createObjectURL(source.file);
@@ -685,12 +713,25 @@ export function createSceneAssetSourceLoadingController({
 				legacyState: getLegacyState(source),
 			});
 		}
+		sourceExtension = getModelSourceExtension(persistentSource, displayName);
 
 		try {
-			const gltf = await loader.loadAsync(url);
-			const modelScene = gltf.scene || gltf.scenes[0];
+			let modelScene = null;
+			if (sourceExtension === "fbx") {
+				if (!fbxLoader || typeof fbxLoader.loadAsync !== "function") {
+					throw new Error(t("error.fbxLoaderUnavailable"));
+				}
+				modelScene = await fbxLoader.loadAsync(url);
+			} else {
+				const gltf = await gltfLoader.loadAsync(url);
+				modelScene = gltf.scene || gltf.scenes[0];
+			}
 			if (!modelScene) {
-				throw new Error(t("error.emptyGltf"));
+				throw new Error(
+					sourceExtension === "fbx"
+						? t("error.emptyFbx")
+						: t("error.emptyGltf"),
+				);
 			}
 
 			const object = new THREE.Group();

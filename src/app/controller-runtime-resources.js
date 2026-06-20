@@ -19,6 +19,7 @@ export function createControllerRuntimeResources({
 	PointerControlsImpl,
 	SparkRendererImpl,
 	GLTFLoaderImpl,
+	FBXLoaderImpl = null,
 	createGuideOverlayImpl,
 	srgbColorSpace,
 	viewportLodScale = VIEWPORT_LOD_SCALE_DEFAULT,
@@ -86,7 +87,13 @@ export function createControllerRuntimeResources({
 	});
 	pointerControls.pointerRollScale = 0.0;
 
-	const loader = new GLTFLoaderImpl();
+	const gltfLoader = new GLTFLoaderImpl();
+	const fbxLoader =
+		typeof FBXLoaderImpl === "function" ? new FBXLoaderImpl() : null;
+	const modelLoaders = {
+		gltf: gltfLoader,
+		fbx: fbxLoader,
+	};
 
 	return {
 		renderer,
@@ -102,6 +109,7 @@ export function createControllerRuntimeResources({
 		shotCameraRegistry,
 		fpsMovement,
 		pointerControls,
-		loader,
+		loader: gltfLoader,
+		modelLoaders,
 	};
 }

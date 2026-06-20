@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { FBXLoader } from "three/addons/loaders/FBXLoader.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { createAssetControllerBindings } from "./app/asset-controller-bindings.js";
 import { createCameraControllerBindings } from "./app/camera-controller-bindings.js";
@@ -149,6 +150,7 @@ export function createCameraFramesController(elements, store) {
 		fpsMovement,
 		pointerControls,
 		loader,
+		modelLoaders,
 	} = createControllerRuntimeResources({
 		viewportCanvas,
 		viewportPixelRatio: VIEWPORT_PIXEL_RATIO,
@@ -168,6 +170,7 @@ export function createCameraFramesController(elements, store) {
 		PointerControlsImpl: PointerControls,
 		SparkRendererImpl: SparkRenderer,
 		GLTFLoaderImpl: GLTFLoader,
+		FBXLoaderImpl: FBXLoader,
 		createGuideOverlayImpl: createGuideOverlay,
 		srgbColorSpace: THREE.SRGBColorSpace,
 		viewportLodScale: initialViewportLodScale,
@@ -496,6 +499,7 @@ export function createCameraFramesController(elements, store) {
 			assetInput,
 			store,
 			loader,
+			modelLoaders,
 			splatRoot,
 			modelRoot,
 			contentRoot,

@@ -1,3 +1,4 @@
+import { MODEL_EXTENSIONS, SPLAT_EXTENSIONS } from "../../constants.js";
 import { validateStartupUrls } from "../../engine/import-link-policy.js";
 
 function createImportSteps(activeStep, t) {
@@ -283,12 +284,10 @@ export function createAssetImportRuntime({
 				t("error.unsupportedFileType", { name: getDisplayName(source) }),
 			);
 		}
-		if (
-			["ply", "spz", "splat", "ksplat", "zip", "sog", "rad"].includes(extension)
-		) {
+		if (SPLAT_EXTENSIONS.has(extension)) {
 			return loadSplatFromSource(source, { onProgress });
 		}
-		if (["glb", "gltf"].includes(extension)) {
+		if (MODEL_EXTENSIONS.has(extension)) {
 			onProgress?.({ stage: "load-model" });
 			return loadModelFromSource(source);
 		}

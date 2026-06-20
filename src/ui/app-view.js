@@ -69,7 +69,7 @@ export function AppView({ store, controller, refs }) {
 			id="asset-input"
 			ref=${refs.assetInputRef}
 			type="file"
-			accept=".ply,.spz,.splat,.ksplat,.zip,.sog,.rad,.glb,.gltf,.ssproj,.png,.jpg,.jpeg,.webp,.psd"
+			accept=".ply,.spz,.splat,.ksplat,.zip,.sog,.rad,.glb,.gltf,.fbx,.ssproj,.png,.jpg,.jpeg,.webp,.psd"
 			multiple
 			hidden
 			onChange=${(event) => controller()?.handleAssetInputChange(event)}

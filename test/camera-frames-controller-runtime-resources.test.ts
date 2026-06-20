@@ -74,6 +74,7 @@ class FakeSparkRenderer {
 }
 
 class FakeGLTFLoader {}
+class FakeFBXLoader {}
 
 {
 	const resources = createControllerRuntimeResources({
@@ -94,6 +95,7 @@ class FakeGLTFLoader {}
 		PointerControlsImpl: FakePointerControls,
 		SparkRendererImpl: FakeSparkRenderer,
 		GLTFLoaderImpl: FakeGLTFLoader,
+		FBXLoaderImpl: FakeFBXLoader,
 		createGuideOverlayImpl: () => ({ group: { id: "guide-group" } }),
 		srgbColorSpace: "srgb",
 		viewportLodScale: 0.87,
@@ -123,6 +125,8 @@ class FakeGLTFLoader {}
 	assert.equal(resources.pointerControls.options.triplePressMoveSpeed, 0);
 	assert.equal(resources.pointerControls.pointerRollScale, 0);
 	assert.ok(resources.loader instanceof FakeGLTFLoader);
+	assert.ok(resources.modelLoaders.gltf instanceof FakeGLTFLoader);
+	assert.ok(resources.modelLoaders.fbx instanceof FakeFBXLoader);
 	assert.equal(resources.shotCameraRegistry.size, 0);
 }
 console.log("✅ CAMERA_FRAMES controller runtime resources tests passed!");

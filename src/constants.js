@@ -61,7 +61,7 @@ export const SPLAT_EXTENSIONS = new Set([
 // for heavy scenes (more scenes render without LoD).
 export const AUTO_LOD_MIN_SPLATS = 100_000;
 
-export const MODEL_EXTENSIONS = new Set(["glb", "gltf"]);
+export const MODEL_EXTENSIONS = new Set(["glb", "gltf", "fbx"]);
 
 export const ANCHORS = {
 	"top-left": { x: 0, y: 0 },

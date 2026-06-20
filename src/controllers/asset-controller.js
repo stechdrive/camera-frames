@@ -173,6 +173,7 @@ export function createAssetController({
 	assetInput,
 	store,
 	loader,
+	modelLoaders,
 	splatRoot,
 	modelRoot,
 	contentRoot,
@@ -459,6 +460,7 @@ export function createAssetController({
 	} = createSceneAssetSourceLoadingController({
 		sceneState,
 		loader,
+		modelLoaders,
 		splatRoot,
 		modelRoot,
 		SplatMesh,
