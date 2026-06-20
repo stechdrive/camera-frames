@@ -28,7 +28,19 @@ async function readRadBundleEntryBytes(entry, label) {
 		return bytes;
 	}
 	if (entry.blob instanceof Blob) {
-		return new Uint8Array(await entry.blob.arrayBuffer());
+		try {
+			return new Uint8Array(await entry.blob.arrayBuffer());
+		} catch (error) {
+			if (typeof entry.loadBytes !== "function") {
+				throw error;
+			}
+		}
+	}
+	if (typeof entry.loadBytes === "function") {
+		const loadedBytes = toUint8ArrayView(await entry.loadBytes());
+		if (loadedBytes.byteLength > 0) {
+			return loadedBytes;
+		}
 	}
 	throw new Error(`RAD bundle ${label} has no readable bytes.`);
 }

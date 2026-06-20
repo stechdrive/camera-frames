@@ -34,10 +34,15 @@ export function createProjectFileLazyResourceSource({
 						`Project resource "${fileName || "asset.bin"}" cannot be loaded.`,
 					);
 				}
-				materializePromise = Promise.resolve(materialize()).then((source) => {
-					materializedSource = source;
-					return materializedSource;
-				});
+				materializePromise = Promise.resolve(materialize())
+					.then((source) => {
+						materializedSource = source;
+						return materializedSource;
+					})
+					.catch((error) => {
+						materializePromise = null;
+						throw error;
+					});
 			}
 			return await materializePromise;
 		},

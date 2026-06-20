@@ -14,6 +14,7 @@ import {
 	isProjectFilePackedSplatSource,
 	materializeProjectFilePackedSplatFullData,
 	normalizeProjectDocument,
+	toUint8Array,
 } from "../document.js";
 import { notifyPackageProgress } from "./progress.js";
 import {
@@ -205,15 +206,28 @@ async function materializeRadBundleEntry(entry) {
 	if (entry.bytes instanceof Uint8Array && entry.bytes.byteLength > 0) {
 		return entry;
 	}
-	if (!(entry.blob instanceof Blob)) {
+	if (!(entry.blob instanceof Blob) && typeof entry.loadBytes !== "function") {
 		return entry;
 	}
-	const bytes = new Uint8Array(await entry.blob.arrayBuffer());
+	let bytes = null;
+	if (entry.blob instanceof Blob) {
+		try {
+			bytes = new Uint8Array(await entry.blob.arrayBuffer());
+		} catch (error) {
+			if (typeof entry.loadBytes !== "function") {
+				throw error;
+			}
+		}
+	}
+	if (!bytes && typeof entry.loadBytes === "function") {
+		bytes = toUint8Array(await entry.loadBytes());
+	}
 	const nextEntry = {
 		...entry,
 		bytes,
 	};
 	nextEntry.blob = undefined;
+	nextEntry.loadBytes = undefined;
 	return nextEntry;
 }
 

@@ -557,6 +557,39 @@ export function createProjectController({
 		};
 	}
 
+	async function isSameProjectFileHandle(fileHandle) {
+		if (!fileHandle || !projectFileHandle) {
+			return false;
+		}
+		if (fileHandle === projectFileHandle) {
+			return true;
+		}
+		for (const handle of [fileHandle, projectFileHandle]) {
+			if (typeof handle?.isSameEntry !== "function") {
+				continue;
+			}
+			try {
+				const otherHandle =
+					handle === fileHandle ? projectFileHandle : fileHandle;
+				if (await handle.isSameEntry(otherHandle)) {
+					return true;
+				}
+			} catch {
+				// Some hosts expose FileSystemHandle-like objects without a working
+				// isSameEntry implementation. In that case the explicit overwrite path
+				// still protects the known same-file case.
+			}
+		}
+		return false;
+	}
+
+	async function shouldMaterializeBeforeOpeningPackageWritable(saveTarget) {
+		return (
+			saveTarget?.saveMode === "overwrite" ||
+			(await isSameProjectFileHandle(saveTarget?.fileHandle))
+		);
+	}
+
 	async function performPackageSave(
 		values,
 		{ saveMode = "auto", saveTarget = null } = {},
@@ -645,7 +678,9 @@ export function createProjectController({
 			normalizedProject.packageRevision =
 				Math.max(0, currentPackageRevision) + 1;
 
-			if (resolvedSaveTarget.saveMode === "overwrite") {
+			if (
+				await shouldMaterializeBeforeOpeningPackageWritable(resolvedSaveTarget)
+			) {
 				await materializeProjectPackageSaveInputs(normalizedProject, {
 					preferRadOnlyPackedSplats,
 				});

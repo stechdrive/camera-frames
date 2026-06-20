@@ -232,6 +232,7 @@ async function readRawPackedSplatRadBundle(
 		chunks.push({
 			...entry,
 			...(blob ? { blob } : { bytes }),
+			loadBytes: async () => await reader.bytes(entry.path),
 		});
 	}
 	return {
@@ -240,6 +241,7 @@ async function readRawPackedSplatRadBundle(
 		root: {
 			...radBundleResource.root,
 			...(rootBlob ? { blob: rootBlob } : { bytes: rootBytes }),
+			loadBytes: async () => await reader.bytes(radBundleResource.root.path),
 		},
 		chunks,
 		sourceFingerprint: radBundleResource.sourceFingerprint ?? null,

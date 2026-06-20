@@ -342,7 +342,17 @@ async function readRadBundleEntryBytes(entry) {
 		return entry.bytes;
 	}
 	if (entry.blob instanceof Blob) {
-		return new Uint8Array(await entry.blob.arrayBuffer());
+		try {
+			return new Uint8Array(await entry.blob.arrayBuffer());
+		} catch (error) {
+			if (typeof entry.loadBytes !== "function") {
+				throw error;
+			}
+		}
+	}
+	if (typeof entry.loadBytes === "function") {
+		const bytes = await entry.loadBytes();
+		return bytes instanceof Uint8Array ? bytes : toUint8Array(bytes);
 	}
 	return null;
 }

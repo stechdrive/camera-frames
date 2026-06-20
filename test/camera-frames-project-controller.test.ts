@@ -1467,6 +1467,73 @@ await withNavigator({ gpu: {} }, async () => {
 		assert.equal(harness.store.overlay.value, null);
 		assert.equal(invalidatedState.arrayBufferCalls > 0, true);
 		assert.equal(chunks.length > 0, true);
+
+		const staleSaveAsBlob = new SaveInvalidatedBlob(
+			[new Uint8Array([0x52, 0x41, 0x44, 0x30])],
+			invalidatedState,
+		);
+		const staleSaveAsAsset = {
+			...staleRadAsset,
+			id: "splat-stale-save-as",
+			label: "stale-save-as",
+			source: createProjectFilePackedSplatSource({
+				fileName: "stale-save-as.rawsplat",
+				packedArray: new Uint32Array(),
+				numSplats: 1,
+				extra: {},
+				splatEncoding: null,
+				radBundle: {
+					kind: "spark-rad-bundle",
+					version: 1,
+					root: {
+						name: "stale-save-as.rad",
+						blob: staleSaveAsBlob,
+						size: staleSaveAsBlob.size,
+					},
+					chunks: [],
+					sourceFingerprint: { numSplats: 1 },
+					build: { mode: "quality" },
+				},
+				fullDataPolicy:
+					PROJECT_FILE_PACKED_SPLAT_FULL_DATA_POLICY_DERIVE_FROM_RAD,
+				skipClone: true,
+			}),
+		};
+		harness.setProjectState({
+			workspace: {
+				activeShotCameraId: "",
+				viewport: {
+					baseFovX: 55,
+					pose: {
+						position: { x: 0, y: 0, z: 0 },
+						quaternion: { x: 0, y: 0, z: 0, w: 1 },
+						up: { x: 0, y: 1, z: 0 },
+					},
+				},
+			},
+			shotCameras: [],
+			scene: {
+				assets: [staleSaveAsAsset],
+				referenceImages: createDefaultReferenceImageDocument(),
+			},
+		});
+		invalidatedState.writableOpened = false;
+		invalidatedState.arrayBufferCalls = 0;
+		chunks.length = 0;
+
+		await harness.projectController.exportProject();
+		const saveAsAction = harness.store.overlay.value.actions.find(
+			(action) => action.label === "action.savePackageAs",
+		);
+		await saveAsAction.onClick({
+			saveMode: "quality",
+			sogCompress: false,
+			sogMaxShBands: "2",
+			sogIterations: "10",
+		});
+		assert.equal(harness.store.overlay.value, null);
+		assert.equal(invalidatedState.arrayBufferCalls > 0, true);
+		assert.equal(chunks.length > 0, true);
 	} finally {
 		globalThis.showSaveFilePicker = originalShowSaveFilePicker;
 		globalThis.requestAnimationFrame = originalRequestAnimationFrame;

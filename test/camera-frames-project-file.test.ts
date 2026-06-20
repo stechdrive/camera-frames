@@ -13,6 +13,7 @@ import {
 import {
 	buildCameraFramesProjectArchive,
 	createProjectFileEmbeddedFileSource,
+	createProjectFileLazyResourceSource,
 	createProjectFilePackedSplatSource,
 	isProjectFileEmbeddedFileSource,
 	isProjectFileLazyResourceSource,
@@ -1341,6 +1342,36 @@ assert.equal(
 	"deferred FullData ensure must not invoke the loader again after a successful materialization",
 );
 
+let lazyMaterializeAttempts = 0;
+const retryableLazySource = createProjectFileLazyResourceSource({
+	kind: "model",
+	fileName: "retry.glb",
+	materialize: async () => {
+		lazyMaterializeAttempts += 1;
+		if (lazyMaterializeAttempts === 1) {
+			throw new Error("temporary lazy materialize failure");
+		}
+		return createProjectFileEmbeddedFileSource({
+			kind: "model",
+			file: new File([new Uint8Array([7, 8, 9])], "retry.glb", {
+				type: "model/gltf-binary",
+			}),
+			fileName: "retry.glb",
+		});
+	},
+});
+await assert.rejects(
+	retryableLazySource.materialize(),
+	/temporary lazy materialize failure/u,
+);
+const retriedLazySource = await retryableLazySource.materialize();
+assert.equal(lazyMaterializeAttempts, 2);
+assert.equal(
+	retriedLazySource.fileName,
+	"retry.glb",
+	"lazy project sources must retry after a failed materialize instead of caching the rejection",
+);
+
 const radBundleProjectSnapshot = {
 	workspace: projectSnapshot.workspace,
 	shotCameras: projectSnapshot.shotCameras,
@@ -1630,6 +1661,59 @@ assert.deepEqual(
 	"RAD-backed deferred FullData should reopen the project file when a stale file-backed Blob fails",
 );
 assert.equal(refreshedArchiveReads > 0, true);
+
+const volatileRadOnlyArchiveState = { failReads: false };
+const volatileRadOnlyArchive = new VolatileArchiveBlob(
+	[radOnlyArchive],
+	volatileRadOnlyArchiveState,
+);
+let refreshedRadOnlyArchiveReads = 0;
+const volatileRadOnlyParsedProject = await openCameraFramesProjectPackage(
+	volatileRadOnlyArchive,
+	{
+		refreshSource: async () => {
+			refreshedRadOnlyArchiveReads += 1;
+			return new Blob([radOnlyArchive]);
+		},
+	},
+);
+let volatileRadOnlySource = null;
+try {
+	volatileRadOnlySource =
+		await volatileRadOnlyParsedProject.assetEntries[0].source.materialize();
+} finally {
+	await volatileRadOnlyParsedProject.close();
+}
+assert.equal(volatileRadOnlySource.fullDataPolicy, "derive-from-rad");
+volatileRadOnlyArchiveState.failReads = true;
+const volatileRadOnlyWritable = createCollectingWritable();
+await writeCameraFramesProjectPackageToWritable(
+	{
+		workspace: projectSnapshot.workspace,
+		shotCameras: projectSnapshot.shotCameras,
+		scene: {
+			assets: [
+				{
+					...radOnlyProjectSnapshot.scene.assets[0],
+					source: volatileRadOnlySource,
+				},
+			],
+			lighting: projectSnapshot.scene.lighting,
+			referenceImages: createDefaultReferenceImageDocument(),
+		},
+	},
+	volatileRadOnlyWritable.writable,
+	{ preferRadOnlyPackedSplats: true },
+);
+const volatileRadOnlySavedArchive = await collectWritableChunks(
+	volatileRadOnlyWritable.chunks,
+);
+assert.equal(volatileRadOnlySavedArchive.byteLength > 0, true);
+assert.equal(
+	refreshedRadOnlyArchiveReads > 0,
+	true,
+	"RAD-only package save should reopen the project file when a stale RAD Blob fails",
+);
 
 const stagedVolatileArchiveState = { failReads: false };
 const stagedVolatileArchive = new VolatileArchiveBlob(

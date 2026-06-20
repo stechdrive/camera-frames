@@ -725,6 +725,9 @@ function cloneRadBundleEntry(entry, { skipClone = false } = {}) {
 	} else if (bytes.byteLength > 0) {
 		cloned.bytes = skipClone ? bytes : new Uint8Array(bytes);
 	}
+	if (typeof entry.loadBytes === "function") {
+		cloned.loadBytes = entry.loadBytes;
+	}
 	return cloned;
 }
 
