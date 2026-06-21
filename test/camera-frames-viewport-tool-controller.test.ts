@@ -218,6 +218,76 @@ function createGizmoHarness({ camera }) {
 	};
 }
 
+function createTransformDragHarness() {
+	const camera = new THREE.PerspectiveCamera(90, 1, 0.1, 100);
+	camera.position.set(0, 0, 10);
+	camera.lookAt(0, 0, 0);
+	camera.updateProjectionMatrix();
+	camera.updateMatrixWorld(true);
+
+	const mesh = new THREE.Mesh(
+		new THREE.BoxGeometry(2, 2, 2),
+		new THREE.MeshBasicMaterial(),
+	);
+	mesh.updateMatrixWorld(true);
+
+	const asset = {
+		id: 101,
+		worldScale: 1,
+		object: mesh,
+	};
+	const calls = {
+		beginHistoryTransaction: [],
+		releaseRuntimeEvaluationForManualEdit: [],
+	};
+	const controller = createViewportToolController({
+		store: {
+			viewportToolMode: { value: "transform" },
+			viewportTransformSpace: { value: "world" },
+			selectedSceneAssetId: { value: 101 },
+			selectedSceneAssetIds: { value: [101] },
+		},
+		state: {
+			mode: WORKSPACE_PANE_VIEWPORT,
+		},
+		viewportShell: {
+			getBoundingClientRect() {
+				return {
+					left: 0,
+					top: 0,
+					width: 100,
+					height: 100,
+				};
+			},
+		},
+		viewportGizmo: {
+			classList: createClassList(),
+			dataset: {},
+			querySelector: () => null,
+		},
+		viewportGizmoSvg: null,
+		getActiveToolCamera: () => camera,
+		assetController: {
+			getSceneAsset: () => asset,
+			getAssetWorkingPivotWorld: () => new THREE.Vector3(0, 0, 0),
+			getAssetWorkingPivotLocal: () => new THREE.Vector3(0, 0, 0),
+			getSceneRaycastTargets: () => [mesh],
+			getSceneAssetForObject: (object) => (object === mesh ? asset : null),
+			selectSceneAsset: () => {},
+		},
+		beginHistoryTransaction: (label) =>
+			calls.beginHistoryTransaction.push(label),
+		commitHistoryTransaction: () => {},
+		releaseRuntimeEvaluationForManualEdit: (target) =>
+			calls.releaseRuntimeEvaluationForManualEdit.push(target),
+	});
+
+	return {
+		controller,
+		calls,
+	};
+}
+
 {
 	const harness = createHarness();
 	const event = createEvent();
@@ -290,6 +360,24 @@ function createGizmoHarness({ camera }) {
 		harness.ringElements.get("rotate-y-back")?.classList.contains("is-hidden"),
 		false,
 	);
+}
+
+{
+	const harness = createTransformDragHarness();
+	const started = harness.controller.startViewportTransformDrag(
+		"move-x",
+		createEvent({ pointerId: 7 }),
+	);
+
+	assert.equal(started, true);
+	assert.deepEqual(harness.calls.releaseRuntimeEvaluationForManualEdit, [
+		{
+			targetKind: "scene-asset",
+			targetId: 101,
+			insertAutoKey: false,
+		},
+	]);
+	assert.deepEqual(harness.calls.beginHistoryTransaction, ["asset.transform"]);
 }
 
 console.log("✅ CAMERA_FRAMES viewport tool controller tests passed!");

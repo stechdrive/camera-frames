@@ -304,6 +304,15 @@
 	color: var(--text);
 }
 
+.timeline-track-row__autokey-diamond {
+	display: block;
+	width: 0.56rem;
+	height: 0.56rem;
+	border: 1px solid rgba(255, 255, 255, 0.58);
+	background: #ffd166;
+	transform: rotate(45deg);
+}
+
 .timeline-track-row__label {
 	min-width: 0;
 	overflow: hidden;

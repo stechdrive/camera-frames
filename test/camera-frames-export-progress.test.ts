@@ -89,6 +89,48 @@ assert.equal(getExportPhaseDefaultDetail("unknown", "psd", t), "");
 }
 
 {
+	const cancelCalls = [];
+	const overlay = buildExportProgressOverlay({
+		targetDocuments: [
+			{
+				id: "shot-a:frame:8",
+				name: "Camera A / 0008",
+				sourceDocument: { id: "shot-a", name: "Camera A" },
+				timelineFrame: 8,
+			},
+			{
+				id: "shot-a:frame:12",
+				name: "Camera A / 0012",
+				sourceDocument: { id: "shot-a", name: "Camera A" },
+				timelineFrame: 12,
+			},
+		],
+		currentIndex: 1,
+		exportFormat: "webm",
+		startedAt: 123,
+		onCancel: () => cancelCalls.push("cancel"),
+		t,
+	});
+
+	assert.equal(
+		overlay.detail,
+		'overlay.exportDetailFrameBatch:{"index":2,"count":2,"camera":"Camera A","frame":12,"format":"exportFormat.webm:{}"}',
+	);
+	assert.deepEqual(overlay.steps, []);
+	assert.deepEqual(overlay.progressSummary, {
+		index: 2,
+		count: 2,
+		camera: "Camera A",
+		frame: 12,
+		frameLabel: 'overlay.exportProgressFrame:{"frame":12}',
+		format: "exportFormat.webm:{}",
+	});
+	assert.equal(overlay.actions[0].label, "action.cancel:{}");
+	overlay.actions[0].onClick();
+	assert.deepEqual(cancelCalls, ["cancel"]);
+}
+
+{
 	const overlay = buildExportProgressOverlay({
 		targetDocuments: [{ id: "shot-a", name: "Camera A" }],
 		currentIndex: 0,

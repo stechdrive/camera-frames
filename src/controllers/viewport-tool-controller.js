@@ -36,6 +36,7 @@ export function createViewportToolController({
 	beginHistoryTransaction,
 	commitHistoryTransaction,
 	autoKeySceneAssetTransforms = null,
+	releaseRuntimeEvaluationForManualEdit = null,
 }) {
 	const raycaster = new THREE.Raycaster();
 	const pointerNdc = new THREE.Vector2();
@@ -312,6 +313,26 @@ export function createViewportToolController({
 
 		event.preventDefault();
 		event.stopPropagation();
+		if (!nextDragState.pivotEditMode) {
+			const releaseAssetIds = [
+				...new Map(
+					(nextDragState.selectedAssets?.length
+						? nextDragState.selectedAssets
+						: [{ assetId: nextDragState.assetId }]
+					).map((selectedAsset) => [
+						String(selectedAsset.assetId),
+						selectedAsset.assetId,
+					]),
+				).values(),
+			];
+			for (const assetId of releaseAssetIds) {
+				releaseRuntimeEvaluationForManualEdit?.({
+					targetKind: "scene-asset",
+					targetId: assetId,
+					insertAutoKey: false,
+				});
+			}
+		}
 		beginHistoryTransaction?.(
 			nextDragState.pivotEditMode ? "asset.pivot" : "asset.transform",
 		);

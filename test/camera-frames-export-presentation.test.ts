@@ -42,6 +42,7 @@ import {
 			store,
 			t,
 			buildExportProgressOverlay: (config) => config,
+			onCancel: () => "cancel",
 		},
 	);
 
@@ -51,8 +52,10 @@ import {
 		exportFormat: "png",
 		startedAt: 123,
 		phaseState: { id: "beauty" },
+		onCancel: store.overlay.value.onCancel,
 		t,
 	});
+	assert.equal(store.overlay.value.onCancel(), "cancel");
 }
 
 {
@@ -107,9 +110,14 @@ import {
 
 	facade.setExportMode("sequence");
 	assert.equal(store.exportOptions.mode.value, "sequence");
-
-	facade.setExportFrameSource("keyframes");
 	assert.equal(store.exportOptions.frameSource.value, "keyframes");
+
+	facade.setExportFrameSource("duration");
+	assert.equal(store.exportOptions.frameSource.value, "duration");
+
+	facade.setExportMode("video");
+	assert.equal(store.exportOptions.mode.value, "video");
+	assert.equal(store.exportOptions.frameSource.value, "duration");
 
 	facade.setExportTarget("selected");
 	assert.equal(store.exportOptions.target.value, "selected");
@@ -133,10 +141,10 @@ import {
 	);
 	assert.equal(
 		statusCalls[1],
-		'status.exportFrameSourceChanged:{"source":"exportFrameSource.keyframes:{}"}',
+		'status.exportFrameSourceChanged:{"source":"exportFrameSource.duration:{}"}',
 	);
 	assert.equal(
-		statusCalls[2],
+		statusCalls[3],
 		'status.exportTargetChanged:{"target":"exportTarget.selected:{}"}',
 	);
 	assert.equal(statusCalls.at(-1), 'status.exportPresetSelection:{"count":1}');

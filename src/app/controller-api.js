@@ -418,6 +418,7 @@ export function createControllerApi({
 		downloadOutput: exportController.downloadOutput,
 		downloadPng: exportController.downloadPng,
 		downloadPsd: exportController.downloadPsd,
+		cancelExport: exportController.cancelExport,
 		__debugSetExportReadinessPolicyOverride:
 			exportController.__debugSetExportReadinessPolicyOverride,
 		__debugGetExportReadinessPolicyOverride:

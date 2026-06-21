@@ -1,4 +1,8 @@
 import {
+	ANIMATION_EXPORT_FRAME_SOURCE_DURATION,
+	ANIMATION_EXPORT_FRAME_SOURCE_KEYFRAMES,
+	ANIMATION_EXPORT_MODE_SEQUENCE,
+	ANIMATION_EXPORT_MODE_VIDEO,
 	sanitizeAnimationExportFrameSource,
 	sanitizeAnimationExportMode,
 } from "../../animation/animation-export.js";
@@ -42,7 +46,7 @@ export function setExportProgressOverlay(
 	exportFormat,
 	startedAt,
 	phaseState = null,
-	{ store, t, buildExportProgressOverlay } = {},
+	{ store, t, buildExportProgressOverlay, onCancel = null } = {},
 ) {
 	store.overlay.value = buildExportProgressOverlay({
 		targetDocuments,
@@ -50,6 +54,7 @@ export function setExportProgressOverlay(
 		exportFormat,
 		startedAt,
 		phaseState,
+		onCancel,
 		t,
 	});
 }
@@ -58,6 +63,13 @@ export function createExportOptionsFacade({ store, t, setStatus } = {}) {
 	function setExportMode(nextValue) {
 		const mode = sanitizeAnimationExportMode(nextValue);
 		store.exportOptions.mode.value = mode;
+		if (mode === ANIMATION_EXPORT_MODE_SEQUENCE) {
+			store.exportOptions.frameSource.value =
+				ANIMATION_EXPORT_FRAME_SOURCE_KEYFRAMES;
+		} else if (mode === ANIMATION_EXPORT_MODE_VIDEO) {
+			store.exportOptions.frameSource.value =
+				ANIMATION_EXPORT_FRAME_SOURCE_DURATION;
+		}
 		setStatus(
 			t("status.exportModeChanged", {
 				mode: t(`exportMode.${mode}`),

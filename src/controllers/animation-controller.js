@@ -338,9 +338,81 @@ export function createAnimationController({
 		return false;
 	}
 
+	function captureRuntimeStateForTarget(target) {
+		if (target?.kind === ANIMATION_TARGET_SHOT_CAMERA) {
+			const entry = shotCameraRegistry.get(target.id);
+			if (!entry?.camera) {
+				return null;
+			}
+			return {
+				target: {
+					kind: ANIMATION_TARGET_SHOT_CAMERA,
+					id: target.id,
+				},
+				state: captureCameraRuntimeState(target.id, entry),
+			};
+		}
+		if (target?.kind === ANIMATION_TARGET_SCENE_ASSET) {
+			const asset = getSceneAssetByAnimationId(target.id);
+			if (!asset?.object) {
+				return null;
+			}
+			return {
+				target: {
+					kind: ANIMATION_TARGET_SCENE_ASSET,
+					id: String(target.id),
+				},
+				state: captureAssetRuntimeState(asset),
+			};
+		}
+		return null;
+	}
+
+	function captureManualRuntimeStates(
+		targetKeys = manuallyEditedRuntimeTargets,
+	) {
+		const snapshots = new Map();
+		for (const targetKey of targetKeys) {
+			const target = parseTargetKey(targetKey);
+			const snapshot = target ? captureRuntimeStateForTarget(target) : null;
+			if (snapshot) {
+				snapshots.set(targetKey, snapshot);
+			}
+		}
+		return snapshots;
+	}
+
+	function applyRuntimeStateSnapshot(snapshot) {
+		if (!snapshot?.target || !snapshot.state) {
+			return false;
+		}
+		if (snapshot.target.kind === ANIMATION_TARGET_SHOT_CAMERA) {
+			const entry = shotCameraRegistry.get(snapshot.target.id);
+			applyCameraRuntimeState(entry, snapshot.state);
+			evaluatedShotCameraLens.delete(snapshot.target.id);
+			if (snapshot.target.id === store.workspace.activeShotCameraId.value) {
+				store.animation.evaluatedLens.value = null;
+				if (state) {
+					state.baseFovX = snapshot.state.lens.baseFovX;
+				}
+			}
+			return Boolean(entry?.camera);
+		}
+		if (snapshot.target.kind === ANIMATION_TARGET_SCENE_ASSET) {
+			const asset = getSceneAssetByAnimationId(snapshot.target.id);
+			if (!asset) {
+				return false;
+			}
+			applyAssetWorldTransform(asset, snapshot.state);
+			return true;
+		}
+		return false;
+	}
+
 	function releaseRuntimeEvaluationForManualEdit({
 		targetKind = ANIMATION_TARGET_SHOT_CAMERA,
 		targetId = store.workspace.activeShotCameraId.value,
+		insertAutoKey = true,
 	} = {}) {
 		if (
 			!runtimeEvaluated ||
@@ -356,10 +428,12 @@ export function createAnimationController({
 		};
 		const targetKey = createTargetKey(target);
 		const autoKeyEntries =
+			insertAutoKey &&
 			shouldHandleAutoKey(target) &&
 			target.kind === ANIMATION_TARGET_SHOT_CAMERA
 				? buildShotCameraKeyEntries(target.id)
-				: shouldHandleAutoKey(target) &&
+				: insertAutoKey &&
+						shouldHandleAutoKey(target) &&
 						target.kind === ANIMATION_TARGET_SCENE_ASSET
 					? buildSceneAssetKeyEntries(target.id)?.entries
 					: null;
@@ -1361,12 +1435,19 @@ export function createAnimationController({
 	function withBaseRuntimeStateForSnapshot(callback) {
 		const shouldReapply = runtimeEvaluated && isAnimationEnabled();
 		const frame = store.animation.timelineFrame.value;
+		const preservedRuntimeStates = shouldReapply
+			? captureManualRuntimeStates()
+			: new Map();
 		restoreBaseRuntimeState();
 		try {
 			return callback?.();
 		} finally {
 			if (shouldReapply) {
-				applyCurrentFrame({ frame, preserveManualEdits: true });
+				applyCurrentFrame({
+					frame,
+					preserveManualEdits: true,
+					preservedRuntimeStates,
+				});
 			}
 		}
 	}
@@ -1374,6 +1455,7 @@ export function createAnimationController({
 	function applyCurrentFrame({
 		frame = store.animation.timelineFrame.value,
 		preserveManualEdits = false,
+		preservedRuntimeStates = null,
 	} = {}) {
 		if (!isAnimationEnabled()) {
 			return restoreBaseRuntimeState();
@@ -1381,6 +1463,10 @@ export function createAnimationController({
 		const skippedTargetKeys = preserveManualEdits
 			? new Set(manuallyEditedRuntimeTargets)
 			: new Set();
+		const manualRuntimeStates = preserveManualEdits
+			? (preservedRuntimeStates ??
+				captureManualRuntimeStates(skippedTargetKeys))
+			: new Map();
 		if (!preserveManualEdits) {
 			manuallyEditedRuntimeTargets.clear();
 		}
@@ -1398,6 +1484,9 @@ export function createAnimationController({
 			} else if (binding.target.kind === "scene-asset") {
 				evaluateSceneAssetBinding(binding, timelineFrame);
 			}
+		}
+		for (const snapshot of manualRuntimeStates.values()) {
+			applyRuntimeStateSnapshot(snapshot);
 		}
 		runtimeEvaluated = true;
 		syncShotProjection?.();

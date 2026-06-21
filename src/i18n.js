@@ -603,6 +603,9 @@ const MESSAGES = {
 				"書き出しが終わるまで少し待ってください。完了するまで他の操作は無効です。",
 			exportDetailSingle: "{camera} を {format} で書き出し中…",
 			exportDetailBatch: "{index}/{count} {camera} を {format} で書き出し中…",
+			exportDetailFrameBatch:
+				"{index}/{count} {camera} の {frame} を {format} で書き出し中…",
+			exportProgressFrame: "フレーム {frame}",
 			exportPhasePrepare: "準備",
 			exportPhaseBeauty: "レンダリング",
 			exportPhaseGuides: "ガイド",
@@ -738,6 +741,7 @@ const MESSAGES = {
 			sequenceExported: "静止画連番 {count} ファイルを ZIP に書き出しました。",
 			videoExported:
 				"動画を書き出しました（{count} Camera / {frames} フレーム）。",
+			cancelled: "書き出しをキャンセルしました。",
 		},
 		status: {
 			ready: "準備完了。",
@@ -882,6 +886,8 @@ const MESSAGES = {
 			exportTargetChanged: "書き出し対象を {target} にしました。",
 			exportModeChanged: "出力タイプを {mode} にしました。",
 			exportFrameSourceChanged: "フレーム範囲を {source} にしました。",
+			exportCancelRequested: "書き出しをキャンセルしています...",
+			exportCancelled: "書き出しをキャンセルしました。",
 			exportPresetSelection:
 				"選択書き出しの ショットカメラ を {count} 件にしました。",
 		},
@@ -1599,6 +1605,9 @@ const MESSAGES = {
 				"Please wait until export finishes. Other interactions are temporarily disabled.",
 			exportDetailSingle: "Exporting {camera} as {format}…",
 			exportDetailBatch: "Exporting {index}/{count} {camera} as {format}…",
+			exportDetailFrameBatch:
+				"Exporting {index}/{count}: {camera}, frame {frame}, as {format}…",
+			exportProgressFrame: "Frame {frame}",
 			exportPhasePrepare: "Preparing",
 			exportPhaseBeauty: "Rendering",
 			exportPhaseGuides: "Guides",
@@ -1733,6 +1742,7 @@ const MESSAGES = {
 			sequenceExported: "Exported {count} image sequence file(s) to a ZIP.",
 			videoExported:
 				"Exported video for {count} Camera(s) with {frames} frame(s).",
+			cancelled: "Export cancelled.",
 		},
 		status: {
 			ready: "Ready.",
@@ -1870,6 +1880,8 @@ const MESSAGES = {
 			exportTargetChanged: "Export target set to {target}.",
 			exportModeChanged: "Output type set to {mode}.",
 			exportFrameSourceChanged: "Frame range set to {source}.",
+			exportCancelRequested: "Cancelling export...",
+			exportCancelled: "Export cancelled.",
 			exportPresetSelection:
 				"Selected export now includes {count} Camera preset(s).",
 		},

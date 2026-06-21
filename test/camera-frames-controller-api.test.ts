@@ -72,6 +72,7 @@ const api = createControllerApi({
 		downloadOutput: () => "download-output",
 		downloadPng: () => "download-png",
 		downloadPsd: () => "download-psd",
+		cancelExport: () => "cancel-export",
 	},
 	frameController: {
 		selectFrame: () => {},
@@ -308,6 +309,7 @@ assert.equal(
 	"export-frame-source:keyframes",
 );
 assert.equal(api.downloadOutput(), "download-output");
+assert.equal(api.cancelExport(), "cancel-export");
 assert.equal(api.setCompositionGuideEnabled(true), "guide-enabled");
 assert.equal(api.setCompositionGuideScope("all-frames"), "guide-scope");
 assert.equal(api.setCompositionGuidePattern("grid"), "guide-pattern");

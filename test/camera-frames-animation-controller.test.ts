@@ -221,6 +221,94 @@ assert.deepEqual(
 	],
 );
 
+{
+	const releaseOnlyStore = createStore({
+		version: 1,
+		enabled: true,
+		autoKeyTargetKeys: ["scene-asset:1"],
+		activeClipId: "clip-1",
+		clips: [
+			{
+				id: "clip-1",
+				name: "Release Only",
+				fps: 24,
+				startFrame: 1,
+				durationFrames: 24,
+				playbackStartFrame: 1,
+				playbackEndFrame: 24,
+				bindings: [
+					{
+						id: "asset-binding",
+						target: { kind: "scene-asset", id: 1 },
+						tracks: [
+							{
+								path: "transform.position.x",
+								keys: [{ frame: 1, value: 0 }],
+							},
+						],
+					},
+				],
+			},
+		],
+	});
+	const releaseOnlyAssetObject = new THREE.Object3D();
+	releaseOnlyAssetObject.position.set(0, 0, 0);
+	const releaseOnlyAsset = {
+		id: 1,
+		kind: "model",
+		worldScale: 1,
+		object: releaseOnlyAssetObject,
+	};
+	const releaseOnlyController = createAnimationController({
+		store: releaseOnlyStore,
+		state: { baseFovX: 50 },
+		shotCameraRegistry: new Map(),
+		getAssetController: () => ({
+			getSceneAssets: () => [releaseOnlyAsset],
+			getSceneAsset: (assetId: number | string) =>
+				String(assetId) === "1" ? releaseOnlyAsset : null,
+			applyAssetWorldScale: () => {},
+		}),
+		updateUi: () => {},
+	});
+	assert.equal(releaseOnlyController.applyCurrentFrame({ frame: 1 }), true);
+	releaseOnlyController.setTimelineFrame(12);
+	assert.equal(
+		releaseOnlyController.releaseRuntimeEvaluationForManualEdit({
+			targetKind: "scene-asset",
+			targetId: 1,
+			insertAutoKey: false,
+		}),
+		true,
+	);
+	const releaseOnlyBinding =
+		releaseOnlyStore.animation.document.value.clips[0].bindings[0];
+	assert.deepEqual(
+		releaseOnlyBinding.tracks
+			.find((track) => track.path === "transform.position.x")
+			.keys.map((key) => [key.frame, key.value]),
+		[[1, 0]],
+	);
+	releaseOnlyAsset.object.position.x = 5;
+	releaseOnlyAsset.object.updateMatrixWorld(true);
+	releaseOnlyController.withBaseRuntimeStateForSnapshot(() => {
+		assert.equal(releaseOnlyAsset.object.position.x, 0);
+	});
+	assert.equal(releaseOnlyAsset.object.position.x, 5);
+	assert.equal(releaseOnlyController.autoKeySceneAssetTransforms([1]), true);
+	const releaseOnlyUpdatedBinding =
+		releaseOnlyStore.animation.document.value.clips[0].bindings[0];
+	assert.deepEqual(
+		releaseOnlyUpdatedBinding.tracks
+			.find((track) => track.path === "transform.position.x")
+			.keys.map((key) => [key.frame, key.value]),
+		[
+			[1, 0],
+			[12, 5],
+		],
+	);
+}
+
 const twoKeyStore = createStore({
 	version: 1,
 	enabled: true,

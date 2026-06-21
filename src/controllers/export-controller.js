@@ -44,6 +44,7 @@ import {
 	createWebmFromFrameRenderer,
 	isWebmVideoExportSupported,
 } from "./export/video-download.js";
+import { createExportAbortError } from "./export/cancel.js";
 
 export function createExportController({
 	scene,
@@ -74,6 +75,33 @@ export function createExportController({
 }) {
 	const exportDebugLayersEnabled =
 		IS_DEV_RUNTIME && hasEnabledQueryFlag("psdDebug");
+	let activeExportAbortController = null;
+
+	function beginExportRun() {
+		if (activeExportAbortController?.signal?.aborted === false) {
+			activeExportAbortController.abort(createExportAbortError());
+		}
+		activeExportAbortController = new AbortController();
+		return activeExportAbortController.signal;
+	}
+
+	function finishExportRun(abortSignal) {
+		if (activeExportAbortController?.signal === abortSignal) {
+			activeExportAbortController = null;
+		}
+	}
+
+	function cancelExport() {
+		if (!activeExportAbortController?.signal) {
+			return false;
+		}
+		if (activeExportAbortController.signal.aborted) {
+			return false;
+		}
+		activeExportAbortController.abort(createExportAbortError());
+		setStatus(t("status.exportCancelRequested"));
+		return true;
+	}
 
 	function setExportProgressOverlay(
 		targetDocuments,
@@ -92,6 +120,7 @@ export function createExportController({
 				store,
 				t,
 				buildExportProgressOverlay,
+				onCancel: cancelExport,
 			},
 		);
 	}
@@ -181,6 +210,8 @@ export function createExportController({
 			},
 			setStatus,
 			updateUi,
+			beginExportRun,
+			finishExportRun,
 			clearExportOverlay,
 			showExportErrorOverlay,
 			setExportProgressOverlay,
@@ -223,6 +254,7 @@ export function createExportController({
 		downloadPng,
 		downloadPsd,
 		downloadOutput,
+		cancelExport,
 		buildShotCameraExportFilename,
 		setExportMode,
 		setExportFrameSource,

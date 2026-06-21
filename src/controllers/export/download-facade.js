@@ -184,6 +184,8 @@ export function createExportDownloadFacade({
 	setSummary,
 	setStatus,
 	updateUi,
+	beginExportRun = () => null,
+	finishExportRun = () => {},
 	clearExportOverlay,
 	showExportErrorOverlay,
 	setExportProgressOverlay,
@@ -196,199 +198,271 @@ export function createExportDownloadFacade({
 	runFrameSequenceExportFn,
 	runVideoExportFn,
 } = {}) {
+	async function withExportRun(callback) {
+		const abortSignal = beginExportRun?.() ?? null;
+		try {
+			return await callback(abortSignal);
+		} finally {
+			finishExportRun?.(abortSignal);
+		}
+	}
+
 	async function downloadPng() {
-		const targetDocuments = getTargetDocuments();
-		const resolveSequenceIndex = createBatchSequenceIndexResolver(
-			targetDocuments,
-			() => "png",
-			buildFilename,
-		);
-		return runPngExportFn({
-			targetDocuments,
-			renderSnapshot: (documentState) => renderSnapshot(documentState.id),
-			downloadSnapshot: (documentState, snapshot) =>
-				downloadPngFromSnapshot(
-					documentState,
-					snapshot,
-					resolveSequenceIndex(documentState),
-					{
-						frames: documentState.frames ?? [],
-						frameMaskSettings: documentState.frameMask ?? null,
-						drawFramesToContext,
-						previewContextError,
-						buildFilename,
-					},
-				),
-			setExportStatus,
-			setSummary,
-			setStatus,
-			updateUi,
-			requireTargetsMessage,
-			t,
+		return withExportRun((abortSignal) => {
+			const targetDocuments = getTargetDocuments();
+			const resolveSequenceIndex = createBatchSequenceIndexResolver(
+				targetDocuments,
+				() => "png",
+				buildFilename,
+			);
+			return runPngExportFn({
+				targetDocuments,
+				renderSnapshot: (documentState) => renderSnapshot(documentState.id),
+				downloadSnapshot: (documentState, snapshot) =>
+					downloadPngFromSnapshot(
+						documentState,
+						snapshot,
+						resolveSequenceIndex(documentState),
+						{
+							frames: documentState.frames ?? [],
+							frameMaskSettings: documentState.frameMask ?? null,
+							drawFramesToContext,
+							previewContextError,
+							buildFilename,
+						},
+					),
+				setExportStatus,
+				setSummary,
+				setStatus,
+				updateUi,
+				requireTargetsMessage,
+				t,
+				abortSignal,
+			});
 		});
 	}
 
 	async function downloadPsd() {
-		const targetDocuments = getTargetDocuments();
-		const resolveSequenceIndex = createBatchSequenceIndexResolver(
-			targetDocuments,
-			() => "psd",
-			buildFilename,
-		);
-		return runPsdExportFn({
-			targetDocuments,
-			renderSnapshot: (documentState) => renderSnapshot(documentState.id),
-			downloadSnapshot: (documentState, snapshot) =>
-				downloadPsdFromSnapshot(
-					documentState,
-					snapshot,
-					resolveSequenceIndex(documentState),
-					{
-						frames: documentState.frames ?? [],
-						frameMaskSettings: documentState.frameMask ?? null,
-						drawFramesToContext,
-						previewContextError,
-						buildFilename,
-						buildPsdExportDocument,
-					},
-				),
-			setExportStatus,
-			setSummary,
-			setStatus,
-			updateUi,
-			requireTargetsMessage,
-			t,
+		return withExportRun((abortSignal) => {
+			const targetDocuments = getTargetDocuments();
+			const resolveSequenceIndex = createBatchSequenceIndexResolver(
+				targetDocuments,
+				() => "psd",
+				buildFilename,
+			);
+			return runPsdExportFn({
+				targetDocuments,
+				renderSnapshot: (documentState) => renderSnapshot(documentState.id),
+				downloadSnapshot: (documentState, snapshot) =>
+					downloadPsdFromSnapshot(
+						documentState,
+						snapshot,
+						resolveSequenceIndex(documentState),
+						{
+							frames: documentState.frames ?? [],
+							frameMaskSettings: documentState.frameMask ?? null,
+							drawFramesToContext,
+							previewContextError,
+							buildFilename,
+							buildPsdExportDocument,
+						},
+					),
+				setExportStatus,
+				setSummary,
+				setStatus,
+				updateUi,
+				requireTargetsMessage,
+				t,
+				abortSignal,
+			});
 		});
 	}
 
 	async function downloadOutput() {
-		const targetDocuments = getTargetDocuments();
-		const exportMode = sanitizeAnimationExportMode(getExportMode());
-		const exportFrameSource = sanitizeAnimationExportFrameSource(
-			getExportFrameSource(),
-		);
-		if (exportMode === ANIMATION_EXPORT_MODE_SEQUENCE) {
-			const animationFrames = resolveAnimationExportFrames(
-				getAnimationDocument(),
-				{ frameSource: exportFrameSource },
+		return withExportRun((abortSignal) => {
+			const targetDocuments = getTargetDocuments();
+			const exportMode = sanitizeAnimationExportMode(getExportMode());
+			const exportFrameSource = sanitizeAnimationExportFrameSource(
+				getExportFrameSource(),
 			);
+			if (exportMode === ANIMATION_EXPORT_MODE_SEQUENCE) {
+				const animationFrames = resolveAnimationExportFrames(
+					getAnimationDocument(),
+					{ frameSource: exportFrameSource },
+				);
+				const resolveSequenceIndex = createBatchSequenceIndexResolver(
+					targetDocuments,
+					(documentState) => getExportSettings(documentState).exportFormat,
+					buildFilename,
+				);
+				return runFrameSequenceExportFn({
+					targetDocuments,
+					frames: animationFrames,
+					getExportSettings,
+					renderSnapshot: (
+						documentState,
+						timelineFrame,
+						_index,
+						_targets,
+						onProgress,
+					) => renderSnapshot(documentState.id, { timelineFrame, onProgress }),
+					createSnapshotBlob: (documentState, snapshot, exportFormat) =>
+						exportFormat === "png"
+							? createPngBlobFromSnapshot(
+									snapshot,
+									documentState.frames ?? [],
+									{
+										drawFramesToContext,
+										previewContextError,
+									},
+								)
+							: createPsdBlobFromSnapshot(documentState, snapshot, {
+									frames: documentState.frames ?? [],
+									drawFramesToContext,
+									previewContextError,
+									buildPsdExportDocument,
+								}),
+					buildEntryPath: (
+						documentState,
+						snapshot,
+						exportFormat,
+						timelineFrame,
+					) =>
+						buildShotCameraFrameExportFilename(
+							documentState,
+							snapshot,
+							exportFormat,
+							resolveSequenceIndex(documentState),
+							timelineFrame,
+							{ buildFilename },
+						),
+					createArchiveBlob: createZipBlob,
+					downloadArchive: (archiveBlob, filename) =>
+						downloadBlob(archiveBlob, filename),
+					archiveFilename: buildAnimationArchiveFilename(
+						targetDocuments,
+						"sequence",
+						buildFilename,
+					),
+					setExportStatus,
+					setSummary,
+					setStatus,
+					updateUi,
+					clearExportOverlay,
+					showExportErrorOverlay,
+					setExportProgressOverlay,
+					getPhaseDefaultDetail,
+					requireTargetsMessage,
+					requireFramesMessage: t("error.exportRequiresAnimationFrames"),
+					t,
+					abortSignal,
+				});
+			}
+			if (exportMode === ANIMATION_EXPORT_MODE_VIDEO) {
+				const animationFrames = resolveAnimationExportFrames(
+					getAnimationDocument(),
+					{ frameSource: exportFrameSource },
+				);
+				const resolveSequenceIndex = createBatchSequenceIndexResolver(
+					targetDocuments,
+					() => "webm",
+					buildFilename,
+				);
+				return runVideoExportFn({
+					targetDocuments,
+					frames: animationFrames,
+					fps: getVideoExportFps(),
+					isVideoSupported: isVideoExportSupported,
+					renderSnapshot: (
+						documentState,
+						timelineFrame,
+						_index,
+						_targets,
+						onProgress,
+					) =>
+						renderSnapshot(documentState.id, {
+							timelineFrame,
+							onProgress,
+							exportSettingsOverride: {
+								exportFormat: "png",
+								exportModelLayers: false,
+								exportSplatLayers: false,
+							},
+						}),
+					renderVideoFrame: (documentState, snapshot) =>
+						renderCompositeOutputCanvas(snapshot, documentState.frames ?? [], {
+							drawFramesToContext,
+							previewContextError,
+						}),
+					createVideoBlob: createWebmFromFrameRenderer,
+					buildVideoFilename: (documentState, _snapshot, sequenceIndex) =>
+						buildShotCameraVideoExportFilename(
+							documentState,
+							null,
+							sequenceIndex ?? resolveSequenceIndex(documentState),
+							{ buildFilename },
+						),
+					createArchiveBlob: createZipBlob,
+					downloadArchive: (archiveBlob, filename) =>
+						downloadBlob(archiveBlob, filename),
+					downloadVideo: (videoBlob, filename) =>
+						downloadBlob(videoBlob, filename),
+					archiveFilename: buildAnimationArchiveFilename(
+						targetDocuments,
+						"video",
+						buildFilename,
+					),
+					setExportStatus,
+					setSummary,
+					setStatus,
+					updateUi,
+					clearExportOverlay,
+					showExportErrorOverlay,
+					setExportProgressOverlay,
+					getPhaseDefaultDetail,
+					requireTargetsMessage,
+					requireFramesMessage: t("error.exportRequiresAnimationFrames"),
+					videoUnsupportedMessage: t("error.videoExportUnsupported"),
+					t,
+					abortSignal,
+				});
+			}
 			const resolveSequenceIndex = createBatchSequenceIndexResolver(
 				targetDocuments,
 				(documentState) => getExportSettings(documentState).exportFormat,
 				buildFilename,
 			);
-			return runFrameSequenceExportFn({
+			return runOutputExportFn({
 				targetDocuments,
-				frames: animationFrames,
 				getExportSettings,
-				renderSnapshot: (
-					documentState,
-					timelineFrame,
-					_index,
-					_targets,
-					onProgress,
-				) => renderSnapshot(documentState.id, { timelineFrame, onProgress }),
-				createSnapshotBlob: (documentState, snapshot, exportFormat) =>
-					exportFormat === "png"
-						? createPngBlobFromSnapshot(snapshot, documentState.frames ?? [], {
-								drawFramesToContext,
-								previewContextError,
-							})
-						: createPsdBlobFromSnapshot(documentState, snapshot, {
-								frames: documentState.frames ?? [],
-								drawFramesToContext,
-								previewContextError,
-								buildPsdExportDocument,
-							}),
-				buildEntryPath: (
-					documentState,
-					snapshot,
-					exportFormat,
-					timelineFrame,
-				) =>
-					buildShotCameraFrameExportFilename(
+				renderSnapshot: (documentState, _index, _targets, onProgress) =>
+					renderSnapshot(documentState.id, { onProgress }),
+				downloadPngSnapshot: (documentState, snapshot) =>
+					downloadPngFromSnapshot(
 						documentState,
 						snapshot,
-						exportFormat,
 						resolveSequenceIndex(documentState),
-						timelineFrame,
-						{ buildFilename },
-					),
-				createArchiveBlob: createZipBlob,
-				downloadArchive: (archiveBlob, filename) =>
-					downloadBlob(archiveBlob, filename),
-				archiveFilename: buildAnimationArchiveFilename(
-					targetDocuments,
-					"sequence",
-					buildFilename,
-				),
-				setExportStatus,
-				setSummary,
-				setStatus,
-				updateUi,
-				clearExportOverlay,
-				showExportErrorOverlay,
-				setExportProgressOverlay,
-				getPhaseDefaultDetail,
-				requireTargetsMessage,
-				requireFramesMessage: t("error.exportRequiresAnimationFrames"),
-				t,
-			});
-		}
-		if (exportMode === ANIMATION_EXPORT_MODE_VIDEO) {
-			const animationFrames = resolveAnimationExportFrames(
-				getAnimationDocument(),
-				{ frameSource: exportFrameSource },
-			);
-			const resolveSequenceIndex = createBatchSequenceIndexResolver(
-				targetDocuments,
-				() => "webm",
-				buildFilename,
-			);
-			return runVideoExportFn({
-				targetDocuments,
-				frames: animationFrames,
-				fps: getVideoExportFps(),
-				isVideoSupported: isVideoExportSupported,
-				renderSnapshot: (
-					documentState,
-					timelineFrame,
-					_index,
-					_targets,
-					onProgress,
-				) =>
-					renderSnapshot(documentState.id, {
-						timelineFrame,
-						onProgress,
-						exportSettingsOverride: {
-							exportFormat: "png",
-							exportModelLayers: false,
-							exportSplatLayers: false,
+						{
+							frames: documentState.frames ?? [],
+							frameMaskSettings: documentState.frameMask ?? null,
+							drawFramesToContext,
+							previewContextError,
+							buildFilename,
 						},
-					}),
-				renderVideoFrame: (documentState, snapshot) =>
-					renderCompositeOutputCanvas(snapshot, documentState.frames ?? [], {
-						drawFramesToContext,
-						previewContextError,
-					}),
-				createVideoBlob: createWebmFromFrameRenderer,
-				buildVideoFilename: (documentState, _snapshot, sequenceIndex) =>
-					buildShotCameraVideoExportFilename(
-						documentState,
-						null,
-						sequenceIndex ?? resolveSequenceIndex(documentState),
-						{ buildFilename },
 					),
-				createArchiveBlob: createZipBlob,
-				downloadArchive: (archiveBlob, filename) =>
-					downloadBlob(archiveBlob, filename),
-				downloadVideo: (videoBlob, filename) =>
-					downloadBlob(videoBlob, filename),
-				archiveFilename: buildAnimationArchiveFilename(
-					targetDocuments,
-					"video",
-					buildFilename,
-				),
+				downloadPsdSnapshot: (documentState, snapshot) =>
+					downloadPsdFromSnapshot(
+						documentState,
+						snapshot,
+						resolveSequenceIndex(documentState),
+						{
+							frames: documentState.frames ?? [],
+							drawFramesToContext,
+							previewContextError,
+							buildFilename,
+							buildPsdExportDocument,
+						},
+					),
 				setExportStatus,
 				setSummary,
 				setStatus,
@@ -398,57 +472,9 @@ export function createExportDownloadFacade({
 				setExportProgressOverlay,
 				getPhaseDefaultDetail,
 				requireTargetsMessage,
-				requireFramesMessage: t("error.exportRequiresAnimationFrames"),
-				videoUnsupportedMessage: t("error.videoExportUnsupported"),
 				t,
+				abortSignal,
 			});
-		}
-		const resolveSequenceIndex = createBatchSequenceIndexResolver(
-			targetDocuments,
-			(documentState) => getExportSettings(documentState).exportFormat,
-			buildFilename,
-		);
-		return runOutputExportFn({
-			targetDocuments,
-			getExportSettings,
-			renderSnapshot: (documentState, _index, _targets, onProgress) =>
-				renderSnapshot(documentState.id, { onProgress }),
-			downloadPngSnapshot: (documentState, snapshot) =>
-				downloadPngFromSnapshot(
-					documentState,
-					snapshot,
-					resolveSequenceIndex(documentState),
-					{
-						frames: documentState.frames ?? [],
-						frameMaskSettings: documentState.frameMask ?? null,
-						drawFramesToContext,
-						previewContextError,
-						buildFilename,
-					},
-				),
-			downloadPsdSnapshot: (documentState, snapshot) =>
-				downloadPsdFromSnapshot(
-					documentState,
-					snapshot,
-					resolveSequenceIndex(documentState),
-					{
-						frames: documentState.frames ?? [],
-						drawFramesToContext,
-						previewContextError,
-						buildFilename,
-						buildPsdExportDocument,
-					},
-				),
-			setExportStatus,
-			setSummary,
-			setStatus,
-			updateUi,
-			clearExportOverlay,
-			showExportErrorOverlay,
-			setExportProgressOverlay,
-			getPhaseDefaultDetail,
-			requireTargetsMessage,
-			t,
 		});
 	}
 

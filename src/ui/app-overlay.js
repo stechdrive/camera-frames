@@ -298,6 +298,26 @@ function renderProgressBody(overlay, progressTick = Date.now()) {
 		}
 		${renderProgressDetail(overlay, progressTick)}
 		${
+			overlay.progressSummary &&
+			html`
+				<div class="overlay-progress-summary">
+					<span class="overlay-progress-summary__count">
+						${overlay.progressSummary.index}/${overlay.progressSummary.count}
+					</span>
+					<span class="overlay-progress-summary__main">
+						${overlay.progressSummary.camera}
+					</span>
+					<span class="overlay-progress-summary__meta">
+						${
+							overlay.progressSummary.frameLabel ??
+							overlay.progressSummary.frame
+						}
+						· ${overlay.progressSummary.format}
+					</span>
+				</div>
+			`
+		}
+		${
 			overlay.phaseLabel &&
 			html`
 				<div class="overlay-phase">

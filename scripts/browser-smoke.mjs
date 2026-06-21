@@ -120,6 +120,8 @@ async function main() {
 	const timelineSmoke = await runTimelineSmoke(cdp);
 	const timelineCameraAnimationSmoke =
 		await runTimelineCameraAnimationSmoke(cdp);
+	const timelineSceneAssetTransformSmoke =
+		await runTimelineSceneAssetTransformSmoke(cdp);
 	const exportOutputSmoke = await runExportOutputSmoke(cdp);
 	await captureScreenshot(cdp, join(outDir, "timeline-smoke.png"));
 	cdp.close();
@@ -176,6 +178,7 @@ async function main() {
 				timeline: {
 					...timelineSmoke,
 					cameraAnimation: timelineCameraAnimationSmoke,
+					sceneAssetTransform: timelineSceneAssetTransformSmoke,
 				},
 				exportOutput: exportOutputSmoke,
 				fixture: fixtureInfo,
@@ -483,10 +486,10 @@ async function runExportOutputSmoke(cdp) {
 			if (!frameSourceSelect) {
 				throw new Error("Frame range select did not render in sequence mode");
 			}
-			frameSourceSelect.value = "keyframes";
+			frameSourceSelect.value = "duration";
 			frameSourceSelect.dispatchEvent(new Event("change", { bubbles: true }));
 			await waitForReady(5);
-			const keyframes = readState();
+			const duration = readState();
 			click(findByText(".export-mode-segment__button", /動画|Video/i), "video mode");
 			await waitForReady(5);
 			const video = readState();
@@ -510,11 +513,17 @@ async function runExportOutputSmoke(cdp) {
 			if (!/連番|sequence/i.test(sequence.buttonLabel)) {
 				failures.push("Sequence mode did not update the export button label");
 			}
-			if (keyframes.frameSource !== "keyframes") {
-				failures.push("Keyframes-only frame source did not update store state");
+			if (sequence.frameSource !== "keyframes") {
+				failures.push("Sequence mode did not default to keyframes-only export");
+			}
+			if (duration.frameSource !== "duration") {
+				failures.push("Duration frame source did not update store state");
 			}
 			if (video.mode !== "video") {
 				failures.push("Video mode did not update store state");
+			}
+			if (video.frameSource !== "duration") {
+				failures.push("Video mode did not default to full duration export");
 			}
 			if (!/動画|video/i.test(video.buttonLabel)) {
 				failures.push("Video mode did not update the export button label");
@@ -534,7 +543,7 @@ async function runExportOutputSmoke(cdp) {
 				summary: {
 					initial,
 					sequence,
-					keyframes,
+					duration,
 					video,
 					current,
 					videoSupported,
@@ -1248,6 +1257,231 @@ async function runTimelineCameraAnimationSmoke(cdp) {
 		);
 	}
 	return result.summary;
+}
+
+async function runTimelineSceneAssetTransformSmoke(cdp) {
+	const assetCount = await evaluate(
+		cdp,
+		`globalThis.__CF_TEST__?.controller
+			?.__debugGetSceneAssets?.()
+			?.filter((asset) => asset?.object?.visible !== false)
+			?.length ?? 0`,
+		{ awaitPromise: false },
+	);
+	const handles = [
+		{ handleName: "move-x", dx: 86, dy: 0 },
+		{ handleName: "move-y", dx: 0, dy: -86 },
+		{ handleName: "move-z", dx: 70, dy: -40 },
+	];
+	const attempts = [];
+	for (let assetIndex = 0; assetIndex < assetCount; assetIndex += 1) {
+		for (const handleCandidate of handles) {
+			const setup = await evaluate(
+				cdp,
+				`(async () => {
+					const test = globalThis.__CF_TEST__;
+					if (!test?.store || !test?.controller) {
+						return { ok: false, error: "__CF_TEST__ store/controller unavailable" };
+					}
+					const waitFrame = () =>
+						new Promise((resolve) =>
+							requestAnimationFrame(() => requestAnimationFrame(resolve)),
+						);
+					const worldPositionArray = (asset) => {
+						asset.object.updateMatrixWorld?.(true);
+						const elements = asset.object.matrixWorld?.elements ?? [];
+						return [elements[12] ?? 0, elements[13] ?? 0, elements[14] ?? 0];
+					};
+					const resolveHandleDragOffset = (handle, fallback) => {
+						const angleText = getComputedStyle(handle)
+							.getPropertyValue("--gizmo-angle")
+							.trim();
+						const angleDegrees = Number.parseFloat(angleText);
+						if (!Number.isFinite(angleDegrees)) {
+							return fallback;
+						}
+						const radians = (angleDegrees * Math.PI) / 180;
+						return {
+							dx: Math.cos(radians) * 96,
+							dy: Math.sin(radians) * 96,
+						};
+					};
+					const assets =
+						test.controller.__debugGetSceneAssets?.().filter(
+							(asset) => asset?.object?.visible !== false,
+						) ?? [];
+					const asset = assets[${assetIndex}];
+					if (!asset) {
+						return { ok: false, skipped: "missing-asset", assetIndex: ${assetIndex} };
+					}
+					test.controller.setTimelinePanelOpen?.(true);
+					test.controller.setAnimationKeyTargetMode?.("objects");
+					test.controller.selectSceneAsset?.(asset.id);
+					test.controller.setViewportTransformMode?.(true);
+					test.controller.setTimelineFrame?.(1);
+					test.controller.insertKeyForSelection?.();
+					test.controller.setTimelineFrame?.(12);
+					await waitFrame();
+					const candidate = ${JSON.stringify(handleCandidate)};
+					const handle = document.querySelector(
+						\`[data-gizmo-handle="\${candidate.handleName}"]\`,
+					);
+					if (!handle || handle.classList.contains("is-hidden")) {
+						return {
+							ok: false,
+							assetId: asset.id,
+							label: asset.label,
+							handleName: candidate.handleName,
+							skipped: "hidden",
+						};
+					}
+					const rect = handle.getBoundingClientRect();
+					if (rect.width <= 0 || rect.height <= 0) {
+						return {
+							ok: false,
+							assetId: asset.id,
+							label: asset.label,
+							handleName: candidate.handleName,
+							skipped: "empty-rect",
+						};
+					}
+					const start = {
+						x: rect.left + rect.width / 2,
+						y: rect.top + rect.height / 2,
+					};
+					const offset = resolveHandleDragOffset(handle, candidate);
+					globalThis.__cfSceneAssetTransformSmoke = {
+						assetIndex: ${assetIndex},
+						assetId: asset.id,
+						label: asset.label,
+						handleName: candidate.handleName,
+						beforePosition: worldPositionArray(asset),
+					};
+					return {
+						ok: true,
+						assetId: asset.id,
+						label: asset.label,
+						handleName: candidate.handleName,
+						start,
+						offset,
+					};
+				})()`,
+				{ awaitPromise: true },
+			);
+			if (!setup?.ok) {
+				attempts.push(setup);
+				continue;
+			}
+			const end = {
+				x: setup.start.x + setup.offset.dx,
+				y: setup.start.y + setup.offset.dy,
+			};
+			await cdp.send("Input.dispatchMouseEvent", {
+				type: "mouseMoved",
+				x: setup.start.x,
+				y: setup.start.y,
+			});
+			await cdp.send("Input.dispatchMouseEvent", {
+				type: "mousePressed",
+				x: setup.start.x,
+				y: setup.start.y,
+				button: "left",
+				buttons: 1,
+				clickCount: 1,
+			});
+			await cdp.send("Input.dispatchMouseEvent", {
+				type: "mouseMoved",
+				x: end.x,
+				y: end.y,
+				button: "left",
+				buttons: 1,
+			});
+			await cdp.send("Input.dispatchMouseEvent", {
+				type: "mouseReleased",
+				x: end.x,
+				y: end.y,
+				button: "left",
+				buttons: 0,
+				clickCount: 1,
+			});
+			await sleep(100);
+			const result = await evaluate(
+				cdp,
+				`(async () => {
+					const test = globalThis.__CF_TEST__;
+					const smoke = globalThis.__cfSceneAssetTransformSmoke;
+					const assets =
+						test.controller.__debugGetSceneAssets?.().filter(
+							(asset) => asset?.object?.visible !== false,
+						) ?? [];
+					const asset = assets[smoke?.assetIndex ?? -1];
+					const worldPositionArray = (asset) => {
+						asset.object.updateMatrixWorld?.(true);
+						const elements = asset.object.matrixWorld?.elements ?? [];
+						return [elements[12] ?? 0, elements[13] ?? 0, elements[14] ?? 0];
+					};
+					const distance = (left, right) =>
+						Math.hypot(
+							(left?.[0] ?? 0) - (right?.[0] ?? 0),
+							(left?.[1] ?? 0) - (right?.[1] ?? 0),
+							(left?.[2] ?? 0) - (right?.[2] ?? 0),
+						);
+					const afterPosition = asset ? worldPositionArray(asset) : [0, 0, 0];
+					const clip = test.store.animation.document.value?.clips?.[0];
+					const binding = clip?.bindings?.find(
+						(candidateBinding) =>
+							candidateBinding.target?.kind === "scene-asset" &&
+							String(candidateBinding.target?.id) === String(smoke?.assetId),
+					);
+					const keyFrames = [
+						...new Set(
+							(binding?.tracks ?? []).flatMap((track) =>
+								(track.keys ?? []).map((key) => key.frame),
+							),
+						),
+					].sort((left, right) => left - right);
+					const autoKeyTargetKeys =
+						test.store.animation.document.value?.autoKeyTargetKeys ?? [];
+					const attempt = {
+						assetId: smoke?.assetId,
+						label: smoke?.label,
+						handleName: smoke?.handleName,
+						beforePosition: smoke?.beforePosition ?? [0, 0, 0],
+						afterPosition,
+						movedDistance: distance(smoke?.beforePosition, afterPosition),
+						keyFrames,
+						autoKeyEnabled: autoKeyTargetKeys.includes(
+							\`scene-asset:\${smoke?.assetId}\`,
+						),
+					};
+					return {
+						ok:
+							attempt.movedDistance > 0.001 &&
+							attempt.keyFrames.includes(12) &&
+							attempt.autoKeyEnabled,
+						attempt,
+					};
+				})()`,
+				{ awaitPromise: true },
+			);
+			attempts.push(result?.attempt ?? result);
+			if (result?.ok) {
+				return result.attempt;
+			}
+		}
+	}
+	const result = {
+		ok: false,
+		failures: [
+			"Scene asset transform gizmo did not move an animated Auto Key target",
+		],
+		attempts,
+	};
+	if (!result.ok) {
+		throw new Error(
+			`Timeline scene asset transform smoke failed: ${JSON.stringify(result, null, 2)}`,
+		);
+	}
 }
 
 class CdpClient {

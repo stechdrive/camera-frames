@@ -26,5 +26,9 @@ export function createViewportToolControllerBindings({
 		commitHistoryTransaction: historyController.commitHistoryTransaction,
 		autoKeySceneAssetTransforms: (...args) =>
 			getAnimationController?.()?.autoKeySceneAssetTransforms?.(...args),
+		releaseRuntimeEvaluationForManualEdit: (...args) =>
+			getAnimationController?.()?.releaseRuntimeEvaluationForManualEdit?.(
+				...args,
+			),
 	};
 }

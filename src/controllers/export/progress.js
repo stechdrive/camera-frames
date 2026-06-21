@@ -77,15 +77,29 @@ export function buildExportProgressOverlay({
 	exportFormat,
 	startedAt,
 	phaseState = null,
+	onCancel = null,
 	t,
 }) {
 	const safeDocuments = Array.isArray(targetDocuments) ? targetDocuments : [];
 	const activeDocument = safeDocuments[currentIndex] ?? null;
+	const frameBatch = Boolean(
+		activeDocument?.sourceDocument && activeDocument?.timelineFrame != null,
+	);
+	const activeCameraName = frameBatch
+		? (activeDocument.sourceDocument?.name ?? "Camera")
+		: (activeDocument?.name ?? "Camera");
 	const formatKey =
 		exportFormat === "psd" ? "psd" : exportFormat === "webm" ? "webm" : "png";
 	const formatLabel = t(`exportFormat.${formatKey}`);
-	const detail =
-		safeDocuments.length > 1
+	const detail = frameBatch
+		? t("overlay.exportDetailFrameBatch", {
+				index: currentIndex + 1,
+				count: safeDocuments.length,
+				camera: activeCameraName,
+				frame: activeDocument.timelineFrame,
+				format: formatLabel,
+			})
+		: safeDocuments.length > 1
 			? t("overlay.exportDetailBatch", {
 					index: currentIndex + 1,
 					count: safeDocuments.length,
@@ -103,6 +117,18 @@ export function buildExportProgressOverlay({
 		title: t("overlay.exportTitle"),
 		message: t("overlay.exportMessage"),
 		detail,
+		progressSummary: frameBatch
+			? {
+					index: currentIndex + 1,
+					count: safeDocuments.length,
+					camera: activeCameraName,
+					frame: activeDocument.timelineFrame,
+					frameLabel: t("overlay.exportProgressFrame", {
+						frame: activeDocument.timelineFrame,
+					}),
+					format: formatLabel,
+				}
+			: null,
 		phaseLabel: phaseState?.label ?? "",
 		phaseDetail:
 			phaseState?.detail ??
@@ -121,14 +147,25 @@ export function buildExportProgressOverlay({
 							? "done"
 							: "todo",
 		})),
-		steps: safeDocuments.map((documentState, index) => ({
-			label: documentState.name,
-			status:
-				index < currentIndex
-					? "done"
-					: index === currentIndex
-						? "active"
-						: "todo",
-		})),
+		steps: frameBatch
+			? []
+			: safeDocuments.map((documentState, index) => ({
+					label: documentState.name,
+					status:
+						index < currentIndex
+							? "done"
+							: index === currentIndex
+								? "active"
+								: "todo",
+				})),
+		actions:
+			typeof onCancel === "function"
+				? [
+						{
+							label: t("action.cancel"),
+							onClick: onCancel,
+						},
+					]
+				: [],
 	};
 }

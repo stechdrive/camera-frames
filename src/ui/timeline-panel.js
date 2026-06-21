@@ -756,7 +756,14 @@ export function TimelinePanel({ store, controller, t = (key) => key }) {
 													controller()?.toggleAutoKeyForTarget?.(row.target);
 												}}
 											>
-												<${WorkbenchIcon} name="keyframe" size=${12} />
+												${
+													row.autoKey
+														? html`<span
+																class="timeline-track-row__autokey-diamond"
+																aria-hidden="true"
+															></span>`
+														: html`<${WorkbenchIcon} name="keyframe" size=${12} />`
+												}
 											</button>
 											<${WorkbenchIcon}
 												name=${row.icon}

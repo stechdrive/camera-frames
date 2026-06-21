@@ -1,3 +1,5 @@
+import { throwIfExportAborted } from "./cancel.js";
+
 const WEBM_MIME_CANDIDATES = [
 	"video/webm;codecs=vp9",
 	"video/webm;codecs=vp8",
@@ -33,11 +35,12 @@ export function isWebmVideoExportSupported() {
 
 export async function createWebmFromFrameRenderer(
 	renderFrames,
-	{ fps = 24, mimeType = resolveWebmMimeType() } = {},
+	{ fps = 24, mimeType = resolveWebmMimeType(), abortSignal = null } = {},
 ) {
 	if (!isWebmVideoExportSupported()) {
 		throw new Error("WebM video export is not supported in this browser.");
 	}
+	throwIfExportAborted(abortSignal);
 	const frameDurationMs = 1000 / Math.max(1, Number(fps) || 24);
 	const videoCanvas = document.createElement("canvas");
 	let context = null;
@@ -62,32 +65,58 @@ export async function createWebmFromFrameRenderer(
 		recorder.start();
 	};
 
+	const stopRecorder = async () => {
+		if (recorder && recorder.state !== "inactive") {
+			const stopped = new Promise((resolve) => {
+				recorder.onstop = resolve;
+				recorder.onerror = resolve;
+			});
+			recorder.stop();
+			await stopped;
+		}
+		if (stream) {
+			for (const track of stream.getTracks()) {
+				track.stop();
+			}
+		}
+	};
+
 	const drawFrame = async (canvas) => {
+		throwIfExportAborted(abortSignal);
 		if (!recorder) {
 			startRecorder(canvas);
 		}
 		context.clearRect(0, 0, videoCanvas.width, videoCanvas.height);
 		context.drawImage(canvas, 0, 0, videoCanvas.width, videoCanvas.height);
 		await wait(frameDurationMs);
+		throwIfExportAborted(abortSignal);
 	};
 
-	await renderFrames(drawFrame);
-	if (!recorder) {
-		throw new Error("Video export requires at least one frame.");
-	}
+	try {
+		await renderFrames(drawFrame);
+		throwIfExportAborted(abortSignal);
+		if (!recorder) {
+			throw new Error("Video export requires at least one frame.");
+		}
 
-	const stopped = new Promise((resolve, reject) => {
-		recorder.onerror = () => {
-			reject(recorder.error ?? new Error("Video recording failed."));
-		};
-		recorder.onstop = resolve;
-	});
-	recorder.stop();
-	await stopped;
-	for (const track of stream.getTracks()) {
-		track.stop();
+		const stopped = new Promise((resolve, reject) => {
+			recorder.onerror = () => {
+				reject(recorder.error ?? new Error("Video recording failed."));
+			};
+			recorder.onstop = resolve;
+		});
+		recorder.stop();
+		await stopped;
+		if (stream) {
+			for (const track of stream.getTracks()) {
+				track.stop();
+			}
+		}
+		return new Blob(chunks, { type: mimeType || "video/webm" });
+	} catch (error) {
+		await stopRecorder();
+		throw error;
 	}
-	return new Blob(chunks, { type: mimeType || "video/webm" });
 }
 
 export async function createWebmFromCanvases(

@@ -1,3 +1,5 @@
+import { isExportAbortError, throwIfExportAborted } from "./cancel.js";
+
 function buildWritePhaseState(
 	currentPhaseState,
 	exportFormat,
@@ -63,8 +65,26 @@ function defaultWaitForWritePhasePaint() {
 
 function applyExportError(
 	error,
-	{ setSummary, setExportStatus, setStatus, showExportError = null },
+	{
+		setSummary,
+		setExportStatus,
+		setStatus,
+		showExportError = null,
+		clearExportOverlay = null,
+		updateUi = null,
+		t = null,
+	},
 ) {
+	if (isExportAbortError(error)) {
+		const summary = t?.("exportSummary.cancelled") ?? error.message;
+		const status = t?.("status.exportCancelled") ?? error.message;
+		setSummary(summary);
+		setExportStatus("export.idle");
+		setStatus(status);
+		clearExportOverlay?.();
+		updateUi?.();
+		return;
+	}
 	console.error(error);
 	setSummary(error.message);
 	setExportStatus("export.idle");
@@ -98,10 +118,12 @@ export async function runPngExport({
 	updateUi,
 	requireTargetsMessage,
 	t,
+	abortSignal = null,
 } = {}) {
 	setExportStatus("export.exporting", true);
 
 	try {
+		throwIfExportAborted(abortSignal);
 		if (targetDocuments.length === 0) {
 			throw new Error(requireTargetsMessage);
 		}
@@ -109,11 +131,13 @@ export async function runPngExport({
 		let lastSnapshot = null;
 
 		for (const [index, documentState] of targetDocuments.entries()) {
+			throwIfExportAborted(abortSignal);
 			const snapshot = await renderSnapshot(
 				documentState,
 				index,
 				targetDocuments,
 			);
+			throwIfExportAborted(abortSignal);
 			downloadSnapshot(documentState, snapshot, index, targetDocuments);
 			lastSnapshot = snapshot;
 		}
@@ -145,6 +169,8 @@ export async function runPngExport({
 			setSummary,
 			setExportStatus,
 			setStatus,
+			updateUi,
+			t,
 		});
 	}
 }
@@ -172,10 +198,12 @@ export async function runFrameSequenceExport({
 	t,
 	now = () => Date.now(),
 	waitForWritePhasePaint = defaultWaitForWritePhasePaint,
+	abortSignal = null,
 } = {}) {
 	setExportStatus("export.exporting", true);
 
 	try {
+		throwIfExportAborted(abortSignal);
 		if (targetDocuments.length === 0) {
 			throw new Error(requireTargetsMessage);
 		}
@@ -190,6 +218,7 @@ export async function runFrameSequenceExport({
 		let psdCount = 0;
 
 		for (const [index, progressItem] of progressItems.entries()) {
+			throwIfExportAborted(abortSignal);
 			const documentState = progressItem.sourceDocument;
 			const timelineFrame = progressItem.timelineFrame;
 			const exportSettings = getExportSettings(documentState);
@@ -215,6 +244,7 @@ export async function runFrameSequenceExport({
 					pushOverlay();
 				},
 			);
+			throwIfExportAborted(abortSignal);
 			currentPhaseState = buildWritePhaseState(
 				currentPhaseState,
 				exportFormat,
@@ -225,6 +255,7 @@ export async function runFrameSequenceExport({
 				pushOverlay();
 				await waitForWritePhasePaint?.();
 			}
+			throwIfExportAborted(abortSignal);
 
 			const blob = await createSnapshotBlob(
 				documentState,
@@ -234,6 +265,7 @@ export async function runFrameSequenceExport({
 				index,
 				progressItems,
 			);
+			throwIfExportAborted(abortSignal);
 			entries.push({
 				path: buildEntryPath(
 					documentState,
@@ -252,7 +284,9 @@ export async function runFrameSequenceExport({
 			}
 		}
 
+		throwIfExportAborted(abortSignal);
 		const archiveBlob = await createArchiveBlob(entries);
+		throwIfExportAborted(abortSignal);
 		downloadArchive(archiveBlob, archiveFilename);
 		const exportCount = entries.length;
 		setSummary(
@@ -277,6 +311,9 @@ export async function runFrameSequenceExport({
 			setExportStatus,
 			setStatus,
 			showExportError: showExportErrorOverlay,
+			clearExportOverlay,
+			updateUi,
+			t,
 		});
 	}
 }
@@ -308,10 +345,12 @@ export async function runVideoExport({
 	t,
 	now = () => Date.now(),
 	waitForWritePhasePaint = defaultWaitForWritePhasePaint,
+	abortSignal = null,
 } = {}) {
 	setExportStatus("export.exporting", true);
 
 	try {
+		throwIfExportAborted(abortSignal);
 		if (targetDocuments.length === 0) {
 			throw new Error(requireTargetsMessage);
 		}
@@ -328,9 +367,11 @@ export async function runVideoExport({
 		let progressIndex = 0;
 
 		for (const [cameraIndex, documentState] of targetDocuments.entries()) {
+			throwIfExportAborted(abortSignal);
 			const videoBlob = await createVideoBlob(
 				async (drawFrame) => {
 					for (const timelineFrame of frames) {
+						throwIfExportAborted(abortSignal);
 						const currentProgressIndex = progressIndex;
 						const progressItem = progressItems[currentProgressIndex];
 						let currentPhaseState = null;
@@ -353,6 +394,7 @@ export async function runVideoExport({
 								pushOverlay();
 							},
 						);
+						throwIfExportAborted(abortSignal);
 						currentPhaseState = buildWritePhaseState(
 							currentPhaseState,
 							"webm",
@@ -363,14 +405,17 @@ export async function runVideoExport({
 							pushOverlay();
 							await waitForWritePhasePaint?.();
 						}
+						throwIfExportAborted(abortSignal);
 						await drawFrame(
 							renderVideoFrame(documentState, snapshot, progressItem),
 						);
+						throwIfExportAborted(abortSignal);
 						progressIndex += 1;
 					}
 				},
-				{ fps },
+				{ fps, abortSignal },
 			);
+			throwIfExportAborted(abortSignal);
 			const filename = buildVideoFilename(
 				documentState,
 				videoBlob,
@@ -389,7 +434,9 @@ export async function runVideoExport({
 		}
 
 		if (videoEntries.length > 0) {
+			throwIfExportAborted(abortSignal);
 			const archiveBlob = await createArchiveBlob(videoEntries);
+			throwIfExportAborted(abortSignal);
 			downloadArchive(archiveBlob, archiveFilename);
 		}
 		setSummary(
@@ -413,6 +460,9 @@ export async function runVideoExport({
 			setExportStatus,
 			setStatus,
 			showExportError: showExportErrorOverlay,
+			clearExportOverlay,
+			updateUi,
+			t,
 		});
 	}
 }
@@ -427,10 +477,12 @@ export async function runPsdExport({
 	updateUi,
 	requireTargetsMessage,
 	t,
+	abortSignal = null,
 } = {}) {
 	setExportStatus("export.exporting", true);
 
 	try {
+		throwIfExportAborted(abortSignal);
 		if (targetDocuments.length === 0) {
 			throw new Error(requireTargetsMessage);
 		}
@@ -438,11 +490,13 @@ export async function runPsdExport({
 		let exportCount = 0;
 
 		for (const [index, documentState] of targetDocuments.entries()) {
+			throwIfExportAborted(abortSignal);
 			const snapshot = await renderSnapshot(
 				documentState,
 				index,
 				targetDocuments,
 			);
+			throwIfExportAborted(abortSignal);
 			downloadSnapshot(documentState, snapshot, index, targetDocuments);
 			exportCount += 1;
 		}
@@ -464,6 +518,8 @@ export async function runPsdExport({
 			setSummary,
 			setExportStatus,
 			setStatus,
+			updateUi,
+			t,
 		});
 	}
 }
@@ -486,10 +542,12 @@ export async function runOutputExport({
 	t,
 	now = () => Date.now(),
 	waitForWritePhasePaint = defaultWaitForWritePhasePaint,
+	abortSignal = null,
 } = {}) {
 	setExportStatus("export.exporting", true);
 
 	try {
+		throwIfExportAborted(abortSignal);
 		if (targetDocuments.length === 0) {
 			throw new Error(requireTargetsMessage);
 		}
@@ -501,6 +559,7 @@ export async function runOutputExport({
 		let lastFormat = "png";
 
 		for (const [index, documentState] of targetDocuments.entries()) {
+			throwIfExportAborted(abortSignal);
 			const exportSettings = getExportSettings(documentState);
 			let currentPhaseState = null;
 			const pushOverlay = (phaseState = currentPhaseState) =>
@@ -521,6 +580,7 @@ export async function runOutputExport({
 					pushOverlay();
 				},
 			);
+			throwIfExportAborted(abortSignal);
 			const sequenceIndex = targetDocuments.length > 1 ? index + 1 : null;
 			currentPhaseState = buildWritePhaseState(
 				currentPhaseState,
@@ -532,6 +592,7 @@ export async function runOutputExport({
 				pushOverlay();
 				await waitForWritePhasePaint?.();
 			}
+			throwIfExportAborted(abortSignal);
 			if (exportSettings.exportFormat === "png") {
 				downloadPngSnapshot(
 					documentState,
@@ -613,6 +674,9 @@ export async function runOutputExport({
 			setExportStatus,
 			setStatus,
 			showExportError: showExportErrorOverlay,
+			clearExportOverlay,
+			updateUi,
+			t,
 		});
 	}
 }

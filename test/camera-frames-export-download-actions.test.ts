@@ -341,6 +341,59 @@ import {
 
 {
 	const calls = [];
+	const abortController = new AbortController();
+	await runFrameSequenceExport({
+		targetDocuments: [{ id: "camera-a", name: "Camera A", frames: [] }],
+		frames: [1, 2],
+		getExportSettings: () => ({ exportFormat: "png" }),
+		renderSnapshot: async () => {
+			calls.push(["render"]);
+			abortController.abort();
+			return { id: "snapshot-1" };
+		},
+		createSnapshotBlob: async () => {
+			calls.push(["blob"]);
+			return new Blob(["snapshot"]);
+		},
+		buildEntryPath: () => "camera-a-f0001.png",
+		createArchiveBlob: async () => {
+			calls.push(["zip"]);
+			return new Blob(["zip"]);
+		},
+		downloadArchive: () => calls.push(["downloadArchive"]),
+		archiveFilename: "sequence.zip",
+		setExportStatus: (...args) => calls.push(["setExportStatus", ...args]),
+		setSummary: (value) => calls.push(["setSummary", value]),
+		setStatus: (value) => calls.push(["setStatus", value]),
+		updateUi: () => calls.push(["updateUi"]),
+		clearExportOverlay: () => calls.push(["clearExportOverlay"]),
+		showExportErrorOverlay: (error) => calls.push(["showError", error.message]),
+		setExportProgressOverlay: (...args) => calls.push(["overlay", ...args]),
+		getPhaseDefaultDetail: () => "detail",
+		requireTargetsMessage: "missing target",
+		requireFramesMessage: "missing frames",
+		t: (key) => key,
+		now: () => 24680,
+		waitForWritePhasePaint: () => calls.push(["paint"]),
+		abortSignal: abortController.signal,
+	});
+
+	assert.equal(
+		calls.some((call) => call[0] === "blob"),
+		false,
+	);
+	assert.equal(
+		calls.some((call) => call[0] === "downloadArchive"),
+		false,
+	);
+	assert.deepEqual(calls.at(-4), ["setExportStatus", "export.idle"]);
+	assert.deepEqual(calls.at(-3), ["setStatus", "status.exportCancelled"]);
+	assert.deepEqual(calls.at(-2), ["clearExportOverlay"]);
+	assert.deepEqual(calls.at(-1), ["updateUi"]);
+}
+
+{
+	const calls = [];
 	await runVideoExport({
 		targetDocuments: [{ id: "camera-a", name: "Camera A", frames: [] }],
 		frames: [2, 4],
@@ -405,6 +458,61 @@ import {
 	assert.deepEqual(calls[13], ["draw", "canvas-4"]);
 	assert.deepEqual(calls[14], ["downloadVideo", "camera-a.webm", 5]);
 	assert.deepEqual(calls.at(-2), ["setExportStatus", "export.ready"]);
+	assert.deepEqual(calls.at(-1), ["updateUi"]);
+}
+
+{
+	const calls = [];
+	const abortController = new AbortController();
+	await runVideoExport({
+		targetDocuments: [{ id: "camera-a", name: "Camera A", frames: [] }],
+		frames: [2, 4],
+		fps: 12,
+		isVideoSupported: () => true,
+		renderSnapshot: async (_documentState, timelineFrame) => {
+			calls.push(["renderVideo", timelineFrame]);
+			return { frame: timelineFrame };
+		},
+		renderVideoFrame: (_documentState, snapshot) => ({
+			id: `canvas-${snapshot.frame}`,
+		}),
+		createVideoBlob: async (renderFrames) => {
+			calls.push(["createVideo"]);
+			await renderFrames(async (canvas) => {
+				calls.push(["draw", canvas.id]);
+				abortController.abort();
+			});
+			return new Blob(["video"]);
+		},
+		buildVideoFilename: () => "camera-a.webm",
+		createArchiveBlob: async () => new Blob(["zip"]),
+		downloadArchive: () => calls.push(["downloadArchive"]),
+		downloadVideo: () => calls.push(["downloadVideo"]),
+		archiveFilename: "video.zip",
+		setExportStatus: (...args) => calls.push(["setExportStatus", ...args]),
+		setSummary: (value) => calls.push(["setSummary", value]),
+		setStatus: (value) => calls.push(["setStatus", value]),
+		updateUi: () => calls.push(["updateUi"]),
+		clearExportOverlay: () => calls.push(["clearExportOverlay"]),
+		showExportErrorOverlay: (error) => calls.push(["showError", error.message]),
+		setExportProgressOverlay: (...args) => calls.push(["overlay", ...args]),
+		getPhaseDefaultDetail: () => "detail",
+		requireTargetsMessage: "missing target",
+		requireFramesMessage: "missing frames",
+		videoUnsupportedMessage: "no video",
+		t: (key) => key,
+		now: () => 13579,
+		waitForWritePhasePaint: () => calls.push(["paint"]),
+		abortSignal: abortController.signal,
+	});
+
+	assert.equal(
+		calls.some((call) => call[0] === "downloadVideo"),
+		false,
+	);
+	assert.deepEqual(calls.at(-4), ["setExportStatus", "export.idle"]);
+	assert.deepEqual(calls.at(-3), ["setStatus", "status.exportCancelled"]);
+	assert.deepEqual(calls.at(-2), ["clearExportOverlay"]);
 	assert.deepEqual(calls.at(-1), ["updateUi"]);
 }
 
