@@ -6,6 +6,7 @@ export function createProjectControllerBindings({
 	captureShotCameraEditorStates,
 	restoreShotCameraEditorStates,
 	restoreShotCameraEditorState,
+	getAnimationController = () => null,
 	getActiveShotCameraId,
 	measurementController,
 	perSplatEditController,
@@ -25,9 +26,18 @@ export function createProjectControllerBindings({
 		assetController,
 		applySavedProjectState,
 		applyOpenedProject,
-		captureWorkingEditorState: () => captureShotCameraEditorStates(),
+		captureWorkingEditorState: () => ({
+			shotCameraEditorStates: captureShotCameraEditorStates(),
+			animationEditorState:
+				getAnimationController?.()?.captureTimelineEditorState?.() ?? null,
+		}),
 		applyWorkingEditorState: (editorState) => {
-			restoreShotCameraEditorStates(editorState);
+			const shotCameraEditorStates =
+				editorState?.shotCameraEditorStates ?? editorState;
+			restoreShotCameraEditorStates(shotCameraEditorStates);
+			getAnimationController?.()?.restoreTimelineEditorState?.(
+				editorState?.animationEditorState ?? null,
+			);
 			restoreShotCameraEditorState(getActiveShotCameraId());
 		},
 		clearProjectSidecars: () => {

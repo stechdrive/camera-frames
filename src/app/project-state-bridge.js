@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { createDefaultAnimationDocument } from "../animation/animation-model.js";
 import { DEFAULT_VIEWPORT_CAMERA_BASE_FOVX } from "../engine/camera-lens.js";
 import {
 	applyLegacyCameraTransform,
@@ -84,6 +85,7 @@ export function createProjectStateBridge({
 	getMeasurementController,
 	getInteractionController,
 	getPerSplatEditController,
+	getAnimationController,
 	getViewportProjectionController,
 	getFrameController,
 	getOutputFrameController,
@@ -128,6 +130,24 @@ export function createProjectStateBridge({
 		return getShotCameraEditorStateController?.()?.clearActiveShotCameraEditorState?.();
 	}
 
+	function captureAnimationDocument() {
+		return (
+			getAnimationController?.()?.captureAnimationDocument?.() ??
+			createDefaultAnimationDocument()
+		);
+	}
+
+	function restoreAnimationDocument(animation = null) {
+		return getAnimationController?.()?.restoreAnimationDocument?.(animation);
+	}
+
+	function withBaseRuntimeStateForSnapshot(callback) {
+		return (
+			getAnimationController?.()?.withBaseRuntimeStateForSnapshot?.(callback) ??
+			callback?.()
+		);
+	}
+
 	function restoreShotCameraEditorState(
 		shotCameraId,
 		{ fallbackSnapshot = null } = {},
@@ -166,6 +186,7 @@ export function createProjectStateBridge({
 			sceneReferenceImages:
 				getReferenceImageController?.()?.captureProjectReferenceImagesState?.() ??
 				null,
+			animation: captureAnimationDocument(),
 			splatEdit: getPerSplatEditController?.()?.captureEditState?.() ?? null,
 			shotCameraEditorStates,
 			referenceImageEditor:
@@ -226,6 +247,7 @@ export function createProjectStateBridge({
 		getPerSplatEditController?.()?.restoreEditState?.(
 			snapshot.splatEdit ?? null,
 		);
+		restoreAnimationDocument(snapshot.animation ?? null);
 		getMeasurementController?.()?.clearMeasurementSession?.({
 			keepActive: false,
 		});
@@ -318,7 +340,7 @@ export function createProjectStateBridge({
 	}
 
 	function captureProjectState() {
-		return {
+		return withBaseRuntimeStateForSnapshot(() => ({
 			workspace: {
 				activeShotCameraId: store.workspace.activeShotCameraId.value,
 				viewport: {
@@ -337,7 +359,8 @@ export function createProjectStateBridge({
 					getReferenceImageController?.()?.captureProjectReferenceImagesState?.() ??
 					null,
 			},
-		};
+			animation: captureAnimationDocument(),
+		}));
 	}
 
 	function buildProjectFilename() {
@@ -389,6 +412,7 @@ export function createProjectStateBridge({
 		getLightingController?.()?.applyLightingState?.(
 			project?.scene?.lighting ?? null,
 		);
+		restoreAnimationDocument(project?.animation ?? null);
 
 		restoreShotCameraEditorStates(null);
 		clearActiveShotCameraEditorState();
@@ -422,6 +446,7 @@ export function createProjectStateBridge({
 			defaultShotCameras[0]?.id ?? store.workspace.activeShotCameraId.value;
 		store.viewportBaseFovX.value = DEFAULT_VIEWPORT_CAMERA_BASE_FOVX;
 		store.viewportBaseFovXDirty.value = false;
+		restoreAnimationDocument(null);
 		restoreShotCameraEditorStates(null);
 		clearActiveShotCameraEditorState();
 		getMeasurementController?.()?.clearMeasurementSession?.({

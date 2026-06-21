@@ -24,6 +24,7 @@ export function createExportControllerBindings({
 	syncShotProjection,
 	syncOutputCamera,
 	updateShotCameraHelpers,
+	getAnimationController = () => null,
 } = {}) {
 	return {
 		scene,
@@ -51,5 +52,6 @@ export function createExportControllerBindings({
 		syncShotProjection,
 		syncOutputCamera,
 		updateShotCameraHelpers,
+		getAnimationController,
 	};
 }

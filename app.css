@@ -10,6 +10,7 @@
 @import "./styles/panel-controls.css";
 @import "./styles/app-overlays.css";
 @import "./styles/workbench-surface.css";
+@import "./styles/timeline.css";
 @import "./styles/viewport-tools.css";
 @import "./styles/inspector-sections.css";
 @import "./styles/frame-overlays.css";

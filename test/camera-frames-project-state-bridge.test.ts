@@ -67,6 +67,31 @@ function createBridgeHarness(overrides = {}) {
 		restoreEditState: (snapshot) =>
 			calls.push(["restore-splat-edit", snapshot ?? null]),
 	};
+	const animationController = overrides.animationController ?? {
+		captureAnimationDocument: () => ({
+			version: 1,
+			enabled: true,
+			activeClipId: "clip-a",
+			clips: [
+				{
+					id: "clip-a",
+					name: "Test",
+					fps: 24,
+					startFrame: 1,
+					durationFrames: 24,
+					playbackStartFrame: 1,
+					playbackEndFrame: 24,
+					bindings: [],
+				},
+			],
+		}),
+		restoreAnimationDocument: (snapshot) =>
+			calls.push(["restore-animation", snapshot ?? null]),
+		withBaseRuntimeStateForSnapshot: (callback) => {
+			calls.push(["with-base-runtime-state"]);
+			return callback();
+		},
+	};
 	const interactionController = overrides.interactionController ?? {
 		clearControlMomentum: () => calls.push(["clear-momentum"]),
 	};
@@ -152,6 +177,7 @@ function createBridgeHarness(overrides = {}) {
 		getMeasurementController: () => measurementController,
 		getInteractionController: () => interactionController,
 		getPerSplatEditController: () => perSplatEditController,
+		getAnimationController: () => animationController,
 		getViewportProjectionController: () => viewportProjectionController,
 		getFrameController: () => frameController,
 		getOutputFrameController: () => outputFrameController,
@@ -227,7 +253,7 @@ function createBridgeHarness(overrides = {}) {
 }
 
 {
-	const { bridge, store, viewportCamera } = createBridgeHarness();
+	const { bridge, calls, store, viewportCamera } = createBridgeHarness();
 	store.viewportLod = {
 		userScale: { value: 0.72 },
 		effectiveScale: { value: 0.72 },
@@ -245,9 +271,15 @@ function createBridgeHarness(overrides = {}) {
 		scopeAssetIds: ["splat-a"],
 		selectionCount: 2,
 	});
+	assert.equal(workspaceState.animation.enabled, true);
+	assert.equal(projectState.animation.activeClipId, "clip-a");
 	assert.deepEqual(projectState.scene.assets, [{ id: "asset-a" }]);
 	assert.equal(projectState.shotCameras[0].pose.position.x, 4);
 	assert.equal(bridge.buildProjectFilename(), "export-camera-a.ssproj");
+	assert.ok(
+		calls.some(([label]) => label === "with-base-runtime-state"),
+		"project capture runs through the animation base-state wrapper",
+	);
 	assert.equal(
 		JSON.stringify(workspaceState).includes("viewportLod"),
 		false,
@@ -290,6 +322,10 @@ function createBridgeHarness(overrides = {}) {
 	assert.ok(
 		calls.some(([label]) => label === "restore-splat-edit"),
 		"restores per-splat edit runtime state",
+	);
+	assert.ok(
+		calls.some(([label]) => label === "restore-animation"),
+		"restores animation document",
 	);
 	assert.ok(
 		calls.some(([label]) => label === "sync-controls"),
@@ -361,6 +397,22 @@ function createBridgeHarness(overrides = {}) {
 			lighting: { intensity: 2 },
 			referenceImages: { items: ["ref-b"] },
 		},
+		animation: {
+			enabled: false,
+			activeClipId: "clip-b",
+			clips: [
+				{
+					id: "clip-b",
+					name: "Saved",
+					fps: 12,
+					startFrame: 1,
+					durationFrames: 12,
+					playbackStartFrame: 1,
+					playbackEndFrame: 12,
+					bindings: [],
+				},
+			],
+		},
 	};
 
 	bridge.applySavedProjectState(project);
@@ -378,6 +430,13 @@ function createBridgeHarness(overrides = {}) {
 	assert.ok(
 		calls.some(([label]) => label === "update-output-overlay"),
 		"updates frame overlay after applying saved project state",
+	);
+	assert.ok(
+		calls.some(
+			([label, snapshot]) =>
+				label === "restore-animation" && snapshot?.activeClipId === "clip-b",
+		),
+		"restores saved animation document",
 	);
 	assert.ok(
 		calls.some(([label]) => label === "update-ui"),
@@ -413,6 +472,12 @@ function createBridgeHarness(overrides = {}) {
 	assert.ok(
 		calls.some(([label]) => label === "output-selection-clear"),
 		"clears output frame selection for a fresh project",
+	);
+	assert.ok(
+		calls.some(
+			([label, snapshot]) => label === "restore-animation" && snapshot === null,
+		),
+		"resets animation document for a fresh project",
 	);
 	assert.ok(
 		calls.some(([label]) => label === "update-ui"),

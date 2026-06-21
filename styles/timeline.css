@@ -1,0 +1,438 @@
+.timeline-rail {
+	position: absolute;
+	left: 50%;
+	bottom: calc(env(safe-area-inset-bottom, 0px) + 0.75rem);
+	z-index: 13;
+	transform: translateX(-50%);
+	pointer-events: none;
+}
+
+.timeline-rail__button {
+	appearance: none;
+	display: inline-flex;
+	align-items: center;
+	gap: 0.45rem;
+	min-height: 2.1rem;
+	padding: 0.45rem 0.7rem;
+	border: 1px solid var(--line-strong);
+	border-radius: 999px;
+	background: linear-gradient(180deg, var(--bg-elev-strong), var(--bg-elev));
+	box-shadow: var(--shadow);
+	color: var(--text);
+	cursor: pointer;
+	font:
+		700 0.78rem / 1 "Avenir Next",
+		"Segoe UI",
+		sans-serif;
+	pointer-events: auto;
+}
+
+.timeline-panel {
+	--timeline-panel-height: 220px;
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	z-index: 13;
+	display: grid;
+	grid-template-rows: auto minmax(0, 1fr);
+	height: var(--timeline-panel-height);
+	min-height: 144px;
+	max-height: min(45vh, 520px);
+	border-top: 1px solid var(--line-strong);
+	background: rgba(5, 12, 22, 0.96);
+	box-shadow: 0 -18px 70px rgba(0, 0, 0, 0.38);
+	color: var(--text);
+	pointer-events: auto;
+}
+
+.app-shell--timeline-open .viewport-shell {
+	height: calc(100% - var(--timeline-open-height, 220px));
+}
+
+.app-shell--timeline-open .workbench-shell {
+	bottom: var(--timeline-open-height, 220px);
+}
+
+.timeline-panel__resize {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	height: 5px;
+	cursor: ns-resize;
+}
+
+.timeline-panel__collapse {
+	appearance: none;
+	position: absolute;
+	top: 0.45rem;
+	right: 0.65rem;
+	z-index: 5;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 2rem;
+	height: 2rem;
+	border: 1px solid var(--line-strong);
+	border-radius: 8px;
+	background: rgba(255, 255, 255, 0.055);
+	color: var(--text);
+	cursor: pointer;
+}
+
+.timeline-panel__collapse:hover {
+	background: rgba(137, 208, 255, 0.13);
+	border-color: rgba(137, 208, 255, 0.42);
+}
+
+.timeline-toolbar {
+	display: flex;
+	align-items: center;
+	gap: 0.45rem;
+	min-width: 0;
+	padding: 0.45rem 3rem 0.45rem 0.65rem;
+	border-bottom: 1px solid var(--line);
+	overflow-x: auto;
+}
+
+.timeline-toggle,
+.timeline-chip {
+	appearance: none;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.4rem;
+	height: 2rem;
+	padding: 0 0.62rem;
+	border: 1px solid var(--line-strong);
+	border-radius: 8px;
+	background: rgba(255, 255, 255, 0.04);
+	color: var(--text-dim);
+	cursor: pointer;
+	font:
+		700 0.74rem / 1 "Avenir Next",
+		"Segoe UI",
+		sans-serif;
+	white-space: nowrap;
+}
+
+.timeline-toggle.is-active,
+.timeline-chip.is-active {
+	border-color: rgba(137, 208, 255, 0.42);
+	background: rgba(137, 208, 255, 0.13);
+	color: var(--text);
+}
+
+.timeline-toggle__state {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 1.9rem;
+	height: 1.05rem;
+	padding: 0 0.35rem;
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.08);
+	color: var(--text-muted);
+	font:
+		700 0.62rem / 1 "IBM Plex Mono",
+		Consolas,
+		monospace;
+}
+
+.timeline-toggle.is-active .timeline-toggle__state {
+	background: rgba(137, 208, 255, 0.24);
+	color: var(--text);
+}
+
+.timeline-field {
+	display: inline-grid;
+	grid-template-columns: auto 4.7rem;
+	align-items: center;
+	gap: 0.34rem;
+	color: var(--text-dim);
+	font:
+		700 0.7rem / 1 "Avenir Next",
+		"Segoe UI",
+		sans-serif;
+	white-space: nowrap;
+}
+
+.timeline-field input {
+	width: 100%;
+	height: 2rem;
+	padding: 0 0.45rem;
+	border: 1px solid var(--line);
+	border-radius: 8px;
+	background: rgba(2, 8, 16, 0.68);
+	color: var(--text);
+	font:
+		700 0.78rem / 1 "IBM Plex Mono",
+		Consolas,
+		monospace;
+}
+
+.timeline-toolbar__range {
+	color: var(--text-dim);
+	font:
+		700 0.72rem / 1 "IBM Plex Mono",
+		Consolas,
+		monospace;
+	white-space: nowrap;
+}
+
+.timeline-zoom-readout {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 2.8rem;
+	height: 2rem;
+	color: var(--text-dim);
+	font:
+		700 0.68rem / 1 "IBM Plex Mono",
+		Consolas,
+		monospace;
+	white-space: nowrap;
+}
+
+.timeline-key-target {
+	display: inline-flex;
+	flex: 0 0 auto;
+	align-items: center;
+	gap: 0.35rem;
+	min-width: 0;
+	height: 2rem;
+	color: var(--text-dim);
+	font:
+		700 0.68rem / 1 "Avenir Next",
+		"Segoe UI",
+		sans-serif;
+	white-space: nowrap;
+}
+
+.timeline-key-target__label {
+	flex: 0 0 auto;
+	color: var(--text-muted);
+}
+
+.timeline-key-target__modes {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.18rem;
+	min-width: 0;
+	padding: 0.16rem;
+	border: 1px solid rgba(255, 255, 255, 0.09);
+	border-radius: 8px;
+	background: rgba(255, 255, 255, 0.026);
+}
+
+.timeline-key-target__mode {
+	appearance: none;
+	display: inline-flex;
+	flex: 0 0 auto;
+	align-items: center;
+	justify-content: center;
+	gap: 0.25rem;
+	height: 1.55rem;
+	min-width: 0;
+	max-width: none;
+	padding: 0 0.38rem;
+	border: 1px solid transparent;
+	border-radius: 6px;
+	background: transparent;
+	color: var(--text-dim);
+	cursor: pointer;
+	font: inherit;
+	white-space: nowrap;
+}
+
+.timeline-key-target__mode span {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.timeline-key-target__mode.is-active {
+	border-color: rgba(137, 208, 255, 0.4);
+	background: rgba(137, 208, 255, 0.14);
+	color: var(--text);
+}
+
+.timeline-key-target__count {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 1rem;
+	height: 1rem;
+	padding: 0 0.25rem;
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.11);
+	color: var(--text);
+	font:
+		700 0.58rem / 1 "IBM Plex Mono",
+		Consolas,
+		monospace;
+}
+
+.timeline-key-target__summary {
+	display: inline-block;
+	flex: 0 1 auto;
+	min-width: 0;
+	max-width: min(9rem, 14vw);
+	overflow: hidden;
+	color: var(--text);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.timeline-body {
+	display: grid;
+	grid-template-columns: minmax(12rem, 18rem) minmax(0, 1fr);
+	min-height: 0;
+}
+
+.timeline-track-list {
+	min-width: 0;
+	border-right: 1px solid var(--line);
+	overflow: auto;
+}
+
+.timeline-track-list__header,
+.timeline-empty {
+	height: 1.75rem;
+	padding: 0.5rem 0.7rem 0;
+	color: var(--text-dim);
+	font:
+		700 0.7rem / 1 "Avenir Next",
+		"Segoe UI",
+		sans-serif;
+	text-transform: uppercase;
+}
+
+.timeline-track-row {
+	display: grid;
+	grid-template-columns: 1rem minmax(0, 1fr);
+	align-items: center;
+	gap: 0.45rem;
+	height: 1.65rem;
+	padding: 0 0.7rem;
+	border-top: 1px solid rgba(255, 255, 255, 0.045);
+	color: var(--text);
+	font:
+		600 0.76rem / 1 "Avenir Next",
+		"Segoe UI",
+		sans-serif;
+}
+
+.timeline-track-row span {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.timeline-dopesheet {
+	position: relative;
+	min-width: 0;
+	overflow: auto;
+	background: rgba(255, 255, 255, 0.018);
+}
+
+.timeline-dopesheet__content {
+	position: relative;
+	min-width: 100%;
+	min-height: 100%;
+	cursor: col-resize;
+	user-select: none;
+	touch-action: none;
+}
+
+.timeline-ruler {
+	position: sticky;
+	top: 0;
+	z-index: 4;
+	height: 1.75rem;
+	border-bottom: 1px solid var(--line);
+	background: rgba(5, 12, 22, 0.98);
+	color: var(--text-dim);
+	font:
+		700 0.68rem / 1 "IBM Plex Mono",
+		Consolas,
+		monospace;
+}
+
+.timeline-ruler__tick {
+	position: absolute;
+	top: 0.5rem;
+	transform: translateX(-50%);
+	white-space: nowrap;
+}
+
+.timeline-ruler__tick:first-child {
+	transform: translateX(0);
+}
+
+.timeline-ruler__tick:last-child {
+	transform: translateX(-100%);
+}
+
+.timeline-grid-line {
+	position: absolute;
+	top: 1.75rem;
+	bottom: 0;
+	z-index: 0;
+	width: 1px;
+	background: rgba(255, 255, 255, 0.055);
+	pointer-events: none;
+}
+
+.timeline-dopesheet-row,
+.timeline-dopesheet__empty {
+	position: relative;
+	z-index: 1;
+	height: 1.65rem;
+	border-top: 1px solid rgba(255, 255, 255, 0.045);
+}
+
+.timeline-playhead {
+	position: absolute;
+	top: 1.75rem;
+	bottom: 0;
+	z-index: 3;
+	width: 2px;
+	background: var(--accent);
+	pointer-events: none;
+}
+
+.timeline-key {
+	position: absolute;
+	top: 50%;
+	z-index: 2;
+	width: 0.56rem;
+	height: 0.56rem;
+	border: 1px solid rgba(255, 255, 255, 0.58);
+	background: #ffd166;
+	transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.timeline-key--out {
+	opacity: 0.35;
+}
+
+@media (max-width: 760px) {
+	.timeline-panel {
+		height: min(42vh, var(--timeline-panel-height));
+	}
+
+	.timeline-body {
+		grid-template-columns: minmax(8.5rem, 38vw) minmax(0, 1fr);
+	}
+
+	.timeline-toolbar {
+		gap: 0.35rem;
+	}
+
+	.timeline-field {
+		grid-template-columns: auto 4rem;
+	}
+}

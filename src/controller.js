@@ -58,6 +58,7 @@ import {
 	VIEWPORT_PIXEL_RATIO,
 } from "./constants.js";
 import { createAssetController } from "./controllers/asset-controller.js";
+import { createAnimationController } from "./controllers/animation-controller.js";
 import { createCameraController } from "./controllers/camera-controller.js";
 import { createExportController } from "./controllers/export-controller.js";
 import { createFrameController } from "./controllers/frame-controller.js";
@@ -171,6 +172,7 @@ export function createCameraFramesController(elements, store) {
 	const splatSelectionHighlightController =
 		createSplatSelectionHighlightController();
 	let assetController = null;
+	let animationController = null;
 	let frameController = null;
 	let cameraController = null;
 	let historyController = null;
@@ -325,6 +327,7 @@ export function createCameraFramesController(elements, store) {
 		getMeasurementController: () => measurementController,
 		getInteractionController: () => interactionController,
 		getPerSplatEditController: () => perSplatEditController,
+		getAnimationController: () => animationController,
 		getViewportProjectionController: () => viewportProjectionController,
 		getFrameController: () => frameController,
 		getOutputFrameController: () => outputFrameController,
@@ -462,6 +465,19 @@ export function createCameraFramesController(elements, store) {
 			},
 		}),
 	);
+	animationController = createAnimationController({
+		store,
+		state,
+		shotCameraRegistry,
+		getShotCameraDocument,
+		getAssetController: () => assetController,
+		syncShotProjection,
+		applyCameraViewProjection,
+		syncOutputCamera,
+		updateCameraSummary,
+		runHistoryAction: historyController.runHistoryAction,
+		updateUi: () => updateUi(),
+	});
 
 	assetController = createAssetController(
 		createAssetControllerBindings({
@@ -521,6 +537,7 @@ export function createCameraFramesController(elements, store) {
 			syncShotProjection,
 			syncOutputCamera,
 			updateShotCameraHelpers,
+			getAnimationController: () => animationController,
 		}),
 	);
 	viewportLodScaleRuntimeBinding = createViewportLodScaleRuntimeBinding({
@@ -723,6 +740,10 @@ export function createCameraFramesController(elements, store) {
 			getActiveShotCameraDocument,
 			getActiveCameraViewCamera,
 			getActiveOutputCamera,
+			getActiveShotCameraLensOverride: () =>
+				animationController?.getEvaluatedLensForShotCamera?.(
+					store.workspace.activeShotCameraId.value,
+				) ?? null,
 		}),
 	);
 	measurementController = createMeasurementController(
@@ -809,6 +830,7 @@ export function createCameraFramesController(elements, store) {
 			captureShotCameraEditorStates,
 			restoreShotCameraEditorStates,
 			restoreShotCameraEditorState,
+			getAnimationController: () => animationController,
 			getActiveShotCameraId: () => store.workspace.activeShotCameraId.value,
 			measurementController,
 			perSplatEditController,
@@ -891,6 +913,8 @@ export function createCameraFramesController(elements, store) {
 			syncGuideOverlayState,
 			advanceProjectionFrame,
 			finalizeProjectionFrame,
+			advanceTimelinePlayback: (...args) =>
+				animationController?.advancePlayback?.(...args),
 			syncViewportProjection,
 			syncShotProjection,
 			applyCameraViewProjection,
@@ -937,6 +961,7 @@ export function createCameraFramesController(elements, store) {
 		store,
 		state,
 		cameraController,
+		animationController,
 		exportController,
 		frameController,
 		historyController,

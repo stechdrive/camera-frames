@@ -60,6 +60,7 @@ export function createExportController({
 	syncShotProjection,
 	syncOutputCamera,
 	updateShotCameraHelpers,
+	getAnimationController = () => null,
 }) {
 	const exportDebugLayersEnabled =
 		IS_DEV_RUNTIME && hasEnabledQueryFlag("psdDebug");
@@ -122,6 +123,7 @@ export function createExportController({
 		syncShotProjection,
 		syncOutputCamera,
 		updateShotCameraHelpers,
+		getAnimationController,
 		exportDebugLayersEnabled,
 	});
 

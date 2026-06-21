@@ -58,7 +58,7 @@ export function createSnapshotPhaseTracker(
 }
 
 export async function withOutputSnapshotSession(
-	{ shotCameraId },
+	{ shotCameraId, timelineFrame = null },
 	{
 		scene,
 		spark,
@@ -79,6 +79,7 @@ export async function withOutputSnapshotSession(
 		syncOutputCamera,
 		updateShotCameraHelpers,
 		setRenderLock,
+		getAnimationController = () => null,
 	},
 	callback,
 ) {
@@ -110,6 +111,9 @@ export async function withOutputSnapshotSession(
 		setRenderLock(true);
 		spark.lodSplatScale = exportLodScale;
 		syncActiveShotCameraFromDocument();
+		getAnimationController?.()?.applyCurrentFrame?.({
+			frame: timelineFrame ?? store.animation?.timelineFrame?.value,
+		});
 		syncShotProjection();
 		syncOutputCamera();
 
@@ -161,8 +165,11 @@ export async function withOutputSnapshotSession(
 			if (shouldRestore) {
 				store.workspace.activeShotCameraId.value = previousShotCameraId;
 				syncActiveShotCameraFromDocument();
+				getAnimationController?.()?.applyCurrentFrame?.();
 				syncShotProjection();
 				syncOutputCamera();
+			} else {
+				getAnimationController?.()?.applyCurrentFrame?.();
 			}
 
 			updateShotCameraHelpers();

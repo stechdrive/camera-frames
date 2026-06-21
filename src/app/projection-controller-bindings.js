@@ -7,6 +7,7 @@ export function createProjectionControllerBindings({
 	getActiveShotCameraDocument,
 	getActiveCameraViewCamera,
 	getActiveOutputCamera,
+	getActiveShotCameraLensOverride = () => null,
 } = {}) {
 	return {
 		state,
@@ -23,5 +24,6 @@ export function createProjectionControllerBindings({
 		getActiveShotCameraDocument,
 		getActiveCameraViewCamera,
 		getActiveOutputCamera,
+		getActiveShotCameraLensOverride,
 	};
 }

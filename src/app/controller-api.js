@@ -2,6 +2,7 @@ import { WORKSPACE_PANE_CAMERA } from "../workspace-model.js";
 
 export function createControllerApi({
 	state,
+	animationController = null,
 	cameraController,
 	exportController,
 	frameController,
@@ -54,15 +55,80 @@ export function createControllerApi({
 	disposeViewportLodScaleBinding = null,
 	disposeSceneResources,
 }) {
+	const shouldRouteAnimationAutoKey = () =>
+		animationController?.shouldHandleAutoKey?.() === true;
+	const setShotCameraLensShiftAxis = (axis, nextPercent) =>
+		shouldRouteAnimationAutoKey()
+			? animationController?.setShotCameraLensShiftAxisKey?.(axis, nextPercent)
+			: cameraController.setShotCameraLensShiftAxis(axis, nextPercent);
+	const setActiveShotCameraPositionAxis = (axis, nextValue) =>
+		shouldRouteAnimationAutoKey()
+			? animationController?.setShotCameraPositionKey?.(axis, nextValue)
+			: cameraController.setActiveShotCameraPositionAxis(axis, nextValue);
+	const setAssetWorldScale = (assetId, nextValue) =>
+		shouldRouteAnimationAutoKey()
+			? animationController?.setSceneAssetWorldScaleKey?.(assetId, nextValue)
+			: assetController.setAssetWorldScale(assetId, nextValue);
+	const setAssetPosition = (assetId, axis, nextValue) =>
+		shouldRouteAnimationAutoKey()
+			? animationController?.setSceneAssetPositionKey?.(
+					assetId,
+					axis,
+					nextValue,
+				)
+			: assetController.setAssetPosition(assetId, axis, nextValue);
+	const setAssetRotationDegrees = (assetId, axis, nextValue) =>
+		shouldRouteAnimationAutoKey()
+			? animationController?.setSceneAssetRotationKey?.(
+					assetId,
+					axis,
+					nextValue,
+				)
+			: assetController.setAssetRotationDegrees(assetId, axis, nextValue);
+
 	return {
 		setMode: cameraController.setMode,
+		toggleAnimationEnabled: (...args) =>
+			animationController?.toggleAnimationEnabled?.(...args),
+		setAnimationEnabled: (...args) =>
+			animationController?.setAnimationEnabled?.(...args),
+		setTimelinePanelOpen: (...args) =>
+			animationController?.setTimelinePanelOpen?.(...args),
+		setTimelinePanelHeight: (...args) =>
+			animationController?.setTimelinePanelHeight?.(...args),
+		setTimelineZoom: (...args) =>
+			animationController?.setTimelineZoom?.(...args),
+		zoomTimelineIn: (...args) => animationController?.zoomTimelineIn?.(...args),
+		zoomTimelineOut: (...args) =>
+			animationController?.zoomTimelineOut?.(...args),
+		setTimelineFrame: (...args) =>
+			animationController?.setTimelineFrame?.(...args),
+		setAnimationFps: (...args) =>
+			animationController?.setAnimationFps?.(...args),
+		setAnimationDurationFrames: (...args) =>
+			animationController?.setAnimationDurationFrames?.(...args),
+		setAnimationAutoKey: (...args) =>
+			animationController?.setAnimationAutoKey?.(...args),
+		setAnimationKeyTargetMode: (...args) =>
+			animationController?.setAnimationKeyTargetMode?.(...args),
+		insertKeyForSelection: (...args) =>
+			animationController?.insertKeyForSelection?.(...args),
+		playTimeline: (...args) => animationController?.playTimeline?.(...args),
+		pauseTimeline: (...args) => animationController?.pauseTimeline?.(...args),
+		jumpTimelineStart: (...args) =>
+			animationController?.jumpTimelineStart?.(...args),
+		jumpTimelineEnd: (...args) =>
+			animationController?.jumpTimelineEnd?.(...args),
 		setLocale,
-		setBaseFovX: cameraController.setBaseFovX,
-		setShotCameraLensShiftAxis: cameraController.setShotCameraLensShiftAxis,
-		setShotCameraLensShiftXPercent:
-			cameraController.setShotCameraLensShiftXPercent,
-		setShotCameraLensShiftYPercent:
-			cameraController.setShotCameraLensShiftYPercent,
+		setBaseFovX: (...args) =>
+			shouldRouteAnimationAutoKey()
+				? animationController?.setShotCameraBaseFovXKey?.(...args)
+				: cameraController.setBaseFovX(...args),
+		setShotCameraLensShiftAxis,
+		setShotCameraLensShiftXPercent: (nextPercent) =>
+			setShotCameraLensShiftAxis("x", nextPercent),
+		setShotCameraLensShiftYPercent: (nextPercent) =>
+			setShotCameraLensShiftAxis("y", nextPercent),
 		setViewportBaseFovX: cameraController.setViewportBaseFovX,
 		setViewportTransformSpace: viewportToolController.setViewportTransformSpace,
 		setViewportTransformMode,
@@ -127,9 +193,11 @@ export function createControllerApi({
 		setShotCameraNear: cameraController.setShotCameraNear,
 		setShotCameraFar: cameraController.setShotCameraFar,
 		setShotCameraRollLock: cameraController.setShotCameraRollLock,
-		setActiveShotCameraPositionAxis:
-			cameraController.setActiveShotCameraPositionAxis,
-		setActiveShotCameraPoseAngle,
+		setActiveShotCameraPositionAxis,
+		setActiveShotCameraPoseAngle: (axis, nextValue) =>
+			shouldRouteAnimationAutoKey()
+				? animationController?.setShotCameraPoseAngleKey?.(axis, nextValue)
+				: setActiveShotCameraPoseAngle(axis, nextValue),
 		moveActiveShotCameraLocalAxis,
 		setShotCameraName: cameraController.setShotCameraName,
 		setShotCameraExportName: cameraController.setShotCameraExportName,
@@ -199,16 +267,16 @@ export function createControllerApi({
 			measurementController?.setMeasurementLengthInputText?.(...args),
 		applyMeasurementScale: (...args) =>
 			measurementController?.applyMeasurementScale?.(...args),
-		setAssetWorldScale: assetController.setAssetWorldScale,
+		setAssetWorldScale,
 		setAssetTransform: assetController.setAssetTransform,
 		resetAssetWorldScale: assetController.resetAssetWorldScale,
 		resetSelectedSceneAssetsWorldScale:
 			assetController.resetSelectedSceneAssetsWorldScale,
 		resetSelectedAssetWorkingPivot,
-		setAssetPosition: assetController.setAssetPosition,
+		setAssetPosition,
 		offsetSelectedSceneAssetsPosition:
 			assetController.offsetSelectedSceneAssetsPosition,
-		setAssetRotationDegrees: assetController.setAssetRotationDegrees,
+		setAssetRotationDegrees,
 		offsetSelectedSceneAssetsRotationDegrees:
 			assetController.offsetSelectedSceneAssetsRotationDegrees,
 		setAssetVisibility: assetController.setAssetVisibility,

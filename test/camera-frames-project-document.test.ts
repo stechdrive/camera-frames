@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
 import {
+	createDefaultAnimationDocument,
+	sanitizeAnimationDocument,
+} from "../src/animation/animation-model.js";
+import {
 	COMPOSITION_GUIDE_PATTERN_GOLDEN,
 	COMPOSITION_GUIDE_PATTERN_THIRDS,
 	COMPOSITION_GUIDE_SCOPE_ALL_FRAMES,
@@ -46,6 +50,7 @@ const normalized = normalizeProjectDocument({
 });
 
 assert.equal(normalized.version, PROJECT_VERSION);
+assert.deepEqual(normalized.animation, createDefaultAnimationDocument());
 assert.equal(normalized.scene.assets[0].label, "Hero Model");
 assert.equal(normalized.workspace.viewport.projectionMode, "orthographic");
 assert.equal(normalized.shotCameras[0].lens.shiftX, 0);
@@ -119,6 +124,56 @@ assert.deepEqual(normalizedWithCompositionGuide.shotCameras[1].lens, {
 	shiftX: 1,
 	shiftY: 0,
 });
+
+const normalizedWithAnimation = normalizeProjectDocument({
+	animation: {
+		enabled: true,
+		activeClipId: "clip-1",
+		clips: [
+			{
+				id: "clip-1",
+				fps: 12,
+				durationFrames: 48,
+				bindings: [
+					{
+						target: { kind: "scene-asset", id: "missing-asset" },
+						tracks: [
+							{
+								path: "transform.worldScale",
+								keys: [{ frame: 80, value: 1.5 }],
+							},
+						],
+					},
+				],
+			},
+		],
+	},
+});
+assert.deepEqual(
+	normalizedWithAnimation.animation,
+	sanitizeAnimationDocument({
+		enabled: true,
+		activeClipId: "clip-1",
+		clips: [
+			{
+				id: "clip-1",
+				fps: 12,
+				durationFrames: 48,
+				bindings: [
+					{
+						target: { kind: "scene-asset", id: "missing-asset" },
+						tracks: [
+							{
+								path: "transform.worldScale",
+								keys: [{ frame: 80, value: 1.5 }],
+							},
+						],
+					},
+				],
+			},
+		],
+	}),
+);
 
 assert.equal(getProjectMediaTypeFromFileName("layout.fbx"), "model/fbx");
 assert.equal(

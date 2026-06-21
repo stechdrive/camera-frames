@@ -187,4 +187,59 @@ import {
 	assert.deepEqual(updateCalls, ["updateHelpers"]);
 }
 
+{
+	const animationFrames = [];
+	const store = {
+		workspace: {
+			activeShotCameraId: { value: "camera-prev" },
+		},
+		viewportLod: {
+			effectiveScale: { value: 1 },
+		},
+		animation: {
+			timelineFrame: { value: 10 },
+		},
+	};
+	const guides = { visible: true };
+	const guideOverlay = {
+		captureState: () => ({ previous: true }),
+		applyState: () => {},
+	};
+	const spark = { autoUpdate: true, lodSplatScale: 1 };
+	await withOutputSnapshotSession(
+		{ shotCameraId: "camera-next", timelineFrame: 12 },
+		{
+			scene: { background: null },
+			spark,
+			guides,
+			guideOverlay,
+			shotCameraRegistry: new Map(),
+			store,
+			getShotCameraDocument: (id) => ({ id }),
+			getShotCameraExportSettings: () => ({
+				exportGridLayerMode: "bottom",
+			}),
+			getActiveOutputCamera: () => ({ id: "output-camera" }),
+			getOutputSizeState: () => ({ width: 1, height: 1 }),
+			getRenderableSceneAssets: () => [],
+			buildSceneAssetExportMetadata: () => [],
+			buildExportPassPlan: () => ({ masks: [], sceneAssets: [] }),
+			createSolidColorCanvas: () => ({}),
+			syncActiveShotCameraFromDocument: () => {},
+			syncShotProjection: () => {},
+			syncOutputCamera: () => {},
+			updateShotCameraHelpers: () => {},
+			setRenderLock: () => {},
+			getAnimationController: () => ({
+				applyCurrentFrame: ({ frame } = {}) => animationFrames.push(frame),
+			}),
+		},
+		async () => {
+			assert.equal(store.workspace.activeShotCameraId.value, "camera-next");
+		},
+	);
+	assert.deepEqual(animationFrames, [12, undefined]);
+	assert.equal(store.workspace.activeShotCameraId.value, "camera-prev");
+}
+
 console.log("✅ CAMERA_FRAMES export snapshot session tests passed!");

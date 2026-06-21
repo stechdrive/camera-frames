@@ -13,9 +13,28 @@ let frameTrajectoryNodeModeCall = null;
 const api = createControllerApi({
 	store: {},
 	state: { mode: "camera" },
+	animationController: {
+		toggleAnimationEnabled: () => "toggle-animation",
+		setAnimationEnabled: (value) => `animation:${value}`,
+		setTimelinePanelOpen: (value) => `panel:${value}`,
+		setTimelinePanelHeight: (value) => `height:${value}`,
+		setTimelineZoom: (value) => `zoom:${value}`,
+		zoomTimelineIn: () => "zoom-in",
+		zoomTimelineOut: () => "zoom-out",
+		setTimelineFrame: (value) => `frame:${value}`,
+		setAnimationFps: (value) => `fps:${value}`,
+		setAnimationDurationFrames: (value) => `duration:${value}`,
+		setAnimationAutoKey: (value) => `autokey:${value}`,
+		setAnimationKeyTargetMode: (value) => `target:${value}`,
+		playTimeline: () => "play",
+		pauseTimeline: () => "pause",
+		jumpTimelineStart: () => "jump-start",
+		jumpTimelineEnd: () => "jump-end",
+	},
 	cameraController: {
 		setMode: () => {},
 		setBaseFovX: () => {},
+		setShotCameraLensShiftAxis: (axis, value) => `shift-${axis}:${value}`,
 		setShotCameraLensShiftXPercent: () => "shift-x",
 		setShotCameraLensShiftYPercent: () => "shift-y",
 		setViewportBaseFovX: () => {},
@@ -255,10 +274,26 @@ api.startNewProject();
 assert.equal(startedNewProject, true);
 
 assert.equal(api.copyViewportToShotCamera(), "copy-v2s");
+assert.equal(api.toggleAnimationEnabled(), "toggle-animation");
+assert.equal(api.setAnimationEnabled(true), "animation:true");
+assert.equal(api.setTimelinePanelOpen(true), "panel:true");
+assert.equal(api.setTimelinePanelHeight(240), "height:240");
+assert.equal(api.setTimelineZoom(2), "zoom:2");
+assert.equal(api.zoomTimelineIn(), "zoom-in");
+assert.equal(api.zoomTimelineOut(), "zoom-out");
+assert.equal(api.setTimelineFrame(12), "frame:12");
+assert.equal(api.setAnimationFps(24), "fps:24");
+assert.equal(api.setAnimationDurationFrames(144), "duration:144");
+assert.equal(api.setAnimationAutoKey(true), "autokey:true");
+assert.equal(api.setAnimationKeyTargetMode("both"), "target:both");
+assert.equal(api.playTimeline(), "play");
+assert.equal(api.pauseTimeline(), "pause");
+assert.equal(api.jumpTimelineStart(), "jump-start");
+assert.equal(api.jumpTimelineEnd(), "jump-end");
 assert.equal(api.copyShotCameraToViewport(), "copy-s2v");
 assert.equal(api.resetActiveView(), "reset");
-assert.equal(api.setShotCameraLensShiftXPercent(12), "shift-x");
-assert.equal(api.setShotCameraLensShiftYPercent(-8), "shift-y");
+assert.equal(api.setShotCameraLensShiftXPercent(12), "shift-x:12");
+assert.equal(api.setShotCameraLensShiftYPercent(-8), "shift-y:-8");
 assert.equal(api.downloadOutput(), "download-output");
 assert.equal(api.setCompositionGuideEnabled(true), "guide-enabled");
 assert.equal(api.setCompositionGuideScope("all-frames"), "guide-scope");

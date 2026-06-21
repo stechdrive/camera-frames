@@ -33,6 +33,7 @@ function buildProjectDirtyPayload(projectSnapshot) {
 			lighting: normalizedProject.scene.lighting,
 			referenceImages: normalizedProject.scene.referenceImages,
 		},
+		animation: normalizedProject.animation,
 	};
 }
 

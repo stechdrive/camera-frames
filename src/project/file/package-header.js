@@ -2,6 +2,7 @@ import { normalizeReferenceImageDocument } from "../../reference-image-model.js"
 import {
 	PROJECT_DOCUMENT_PATH,
 	PROJECT_FORMAT,
+	PROJECT_MIN_SUPPORTED_VERSION,
 	PROJECT_MANIFEST_PATH,
 	PROJECT_VERSION,
 	normalizeProjectDocument,
@@ -33,7 +34,8 @@ export async function readProjectPackageHeader(
 	if (
 		manifest &&
 		(manifest?.format !== PROJECT_FORMAT ||
-			Number(manifest?.version) !== PROJECT_VERSION)
+			Number(manifest?.version) < PROJECT_MIN_SUPPORTED_VERSION ||
+			Number(manifest?.version) > PROJECT_VERSION)
 	) {
 		throw new Error("Unsupported CAMERA_FRAMES project format.");
 	}

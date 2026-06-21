@@ -351,6 +351,7 @@ export function createProjectController({
 		applySavedProjectState({
 			workspace: record.snapshot.workspace,
 			shotCameras: record.snapshot.shotCameras,
+			animation: record.snapshot.animation ?? null,
 			scene: {
 				referenceImages: record.snapshot.scene?.referenceImages ?? null,
 			},

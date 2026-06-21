@@ -1,4 +1,8 @@
 import {
+	createDefaultAnimationDocument,
+	sanitizeAnimationDocument,
+} from "../animation/animation-model.js";
+import {
 	DEFAULT_SHOT_CAMERA_BASE_FOVX,
 	clampShotCameraLensShiftFactor,
 } from "../engine/camera-lens.js";
@@ -21,7 +25,8 @@ import {
 } from "../workspace-model.js";
 
 export const PROJECT_FORMAT = "camera-frames-project";
-export const PROJECT_VERSION = 3;
+export const PROJECT_VERSION = 4;
+export const PROJECT_MIN_SUPPORTED_VERSION = 3;
 export const PROJECT_MANIFEST_PATH = "manifest.json";
 export const PROJECT_DOCUMENT_PATH = "project.json";
 export const PROJECT_JOURNAL_PATH = "journal.json";
@@ -373,6 +378,9 @@ export function normalizeProjectDocument(project = {}) {
 		)
 			? project.workspace.activeShotCameraId
 			: normalizedShotCameras[0].id;
+	const normalizedSceneAssets = (
+		Array.isArray(project.scene?.assets) ? project.scene.assets : []
+	).map((asset, index) => sanitizeProjectAssetState(asset, index));
 
 	return {
 		schema: PROJECT_FORMAT,
@@ -412,14 +420,14 @@ export function normalizeProjectDocument(project = {}) {
 				? { ...project.resources }
 				: {},
 		scene: {
-			assets: (Array.isArray(project.scene?.assets)
-				? project.scene.assets
-				: []
-			).map((asset, index) => sanitizeProjectAssetState(asset, index)),
+			assets: normalizedSceneAssets,
 			lighting: normalizeLightingState(project.scene?.lighting),
 			referenceImages: normalizedReferenceImages,
 		},
 		shotCameras: normalizedShotCameras,
+		animation: sanitizeAnimationDocument(
+			project.animation ?? createDefaultAnimationDocument(),
+		),
 	};
 }
 
@@ -441,6 +449,7 @@ export function buildProjectManifest({
 			"scene-lighting",
 			"shot-cameras",
 			"reference-images",
+			"animation",
 		],
 	};
 }
@@ -623,6 +632,7 @@ function buildProjectFingerprintPayload(
 			id: shotCamera.id,
 			presetId: shotCamera.referenceImages?.presetId ?? null,
 		})),
+		animation: normalizedProject.animation,
 	};
 }
 

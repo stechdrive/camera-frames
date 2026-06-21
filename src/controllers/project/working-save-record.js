@@ -21,6 +21,7 @@ export function buildWorkingSaveRecord({
 		snapshot: {
 			workspace: normalizedProject.workspace,
 			shotCameras: normalizedProject.shotCameras,
+			animation: normalizedProject.animation,
 			editorState: workingEditorSnapshot ?? null,
 			scene: {
 				assets: workingSceneSnapshot.assets,

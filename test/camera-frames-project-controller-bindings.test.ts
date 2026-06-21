@@ -16,6 +16,11 @@ import { createProjectControllerBindings } from "../src/app/project-controller-b
 			calls.push(["restore-states", editorState]),
 		restoreShotCameraEditorState: (cameraId) =>
 			calls.push(["restore-state", cameraId]),
+		getAnimationController: () => ({
+			captureTimelineEditorState: () => ({ timelineFrame: 12 }),
+			restoreTimelineEditorState: (editorState) =>
+				calls.push(["restore-animation-editor", editorState]),
+		}),
 		getActiveShotCameraId: () => "camera-2",
 		measurementController: {
 			clearMeasurementSession: (options) =>
@@ -44,29 +49,39 @@ import { createProjectControllerBindings } from "../src/app/project-controller-b
 
 	assert.equal(bindings.store.id, "store");
 	assert.equal(bindings.assetController.id, "asset");
-	assert.deepEqual(bindings.captureWorkingEditorState(), { cameras: 1 });
+	assert.deepEqual(bindings.captureWorkingEditorState(), {
+		shotCameraEditorStates: { cameras: 1 },
+		animationEditorState: { timelineFrame: 12 },
+	});
 
-	bindings.applyWorkingEditorState({ hello: "world" });
+	bindings.applyWorkingEditorState({
+		shotCameraEditorStates: { hello: "world" },
+		animationEditorState: { timelineFrame: 10 },
+	});
 	assert.deepEqual(calls[0], ["restore-states", { hello: "world" }]);
-	assert.deepEqual(calls[1], ["restore-state", "camera-2"]);
+	assert.deepEqual(calls[1], [
+		"restore-animation-editor",
+		{ timelineFrame: 10 },
+	]);
+	assert.deepEqual(calls[2], ["restore-state", "camera-2"]);
 
 	bindings.clearProjectSidecars();
-	assert.deepEqual(calls[2], ["clear-measurement", { keepActive: false }]);
-	assert.equal(calls[3], "clear-reference");
-	assert.equal(calls[4], "reset-lighting");
+	assert.deepEqual(calls[3], ["clear-measurement", { keepActive: false }]);
+	assert.equal(calls[4], "clear-reference");
+	assert.equal(calls[5], "reset-lighting");
 
 	bindings.resetProjectWorkspace();
-	assert.deepEqual(calls[5], ["set-transform-mode", false]);
-	assert.equal(calls[6], "reset-workspace");
-	assert.equal(calls[7], "clear-reference");
-	assert.equal(calls[8], "reset-lighting");
-	assert.equal(calls[9], "clear-scene");
+	assert.deepEqual(calls[6], ["set-transform-mode", false]);
+	assert.equal(calls[7], "reset-workspace");
+	assert.equal(calls[8], "clear-reference");
+	assert.equal(calls[9], "reset-lighting");
+	assert.equal(calls[10], "clear-scene");
 
 	assert.equal(bindings.flushDirtySplatSources(), false);
 	assert.equal(bindings.buildProjectFilename(), "project.ssproj");
 	assert.deepEqual(bindings.captureProjectState(), { project: true });
 	bindings.clearHistory();
-	assert.equal(calls[10], "clear-history");
+	assert.equal(calls[11], "clear-history");
 }
 
 console.log("✅ CAMERA_FRAMES project controller bindings tests passed!");

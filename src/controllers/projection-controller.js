@@ -24,6 +24,7 @@ export function createProjectionController({
 	getActiveShotCameraDocument,
 	getActiveCameraViewCamera,
 	getActiveOutputCamera,
+	getActiveShotCameraLensOverride = () => null,
 }) {
 	let cachedProjectionState = null;
 	let insideAnimateFrame = false;
@@ -49,15 +50,17 @@ export function createProjectionController({
 		const shotCameraDocument = getActiveShotCameraDocument() ?? {};
 		const outputFrameDocument = shotCameraDocument.outputFrame ?? {};
 		const lensDocument = shotCameraDocument.lens ?? {};
+		const lensOverride = getActiveShotCameraLensOverride?.() ?? null;
+		const baseFovX = Number(lensOverride?.baseFovX ?? state.baseFovX);
 		const exportSize = getOutputSizeState();
 		const metrics = getOutputFrameMetrics();
 		const baseFrustum = getBaseFrustumExtents({
 			near: shotCamera.near,
-			horizontalFovDegrees: state.baseFovX,
+			horizontalFovDegrees: baseFovX,
 		});
 		const layoutFrustum = getTargetFrustumExtents({
 			near: shotCamera.near,
-			horizontalFovDegrees: state.baseFovX,
+			horizontalFovDegrees: baseFovX,
 			widthScale: state.outputFrame.widthScale,
 			heightScale: state.outputFrame.heightScale,
 			centerX: outputFrameDocument.centerX,
@@ -66,8 +69,12 @@ export function createProjectionController({
 		const targetFrustum = applyLensShiftToFrustumExtents({
 			frustum: layoutFrustum,
 			baseFrustum,
-			shiftX: clampShotCameraLensShiftFactor(lensDocument.shiftX),
-			shiftY: clampShotCameraLensShiftFactor(lensDocument.shiftY),
+			shiftX: clampShotCameraLensShiftFactor(
+				lensOverride?.shiftX ?? lensDocument.shiftX,
+			),
+			shiftY: clampShotCameraLensShiftFactor(
+				lensOverride?.shiftY ?? lensDocument.shiftY,
+			),
 		});
 		const previewFrustum = getPreviewFrustumExtents({
 			targetFrustum,

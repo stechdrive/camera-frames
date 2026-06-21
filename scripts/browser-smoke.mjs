@@ -117,6 +117,8 @@ async function main() {
 		);
 	}
 	await captureScreenshot(cdp, join(outDir, "project-smoke.png"));
+	const timelineSmoke = await runTimelineSmoke(cdp);
+	await captureScreenshot(cdp, join(outDir, "timeline-smoke.png"));
 	cdp.close();
 	cdp = null;
 
@@ -168,9 +170,11 @@ async function main() {
 				baseUrl,
 				projectPath,
 				project: projectSmoke.summary,
+				timeline: timelineSmoke,
 				fixture: fixtureInfo,
 				screenshots: [
 					relativePath(join(outDir, "project-smoke.png")),
+					relativePath(join(outDir, "timeline-smoke.png")),
 					relativePath(join(outDir, `fixture-${fixtureId}.png`)),
 				],
 				browser: browserPath,
@@ -387,6 +391,314 @@ async function createCdpTarget(cdpPort, url) {
 		throw new Error(`Could not create CDP target: ${response.status}`);
 	}
 	return await response.json();
+}
+
+async function runTimelineSmoke(cdp) {
+	const result = await evaluate(
+		cdp,
+		`(async () => {
+			const test = globalThis.__CF_TEST__;
+			if (!test?.store || !test?.controller) {
+				return { ok: false, error: "__CF_TEST__ store/controller unavailable" };
+			}
+
+			const waitForReady = async (frames = 4, delayMs = 0) => {
+				if (typeof test.waitForReady === "function") {
+					await test.waitForReady({ frames, delayMs });
+					return;
+				}
+				for (let i = 0; i < frames; i++) {
+					await new Promise((resolve) => requestAnimationFrame(resolve));
+				}
+				if (delayMs > 0) {
+					await new Promise((resolve) => setTimeout(resolve, delayMs));
+				}
+			};
+			const click = (selector, predicate, label) => {
+				const element = [...document.querySelectorAll(selector)].find(predicate);
+				if (!element) {
+					throw new Error("Missing timeline UI element: " + label);
+				}
+				element.click();
+				return element;
+			};
+			const readFieldValues = () =>
+				Object.fromEntries(
+					[...document.querySelectorAll(".timeline-field")].map((field) => [
+						field.querySelector("span")?.textContent?.trim() ?? "",
+						field.querySelector("input")?.value ?? "",
+					]),
+				);
+
+			if (!document.querySelector(".timeline-panel")) {
+				click(
+					".timeline-rail__button",
+					() => true,
+					"collapsed rail",
+				);
+				await waitForReady(4);
+			}
+			if (!document.querySelector(".timeline-panel")) {
+				throw new Error("Timeline panel did not open");
+			}
+
+			if (!test.store.animation.document.value.enabled) {
+				click(
+					".timeline-toggle",
+					() => true,
+					"enable toggle",
+				);
+				await waitForReady(4);
+			}
+
+			const readKeyTargetState = () => {
+				const active = document.querySelector(".timeline-key-target__mode.is-active");
+				return {
+					text: document.querySelector(".timeline-key-target")?.textContent?.trim() ?? "",
+					mode: active?.getAttribute("data-mode") ?? "",
+					title: active?.getAttribute("title") ?? "",
+					addKeyDisabled: Boolean(
+						document.querySelector(".timeline-action--add-key")?.disabled,
+					),
+				};
+			};
+			const cameraKeyTargetState = readKeyTargetState();
+			const firstSceneAssetId = test.store.sceneAssets.value?.[0]?.id ?? null;
+			let sceneKeyTargetState = null;
+			let cameraWithSelectionKeyTargetState = null;
+			if (firstSceneAssetId !== null && typeof test.controller.selectSceneAsset === "function") {
+				test.controller.selectSceneAsset(firstSceneAssetId);
+				await waitForReady(4);
+				click(
+					'.timeline-key-target__mode[data-mode="objects"]',
+					() => true,
+					"objects key target mode",
+				);
+				await waitForReady(4);
+				sceneKeyTargetState = readKeyTargetState();
+				click(
+					'.timeline-key-target__mode[data-mode="camera"]',
+					() => true,
+					"camera key target mode",
+				);
+				await waitForReady(4);
+				cameraWithSelectionKeyTargetState = readKeyTargetState();
+			}
+
+			test.controller.setTimelineFrame(12);
+			test.controller.setAnimationFps(12);
+			test.controller.setAnimationDurationFrames(48);
+			await waitForReady(3);
+			click(
+				".timeline-action--add-key",
+				(element) => !element.disabled,
+				"add key",
+			);
+			await waitForReady(8);
+
+			click(
+				".timeline-action--play",
+				(element) => !element.disabled,
+				"play",
+			);
+			await waitForReady(8, 250);
+			const played = test.store.animation.isPlaying.value === true;
+			click(
+				".timeline-action--play",
+				(element) => !element.disabled,
+				"pause",
+			);
+			await waitForReady(4);
+
+			const rulerLabelsBeforeZoom = [
+				...document.querySelectorAll(".timeline-ruler__tick"),
+			].map((element) => element.textContent?.trim() ?? "");
+			click(
+				".timeline-action--zoom-in",
+				(element) => !element.disabled,
+				"zoom in",
+			);
+			await waitForReady(4);
+			const zoomAfterIn = test.store.animation.zoom.value;
+			const rulerLabelsAfterZoomIn = [
+				...document.querySelectorAll(".timeline-ruler__tick"),
+			].map((element) => element.textContent?.trim() ?? "");
+			click(
+				".timeline-action--zoom-out",
+				(element) => !element.disabled,
+				"zoom out",
+			);
+			await waitForReady(4);
+			const zoomAfterOut = test.store.animation.zoom.value;
+
+			test.controller.setTimelineFrame(1);
+			await waitForReady(3);
+			const dopesheet = document.querySelector(".timeline-dopesheet");
+			const timelineContent = document.querySelector(
+				".timeline-dopesheet__content",
+			);
+			if (!dopesheet || !timelineContent) {
+				throw new Error("Timeline dopesheet content missing");
+			}
+			const dopesheetRect = dopesheet.getBoundingClientRect();
+			const scrubClientX = dopesheetRect.left + dopesheetRect.width * 0.7;
+			const scrubClientY = dopesheetRect.top + Math.min(60, dopesheetRect.height / 2);
+			timelineContent.dispatchEvent(
+				new PointerEvent("pointerdown", {
+					bubbles: true,
+					pointerId: 10,
+					button: 0,
+					clientX: scrubClientX,
+					clientY: scrubClientY,
+				}),
+			);
+			timelineContent.dispatchEvent(
+				new PointerEvent("pointerup", {
+					bubbles: true,
+					pointerId: 10,
+					button: 0,
+					clientX: scrubClientX,
+					clientY: scrubClientY,
+				}),
+			);
+			await waitForReady(4);
+			const scrubbedFrame = test.store.animation.timelineFrame.value;
+
+			click(
+				".timeline-panel__collapse",
+				(element) => !element.disabled,
+				"collapse",
+			);
+			await waitForReady(4);
+			const collapsed = Boolean(document.querySelector(".timeline-rail__button"));
+			if (!collapsed) {
+				throw new Error("Timeline collapse button did not close the panel");
+			}
+			click(".timeline-rail__button", () => true, "collapsed rail reopen");
+			await waitForReady(4);
+			if (!document.querySelector(".timeline-panel")) {
+				throw new Error("Timeline rail did not reopen the panel");
+			}
+
+			const animation = test.store.animation;
+			const documentState = animation.document.value;
+			const clip = animation.activeClip.value;
+			const keyCount = (clip.bindings ?? []).reduce(
+				(total, binding) =>
+					total +
+					(binding.tracks ?? []).reduce(
+						(trackTotal, track) => trackTotal + (track.keys ?? []).length,
+						0,
+					),
+				0,
+			);
+			const keyElementCount =
+				document.querySelectorAll(".timeline-key").length;
+			const panelBounds = document
+				.querySelector(".timeline-panel")
+				?.getBoundingClientRect();
+			const fieldValues = readFieldValues();
+			const summary = {
+				enabled: Boolean(documentState.enabled),
+				currentFrame: animation.timelineFrame.value,
+				fps: clip.fps,
+				durationFrames: clip.durationFrames,
+				bindings: (clip.bindings ?? []).length,
+				keys: keyCount,
+				keyElements: keyElementCount,
+				played,
+				zoomAfterIn,
+				zoomAfterOut,
+				scrubbedFrame,
+				cameraKeyTargetState,
+				sceneKeyTargetState,
+				cameraWithSelectionKeyTargetState,
+				rulerLabelsBeforeZoom,
+				rulerLabelsAfterZoomIn,
+				panel: panelBounds
+					? {
+							width: Math.round(panelBounds.width),
+							height: Math.round(panelBounds.height),
+							top: Math.round(panelBounds.top),
+							bottom: Math.round(panelBounds.bottom),
+						}
+					: null,
+				fields: fieldValues,
+			};
+			const failures = [];
+			if (!summary.enabled) failures.push("animation not enabled");
+			if (
+				summary.cameraKeyTargetState.mode !== "camera" ||
+				!/Camera 1/.test(summary.cameraKeyTargetState.title)
+			) {
+				failures.push("Camera key target indicator did not show active camera");
+			}
+			if (
+				firstSceneAssetId !== null &&
+				(!summary.sceneKeyTargetState ||
+					summary.sceneKeyTargetState.mode !== "objects" ||
+					summary.sceneKeyTargetState.addKeyDisabled ||
+					summary.sceneKeyTargetState.title ===
+						summary.cameraKeyTargetState.title)
+			) {
+				failures.push("Object key target mode did not reflect selection");
+			}
+			if (
+				firstSceneAssetId !== null &&
+				(!summary.cameraWithSelectionKeyTargetState ||
+					summary.cameraWithSelectionKeyTargetState.mode !== "camera" ||
+					!/Camera 1/.test(summary.cameraWithSelectionKeyTargetState.title))
+			) {
+				failures.push("Camera key target mode was not selectable with object selected");
+			}
+			if (summary.fps !== 12) failures.push("fps field did not apply");
+			if (summary.durationFrames !== 48) {
+				failures.push("duration field did not apply");
+			}
+			if (summary.bindings < 1 || summary.keys < 1) {
+				failures.push("Add key did not create animation keys");
+			}
+			if (summary.keyElements < 1) {
+				failures.push("Dopesheet did not render key markers");
+			}
+			if (!summary.played) failures.push("Play button did not toggle playback");
+			if (summary.zoomAfterIn <= 1) failures.push("Zoom in did not increase zoom");
+			if (summary.zoomAfterOut >= summary.zoomAfterIn) {
+				failures.push("Zoom out did not reduce zoom");
+			}
+			if (summary.scrubbedFrame <= 1) {
+				failures.push("Dopesheet pointer scrub did not move the playhead");
+			}
+			if (
+				[...summary.rulerLabelsBeforeZoom, ...summary.rulerLabelsAfterZoomIn].some(
+					(label) => /^F\\s*/.test(label),
+				)
+			) {
+				failures.push("Timeline ruler still shows F-prefixed frame labels");
+			}
+			if (
+				summary.rulerLabelsAfterZoomIn.length <=
+				summary.rulerLabelsBeforeZoom.length
+			) {
+				failures.push("Zoom in did not increase ruler tick density");
+			}
+			if (!summary.panel || summary.panel.width < 600 || summary.panel.height < 160) {
+				failures.push("Timeline panel bounds are too small");
+			}
+			return {
+				ok: failures.length === 0,
+				failures,
+				summary,
+			};
+		})()`,
+		{ awaitPromise: true },
+	);
+	if (!result?.ok) {
+		throw new Error(
+			`Timeline smoke failed: ${JSON.stringify(result, null, 2)}`,
+		);
+	}
+	return result.summary;
 }
 
 class CdpClient {

@@ -77,6 +77,7 @@ export function createExportOutputRuntime(
 		syncShotProjection,
 		syncOutputCamera,
 		updateShotCameraHelpers,
+		getAnimationController = () => null,
 		exportDebugLayersEnabled,
 	},
 	{
@@ -262,7 +263,10 @@ export function createExportOutputRuntime(
 
 	function withSnapshotSession(shotCameraId, callback) {
 		return withOutputSnapshotSessionFn(
-			{ shotCameraId },
+			{
+				shotCameraId,
+				timelineFrame: store.animation?.timelineFrame?.value ?? null,
+			},
 			{
 				scene,
 				spark,
@@ -282,6 +286,7 @@ export function createExportOutputRuntime(
 				syncShotProjection,
 				syncOutputCamera,
 				updateShotCameraHelpers,
+				getAnimationController,
 				setRenderLock: (locked) => {
 					exportRenderLock = locked;
 				},

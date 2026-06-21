@@ -5,6 +5,7 @@ import { AppOverlay } from "./app-overlay.js";
 import { HelpModal } from "./help/help-modal.js";
 import { MobileUiScaleModal } from "./settings/mobile-ui-scale-modal.js";
 import { SidePanel } from "./side-panel.js";
+import { TimelinePanel } from "./timeline-panel.js";
 import { ViewportShell } from "./viewport-shell.js";
 
 function isInteractiveTextTarget(target) {
@@ -41,8 +42,18 @@ export function AppView({ store, controller, refs }) {
 		return () => document.removeEventListener("keydown", handleKey);
 	}, [controller]);
 
+	const timelineOpen = Boolean(store.animation?.panelOpen?.value);
 	return html`
-		<div class="app-shell">
+		<div
+			class=${timelineOpen ? "app-shell app-shell--timeline-open" : "app-shell"}
+			style=${
+				timelineOpen
+					? {
+							"--timeline-open-height": `${store.animation.panelHeight.value}px`,
+						}
+					: null
+			}
+		>
 			<${ViewportShell}
 				store=${store}
 				controller=${controller}
@@ -56,6 +67,7 @@ export function AppView({ store, controller, refs }) {
 				t=${t}
 				refs=${refs}
 			/>
+			<${TimelinePanel} store=${store} controller=${controller} t=${t} />
 			<${AppOverlay} overlay=${store.overlay.value} />
 			<${HelpModal} store=${store} controller=${controller} />
 			<${MobileUiScaleModal}

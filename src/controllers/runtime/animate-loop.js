@@ -19,6 +19,7 @@ export function createRuntimeAnimateLoop({
 	handleResize,
 	advanceProjectionFrame,
 	finalizeProjectionFrame,
+	advanceTimelinePlayback = null,
 	syncViewportProjection,
 	syncShotProjection,
 	applyCameraViewProjection,
@@ -114,6 +115,7 @@ export function createRuntimeAnimateLoop({
 
 		if (timing) t1 = performance.now();
 
+		advanceTimelinePlayback?.(deltaTime);
 		syncViewportProjection();
 		syncShotProjection();
 		applyCameraViewProjection();

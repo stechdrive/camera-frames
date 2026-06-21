@@ -1,4 +1,8 @@
 import { computed, signal } from "@preact/signals";
+import {
+	createDefaultAnimationDocument,
+	getActiveAnimationClip,
+} from "./animation/animation-model.js";
 import { resolveEffectiveMobileUiScale } from "./app/mobile-ui-scale.js";
 import { resolveEffectiveViewportLodScale } from "./app/viewport-lod-scale.js";
 import {
@@ -61,6 +65,19 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	const interactionMode = signal("navigate");
 	const viewportTransformSpace = signal("world");
 	const viewportToolMode = signal("none");
+	const animationDocument = signal(createDefaultAnimationDocument());
+	const animationTimelineFrame = signal(1);
+	const animationPlaying = signal(false);
+	const animationAutoKey = signal(false);
+	const animationPanelOpen = signal(false);
+	const animationPanelHeight = signal(220);
+	const animationSelectedBindingId = signal(null);
+	const animationSelectedKeyIds = signal([]);
+	const animationExpandedRowIds = signal([]);
+	const animationZoom = signal(1);
+	const animationScrollFrame = signal(1);
+	const animationKeyTargetMode = signal("camera");
+	const animationEvaluatedLens = signal(null);
 	const measurementActive = signal(false);
 	const measurementStartPointWorld = signal(null);
 	const measurementEndPointWorld = signal(null);
@@ -263,6 +280,18 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	const frameTrajectoryEditMode = signal(false);
 	const historyCanUndo = signal(false);
 	const historyCanRedo = signal(false);
+	const activeAnimationClip = computed(() =>
+		getActiveAnimationClip(animationDocument.value),
+	);
+	const animationEnabled = computed(() =>
+		Boolean(animationDocument.value?.enabled),
+	);
+	const animationEndFrame = computed(
+		() =>
+			activeAnimationClip.value.startFrame +
+			activeAnimationClip.value.durationFrames -
+			1,
+	);
 	const frameDocuments = computed(() => activeShotCamera.value?.frames ?? []);
 	const activeFrame = computed(() =>
 		getActiveFrameDocument(
@@ -473,6 +502,24 @@ export function createCameraFramesStore(runtimeInfo = null) {
 		viewportOrthoFocus,
 		viewportToolMode,
 		viewportTransformSpace,
+		animation: {
+			document: animationDocument,
+			enabled: animationEnabled,
+			activeClip: activeAnimationClip,
+			timelineFrame: animationTimelineFrame,
+			endFrame: animationEndFrame,
+			isPlaying: animationPlaying,
+			autoKey: animationAutoKey,
+			panelOpen: animationPanelOpen,
+			panelHeight: animationPanelHeight,
+			selectedBindingId: animationSelectedBindingId,
+			selectedKeyIds: animationSelectedKeyIds,
+			expandedRowIds: animationExpandedRowIds,
+			zoom: animationZoom,
+			scrollFrame: animationScrollFrame,
+			keyTargetMode: animationKeyTargetMode,
+			evaluatedLens: animationEvaluatedLens,
+		},
 		viewportSelectMode,
 		viewportReferenceImageEditMode,
 		viewportPivotEditMode,
