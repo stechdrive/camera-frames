@@ -3,6 +3,8 @@ import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import {
 	ANIMATION_TARGET_SCENE_ASSET,
 	ANIMATION_TARGET_SHOT_CAMERA,
+	getAnimationTrackChannelGroup,
+	parseAnimationTimelineKeyId,
 } from "../animation/animation-model.js";
 import { INTERACTIVE_FIELD_PROPS } from "./workbench-controls.js";
 import { IconButton } from "./workbench-primitives.js";
@@ -164,16 +166,26 @@ function collectBindingKeyFrames(binding) {
 	return [...frames].sort((left, right) => left - right);
 }
 
+function collectBindingChannelGroups(binding) {
+	const groups = new Set();
+	for (const track of binding.tracks ?? []) {
+		const group = getAnimationTrackChannelGroup(binding.target, track.path);
+		if (group) {
+			groups.add(group);
+		}
+	}
+	return [...groups].sort();
+}
+
 function isTimelineKeyFrameSelected(row, frame, selectedKeyIds) {
 	if (!row.bindingId || !Array.isArray(selectedKeyIds)) {
 		return false;
 	}
-	const prefix = `${row.bindingId}:`;
-	const suffix = `:${Math.round(Number(frame) || 0)}`;
-	return selectedKeyIds.some(
-		(keyId) =>
-			String(keyId).startsWith(prefix) && String(keyId).endsWith(suffix),
-	);
+	const keyFrame = Math.round(Number(frame) || 0);
+	return selectedKeyIds.some((keyId) => {
+		const parsed = parseAnimationTimelineKeyId(keyId);
+		return parsed?.bindingId === row.bindingId && parsed.frame === keyFrame;
+	});
 }
 
 function isTimelineKeyboardInputTarget(target) {
@@ -206,6 +218,7 @@ function buildTimelineRows({
 		typeLabel = "",
 		bindingId = null,
 		keyFrames = [],
+		channelGroups = [],
 		candidate = false,
 	}) => {
 		const targetKey = createTimelineTargetKey(target?.kind, target?.id);
@@ -215,6 +228,9 @@ function buildTimelineRows({
 		const existing = rowsByTargetKey.get(targetKey);
 		const mergedKeyFrames =
 			keyFrames.length > 0 ? keyFrames : (existing?.keyFrames ?? []);
+		const mergedChannelGroups = [
+			...new Set([...(existing?.channelGroups ?? []), ...channelGroups]),
+		].sort();
 		rowsByTargetKey.set(targetKey, {
 			id: targetKey,
 			target: {
@@ -230,6 +246,7 @@ function buildTimelineRows({
 				getTimelineTargetLabel(target, shotCameras, sceneAssets),
 			typeLabel: typeLabel || existing?.typeLabel || "",
 			keyFrames: mergedKeyFrames,
+			channelGroups: mergedChannelGroups,
 			autoKey: autoKeySet.has(targetKey),
 			candidate:
 				mergedKeyFrames.length === 0 &&
@@ -253,6 +270,7 @@ function buildTimelineRows({
 			),
 			typeLabel: getTimelineTargetTypeLabel(target, sceneAssets, t),
 			keyFrames: collectBindingKeyFrames(binding),
+			channelGroups: collectBindingChannelGroups(binding),
 		});
 	}
 

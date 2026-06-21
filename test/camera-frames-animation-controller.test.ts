@@ -1,5 +1,12 @@
 import assert from "node:assert/strict";
 import * as THREE from "three";
+import {
+	ANIMATION_TARGET_SCENE_ASSET,
+	createAnimationTimelineKeyId,
+	getAnimationChannelDescriptor,
+	isAnimationTrackPathAllowed,
+	sanitizeAnimationDocument,
+} from "../src/animation/animation-model.js";
 import { createAnimationController } from "../src/controllers/animation-controller.js";
 
 function signal<T>(value: T) {
@@ -30,6 +37,62 @@ function createStore(animationDocument: object) {
 		},
 	};
 }
+
+function timelineKeyId(bindingId: string, path: string, frame: number) {
+	return createAnimationTimelineKeyId({ bindingId, path, frame });
+}
+
+assert.equal(
+	getAnimationChannelDescriptor(
+		{ kind: ANIMATION_TARGET_SCENE_ASSET },
+		"transform.worldScale",
+	)?.group,
+	"transform",
+);
+assert.equal(
+	getAnimationChannelDescriptor(
+		{ kind: ANIMATION_TARGET_SCENE_ASSET },
+		"assetPlayback.clipTime",
+	),
+	null,
+);
+assert.equal(
+	getAnimationChannelDescriptor(
+		{ kind: ANIMATION_TARGET_SCENE_ASSET },
+		"assetPlayback.clipTime",
+		{ includeReserved: true },
+	)?.group,
+	"assetPlayback",
+);
+assert.equal(
+	isAnimationTrackPathAllowed(
+		{ kind: ANIMATION_TARGET_SCENE_ASSET },
+		"assetPlayback.clipTime",
+	),
+	false,
+);
+assert.deepEqual(
+	sanitizeAnimationDocument({
+		activeClipId: "clip-1",
+		clips: [
+			{
+				id: "clip-1",
+				bindings: [
+					{
+						target: { kind: ANIMATION_TARGET_SCENE_ASSET, id: 1 },
+						tracks: [
+							{
+								path: "assetPlayback.clipTime",
+								keys: [{ frame: 1, value: 0 }],
+							},
+						],
+					},
+				],
+			},
+		],
+	}).clips[0].bindings[0].tracks,
+	[],
+);
 
 const animationDocument = {
 	version: 1,
@@ -398,8 +461,8 @@ assert.deepEqual(
 		true,
 	);
 	assert.deepEqual(editStore.animation.selectedKeyIds.value, [
-		"camera-binding:transform.position.x:10",
-		"camera-binding:lens.baseFovX:10",
+		timelineKeyId("camera-binding", "transform.position.x", 10),
+		timelineKeyId("camera-binding", "lens.baseFovX", 10),
 	]);
 	assert.equal(editController.hasSelectedTimelineKeys(), true);
 	assert.equal(editController.copySelectedTimelineKeys(), true);
@@ -479,12 +542,23 @@ assert.deepEqual(
 			.keys.map((key) => [key.frame, key.value]),
 		[[12, 4]],
 	);
-	assert.deepEqual(editStore.animation.selectedKeyIds.value.sort(), [
-		"asset-binding:transform.position.y:12",
-		"asset-binding:transform.worldScale:12",
-		"camera-binding:lens.baseFovX:12",
+	assert.deepEqual(
+		editStore.animation.selectedKeyIds.value.sort(),
+		[
+			timelineKeyId("asset-binding", "transform.position.y", 12),
+			timelineKeyId("asset-binding", "transform.worldScale", 12),
+			timelineKeyId("camera-binding", "lens.baseFovX", 12),
+			timelineKeyId("camera-binding", "transform.position.x", 12),
+		].sort(),
+	);
+	editStore.animation.selectedKeyIds.value = [
 		"camera-binding:transform.position.x:12",
-	]);
+	];
+	assert.equal(editController.hasSelectedTimelineKeys(), true);
+	assert.deepEqual(
+		editController.getTimelineKeyFrames({ selectedOnly: true }),
+		[12],
+	);
 }
 
 {

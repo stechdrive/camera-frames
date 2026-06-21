@@ -393,6 +393,14 @@ Auto Key は全体スイッチではなく target 単位の状態として扱う
 - 選択 key は `Linear` / `Hold` の補間を切り替えられる。Graph Editor は現 baseline では持たず、補間切替はタイムライン上の軽量編集として扱う
 - タイムラインは前後 key へのジャンプ、選択 key の時間スケール、現在フレームに key があるかの状態表示、track row の key あり / focus target / Auto Key filter を持つ
 
+animation document は現 baseline では `version: 1` の `binding -> tracks -> keys` 形を維持する。互換を保つため保存される track path は従来の `transform.position.x` / `lens.baseFovX` のような canonical path のままとし、実装内部では channel registry で `transform` / `lens` / 将来予約の `assetPlayback` / `pose` group へ分類する。
+
+- 現在実装済み channel は shot camera の `transform` / `lens` と scene asset の object `transform` に限る
+- `assetPlayback` と `pose` は GLB / FBX 内部 animation clip や Blender 由来 pose 割り当てのための予約 group とし、現 baseline では sanitize 時に保存対象へ入れない
+- key 選択 ID は channel group を含む内部形式へ正規化するが、旧 editor state に残る `binding:path:frame` 形式も読み続ける
+- `.ssproj` 保存では CAMERA_FRAMES 上で付けたアニメーションを scene asset instance の非破壊 animation として保持し、source GLB / FBX 本体へは書き戻さない
+- GLB / FBX 本体へのアニメーション bake / 書き出しは将来の明示的な `Bake Animated Asset` / `Export Animated GLB` 系機能として扱い、通常 save / package save とは分離する
+
 per-splat edit の current contract:
 
 - entry は tool rail と `Shift+E`

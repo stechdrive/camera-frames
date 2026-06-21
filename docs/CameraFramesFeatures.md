@@ -201,6 +201,8 @@ PSD export の主な構成:
 - タイムライン上の key は target row + frame 単位で選択し、ドラッグ移動、コピー、現在フレームへの貼り付け、削除ができる
 - 選択 key の補間を `Linear` / `Hold` で切り替えられる。Graph Editor は未提供
 - 前後 key へのジャンプ、選択 key の時間スケール、現在フレームの key 状態表示、track row filter を持つ
+- 内部では channel registry により `transform` / `lens` を分類し、将来の GLB / FBX 内部 clip 再生用 `assetPlayback` と pose 割り当て用 `pose` group を予約している。ただし現 baseline で保存・評価されるのは camera `transform` / `lens` と scene asset object `transform` だけ
+- CAMERA_FRAMES で付けたアニメーションは `.ssproj` の scene instance animation として保存し、通常保存で source GLB / FBX 本体へ書き戻さない
 
 ## 3. 旧 CAMERA_FRAMES と混同しない点
 

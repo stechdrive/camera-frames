@@ -11,28 +11,182 @@ export const ANIMATION_TARGET_SHOT_CAMERA = "shot-camera";
 export const ANIMATION_TARGET_SCENE_ASSET = "scene-asset";
 export const ANIMATION_INTERPOLATION_HOLD = "hold";
 export const ANIMATION_INTERPOLATION_LINEAR = "linear";
+export const ANIMATION_CHANNEL_GROUP_TRANSFORM = "transform";
+export const ANIMATION_CHANNEL_GROUP_LENS = "lens";
+export const ANIMATION_CHANNEL_GROUP_ASSET_PLAYBACK = "assetPlayback";
+export const ANIMATION_CHANNEL_GROUP_POSE = "pose";
+export const ANIMATION_VALUE_TYPE_NUMBER = "number";
+export const ANIMATION_VALUE_TYPE_STRING = "string";
 
-const SHOT_CAMERA_TRACK_PATHS = new Set([
-	"transform.position.x",
-	"transform.position.y",
-	"transform.position.z",
-	"transform.rotation.yawDeg",
-	"transform.rotation.pitchDeg",
-	"transform.rotation.rollDeg",
-	"lens.baseFovX",
-	"lens.shiftX",
-	"lens.shiftY",
-]);
+const ANIMATION_TIMELINE_KEY_ID_PREFIX = "k";
 
-const SCENE_ASSET_TRACK_PATHS = new Set([
-	"transform.position.x",
-	"transform.position.y",
-	"transform.position.z",
-	"transform.rotation.xDeg",
-	"transform.rotation.yDeg",
-	"transform.rotation.zDeg",
-	"transform.worldScale",
-]);
+const ANIMATION_CHANNEL_REGISTRY = {
+	[ANIMATION_TARGET_SHOT_CAMERA]: [
+		{
+			path: "transform.position.x",
+			group: ANIMATION_CHANNEL_GROUP_TRANSFORM,
+			channelPath: "position.x",
+			valueType: ANIMATION_VALUE_TYPE_NUMBER,
+			implemented: true,
+		},
+		{
+			path: "transform.position.y",
+			group: ANIMATION_CHANNEL_GROUP_TRANSFORM,
+			channelPath: "position.y",
+			valueType: ANIMATION_VALUE_TYPE_NUMBER,
+			implemented: true,
+		},
+		{
+			path: "transform.position.z",
+			group: ANIMATION_CHANNEL_GROUP_TRANSFORM,
+			channelPath: "position.z",
+			valueType: ANIMATION_VALUE_TYPE_NUMBER,
+			implemented: true,
+		},
+		{
+			path: "transform.rotation.yawDeg",
+			group: ANIMATION_CHANNEL_GROUP_TRANSFORM,
+			channelPath: "rotation.yawDeg",
+			valueType: ANIMATION_VALUE_TYPE_NUMBER,
+			implemented: true,
+		},
+		{
+			path: "transform.rotation.pitchDeg",
+			group: ANIMATION_CHANNEL_GROUP_TRANSFORM,
+			channelPath: "rotation.pitchDeg",
+			valueType: ANIMATION_VALUE_TYPE_NUMBER,
+			implemented: true,
+		},
+		{
+			path: "transform.rotation.rollDeg",
+			group: ANIMATION_CHANNEL_GROUP_TRANSFORM,
+			channelPath: "rotation.rollDeg",
+			valueType: ANIMATION_VALUE_TYPE_NUMBER,
+			implemented: true,
+		},
+		{
+			path: "lens.baseFovX",
+			group: ANIMATION_CHANNEL_GROUP_LENS,
+			channelPath: "baseFovX",
+			valueType: ANIMATION_VALUE_TYPE_NUMBER,
+			implemented: true,
+		},
+		{
+			path: "lens.shiftX",
+			group: ANIMATION_CHANNEL_GROUP_LENS,
+			channelPath: "shiftX",
+			valueType: ANIMATION_VALUE_TYPE_NUMBER,
+			implemented: true,
+		},
+		{
+			path: "lens.shiftY",
+			group: ANIMATION_CHANNEL_GROUP_LENS,
+			channelPath: "shiftY",
+			valueType: ANIMATION_VALUE_TYPE_NUMBER,
+			implemented: true,
+		},
+	],
+	[ANIMATION_TARGET_SCENE_ASSET]: [
+		{
+			path: "transform.position.x",
+			group: ANIMATION_CHANNEL_GROUP_TRANSFORM,
+			channelPath: "position.x",
+			valueType: ANIMATION_VALUE_TYPE_NUMBER,
+			implemented: true,
+		},
+		{
+			path: "transform.position.y",
+			group: ANIMATION_CHANNEL_GROUP_TRANSFORM,
+			channelPath: "position.y",
+			valueType: ANIMATION_VALUE_TYPE_NUMBER,
+			implemented: true,
+		},
+		{
+			path: "transform.position.z",
+			group: ANIMATION_CHANNEL_GROUP_TRANSFORM,
+			channelPath: "position.z",
+			valueType: ANIMATION_VALUE_TYPE_NUMBER,
+			implemented: true,
+		},
+		{
+			path: "transform.rotation.xDeg",
+			group: ANIMATION_CHANNEL_GROUP_TRANSFORM,
+			channelPath: "rotation.xDeg",
+			valueType: ANIMATION_VALUE_TYPE_NUMBER,
+			implemented: true,
+		},
+		{
+			path: "transform.rotation.yDeg",
+			group: ANIMATION_CHANNEL_GROUP_TRANSFORM,
+			channelPath: "rotation.yDeg",
+			valueType: ANIMATION_VALUE_TYPE_NUMBER,
+			implemented: true,
+		},
+		{
+			path: "transform.rotation.zDeg",
+			group: ANIMATION_CHANNEL_GROUP_TRANSFORM,
+			channelPath: "rotation.zDeg",
+			valueType: ANIMATION_VALUE_TYPE_NUMBER,
+			implemented: true,
+		},
+		{
+			path: "transform.worldScale",
+			group: ANIMATION_CHANNEL_GROUP_TRANSFORM,
+			channelPath: "worldScale",
+			valueType: ANIMATION_VALUE_TYPE_NUMBER,
+			implemented: true,
+		},
+		{
+			path: "assetPlayback.clipId",
+			group: ANIMATION_CHANNEL_GROUP_ASSET_PLAYBACK,
+			channelPath: "clipId",
+			valueType: ANIMATION_VALUE_TYPE_STRING,
+			implemented: false,
+		},
+		{
+			path: "assetPlayback.clipTime",
+			group: ANIMATION_CHANNEL_GROUP_ASSET_PLAYBACK,
+			channelPath: "clipTime",
+			valueType: ANIMATION_VALUE_TYPE_NUMBER,
+			implemented: false,
+		},
+		{
+			path: "assetPlayback.speed",
+			group: ANIMATION_CHANNEL_GROUP_ASSET_PLAYBACK,
+			channelPath: "speed",
+			valueType: ANIMATION_VALUE_TYPE_NUMBER,
+			implemented: false,
+		},
+		{
+			path: "assetPlayback.weight",
+			group: ANIMATION_CHANNEL_GROUP_ASSET_PLAYBACK,
+			channelPath: "weight",
+			valueType: ANIMATION_VALUE_TYPE_NUMBER,
+			implemented: false,
+		},
+		{
+			path: "pose.poseId",
+			group: ANIMATION_CHANNEL_GROUP_POSE,
+			channelPath: "poseId",
+			valueType: ANIMATION_VALUE_TYPE_STRING,
+			implemented: false,
+		},
+		{
+			path: "pose.weight",
+			group: ANIMATION_CHANNEL_GROUP_POSE,
+			channelPath: "weight",
+			valueType: ANIMATION_VALUE_TYPE_NUMBER,
+			implemented: false,
+		},
+	],
+};
+
+const ANIMATION_CHANNELS_BY_TARGET = new Map(
+	Object.entries(ANIMATION_CHANNEL_REGISTRY).map(([targetKind, channels]) => [
+		targetKind,
+		new Map(channels.map((channel) => [channel.path, channel])),
+	]),
+);
 
 const ANIMATION_TARGET_KEY_PREFIXES = [
 	`${ANIMATION_TARGET_SHOT_CAMERA}:`,
@@ -81,16 +235,6 @@ function sanitizeDurationFrames(value) {
 	);
 }
 
-function getTrackPathSetForTarget(target) {
-	if (target?.kind === ANIMATION_TARGET_SHOT_CAMERA) {
-		return SHOT_CAMERA_TRACK_PATHS;
-	}
-	if (target?.kind === ANIMATION_TARGET_SCENE_ASSET) {
-		return SCENE_ASSET_TRACK_PATHS;
-	}
-	return new Set();
-}
-
 function sanitizeAnimationTarget(target) {
 	const kind =
 		target?.kind === ANIMATION_TARGET_SCENE_ASSET
@@ -129,8 +273,11 @@ function sanitizeAutoKeyTargetKeys(value) {
 	return [...keys];
 }
 
-function sanitizeAnimationKey(key) {
+function sanitizeAnimationKey(key, valueType = ANIMATION_VALUE_TYPE_NUMBER) {
 	if (!isObject(key) || !Number.isFinite(Number(key.frame))) {
+		return null;
+	}
+	if (valueType !== ANIMATION_VALUE_TYPE_NUMBER) {
 		return null;
 	}
 	const value = Number(key.value);
@@ -153,12 +300,13 @@ function sanitizeAnimationTrack(track, target) {
 		return null;
 	}
 	const path = String(track.path ?? "").trim();
-	if (!getTrackPathSetForTarget(target).has(path)) {
+	const descriptor = getAnimationChannelDescriptor(target, path);
+	if (!descriptor) {
 		return null;
 	}
 	const keysByFrame = new Map();
 	for (const key of Array.isArray(track.keys) ? track.keys : []) {
-		const normalizedKey = sanitizeAnimationKey(key);
+		const normalizedKey = sanitizeAnimationKey(key, descriptor.valueType);
 		if (normalizedKey) {
 			keysByFrame.set(normalizedKey.frame, normalizedKey);
 		}
@@ -168,7 +316,7 @@ function sanitizeAnimationTrack(track, target) {
 	);
 	return {
 		path,
-		valueType: "number",
+		valueType: descriptor.valueType,
 		interpolation: sanitizeInterpolation(track.interpolation),
 		keys,
 	};
@@ -307,7 +455,121 @@ export function getActiveAnimationClip(animation = null) {
 }
 
 export function isAnimationTrackPathAllowed(target, path) {
-	return getTrackPathSetForTarget(target).has(path);
+	return Boolean(getAnimationChannelDescriptor(target, path));
+}
+
+export function getAnimationChannelDescriptor(
+	target,
+	path,
+	{ includeReserved = false } = {},
+) {
+	const targetKind = target?.kind;
+	const trackPath = String(path ?? "").trim();
+	const descriptor =
+		ANIMATION_CHANNELS_BY_TARGET.get(targetKind)?.get(trackPath);
+	if (!descriptor || (!includeReserved && descriptor.implemented !== true)) {
+		return null;
+	}
+	return { ...descriptor };
+}
+
+export function getAnimationChannelDescriptors(
+	targetKind,
+	{ includeReserved = false } = {},
+) {
+	return (ANIMATION_CHANNEL_REGISTRY[targetKind] ?? [])
+		.filter((descriptor) => includeReserved || descriptor.implemented === true)
+		.map((descriptor) => ({ ...descriptor }));
+}
+
+export function inferAnimationChannelGroupFromPath(path) {
+	const value = String(path ?? "").trim();
+	if (!value) {
+		return "";
+	}
+	const separatorIndex = value.indexOf(".");
+	return separatorIndex > 0 ? value.slice(0, separatorIndex) : value;
+}
+
+export function getAnimationTrackChannelGroup(target, path) {
+	return (
+		getAnimationChannelDescriptor(target, path, { includeReserved: true })
+			?.group ?? inferAnimationChannelGroupFromPath(path)
+	);
+}
+
+export function createAnimationTimelineKeyId({
+	bindingId,
+	channelGroup,
+	path,
+	frame,
+} = {}) {
+	const keyFrame = Math.round(Number(frame));
+	return [
+		ANIMATION_TIMELINE_KEY_ID_PREFIX,
+		encodeURIComponent(String(bindingId ?? "")),
+		encodeURIComponent(
+			String(channelGroup || inferAnimationChannelGroupFromPath(path)),
+		),
+		encodeURIComponent(String(path ?? "")),
+		String(Number.isFinite(keyFrame) ? keyFrame : 0),
+	].join("|");
+}
+
+function parseLegacyAnimationTimelineKeyId(value) {
+	const frameSeparatorIndex = value.lastIndexOf(":");
+	if (frameSeparatorIndex <= 0 || frameSeparatorIndex >= value.length - 1) {
+		return null;
+	}
+	const frame = Number(value.slice(frameSeparatorIndex + 1));
+	if (!Number.isFinite(frame)) {
+		return null;
+	}
+	const bindingAndPath = value.slice(0, frameSeparatorIndex);
+	const pathSeparatorIndex = bindingAndPath.lastIndexOf(":");
+	if (
+		pathSeparatorIndex <= 0 ||
+		pathSeparatorIndex >= bindingAndPath.length - 1
+	) {
+		return null;
+	}
+	const path = bindingAndPath.slice(pathSeparatorIndex + 1);
+	return {
+		bindingId: bindingAndPath.slice(0, pathSeparatorIndex),
+		channelGroup: inferAnimationChannelGroupFromPath(path),
+		path,
+		frame: Math.round(frame),
+		legacy: true,
+	};
+}
+
+export function parseAnimationTimelineKeyId(keyId) {
+	const value = String(keyId ?? "");
+	if (!value.startsWith(`${ANIMATION_TIMELINE_KEY_ID_PREFIX}|`)) {
+		return parseLegacyAnimationTimelineKeyId(value);
+	}
+	const parts = value.split("|");
+	if (parts.length !== 5) {
+		return null;
+	}
+	const frame = Number(parts[4]);
+	if (!Number.isFinite(frame)) {
+		return null;
+	}
+	try {
+		const path = decodeURIComponent(parts[3]);
+		return {
+			bindingId: decodeURIComponent(parts[1]),
+			channelGroup:
+				decodeURIComponent(parts[2]) ||
+				inferAnimationChannelGroupFromPath(path),
+			path,
+			frame: Math.round(frame),
+			legacy: false,
+		};
+	} catch {
+		return null;
+	}
 }
 
 export function sampleNumberTrack(track, timelineFrame, baseValue = 0) {

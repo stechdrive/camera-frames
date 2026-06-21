@@ -2,11 +2,18 @@ import * as THREE from "three";
 import {
 	ANIMATION_INTERPOLATION_HOLD,
 	ANIMATION_INTERPOLATION_LINEAR,
+	ANIMATION_CHANNEL_GROUP_ASSET_PLAYBACK,
+	ANIMATION_CHANNEL_GROUP_LENS,
+	ANIMATION_CHANNEL_GROUP_POSE,
+	ANIMATION_CHANNEL_GROUP_TRANSFORM,
 	ANIMATION_TARGET_SCENE_ASSET,
 	ANIMATION_TARGET_SHOT_CAMERA,
+	createAnimationTimelineKeyId,
 	createDefaultAnimationDocument,
 	getActiveAnimationClip,
+	getAnimationTrackChannelGroup,
 	isAnimationTrackPathAllowed,
+	parseAnimationTimelineKeyId,
 	sampleNumberTrack,
 	sanitizeAnimationDocument,
 } from "../animation/animation-model.js";
@@ -79,32 +86,20 @@ function createBindingId(target) {
 }
 
 function createKeyId(bindingId, path, frame) {
-	return `${bindingId}:${path}:${frame}`;
+	return createAnimationTimelineKeyId({
+		bindingId,
+		channelGroup: getAnimationTrackChannelGroup(null, path),
+		path,
+		frame,
+	});
+}
+
+function createLegacyKeyId(bindingId, path, frame) {
+	return `${bindingId}:${path}:${Math.round(Number(frame) || 0)}`;
 }
 
 function parseKeyId(keyId) {
-	const value = String(keyId ?? "");
-	const frameSeparatorIndex = value.lastIndexOf(":");
-	if (frameSeparatorIndex <= 0 || frameSeparatorIndex >= value.length - 1) {
-		return null;
-	}
-	const frame = Number(value.slice(frameSeparatorIndex + 1));
-	if (!Number.isFinite(frame)) {
-		return null;
-	}
-	const bindingAndPath = value.slice(0, frameSeparatorIndex);
-	const pathSeparatorIndex = bindingAndPath.lastIndexOf(":");
-	if (
-		pathSeparatorIndex <= 0 ||
-		pathSeparatorIndex >= bindingAndPath.length - 1
-	) {
-		return null;
-	}
-	return {
-		bindingId: bindingAndPath.slice(0, pathSeparatorIndex),
-		path: bindingAndPath.slice(pathSeparatorIndex + 1),
-		frame: Math.round(frame),
-	};
+	return parseAnimationTimelineKeyId(keyId);
 }
 
 function createTargetKey(target) {
@@ -496,13 +491,31 @@ export function createAnimationController({
 			: baseValue;
 	}
 
-	function evaluateShotCameraBinding(binding, timelineFrame) {
-		const shotCameraId = binding.target.id;
-		const entry = shotCameraRegistry.get(shotCameraId);
-		const baseState = baseShotCameraStates.get(shotCameraId);
-		if (!entry?.camera || !baseState) {
-			return;
-		}
+	function getBindingTracksByChannelGroup(binding, group) {
+		return (binding.tracks ?? []).filter(
+			(track) =>
+				getAnimationTrackChannelGroup(binding.target, track.path) === group,
+		);
+	}
+
+	function hasBindingChannelGroup(binding, group) {
+		return getBindingTracksByChannelGroup(binding, group).length > 0;
+	}
+
+	function hasKeyId(selectedIds, bindingId, path, frame) {
+		const keyFrame = Math.round(Number(frame));
+		return (
+			selectedIds.has(createKeyId(bindingId, path, keyFrame)) ||
+			selectedIds.has(createLegacyKeyId(bindingId, path, keyFrame))
+		);
+	}
+
+	function evaluateShotCameraTransformChannels(
+		binding,
+		timelineFrame,
+		entry,
+		baseState,
+	) {
 		const position = {
 			x: getTrackSample(
 				binding,
@@ -553,7 +566,14 @@ export function createAnimationController({
 		entry.camera.quaternion.copy(quaternion);
 		entry.camera.up.set(0, 1, 0).applyQuaternion(quaternion).normalize();
 		entry.camera.updateMatrixWorld(true);
+	}
 
+	function evaluateShotCameraLensChannels(
+		binding,
+		timelineFrame,
+		shotCameraId,
+		baseState,
+	) {
 		const lens = {
 			baseFovX: getTrackSample(
 				binding,
@@ -583,13 +603,37 @@ export function createAnimationController({
 		}
 	}
 
-	function evaluateSceneAssetBinding(binding, timelineFrame) {
-		const assetId = binding.target.id;
-		const asset = getSceneAssetByAnimationId(assetId);
-		const baseState = baseSceneAssetStates.get(String(assetId));
-		if (!asset?.object || !baseState) {
+	function evaluateShotCameraBinding(binding, timelineFrame) {
+		const shotCameraId = binding.target.id;
+		const entry = shotCameraRegistry.get(shotCameraId);
+		const baseState = baseShotCameraStates.get(shotCameraId);
+		if (!entry?.camera || !baseState) {
 			return;
 		}
+		if (hasBindingChannelGroup(binding, ANIMATION_CHANNEL_GROUP_TRANSFORM)) {
+			evaluateShotCameraTransformChannels(
+				binding,
+				timelineFrame,
+				entry,
+				baseState,
+			);
+		}
+		if (hasBindingChannelGroup(binding, ANIMATION_CHANNEL_GROUP_LENS)) {
+			evaluateShotCameraLensChannels(
+				binding,
+				timelineFrame,
+				shotCameraId,
+				baseState,
+			);
+		}
+	}
+
+	function evaluateSceneAssetTransformChannels(
+		binding,
+		timelineFrame,
+		asset,
+		baseState,
+	) {
 		const worldPosition = {
 			x: getTrackSample(
 				binding,
@@ -648,6 +692,36 @@ export function createAnimationController({
 				baseState.worldScale,
 			),
 		});
+	}
+
+	function evaluateSceneAssetPlaybackChannels(binding) {
+		const playbackTracks = getBindingTracksByChannelGroup(
+			binding,
+			ANIMATION_CHANNEL_GROUP_ASSET_PLAYBACK,
+		);
+		const poseTracks = getBindingTracksByChannelGroup(
+			binding,
+			ANIMATION_CHANNEL_GROUP_POSE,
+		);
+		return playbackTracks.length > 0 || poseTracks.length > 0;
+	}
+
+	function evaluateSceneAssetBinding(binding, timelineFrame) {
+		const assetId = binding.target.id;
+		const asset = getSceneAssetByAnimationId(assetId);
+		const baseState = baseSceneAssetStates.get(String(assetId));
+		if (!asset?.object || !baseState) {
+			return;
+		}
+		if (hasBindingChannelGroup(binding, ANIMATION_CHANNEL_GROUP_TRANSFORM)) {
+			evaluateSceneAssetTransformChannels(
+				binding,
+				timelineFrame,
+				asset,
+				baseState,
+			);
+		}
+		evaluateSceneAssetPlaybackChannels(binding);
 	}
 
 	function getEvaluatedLensForShotCamera(shotCameraId) {
@@ -974,7 +1048,10 @@ export function createAnimationController({
 				for (const key of track.keys ?? []) {
 					const keyFrame = Math.round(Number(key.frame));
 					const keyId = createKeyId(binding.id, track.path, keyFrame);
-					if (!selectedIds.has(keyId) || seenIds.has(keyId)) {
+					if (
+						!hasKeyId(selectedIds, binding.id, track.path, keyFrame) ||
+						seenIds.has(keyId)
+					) {
 						continue;
 					}
 					seenIds.add(keyId);
@@ -1001,11 +1078,15 @@ export function createAnimationController({
 		const seenIds = new Set();
 		for (const keyId of Array.isArray(keyIds) ? keyIds : []) {
 			const parsed = parseKeyId(keyId);
-			if (!parsed || seenIds.has(keyId)) {
+			if (!parsed) {
 				continue;
 			}
-			seenIds.add(keyId);
-			nextIds.push(keyId);
+			const normalizedKeyId = createAnimationTimelineKeyId(parsed);
+			if (seenIds.has(normalizedKeyId)) {
+				continue;
+			}
+			seenIds.add(normalizedKeyId);
+			nextIds.push(normalizedKeyId);
 		}
 		store.animation.selectedKeyIds.value = nextIds;
 		const bindingIds = new Set(
@@ -1100,8 +1181,7 @@ export function createAnimationController({
 							const destinationFrames = new Set();
 							for (const key of track.keys ?? []) {
 								const keyFrame = Math.round(Number(key.frame));
-								const keyId = createKeyId(binding.id, track.path, keyFrame);
-								if (!selectedIds.has(keyId)) {
+								if (!hasKeyId(selectedIds, binding.id, track.path, keyFrame)) {
 									continue;
 								}
 								const nextFrame = keyFrame + delta;
@@ -1306,8 +1386,12 @@ export function createAnimationController({
 									...track,
 									keys: (track.keys ?? []).filter((key) => {
 										const keyFrame = Math.round(Number(key.frame));
-										const keyId = createKeyId(binding.id, track.path, keyFrame);
-										return !selectedIds.has(keyId);
+										return !hasKeyId(
+											selectedIds,
+											binding.id,
+											track.path,
+											keyFrame,
+										);
 									}),
 								}))
 								.filter((track) => track.keys.length > 0);
@@ -1345,8 +1429,7 @@ export function createAnimationController({
 						continue;
 					}
 					if (selectedOnly) {
-						const keyId = createKeyId(binding.id, track.path, keyFrame);
-						if (!selectedIds.has(keyId)) {
+						if (!hasKeyId(selectedIds, binding.id, track.path, keyFrame)) {
 							continue;
 						}
 					}
@@ -1408,8 +1491,7 @@ export function createAnimationController({
 							...track,
 							keys: (track.keys ?? []).map((key) => {
 								const keyFrame = Math.round(Number(key.frame));
-								const keyId = createKeyId(binding.id, track.path, keyFrame);
-								return selectedIds.has(keyId)
+								return hasKeyId(selectedIds, binding.id, track.path, keyFrame)
 									? {
 											...key,
 											interpolation,
@@ -1485,7 +1567,7 @@ export function createAnimationController({
 							for (const key of track.keys ?? []) {
 								const keyFrame = Math.round(Number(key.frame));
 								const keyId = createKeyId(binding.id, track.path, keyFrame);
-								if (!selectedIds.has(keyId)) {
+								if (!hasKeyId(selectedIds, binding.id, track.path, keyFrame)) {
 									continue;
 								}
 								const nextFrame = scaledFrameByKeyId.get(keyId);
