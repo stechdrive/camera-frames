@@ -1005,11 +1005,37 @@ async function runTimelineSmoke(cdp) {
 			const selectedInterpolations = () => {
 				const selected = new Set(test.store.animation.selectedKeyIds.value ?? []);
 				const values = [];
+				const keyMatches = (keyId, bindingId, path, frame) => {
+					const value = String(keyId ?? "");
+					if (value === bindingId + ":" + path + ":" + frame) {
+						return true;
+					}
+					if (!value.startsWith("k|")) {
+						return false;
+					}
+					const parts = value.split("|");
+					if (parts.length !== 5) {
+						return false;
+					}
+					try {
+						return (
+							decodeURIComponent(parts[1]) === bindingId &&
+							decodeURIComponent(parts[3]) === path &&
+							Math.round(Number(parts[4])) === frame
+						);
+					} catch {
+						return false;
+					}
+				};
 				for (const binding of test.store.animation.activeClip.value.bindings ?? []) {
 					for (const track of binding.tracks ?? []) {
 						for (const key of track.keys ?? []) {
-							const keyId = binding.id + ":" + track.path + ":" + Math.round(Number(key.frame));
-							if (selected.has(keyId)) {
+							const keyFrame = Math.round(Number(key.frame));
+							if (
+								[...selected].some((keyId) =>
+									keyMatches(keyId, binding.id, track.path, keyFrame),
+								)
+							) {
 								values.push(key.interpolation ?? "linear");
 							}
 						}
