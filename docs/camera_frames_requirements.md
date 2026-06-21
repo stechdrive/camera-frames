@@ -1,6 +1,6 @@
 # CAMERA_FRAMES 実装要件 / 保守基点
 
-最終更新: 2026-06-20
+最終更新: 2026-06-21
 
 ## 0. この文書の役割
 
@@ -119,6 +119,7 @@ CAMERA_FRAMES の共有 contract を Git 管理するための基点です。
 - `.ssproj` package には次を含める
   - workspace
   - shot cameras
+  - animation document
   - scene assets
   - lighting
   - reference image assets / presets / per-shot binding
@@ -364,6 +365,29 @@ interaction の基準:
 - touch の 1 本指 navigate は mouse drag と符号を分離し、画面上の内容を指でつかむ direct manipulation として扱う
 - direct manipulation は transaction 単位で undo/redo にまとめる
 - 測定ツールでは 1 点目配置後に `Shift` を押すと、2 点目の draft / click 確定を scene hit ではなく world `X` / `Y` / `Z` 軸上に制約する。軸は始点から見た各 world 軸のスクリーン投影とマウス方向の近さで選ぶ
+
+### 7.1 Timeline animation
+
+タイムラインアニメーションは、shot layout の検討用に camera move と scene object move を確認するための補助機能として扱う。
+
+対象に含めるもの:
+
+- shot camera の pose / base FOV / lens shift
+- scene asset の object transform（model / splat 共通）
+
+対象に含めないもの:
+
+- Output Frame
+- FRAME
+- reference image
+- per-splat edit の raw selection や個別 splat 編集
+
+Auto Key は全体スイッチではなく target 単位の状態として扱う。保存形式では animation document の `autoKeyTargetKeys` に `shot-camera:<id>` / `scene-asset:<id>` を保持する。
+
+- `キーを追加` は、実際に key を作成できた target だけを Auto Key 対象にする
+- タイムラインの track row は key がある target に加えて、現在の active camera / selected scene assets / Auto Key 対象を表示する
+- track row の Auto Key アイコンで camera / mesh / splat ごとに ON/OFF できる
+- Auto Key が ON の target だけが、現在フレームでの数値編集や transform drag を key 更新へ routing される
 
 per-splat edit の current contract:
 

@@ -34,6 +34,11 @@ const SCENE_ASSET_TRACK_PATHS = new Set([
 	"transform.worldScale",
 ]);
 
+const ANIMATION_TARGET_KEY_PREFIXES = [
+	`${ANIMATION_TARGET_SHOT_CAMERA}:`,
+	`${ANIMATION_TARGET_SCENE_ASSET}:`,
+];
+
 function isObject(value) {
 	return value !== null && typeof value === "object";
 }
@@ -98,6 +103,30 @@ function sanitizeAnimationTarget(target) {
 		return null;
 	}
 	return { kind, id };
+}
+
+function sanitizeAutoKeyTargetKey(value) {
+	const candidate = String(value ?? "").trim();
+	if (!candidate) {
+		return null;
+	}
+	for (const prefix of ANIMATION_TARGET_KEY_PREFIXES) {
+		if (candidate.startsWith(prefix) && candidate.length > prefix.length) {
+			return candidate;
+		}
+	}
+	return null;
+}
+
+function sanitizeAutoKeyTargetKeys(value) {
+	const keys = new Set();
+	for (const entry of Array.isArray(value) ? value : []) {
+		const key = sanitizeAutoKeyTargetKey(entry);
+		if (key) {
+			keys.add(key);
+		}
+	}
+	return [...keys];
 }
 
 function sanitizeAnimationKey(key) {
@@ -241,6 +270,7 @@ export function createDefaultAnimationDocument() {
 	return {
 		version: ANIMATION_DOCUMENT_VERSION,
 		enabled: true,
+		autoKeyTargetKeys: [],
 		activeClipId: DEFAULT_ANIMATION_CLIP_ID,
 		clips: [createDefaultAnimationClip()],
 	};
@@ -261,6 +291,7 @@ export function sanitizeAnimationDocument(animation = null) {
 	return {
 		version: ANIMATION_DOCUMENT_VERSION,
 		enabled: true,
+		autoKeyTargetKeys: sanitizeAutoKeyTargetKeys(animation?.autoKeyTargetKeys),
 		activeClipId,
 		clips,
 	};

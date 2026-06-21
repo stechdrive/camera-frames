@@ -68,7 +68,6 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	const animationDocument = signal(createDefaultAnimationDocument());
 	const animationTimelineFrame = signal(1);
 	const animationPlaying = signal(false);
-	const animationAutoKey = signal(false);
 	const animationPanelOpen = signal(false);
 	const animationPanelHeight = signal(220);
 	const animationSelectedBindingId = signal(null);
@@ -285,6 +284,14 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	);
 	const animationEnabled = computed(() =>
 		Boolean(animationDocument.value?.enabled),
+	);
+	const animationAutoKeyTargetKeys = computed(() =>
+		Array.isArray(animationDocument.value?.autoKeyTargetKeys)
+			? [...animationDocument.value.autoKeyTargetKeys]
+			: [],
+	);
+	const animationAutoKey = computed(
+		() => animationAutoKeyTargetKeys.value.length > 0,
 	);
 	const animationEndFrame = computed(
 		() =>
@@ -510,6 +517,7 @@ export function createCameraFramesStore(runtimeInfo = null) {
 			endFrame: animationEndFrame,
 			isPlaying: animationPlaying,
 			autoKey: animationAutoKey,
+			autoKeyTargetKeys: animationAutoKeyTargetKeys,
 			panelOpen: animationPanelOpen,
 			panelHeight: animationPanelHeight,
 			selectedBindingId: animationSelectedBindingId,

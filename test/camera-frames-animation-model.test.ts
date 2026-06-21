@@ -19,6 +19,7 @@ const defaultDocument = createDefaultAnimationDocument();
 assert.deepEqual(defaultDocument, {
 	version: 1,
 	enabled: true,
+	autoKeyTargetKeys: [],
 	activeClipId: DEFAULT_ANIMATION_CLIP_ID,
 	clips: [
 		{
@@ -52,6 +53,12 @@ assert.equal(
 
 const normalized = sanitizeAnimationDocument({
 	enabled: true,
+	autoKeyTargetKeys: [
+		"shot-camera:shot-camera-1",
+		"scene-asset:asset-1",
+		"bad-kind:asset-1",
+		"scene-asset:asset-1",
+	],
 	activeClipId: "clip-a",
 	clips: [
 		{
@@ -104,6 +111,10 @@ const normalized = sanitizeAnimationDocument({
 });
 
 assert.equal(normalized.enabled, true);
+assert.deepEqual(normalized.autoKeyTargetKeys, [
+	"shot-camera:shot-camera-1",
+	"scene-asset:asset-1",
+]);
 assert.equal(normalized.activeClipId, "clip-a");
 const clip = getActiveAnimationClip(normalized);
 assert.equal(clip.name, "Camera move");
@@ -126,6 +137,7 @@ const duplicateClips = sanitizeAnimationDocument({
 	],
 });
 assert.equal(duplicateClips.enabled, true);
+assert.deepEqual(duplicateClips.autoKeyTargetKeys, []);
 assert.equal(duplicateClips.clips[0].id, "dup");
 assert.equal(duplicateClips.clips[1].id, "dup-2");
 assert.equal(duplicateClips.activeClipId, "dup");

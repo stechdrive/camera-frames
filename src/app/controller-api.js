@@ -55,22 +55,24 @@ export function createControllerApi({
 	disposeViewportLodScaleBinding = null,
 	disposeSceneResources,
 }) {
-	const shouldRouteAnimationAutoKey = () =>
-		animationController?.shouldHandleAutoKey?.() === true;
+	const shouldRouteShotCameraAutoKey = () =>
+		animationController?.shouldHandleShotCameraAutoKey?.() === true;
+	const shouldRouteSceneAssetAutoKey = (assetId) =>
+		animationController?.shouldHandleSceneAssetAutoKey?.(assetId) === true;
 	const setShotCameraLensShiftAxis = (axis, nextPercent) =>
-		shouldRouteAnimationAutoKey()
+		shouldRouteShotCameraAutoKey()
 			? animationController?.setShotCameraLensShiftAxisKey?.(axis, nextPercent)
 			: cameraController.setShotCameraLensShiftAxis(axis, nextPercent);
 	const setActiveShotCameraPositionAxis = (axis, nextValue) =>
-		shouldRouteAnimationAutoKey()
+		shouldRouteShotCameraAutoKey()
 			? animationController?.setShotCameraPositionKey?.(axis, nextValue)
 			: cameraController.setActiveShotCameraPositionAxis(axis, nextValue);
 	const setAssetWorldScale = (assetId, nextValue) =>
-		shouldRouteAnimationAutoKey()
+		shouldRouteSceneAssetAutoKey(assetId)
 			? animationController?.setSceneAssetWorldScaleKey?.(assetId, nextValue)
 			: assetController.setAssetWorldScale(assetId, nextValue);
 	const setAssetPosition = (assetId, axis, nextValue) =>
-		shouldRouteAnimationAutoKey()
+		shouldRouteSceneAssetAutoKey(assetId)
 			? animationController?.setSceneAssetPositionKey?.(
 					assetId,
 					axis,
@@ -78,7 +80,7 @@ export function createControllerApi({
 				)
 			: assetController.setAssetPosition(assetId, axis, nextValue);
 	const setAssetRotationDegrees = (assetId, axis, nextValue) =>
-		shouldRouteAnimationAutoKey()
+		shouldRouteSceneAssetAutoKey(assetId)
 			? animationController?.setSceneAssetRotationKey?.(
 					assetId,
 					axis,
@@ -109,6 +111,8 @@ export function createControllerApi({
 			animationController?.setAnimationDurationFrames?.(...args),
 		setAnimationAutoKey: (...args) =>
 			animationController?.setAnimationAutoKey?.(...args),
+		toggleAutoKeyForTarget: (...args) =>
+			animationController?.toggleAutoKeyForTarget?.(...args),
 		setAnimationKeyTargetMode: (...args) =>
 			animationController?.setAnimationKeyTargetMode?.(...args),
 		insertKeyForSelection: (...args) =>
@@ -121,7 +125,7 @@ export function createControllerApi({
 			animationController?.jumpTimelineEnd?.(...args),
 		setLocale,
 		setBaseFovX: (...args) =>
-			shouldRouteAnimationAutoKey()
+			shouldRouteShotCameraAutoKey()
 				? animationController?.setShotCameraBaseFovXKey?.(...args)
 				: cameraController.setBaseFovX(...args),
 		setShotCameraLensShiftAxis,
@@ -195,7 +199,7 @@ export function createControllerApi({
 		setShotCameraRollLock: cameraController.setShotCameraRollLock,
 		setActiveShotCameraPositionAxis,
 		setActiveShotCameraPoseAngle: (axis, nextValue) =>
-			shouldRouteAnimationAutoKey()
+			shouldRouteShotCameraAutoKey()
 				? animationController?.setShotCameraPoseAngleKey?.(axis, nextValue)
 				: setActiveShotCameraPoseAngle(axis, nextValue),
 		moveActiveShotCameraLocalAxis,

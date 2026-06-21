@@ -1,5 +1,9 @@
 import { html } from "htm/preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import {
+	ANIMATION_TARGET_SCENE_ASSET,
+	ANIMATION_TARGET_SHOT_CAMERA,
+} from "../animation/animation-model.js";
 import { INTERACTIVE_FIELD_PROPS } from "./workbench-controls.js";
 import { IconButton } from "./workbench-primitives.js";
 import { WorkbenchIcon } from "./workbench-icons.js";
@@ -82,18 +86,62 @@ function buildTimelineTicks({ startFrame, endFrame, contentPixelWidth }) {
 	return [...ticks].sort((left, right) => left - right);
 }
 
-function buildTargetLabel(binding, shotCameras, sceneAssets) {
-	if (binding.target.kind === "shot-camera") {
+function createTimelineTargetKey(kind, id) {
+	if (!kind || id == null) {
+		return "";
+	}
+	return `${kind}:${String(id)}`;
+}
+
+function parseTimelineTargetKey(targetKey) {
+	const value = String(targetKey ?? "");
+	const separatorIndex = value.indexOf(":");
+	if (separatorIndex <= 0 || separatorIndex >= value.length - 1) {
+		return null;
+	}
+	const kind = value.slice(0, separatorIndex);
+	const id = value.slice(separatorIndex + 1);
+	if (
+		kind !== ANIMATION_TARGET_SHOT_CAMERA &&
+		kind !== ANIMATION_TARGET_SCENE_ASSET
+	) {
+		return null;
+	}
+	return { kind, id };
+}
+
+function getSceneAssetLabel(asset, fallback = "") {
+	return asset?.label || asset?.name || String(asset?.id ?? fallback);
+}
+
+function getTimelineTargetLabel(
+	target,
+	shotCameras,
+	sceneAssets,
+	fallback = "",
+) {
+	if (target.kind === ANIMATION_TARGET_SHOT_CAMERA) {
 		return (
-			shotCameras.find((camera) => camera.id === binding.target.id)?.name ??
-			(binding.labelCache || binding.target.id)
+			shotCameras.find((camera) => camera.id === target.id)?.name ??
+			(fallback || target.id)
 		);
 	}
-	return (
-		sceneAssets.find((asset) => String(asset.id) === String(binding.target.id))
-			?.label ??
-		(binding.labelCache || binding.target.id)
+	const asset = sceneAssets.find(
+		(candidate) => String(candidate.id) === String(target.id),
 	);
+	return getSceneAssetLabel(asset, fallback || target.id);
+}
+
+function getTimelineTargetTypeLabel(target, sceneAssets, t) {
+	if (target.kind === ANIMATION_TARGET_SHOT_CAMERA) {
+		return t("timeline.targetTypeCamera");
+	}
+	const asset = sceneAssets.find(
+		(candidate) => String(candidate.id) === String(target.id),
+	);
+	return asset?.kind === "splat"
+		? t("timeline.targetTypeSplat")
+		: t("timeline.targetTypeMesh");
 }
 
 function collectBindingKeyFrames(binding) {
@@ -106,13 +154,119 @@ function collectBindingKeyFrames(binding) {
 	return [...frames].sort((left, right) => left - right);
 }
 
-function buildTimelineRows(clip, shotCameras, sceneAssets) {
-	return (clip.bindings ?? []).map((binding) => ({
-		id: binding.id,
-		label: buildTargetLabel(binding, shotCameras, sceneAssets),
-		kind: binding.target.kind,
-		keyFrames: collectBindingKeyFrames(binding),
-	}));
+function buildTimelineRows({
+	clip,
+	shotCameras = [],
+	sceneAssets = [],
+	activeShotCameraId,
+	selectedAssetIds = [],
+	autoKeyTargetKeys = [],
+	t,
+}) {
+	const autoKeySet = new Set(autoKeyTargetKeys ?? []);
+	const rowsByTargetKey = new Map();
+	const upsertTarget = ({
+		target,
+		label = "",
+		typeLabel = "",
+		keyFrames = [],
+		candidate = false,
+	}) => {
+		const targetKey = createTimelineTargetKey(target?.kind, target?.id);
+		if (!targetKey) {
+			return;
+		}
+		const existing = rowsByTargetKey.get(targetKey);
+		const mergedKeyFrames =
+			keyFrames.length > 0 ? keyFrames : (existing?.keyFrames ?? []);
+		rowsByTargetKey.set(targetKey, {
+			id: targetKey,
+			target: {
+				kind: target.kind,
+				id: String(target.id),
+			},
+			kind: target.kind,
+			icon: target.kind === ANIMATION_TARGET_SHOT_CAMERA ? "camera" : "scene",
+			label:
+				label ||
+				existing?.label ||
+				getTimelineTargetLabel(target, shotCameras, sceneAssets),
+			typeLabel: typeLabel || existing?.typeLabel || "",
+			keyFrames: mergedKeyFrames,
+			autoKey: autoKeySet.has(targetKey),
+			candidate:
+				mergedKeyFrames.length === 0 &&
+				(candidate || existing?.candidate || keyFrames.length === 0),
+		});
+	};
+
+	for (const binding of clip.bindings ?? []) {
+		const target = {
+			kind: binding.target.kind,
+			id: binding.target.id,
+		};
+		upsertTarget({
+			target,
+			label: getTimelineTargetLabel(
+				target,
+				shotCameras,
+				sceneAssets,
+				binding.labelCache,
+			),
+			typeLabel: getTimelineTargetTypeLabel(target, sceneAssets, t),
+			keyFrames: collectBindingKeyFrames(binding),
+		});
+	}
+
+	const activeCamera = shotCameras.find(
+		(camera) => camera.id === activeShotCameraId,
+	);
+	if (activeShotCameraId != null) {
+		const target = {
+			kind: ANIMATION_TARGET_SHOT_CAMERA,
+			id: activeShotCameraId,
+		};
+		upsertTarget({
+			target,
+			label: activeCamera?.name || activeCamera?.id || activeShotCameraId,
+			typeLabel: getTimelineTargetTypeLabel(target, sceneAssets, t),
+			candidate: true,
+		});
+	}
+
+	for (const assetId of selectedAssetIds ?? []) {
+		const asset = sceneAssets.find(
+			(candidate) => String(candidate.id) === String(assetId),
+		);
+		if (!asset) {
+			continue;
+		}
+		const target = {
+			kind: ANIMATION_TARGET_SCENE_ASSET,
+			id: asset.id,
+		};
+		upsertTarget({
+			target,
+			label: getSceneAssetLabel(asset),
+			typeLabel: getTimelineTargetTypeLabel(target, sceneAssets, t),
+			candidate: true,
+		});
+	}
+
+	for (const targetKey of autoKeySet) {
+		const target = parseTimelineTargetKey(targetKey);
+		if (!target) {
+			continue;
+		}
+		upsertTarget({
+			target,
+			label: getTimelineTargetLabel(target, shotCameras, sceneAssets),
+			typeLabel: getTimelineTargetTypeLabel(target, sceneAssets, t),
+			candidate: true,
+		});
+	}
+
+	return [...rowsByTargetKey.values()];
 }
 
 function getSelectedAnimationAssets(store) {
@@ -261,12 +415,24 @@ export function TimelinePanel({ store, controller, t = (key) => key }) {
 	);
 	const rows = useMemo(
 		() =>
-			buildTimelineRows(
+			buildTimelineRows({
 				clip,
-				store.workspace.shotCameras.value,
-				store.sceneAssets.value,
-			),
-		[clip, store.workspace.shotCameras.value, store.sceneAssets.value],
+				shotCameras: store.workspace.shotCameras.value,
+				sceneAssets: store.sceneAssets.value,
+				activeShotCameraId: store.workspace.activeShotCameraId.value,
+				selectedAssetIds: store.selectedSceneAssetIds.value,
+				autoKeyTargetKeys: animation.autoKeyTargetKeys.value,
+				t,
+			}),
+		[
+			clip,
+			store.workspace.shotCameras.value,
+			store.sceneAssets.value,
+			store.workspace.activeShotCameraId.value,
+			store.selectedSceneAssetIds.value,
+			animation.autoKeyTargetKeys.value,
+			t,
+		],
 	);
 	const ticks = useMemo(
 		() =>
@@ -505,15 +671,6 @@ export function TimelinePanel({ store, controller, t = (key) => key }) {
 					className="timeline-action--zoom-in"
 					onClick=${() => controller()?.zoomTimelineIn?.()}
 				/>
-				<button
-					type="button"
-					class=${animation.autoKey.value ? "timeline-chip is-active" : "timeline-chip"}
-					onClick=${() =>
-						controller()?.setAnimationAutoKey?.(!animation.autoKey.value)}
-				>
-					<${WorkbenchIcon} name="keyframe" size=${13} />
-					<span>${t("timeline.autoKey")}</span>
-				</button>
 				<div class="timeline-key-target">
 					<span class="timeline-key-target__label">
 						${t("timeline.keyTarget")}
@@ -575,12 +732,40 @@ export function TimelinePanel({ store, controller, t = (key) => key }) {
 							? html`<div class="timeline-empty">${t("timeline.noKeys")}</div>`
 							: rows.map(
 									(row) => html`
-										<div key=${row.id} class="timeline-track-row">
+										<div
+											key=${row.id}
+											class=${
+												row.autoKey
+													? "timeline-track-row is-autokey"
+													: row.candidate
+														? "timeline-track-row is-candidate"
+														: "timeline-track-row"
+											}
+										>
+											<button
+												type="button"
+												class=${
+													row.autoKey
+														? "timeline-track-row__autokey is-active"
+														: "timeline-track-row__autokey"
+												}
+												aria-pressed=${row.autoKey}
+												title=${`${t("timeline.autoKey")}: ${row.label}`}
+												onClick=${(event) => {
+													event.stopPropagation();
+													controller()?.toggleAutoKeyForTarget?.(row.target);
+												}}
+											>
+												<${WorkbenchIcon} name="keyframe" size=${12} />
+											</button>
 											<${WorkbenchIcon}
-												name=${row.kind === "shot-camera" ? "camera" : "scene"}
+												name=${row.icon}
 												size=${13}
 											/>
-											<span>${row.label}</span>
+											<span class="timeline-track-row__label">${row.label}</span>
+											<span class="timeline-track-row__type">
+												${row.typeLabel}
+											</span>
 										</div>
 									`,
 								)

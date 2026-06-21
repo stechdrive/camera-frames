@@ -1,6 +1,6 @@
 # CAMERA_FRAMES 機能一覧 / 回帰チェック観点
 
-最終更新: 2026-06-20
+最終更新: 2026-06-21
 
 ## 0. この文書の役割
 
@@ -183,6 +183,16 @@ PSD export の主な構成:
 - front reference images
 - frame overlays (`Frames` group; optional trajectory layer)
 - hidden frame mask layer
+
+### 2.10 タイムラインアニメーション
+
+- 下部タイムラインで duration / FPS / current frame / zoom を調整できる
+- shot camera の pose / base FOV / lens shift を keyframe 化できる
+- model / splat の scene asset は object transform 単位で keyframe 化できる
+- Output Frame / FRAME / reference image / per-splat edit はアニメーション対象にしない
+- `キーを追加` は key を作成できた target だけを Auto Key 対象にする
+- Auto Key は camera / mesh / splat の target 単位で保持し、タイムライン track row のキーアイコンで ON/OFF を確認・切替できる
+- Auto Key が ON の target だけが、現在フレームでの数値編集や transform drag を key 更新へ routing される
 
 ## 3. 旧 CAMERA_FRAMES と混同しない点
 

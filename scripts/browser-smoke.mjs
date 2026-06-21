@@ -491,9 +491,14 @@ async function runTimelineSmoke(cdp) {
 				"add key",
 			);
 			await waitForReady(8);
+			const activeCameraKey =
+				"shot-camera:" + test.store.workspace.activeShotCameraId.value;
 			const autoKeyAfterAdd =
-				test.store.animation.autoKey.value === true &&
-				document.querySelector(".timeline-chip.is-active") !== null;
+				(test.store.animation.document.value?.autoKeyTargetKeys ?? []).includes(
+					activeCameraKey,
+				) &&
+				document.querySelector(".timeline-track-row__autokey.is-active") !==
+					null;
 			const cameraPoseBeforeMove =
 				test.controller.getActiveShotCameraPoseState?.() ?? null;
 			let cameraEditableAfterKey = null;
@@ -890,6 +895,7 @@ async function runTimelineCameraAnimationSmoke(cdp) {
 			test.store.animation.document.value = {
 				version: 1,
 				enabled: true,
+				autoKeyTargetKeys: [],
 				activeClipId: "clip-browser-camera",
 				clips: [{
 					id: "clip-browser-camera",
@@ -910,7 +916,11 @@ async function runTimelineCameraAnimationSmoke(cdp) {
 			await waitForReady(6);
 			click(".timeline-action--add-key", "first camera key");
 			await waitForReady(8);
-			const autoKeyAfterFirstKey = test.store.animation.autoKey.value === true;
+			const activeCameraKey =
+				"shot-camera:" + test.store.workspace.activeShotCameraId.value;
+			const autoKeyAfterFirstKey = (
+				test.store.animation.document.value?.autoKeyTargetKeys ?? []
+			).includes(activeCameraKey);
 			const firstPose = poseSignature();
 			test.controller.setTimelineFrame?.(24);
 			await waitForReady(8);

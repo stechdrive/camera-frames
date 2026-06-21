@@ -81,6 +81,23 @@ function createTargetKey(target) {
 	return `${target.kind}:${String(target.id)}`;
 }
 
+function parseTargetKey(targetKey) {
+	const value = String(targetKey ?? "");
+	const separatorIndex = value.indexOf(":");
+	if (separatorIndex <= 0 || separatorIndex >= value.length - 1) {
+		return null;
+	}
+	const kind = value.slice(0, separatorIndex);
+	const id = value.slice(separatorIndex + 1);
+	if (
+		kind !== ANIMATION_TARGET_SHOT_CAMERA &&
+		kind !== ANIMATION_TARGET_SCENE_ASSET
+	) {
+		return null;
+	}
+	return { kind, id };
+}
+
 export function createAnimationController({
 	store,
 	state = null,
@@ -339,9 +356,11 @@ export function createAnimationController({
 		};
 		const targetKey = createTargetKey(target);
 		const autoKeyEntries =
-			shouldHandleAutoKey() && target.kind === ANIMATION_TARGET_SHOT_CAMERA
+			shouldHandleAutoKey(target) &&
+			target.kind === ANIMATION_TARGET_SHOT_CAMERA
 				? buildShotCameraKeyEntries(target.id)
-				: shouldHandleAutoKey() && target.kind === ANIMATION_TARGET_SCENE_ASSET
+				: shouldHandleAutoKey(target) &&
+						target.kind === ANIMATION_TARGET_SCENE_ASSET
 					? buildSceneAssetKeyEntries(target.id)?.entries
 					: null;
 		if (!targetKey || !captureCurrentTargetRuntimeState(target)) {
@@ -531,6 +550,132 @@ export function createAnimationController({
 		return sanitizeAnimationDocument(store.animation.document.value);
 	}
 
+	function getAutoKeyTargetKeys() {
+		return getAnimationDocument().autoKeyTargetKeys ?? [];
+	}
+
+	function hasAutoKeyTargets() {
+		return getAutoKeyTargetKeys().length > 0;
+	}
+
+	function isTargetAutoKeyEnabled(target) {
+		const targetKey = createTargetKey(target);
+		return Boolean(targetKey) && getAutoKeyTargetKeys().includes(targetKey);
+	}
+
+	function replaceAutoKeyTargetKeys(nextTargetKeys, { history = false } = {}) {
+		const nextKeys = [];
+		const seenKeys = new Set();
+		for (const targetKey of Array.isArray(nextTargetKeys)
+			? nextTargetKeys
+			: []) {
+			const parsed = parseTargetKey(targetKey);
+			if (!parsed) {
+				continue;
+			}
+			const key = createTargetKey(parsed);
+			if (seenKeys.has(key)) {
+				continue;
+			}
+			seenKeys.add(key);
+			nextKeys.push(key);
+		}
+		updateAnimationDocument(
+			"animation.autokey-targets",
+			(documentState) => ({
+				...documentState,
+				autoKeyTargetKeys: nextKeys,
+			}),
+			{ history },
+		);
+		return nextKeys;
+	}
+
+	function setAutoKeyForTargets(
+		targets,
+		nextEnabled,
+		{ history = false } = {},
+	) {
+		const normalizedTargets = (Array.isArray(targets) ? targets : [targets])
+			.map((target) => parseTargetKey(createTargetKey(target)))
+			.filter(Boolean);
+		if (normalizedTargets.length === 0) {
+			return false;
+		}
+		const nextKeys = new Set(getAutoKeyTargetKeys());
+		let changed = false;
+		for (const target of normalizedTargets) {
+			const targetKey = createTargetKey(target);
+			if (nextEnabled) {
+				if (!nextKeys.has(targetKey)) {
+					nextKeys.add(targetKey);
+					changed = true;
+				}
+			} else if (nextKeys.delete(targetKey)) {
+				changed = true;
+			}
+		}
+		if (!changed) {
+			return nextEnabled
+				? normalizedTargets.every((target) =>
+						nextKeys.has(createTargetKey(target)),
+					)
+				: normalizedTargets.every(
+						(target) => !nextKeys.has(createTargetKey(target)),
+					);
+		}
+		replaceAutoKeyTargetKeys([...nextKeys], { history });
+		return true;
+	}
+
+	function setAutoKeyForTarget(target, nextEnabled, options = {}) {
+		return setAutoKeyForTargets([target], nextEnabled, options);
+	}
+
+	function toggleAutoKeyForTarget(target) {
+		const parsedTarget = parseTargetKey(createTargetKey(target));
+		if (!parsedTarget) {
+			return false;
+		}
+		const nextEnabled = !isTargetAutoKeyEnabled(parsedTarget);
+		setAutoKeyForTarget(parsedTarget, nextEnabled);
+		return nextEnabled;
+	}
+
+	function getCurrentKeyTargetTargets() {
+		const keyTargetMode = sanitizeKeyTargetMode(
+			store.animation.keyTargetMode?.value,
+		);
+		const targets = [];
+		if (
+			keyTargetMode === ANIMATION_KEY_TARGET_CAMERA ||
+			keyTargetMode === ANIMATION_KEY_TARGET_BOTH
+		) {
+			const shotCameraId = store.workspace.activeShotCameraId.value;
+			if (shotCameraId != null) {
+				targets.push({
+					kind: ANIMATION_TARGET_SHOT_CAMERA,
+					id: shotCameraId,
+				});
+			}
+		}
+		if (
+			keyTargetMode === ANIMATION_KEY_TARGET_OBJECTS ||
+			keyTargetMode === ANIMATION_KEY_TARGET_BOTH
+		) {
+			for (const assetId of store.selectedSceneAssetIds?.value ?? []) {
+				if (assetId == null) {
+					continue;
+				}
+				targets.push({
+					kind: ANIMATION_TARGET_SCENE_ASSET,
+					id: assetId,
+				});
+			}
+		}
+		return targets;
+	}
+
 	function isAnimationEnabled() {
 		return getAnimationDocument().enabled !== false;
 	}
@@ -689,7 +834,7 @@ export function createAnimationController({
 			timelineFrame: store.animation.timelineFrame.value,
 			panelOpen: store.animation.panelOpen.value,
 			panelHeight: store.animation.panelHeight.value,
-			autoKey: store.animation.autoKey.value,
+			autoKeyTargetKeys: getAutoKeyTargetKeys(),
 			selectedBindingId: store.animation.selectedBindingId.value,
 			selectedKeyIds: [...(store.animation.selectedKeyIds.value ?? [])],
 			expandedRowIds: [...(store.animation.expandedRowIds.value ?? [])],
@@ -710,7 +855,6 @@ export function createAnimationController({
 			520,
 			Math.max(144, Number(editorState?.panelHeight ?? 220)),
 		);
-		store.animation.autoKey.value = Boolean(editorState?.autoKey);
 		store.animation.selectedBindingId.value =
 			typeof editorState?.selectedBindingId === "string"
 				? editorState.selectedBindingId
@@ -732,6 +876,17 @@ export function createAnimationController({
 		store.animation.keyTargetMode.value = sanitizeKeyTargetMode(
 			editorState?.keyTargetMode,
 		);
+		if (Array.isArray(editorState?.autoKeyTargetKeys)) {
+			replaceAutoKeyTargetKeys(editorState.autoKeyTargetKeys, {
+				history: false,
+			});
+		} else if (editorState?.autoKey === true) {
+			setAutoKeyForTargets(getCurrentKeyTargetTargets(), true, {
+				history: false,
+			});
+		} else if (editorState && Object.hasOwn(editorState, "autoKey")) {
+			replaceAutoKeyTargetKeys([], { history: false });
+		}
 		store.animation.isPlaying.value = false;
 		return true;
 	}
@@ -808,9 +963,15 @@ export function createAnimationController({
 	}
 
 	function setAnimationAutoKey(nextEnabled) {
-		store.animation.autoKey.value = Boolean(nextEnabled);
-		updateUi?.();
-		return store.animation.autoKey.value;
+		const targets = getCurrentKeyTargetTargets();
+		if (targets.length === 0) {
+			if (!nextEnabled) {
+				replaceAutoKeyTargetKeys([]);
+				return true;
+			}
+			return false;
+		}
+		return setAutoKeyForTargets(targets, Boolean(nextEnabled));
 	}
 
 	function setAnimationKeyTargetMode(nextMode) {
@@ -818,8 +979,27 @@ export function createAnimationController({
 		updateUi?.();
 	}
 
-	function shouldHandleAutoKey() {
-		return store.animation.autoKey.value === true;
+	function shouldHandleAutoKey(target = null) {
+		if (!target) {
+			return hasAutoKeyTargets();
+		}
+		return isTargetAutoKeyEnabled(target);
+	}
+
+	function shouldHandleShotCameraAutoKey(
+		shotCameraId = store.workspace.activeShotCameraId.value,
+	) {
+		return shouldHandleAutoKey({
+			kind: ANIMATION_TARGET_SHOT_CAMERA,
+			id: shotCameraId,
+		});
+	}
+
+	function shouldHandleSceneAssetAutoKey(assetId) {
+		return shouldHandleAutoKey({
+			kind: ANIMATION_TARGET_SCENE_ASSET,
+			id: assetId,
+		});
 	}
 
 	function setShotCameraPositionKey(axis, nextValue) {
@@ -1071,9 +1251,6 @@ export function createAnimationController({
 		assetIds,
 		{ frame = store.animation.timelineFrame.value, applyFrame = false } = {},
 	) {
-		if (!shouldHandleAutoKey()) {
-			return false;
-		}
 		const uniqueAssetIds = [];
 		const seenIds = new Set();
 		for (const assetId of Array.isArray(assetIds) ? assetIds : [assetIds]) {
@@ -1086,6 +1263,9 @@ export function createAnimationController({
 		}
 		let inserted = false;
 		for (const assetId of uniqueAssetIds) {
+			if (!shouldHandleSceneAssetAutoKey(assetId)) {
+				continue;
+			}
 			inserted =
 				insertSceneAssetKey(assetId, {
 					frame,
@@ -1108,28 +1288,44 @@ export function createAnimationController({
 		);
 		const frame = store.animation.timelineFrame.value;
 		let inserted = false;
+		const insertedTargets = [];
 		if (
 			keyTargetMode === ANIMATION_KEY_TARGET_CAMERA ||
 			keyTargetMode === ANIMATION_KEY_TARGET_BOTH
 		) {
-			inserted =
-				insertShotCameraKey(store.workspace.activeShotCameraId.value, {
-					frame,
-					applyFrame: false,
-				}) || inserted;
+			const shotCameraId = store.workspace.activeShotCameraId.value;
+			const insertedCamera = insertShotCameraKey(shotCameraId, {
+				frame,
+				applyFrame: false,
+			});
+			if (insertedCamera) {
+				inserted = true;
+				insertedTargets.push({
+					kind: ANIMATION_TARGET_SHOT_CAMERA,
+					id: shotCameraId,
+				});
+			}
 		}
 		if (
 			keyTargetMode === ANIMATION_KEY_TARGET_OBJECTS ||
 			keyTargetMode === ANIMATION_KEY_TARGET_BOTH
 		) {
 			for (const assetId of selectedAssetIds) {
-				inserted =
-					insertSceneAssetKey(assetId, { frame, applyFrame: false }) ||
-					inserted;
+				const insertedAsset = insertSceneAssetKey(assetId, {
+					frame,
+					applyFrame: false,
+				});
+				if (insertedAsset) {
+					inserted = true;
+					insertedTargets.push({
+						kind: ANIMATION_TARGET_SCENE_ASSET,
+						id: assetId,
+					});
+				}
 			}
 		}
 		if (inserted) {
-			setAnimationAutoKey(true);
+			setAutoKeyForTargets(insertedTargets, true, { history: false });
 			applyCurrentFrame({ frame });
 		}
 		return inserted;
@@ -1252,7 +1448,13 @@ export function createAnimationController({
 		setAnimationDurationFrames,
 		setAnimationAutoKey,
 		setAnimationKeyTargetMode,
+		getAutoKeyTargetKeys,
+		isTargetAutoKeyEnabled,
+		setAutoKeyForTarget,
+		toggleAutoKeyForTarget,
 		shouldHandleAutoKey,
+		shouldHandleShotCameraAutoKey,
+		shouldHandleSceneAssetAutoKey,
 		setShotCameraPositionKey,
 		setShotCameraPoseAngleKey,
 		setShotCameraBaseFovXKey,

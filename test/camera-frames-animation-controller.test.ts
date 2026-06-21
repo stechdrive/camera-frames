@@ -34,6 +34,7 @@ function createStore(animationDocument: object) {
 const animationDocument = {
 	version: 1,
 	enabled: true,
+	autoKeyTargetKeys: [],
 	activeClipId: "clip-1",
 	clips: [
 		{
@@ -198,10 +199,16 @@ assert.equal(camera.position.x, 9);
 assert.equal(asset.object.position.y, 4);
 assert.equal(asset.worldScale, 2);
 
-store.animation.autoKey.value = true;
 store.animation.timelineFrame.value = 12;
 asset.object.position.set(7, 8, 9);
 asset.object.updateMatrixWorld(true);
+assert.equal(controller.autoKeySceneAssetTransforms([1]), false);
+assert.equal(
+	controller.setAutoKeyForTarget({ kind: "scene-asset", id: 1 }, true),
+	true,
+);
+assert.equal(controller.shouldHandleSceneAssetAutoKey(1), true);
+assert.equal(controller.shouldHandleShotCameraAutoKey("shot-camera-1"), false);
 assert.equal(controller.autoKeySceneAssetTransforms([1]), true);
 const assetAutoKeyTrack = store.animation.document.value.clips[0].bindings
 	.find((binding) => binding.target.kind === "scene-asset")
@@ -217,6 +224,7 @@ assert.deepEqual(
 const twoKeyStore = createStore({
 	version: 1,
 	enabled: true,
+	autoKeyTargetKeys: [],
 	activeClipId: "clip-1",
 	clips: [
 		{
@@ -256,7 +264,13 @@ const twoKeyController = createAnimationController({
 });
 
 assert.equal(twoKeyController.insertKeyForSelection(), true);
-assert.equal(twoKeyStore.animation.autoKey.value, true);
+assert.deepEqual(twoKeyController.getAutoKeyTargetKeys(), [
+	"shot-camera:shot-camera-1",
+]);
+assert.equal(
+	twoKeyController.shouldHandleShotCameraAutoKey("shot-camera-1"),
+	true,
+);
 twoKeyController.setTimelineFrame(10);
 twoKeyCamera.position.x = 10;
 assert.equal(

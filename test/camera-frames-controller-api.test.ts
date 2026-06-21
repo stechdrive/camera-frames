@@ -25,6 +25,8 @@ const api = createControllerApi({
 		setAnimationFps: (value) => `fps:${value}`,
 		setAnimationDurationFrames: (value) => `duration:${value}`,
 		setAnimationAutoKey: (value) => `autokey:${value}`,
+		toggleAutoKeyForTarget: (target) =>
+			`toggle-autokey:${target.kind}:${target.id}`,
 		setAnimationKeyTargetMode: (value) => `target:${value}`,
 		playTimeline: () => "play",
 		pauseTimeline: () => "pause",
@@ -285,6 +287,10 @@ assert.equal(api.setTimelineFrame(12), "frame:12");
 assert.equal(api.setAnimationFps(24), "fps:24");
 assert.equal(api.setAnimationDurationFrames(144), "duration:144");
 assert.equal(api.setAnimationAutoKey(true), "autokey:true");
+assert.equal(
+	api.toggleAutoKeyForTarget({ kind: "scene-asset", id: 1 }),
+	"toggle-autokey:scene-asset:1",
+);
 assert.equal(api.setAnimationKeyTargetMode("both"), "target:both");
 assert.equal(api.playTimeline(), "play");
 assert.equal(api.pauseTimeline(), "pause");
