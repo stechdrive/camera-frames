@@ -105,6 +105,7 @@ async function main() {
 		timeoutMs,
 	);
 	await evaluate(cdp, verificationSource, { awaitPromise: false });
+	const webmTimingSmoke = await runWebmEncoderTimingSmoke(cdp);
 	console.log(`[browser-smoke] loading ${projectPath}`);
 	const projectSmoke = await evaluate(
 		cdp,
@@ -174,6 +175,7 @@ async function main() {
 				ok: true,
 				baseUrl,
 				projectPath,
+				webmTiming: webmTimingSmoke,
 				project: projectSmoke.summary,
 				timeline: {
 					...timelineSmoke,
@@ -401,6 +403,97 @@ async function createCdpTarget(cdpPort, url) {
 		throw new Error(`Could not create CDP target: ${response.status}`);
 	}
 	return await response.json();
+}
+
+async function runWebmEncoderTimingSmoke(cdp) {
+	const result = await evaluate(
+		cdp,
+		`(async () => {
+			const supported = Boolean(
+				typeof MediaRecorder !== "undefined" &&
+					typeof HTMLCanvasElement !== "undefined" &&
+					HTMLCanvasElement.prototype.captureStream &&
+					(typeof MediaRecorder.isTypeSupported !== "function" ||
+						MediaRecorder.isTypeSupported("video/webm")),
+			);
+			if (!supported) {
+				return { ok: true, supported: false };
+			}
+			const { createWebmFromFrameRenderer } = await import(
+				"/src/controllers/export/video-download.js"
+			);
+			const wait = (durationMs) =>
+				new Promise((resolve) => setTimeout(resolve, durationMs));
+			const loadVideoDuration = (blob) =>
+				new Promise((resolve, reject) => {
+					const url = URL.createObjectURL(blob);
+					const video = document.createElement("video");
+					const timeout = setTimeout(() => {
+						URL.revokeObjectURL(url);
+						reject(new Error("Timed out while reading WebM duration"));
+					}, 10000);
+					video.preload = "metadata";
+					video.onloadedmetadata = () => {
+						clearTimeout(timeout);
+						const duration = video.duration;
+						URL.revokeObjectURL(url);
+						resolve(duration);
+					};
+					video.onerror = () => {
+						clearTimeout(timeout);
+						URL.revokeObjectURL(url);
+						reject(new Error("Failed to read WebM duration"));
+					};
+					video.src = url;
+				});
+			const frameCount = 4;
+			const fps = 4;
+			const renderDelayMs = 300;
+			const canvas = document.createElement("canvas");
+			canvas.width = 48;
+			canvas.height = 32;
+			const context = canvas.getContext("2d");
+			const startedAt = performance.now();
+			const blob = await createWebmFromFrameRenderer(
+				async (drawFrame) => {
+					for (let frame = 0; frame < frameCount; frame += 1) {
+						await wait(renderDelayMs);
+						context.fillStyle = \`rgb(\${50 + frame * 40}, 90, 160)\`;
+						context.fillRect(0, 0, canvas.width, canvas.height);
+						context.fillStyle = "white";
+						context.fillRect(frame * 4, frame * 3, 10, 10);
+						await drawFrame(canvas);
+					}
+				},
+				{ fps },
+			);
+			const elapsedSeconds = (performance.now() - startedAt) / 1000;
+			const duration = await loadVideoDuration(blob);
+			const expectedDuration = Math.max(0, frameCount - 1) / fps;
+			const maxDeltaSeconds = 0.25;
+			return {
+				ok:
+					Number.isFinite(duration) &&
+					Math.abs(duration - expectedDuration) <= maxDeltaSeconds &&
+					Math.abs(duration - elapsedSeconds) > 0.5,
+				supported: true,
+				frameCount,
+				fps,
+				renderDelayMs,
+				expectedDuration,
+				duration,
+				elapsedSeconds,
+				blobSize: blob.size,
+			};
+		})()`,
+		{ awaitPromise: true },
+	);
+	if (!result?.ok) {
+		throw new Error(
+			`WebM encoder timing smoke failed: ${JSON.stringify(result, null, 2)}`,
+		);
+	}
+	return result;
 }
 
 async function runExportOutputSmoke(cdp) {

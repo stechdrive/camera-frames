@@ -23,6 +23,25 @@ function wait(durationMs) {
 	});
 }
 
+function waitForRecorderEvent(recorder, eventName) {
+	return new Promise((resolve, reject) => {
+		const cleanup = () => {
+			recorder.removeEventListener(eventName, handleEvent);
+			recorder.removeEventListener("error", handleError);
+		};
+		const handleEvent = () => {
+			cleanup();
+			resolve();
+		};
+		const handleError = () => {
+			cleanup();
+			reject(recorder.error ?? new Error("Video recording failed."));
+		};
+		recorder.addEventListener(eventName, handleEvent, { once: true });
+		recorder.addEventListener("error", handleError, { once: true });
+	});
+}
+
 export function isWebmVideoExportSupported() {
 	return Boolean(
 		typeof document !== "undefined" &&
@@ -45,6 +64,7 @@ export async function createWebmFromFrameRenderer(
 	const videoCanvas = document.createElement("canvas");
 	let context = null;
 	let stream = null;
+	let videoTrack = null;
 	let recorder = null;
 	const chunks = [];
 
@@ -55,7 +75,15 @@ export async function createWebmFromFrameRenderer(
 		if (!context) {
 			throw new Error("Failed to acquire the video canvas context.");
 		}
-		stream = videoCanvas.captureStream(Math.max(1, Number(fps) || 24));
+		stream = videoCanvas.captureStream(0);
+		videoTrack = stream.getVideoTracks()[0] ?? null;
+		if (typeof videoTrack?.requestFrame !== "function") {
+			for (const track of stream.getTracks()) {
+				track.stop();
+			}
+			stream = videoCanvas.captureStream(Math.max(1, Number(fps) || 24));
+			videoTrack = stream.getVideoTracks()[0] ?? null;
+		}
 		recorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
 		recorder.ondataavailable = (event) => {
 			if (event.data?.size > 0) {
@@ -63,6 +91,24 @@ export async function createWebmFromFrameRenderer(
 			}
 		};
 		recorder.start();
+	};
+
+	const pauseRecorder = async () => {
+		if (recorder?.state !== "recording") {
+			return;
+		}
+		const paused = waitForRecorderEvent(recorder, "pause");
+		recorder.pause();
+		await paused;
+	};
+
+	const resumeRecorder = async () => {
+		if (recorder?.state !== "paused") {
+			return;
+		}
+		const resumed = waitForRecorderEvent(recorder, "resume");
+		recorder.resume();
+		await resumed;
 	};
 
 	const stopRecorder = async () => {
@@ -85,11 +131,15 @@ export async function createWebmFromFrameRenderer(
 		throwIfExportAborted(abortSignal);
 		if (!recorder) {
 			startRecorder(canvas);
+		} else {
+			await resumeRecorder();
 		}
 		context.clearRect(0, 0, videoCanvas.width, videoCanvas.height);
 		context.drawImage(canvas, 0, 0, videoCanvas.width, videoCanvas.height);
+		videoTrack?.requestFrame?.();
 		await wait(frameDurationMs);
 		throwIfExportAborted(abortSignal);
+		await pauseRecorder();
 	};
 
 	try {
@@ -121,7 +171,7 @@ export async function createWebmFromFrameRenderer(
 
 export async function createWebmFromCanvases(
 	canvases,
-	{ fps = 24, mimeType = resolveWebmMimeType() } = {},
+	{ fps = 24, mimeType = resolveWebmMimeType(), abortSignal = null } = {},
 ) {
 	if (!Array.isArray(canvases) || canvases.length === 0) {
 		throw new Error("Video export requires at least one frame.");
@@ -132,6 +182,6 @@ export async function createWebmFromCanvases(
 				await drawFrame(canvas);
 			}
 		},
-		{ fps, mimeType },
+		{ fps, mimeType, abortSignal },
 	);
 }
