@@ -28,6 +28,24 @@ const api = createControllerApi({
 		toggleAutoKeyForTarget: (target) =>
 			`toggle-autokey:${target.kind}:${target.id}`,
 		setAnimationKeyTargetMode: (value) => `target:${value}`,
+		selectTimelineKeyFrame: (target, frame) =>
+			`select-key:${target.kind}:${target.id}:${frame}`,
+		clearTimelineKeySelection: () => "clear-keys",
+		hasSelectedTimelineKeys: () => true,
+		hasTimelineKeyClipboard: () => true,
+		getTimelineKeyFrames: () => [1, 12],
+		jumpTimelineToPreviousKey: () => "prev-key",
+		jumpTimelineToNextKey: () => "next-key",
+		getSelectedTimelineKeyInterpolation: () => "linear",
+		setSelectedTimelineKeyInterpolation: (value) => `interpolation:${value}`,
+		scaleSelectedTimelineKeys: (factor) => `scale-keys:${factor}`,
+		getCurrentTimelineKeyStatus: () => ({ hasKey: true }),
+		moveSelectedTimelineKeysBy: (delta) => `move-keys:${delta}`,
+		moveTimelineKeyFrame: (target, fromFrame, toFrame) =>
+			`move-key:${target.kind}:${target.id}:${fromFrame}:${toFrame}`,
+		copySelectedTimelineKeys: () => "copy-keys",
+		pasteTimelineKeys: (options) => `paste-keys:${options.frame}`,
+		deleteSelectedTimelineKeys: () => "delete-keys",
 		playTimeline: () => "play",
 		pauseTimeline: () => "pause",
 		jumpTimelineStart: () => "jump-start",
@@ -295,6 +313,31 @@ assert.equal(
 	"toggle-autokey:scene-asset:1",
 );
 assert.equal(api.setAnimationKeyTargetMode("both"), "target:both");
+assert.equal(
+	api.selectTimelineKeyFrame({ kind: "shot-camera", id: "camera-1" }, 12),
+	"select-key:shot-camera:camera-1:12",
+);
+assert.equal(api.clearTimelineKeySelection(), "clear-keys");
+assert.equal(api.hasSelectedTimelineKeys(), true);
+assert.equal(api.hasTimelineKeyClipboard(), true);
+assert.deepEqual(api.getTimelineKeyFrames(), [1, 12]);
+assert.equal(api.jumpTimelineToPreviousKey(), "prev-key");
+assert.equal(api.jumpTimelineToNextKey(), "next-key");
+assert.equal(api.getSelectedTimelineKeyInterpolation(), "linear");
+assert.equal(
+	api.setSelectedTimelineKeyInterpolation("hold"),
+	"interpolation:hold",
+);
+assert.equal(api.scaleSelectedTimelineKeys(2), "scale-keys:2");
+assert.deepEqual(api.getCurrentTimelineKeyStatus(), { hasKey: true });
+assert.equal(api.moveSelectedTimelineKeysBy(3), "move-keys:3");
+assert.equal(
+	api.moveTimelineKeyFrame({ kind: "scene-asset", id: 1 }, 4, 9),
+	"move-key:scene-asset:1:4:9",
+);
+assert.equal(api.copySelectedTimelineKeys(), "copy-keys");
+assert.equal(api.pasteTimelineKeys({ frame: 18 }), "paste-keys:18");
+assert.equal(api.deleteSelectedTimelineKeys(), "delete-keys");
 assert.equal(api.playTimeline(), "play");
 assert.equal(api.pauseTimeline(), "pause");
 assert.equal(api.jumpTimelineStart(), "jump-start");

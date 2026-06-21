@@ -552,6 +552,10 @@ import {
 		getVideoExportFps: () => 12,
 		isVideoExportSupported: () => true,
 		renderSnapshot: async (shotCameraId, options) => {
+			calls.push(["renderStaticUnexpected", shotCameraId, options]);
+			return { frame: options.timelineFrame };
+		},
+		renderVideoFrameSnapshot: async (shotCameraId, options) => {
 			calls.push([
 				"renderVideo",
 				shotCameraId,
@@ -560,7 +564,11 @@ import {
 			]);
 			return { frame: options.timelineFrame };
 		},
-		renderCompositeOutputCanvas: (snapshot) => ({ canvas: snapshot.frame }),
+		renderCompositeOutputCanvas: () => ({ canvas: "static-unexpected" }),
+		renderVideoCompositeOutputCanvas: (snapshot) => ({
+			canvas: snapshot.frame,
+			composite: "video",
+		}),
 		createWebmFromFrameRenderer: async () => new Blob(["video"]),
 		createZipBlob: async () => new Blob(["zip"]),
 		downloadBlob: (blob, filename) =>
@@ -609,6 +617,7 @@ import {
 				config.renderVideoFrame(config.targetDocuments[0], snapshot),
 				{
 					canvas: 8,
+					composite: "video",
 				},
 			);
 			config.downloadVideo(
@@ -620,16 +629,7 @@ import {
 
 	await facade.downloadOutput();
 	assert.deepEqual(calls, [
-		[
-			"renderVideo",
-			"camera-a",
-			8,
-			{
-				exportFormat: "png",
-				exportModelLayers: false,
-				exportSplatLayers: false,
-			},
-		],
+		["renderVideo", "camera-a", 8, undefined],
 		["downloadBlob", "Camera A.webm", 5],
 	]);
 }

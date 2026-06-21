@@ -939,6 +939,238 @@ async function runTimelineSmoke(cdp) {
 				throw new Error("Timeline rail did not reopen the panel");
 			}
 
+			const readUniqueKeyFrames = () => {
+				const frames = new Set();
+				for (const binding of test.store.animation.activeClip.value.bindings ?? []) {
+					for (const track of binding.tracks ?? []) {
+						for (const key of track.keys ?? []) {
+							frames.add(Math.round(Number(key.frame)));
+						}
+					}
+				}
+				return [...frames].sort((left, right) => left - right);
+			};
+			const frameToClientX = (frame) => {
+				const content = document.querySelector(".timeline-dopesheet__content");
+				const clip = test.store.animation.activeClip.value;
+				const rect = content.getBoundingClientRect();
+				const start = Number(clip.startFrame);
+				const end = start + Math.max(1, Number(clip.durationFrames)) - 1;
+				const ratio = (frame - start) / Math.max(1, end - start);
+				return rect.left + rect.width * ratio;
+			};
+			const getKeyElementNearFrame = (frame) => {
+				const targetX = frameToClientX(frame);
+				return [...document.querySelectorAll(".timeline-key")]
+					.map((element) => {
+						const rect = element.getBoundingClientRect();
+						return {
+							element,
+							distance: Math.abs(rect.left + rect.width / 2 - targetX),
+						};
+					})
+					.sort((left, right) => left.distance - right.distance)[0]?.element ?? null;
+			};
+			const clickTimelineKey = (keyElement, frame, modifiers = {}) => {
+				const rect = keyElement.getBoundingClientRect();
+				const clientX = Number.isFinite(frame)
+					? frameToClientX(frame)
+					: rect.left + rect.width / 2;
+				const clientY = rect.top + rect.height / 2;
+				keyElement.dispatchEvent(
+					new PointerEvent("pointerdown", {
+						bubbles: true,
+						pointerId: 21,
+						button: 0,
+						clientX,
+						clientY,
+						shiftKey: Boolean(modifiers.shiftKey),
+						ctrlKey: Boolean(modifiers.ctrlKey),
+						metaKey: Boolean(modifiers.metaKey),
+					}),
+				);
+				keyElement.dispatchEvent(
+					new PointerEvent("pointerup", {
+						bubbles: true,
+						pointerId: 21,
+						button: 0,
+						clientX,
+						clientY,
+						shiftKey: Boolean(modifiers.shiftKey),
+						ctrlKey: Boolean(modifiers.ctrlKey),
+						metaKey: Boolean(modifiers.metaKey),
+					}),
+				);
+			};
+			const selectedInterpolations = () => {
+				const selected = new Set(test.store.animation.selectedKeyIds.value ?? []);
+				const values = [];
+				for (const binding of test.store.animation.activeClip.value.bindings ?? []) {
+					for (const track of binding.tracks ?? []) {
+						for (const key of track.keys ?? []) {
+							const keyId = binding.id + ":" + track.path + ":" + Math.round(Number(key.frame));
+							if (selected.has(keyId)) {
+								values.push(key.interpolation ?? "linear");
+							}
+						}
+					}
+				}
+				return [...new Set(values)].sort();
+			};
+			const clickSegmentByText = (selector, text, label) => {
+				const element = [...document.querySelectorAll(selector)].find(
+					(candidate) => candidate.textContent?.trim() === text,
+				);
+				if (!element || element.disabled) {
+					throw new Error("Missing or disabled timeline segment: " + label);
+				}
+				element.click();
+				return element;
+			};
+			test.controller.setTimelineFrame?.(12);
+			await waitForReady(4);
+			const originalKeyFrames = readUniqueKeyFrames();
+			const firstKeyElement = document.querySelector(".timeline-key");
+			if (!firstKeyElement) {
+				throw new Error("Timeline key marker missing before key edit smoke");
+			}
+			clickTimelineKey(firstKeyElement, originalKeyFrames[0]);
+			await waitForReady(4);
+			const selectedAfterClick = Boolean(
+				document.querySelector(".timeline-key.is-selected"),
+			);
+			const copyButton = document.querySelector(".timeline-action--copy-keys");
+			const pasteButton = document.querySelector(".timeline-action--paste-keys");
+			const deleteButton = document.querySelector(".timeline-action--delete-keys");
+			copyButton?.click();
+			await waitForReady(4);
+			const pasteEnabledAfterCopy = pasteButton && !pasteButton.disabled;
+			test.controller.setTimelineFrame?.(16);
+			await waitForReady(4);
+			pasteButton?.click();
+			await waitForReady(6);
+			const framesAfterPaste = readUniqueKeyFrames();
+			const pastedKeyElement = document.querySelector(".timeline-key.is-selected");
+			if (!pastedKeyElement) {
+				throw new Error("Pasted timeline key was not selected");
+			}
+			const pastedKeyRect = pastedKeyElement.getBoundingClientRect();
+			const dragClientY = pastedKeyRect.top + pastedKeyRect.height / 2;
+			const dragStartX = frameToClientX(16);
+			const dragEndX = frameToClientX(18);
+			pastedKeyElement.dispatchEvent(
+				new PointerEvent("pointerdown", {
+					bubbles: true,
+					pointerId: 22,
+					button: 0,
+					clientX: dragStartX,
+					clientY: dragClientY,
+				}),
+			);
+			pastedKeyElement.dispatchEvent(
+				new PointerEvent("pointermove", {
+					bubbles: true,
+					pointerId: 22,
+					button: 0,
+					clientX: dragEndX,
+					clientY: dragClientY,
+				}),
+			);
+			pastedKeyElement.dispatchEvent(
+				new PointerEvent("pointerup", {
+					bubbles: true,
+					pointerId: 22,
+					button: 0,
+					clientX: dragEndX,
+					clientY: dragClientY,
+				}),
+			);
+			await waitForReady(6);
+			const framesAfterMove = readUniqueKeyFrames();
+			deleteButton?.click();
+			await waitForReady(6);
+			const framesAfterDelete = readUniqueKeyFrames();
+			const pasteButtonAfterDelete = document.querySelector(
+				".timeline-action--paste-keys",
+			);
+			test.controller.setTimelineFrame?.(20);
+			await waitForReady(4);
+			pasteButtonAfterDelete?.click();
+			await waitForReady(6);
+			const framesBeforeScale = readUniqueKeyFrames();
+			const keyAt12 = getKeyElementNearFrame(12);
+			if (!keyAt12) {
+				throw new Error("Timeline key at frame 12 missing before scale smoke");
+			}
+			clickTimelineKey(keyAt12, 12, { shiftKey: true });
+			await waitForReady(4);
+			clickSegmentByText(
+				".timeline-key-interpolation .timeline-segmented__button",
+				"Hold",
+				"Hold interpolation",
+			);
+			await waitForReady(4);
+			const interpolationAfterHold = selectedInterpolations();
+			clickSegmentByText(
+				".timeline-key-interpolation .timeline-segmented__button",
+				"Linear",
+				"Linear interpolation",
+			);
+			await waitForReady(4);
+			const interpolationAfterLinear = selectedInterpolations();
+			const scaleInput = document.querySelector(".timeline-field--scale input");
+			const scaleButton = document.querySelector(".timeline-action--scale-keys");
+			if (!scaleInput || scaleInput.disabled || !scaleButton || scaleButton.disabled) {
+				throw new Error("Timeline key scale controls were not enabled");
+			}
+			scaleInput.value = "200";
+			scaleInput.dispatchEvent(new InputEvent("input", { bubbles: true }));
+			await waitForReady(2);
+			scaleButton.click();
+			await waitForReady(6);
+			const framesAfterScale = readUniqueKeyFrames();
+			test.controller.setTimelineFrame?.(12);
+			await waitForReady(4);
+			document.querySelector(".timeline-action--next-key")?.click();
+			await waitForReady(4);
+			const frameAfterNextKey = test.store.animation.timelineFrame.value;
+			document.querySelector(".timeline-action--previous-key")?.click();
+			await waitForReady(4);
+			const frameAfterPreviousKey = test.store.animation.timelineFrame.value;
+			clickSegmentByText(
+				".timeline-row-filter .timeline-segmented__button",
+				"Keyed",
+				"Keyed row filter",
+			);
+			await waitForReady(4);
+			const keyedFilterCount =
+				document.querySelector(".timeline-track-list__count")?.textContent?.trim() ??
+				"";
+			clickSegmentByText(
+				".timeline-row-filter .timeline-segmented__button",
+				"All",
+				"All row filter",
+			);
+			await waitForReady(4);
+			const keyEditing = {
+				originalKeyFrames,
+				selectedAfterClick,
+				pasteEnabledAfterCopy,
+				framesAfterPaste,
+				framesAfterMove,
+				framesAfterDelete,
+				framesBeforeScale,
+				interpolationAfterHold,
+				interpolationAfterLinear,
+				framesAfterScale,
+				frameAfterNextKey,
+				frameAfterPreviousKey,
+				keyedFilterCount,
+				copyDisabledAfterDelete: Boolean(copyButton?.disabled),
+				deleteDisabledAfterDelete: Boolean(deleteButton?.disabled),
+				keyElementsAfterDelete: document.querySelectorAll(".timeline-key").length,
+			};
+
 			const animation = test.store.animation;
 			const documentState = animation.document.value;
 			const clip = animation.activeClip.value;
@@ -977,6 +1209,7 @@ async function runTimelineSmoke(cdp) {
 				sceneKeyTargetState,
 				cameraWithSelectionKeyTargetState,
 				cameraEditableAfterKey,
+				keyEditing,
 				rulerLabelsBeforeZoom,
 				rulerLabelsAfterZoomIn,
 				wheelZoomBefore,
@@ -1028,6 +1261,58 @@ async function runTimelineSmoke(cdp) {
 			}
 			if (summary.keyElements < 1) {
 				failures.push("Dopesheet did not render key markers");
+			}
+			if (!summary.keyEditing.selectedAfterClick) {
+				failures.push("Timeline key click did not select a key");
+			}
+			if (!summary.keyEditing.pasteEnabledAfterCopy) {
+				failures.push("Copying a timeline key did not enable paste");
+			}
+			if (!summary.keyEditing.framesAfterPaste.includes(16)) {
+				failures.push("Pasting a timeline key did not create a key at the current frame");
+			}
+			if (
+				summary.keyEditing.framesAfterMove.includes(16) ||
+				summary.keyEditing.framesAfterMove.length <=
+					summary.keyEditing.originalKeyFrames.length
+			) {
+				failures.push("Dragging a selected timeline key did not move it");
+			}
+			if (
+				summary.keyEditing.framesAfterDelete.includes(18) ||
+				summary.keyEditing.keyElementsAfterDelete < 1
+			) {
+				failures.push("Deleting a selected timeline key did not remove the moved key");
+			}
+			if (!summary.keyEditing.framesBeforeScale.includes(20)) {
+				failures.push("Timeline paste did not create a second key for scale editing");
+			}
+			if (
+				summary.keyEditing.interpolationAfterHold.length !== 1 ||
+				summary.keyEditing.interpolationAfterHold[0] !== "hold"
+			) {
+				failures.push("Timeline interpolation Hold control did not update selected keys");
+			}
+			if (
+				summary.keyEditing.interpolationAfterLinear.length !== 1 ||
+				summary.keyEditing.interpolationAfterLinear[0] !== "linear"
+			) {
+				failures.push("Timeline interpolation Linear control did not update selected keys");
+			}
+			if (
+				!summary.keyEditing.framesAfterScale.includes(12) ||
+				!summary.keyEditing.framesAfterScale.some((frame) => frame > 20)
+			) {
+				failures.push("Timeline key scale control did not expand selected key timing");
+			}
+			if (
+				summary.keyEditing.frameAfterNextKey <= 12 ||
+				summary.keyEditing.frameAfterPreviousKey !== 12
+			) {
+				failures.push("Timeline previous/next key controls did not navigate key frames");
+			}
+			if (!/^\\d+\\/\\d+$/.test(summary.keyEditing.keyedFilterCount)) {
+				failures.push("Timeline row filter did not update the track count readout");
 			}
 			if (!summary.autoKeyAfterAdd) {
 				failures.push("Add key did not enable Auto Key");

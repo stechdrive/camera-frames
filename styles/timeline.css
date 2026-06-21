@@ -123,6 +123,43 @@
 		monospace;
 }
 
+.timeline-field--scale {
+	grid-template-columns: auto 4.1rem;
+}
+
+.timeline-field--scale input:disabled {
+	opacity: 0.45;
+}
+
+.timeline-apply-button {
+	appearance: none;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	height: 2rem;
+	padding: 0 0.52rem;
+	border: 1px solid var(--line);
+	border-radius: 8px;
+	background: rgba(255, 255, 255, 0.055);
+	color: var(--text);
+	cursor: pointer;
+	font:
+		700 0.68rem / 1 "Avenir Next",
+		"Segoe UI",
+		sans-serif;
+	white-space: nowrap;
+}
+
+.timeline-apply-button:hover:not(:disabled) {
+	border-color: rgba(137, 208, 255, 0.42);
+	background: rgba(137, 208, 255, 0.13);
+}
+
+.timeline-apply-button:disabled {
+	cursor: default;
+	opacity: 0.45;
+}
+
 .timeline-toolbar__range {
 	color: var(--text-dim);
 	font:
@@ -236,6 +273,81 @@
 	white-space: nowrap;
 }
 
+.timeline-key-status,
+.timeline-key-interpolation {
+	display: inline-flex;
+	flex: 0 0 auto;
+	align-items: center;
+	gap: 0.34rem;
+	height: 2rem;
+	color: var(--text-dim);
+	font:
+		700 0.68rem / 1 "Avenir Next",
+		"Segoe UI",
+		sans-serif;
+	white-space: nowrap;
+}
+
+.timeline-key-status__dot {
+	display: inline-block;
+	width: 0.48rem;
+	height: 0.48rem;
+	border: 1px solid rgba(255, 255, 255, 0.38);
+	background: rgba(255, 255, 255, 0.08);
+	transform: rotate(45deg);
+}
+
+.timeline-key-status__dot.is-keyed {
+	border-color: rgba(255, 255, 255, 0.78);
+	background: #78d6ff;
+}
+
+.timeline-key-interpolation__label {
+	color: var(--text-muted);
+}
+
+.timeline-segmented {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.16rem;
+	min-width: 0;
+	padding: 0.14rem;
+	border: 1px solid rgba(255, 255, 255, 0.09);
+	border-radius: 8px;
+	background: rgba(255, 255, 255, 0.026);
+}
+
+.timeline-segmented__button {
+	appearance: none;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	height: 1.5rem;
+	min-width: 2rem;
+	padding: 0 0.36rem;
+	border: 1px solid transparent;
+	border-radius: 6px;
+	background: transparent;
+	color: var(--text-dim);
+	cursor: pointer;
+	font:
+		700 0.62rem / 1 "Avenir Next",
+		"Segoe UI",
+		sans-serif;
+	white-space: nowrap;
+}
+
+.timeline-segmented__button.is-active {
+	border-color: rgba(137, 208, 255, 0.4);
+	background: rgba(137, 208, 255, 0.14);
+	color: var(--text);
+}
+
+.timeline-segmented__button:disabled {
+	cursor: default;
+	opacity: 0.42;
+}
+
 .timeline-body {
 	display: grid;
 	grid-template-columns: minmax(12rem, 18rem) minmax(0, 1fr);
@@ -250,7 +362,7 @@
 
 .timeline-track-list__header,
 .timeline-empty {
-	height: 1.75rem;
+	min-height: 1.75rem;
 	padding: 0.5rem 0.7rem 0;
 	color: var(--text-dim);
 	font:
@@ -258,6 +370,52 @@
 		"Segoe UI",
 		sans-serif;
 	text-transform: uppercase;
+}
+
+.timeline-track-list__header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5rem;
+}
+
+.timeline-track-list__count {
+	color: var(--text-muted);
+	font:
+		700 0.62rem / 1 "IBM Plex Mono",
+		Consolas,
+		monospace;
+}
+
+.timeline-row-filter {
+	display: inline-flex;
+	flex: 0 0 auto;
+	align-items: center;
+	gap: 0.35rem;
+	min-width: 0;
+}
+
+.timeline-segmented--filter {
+	flex: 0 0 auto;
+}
+
+.timeline-segmented--filter .timeline-segmented__button {
+	min-width: 0;
+	padding: 0 0.18rem;
+}
+
+.timeline-row-filter__search {
+	width: 6.5rem;
+	height: 1.7rem;
+	padding: 0 0.45rem;
+	border: 1px solid var(--line);
+	border-radius: 8px;
+	background: rgba(2, 8, 16, 0.68);
+	color: var(--text);
+	font:
+		700 0.7rem / 1 "Avenir Next",
+		"Segoe UI",
+		sans-serif;
 }
 
 .timeline-track-row {
@@ -410,14 +568,30 @@
 }
 
 .timeline-key {
+	appearance: none;
 	position: absolute;
 	top: 50%;
 	z-index: 2;
 	width: 0.56rem;
 	height: 0.56rem;
+	padding: 0;
 	border: 1px solid rgba(255, 255, 255, 0.58);
 	background: #ffd166;
+	cursor: grab;
 	transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.timeline-key:hover,
+.timeline-key:focus-visible,
+.timeline-key.is-selected {
+	border-color: rgba(255, 255, 255, 0.95);
+	background: #78d6ff;
+	box-shadow: 0 0 0 3px rgba(120, 214, 255, 0.2);
+	outline: none;
+}
+
+.timeline-key:active {
+	cursor: grabbing;
 }
 
 .timeline-key--out {

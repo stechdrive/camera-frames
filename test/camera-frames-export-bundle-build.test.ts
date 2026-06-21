@@ -156,4 +156,41 @@ import {
 	assert.equal(bundle.splatLayers.length, 1);
 }
 
+{
+	const bundle = buildSnapshotExportBundle(
+		{
+			width: 2,
+			height: 1,
+			pixels: new Uint8Array(8),
+			exportSettings: {
+				exportFormat: "webm",
+			},
+			sceneAssets: [
+				{
+					id: "model-a",
+					label: "Model A",
+					exportRole: "beauty",
+					maskGroup: "hero",
+				},
+			],
+			maskPasses: [
+				{
+					id: "mask:asset-model-a",
+					pixels: new Uint8Array(8),
+				},
+			],
+		},
+		[],
+		{
+			drawFramesToContext() {},
+			includeMaskPasses: false,
+		},
+	);
+
+	assert.equal(
+		bundle.passes.some((pass) => pass.category === "mask"),
+		false,
+	);
+}
+
 console.log("✅ CAMERA_FRAMES export bundle build tests passed!");

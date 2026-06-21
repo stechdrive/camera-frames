@@ -25,14 +25,35 @@ export function renderCompositeOutputCanvas(
 		previewContextError = "error.previewContext",
 		buildBundle = buildSnapshotExportBundle,
 		renderBundleToCanvas = renderExportBundleToCanvas,
+		includeMaskPasses = true,
 	} = {},
 ) {
 	return renderBundleToCanvas(
 		buildBundle(snapshot, frames, {
 			drawFramesToContext,
 			previewContextError,
+			includeMaskPasses,
 		}),
 	);
+}
+
+export function renderVideoCompositeOutputCanvas(
+	snapshot,
+	frames = [],
+	{
+		drawFramesToContext,
+		previewContextError = "error.previewContext",
+		buildBundle = buildSnapshotExportBundle,
+		renderBundleToCanvas = renderExportBundleToCanvas,
+	} = {},
+) {
+	return renderCompositeOutputCanvas(snapshot, frames, {
+		drawFramesToContext,
+		previewContextError,
+		buildBundle,
+		renderBundleToCanvas,
+		includeMaskPasses: false,
+	});
 }
 
 export async function createPngBlobFromSnapshot(

@@ -82,6 +82,7 @@ export function buildSnapshotExportBundle(
 		previewContextError = "error.previewContext",
 		createCanvas = () => document.createElement("canvas"),
 		frameMaskSettings = null,
+		includeMaskPasses = true,
 	} = {},
 ) {
 	const resolvedFrameMaskSettings =
@@ -284,35 +285,37 @@ export function buildSnapshotExportBundle(
 		readiness,
 		passes: [
 			...orderedPasses,
-			...passPlan.masks.map((maskPass) =>
-				createExportPass({
-					id: maskPass.id,
-					name: maskPass.name,
-					category: maskPass.category,
-					metadata: {
-						role: "mask",
-						maskGroup: maskPass.maskGroup,
-						assetIds: maskPass.assetIds,
-					},
-					layers: renderedMaskPassesById.has(maskPass.id)
-						? [
-								createPixelLayer({
-									name: "Mask",
-									pixels: renderedMaskPassesById.get(maskPass.id).pixels,
-									width,
-									height,
-									category: "mask",
-									metadata: {
-										passId: maskPass.id,
-										maskGroup: maskPass.maskGroup,
-										assetIds: maskPass.assetIds,
-									},
-								}),
-							]
-						: [],
-					enabled: false,
-				}),
-			),
+			...(includeMaskPasses
+				? passPlan.masks.map((maskPass) =>
+						createExportPass({
+							id: maskPass.id,
+							name: maskPass.name,
+							category: maskPass.category,
+							metadata: {
+								role: "mask",
+								maskGroup: maskPass.maskGroup,
+								assetIds: maskPass.assetIds,
+							},
+							layers: renderedMaskPassesById.has(maskPass.id)
+								? [
+										createPixelLayer({
+											name: "Mask",
+											pixels: renderedMaskPassesById.get(maskPass.id).pixels,
+											width,
+											height,
+											category: "mask",
+											metadata: {
+												passId: maskPass.id,
+												maskGroup: maskPass.maskGroup,
+												assetIds: maskPass.assetIds,
+											},
+										}),
+									]
+								: [],
+							enabled: false,
+						}),
+					)
+				: []),
 		],
 	});
 	return {

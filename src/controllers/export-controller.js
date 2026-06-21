@@ -23,6 +23,7 @@ import {
 	downloadPngFromSnapshot,
 	downloadPsdFromSnapshot,
 	renderCompositeOutputCanvas,
+	renderVideoCompositeOutputCanvas,
 } from "./export/output-download.js";
 import { createExportOutputRuntime } from "./export/output-runtime.js";
 import {
@@ -192,6 +193,8 @@ export function createExportController({
 				getActiveAnimationClip(store.animation.document.value)?.fps ?? 24,
 			isVideoExportSupported: isWebmVideoExportSupported,
 			renderSnapshot: outputRuntime.renderOutputSnapshotForShotCamera,
+			renderVideoFrameSnapshot:
+				outputRuntime.renderVideoFrameSnapshotForShotCamera,
 			downloadPngFromSnapshot,
 			downloadPsdFromSnapshot,
 			createPngBlobFromSnapshot,
@@ -200,6 +203,7 @@ export function createExportController({
 			downloadBlob,
 			createWebmFromFrameRenderer,
 			renderCompositeOutputCanvas,
+			renderVideoCompositeOutputCanvas,
 			drawFramesToContext,
 			previewContextError: t("error.previewContext"),
 			buildFilename: buildShotCameraExportFilename,

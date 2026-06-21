@@ -1,5 +1,7 @@
 import * as THREE from "three";
 import {
+	ANIMATION_INTERPOLATION_HOLD,
+	ANIMATION_INTERPOLATION_LINEAR,
 	ANIMATION_TARGET_SCENE_ASSET,
 	ANIMATION_TARGET_SHOT_CAMERA,
 	createDefaultAnimationDocument,
@@ -55,6 +57,12 @@ function sanitizeKeyTargetMode(mode) {
 		: ANIMATION_KEY_TARGET_CAMERA;
 }
 
+function sanitizeTimelineInterpolationMode(mode) {
+	return mode === ANIMATION_INTERPOLATION_HOLD
+		? ANIMATION_INTERPOLATION_HOLD
+		: ANIMATION_INTERPOLATION_LINEAR;
+}
+
 function updateActiveClip(documentState, updateClip) {
 	const normalized = sanitizeAnimationDocument(documentState);
 	const activeClipId = normalized.activeClipId;
@@ -72,6 +80,31 @@ function createBindingId(target) {
 
 function createKeyId(bindingId, path, frame) {
 	return `${bindingId}:${path}:${frame}`;
+}
+
+function parseKeyId(keyId) {
+	const value = String(keyId ?? "");
+	const frameSeparatorIndex = value.lastIndexOf(":");
+	if (frameSeparatorIndex <= 0 || frameSeparatorIndex >= value.length - 1) {
+		return null;
+	}
+	const frame = Number(value.slice(frameSeparatorIndex + 1));
+	if (!Number.isFinite(frame)) {
+		return null;
+	}
+	const bindingAndPath = value.slice(0, frameSeparatorIndex);
+	const pathSeparatorIndex = bindingAndPath.lastIndexOf(":");
+	if (
+		pathSeparatorIndex <= 0 ||
+		pathSeparatorIndex >= bindingAndPath.length - 1
+	) {
+		return null;
+	}
+	return {
+		bindingId: bindingAndPath.slice(0, pathSeparatorIndex),
+		path: bindingAndPath.slice(pathSeparatorIndex + 1),
+		frame: Math.round(frame),
+	};
 }
 
 function createTargetKey(target) {
@@ -118,6 +151,7 @@ export function createAnimationController({
 	const baseSceneAssetStates = new Map();
 	const evaluatedShotCameraLens = new Map();
 	const manuallyEditedRuntimeTargets = new Set();
+	let timelineKeyClipboard = null;
 	let runtimeStateCaptured = false;
 	let runtimeEvaluated = false;
 	let playbackAccumulatorSeconds = 0;
@@ -894,6 +928,669 @@ export function createAnimationController({
 		return true;
 	}
 
+	function getBindingForTarget(clip, target) {
+		const normalizedTarget = parseTargetKey(createTargetKey(target));
+		if (!normalizedTarget) {
+			return null;
+		}
+		return (
+			clip.bindings.find(
+				(binding) =>
+					binding.target.kind === normalizedTarget.kind &&
+					String(binding.target.id) === normalizedTarget.id,
+			) ?? null
+		);
+	}
+
+	function getKeyIdsForTimelineKeyFrame(binding, frame) {
+		const keyFrame = Math.round(Number(frame));
+		if (!binding || !Number.isFinite(keyFrame)) {
+			return [];
+		}
+		const keyIds = [];
+		for (const track of binding.tracks ?? []) {
+			if (
+				(track.keys ?? []).some(
+					(key) => Math.round(Number(key.frame)) === keyFrame,
+				)
+			) {
+				keyIds.push(createKeyId(binding.id, track.path, keyFrame));
+			}
+		}
+		return keyIds;
+	}
+
+	function collectSelectedKeyRefs(
+		clip = getActiveAnimationClip(getAnimationDocument()),
+	) {
+		const selectedIds = new Set(store.animation.selectedKeyIds.value ?? []);
+		if (selectedIds.size === 0) {
+			return [];
+		}
+		const refs = [];
+		const seenIds = new Set();
+		for (const binding of clip.bindings ?? []) {
+			for (const track of binding.tracks ?? []) {
+				for (const key of track.keys ?? []) {
+					const keyFrame = Math.round(Number(key.frame));
+					const keyId = createKeyId(binding.id, track.path, keyFrame);
+					if (!selectedIds.has(keyId) || seenIds.has(keyId)) {
+						continue;
+					}
+					seenIds.add(keyId);
+					refs.push({
+						id: keyId,
+						bindingId: binding.id,
+						target: {
+							kind: binding.target.kind,
+							id: String(binding.target.id),
+						},
+						path: track.path,
+						frame: keyFrame,
+						value: Number(key.value),
+						interpolation: key.interpolation,
+					});
+				}
+			}
+		}
+		return refs;
+	}
+
+	function setSelectedTimelineKeyIds(keyIds) {
+		const nextIds = [];
+		const seenIds = new Set();
+		for (const keyId of Array.isArray(keyIds) ? keyIds : []) {
+			const parsed = parseKeyId(keyId);
+			if (!parsed || seenIds.has(keyId)) {
+				continue;
+			}
+			seenIds.add(keyId);
+			nextIds.push(keyId);
+		}
+		store.animation.selectedKeyIds.value = nextIds;
+		const bindingIds = new Set(
+			nextIds.map((keyId) => parseKeyId(keyId)?.bindingId).filter(Boolean),
+		);
+		store.animation.selectedBindingId.value =
+			bindingIds.size === 1 ? [...bindingIds][0] : null;
+		return nextIds;
+	}
+
+	function clearTimelineKeySelection() {
+		if ((store.animation.selectedKeyIds.value ?? []).length === 0) {
+			return false;
+		}
+		store.animation.selectedKeyIds.value = [];
+		store.animation.selectedBindingId.value = null;
+		updateUi?.();
+		return true;
+	}
+
+	function hasSelectedTimelineKeys() {
+		return collectSelectedKeyRefs().length > 0;
+	}
+
+	function hasTimelineKeyClipboard() {
+		return Array.isArray(timelineKeyClipboard?.entries)
+			? timelineKeyClipboard.entries.length > 0
+			: false;
+	}
+
+	function selectTimelineKeyFrame(target, frame, options = {}) {
+		const clip = getActiveAnimationClip(getAnimationDocument());
+		const binding = getBindingForTarget(clip, target);
+		if (!binding) {
+			return false;
+		}
+		const keyIds = getKeyIdsForTimelineKeyFrame(binding, frame);
+		if (keyIds.length === 0) {
+			return false;
+		}
+		const additive = options?.additive === true;
+		const toggle = options?.toggle === true;
+		const nextIds = new Set(
+			additive || toggle ? (store.animation.selectedKeyIds.value ?? []) : [],
+		);
+		const allSelected = keyIds.every((keyId) => nextIds.has(keyId));
+		if (toggle && allSelected) {
+			for (const keyId of keyIds) {
+				nextIds.delete(keyId);
+			}
+		} else {
+			for (const keyId of keyIds) {
+				nextIds.add(keyId);
+			}
+		}
+		setSelectedTimelineKeyIds([...nextIds]);
+		updateUi?.();
+		return true;
+	}
+
+	function moveSelectedTimelineKeysBy(deltaFrames, options = {}) {
+		const clip = getActiveAnimationClip(getAnimationDocument());
+		const refs = collectSelectedKeyRefs(clip);
+		if (refs.length === 0) {
+			return false;
+		}
+		const requestedDelta = Math.round(Number(deltaFrames));
+		if (!Number.isFinite(requestedDelta) || requestedDelta === 0) {
+			return true;
+		}
+		const startFrame = Number(clip.startFrame);
+		const endFrame = startFrame + Math.max(1, Number(clip.durationFrames)) - 1;
+		const minFrame = Math.min(...refs.map((ref) => ref.frame));
+		const maxFrame = Math.max(...refs.map((ref) => ref.frame));
+		const delta = Math.min(
+			endFrame - maxFrame,
+			Math.max(startFrame - minFrame, requestedDelta),
+		);
+		if (delta === 0) {
+			return true;
+		}
+		const selectedIds = new Set(refs.map((ref) => ref.id));
+		const nextSelectedKeyIds = [];
+		updateAnimationDocument(
+			options?.label ?? "animation.key.move",
+			(documentState) =>
+				updateActiveClip(documentState, (activeClip) => {
+					const nextBindings = activeClip.bindings.map((binding) => {
+						const nextTracks = binding.tracks.map((track) => {
+							const movingKeys = [];
+							const movingFrames = new Set();
+							const destinationFrames = new Set();
+							for (const key of track.keys ?? []) {
+								const keyFrame = Math.round(Number(key.frame));
+								const keyId = createKeyId(binding.id, track.path, keyFrame);
+								if (!selectedIds.has(keyId)) {
+									continue;
+								}
+								const nextFrame = keyFrame + delta;
+								movingFrames.add(keyFrame);
+								destinationFrames.add(nextFrame);
+								movingKeys.push({
+									...key,
+									frame: nextFrame,
+								});
+								nextSelectedKeyIds.push(
+									createKeyId(binding.id, track.path, nextFrame),
+								);
+							}
+							if (movingKeys.length === 0) {
+								return track;
+							}
+							const preservedKeys = (track.keys ?? []).filter((key) => {
+								const keyFrame = Math.round(Number(key.frame));
+								return (
+									!movingFrames.has(keyFrame) &&
+									!destinationFrames.has(keyFrame)
+								);
+							});
+							return {
+								...track,
+								keys: [...preservedKeys, ...movingKeys].sort(
+									(left, right) => left.frame - right.frame,
+								),
+							};
+						});
+						return {
+							...binding,
+							tracks: nextTracks,
+						};
+					});
+					return {
+						...activeClip,
+						bindings: nextBindings,
+					};
+				}),
+			{ history: options?.history !== false },
+		);
+		setSelectedTimelineKeyIds(nextSelectedKeyIds);
+		if (options?.applyFrame !== false) {
+			applyCurrentFrame();
+		}
+		updateUi?.();
+		return true;
+	}
+
+	function moveTimelineKeyFrame(target, fromFrame, toFrame, options = {}) {
+		if (!selectTimelineKeyFrame(target, fromFrame, options?.selection ?? {})) {
+			return false;
+		}
+		return moveSelectedTimelineKeysBy(
+			Math.round(Number(toFrame)) - Math.round(Number(fromFrame)),
+			options,
+		);
+	}
+
+	function copySelectedTimelineKeys() {
+		const refs = collectSelectedKeyRefs();
+		if (refs.length === 0) {
+			return false;
+		}
+		const originFrame = Math.min(...refs.map((ref) => ref.frame));
+		timelineKeyClipboard = {
+			originFrame,
+			entries: refs.map((ref) => ({
+				target: {
+					kind: ref.target.kind,
+					id: String(ref.target.id),
+				},
+				path: ref.path,
+				offsetFrame: ref.frame - originFrame,
+				value: ref.value,
+				...(ref.interpolation ? { interpolation: ref.interpolation } : {}),
+			})),
+		};
+		updateUi?.();
+		return true;
+	}
+
+	function pasteTimelineKeys(options = {}) {
+		const entries = Array.isArray(timelineKeyClipboard?.entries)
+			? timelineKeyClipboard.entries
+			: [];
+		if (entries.length === 0) {
+			return false;
+		}
+		const clip = getActiveAnimationClip(getAnimationDocument());
+		const offsets = entries.map((entry) =>
+			Math.round(Number(entry.offsetFrame)),
+		);
+		const minOffset = Math.min(...offsets);
+		const maxOffset = Math.max(...offsets);
+		const startFrame = Number(clip.startFrame);
+		const endFrame = startFrame + Math.max(1, Number(clip.durationFrames)) - 1;
+		const requestedFrameValue = Math.round(
+			Number(options?.frame ?? store.animation.timelineFrame.value),
+		);
+		const requestedFrame = Number.isFinite(requestedFrameValue)
+			? requestedFrameValue
+			: startFrame;
+		const baseFrame = Math.min(
+			endFrame - maxOffset,
+			Math.max(startFrame - minOffset, requestedFrame),
+		);
+		const nextSelectedKeyIds = [];
+		updateAnimationDocument(
+			options?.label ?? "animation.key.paste",
+			(documentState) =>
+				updateActiveClip(documentState, (activeClip) => {
+					const bindings = [...activeClip.bindings];
+					for (const entry of entries) {
+						const target = parseTargetKey(createTargetKey(entry.target));
+						const path = String(entry.path ?? "");
+						const value = Number(entry.value);
+						if (
+							!target ||
+							!isAnimationTrackPathAllowed(target, path) ||
+							!Number.isFinite(value)
+						) {
+							continue;
+						}
+						const keyFrame = baseFrame + Math.round(Number(entry.offsetFrame));
+						let bindingIndex = bindings.findIndex(
+							(binding) =>
+								binding.target.kind === target.kind &&
+								String(binding.target.id) === target.id,
+						);
+						if (bindingIndex < 0) {
+							bindings.push({
+								id: createBindingId(target),
+								target,
+								labelCache: "",
+								tracks: [],
+							});
+							bindingIndex = bindings.length - 1;
+						}
+						const binding = { ...bindings[bindingIndex] };
+						const tracks = [...binding.tracks];
+						let trackIndex = tracks.findIndex((track) => track.path === path);
+						if (trackIndex < 0) {
+							tracks.push({
+								path,
+								valueType: "number",
+								interpolation: "linear",
+								keys: [],
+							});
+							trackIndex = tracks.length - 1;
+						}
+						const track = { ...tracks[trackIndex] };
+						const key = {
+							frame: keyFrame,
+							value,
+							...(entry.interpolation
+								? { interpolation: entry.interpolation }
+								: {}),
+						};
+						track.keys = [
+							...(track.keys ?? []).filter(
+								(candidate) => candidate.frame !== keyFrame,
+							),
+							key,
+						].sort((left, right) => left.frame - right.frame);
+						tracks[trackIndex] = track;
+						binding.tracks = tracks;
+						bindings[bindingIndex] = binding;
+						nextSelectedKeyIds.push(createKeyId(binding.id, path, keyFrame));
+					}
+					return {
+						...activeClip,
+						bindings,
+					};
+				}),
+			{ history: options?.history !== false },
+		);
+		setSelectedTimelineKeyIds(nextSelectedKeyIds);
+		if (options?.applyFrame !== false) {
+			applyCurrentFrame();
+		}
+		updateUi?.();
+		return nextSelectedKeyIds.length > 0;
+	}
+
+	function deleteSelectedTimelineKeys(options = {}) {
+		const clip = getActiveAnimationClip(getAnimationDocument());
+		const refs = collectSelectedKeyRefs(clip);
+		if (refs.length === 0) {
+			return false;
+		}
+		const selectedIds = new Set(refs.map((ref) => ref.id));
+		updateAnimationDocument(
+			options?.label ?? "animation.key.delete",
+			(documentState) =>
+				updateActiveClip(documentState, (activeClip) => {
+					const bindings = activeClip.bindings
+						.map((binding) => {
+							const tracks = binding.tracks
+								.map((track) => ({
+									...track,
+									keys: (track.keys ?? []).filter((key) => {
+										const keyFrame = Math.round(Number(key.frame));
+										const keyId = createKeyId(binding.id, track.path, keyFrame);
+										return !selectedIds.has(keyId);
+									}),
+								}))
+								.filter((track) => track.keys.length > 0);
+							return {
+								...binding,
+								tracks,
+							};
+						})
+						.filter((binding) => binding.tracks.length > 0);
+					return {
+						...activeClip,
+						bindings,
+					};
+				}),
+			{ history: options?.history !== false },
+		);
+		setSelectedTimelineKeyIds([]);
+		if (options?.applyFrame !== false) {
+			applyCurrentFrame();
+		}
+		updateUi?.();
+		return true;
+	}
+
+	function getTimelineKeyFrames(options = {}) {
+		const clip = getActiveAnimationClip(getAnimationDocument());
+		const selectedOnly = options?.selectedOnly === true;
+		const selectedIds = new Set(store.animation.selectedKeyIds.value ?? []);
+		const frames = new Set();
+		for (const binding of clip.bindings ?? []) {
+			for (const track of binding.tracks ?? []) {
+				for (const key of track.keys ?? []) {
+					const keyFrame = Math.round(Number(key.frame));
+					if (!Number.isFinite(keyFrame)) {
+						continue;
+					}
+					if (selectedOnly) {
+						const keyId = createKeyId(binding.id, track.path, keyFrame);
+						if (!selectedIds.has(keyId)) {
+							continue;
+						}
+					}
+					frames.add(keyFrame);
+				}
+			}
+		}
+		return [...frames].sort((left, right) => left - right);
+	}
+
+	function jumpTimelineToPreviousKey() {
+		const current = Math.round(Number(store.animation.timelineFrame.value));
+		const previousFrame = [...getTimelineKeyFrames()]
+			.reverse()
+			.find((frame) => frame < current);
+		if (!Number.isFinite(previousFrame)) {
+			return false;
+		}
+		setTimelineFrame(previousFrame);
+		return true;
+	}
+
+	function jumpTimelineToNextKey() {
+		const current = Math.round(Number(store.animation.timelineFrame.value));
+		const nextFrame = getTimelineKeyFrames().find((frame) => frame > current);
+		if (!Number.isFinite(nextFrame)) {
+			return false;
+		}
+		setTimelineFrame(nextFrame);
+		return true;
+	}
+
+	function getSelectedTimelineKeyInterpolation() {
+		const refs = collectSelectedKeyRefs();
+		if (refs.length === 0) {
+			return null;
+		}
+		const modes = new Set(
+			refs.map((ref) => sanitizeTimelineInterpolationMode(ref.interpolation)),
+		);
+		return modes.size === 1 ? [...modes][0] : "mixed";
+	}
+
+	function setSelectedTimelineKeyInterpolation(mode, options = {}) {
+		const interpolation = sanitizeTimelineInterpolationMode(mode);
+		const refs = collectSelectedKeyRefs();
+		if (refs.length === 0) {
+			return false;
+		}
+		const selectedIds = new Set(refs.map((ref) => ref.id));
+		updateAnimationDocument(
+			options?.label ?? "animation.key.interpolation",
+			(documentState) =>
+				updateActiveClip(documentState, (activeClip) => ({
+					...activeClip,
+					bindings: activeClip.bindings.map((binding) => ({
+						...binding,
+						tracks: binding.tracks.map((track) => ({
+							...track,
+							keys: (track.keys ?? []).map((key) => {
+								const keyFrame = Math.round(Number(key.frame));
+								const keyId = createKeyId(binding.id, track.path, keyFrame);
+								return selectedIds.has(keyId)
+									? {
+											...key,
+											interpolation,
+										}
+									: key;
+							}),
+						})),
+					})),
+				})),
+			{ history: options?.history !== false },
+		);
+		if (options?.applyFrame !== false) {
+			applyCurrentFrame();
+		}
+		updateUi?.();
+		return true;
+	}
+
+	function scaleSelectedTimelineKeys(factor, options = {}) {
+		const clip = getActiveAnimationClip(getAnimationDocument());
+		const refs = collectSelectedKeyRefs(clip);
+		const selectedFrames = [...new Set(refs.map((ref) => ref.frame))].sort(
+			(left, right) => left - right,
+		);
+		if (selectedFrames.length < 2) {
+			return false;
+		}
+		const numericFactor = Number(factor);
+		if (!Number.isFinite(numericFactor) || numericFactor <= 0) {
+			return false;
+		}
+		const startFrame = Number(clip.startFrame);
+		const endFrame = startFrame + Math.max(1, Number(clip.durationFrames)) - 1;
+		const pivotFrame = Number.isFinite(Number(options?.pivotFrame))
+			? Math.round(Number(options.pivotFrame))
+			: selectedFrames[0];
+		const scaledFrameByKeyId = new Map();
+		for (const ref of refs) {
+			const nextFrame =
+				pivotFrame + Math.round((ref.frame - pivotFrame) * numericFactor);
+			scaledFrameByKeyId.set(ref.id, nextFrame);
+		}
+		let minFrame = Math.min(...scaledFrameByKeyId.values());
+		let maxFrame = Math.max(...scaledFrameByKeyId.values());
+		let shift = 0;
+		if (minFrame < startFrame) {
+			shift = startFrame - minFrame;
+		}
+		if (maxFrame + shift > endFrame) {
+			shift = endFrame - maxFrame;
+		}
+		if (shift !== 0) {
+			for (const [keyId, frame] of scaledFrameByKeyId) {
+				scaledFrameByKeyId.set(keyId, frame + shift);
+			}
+			minFrame = Math.min(...scaledFrameByKeyId.values());
+			maxFrame = Math.max(...scaledFrameByKeyId.values());
+		}
+		if (minFrame < startFrame || maxFrame > endFrame) {
+			return false;
+		}
+		const selectedIds = new Set(refs.map((ref) => ref.id));
+		const nextSelectedKeyIds = [];
+		updateAnimationDocument(
+			options?.label ?? "animation.key.scale-time",
+			(documentState) =>
+				updateActiveClip(documentState, (activeClip) => {
+					const nextBindings = activeClip.bindings.map((binding) => {
+						const nextTracks = binding.tracks.map((track) => {
+							const movingKeys = [];
+							const movingFrames = new Set();
+							const destinationFrames = new Set();
+							for (const key of track.keys ?? []) {
+								const keyFrame = Math.round(Number(key.frame));
+								const keyId = createKeyId(binding.id, track.path, keyFrame);
+								if (!selectedIds.has(keyId)) {
+									continue;
+								}
+								const nextFrame = scaledFrameByKeyId.get(keyId);
+								if (!Number.isFinite(nextFrame)) {
+									continue;
+								}
+								movingFrames.add(keyFrame);
+								destinationFrames.add(nextFrame);
+								movingKeys.push({
+									...key,
+									frame: nextFrame,
+								});
+								nextSelectedKeyIds.push(
+									createKeyId(binding.id, track.path, nextFrame),
+								);
+							}
+							if (movingKeys.length === 0) {
+								return track;
+							}
+							const preservedKeys = (track.keys ?? []).filter((key) => {
+								const keyFrame = Math.round(Number(key.frame));
+								return (
+									!movingFrames.has(keyFrame) &&
+									!destinationFrames.has(keyFrame)
+								);
+							});
+							return {
+								...track,
+								keys: [...preservedKeys, ...movingKeys].sort(
+									(left, right) => left.frame - right.frame,
+								),
+							};
+						});
+						return {
+							...binding,
+							tracks: nextTracks,
+						};
+					});
+					return {
+						...activeClip,
+						bindings: nextBindings,
+					};
+				}),
+			{ history: options?.history !== false },
+		);
+		setSelectedTimelineKeyIds(nextSelectedKeyIds);
+		if (options?.applyFrame !== false) {
+			applyCurrentFrame();
+		}
+		updateUi?.();
+		return true;
+	}
+
+	function getCurrentTimelineKeyStatus(
+		frame = store.animation.timelineFrame.value,
+	) {
+		const clip = getActiveAnimationClip(getAnimationDocument());
+		const keyFrame = Math.round(Number(frame));
+		const currentTargets = getCurrentKeyTargetTargets();
+		const targetKeys =
+			currentTargets.length > 0
+				? new Set(currentTargets.map((target) => createTargetKey(target)))
+				: null;
+		let targetCount = 0;
+		let keyedTargetCount = 0;
+		let keyCount = 0;
+		const interpolations = new Set();
+		for (const binding of clip.bindings ?? []) {
+			const targetKey = createTargetKey(binding.target);
+			if (targetKeys && !targetKeys.has(targetKey)) {
+				continue;
+			}
+			targetCount += 1;
+			let bindingHasKey = false;
+			for (const track of binding.tracks ?? []) {
+				for (const key of track.keys ?? []) {
+					if (Math.round(Number(key.frame)) !== keyFrame) {
+						continue;
+					}
+					keyCount += 1;
+					bindingHasKey = true;
+					interpolations.add(
+						sanitizeTimelineInterpolationMode(key.interpolation),
+					);
+				}
+			}
+			if (bindingHasKey) {
+				keyedTargetCount += 1;
+			}
+		}
+		return {
+			frame: keyFrame,
+			hasKey: keyCount > 0,
+			targetCount,
+			keyedTargetCount,
+			keyCount,
+			interpolation:
+				interpolations.size === 0
+					? null
+					: interpolations.size === 1
+						? [...interpolations][0]
+						: "mixed",
+		};
+	}
+
 	function captureAnimationDocument() {
 		return cloneSerializable(getAnimationDocument());
 	}
@@ -1541,6 +2238,22 @@ export function createAnimationController({
 		isTargetAutoKeyEnabled,
 		setAutoKeyForTarget,
 		toggleAutoKeyForTarget,
+		selectTimelineKeyFrame,
+		clearTimelineKeySelection,
+		hasSelectedTimelineKeys,
+		hasTimelineKeyClipboard,
+		getTimelineKeyFrames,
+		jumpTimelineToPreviousKey,
+		jumpTimelineToNextKey,
+		getSelectedTimelineKeyInterpolation,
+		setSelectedTimelineKeyInterpolation,
+		scaleSelectedTimelineKeys,
+		getCurrentTimelineKeyStatus,
+		moveSelectedTimelineKeysBy,
+		moveTimelineKeyFrame,
+		copySelectedTimelineKeys,
+		pasteTimelineKeys,
+		deleteSelectedTimelineKeys,
 		shouldHandleAutoKey,
 		shouldHandleShotCameraAutoKey,
 		shouldHandleSceneAssetAutoKey,

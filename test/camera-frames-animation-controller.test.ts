@@ -309,6 +309,299 @@ assert.deepEqual(
 	);
 }
 
+{
+	const editStore = createStore({
+		version: 1,
+		enabled: true,
+		autoKeyTargetKeys: [],
+		activeClipId: "clip-1",
+		clips: [
+			{
+				id: "clip-1",
+				name: "Editable Keys",
+				fps: 24,
+				startFrame: 1,
+				durationFrames: 24,
+				playbackStartFrame: 1,
+				playbackEndFrame: 24,
+				bindings: [
+					{
+						id: "camera-binding",
+						target: { kind: "shot-camera", id: "shot-camera-1" },
+						tracks: [
+							{
+								path: "transform.position.x",
+								keys: [
+									{ frame: 1, value: 0 },
+									{ frame: 10, value: 9 },
+								],
+							},
+							{
+								path: "lens.baseFovX",
+								keys: [{ frame: 10, value: 70 }],
+							},
+						],
+					},
+					{
+						id: "asset-binding",
+						target: { kind: "scene-asset", id: 1 },
+						tracks: [
+							{
+								path: "transform.position.y",
+								keys: [{ frame: 10, value: 4 }],
+							},
+							{
+								path: "transform.worldScale",
+								keys: [{ frame: 10, value: 2 }],
+							},
+						],
+					},
+				],
+			},
+		],
+	});
+	const editCamera = new THREE.PerspectiveCamera();
+	const editAssetObject = new THREE.Object3D();
+	const editAsset = {
+		id: 1,
+		kind: "model",
+		worldScale: 1,
+		object: editAssetObject,
+	};
+	const editController = createAnimationController({
+		store: editStore,
+		state: { baseFovX: 50 },
+		shotCameraRegistry: new Map([
+			["shot-camera-1", { id: "shot-camera-1", camera: editCamera }],
+		]),
+		getShotCameraDocument: () => ({
+			id: "shot-camera-1",
+			lens: { baseFovX: 50, shiftX: 0, shiftY: 0 },
+		}),
+		getAssetController: () => ({
+			getSceneAssets: () => [editAsset],
+			getSceneAsset: (assetId: number | string) =>
+				String(assetId) === "1" ? editAsset : null,
+			applyAssetWorldScale: () => {},
+		}),
+		syncShotProjection: () => {},
+		applyCameraViewProjection: () => {},
+		syncOutputCamera: () => {},
+		updateCameraSummary: () => {},
+		updateUi: () => {},
+	});
+	assert.equal(
+		editController.selectTimelineKeyFrame(
+			{ kind: "shot-camera", id: "shot-camera-1" },
+			10,
+		),
+		true,
+	);
+	assert.deepEqual(editStore.animation.selectedKeyIds.value, [
+		"camera-binding:transform.position.x:10",
+		"camera-binding:lens.baseFovX:10",
+	]);
+	assert.equal(editController.hasSelectedTimelineKeys(), true);
+	assert.equal(editController.copySelectedTimelineKeys(), true);
+	assert.equal(editController.hasTimelineKeyClipboard(), true);
+	assert.equal(editController.pasteTimelineKeys({ frame: 12 }), true);
+	const editableCameraBinding =
+		editStore.animation.document.value.clips[0].bindings.find(
+			(binding) => binding.id === "camera-binding",
+		);
+	assert.deepEqual(
+		editableCameraBinding.tracks
+			.find((track) => track.path === "transform.position.x")
+			.keys.map((key) => [key.frame, key.value]),
+		[
+			[1, 0],
+			[10, 9],
+			[12, 9],
+		],
+	);
+	assert.deepEqual(
+		editableCameraBinding.tracks
+			.find((track) => track.path === "lens.baseFovX")
+			.keys.map((key) => [key.frame, key.value]),
+		[
+			[10, 70],
+			[12, 70],
+		],
+	);
+	assert.equal(editController.deleteSelectedTimelineKeys(), true);
+	const deletedCameraBinding =
+		editStore.animation.document.value.clips[0].bindings.find(
+			(binding) => binding.id === "camera-binding",
+		);
+	assert.deepEqual(
+		deletedCameraBinding.tracks
+			.find((track) => track.path === "transform.position.x")
+			.keys.map((key) => [key.frame, key.value]),
+		[
+			[1, 0],
+			[10, 9],
+		],
+	);
+	assert.equal(
+		editController.selectTimelineKeyFrame(
+			{ kind: "shot-camera", id: "shot-camera-1" },
+			10,
+		),
+		true,
+	);
+	assert.equal(
+		editController.selectTimelineKeyFrame({ kind: "scene-asset", id: 1 }, 10, {
+			additive: true,
+		}),
+		true,
+	);
+	assert.equal(editController.moveSelectedTimelineKeysBy(2), true);
+	const movedCameraBinding =
+		editStore.animation.document.value.clips[0].bindings.find(
+			(binding) => binding.id === "camera-binding",
+		);
+	const movedAssetBinding =
+		editStore.animation.document.value.clips[0].bindings.find(
+			(binding) => binding.id === "asset-binding",
+		);
+	assert.deepEqual(
+		movedCameraBinding.tracks
+			.find((track) => track.path === "transform.position.x")
+			.keys.map((key) => [key.frame, key.value]),
+		[
+			[1, 0],
+			[12, 9],
+		],
+	);
+	assert.deepEqual(
+		movedAssetBinding.tracks
+			.find((track) => track.path === "transform.position.y")
+			.keys.map((key) => [key.frame, key.value]),
+		[[12, 4]],
+	);
+	assert.deepEqual(editStore.animation.selectedKeyIds.value.sort(), [
+		"asset-binding:transform.position.y:12",
+		"asset-binding:transform.worldScale:12",
+		"camera-binding:lens.baseFovX:12",
+		"camera-binding:transform.position.x:12",
+	]);
+}
+
+{
+	const timingStore = createStore({
+		version: 1,
+		enabled: true,
+		autoKeyTargetKeys: [],
+		activeClipId: "clip-1",
+		clips: [
+			{
+				id: "clip-1",
+				name: "Timing Keys",
+				fps: 24,
+				startFrame: 1,
+				durationFrames: 24,
+				playbackStartFrame: 1,
+				playbackEndFrame: 24,
+				bindings: [
+					{
+						id: "camera-binding",
+						target: { kind: "shot-camera", id: "shot-camera-1" },
+						tracks: [
+							{
+								path: "transform.position.x",
+								keys: [
+									{ frame: 1, value: 0 },
+									{ frame: 10, value: 9 },
+								],
+							},
+						],
+					},
+				],
+			},
+		],
+	});
+	const timingCamera = new THREE.PerspectiveCamera();
+	const timingController = createAnimationController({
+		store: timingStore,
+		state: { baseFovX: 50 },
+		shotCameraRegistry: new Map([
+			["shot-camera-1", { id: "shot-camera-1", camera: timingCamera }],
+		]),
+		getShotCameraDocument: () => ({
+			id: "shot-camera-1",
+			lens: { baseFovX: 50, shiftX: 0, shiftY: 0 },
+		}),
+		getAssetController: () => ({
+			getSceneAssets: () => [],
+			getSceneAsset: () => null,
+			applyAssetWorldScale: () => {},
+		}),
+		syncShotProjection: () => {},
+		applyCameraViewProjection: () => {},
+		syncOutputCamera: () => {},
+		updateCameraSummary: () => {},
+		updateUi: () => {},
+	});
+	assert.deepEqual(timingController.getTimelineKeyFrames(), [1, 10]);
+	timingController.setTimelineFrame(5);
+	assert.ok(timingCamera.position.x > 3 && timingCamera.position.x < 5);
+	assert.equal(timingController.jumpTimelineToPreviousKey(), true);
+	assert.equal(timingStore.animation.timelineFrame.value, 1);
+	assert.equal(timingController.jumpTimelineToNextKey(), true);
+	assert.equal(timingStore.animation.timelineFrame.value, 10);
+	assert.equal(
+		timingController.selectTimelineKeyFrame(
+			{ kind: "shot-camera", id: "shot-camera-1" },
+			1,
+		),
+		true,
+	);
+	assert.equal(
+		timingController.getSelectedTimelineKeyInterpolation(),
+		"linear",
+	);
+	assert.equal(
+		timingController.setSelectedTimelineKeyInterpolation("hold"),
+		true,
+	);
+	assert.equal(timingController.getSelectedTimelineKeyInterpolation(), "hold");
+	timingController.setTimelineFrame(5);
+	assert.equal(timingCamera.position.x, 0);
+	assert.deepEqual(timingController.getCurrentTimelineKeyStatus(1), {
+		frame: 1,
+		hasKey: true,
+		targetCount: 1,
+		keyedTargetCount: 1,
+		keyCount: 1,
+		interpolation: "hold",
+	});
+	assert.equal(
+		timingController.setSelectedTimelineKeyInterpolation("linear"),
+		true,
+	);
+	timingController.setTimelineFrame(5);
+	assert.ok(timingCamera.position.x > 3 && timingCamera.position.x < 5);
+	assert.equal(
+		timingController.selectTimelineKeyFrame(
+			{ kind: "shot-camera", id: "shot-camera-1" },
+			10,
+			{ additive: true },
+		),
+		true,
+	);
+	assert.equal(timingController.scaleSelectedTimelineKeys(2), true);
+	const timingTrack =
+		timingStore.animation.document.value.clips[0].bindings[0].tracks[0];
+	assert.deepEqual(
+		timingTrack.keys.map((key) => [key.frame, key.value]),
+		[
+			[1, 0],
+			[19, 9],
+		],
+	);
+	assert.deepEqual(timingController.getTimelineKeyFrames(), [1, 19]);
+}
+
 const twoKeyStore = createStore({
 	version: 1,
 	enabled: true,

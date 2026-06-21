@@ -388,6 +388,10 @@ Auto Key は全体スイッチではなく target 単位の状態として扱う
 - タイムラインの track row は key がある target に加えて、現在の active camera / selected scene assets / Auto Key 対象を表示する
 - track row の Auto Key アイコンで camera / mesh / splat ごとに ON/OFF できる
 - Auto Key が ON の target だけが、現在フレームでの数値編集や transform drag を key 更新へ routing される
+- タイムライン上の key は target row + frame 単位で選択し、同じ frame にある transform / lens track の key 群をまとめて移動 / コピー / 貼り付け / 削除できる
+- key の貼り付けは現在フレームを基準にし、複数 key の相対 frame 間隔を保つ。貼り付け先または移動先に同じ target / track / frame の key がある場合は編集側で上書きする
+- 選択 key は `Linear` / `Hold` の補間を切り替えられる。Graph Editor は現 baseline では持たず、補間切替はタイムライン上の軽量編集として扱う
+- タイムラインは前後 key へのジャンプ、選択 key の時間スケール、現在フレームに key があるかの状態表示、track row の key あり / focus target / Auto Key filter を持つ
 
 per-splat edit の current contract:
 
@@ -412,7 +416,7 @@ per-splat edit の current contract:
 - export は shot camera ごとの `exportSettings` を使う
 - `current` mode の静止画書き出しは現在の timeline frame の見た目を出力する
 - `sequence` mode は animation clip の全デュレーション、または camera / scene asset のいずれかに key がある frame だけを PNG / PSD 連番として ZIP にまとめる。UI で sequence に切り替えた直後の frame source は keyframe-only とする
-- `video` mode は animation clip の frame 群を WebM として書き出す。動画では PSD layer / hidden mask document は生成せず、PNG 相当の composite frame を Mediabunny + WebCodecs で encode / mux する。UI で video に切り替えた直後の frame source は full duration とし、各 frame の timestamp / duration は clip fps を基準にしてレンダー待ち時間を含めない。`MediaRecorder` / realtime canvas capture は video export の正式経路にしない
+- `video` mode は animation clip の frame 群を WebM として書き出す。動画では PSD layer / hidden mask document / asset mask pass は生成せず、動画専用の composite-only frame を Mediabunny + WebCodecs で encode / mux する。UI で video に切り替えた直後の frame source は full duration とし、各 frame の timestamp / duration は clip fps を基準にしてレンダー待ち時間を含めない。`MediaRecorder` / realtime canvas capture は video export の正式経路にしない
 - sequence / video export の対象 frame は timeline animation の shot camera pose / lens と scene asset object transform を評価する。Output Frame / FRAME / reference image はアニメーション対象にしない
 - export progress overlay はキャンセル操作を提供する。キャンセル後は次 frame / 次 camera へ進まず、ZIP / WebM / PNG / PSD download を作らず、export busy state を解除する
 

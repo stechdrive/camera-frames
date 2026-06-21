@@ -47,6 +47,7 @@ import {
 	buildSceneAssetExportMetadata,
 	getShotCameraExportSettings,
 } from "./targets.js";
+import { renderVideoFrameSnapshotSession } from "./video-snapshot.js";
 
 function createDefaultGuideRenderTarget(width, height) {
 	return new THREE.WebGLRenderTarget(width, height, {
@@ -99,6 +100,7 @@ export function createExportOutputRuntime(
 		withOutputSnapshotSessionFn = withOutputSnapshotSession,
 		createSnapshotPhaseTrackerFn = createSnapshotPhaseTracker,
 		renderOutputSnapshotSessionFn = renderOutputSnapshotSession,
+		renderVideoFrameSnapshotSessionFn = renderVideoFrameSnapshotSession,
 		renderModelLayerDocumentsFn = renderModelLayerDocumentsHelper,
 		renderSplatLayerDocumentsFn = renderSplatLayerDocumentsHelper,
 		renderReferenceImageLayersForShotCameraFn = renderReferenceImageLayersForShotCamera,
@@ -389,6 +391,103 @@ export function createExportOutputRuntime(
 		);
 	}
 
+	async function renderVideoFrameSnapshotForShotCamera(
+		shotCameraId,
+		{
+			onProgress = null,
+			timelineFrame = null,
+			readinessPolicy: renderReadinessPolicy = null,
+		} = {},
+	) {
+		return withSnapshotSession(
+			shotCameraId,
+			{
+				timelineFrame,
+				exportSettingsOverride: {
+					exportFormat: "webm",
+					exportModelLayers: false,
+					exportSplatLayers: false,
+				},
+			},
+			async ({
+				targetDocument,
+				targetExportSettings,
+				outputCamera,
+				width,
+				height,
+				renderableSceneAssets,
+				sceneAssets,
+				backgroundCanvas,
+				passPlan,
+				readinessPolicy: sessionReadinessPolicy,
+			}) => {
+				const previousReadinessPolicy = activeReadinessPolicy;
+				activeReadinessPolicy = mergeReadinessPolicy(
+					sessionReadinessPolicy,
+					readinessPolicyOverride,
+				);
+				activeReadinessPolicy = mergeReadinessPolicy(
+					activeReadinessPolicy,
+					renderReadinessPolicy,
+				);
+				try {
+					const videoPassPlan = {
+						...passPlan,
+						masks: [],
+					};
+					const videoExportSettings = {
+						...targetExportSettings,
+						exportFormat: "webm",
+						exportModelLayers: false,
+						exportSplatLayers: false,
+					};
+					const snapshot = await renderVideoFrameSnapshotSessionFn(
+						{
+							scene,
+							targetDocument,
+							targetExportSettings: videoExportSettings,
+							outputCamera,
+							width,
+							height,
+							renderableSceneAssets,
+							sceneAssets,
+							backgroundCanvas,
+							referenceImageDocument: store.referenceImages.document.value,
+							referenceImagesExportSessionEnabled:
+								store.referenceImages.exportSessionEnabled.value,
+							t,
+						},
+						{
+							phaseTracker: createSnapshotPhaseTrackerFn(
+								{
+									targetExportSettings: videoExportSettings,
+									passPlan: videoPassPlan,
+									includeReferenceImages:
+										store.referenceImages.exportSessionEnabled.value !== false,
+									onProgress,
+									t,
+								},
+								{
+									getPhaseDefinitions: getExportPhaseDefinitionsFn,
+									getPhaseDefaultDetail: getExportPhaseDefaultDetailFn,
+								},
+							),
+							renderConfiguredSceneCapture,
+							clonePixels: clonePixelBuffer,
+							renderGuideLayerPixels,
+							renderReferenceImageLayersForShotCamera:
+								renderReferenceImageLayersForShotCameraFn,
+						},
+					);
+					lastExportReadiness = snapshot?.readiness ?? null;
+					return snapshot;
+				} finally {
+					activeReadinessPolicy = previousReadinessPolicy;
+				}
+			},
+		);
+	}
+
 	function isRenderLocked() {
 		return exportRenderLock;
 	}
@@ -411,6 +510,7 @@ export function createExportOutputRuntime(
 
 	return {
 		renderOutputSnapshotForShotCamera,
+		renderVideoFrameSnapshotForShotCamera,
 		isRenderLocked,
 		setReadinessPolicyOverride,
 		getReadinessPolicyOverride,

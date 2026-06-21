@@ -168,6 +168,7 @@ export function createExportDownloadFacade({
 	getVideoExportFps = () => 24,
 	isVideoExportSupported = () => false,
 	renderSnapshot,
+	renderVideoFrameSnapshot = null,
 	downloadPngFromSnapshot,
 	downloadPsdFromSnapshot,
 	createPngBlobFromSnapshot,
@@ -176,6 +177,7 @@ export function createExportDownloadFacade({
 	downloadBlob,
 	createWebmFromFrameRenderer,
 	renderCompositeOutputCanvas,
+	renderVideoCompositeOutputCanvas = null,
 	drawFramesToContext,
 	previewContextError,
 	buildFilename,
@@ -368,6 +370,14 @@ export function createExportDownloadFacade({
 					() => "webm",
 					buildFilename,
 				);
+				const renderVideoSnapshot =
+					typeof renderVideoFrameSnapshot === "function"
+						? renderVideoFrameSnapshot
+						: renderSnapshot;
+				const renderVideoComposite =
+					typeof renderVideoCompositeOutputCanvas === "function"
+						? renderVideoCompositeOutputCanvas
+						: renderCompositeOutputCanvas;
 				return runVideoExportFn({
 					targetDocuments,
 					frames: animationFrames,
@@ -380,17 +390,21 @@ export function createExportDownloadFacade({
 						_targets,
 						onProgress,
 					) =>
-						renderSnapshot(documentState.id, {
+						renderVideoSnapshot(documentState.id, {
 							timelineFrame,
 							onProgress,
-							exportSettingsOverride: {
-								exportFormat: "png",
-								exportModelLayers: false,
-								exportSplatLayers: false,
-							},
+							...(renderVideoSnapshot === renderSnapshot
+								? {
+										exportSettingsOverride: {
+											exportFormat: "png",
+											exportModelLayers: false,
+											exportSplatLayers: false,
+										},
+									}
+								: {}),
 						}),
 					renderVideoFrame: (documentState, snapshot) =>
-						renderCompositeOutputCanvas(snapshot, documentState.frames ?? [], {
+						renderVideoComposite(snapshot, documentState.frames ?? [], {
 							drawFramesToContext,
 							previewContextError,
 						}),

@@ -171,7 +171,7 @@
 - shot camera ごとに export settings を持つ
 - export run ごとに `Include Reference Images` を切り替えられる
 - 静止画は現在の timeline frame、連番 / 動画は animation clip の全デュレーションまたは keyframe のある frame 群を出す。連番に切り替えた直後は keyframe のある frame 群、動画に切り替えた直後は全デュレーションを初期値にする
-- 連番は PNG / PSD を ZIP にまとめ、動画は PSD layer / hidden mask document を作らず PNG 相当の composite frame を Mediabunny + WebCodecs で WebM に encode / mux する
+- 連番は PNG / PSD を ZIP にまとめ、動画は PSD layer / hidden mask document / asset mask pass を作らず、動画専用の composite-only frame を Mediabunny + WebCodecs で WebM に encode / mux する
 - WebM の frame timestamp / duration は clip fps を基準にし、frame ごとの render 待ち時間を動画尺に混ぜない。`MediaRecorder` の realtime capture は動画書き出し経路にしない
 - export progress overlay からキャンセルでき、キャンセル後は次 frame / 次 camera へ進まず download を作成しない
 - PNG / PSD / WebM とも preview 側の output frame 契約に沿って出す
@@ -198,6 +198,9 @@ PSD export の主な構成:
 - `キーを追加` は key を作成できた target だけを Auto Key 対象にする
 - Auto Key は camera / mesh / splat の target 単位で保持し、タイムライン track row のキーアイコンで ON/OFF を確認・切替できる
 - Auto Key が ON の target だけが、現在フレームでの数値編集や transform drag を key 更新へ routing される
+- タイムライン上の key は target row + frame 単位で選択し、ドラッグ移動、コピー、現在フレームへの貼り付け、削除ができる
+- 選択 key の補間を `Linear` / `Hold` で切り替えられる。Graph Editor は未提供
+- 前後 key へのジャンプ、選択 key の時間スケール、現在フレームの key 状態表示、track row filter を持つ
 
 ## 3. 旧 CAMERA_FRAMES と混同しない点
 

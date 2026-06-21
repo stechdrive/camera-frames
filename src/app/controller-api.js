@@ -115,6 +115,38 @@ export function createControllerApi({
 			animationController?.toggleAutoKeyForTarget?.(...args),
 		setAnimationKeyTargetMode: (...args) =>
 			animationController?.setAnimationKeyTargetMode?.(...args),
+		selectTimelineKeyFrame: (...args) =>
+			animationController?.selectTimelineKeyFrame?.(...args),
+		clearTimelineKeySelection: (...args) =>
+			animationController?.clearTimelineKeySelection?.(...args),
+		hasSelectedTimelineKeys: (...args) =>
+			animationController?.hasSelectedTimelineKeys?.(...args),
+		hasTimelineKeyClipboard: (...args) =>
+			animationController?.hasTimelineKeyClipboard?.(...args),
+		getTimelineKeyFrames: (...args) =>
+			animationController?.getTimelineKeyFrames?.(...args),
+		jumpTimelineToPreviousKey: (...args) =>
+			animationController?.jumpTimelineToPreviousKey?.(...args),
+		jumpTimelineToNextKey: (...args) =>
+			animationController?.jumpTimelineToNextKey?.(...args),
+		getSelectedTimelineKeyInterpolation: (...args) =>
+			animationController?.getSelectedTimelineKeyInterpolation?.(...args),
+		setSelectedTimelineKeyInterpolation: (...args) =>
+			animationController?.setSelectedTimelineKeyInterpolation?.(...args),
+		scaleSelectedTimelineKeys: (...args) =>
+			animationController?.scaleSelectedTimelineKeys?.(...args),
+		getCurrentTimelineKeyStatus: (...args) =>
+			animationController?.getCurrentTimelineKeyStatus?.(...args),
+		moveSelectedTimelineKeysBy: (...args) =>
+			animationController?.moveSelectedTimelineKeysBy?.(...args),
+		moveTimelineKeyFrame: (...args) =>
+			animationController?.moveTimelineKeyFrame?.(...args),
+		copySelectedTimelineKeys: (...args) =>
+			animationController?.copySelectedTimelineKeys?.(...args),
+		pasteTimelineKeys: (...args) =>
+			animationController?.pasteTimelineKeys?.(...args),
+		deleteSelectedTimelineKeys: (...args) =>
+			animationController?.deleteSelectedTimelineKeys?.(...args),
 		insertKeyForSelection: (...args) =>
 			animationController?.insertKeyForSelection?.(...args),
 		playTimeline: (...args) => animationController?.playTimeline?.(...args),

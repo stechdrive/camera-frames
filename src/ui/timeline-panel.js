@@ -14,6 +14,16 @@ const TIMELINE_WHEEL_ZOOM_FACTOR = 1.2;
 const KEY_TARGET_CAMERA = "camera";
 const KEY_TARGET_OBJECTS = "objects";
 const KEY_TARGET_BOTH = "both";
+const ROW_FILTER_ALL = "all";
+const ROW_FILTER_KEYED = "keyed";
+const ROW_FILTER_FOCUS = "focus";
+const ROW_FILTER_AUTOKEY = "autokey";
+const ROW_FILTERS = [
+	ROW_FILTER_ALL,
+	ROW_FILTER_KEYED,
+	ROW_FILTER_FOCUS,
+	ROW_FILTER_AUTOKEY,
+];
 
 function clampNumber(value, fallback = 0) {
 	const nextValue = Number(value);
@@ -154,6 +164,31 @@ function collectBindingKeyFrames(binding) {
 	return [...frames].sort((left, right) => left - right);
 }
 
+function isTimelineKeyFrameSelected(row, frame, selectedKeyIds) {
+	if (!row.bindingId || !Array.isArray(selectedKeyIds)) {
+		return false;
+	}
+	const prefix = `${row.bindingId}:`;
+	const suffix = `:${Math.round(Number(frame) || 0)}`;
+	return selectedKeyIds.some(
+		(keyId) =>
+			String(keyId).startsWith(prefix) && String(keyId).endsWith(suffix),
+	);
+}
+
+function isTimelineKeyboardInputTarget(target) {
+	const element =
+		typeof Element !== "undefined" && target instanceof Element ? target : null;
+	if (!element) {
+		return false;
+	}
+	if (element.closest("[contenteditable='true']")) {
+		return true;
+	}
+	const tagName = element.tagName.toLowerCase();
+	return tagName === "input" || tagName === "textarea" || tagName === "select";
+}
+
 function buildTimelineRows({
 	clip,
 	shotCameras = [],
@@ -169,6 +204,7 @@ function buildTimelineRows({
 		target,
 		label = "",
 		typeLabel = "",
+		bindingId = null,
 		keyFrames = [],
 		candidate = false,
 	}) => {
@@ -185,6 +221,7 @@ function buildTimelineRows({
 				kind: target.kind,
 				id: String(target.id),
 			},
+			bindingId: bindingId || existing?.bindingId || null,
 			kind: target.kind,
 			icon: target.kind === ANIMATION_TARGET_SHOT_CAMERA ? "camera" : "scene",
 			label:
@@ -207,6 +244,7 @@ function buildTimelineRows({
 		};
 		upsertTarget({
 			target,
+			bindingId: binding.id,
 			label: getTimelineTargetLabel(
 				target,
 				shotCameras,
@@ -321,6 +359,77 @@ function buildKeyTargetState({ store, t }) {
 	};
 }
 
+function isFocusedTimelineRow(row, activeShotCameraId, selectedAssetIds) {
+	if (row.kind === ANIMATION_TARGET_SHOT_CAMERA) {
+		return String(row.target.id) === String(activeShotCameraId ?? "");
+	}
+	return (selectedAssetIds ?? []).some(
+		(assetId) => String(assetId) === String(row.target.id),
+	);
+}
+
+function filterTimelineRows({
+	rows,
+	filterMode,
+	query,
+	activeShotCameraId,
+	selectedAssetIds,
+}) {
+	const normalizedMode = ROW_FILTERS.includes(filterMode)
+		? filterMode
+		: ROW_FILTER_ALL;
+	const normalizedQuery = String(query ?? "")
+		.trim()
+		.toLowerCase();
+	return rows.filter((row) => {
+		if (
+			normalizedMode === ROW_FILTER_KEYED &&
+			(row.keyFrames ?? []).length === 0
+		) {
+			return false;
+		}
+		if (normalizedMode === ROW_FILTER_AUTOKEY && !row.autoKey) {
+			return false;
+		}
+		if (
+			normalizedMode === ROW_FILTER_FOCUS &&
+			!isFocusedTimelineRow(row, activeShotCameraId, selectedAssetIds)
+		) {
+			return false;
+		}
+		if (!normalizedQuery) {
+			return true;
+		}
+		return `${row.label} ${row.typeLabel}`
+			.toLowerCase()
+			.includes(normalizedQuery);
+	});
+}
+
+function TimelineSegmentButton({
+	value,
+	activeValue,
+	label,
+	disabled = false,
+	onClick,
+}) {
+	return html`
+		<button
+			type="button"
+			class=${
+				activeValue === value
+					? "timeline-segmented__button is-active"
+					: "timeline-segmented__button"
+			}
+			aria-pressed=${activeValue === value}
+			disabled=${disabled}
+			onClick=${() => onClick?.(value)}
+		>
+			${label}
+		</button>
+	`;
+}
+
 function TimelineKeyTargetButton({
 	mode,
 	activeMode,
@@ -378,25 +487,52 @@ function TimelineNumberField({
 	`;
 }
 
-function TimelineKey({ frame, clip }) {
+function TimelineKey({
+	frame,
+	clip,
+	row,
+	selected = false,
+	onPointerDown,
+	onPointerMove,
+	onPointerUp,
+	onPointerCancel,
+}) {
 	const startFrame = clip.startFrame;
 	const durationFrames = Math.max(1, clip.durationFrames);
 	const endFrame = startFrame + durationFrames - 1;
 	const inRange = frame >= startFrame && frame <= endFrame;
+	const classes = ["timeline-key"];
+	if (!inRange) {
+		classes.push("timeline-key--out");
+	}
+	if (selected) {
+		classes.push("is-selected");
+	}
 	return html`
-		<span
-			class=${inRange ? "timeline-key" : "timeline-key timeline-key--out"}
+		<button
+			type="button"
+			class=${classes.join(" ")}
 			style=${{ left: getTimelineLeftCss(frame, startFrame, endFrame) }}
+			aria-pressed=${selected}
 			title=${formatFrame(frame)}
-		></span>
+			onPointerDown=${(event) => onPointerDown?.(event, row, frame, selected)}
+			onPointerMove=${onPointerMove}
+			onPointerUp=${onPointerUp}
+			onPointerCancel=${onPointerCancel}
+		></button>
 	`;
 }
 
 export function TimelinePanel({ store, controller, t = (key) => key }) {
+	const timelinePanelRef = useRef(null);
 	const timelineViewportRef = useRef(null);
 	const timelineContentRef = useRef(null);
 	const timelineScrubbingRef = useRef(false);
+	const timelineKeyDragRef = useRef(null);
 	const [timelineViewportWidth, setTimelineViewportWidth] = useState(0);
+	const [rowFilterMode, setRowFilterMode] = useState(ROW_FILTER_ALL);
+	const [rowSearchQuery, setRowSearchQuery] = useState("");
+	const [timeScalePercent, setTimeScalePercent] = useState("100");
 	const animation = store.animation;
 	const clip = animation.activeClip.value;
 	const panelOpen = animation.panelOpen.value;
@@ -404,6 +540,7 @@ export function TimelinePanel({ store, controller, t = (key) => key }) {
 	const endFrame = startFrame + clip.durationFrames - 1;
 	const currentFrame = clampNumber(animation.timelineFrame.value, startFrame);
 	const playheadLeft = getTimelineLeftCss(currentFrame, startFrame, endFrame);
+	const selectedKeyIds = animation.selectedKeyIds.value ?? [];
 	const timelineZoom = Math.min(
 		TIMELINE_ZOOM_MAX,
 		Math.max(TIMELINE_ZOOM_MIN, clampNumber(animation.zoom.value, 1)),
@@ -434,6 +571,23 @@ export function TimelinePanel({ store, controller, t = (key) => key }) {
 			t,
 		],
 	);
+	const filteredRows = useMemo(
+		() =>
+			filterTimelineRows({
+				rows,
+				filterMode: rowFilterMode,
+				query: rowSearchQuery,
+				activeShotCameraId: store.workspace.activeShotCameraId.value,
+				selectedAssetIds: store.selectedSceneAssetIds.value,
+			}),
+		[
+			rows,
+			rowFilterMode,
+			rowSearchQuery,
+			store.workspace.activeShotCameraId.value,
+			store.selectedSceneAssetIds.value,
+		],
+	);
 	const ticks = useMemo(
 		() =>
 			buildTimelineTicks({
@@ -444,6 +598,20 @@ export function TimelinePanel({ store, controller, t = (key) => key }) {
 		[startFrame, endFrame, timelineContentPixelWidth],
 	);
 	const keyTarget = buildKeyTargetState({ store, t });
+	const timelineController = controller?.();
+	const hasSelectedKeys =
+		selectedKeyIds.length > 0 &&
+		timelineController?.hasSelectedTimelineKeys?.() !== false;
+	const hasKeyClipboard =
+		timelineController?.hasTimelineKeyClipboard?.() === true;
+	const selectedInterpolation =
+		timelineController?.getSelectedTimelineKeyInterpolation?.() ?? null;
+	const currentKeyStatus =
+		timelineController?.getCurrentTimelineKeyStatus?.(currentFrame) ?? null;
+	const selectedKeyFrameCount =
+		timelineController?.getTimelineKeyFrames?.({ selectedOnly: true })
+			?.length ?? 0;
+	const canScaleSelectedKeys = selectedKeyFrameCount >= 2;
 
 	useEffect(() => {
 		const element = timelineViewportRef.current;
@@ -474,6 +642,10 @@ export function TimelinePanel({ store, controller, t = (key) => key }) {
 		return Math.round(startFrame + ratio * Math.max(0, endFrame - startFrame));
 	};
 
+	const focusTimelinePanel = () => {
+		timelinePanelRef.current?.focus?.({ preventScroll: true });
+	};
+
 	const seekTimelineAtPointer = (event) => {
 		event.preventDefault();
 		controller()?.setTimelineFrame?.(frameFromPointerEvent(event));
@@ -502,6 +674,7 @@ export function TimelinePanel({ store, controller, t = (key) => key }) {
 		if (event.button !== 0) {
 			return;
 		}
+		focusTimelinePanel();
 		timelineScrubbingRef.current = true;
 		try {
 			event.currentTarget.setPointerCapture?.(event.pointerId);
@@ -509,6 +682,75 @@ export function TimelinePanel({ store, controller, t = (key) => key }) {
 			// Pointer capture can fail for synthetic test events.
 		}
 		seekTimelineAtPointer(event);
+	};
+
+	const handleTimelineKeyPointerDown = (event, row, frame, selected) => {
+		if (event.button !== 0) {
+			return;
+		}
+		event.preventDefault();
+		event.stopPropagation();
+		focusTimelinePanel();
+		const toggleSelection = event.shiftKey || event.ctrlKey || event.metaKey;
+		if (!selected || toggleSelection) {
+			controller()?.selectTimelineKeyFrame?.(row.target, frame, {
+				additive: toggleSelection,
+				toggle: toggleSelection,
+			});
+		}
+		controller()?.setTimelineFrame?.(frame);
+		if (toggleSelection && selected) {
+			timelineKeyDragRef.current = null;
+			return;
+		}
+		timelineKeyDragRef.current = {
+			pointerId: event.pointerId,
+			startFrame: frame,
+			currentFrame: frame,
+			didDrag: false,
+		};
+		try {
+			event.currentTarget.setPointerCapture?.(event.pointerId);
+		} catch (_error) {
+			// Pointer capture can fail for synthetic test events.
+		}
+	};
+
+	const handleTimelineKeyPointerMove = (event) => {
+		const dragState = timelineKeyDragRef.current;
+		if (!dragState || dragState.pointerId !== event.pointerId) {
+			return;
+		}
+		event.preventDefault();
+		event.stopPropagation();
+		autoScrollTimelineForPointer(event);
+		const nextFrame = frameFromPointerEvent(event);
+		if (nextFrame === dragState.currentFrame) {
+			return;
+		}
+		dragState.currentFrame = nextFrame;
+		dragState.didDrag = dragState.didDrag || nextFrame !== dragState.startFrame;
+		controller()?.setTimelineFrame?.(nextFrame);
+	};
+
+	const endTimelineKeyDrag = (event) => {
+		const dragState = timelineKeyDragRef.current;
+		if (!dragState || dragState.pointerId !== event.pointerId) {
+			return;
+		}
+		event.preventDefault();
+		event.stopPropagation();
+		timelineKeyDragRef.current = null;
+		try {
+			event.currentTarget.releasePointerCapture?.(event.pointerId);
+		} catch (_error) {
+			// Best-effort release only.
+		}
+		if (dragState.didDrag) {
+			controller()?.moveSelectedTimelineKeysBy?.(
+				dragState.currentFrame - dragState.startFrame,
+			);
+		}
 	};
 
 	const handleTimelinePointerMove = (event) => {
@@ -573,6 +815,109 @@ export function TimelinePanel({ store, controller, t = (key) => key }) {
 		viewport.scrollLeft += delta;
 	};
 
+	const applyTimelineKeyScale = () => {
+		const factor = Number(timeScalePercent) / 100;
+		if (!Number.isFinite(factor) || factor <= 0) {
+			setTimeScalePercent("100");
+			return false;
+		}
+		return controller()?.scaleSelectedTimelineKeys?.(factor) === true;
+	};
+
+	const handleTimelineKeyDown = (event) => {
+		if (isTimelineKeyboardInputTarget(event.target)) {
+			return;
+		}
+		if (
+			event.code === "KeyI" &&
+			!event.altKey &&
+			!event.ctrlKey &&
+			!event.metaKey &&
+			!event.shiftKey
+		) {
+			if (controller()?.insertKeyForSelection?.()) {
+				event.preventDefault();
+				event.stopPropagation();
+			}
+			return;
+		}
+		if (
+			event.code === "Comma" &&
+			!event.altKey &&
+			!event.ctrlKey &&
+			!event.metaKey &&
+			!event.shiftKey
+		) {
+			if (controller()?.jumpTimelineToPreviousKey?.()) {
+				event.preventDefault();
+				event.stopPropagation();
+			}
+			return;
+		}
+		if (
+			event.code === "Period" &&
+			!event.altKey &&
+			!event.ctrlKey &&
+			!event.metaKey &&
+			!event.shiftKey
+		) {
+			if (controller()?.jumpTimelineToNextKey?.()) {
+				event.preventDefault();
+				event.stopPropagation();
+			}
+			return;
+		}
+		if (
+			(event.ctrlKey || event.metaKey) &&
+			!event.altKey &&
+			!event.shiftKey &&
+			event.code === "KeyC"
+		) {
+			if (controller()?.copySelectedTimelineKeys?.()) {
+				event.preventDefault();
+				event.stopPropagation();
+			}
+			return;
+		}
+		if (
+			(event.ctrlKey || event.metaKey) &&
+			!event.altKey &&
+			!event.shiftKey &&
+			event.code === "KeyV"
+		) {
+			if (controller()?.pasteTimelineKeys?.({ frame: currentFrame })) {
+				event.preventDefault();
+				event.stopPropagation();
+			}
+			return;
+		}
+		if (
+			(event.code === "Delete" || event.code === "Backspace") &&
+			!event.altKey &&
+			!event.ctrlKey &&
+			!event.metaKey &&
+			!event.shiftKey
+		) {
+			if (controller()?.deleteSelectedTimelineKeys?.()) {
+				event.preventDefault();
+				event.stopPropagation();
+			}
+			return;
+		}
+		if (
+			event.code === "Escape" &&
+			!event.altKey &&
+			!event.ctrlKey &&
+			!event.metaKey &&
+			!event.shiftKey
+		) {
+			if (controller()?.clearTimelineKeySelection?.()) {
+				event.preventDefault();
+				event.stopPropagation();
+			}
+		}
+	};
+
 	if (!panelOpen) {
 		return html`
 			<div class="timeline-rail">
@@ -590,7 +935,10 @@ export function TimelinePanel({ store, controller, t = (key) => key }) {
 
 	return html`
 		<section
+			ref=${timelinePanelRef}
 			class="timeline-panel is-enabled"
+			tabIndex="-1"
+			onKeyDown=${handleTimelineKeyDown}
 			style=${{ "--timeline-panel-height": `${animation.panelHeight.value}px` }}
 		>
 			<div class="timeline-panel__resize" aria-hidden="true"></div>
@@ -630,6 +978,20 @@ export function TimelinePanel({ store, controller, t = (key) => key }) {
 					compact=${true}
 					className="timeline-action--end"
 					onClick=${() => controller()?.jumpTimelineEnd?.()}
+				/>
+				<${IconButton}
+					icon="chevron-left"
+					label=${t("timeline.previousKey")}
+					compact=${true}
+					className="timeline-action--previous-key"
+					onClick=${() => controller()?.jumpTimelineToPreviousKey?.()}
+				/>
+				<${IconButton}
+					icon="chevron-right"
+					label=${t("timeline.nextKey")}
+					compact=${true}
+					className="timeline-action--next-key"
+					onClick=${() => controller()?.jumpTimelineToNextKey?.()}
 				/>
 				<${TimelineNumberField}
 					label=${t("timeline.frame")}
@@ -723,14 +1085,146 @@ export function TimelinePanel({ store, controller, t = (key) => key }) {
 					className="timeline-action--add-key"
 					onClick=${() => controller()?.insertKeyForSelection?.()}
 				/>
+				<${IconButton}
+					icon="duplicate"
+					label=${t("timeline.copyKeys")}
+					compact=${true}
+					disabled=${!hasSelectedKeys}
+					className="timeline-action--copy-keys"
+					onClick=${() => controller()?.copySelectedTimelineKeys?.()}
+				/>
+				<${IconButton}
+					icon="paste"
+					label=${t("timeline.pasteKeys")}
+					compact=${true}
+					disabled=${!hasKeyClipboard}
+					className="timeline-action--paste-keys"
+					onClick=${() =>
+						controller()?.pasteTimelineKeys?.({ frame: currentFrame })}
+				/>
+				<${IconButton}
+					icon="trash"
+					label=${t("timeline.deleteKeys")}
+					compact=${true}
+					disabled=${!hasSelectedKeys}
+					className="timeline-action--delete-keys"
+					onClick=${() => controller()?.deleteSelectedTimelineKeys?.()}
+				/>
+				<div class="timeline-key-status">
+					<span
+						class=${
+							currentKeyStatus?.hasKey
+								? "timeline-key-status__dot is-keyed"
+								: "timeline-key-status__dot"
+						}
+						aria-hidden="true"
+					></span>
+					<span>
+						${
+							currentKeyStatus?.hasKey
+								? t("timeline.currentFrameKeyed")
+								: t("timeline.currentFrameNoKey")
+						}
+					</span>
+				</div>
+				<div class="timeline-key-interpolation">
+					<span class="timeline-key-interpolation__label">
+						${t("timeline.interpolation")}
+					</span>
+					<div class="timeline-segmented">
+						<${TimelineSegmentButton}
+							value="linear"
+							activeValue=${selectedInterpolation}
+							label=${t("timeline.interpolationLinear")}
+							disabled=${!hasSelectedKeys}
+							onClick=${(value) =>
+								controller()?.setSelectedTimelineKeyInterpolation?.(value)}
+						/>
+						<${TimelineSegmentButton}
+							value="hold"
+							activeValue=${selectedInterpolation}
+							label=${t("timeline.interpolationHold")}
+							disabled=${!hasSelectedKeys}
+							onClick=${(value) =>
+								controller()?.setSelectedTimelineKeyInterpolation?.(value)}
+						/>
+					</div>
+				</div>
+				<label class="timeline-field timeline-field--scale">
+					<span>${t("timeline.keyScale")}</span>
+					<input
+						...${INTERACTIVE_FIELD_PROPS}
+						type="number"
+						min=${10}
+						max=${400}
+						step=${5}
+						value=${timeScalePercent}
+						disabled=${!canScaleSelectedKeys}
+						onInput=${(event) => setTimeScalePercent(event.currentTarget.value)}
+						onKeyDown=${(event) => {
+							if (event.key === "Enter") {
+								applyTimelineKeyScale();
+							}
+						}}
+					/>
+				</label>
+				<button
+					type="button"
+					class="timeline-apply-button timeline-action--scale-keys"
+					disabled=${!canScaleSelectedKeys}
+					onClick=${applyTimelineKeyScale}
+				>
+					${t("timeline.applyKeyScale")}
+				</button>
+				<div class="timeline-row-filter">
+					<div class="timeline-segmented timeline-segmented--filter">
+						<${TimelineSegmentButton}
+							value=${ROW_FILTER_ALL}
+							activeValue=${rowFilterMode}
+							label=${t("timeline.filterAll")}
+							onClick=${setRowFilterMode}
+						/>
+						<${TimelineSegmentButton}
+							value=${ROW_FILTER_KEYED}
+							activeValue=${rowFilterMode}
+							label=${t("timeline.filterKeyed")}
+							onClick=${setRowFilterMode}
+						/>
+						<${TimelineSegmentButton}
+							value=${ROW_FILTER_FOCUS}
+							activeValue=${rowFilterMode}
+							label=${t("timeline.filterFocus")}
+							onClick=${setRowFilterMode}
+						/>
+						<${TimelineSegmentButton}
+							value=${ROW_FILTER_AUTOKEY}
+							activeValue=${rowFilterMode}
+							label=${t("timeline.filterAuto")}
+							onClick=${setRowFilterMode}
+						/>
+					</div>
+					<input
+						...${INTERACTIVE_FIELD_PROPS}
+						class="timeline-row-filter__search"
+						type="search"
+						value=${rowSearchQuery}
+						placeholder=${t("timeline.filterSearch")}
+						onInput=${(event) => setRowSearchQuery(event.currentTarget.value)}
+					/>
+				</div>
 			</div>
 			<div class="timeline-body">
 				<div class="timeline-track-list">
-					<div class="timeline-track-list__header">${t("timeline.tracks")}</div>
+					<div class="timeline-track-list__header">
+						<span>${t("timeline.tracks")}</span>
+						<span class="timeline-track-list__count">
+							${filteredRows.length}/${rows.length}
+						</span>
+					</div>
 					${
-						rows.length === 0
+						filteredRows.length === 0
 							? html`<div class="timeline-empty">${t("timeline.noKeys")}</div>`
-							: rows.map(
+							: filteredRows.map(
 									(row) => html`
 										<div
 											key=${row.id}
@@ -824,9 +1318,9 @@ export function TimelinePanel({ store, controller, t = (key) => key }) {
 							style=${{ left: playheadLeft }}
 						></div>
 						${
-							rows.length === 0
+							filteredRows.length === 0
 								? html`<div class="timeline-dopesheet__empty"></div>`
-								: rows.map(
+								: filteredRows.map(
 										(row) => html`
 											<div key=${row.id} class="timeline-dopesheet-row">
 												${row.keyFrames.map(
@@ -835,6 +1329,16 @@ export function TimelinePanel({ store, controller, t = (key) => key }) {
 															key=${`${row.id}:${frame}`}
 															frame=${frame}
 															clip=${clip}
+															row=${row}
+															selected=${isTimelineKeyFrameSelected(
+																row,
+																frame,
+																selectedKeyIds,
+															)}
+															onPointerDown=${handleTimelineKeyPointerDown}
+															onPointerMove=${handleTimelineKeyPointerMove}
+															onPointerUp=${endTimelineKeyDrag}
+															onPointerCancel=${endTimelineKeyDrag}
 														/>`,
 												)}
 											</div>
