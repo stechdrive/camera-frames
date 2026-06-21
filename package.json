@@ -29,6 +29,7 @@
 		"@zip.js/zip.js": "^2.8.26",
 		"ag-psd": "^30.2.0",
 		"htm": "^3.1.1",
+		"mediabunny": "^1.49.0",
 		"playcanvas": "^2.19.7",
 		"preact": "^10.29.2",
 		"three": "^0.184.0"
