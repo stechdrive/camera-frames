@@ -74,6 +74,13 @@ function createKeyId(bindingId, path, frame) {
 	return `${bindingId}:${path}:${frame}`;
 }
 
+function createTargetKey(target) {
+	if (!target?.kind || target.id == null) {
+		return "";
+	}
+	return `${target.kind}:${String(target.id)}`;
+}
+
 export function createAnimationController({
 	store,
 	state = null,
@@ -93,6 +100,7 @@ export function createAnimationController({
 	const baseShotCameraStates = new Map();
 	const baseSceneAssetStates = new Map();
 	const evaluatedShotCameraLens = new Map();
+	const manuallyEditedRuntimeTargets = new Set();
 	let runtimeStateCaptured = false;
 	let runtimeEvaluated = false;
 	let playbackAccumulatorSeconds = 0;
@@ -278,6 +286,82 @@ export function createAnimationController({
 		return true;
 	}
 
+	function captureCurrentTargetRuntimeState(target) {
+		const targetKey = createTargetKey(target);
+		if (!targetKey) {
+			return false;
+		}
+		if (target.kind === ANIMATION_TARGET_SHOT_CAMERA) {
+			const entry = shotCameraRegistry.get(target.id);
+			if (!entry?.camera) {
+				return false;
+			}
+			const baseState = captureCameraRuntimeState(target.id, entry);
+			baseShotCameraStates.set(target.id, baseState);
+			evaluatedShotCameraLens.delete(target.id);
+			if (target.id === store.workspace.activeShotCameraId.value) {
+				store.animation.evaluatedLens.value = null;
+				if (state) {
+					state.baseFovX = baseState.lens.baseFovX;
+				}
+			}
+			return true;
+		}
+		if (target.kind === ANIMATION_TARGET_SCENE_ASSET) {
+			const asset = getSceneAssetByAnimationId(target.id);
+			if (!asset?.object) {
+				return false;
+			}
+			baseSceneAssetStates.set(
+				String(target.id),
+				captureAssetRuntimeState(asset),
+			);
+			return true;
+		}
+		return false;
+	}
+
+	function releaseRuntimeEvaluationForManualEdit({
+		targetKind = ANIMATION_TARGET_SHOT_CAMERA,
+		targetId = store.workspace.activeShotCameraId.value,
+	} = {}) {
+		if (
+			!runtimeEvaluated ||
+			store.animation.isPlaying.value ||
+			!isAnimationEnabled()
+		) {
+			return false;
+		}
+		ensureRuntimeStateCaptured();
+		const target = {
+			kind: targetKind,
+			id: String(targetId ?? ""),
+		};
+		const targetKey = createTargetKey(target);
+		const autoKeyEntries =
+			shouldHandleAutoKey() && target.kind === ANIMATION_TARGET_SHOT_CAMERA
+				? buildShotCameraKeyEntries(target.id)
+				: shouldHandleAutoKey() && target.kind === ANIMATION_TARGET_SCENE_ASSET
+					? buildSceneAssetKeyEntries(target.id)?.entries
+					: null;
+		if (!targetKey || !captureCurrentTargetRuntimeState(target)) {
+			return false;
+		}
+		manuallyEditedRuntimeTargets.add(targetKey);
+		if (autoKeyEntries) {
+			upsertKeyValues({
+				target,
+				entries: autoKeyEntries,
+				label:
+					target.kind === ANIMATION_TARGET_SHOT_CAMERA
+						? "animation.autokey.camera"
+						: "animation.autokey.asset",
+				applyFrame: false,
+			});
+		}
+		return true;
+	}
+
 	function getTrackSample(binding, path, timelineFrame, baseValue) {
 		const track = binding.tracks.find((candidate) => candidate.path === path);
 		return track
@@ -448,7 +532,7 @@ export function createAnimationController({
 	}
 
 	function isAnimationEnabled() {
-		return Boolean(getAnimationDocument().enabled);
+		return getAnimationDocument().enabled !== false;
 	}
 
 	function setAnimationDocument(nextDocument, { updateFrame = true } = {}) {
@@ -463,11 +547,20 @@ export function createAnimationController({
 		}
 	}
 
-	function updateAnimationDocument(label, updateDocument) {
-		runHistoryAction?.(label, () => {
+	function updateAnimationDocument(
+		label,
+		updateDocument,
+		{ history = true } = {},
+	) {
+		const applyChange = () => {
 			const nextDocument = updateDocument(getAnimationDocument());
 			setAnimationDocument(nextDocument);
-		});
+		};
+		if (history) {
+			runHistoryAction?.(label, applyChange);
+		} else {
+			applyChange();
+		}
 		updateUi();
 	}
 
@@ -477,75 +570,108 @@ export function createAnimationController({
 		value,
 		label = "animation.key",
 		frame = store.animation.timelineFrame.value,
+		applyFrame = true,
+	}) {
+		return upsertKeyValues({
+			target,
+			entries: [{ path, value }],
+			label,
+			frame,
+			applyFrame,
+		});
+	}
+
+	function upsertKeyValues({
+		target,
+		entries,
+		label = "animation.key",
+		frame = store.animation.timelineFrame.value,
+		applyFrame = true,
+		history = true,
 	}) {
 		const normalizedTarget = {
 			kind: target?.kind,
 			id: String(target?.id ?? ""),
 		};
-		if (
-			!normalizedTarget.id ||
-			!isAnimationTrackPathAllowed(normalizedTarget, path) ||
-			!Number.isFinite(Number(value))
-		) {
+		const normalizedEntries = (Array.isArray(entries) ? entries : [])
+			.map((entry) => ({
+				path: String(entry?.path ?? ""),
+				value: Number(entry?.value),
+			}))
+			.filter(
+				(entry) =>
+					isAnimationTrackPathAllowed(normalizedTarget, entry.path) &&
+					Number.isFinite(entry.value),
+			);
+		if (!normalizedTarget.id || normalizedEntries.length === 0) {
 			return false;
 		}
 		const keyFrame = Math.round(Number(frame));
-		updateAnimationDocument(label, (documentState) =>
-			updateActiveClip(documentState, (clip) => {
-				const bindingId = createBindingId(normalizedTarget);
-				const bindings = [...clip.bindings];
-				let bindingIndex = bindings.findIndex(
-					(binding) =>
-						binding.target.kind === normalizedTarget.kind &&
-						String(binding.target.id) === normalizedTarget.id,
-				);
-				if (bindingIndex < 0) {
-					bindings.push({
-						id: bindingId,
-						target: normalizedTarget,
-						labelCache: "",
-						tracks: [],
-					});
-					bindingIndex = bindings.length - 1;
-				}
-				const binding = { ...bindings[bindingIndex] };
-				const tracks = [...binding.tracks];
-				let trackIndex = tracks.findIndex((track) => track.path === path);
-				if (trackIndex < 0) {
-					tracks.push({
-						path,
-						valueType: "number",
-						interpolation: "linear",
-						keys: [],
-					});
-					trackIndex = tracks.length - 1;
-				}
-				const track = { ...tracks[trackIndex] };
-				const key = {
-					frame: keyFrame,
-					value: Number(value),
-				};
-				const nextKeys = [
-					...track.keys.filter((entry) => entry.frame !== keyFrame),
-					key,
-				].sort((left, right) => left.frame - right.frame);
-				tracks[trackIndex] = {
-					...track,
-					keys: nextKeys,
-				};
-				binding.tracks = tracks;
-				bindings[bindingIndex] = binding;
-				store.animation.selectedBindingId.value = binding.id;
-				store.animation.selectedKeyIds.value = [
-					createKeyId(binding.id, path, keyFrame),
-				];
-				return {
-					...clip,
-					bindings,
-				};
-			}),
+		updateAnimationDocument(
+			label,
+			(documentState) =>
+				updateActiveClip(documentState, (clip) => {
+					const bindingId = createBindingId(normalizedTarget);
+					const bindings = [...clip.bindings];
+					let bindingIndex = bindings.findIndex(
+						(binding) =>
+							binding.target.kind === normalizedTarget.kind &&
+							String(binding.target.id) === normalizedTarget.id,
+					);
+					if (bindingIndex < 0) {
+						bindings.push({
+							id: bindingId,
+							target: normalizedTarget,
+							labelCache: "",
+							tracks: [],
+						});
+						bindingIndex = bindings.length - 1;
+					}
+					const binding = { ...bindings[bindingIndex] };
+					const tracks = [...binding.tracks];
+					for (const entry of normalizedEntries) {
+						let trackIndex = tracks.findIndex(
+							(track) => track.path === entry.path,
+						);
+						if (trackIndex < 0) {
+							tracks.push({
+								path: entry.path,
+								valueType: "number",
+								interpolation: "linear",
+								keys: [],
+							});
+							trackIndex = tracks.length - 1;
+						}
+						const track = { ...tracks[trackIndex] };
+						const key = {
+							frame: keyFrame,
+							value: entry.value,
+						};
+						const nextKeys = [
+							...track.keys.filter((candidate) => candidate.frame !== keyFrame),
+							key,
+						].sort((left, right) => left.frame - right.frame);
+						tracks[trackIndex] = {
+							...track,
+							keys: nextKeys,
+						};
+					}
+					binding.tracks = tracks;
+					bindings[bindingIndex] = binding;
+					store.animation.selectedBindingId.value = binding.id;
+					store.animation.selectedKeyIds.value = normalizedEntries.map(
+						(entry) => createKeyId(binding.id, entry.path, keyFrame),
+					);
+					return {
+						...clip,
+						bindings,
+					};
+				}),
+			{ history },
 		);
-		applyCurrentFrame({ frame: keyFrame });
+		if (applyFrame) {
+			applyCurrentFrame({ frame: keyFrame });
+		}
 		return true;
 	}
 
@@ -610,15 +736,19 @@ export function createAnimationController({
 		return true;
 	}
 
-	function setAnimationEnabled(nextEnabled) {
+	function setAnimationEnabled(_nextEnabled) {
+		if (isAnimationEnabled()) {
+			return true;
+		}
 		updateAnimationDocument("animation.enabled", (documentState) => ({
 			...documentState,
-			enabled: Boolean(nextEnabled),
+			enabled: true,
 		}));
+		return true;
 	}
 
 	function toggleAnimationEnabled() {
-		setAnimationEnabled(!isAnimationEnabled());
+		return setAnimationEnabled(true);
 	}
 
 	function setTimelinePanelOpen(nextOpen) {
@@ -679,6 +809,8 @@ export function createAnimationController({
 
 	function setAnimationAutoKey(nextEnabled) {
 		store.animation.autoKey.value = Boolean(nextEnabled);
+		updateUi?.();
+		return store.animation.autoKey.value;
 	}
 
 	function setAnimationKeyTargetMode(nextMode) {
@@ -687,7 +819,7 @@ export function createAnimationController({
 	}
 
 	function shouldHandleAutoKey() {
-		return isAnimationEnabled() && store.animation.autoKey.value === true;
+		return store.animation.autoKey.value === true;
 	}
 
 	function setShotCameraPositionKey(axis, nextValue) {
@@ -796,50 +928,88 @@ export function createAnimationController({
 		});
 	}
 
-	function insertShotCameraKey(
-		shotCameraId = store.workspace.activeShotCameraId.value,
-	) {
+	function getCurrentShotCameraLensValues(shotCameraId) {
+		const documentLens = getShotCameraDocument(shotCameraId)?.lens ?? {};
+		const evaluatedLens = getEvaluatedLensForShotCamera(shotCameraId);
+		if (evaluatedLens) {
+			return evaluatedLens;
+		}
+		const isActiveShotCamera =
+			String(shotCameraId) ===
+			String(store.workspace.activeShotCameraId.value ?? "");
+		const activeShiftX = Number(store.shotCamera?.lensShiftX?.value);
+		const activeShiftY = Number(store.shotCamera?.lensShiftY?.value);
+		return {
+			baseFovX:
+				isActiveShotCamera && Number.isFinite(Number(state?.baseFovX))
+					? Number(state.baseFovX)
+					: documentLens.baseFovX,
+			shiftX:
+				isActiveShotCamera && Number.isFinite(activeShiftX)
+					? activeShiftX
+					: documentLens.shiftX,
+			shiftY:
+				isActiveShotCamera && Number.isFinite(activeShiftY)
+					? activeShiftY
+					: documentLens.shiftY,
+		};
+	}
+
+	function buildShotCameraKeyEntries(shotCameraId) {
 		const entry = shotCameraRegistry.get(shotCameraId);
 		if (!entry?.camera) {
-			return false;
+			return null;
 		}
 		const angles = decomposeCameraPoseAngles({
 			quaternion: entry.camera.quaternion,
 			axisLocal: CAMERA_AXIS_LOCAL,
 		});
-		const lens =
-			getEvaluatedLensForShotCamera(shotCameraId) ??
-			getShotCameraDocument(shotCameraId)?.lens ??
-			{};
-		const target = {
-			kind: ANIMATION_TARGET_SHOT_CAMERA,
-			id: shotCameraId,
-		};
-		for (const [path, value] of [
-			["transform.position.x", entry.camera.position.x],
-			["transform.position.y", entry.camera.position.y],
-			["transform.position.z", entry.camera.position.z],
-			["transform.rotation.yawDeg", angles.yawDeg],
-			["transform.rotation.pitchDeg", angles.pitchDeg],
-			["transform.rotation.rollDeg", angles.rollDeg],
-			["lens.baseFovX", lens.baseFovX ?? state?.baseFovX ?? 60],
-			["lens.shiftX", lens.shiftX ?? 0],
-			["lens.shiftY", lens.shiftY ?? 0],
-		]) {
-			upsertKeyValue({
-				target,
-				path,
-				value,
-				label: "animation.key.camera",
-			});
-		}
-		return true;
+		const lens = getCurrentShotCameraLensValues(shotCameraId);
+		return [
+			{ path: "transform.position.x", value: entry.camera.position.x },
+			{ path: "transform.position.y", value: entry.camera.position.y },
+			{ path: "transform.position.z", value: entry.camera.position.z },
+			{ path: "transform.rotation.yawDeg", value: angles.yawDeg },
+			{ path: "transform.rotation.pitchDeg", value: angles.pitchDeg },
+			{ path: "transform.rotation.rollDeg", value: angles.rollDeg },
+			{
+				path: "lens.baseFovX",
+				value: lens.baseFovX ?? state?.baseFovX ?? 60,
+			},
+			{ path: "lens.shiftX", value: lens.shiftX ?? 0 },
+			{ path: "lens.shiftY", value: lens.shiftY ?? 0 },
+		];
 	}
 
-	function insertSceneAssetKey(assetId) {
+	function insertShotCameraKey(
+		shotCameraId = store.workspace.activeShotCameraId.value,
+		{
+			frame = store.animation.timelineFrame.value,
+			applyFrame = true,
+			history = true,
+		} = {},
+	) {
+		const entries = buildShotCameraKeyEntries(shotCameraId);
+		if (!entries) {
+			return false;
+		}
+		return upsertKeyValues({
+			target: {
+				kind: ANIMATION_TARGET_SHOT_CAMERA,
+				id: shotCameraId,
+			},
+			entries,
+			label: "animation.key.camera",
+			frame,
+			applyFrame,
+			history,
+		});
+	}
+
+	function buildSceneAssetKeyEntries(assetId) {
 		const asset = getSceneAssetByAnimationId(assetId);
 		if (!asset?.object) {
-			return false;
+			return null;
 		}
 		const worldPosition = asset.object.getWorldPosition(new THREE.Vector3());
 		const worldQuaternion = asset.object.getWorldQuaternion(
@@ -849,27 +1019,83 @@ export function createAnimationController({
 			worldQuaternion,
 			"XYZ",
 		);
-		const target = {
-			kind: ANIMATION_TARGET_SCENE_ASSET,
-			id: asset.id,
+		return {
+			assetId: asset.id,
+			entries: [
+				{ path: "transform.position.x", value: worldPosition.x },
+				{ path: "transform.position.y", value: worldPosition.y },
+				{ path: "transform.position.z", value: worldPosition.z },
+				{
+					path: "transform.rotation.xDeg",
+					value: THREE.MathUtils.radToDeg(worldEuler.x),
+				},
+				{
+					path: "transform.rotation.yDeg",
+					value: THREE.MathUtils.radToDeg(worldEuler.y),
+				},
+				{
+					path: "transform.rotation.zDeg",
+					value: THREE.MathUtils.radToDeg(worldEuler.z),
+				},
+				{ path: "transform.worldScale", value: asset.worldScale ?? 1 },
+			],
 		};
-		for (const [path, value] of [
-			["transform.position.x", worldPosition.x],
-			["transform.position.y", worldPosition.y],
-			["transform.position.z", worldPosition.z],
-			["transform.rotation.xDeg", THREE.MathUtils.radToDeg(worldEuler.x)],
-			["transform.rotation.yDeg", THREE.MathUtils.radToDeg(worldEuler.y)],
-			["transform.rotation.zDeg", THREE.MathUtils.radToDeg(worldEuler.z)],
-			["transform.worldScale", asset.worldScale ?? 1],
-		]) {
-			upsertKeyValue({
-				target,
-				path,
-				value,
-				label: "animation.key.asset",
-			});
+	}
+
+	function insertSceneAssetKey(
+		assetId,
+		{
+			frame = store.animation.timelineFrame.value,
+			applyFrame = true,
+			history = true,
+		} = {},
+	) {
+		const keyData = buildSceneAssetKeyEntries(assetId);
+		if (!keyData) {
+			return false;
 		}
-		return true;
+		return upsertKeyValues({
+			target: {
+				kind: ANIMATION_TARGET_SCENE_ASSET,
+				id: keyData.assetId,
+			},
+			entries: keyData.entries,
+			label: "animation.key.asset",
+			frame,
+			applyFrame,
+			history,
+		});
+	}
+
+	function autoKeySceneAssetTransforms(
+		assetIds,
+		{ frame = store.animation.timelineFrame.value, applyFrame = false } = {},
+	) {
+		if (!shouldHandleAutoKey()) {
+			return false;
+		}
+		const uniqueAssetIds = [];
+		const seenIds = new Set();
+		for (const assetId of Array.isArray(assetIds) ? assetIds : [assetIds]) {
+			const key = String(assetId ?? "");
+			if (!key || seenIds.has(key)) {
+				continue;
+			}
+			seenIds.add(key);
+			uniqueAssetIds.push(assetId);
+		}
+		let inserted = false;
+		for (const assetId of uniqueAssetIds) {
+			inserted =
+				insertSceneAssetKey(assetId, {
+					frame,
+					applyFrame: false,
+				}) || inserted;
+		}
+		if (inserted && applyFrame) {
+			applyCurrentFrame({ frame });
+		}
+		return inserted;
 	}
 
 	function insertKeyForSelection() {
@@ -880,20 +1106,31 @@ export function createAnimationController({
 		const keyTargetMode = sanitizeKeyTargetMode(
 			store.animation.keyTargetMode?.value,
 		);
+		const frame = store.animation.timelineFrame.value;
 		let inserted = false;
 		if (
 			keyTargetMode === ANIMATION_KEY_TARGET_CAMERA ||
 			keyTargetMode === ANIMATION_KEY_TARGET_BOTH
 		) {
-			inserted = insertShotCameraKey() || inserted;
+			inserted =
+				insertShotCameraKey(store.workspace.activeShotCameraId.value, {
+					frame,
+					applyFrame: false,
+				}) || inserted;
 		}
 		if (
 			keyTargetMode === ANIMATION_KEY_TARGET_OBJECTS ||
 			keyTargetMode === ANIMATION_KEY_TARGET_BOTH
 		) {
 			for (const assetId of selectedAssetIds) {
-				inserted = insertSceneAssetKey(assetId) || inserted;
+				inserted =
+					insertSceneAssetKey(assetId, { frame, applyFrame: false }) ||
+					inserted;
 			}
+		}
+		if (inserted) {
+			setAnimationAutoKey(true);
+			applyCurrentFrame({ frame });
 		}
 		return inserted;
 	}
@@ -933,16 +1170,23 @@ export function createAnimationController({
 			return callback?.();
 		} finally {
 			if (shouldReapply) {
-				applyCurrentFrame({ frame });
+				applyCurrentFrame({ frame, preserveManualEdits: true });
 			}
 		}
 	}
 
 	function applyCurrentFrame({
 		frame = store.animation.timelineFrame.value,
+		preserveManualEdits = false,
 	} = {}) {
 		if (!isAnimationEnabled()) {
 			return restoreBaseRuntimeState();
+		}
+		const skippedTargetKeys = preserveManualEdits
+			? new Set(manuallyEditedRuntimeTargets)
+			: new Set();
+		if (!preserveManualEdits) {
+			manuallyEditedRuntimeTargets.clear();
 		}
 		ensureRuntimeStateCaptured();
 		restoreBaseRuntimeState();
@@ -950,6 +1194,9 @@ export function createAnimationController({
 		const timelineFrame = clampTimelineFrame(frame, clip);
 		store.animation.timelineFrame.value = timelineFrame;
 		for (const binding of clip.bindings) {
+			if (skippedTargetKeys.has(createTargetKey(binding.target))) {
+				continue;
+			}
 			if (binding.target.kind === "shot-camera") {
 				evaluateShotCameraBinding(binding, timelineFrame);
 			} else if (binding.target.kind === "scene-asset") {
@@ -1013,6 +1260,7 @@ export function createAnimationController({
 		setSceneAssetPositionKey,
 		setSceneAssetRotationKey,
 		setSceneAssetWorldScaleKey,
+		autoKeySceneAssetTransforms,
 		insertKeyForSelection,
 		playTimeline,
 		pauseTimeline,
@@ -1020,6 +1268,7 @@ export function createAnimationController({
 		jumpTimelineEnd,
 		restoreBaseRuntimeState,
 		withBaseRuntimeStateForSnapshot,
+		releaseRuntimeEvaluationForManualEdit,
 		getEvaluatedLensForShotCamera,
 		applyCurrentFrame,
 		advancePlayback,

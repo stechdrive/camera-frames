@@ -96,7 +96,6 @@
 	overflow-x: auto;
 }
 
-.timeline-toggle,
 .timeline-chip {
 	appearance: none;
 	display: inline-flex;
@@ -117,31 +116,9 @@
 	white-space: nowrap;
 }
 
-.timeline-toggle.is-active,
 .timeline-chip.is-active {
 	border-color: rgba(137, 208, 255, 0.42);
 	background: rgba(137, 208, 255, 0.13);
-	color: var(--text);
-}
-
-.timeline-toggle__state {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	min-width: 1.9rem;
-	height: 1.05rem;
-	padding: 0 0.35rem;
-	border-radius: 999px;
-	background: rgba(255, 255, 255, 0.08);
-	color: var(--text-muted);
-	font:
-		700 0.62rem / 1 "IBM Plex Mono",
-		Consolas,
-		monospace;
-}
-
-.timeline-toggle.is-active .timeline-toggle__state {
-	background: rgba(137, 208, 255, 0.24);
 	color: var(--text);
 }
 

@@ -118,6 +118,8 @@ async function main() {
 	}
 	await captureScreenshot(cdp, join(outDir, "project-smoke.png"));
 	const timelineSmoke = await runTimelineSmoke(cdp);
+	const timelineCameraAnimationSmoke =
+		await runTimelineCameraAnimationSmoke(cdp);
 	await captureScreenshot(cdp, join(outDir, "timeline-smoke.png"));
 	cdp.close();
 	cdp = null;
@@ -170,7 +172,10 @@ async function main() {
 				baseUrl,
 				projectPath,
 				project: projectSmoke.summary,
-				timeline: timelineSmoke,
+				timeline: {
+					...timelineSmoke,
+					cameraAnimation: timelineCameraAnimationSmoke,
+				},
 				fixture: fixtureInfo,
 				screenshots: [
 					relativePath(join(outDir, "project-smoke.png")),
@@ -442,15 +447,6 @@ async function runTimelineSmoke(cdp) {
 				throw new Error("Timeline panel did not open");
 			}
 
-			if (!test.store.animation.document.value.enabled) {
-				click(
-					".timeline-toggle",
-					() => true,
-					"enable toggle",
-				);
-				await waitForReady(4);
-			}
-
 			const readKeyTargetState = () => {
 				const active = document.querySelector(".timeline-key-target__mode.is-active");
 				return {
@@ -495,6 +491,48 @@ async function runTimelineSmoke(cdp) {
 				"add key",
 			);
 			await waitForReady(8);
+			const autoKeyAfterAdd =
+				test.store.animation.autoKey.value === true &&
+				document.querySelector(".timeline-chip.is-active") !== null;
+			const cameraPoseBeforeMove =
+				test.controller.getActiveShotCameraPoseState?.() ?? null;
+			let cameraEditableAfterKey = null;
+			if (
+				cameraPoseBeforeMove?.position &&
+				typeof test.controller.moveActiveShotCameraLocalAxis === "function"
+			) {
+				test.controller.moveActiveShotCameraLocalAxis("right", 0.5);
+				await waitForReady(8);
+				const cameraPoseAfterMove =
+					test.controller.getActiveShotCameraPoseState?.() ?? null;
+				await waitForReady(8);
+				const cameraPoseAfterSettle =
+					test.controller.getActiveShotCameraPoseState?.() ?? null;
+				const distanceMoved = cameraPoseAfterMove?.position
+					? Math.hypot(
+							cameraPoseAfterMove.position.x -
+								cameraPoseBeforeMove.position.x,
+							cameraPoseAfterMove.position.y -
+								cameraPoseBeforeMove.position.y,
+							cameraPoseAfterMove.position.z -
+								cameraPoseBeforeMove.position.z,
+						)
+					: 0;
+				const distanceSettled = cameraPoseAfterSettle?.position
+					? Math.hypot(
+							cameraPoseAfterSettle.position.x -
+								cameraPoseAfterMove.position.x,
+							cameraPoseAfterSettle.position.y -
+								cameraPoseAfterMove.position.y,
+							cameraPoseAfterSettle.position.z -
+								cameraPoseAfterMove.position.z,
+						)
+					: Number.POSITIVE_INFINITY;
+				cameraEditableAfterKey = {
+					distanceMoved,
+					distanceSettled,
+				};
+			}
 
 			click(
 				".timeline-action--play",
@@ -530,8 +568,37 @@ async function runTimelineSmoke(cdp) {
 			);
 			await waitForReady(4);
 			const zoomAfterOut = test.store.animation.zoom.value;
+			const dopesheetForWheel = document.querySelector(".timeline-dopesheet");
+			const wheelZoomBefore = test.store.animation.zoom.value;
+			dopesheetForWheel?.dispatchEvent(
+				new WheelEvent("wheel", {
+					bubbles: true,
+					cancelable: true,
+					altKey: true,
+					deltaY: -120,
+					clientX:
+						dopesheetForWheel.getBoundingClientRect().left +
+						dopesheetForWheel.getBoundingClientRect().width / 2,
+					clientY:
+						dopesheetForWheel.getBoundingClientRect().top +
+						Math.min(24, dopesheetForWheel.getBoundingClientRect().height / 2),
+				}),
+			);
+			await waitForReady(4);
+			const wheelZoomAfter = test.store.animation.zoom.value;
+			const scrollBeforeWheel = dopesheetForWheel?.scrollLeft ?? 0;
+			dopesheetForWheel?.dispatchEvent(
+				new WheelEvent("wheel", {
+					bubbles: true,
+					cancelable: true,
+					deltaY: 180,
+				}),
+			);
+			await waitForReady(4);
+			const scrollAfterWheel = dopesheetForWheel?.scrollLeft ?? 0;
 
 			test.controller.setTimelineFrame(1);
+			test.controller.setTimelineZoom?.(8);
 			await waitForReady(3);
 			const dopesheet = document.querySelector(".timeline-dopesheet");
 			const timelineContent = document.querySelector(
@@ -563,6 +630,42 @@ async function runTimelineSmoke(cdp) {
 			);
 			await waitForReady(4);
 			const scrubbedFrame = test.store.animation.timelineFrame.value;
+			const scrollBeforeScrubDrag = dopesheet.scrollLeft;
+			const scrubAutoScrollStartX = dopesheetRect.right - 8;
+			const scrubAutoScrollY = dopesheetRect.top + Math.min(60, dopesheetRect.height / 2);
+			timelineContent.dispatchEvent(
+				new PointerEvent("pointerdown", {
+					bubbles: true,
+					pointerId: 11,
+					button: 0,
+					clientX: scrubAutoScrollStartX,
+					clientY: scrubAutoScrollY,
+				}),
+			);
+			for (let i = 0; i < 8; i++) {
+				timelineContent.dispatchEvent(
+					new PointerEvent("pointermove", {
+						bubbles: true,
+						pointerId: 11,
+						button: 0,
+						clientX: dopesheetRect.right + 90,
+						clientY: scrubAutoScrollY,
+					}),
+				);
+				await waitForReady(1);
+			}
+			timelineContent.dispatchEvent(
+				new PointerEvent("pointerup", {
+					bubbles: true,
+					pointerId: 11,
+					button: 0,
+					clientX: dopesheetRect.right + 90,
+					clientY: scrubAutoScrollY,
+				}),
+			);
+			await waitForReady(4);
+			const scrollAfterScrubDrag = dopesheet.scrollLeft;
+			const scrubAutoScrolledFrame = test.store.animation.timelineFrame.value;
 
 			click(
 				".timeline-panel__collapse",
@@ -607,14 +710,23 @@ async function runTimelineSmoke(cdp) {
 				keys: keyCount,
 				keyElements: keyElementCount,
 				played,
+				autoKeyAfterAdd,
 				zoomAfterIn,
 				zoomAfterOut,
 				scrubbedFrame,
+				scrollBeforeScrubDrag,
+				scrollAfterScrubDrag,
+				scrubAutoScrolledFrame,
 				cameraKeyTargetState,
 				sceneKeyTargetState,
 				cameraWithSelectionKeyTargetState,
+				cameraEditableAfterKey,
 				rulerLabelsBeforeZoom,
 				rulerLabelsAfterZoomIn,
+				wheelZoomBefore,
+				wheelZoomAfter,
+				scrollBeforeWheel,
+				scrollAfterWheel,
 				panel: panelBounds
 					? {
 							width: Math.round(panelBounds.width),
@@ -661,6 +773,16 @@ async function runTimelineSmoke(cdp) {
 			if (summary.keyElements < 1) {
 				failures.push("Dopesheet did not render key markers");
 			}
+			if (!summary.autoKeyAfterAdd) {
+				failures.push("Add key did not enable Auto Key");
+			}
+			if (
+				!summary.cameraEditableAfterKey ||
+				summary.cameraEditableAfterKey.distanceMoved <= 0.01 ||
+				summary.cameraEditableAfterKey.distanceSettled > 0.001
+			) {
+				failures.push("Camera pose was restored after adding a key");
+			}
 			if (!summary.played) failures.push("Play button did not toggle playback");
 			if (summary.zoomAfterIn <= 1) failures.push("Zoom in did not increase zoom");
 			if (summary.zoomAfterOut >= summary.zoomAfterIn) {
@@ -669,6 +791,12 @@ async function runTimelineSmoke(cdp) {
 			if (summary.scrubbedFrame <= 1) {
 				failures.push("Dopesheet pointer scrub did not move the playhead");
 			}
+			if (summary.scrollAfterScrubDrag <= summary.scrollBeforeScrubDrag) {
+				failures.push("Dopesheet scrub did not auto-scroll beyond the visible range");
+			}
+			if (summary.scrubAutoScrolledFrame <= summary.scrubbedFrame) {
+				failures.push("Dopesheet auto-scroll scrub did not keep advancing the playhead");
+			}
 			if (
 				[...summary.rulerLabelsBeforeZoom, ...summary.rulerLabelsAfterZoomIn].some(
 					(label) => /^F\\s*/.test(label),
@@ -676,11 +804,23 @@ async function runTimelineSmoke(cdp) {
 			) {
 				failures.push("Timeline ruler still shows F-prefixed frame labels");
 			}
+			const beforeZoomAlreadyPerFrame =
+				summary.rulerLabelsBeforeZoom.length >= summary.durationFrames;
 			if (
+				!beforeZoomAlreadyPerFrame &&
 				summary.rulerLabelsAfterZoomIn.length <=
-				summary.rulerLabelsBeforeZoom.length
+					summary.rulerLabelsBeforeZoom.length
 			) {
 				failures.push("Zoom in did not increase ruler tick density");
+			}
+			if (!summary.rulerLabelsBeforeZoom.includes("2")) {
+				failures.push("Timeline ruler did not show per-frame labels when there was room");
+			}
+			if (summary.wheelZoomAfter <= summary.wheelZoomBefore) {
+				failures.push("Alt+wheel did not zoom the timeline in");
+			}
+			if (summary.scrollAfterWheel <= summary.scrollBeforeWheel) {
+				failures.push("Timeline wheel did not scroll horizontally");
 			}
 			if (!summary.panel || summary.panel.width < 600 || summary.panel.height < 160) {
 				failures.push("Timeline panel bounds are too small");
@@ -696,6 +836,252 @@ async function runTimelineSmoke(cdp) {
 	if (!result?.ok) {
 		throw new Error(
 			`Timeline smoke failed: ${JSON.stringify(result, null, 2)}`,
+		);
+	}
+	return result.summary;
+}
+
+async function runTimelineCameraAnimationSmoke(cdp) {
+	const setup = await evaluate(
+		cdp,
+		`(async () => {
+			const test = globalThis.__CF_TEST__;
+			if (!test?.store || !test?.controller) {
+				return { ok: false, error: "__CF_TEST__ store/controller unavailable" };
+			}
+			const waitForReady = async (frames = 4, delayMs = 0) => {
+				if (typeof test.waitForReady === "function") {
+					await test.waitForReady({ frames, delayMs });
+					return;
+				}
+				for (let i = 0; i < frames; i++) {
+					await new Promise((resolve) => requestAnimationFrame(resolve));
+				}
+				if (delayMs > 0) {
+					await new Promise((resolve) => setTimeout(resolve, delayMs));
+				}
+			};
+			const click = (selector, label) => {
+				const element = document.querySelector(selector);
+				if (!element || element.disabled) {
+					throw new Error("Missing or disabled timeline UI element: " + label);
+				}
+				element.click();
+				return element;
+			};
+			const poseSignature = () => {
+				const pose = test.controller.getActiveShotCameraPoseState?.();
+				if (!pose?.position || !pose?.rotation) {
+					return null;
+				}
+				return {
+					position: { ...pose.position },
+					rotation: { ...pose.rotation },
+				};
+			};
+			globalThis.__cfTimelineCameraSmoke = {
+				waitForReady,
+				poseSignature,
+			};
+			if (!document.querySelector(".timeline-panel")) {
+				click(".timeline-rail__button", "timeline rail");
+				await waitForReady(4);
+			}
+			test.store.animation.document.value = {
+				version: 1,
+				enabled: true,
+				activeClipId: "clip-browser-camera",
+				clips: [{
+					id: "clip-browser-camera",
+					name: "Browser Camera Regression",
+					fps: 12,
+					startFrame: 1,
+					durationFrames: 48,
+					playbackStartFrame: 1,
+					playbackEndFrame: 48,
+					bindings: [],
+				}],
+			};
+			test.controller.setAnimationKeyTargetMode?.("camera");
+			test.controller.setMode?.("camera");
+			test.controller.setAnimationFps?.(12);
+			test.controller.setAnimationDurationFrames?.(48);
+			test.controller.setTimelineFrame?.(1);
+			await waitForReady(6);
+			click(".timeline-action--add-key", "first camera key");
+			await waitForReady(8);
+			const autoKeyAfterFirstKey = test.store.animation.autoKey.value === true;
+			const firstPose = poseSignature();
+			test.controller.setTimelineFrame?.(24);
+			await waitForReady(8);
+			const viewport = document.querySelector("#viewport");
+			if (!viewport) {
+				throw new Error("Viewport canvas missing");
+			}
+			const rect = viewport.getBoundingClientRect();
+			return {
+				ok: true,
+				firstPose,
+				autoKeyAfterFirstKey,
+				drag: {
+					x0: Math.round(rect.left + rect.width * 0.52),
+					y0: Math.round(rect.top + rect.height * 0.48),
+					x1: Math.round(rect.left + rect.width * 0.68),
+					y1: Math.round(rect.top + rect.height * 0.54),
+				},
+			};
+		})()`,
+		{ awaitPromise: true },
+	);
+	if (!setup?.ok) {
+		throw new Error(
+			`Timeline camera animation setup failed: ${JSON.stringify(setup, null, 2)}`,
+		);
+	}
+
+	await cdp.send("Input.dispatchMouseEvent", {
+		type: "mouseMoved",
+		x: setup.drag.x0,
+		y: setup.drag.y0,
+		button: "none",
+	});
+	await cdp.send("Input.dispatchMouseEvent", {
+		type: "mousePressed",
+		x: setup.drag.x0,
+		y: setup.drag.y0,
+		button: "right",
+		buttons: 2,
+		clickCount: 1,
+	});
+	await cdp.send("Input.dispatchMouseEvent", {
+		type: "mouseMoved",
+		x: setup.drag.x1,
+		y: setup.drag.y1,
+		button: "right",
+		buttons: 2,
+	});
+	await cdp.send("Input.dispatchMouseEvent", {
+		type: "mouseReleased",
+		x: setup.drag.x1,
+		y: setup.drag.y1,
+		button: "right",
+		buttons: 0,
+		clickCount: 1,
+	});
+
+	const result = await evaluate(
+		cdp,
+		`(async () => {
+			const test = globalThis.__CF_TEST__;
+			const smoke = globalThis.__cfTimelineCameraSmoke;
+			const waitForReady = smoke.waitForReady;
+			const poseSignature = smoke.poseSignature;
+			const poseDelta = (left, right) => {
+				if (!left || !right) return Number.POSITIVE_INFINITY;
+				return Math.hypot(
+					(left.position.x ?? 0) - (right.position.x ?? 0),
+					(left.position.y ?? 0) - (right.position.y ?? 0),
+					(left.position.z ?? 0) - (right.position.z ?? 0),
+					(left.rotation.yawDeg ?? 0) - (right.rotation.yawDeg ?? 0),
+					(left.rotation.pitchDeg ?? 0) - (right.rotation.pitchDeg ?? 0),
+					(left.rotation.rollDeg ?? 0) - (right.rotation.rollDeg ?? 0),
+				);
+			};
+			const click = (selector, label) => {
+				const element = document.querySelector(selector);
+				if (!element || element.disabled) {
+					throw new Error("Missing or disabled timeline UI element: " + label);
+				}
+				element.click();
+				return element;
+			};
+			await waitForReady(12, 80);
+			let editedPose = poseSignature();
+			let usedControllerEditFallback = false;
+			if (poseDelta(${JSON.stringify(setup.firstPose)}, editedPose) <= 0.01) {
+				test.controller.moveActiveShotCameraLocalAxis?.("right", 1);
+				await waitForReady(8);
+				editedPose = poseSignature();
+				usedControllerEditFallback = true;
+			}
+			await waitForReady(10);
+			const clip = test.store.animation.activeClip.value;
+			const binding = (clip.bindings ?? []).find(
+				(candidate) => candidate.target?.kind === "shot-camera",
+			);
+			const changedTracks = (binding?.tracks ?? []).filter((track) => {
+				const keys = track.keys ?? [];
+				return (
+					keys.length >= 2 &&
+					keys[0].frame === 1 &&
+					keys[keys.length - 1].frame === 24 &&
+					Math.abs(keys[0].value - keys[keys.length - 1].value) > 1e-5
+				);
+			});
+			test.controller.setTimelineFrame?.(1);
+			await waitForReady(6);
+			const poseAtStart = poseSignature();
+			test.controller.setTimelineFrame?.(12);
+			await waitForReady(6);
+			const poseAtMiddle = poseSignature();
+			test.controller.setTimelineFrame?.(24);
+			await waitForReady(6);
+			const poseAtEnd = poseSignature();
+			test.controller.setTimelineFrame?.(1);
+			await waitForReady(4);
+			test.controller.playTimeline?.();
+			await waitForReady(16, 500);
+			const poseDuringPlayback = poseSignature();
+			const frameDuringPlayback = test.store.animation.timelineFrame.value;
+			test.controller.pauseTimeline?.();
+			await waitForReady(4);
+			const summary = {
+				bindingCount: clip.bindings?.length ?? 0,
+				trackCount: binding?.tracks?.length ?? 0,
+				autoKeyAfterFirstKey: ${JSON.stringify(setup.autoKeyAfterFirstKey)},
+				changedTrackPaths: changedTracks.map((track) => track.path),
+				startToEdited: poseDelta(${JSON.stringify(setup.firstPose)}, editedPose),
+				startToScrubStart: poseDelta(${JSON.stringify(setup.firstPose)}, poseAtStart),
+				startToMiddle: poseDelta(poseAtStart, poseAtMiddle),
+				middleToEnd: poseDelta(poseAtMiddle, poseAtEnd),
+				startToEnd: poseDelta(poseAtStart, poseAtEnd),
+				frameDuringPlayback,
+				startToPlayback: poseDelta(poseAtStart, poseDuringPlayback),
+				usedControllerEditFallback,
+			};
+			const failures = [];
+			if (summary.changedTrackPaths.length < 1) {
+				failures.push("Auto Key did not create any changed camera track");
+			}
+			if (!summary.autoKeyAfterFirstKey) {
+				failures.push("First camera key did not enable Auto Key");
+			}
+			if (summary.startToEdited <= 0.01) {
+				failures.push("Browser camera edit did not change the shot camera");
+			}
+			if (summary.startToScrubStart > 0.001) {
+				failures.push("Scrubbing to first key did not restore the first camera pose");
+			}
+			if (summary.startToMiddle <= 0.001 || summary.middleToEnd <= 0.001) {
+				failures.push("Scrubbing did not evaluate an interpolated camera pose");
+			}
+			if (summary.startToEnd <= 0.01) {
+				failures.push("Scrubbing to second key did not reach a distinct camera pose");
+			}
+			if (summary.frameDuringPlayback <= 1 || summary.startToPlayback <= 0.001) {
+				failures.push("Timeline playback did not advance the animated camera");
+			}
+			return {
+				ok: failures.length === 0,
+				failures,
+				summary,
+			};
+		})()`,
+		{ awaitPromise: true },
+	);
+	if (!result?.ok) {
+		throw new Error(
+			`Timeline camera animation smoke failed: ${JSON.stringify(result, null, 2)}`,
 		);
 	}
 	return result.summary;

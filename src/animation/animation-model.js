@@ -240,7 +240,7 @@ export function createDefaultAnimationClip() {
 export function createDefaultAnimationDocument() {
 	return {
 		version: ANIMATION_DOCUMENT_VERSION,
-		enabled: false,
+		enabled: true,
 		activeClipId: DEFAULT_ANIMATION_CLIP_ID,
 		clips: [createDefaultAnimationClip()],
 	};
@@ -260,7 +260,7 @@ export function sanitizeAnimationDocument(animation = null) {
 			: clips[0].id;
 	return {
 		version: ANIMATION_DOCUMENT_VERSION,
-		enabled: Boolean(animation?.enabled),
+		enabled: true,
 		activeClipId,
 		clips,
 	};

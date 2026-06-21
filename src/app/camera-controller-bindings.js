@@ -18,6 +18,7 @@ export function createCameraControllerBindings({
 	afterActiveShotCameraChange,
 	viewportProjectionController,
 	historyController,
+	getAnimationController = null,
 } = {}) {
 	return {
 		store,
@@ -75,6 +76,10 @@ export function createCameraControllerBindings({
 		},
 		syncControlsToMode: () =>
 			getInteractionController?.()?.syncControlsToMode?.(),
+		onLiveShotCameraPoseEdited: () =>
+			getAnimationController?.()?.releaseRuntimeEvaluationForManualEdit?.({
+				targetKind: "shot-camera",
+			}),
 		runHistoryAction: historyController.runHistoryAction,
 	};
 }

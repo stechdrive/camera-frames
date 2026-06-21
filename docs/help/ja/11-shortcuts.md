@@ -11,7 +11,7 @@ related-files:
   - src/controllers/interaction-controller.js
   - src/controllers/viewport-tool-controller.js
   - src/controllers/per-splat-edit-controller.js
-last-updated: 2026-05-13
+last-updated: 2026-06-21
 ---
 
 # キーボードショートカット一覧
@@ -116,6 +116,15 @@ last-updated: 2026-05-13
 |---|---|
 | `Shift` | 深度オフセット |
 | `Alt` | 微調整モード |
+
+### タイムライン
+
+| 操作 | 動作 |
+|---|---|
+| マウスホイール | タイムラインが横に入りきらない時に横移動 |
+| `Alt +` マウスホイール | タイムラインをズームイン / アウト |
+
+`キーを追加` を実行すると Auto Key が ON になります。Auto Key が ON の間は、現在フレームでカメラまたは選択シーンアセットを編集すると、そのフレームのキーが更新されます。
 
 ### シーンアセット選択（クリック）
 

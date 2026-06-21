@@ -35,6 +35,7 @@ export function createViewportToolController({
 	assetController,
 	beginHistoryTransaction,
 	commitHistoryTransaction,
+	autoKeySceneAssetTransforms = null,
 }) {
 	const raycaster = new THREE.Raycaster();
 	const pointerNdc = new THREE.Vector2();
@@ -365,9 +366,24 @@ export function createViewportToolController({
 		const historyLabel = activeDrag.pivotEditMode
 			? "asset.pivot"
 			: "asset.transform";
+		const autoKeyAssetIds = activeDrag.pivotEditMode
+			? []
+			: [
+					...new Map(
+						(activeDrag.selectedAssets?.length
+							? activeDrag.selectedAssets
+							: [{ assetId: activeDrag.assetId }]
+						).map((asset) => [String(asset.assetId), asset.assetId]),
+					).values(),
+				];
 		activeDrag = null;
 		setHoveredHandle(null);
 		viewportGizmo?.classList.remove("is-dragging");
+		if (autoKeyAssetIds.length > 0) {
+			autoKeySceneAssetTransforms?.(autoKeyAssetIds, {
+				applyFrame: false,
+			});
+		}
 		commitHistoryTransaction?.(historyLabel);
 	}
 

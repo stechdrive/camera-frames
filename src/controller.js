@@ -597,6 +597,7 @@ export function createCameraFramesController(elements, store) {
 				),
 			viewportProjectionController,
 			historyController,
+			getAnimationController: () => animationController,
 		}),
 	);
 	frameController = createFrameController(
@@ -728,6 +729,7 @@ export function createCameraFramesController(elements, store) {
 			assetController,
 			historyController,
 			workspacePaneCamera: WORKSPACE_PANE_CAMERA,
+			getAnimationController: () => animationController,
 		}),
 	);
 	projectionController = createProjectionController(
@@ -915,6 +917,8 @@ export function createCameraFramesController(elements, store) {
 			finalizeProjectionFrame,
 			advanceTimelinePlayback: (...args) =>
 				animationController?.advancePlayback?.(...args),
+			releaseTimelineRuntimeEvaluation: (...args) =>
+				animationController?.releaseRuntimeEvaluationForManualEdit?.(...args),
 			syncViewportProjection,
 			syncShotProjection,
 			applyCameraViewProjection,

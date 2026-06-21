@@ -1,11 +1,12 @@
 import { html } from "htm/preact";
-import { useMemo, useRef } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { INTERACTIVE_FIELD_PROPS } from "./workbench-controls.js";
 import { IconButton } from "./workbench-primitives.js";
 import { WorkbenchIcon } from "./workbench-icons.js";
 
 const TIMELINE_ZOOM_MIN = 1;
 const TIMELINE_ZOOM_MAX = 8;
+const TIMELINE_WHEEL_ZOOM_FACTOR = 1.2;
 const KEY_TARGET_CAMERA = "camera";
 const KEY_TARGET_OBJECTS = "objects";
 const KEY_TARGET_BOTH = "both";
@@ -46,10 +47,31 @@ function pickNiceFrameStep(rawStep) {
 	return 10 * magnitude;
 }
 
-function buildTimelineTicks({ startFrame, endFrame, zoom }) {
-	const durationFrames = Math.max(1, endFrame - startFrame + 1);
-	const targetTickCount = Math.max(4, Math.round(6 * Math.max(1, zoom)));
-	const step = pickNiceFrameStep(durationFrames / targetTickCount);
+function getMinimumFrameLabelSpacingPx(endFrame) {
+	const digits = String(Math.max(1, Math.round(Math.abs(endFrame)))).length;
+	if (digits <= 1) {
+		return 16;
+	}
+	if (digits === 2) {
+		return 20;
+	}
+	if (digits === 3) {
+		return 26;
+	}
+	return 32;
+}
+
+function buildTimelineTicks({ startFrame, endFrame, contentPixelWidth }) {
+	const frameIntervals = Math.max(1, endFrame - startFrame);
+	const frameSpacingPx =
+		Number.isFinite(contentPixelWidth) && contentPixelWidth > 0
+			? contentPixelWidth / frameIntervals
+			: 0;
+	const minimumSpacingPx = getMinimumFrameLabelSpacingPx(endFrame);
+	const step =
+		frameSpacingPx >= minimumSpacingPx
+			? 1
+			: pickNiceFrameStep(minimumSpacingPx / Math.max(1, frameSpacingPx));
 	const ticks = new Set([startFrame, endFrame]);
 	const firstTick = Math.ceil(startFrame / step) * step;
 	for (let frame = firstTick; frame <= endFrame; frame += step) {
@@ -217,12 +239,12 @@ function TimelineKey({ frame, clip }) {
 }
 
 export function TimelinePanel({ store, controller, t = (key) => key }) {
+	const timelineViewportRef = useRef(null);
 	const timelineContentRef = useRef(null);
 	const timelineScrubbingRef = useRef(false);
+	const [timelineViewportWidth, setTimelineViewportWidth] = useState(0);
 	const animation = store.animation;
-	const documentState = animation.document.value;
 	const clip = animation.activeClip.value;
-	const enabled = documentState.enabled;
 	const panelOpen = animation.panelOpen.value;
 	const startFrame = clip.startFrame;
 	const endFrame = startFrame + clip.durationFrames - 1;
@@ -233,6 +255,10 @@ export function TimelinePanel({ store, controller, t = (key) => key }) {
 		Math.max(TIMELINE_ZOOM_MIN, clampNumber(animation.zoom.value, 1)),
 	);
 	const timelineContentWidthPct = Math.max(100, timelineZoom * 100);
+	const timelineContentPixelWidth = Math.max(
+		0,
+		timelineViewportWidth * timelineZoom,
+	);
 	const rows = useMemo(
 		() =>
 			buildTimelineRows(
@@ -243,10 +269,33 @@ export function TimelinePanel({ store, controller, t = (key) => key }) {
 		[clip, store.workspace.shotCameras.value, store.sceneAssets.value],
 	);
 	const ticks = useMemo(
-		() => buildTimelineTicks({ startFrame, endFrame, zoom: timelineZoom }),
-		[startFrame, endFrame, timelineZoom],
+		() =>
+			buildTimelineTicks({
+				startFrame,
+				endFrame,
+				contentPixelWidth: timelineContentPixelWidth,
+			}),
+		[startFrame, endFrame, timelineContentPixelWidth],
 	);
 	const keyTarget = buildKeyTargetState({ store, t });
+
+	useEffect(() => {
+		const element = timelineViewportRef.current;
+		if (!element) {
+			return undefined;
+		}
+		const updateWidth = () => {
+			setTimelineViewportWidth(element.clientWidth || 0);
+		};
+		updateWidth();
+		if (typeof ResizeObserver === "undefined") {
+			window.addEventListener("resize", updateWidth);
+			return () => window.removeEventListener("resize", updateWidth);
+		}
+		const observer = new ResizeObserver(updateWidth);
+		observer.observe(element);
+		return () => observer.disconnect();
+	}, [panelOpen]);
 
 	const frameFromPointerEvent = (event) => {
 		const element = timelineContentRef.current;
@@ -262,6 +311,25 @@ export function TimelinePanel({ store, controller, t = (key) => key }) {
 	const seekTimelineAtPointer = (event) => {
 		event.preventDefault();
 		controller()?.setTimelineFrame?.(frameFromPointerEvent(event));
+	};
+
+	const autoScrollTimelineForPointer = (event) => {
+		const viewport = timelineViewportRef.current;
+		if (!viewport || viewport.scrollWidth <= viewport.clientWidth) {
+			return;
+		}
+		const rect = viewport.getBoundingClientRect();
+		const edgePx = 42;
+		let delta = 0;
+		if (event.clientX < rect.left + edgePx) {
+			delta = -Math.max(8, Math.round(rect.left + edgePx - event.clientX));
+		} else if (event.clientX > rect.right - edgePx) {
+			delta = Math.max(8, Math.round(event.clientX - (rect.right - edgePx)));
+		}
+		if (delta === 0) {
+			return;
+		}
+		viewport.scrollLeft = Math.max(0, viewport.scrollLeft + delta);
 	};
 
 	const handleTimelinePointerDown = (event) => {
@@ -281,6 +349,7 @@ export function TimelinePanel({ store, controller, t = (key) => key }) {
 		if (!timelineScrubbingRef.current) {
 			return;
 		}
+		autoScrollTimelineForPointer(event);
 		seekTimelineAtPointer(event);
 	};
 
@@ -291,6 +360,51 @@ export function TimelinePanel({ store, controller, t = (key) => key }) {
 		} catch (_error) {
 			// Best-effort release only.
 		}
+	};
+
+	const handleTimelineWheel = (event) => {
+		const viewport = timelineViewportRef.current;
+		if (!viewport) {
+			return;
+		}
+		if (event.altKey) {
+			event.preventDefault();
+			const rect = viewport.getBoundingClientRect();
+			const pointerX = Math.max(
+				0,
+				Math.min(rect.width, event.clientX - rect.left),
+			);
+			const scrollRatio =
+				(viewport.scrollLeft + pointerX) / Math.max(1, viewport.scrollWidth);
+			const zoomFactor =
+				event.deltaY < 0
+					? TIMELINE_WHEEL_ZOOM_FACTOR
+					: 1 / TIMELINE_WHEEL_ZOOM_FACTOR;
+			const nextZoom = controller()?.setTimelineZoom?.(
+				timelineZoom * zoomFactor,
+			);
+			if (Number.isFinite(nextZoom)) {
+				requestAnimationFrame(() => {
+					viewport.scrollLeft = Math.max(
+						0,
+						scrollRatio * viewport.scrollWidth - pointerX,
+					);
+				});
+			}
+			return;
+		}
+		if (viewport.scrollWidth <= viewport.clientWidth) {
+			return;
+		}
+		const delta =
+			Math.abs(event.deltaX) > Math.abs(event.deltaY)
+				? event.deltaX
+				: event.deltaY;
+		if (Math.abs(delta) <= 0) {
+			return;
+		}
+		event.preventDefault();
+		viewport.scrollLeft += delta;
 	};
 
 	if (!panelOpen) {
@@ -310,7 +424,7 @@ export function TimelinePanel({ store, controller, t = (key) => key }) {
 
 	return html`
 		<section
-			class=${enabled ? "timeline-panel is-enabled" : "timeline-panel"}
+			class="timeline-panel is-enabled"
 			style=${{ "--timeline-panel-height": `${animation.panelHeight.value}px` }}
 		>
 			<div class="timeline-panel__resize" aria-hidden="true"></div>
@@ -324,18 +438,6 @@ export function TimelinePanel({ store, controller, t = (key) => key }) {
 				<${WorkbenchIcon} name="chevron-down" size=${15} />
 			</button>
 			<div class="timeline-toolbar">
-				<button
-					type="button"
-					class=${enabled ? "timeline-toggle is-active" : "timeline-toggle"}
-					aria-pressed=${enabled}
-					onClick=${() => controller()?.toggleAnimationEnabled?.()}
-				>
-					<${WorkbenchIcon} name="play" size=${14} />
-					<span>${t("timeline.animation")}</span>
-					<span class="timeline-toggle__state">
-						${enabled ? t("timeline.enabled") : t("timeline.disabled")}
-					</span>
-				</button>
 				<${IconButton}
 					icon="skip-back"
 					label=${t("timeline.start")}
@@ -350,7 +452,6 @@ export function TimelinePanel({ store, controller, t = (key) => key }) {
 					}
 					active=${animation.isPlaying.value}
 					compact=${true}
-					disabled=${!enabled}
 					className="timeline-action--play"
 					onClick=${() =>
 						animation.isPlaying.value
@@ -461,7 +562,7 @@ export function TimelinePanel({ store, controller, t = (key) => key }) {
 					icon="keyframe"
 					label=${t("timeline.addKey")}
 					compact=${true}
-					disabled=${!enabled || keyTarget.addKeyDisabled}
+					disabled=${keyTarget.addKeyDisabled}
 					className="timeline-action--add-key"
 					onClick=${() => controller()?.insertKeyForSelection?.()}
 				/>
@@ -485,7 +586,11 @@ export function TimelinePanel({ store, controller, t = (key) => key }) {
 								)
 					}
 				</div>
-				<div class="timeline-dopesheet">
+				<div
+					ref=${timelineViewportRef}
+					class="timeline-dopesheet"
+					onWheel=${handleTimelineWheel}
+				>
 					<div
 						ref=${timelineContentRef}
 						class="timeline-dopesheet__content"

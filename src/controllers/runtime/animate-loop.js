@@ -20,6 +20,7 @@ export function createRuntimeAnimateLoop({
 	advanceProjectionFrame,
 	finalizeProjectionFrame,
 	advanceTimelinePlayback = null,
+	releaseTimelineRuntimeEvaluation = null,
 	syncViewportProjection,
 	syncShotProjection,
 	applyCameraViewProjection,
@@ -98,17 +99,24 @@ export function createRuntimeAnimateLoop({
 		const poseChanged =
 			poseChangedBeforeUpdate || hasCameraPoseChanged(activeCamera);
 		snapshotCameraPose(activeCamera);
+		const navigationActiveAfterUpdate =
+			hasKeyboardNavigationActivity() || hasPointerNavigationActivity();
+		const navigationActive =
+			navigationActiveBeforeUpdate || navigationActiveAfterUpdate;
 		navigationHistory.noteFrame({
 			targetKey: getActiveCameraHistoryTargetKey(),
 			label: getActiveCameraHistoryLabel(),
 			poseChanged,
-			navigationActive:
-				navigationActiveBeforeUpdate ||
-				hasKeyboardNavigationActivity() ||
-				hasPointerNavigationActivity(),
+			navigationActive,
 			deltaMs: deltaTime * 1000,
 		});
 		if (poseChanged) {
+			if (state.mode === WORKSPACE_PANE_CAMERA && navigationActive) {
+				releaseTimelineRuntimeEvaluation?.({
+					targetKind: "shot-camera",
+					targetId: store.workspace.activeShotCameraId.value,
+				});
+			}
 			syncProjectPresentation?.();
 			updateCameraSummary?.();
 		}

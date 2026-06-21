@@ -26,6 +26,7 @@ export function createCameraPoseController({
 	state,
 	getActiveShotCamera,
 	updateActiveShotCameraDocument,
+	onLiveShotCameraPoseEdited = null,
 }) {
 	function syncActiveShotCameraDocumentFromLiveCamera({
 		includeLens = false,
@@ -36,6 +37,7 @@ export function createCameraPoseController({
 			return;
 		}
 
+		onLiveShotCameraPoseEdited?.();
 		updateActiveShotCameraDocument((documentState) => {
 			documentState.pose = captureCameraPose(shotCamera);
 			if (includeLens) {

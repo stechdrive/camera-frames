@@ -9,6 +9,7 @@ export function createViewportToolControllerBindings({
 	assetController,
 	historyController,
 	workspacePaneCamera,
+	getAnimationController = null,
 } = {}) {
 	return {
 		store,
@@ -23,5 +24,7 @@ export function createViewportToolControllerBindings({
 		assetController,
 		beginHistoryTransaction: historyController.beginHistoryTransaction,
 		commitHistoryTransaction: historyController.commitHistoryTransaction,
+		autoKeySceneAssetTransforms: (...args) =>
+			getAnimationController?.()?.autoKeySceneAssetTransforms?.(...args),
 	};
 }

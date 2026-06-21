@@ -11,6 +11,7 @@ function createStore(animationDocument: object) {
 		workspace: {
 			activeShotCameraId: signal("shot-camera-1"),
 		},
+		selectedSceneAssetIds: signal([]),
 		animation: {
 			document: signal(animationDocument),
 			enabled: signal(true),
@@ -153,6 +154,24 @@ assert.equal(camera.position.x, 9);
 assert.equal(asset.object.position.y, 4);
 assert.equal(asset.worldScale, 2);
 
+camera.position.x = 3;
+assert.equal(
+	controller.releaseRuntimeEvaluationForManualEdit({
+		targetKind: "shot-camera",
+		targetId: "shot-camera-1",
+	}),
+	true,
+);
+controller.withBaseRuntimeStateForSnapshot(() => {
+	assert.equal(camera.position.x, 3);
+	assert.equal(asset.object.position.y, 2);
+	assert.equal(controller.getEvaluatedLensForShotCamera("shot-camera-1"), null);
+});
+assert.equal(camera.position.x, 3);
+assert.equal(asset.object.position.y, 4);
+assert.equal(controller.applyCurrentFrame({ frame: 10 }), true);
+assert.equal(camera.position.x, 9);
+
 assert.equal(controller.zoomTimelineIn(), 2);
 assert.equal(store.animation.zoom.value, 2);
 assert.equal(controller.zoomTimelineOut(), 1);
@@ -173,9 +192,101 @@ store.animation.document.value = {
 	...animationDocument,
 	enabled: false,
 };
+assert.equal(controller.getAnimationDocument().enabled, true);
 assert.equal(controller.applyCurrentFrame({ frame: 10 }), true);
-assert.equal(camera.position.x, 0);
-assert.equal(asset.object.position.y, 2);
-assert.equal(asset.worldScale, 1);
+assert.equal(camera.position.x, 9);
+assert.equal(asset.object.position.y, 4);
+assert.equal(asset.worldScale, 2);
+
+store.animation.autoKey.value = true;
+store.animation.timelineFrame.value = 12;
+asset.object.position.set(7, 8, 9);
+asset.object.updateMatrixWorld(true);
+assert.equal(controller.autoKeySceneAssetTransforms([1]), true);
+const assetAutoKeyTrack = store.animation.document.value.clips[0].bindings
+	.find((binding) => binding.target.kind === "scene-asset")
+	.tracks.find((track) => track.path === "transform.position.y");
+assert.deepEqual(
+	assetAutoKeyTrack.keys.map((key) => [key.frame, key.value]),
+	[
+		[10, 4],
+		[12, 8],
+	],
+);
+
+const twoKeyStore = createStore({
+	version: 1,
+	enabled: true,
+	activeClipId: "clip-1",
+	clips: [
+		{
+			id: "clip-1",
+			name: "Two Key Camera",
+			fps: 24,
+			startFrame: 1,
+			durationFrames: 24,
+			playbackStartFrame: 1,
+			playbackEndFrame: 24,
+			bindings: [],
+		},
+	],
+});
+const twoKeyCamera = new THREE.PerspectiveCamera();
+twoKeyCamera.position.set(0, 0, 0);
+const twoKeyController = createAnimationController({
+	store: twoKeyStore,
+	state: { baseFovX: 50 },
+	shotCameraRegistry: new Map([
+		["shot-camera-1", { id: "shot-camera-1", camera: twoKeyCamera }],
+	]),
+	getShotCameraDocument: () => ({
+		id: "shot-camera-1",
+		lens: { baseFovX: 50, shiftX: 0, shiftY: 0 },
+	}),
+	getAssetController: () => ({
+		getSceneAssets: () => [],
+		getSceneAsset: () => null,
+		applyAssetWorldScale: () => {},
+	}),
+	syncShotProjection: () => {},
+	applyCameraViewProjection: () => {},
+	syncOutputCamera: () => {},
+	updateCameraSummary: () => {},
+	updateUi: () => {},
+});
+
+assert.equal(twoKeyController.insertKeyForSelection(), true);
+assert.equal(twoKeyStore.animation.autoKey.value, true);
+twoKeyController.setTimelineFrame(10);
+twoKeyCamera.position.x = 10;
+assert.equal(
+	twoKeyController.releaseRuntimeEvaluationForManualEdit({
+		targetKind: "shot-camera",
+		targetId: "shot-camera-1",
+	}),
+	true,
+);
+const twoKeyBinding = twoKeyStore.animation.document.value.clips[0].bindings[0];
+const twoKeyPositionXTrack = twoKeyBinding.tracks.find(
+	(track) => track.path === "transform.position.x",
+);
+assert.deepEqual(
+	twoKeyPositionXTrack.keys.map((key) => [key.frame, key.value]),
+	[
+		[1, 0],
+		[10, 10],
+	],
+);
+twoKeyController.setTimelineFrame(1);
+assert.equal(twoKeyCamera.position.x, 0);
+twoKeyController.setTimelineFrame(5);
+assert.ok(twoKeyCamera.position.x > 4 && twoKeyCamera.position.x < 5);
+twoKeyController.setTimelineFrame(10);
+assert.equal(twoKeyCamera.position.x, 10);
+twoKeyController.setTimelineFrame(1);
+twoKeyController.playTimeline();
+twoKeyController.advancePlayback(1 / 24);
+assert.equal(twoKeyStore.animation.timelineFrame.value, 2);
+assert.ok(twoKeyCamera.position.x > 1 && twoKeyCamera.position.x < 2);
 
 console.log("✅ CAMERA_FRAMES animation controller tests passed!");

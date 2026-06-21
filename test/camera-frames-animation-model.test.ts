@@ -18,7 +18,7 @@ import {
 const defaultDocument = createDefaultAnimationDocument();
 assert.deepEqual(defaultDocument, {
 	version: 1,
-	enabled: false,
+	enabled: true,
 	activeClipId: DEFAULT_ANIMATION_CLIP_ID,
 	clips: [
 		{
@@ -118,12 +118,14 @@ assert.deepEqual(clip.bindings[0].tracks[0].keys, [{ frame: 12, value: 3 }]);
 assert.deepEqual(clip.bindings[1].tracks[0].keys, [{ frame: 20, value: 1.25 }]);
 
 const duplicateClips = sanitizeAnimationDocument({
+	enabled: false,
 	activeClipId: "dup",
 	clips: [
 		{ id: "dup", durationFrames: 10 },
 		{ id: "dup", durationFrames: 12 },
 	],
 });
+assert.equal(duplicateClips.enabled, true);
 assert.equal(duplicateClips.clips[0].id, "dup");
 assert.equal(duplicateClips.clips[1].id, "dup-2");
 assert.equal(duplicateClips.activeClipId, "dup");

@@ -38,6 +38,7 @@ export function createCameraController({
 	prepareViewportPerspectiveMode = () => false,
 	resetViewportView = () => false,
 	syncControlsToMode,
+	onLiveShotCameraPoseEdited = null,
 	runHistoryAction = (_label, applyChange) => {
 		applyChange?.();
 		return false;
@@ -65,6 +66,7 @@ export function createCameraController({
 		state,
 		getActiveShotCamera: activeShot.getActiveShotCamera,
 		updateActiveShotCameraDocument: activeShot.updateActiveShotCameraDocument,
+		onLiveShotCameraPoseEdited,
 	});
 
 	const lensClipping = createCameraLensClippingController({
