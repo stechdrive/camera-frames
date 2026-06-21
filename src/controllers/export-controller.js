@@ -1,11 +1,15 @@
+import { getActiveAnimationClip } from "../animation/animation-model.js";
 import { IS_DEV_RUNTIME, hasEnabledQueryFlag } from "../build-info.js";
 import { renderExportPassToCanvas } from "../engine/export-bundle.js";
+import { createZipBlob, downloadBlob } from "./export/archive-download.js";
 import { buildSnapshotExportBundle } from "./export/bundle-build.js";
 import { createCanvasFromPixels } from "./export/canvas-utils.js";
 import {
+	runFrameSequenceExport,
 	runOutputExport,
 	runPngExport,
 	runPsdExport,
+	runVideoExport,
 } from "./export/download-actions.js";
 import {
 	buildShotCameraExportFilename as buildShotCameraExportFilenameHelper,
@@ -14,6 +18,8 @@ import {
 	createPsdExportDocumentBuilder,
 } from "./export/download-facade.js";
 import {
+	createPngBlobFromSnapshot,
+	createPsdBlobFromSnapshot,
 	downloadPngFromSnapshot,
 	downloadPsdFromSnapshot,
 	renderCompositeOutputCanvas,
@@ -34,6 +40,10 @@ import {
 	getShotCameraExportSettings,
 	resolveExportTargetShotCameras,
 } from "./export/targets.js";
+import {
+	createWebmFromFrameRenderer,
+	isWebmVideoExportSupported,
+} from "./export/video-download.js";
 
 export function createExportController({
 	scene,
@@ -146,9 +156,21 @@ export function createExportController({
 		createExportDownloadFacade({
 			getTargetDocuments: getExportTargetShotCameras,
 			getExportSettings: getShotCameraExportSettings,
+			getExportMode: () => store.exportOptions.mode.value,
+			getExportFrameSource: () => store.exportOptions.frameSource.value,
+			getAnimationDocument: () => store.animation.document.value,
+			getVideoExportFps: () =>
+				getActiveAnimationClip(store.animation.document.value)?.fps ?? 24,
+			isVideoExportSupported: isWebmVideoExportSupported,
 			renderSnapshot: outputRuntime.renderOutputSnapshotForShotCamera,
 			downloadPngFromSnapshot,
 			downloadPsdFromSnapshot,
+			createPngBlobFromSnapshot,
+			createPsdBlobFromSnapshot,
+			createZipBlob,
+			downloadBlob,
+			createWebmFromFrameRenderer,
+			renderCompositeOutputCanvas,
 			drawFramesToContext,
 			previewContextError: t("error.previewContext"),
 			buildFilename: buildShotCameraExportFilename,
@@ -168,6 +190,8 @@ export function createExportController({
 			runPngExportFn: runPngExport,
 			runPsdExportFn: runPsdExport,
 			runOutputExportFn: runOutputExport,
+			runFrameSequenceExportFn: runFrameSequenceExport,
+			runVideoExportFn: runVideoExport,
 		});
 
 	const exportBundleFacade = createExportBundleFacade({
@@ -179,6 +203,8 @@ export function createExportController({
 	});
 
 	const {
+		setExportMode,
+		setExportFrameSource,
 		setExportTarget,
 		toggleExportPreset,
 		setReferenceImageExportSessionEnabled,
@@ -198,6 +224,8 @@ export function createExportController({
 		downloadPsd,
 		downloadOutput,
 		buildShotCameraExportFilename,
+		setExportMode,
+		setExportFrameSource,
 		setExportTarget,
 		toggleExportPreset,
 		setReferenceImageExportSessionEnabled,

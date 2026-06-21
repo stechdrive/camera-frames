@@ -83,6 +83,8 @@ import {
 	const statusCalls = [];
 	const store = {
 		exportOptions: {
+			mode: { value: "current" },
+			frameSource: { value: "duration" },
 			target: { value: "current" },
 			presetIds: { value: [] },
 		},
@@ -103,6 +105,12 @@ import {
 		setStatus: (value) => statusCalls.push(value),
 	});
 
+	facade.setExportMode("sequence");
+	assert.equal(store.exportOptions.mode.value, "sequence");
+
+	facade.setExportFrameSource("keyframes");
+	assert.equal(store.exportOptions.frameSource.value, "keyframes");
+
 	facade.setExportTarget("selected");
 	assert.equal(store.exportOptions.target.value, "selected");
 	assert.deepEqual(store.exportOptions.presetIds.value, ["camera-b"]);
@@ -121,6 +129,14 @@ import {
 
 	assert.equal(
 		statusCalls[0],
+		'status.exportModeChanged:{"mode":"exportMode.sequence:{}"}',
+	);
+	assert.equal(
+		statusCalls[1],
+		'status.exportFrameSourceChanged:{"source":"exportFrameSource.keyframes:{}"}',
+	);
+	assert.equal(
+		statusCalls[2],
 		'status.exportTargetChanged:{"target":"exportTarget.selected:{}"}',
 	);
 	assert.equal(statusCalls.at(-1), 'status.exportPresetSelection:{"count":1}');

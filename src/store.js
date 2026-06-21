@@ -3,6 +3,10 @@ import {
 	createDefaultAnimationDocument,
 	getActiveAnimationClip,
 } from "./animation/animation-model.js";
+import {
+	ANIMATION_EXPORT_FRAME_SOURCE_DURATION,
+	ANIMATION_EXPORT_MODE_CURRENT,
+} from "./animation/animation-export.js";
 import { resolveEffectiveMobileUiScale } from "./app/mobile-ui-scale.js";
 import { resolveEffectiveViewportLodScale } from "./app/viewport-lod-scale.js";
 import {
@@ -257,6 +261,8 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	const exportSummary = signal(translate(initialLocale, "exportSummary.empty"));
 	const exportTarget = signal("current");
 	const exportPresetIds = signal([]);
+	const exportMode = signal(ANIMATION_EXPORT_MODE_CURRENT);
+	const exportFrameSource = signal(ANIMATION_EXPORT_FRAME_SOURCE_DURATION);
 	const shotCameraNearLive = signal(DEFAULT_CAMERA_NEAR);
 	const shotCameraFarLive = signal(DEFAULT_CAMERA_FAR);
 	const shotCameraPositionX = signal(0);
@@ -691,6 +697,8 @@ export function createCameraFramesStore(runtimeInfo = null) {
 			target: exportTarget,
 			presetIds: exportPresetIds,
 			presetCount: exportPresetCount,
+			mode: exportMode,
+			frameSource: exportFrameSource,
 		},
 		exportWidth,
 		exportHeight,

@@ -238,7 +238,7 @@ import {
 			assert.equal(store.workspace.activeShotCameraId.value, "camera-next");
 		},
 	);
-	assert.deepEqual(animationFrames, [12, undefined]);
+	assert.deepEqual(animationFrames, [12, 10]);
 	assert.equal(store.workspace.activeShotCameraId.value, "camera-prev");
 }
 

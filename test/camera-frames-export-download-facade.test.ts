@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import {
+	buildAnimationArchiveFilename,
+	buildShotCameraFrameExportFilename,
 	buildShotCameraExportFilename,
+	buildShotCameraVideoExportFilename,
 	createBatchSequenceIndexResolver,
 	createExportBundleFacade,
 	createExportDownloadFacade,
@@ -21,6 +24,42 @@ import {
 	);
 
 	assert.equal(filename, "Camera B-2-03.psd");
+}
+
+{
+	const buildFilename = (documentState, _snapshot, format, sequenceIndex) =>
+		buildShotCameraExportFilename(documentState, null, format, sequenceIndex, {
+			shotCameras: [{ id: "camera-a", name: "Camera A" }],
+			getShotCameraExportBaseName: (state) => state.name,
+		});
+	assert.equal(
+		buildShotCameraFrameExportFilename(
+			{ id: "camera-a", name: "Camera A" },
+			null,
+			"png",
+			null,
+			12,
+			{ buildFilename },
+		),
+		"Camera A-f0012.png",
+	);
+	assert.equal(
+		buildShotCameraVideoExportFilename(
+			{ id: "camera-a", name: "Camera A" },
+			null,
+			null,
+			{ buildFilename },
+		),
+		"Camera A.webm",
+	);
+	assert.equal(
+		buildAnimationArchiveFilename(
+			[{ id: "camera-a", name: "Camera A" }],
+			"sequence",
+			buildFilename,
+		),
+		"Camera A-sequence.zip",
+	);
 }
 
 {
@@ -370,6 +409,229 @@ import {
 
 	await facade.downloadPng();
 	assert.deepEqual(calls, ["A.png", "B.png"]);
+}
+
+{
+	const calls = [];
+	const facade = createExportDownloadFacade({
+		getTargetDocuments: () => [
+			{ id: "camera-a", name: "Camera A", frames: [] },
+		],
+		getExportSettings: () => ({ exportFormat: "png" }),
+		getExportMode: () => "sequence",
+		getExportFrameSource: () => "keyframes",
+		getAnimationDocument: () => ({
+			activeClipId: "clip-a",
+			clips: [
+				{
+					id: "clip-a",
+					startFrame: 1,
+					durationFrames: 5,
+					bindings: [
+						{
+							id: "binding-a",
+							target: { kind: "shot-camera", id: "camera-a" },
+							tracks: [
+								{
+									path: "transform.position.x",
+									keys: [
+										{ frame: 2, value: 0 },
+										{ frame: 4, value: 1 },
+									],
+								},
+							],
+						},
+					],
+				},
+			],
+		}),
+		renderSnapshot: async (shotCameraId, options) => {
+			calls.push(["render", shotCameraId, options.timelineFrame]);
+			return { id: `snapshot-${options.timelineFrame}` };
+		},
+		createPngBlobFromSnapshot: async (snapshot) => {
+			calls.push(["pngBlob", snapshot.id]);
+			return new Blob([snapshot.id]);
+		},
+		createPsdBlobFromSnapshot: () => {
+			throw new Error("not expected");
+		},
+		createZipBlob: async (entries) => {
+			calls.push(["zip", entries.map((entry) => entry.path)]);
+			return new Blob(["zip"]);
+		},
+		downloadBlob: (blob, filename) =>
+			calls.push(["downloadBlob", filename, blob.size]),
+		downloadPngFromSnapshot: () => {},
+		downloadPsdFromSnapshot: () => {},
+		drawFramesToContext: "draw",
+		previewContextError: "preview-error",
+		buildFilename: (documentState, _snapshot, format, sequenceIndex) =>
+			buildShotCameraExportFilename(
+				documentState,
+				null,
+				format,
+				sequenceIndex,
+				{
+					shotCameras: [{ id: "camera-a", name: "Camera A" }],
+					getShotCameraExportBaseName: (state) => state.name,
+				},
+			),
+		buildPsdExportDocument: () => "psd",
+		setExportStatus: () => {},
+		setSummary: () => {},
+		setStatus: () => {},
+		updateUi: () => {},
+		clearExportOverlay: () => {},
+		showExportErrorOverlay: () => {},
+		setExportProgressOverlay: () => {},
+		getPhaseDefaultDetail: () => "detail",
+		requireTargetsMessage: "missing",
+		t: (key) => key,
+		runPngExportFn: async () => {},
+		runPsdExportFn: async () => {},
+		runOutputExportFn: async () => {},
+		runFrameSequenceExportFn: async (config) => {
+			assert.deepEqual(config.frames, [2, 4]);
+			for (const [index, frame] of config.frames.entries()) {
+				const snapshot = await config.renderSnapshot(
+					config.targetDocuments[0],
+					frame,
+					index,
+					config.targetDocuments,
+					() => {},
+				);
+				await config.createSnapshotBlob(
+					config.targetDocuments[0],
+					snapshot,
+					"png",
+					frame,
+					index,
+					config.targetDocuments,
+				);
+			}
+			const entries = config.frames.map((frame) => ({
+				path: config.buildEntryPath(
+					config.targetDocuments[0],
+					null,
+					"png",
+					frame,
+				),
+				data: new Blob(["entry"]),
+			}));
+			const zipBlob = await config.createArchiveBlob(entries);
+			config.downloadArchive(zipBlob, config.archiveFilename);
+		},
+		runVideoExportFn: async () => {},
+	});
+
+	await facade.downloadOutput();
+	assert.deepEqual(calls, [
+		["render", "camera-a", 2],
+		["pngBlob", "snapshot-2"],
+		["render", "camera-a", 4],
+		["pngBlob", "snapshot-4"],
+		["zip", ["Camera A-f0002.png", "Camera A-f0004.png"]],
+		["downloadBlob", "Camera A-sequence.zip", 3],
+	]);
+}
+
+{
+	const calls = [];
+	const facade = createExportDownloadFacade({
+		getTargetDocuments: () => [
+			{ id: "camera-a", name: "Camera A", frames: [] },
+		],
+		getExportSettings: () => ({ exportFormat: "psd" }),
+		getExportMode: () => "video",
+		getExportFrameSource: () => "duration",
+		getAnimationDocument: () => ({
+			activeClipId: "clip-a",
+			clips: [{ id: "clip-a", startFrame: 8, durationFrames: 2 }],
+		}),
+		getVideoExportFps: () => 12,
+		isVideoExportSupported: () => true,
+		renderSnapshot: async (shotCameraId, options) => {
+			calls.push([
+				"renderVideo",
+				shotCameraId,
+				options.timelineFrame,
+				options.exportSettingsOverride,
+			]);
+			return { frame: options.timelineFrame };
+		},
+		renderCompositeOutputCanvas: (snapshot) => ({ canvas: snapshot.frame }),
+		createWebmFromFrameRenderer: async () => new Blob(["video"]),
+		createZipBlob: async () => new Blob(["zip"]),
+		downloadBlob: (blob, filename) =>
+			calls.push(["downloadBlob", filename, blob.size]),
+		downloadPngFromSnapshot: () => {},
+		downloadPsdFromSnapshot: () => {},
+		drawFramesToContext: "draw",
+		previewContextError: "preview-error",
+		buildFilename: (documentState, _snapshot, format, sequenceIndex) =>
+			buildShotCameraExportFilename(
+				documentState,
+				null,
+				format,
+				sequenceIndex,
+				{
+					shotCameras: [{ id: "camera-a", name: "Camera A" }],
+					getShotCameraExportBaseName: (state) => state.name,
+				},
+			),
+		buildPsdExportDocument: () => "psd",
+		setExportStatus: () => {},
+		setSummary: () => {},
+		setStatus: () => {},
+		updateUi: () => {},
+		clearExportOverlay: () => {},
+		showExportErrorOverlay: () => {},
+		setExportProgressOverlay: () => {},
+		getPhaseDefaultDetail: () => "detail",
+		requireTargetsMessage: "missing",
+		t: (key) => key,
+		runPngExportFn: async () => {},
+		runPsdExportFn: async () => {},
+		runOutputExportFn: async () => {},
+		runFrameSequenceExportFn: async () => {},
+		runVideoExportFn: async (config) => {
+			assert.deepEqual(config.frames, [8, 9]);
+			assert.equal(config.fps, 12);
+			const snapshot = await config.renderSnapshot(
+				config.targetDocuments[0],
+				config.frames[0],
+				0,
+				config.targetDocuments,
+				() => {},
+			);
+			assert.deepEqual(
+				config.renderVideoFrame(config.targetDocuments[0], snapshot),
+				{
+					canvas: 8,
+				},
+			);
+			config.downloadVideo(
+				new Blob(["video"]),
+				config.buildVideoFilename(config.targetDocuments[0], null, null),
+			);
+		},
+	});
+
+	await facade.downloadOutput();
+	assert.deepEqual(calls, [
+		[
+			"renderVideo",
+			"camera-a",
+			8,
+			{
+				exportFormat: "png",
+				exportModelLayers: false,
+				exportSplatLayers: false,
+			},
+		],
+		["downloadBlob", "Camera A.webm", 5],
+	]);
 }
 
 console.log("✅ CAMERA_FRAMES export download facade tests passed!");

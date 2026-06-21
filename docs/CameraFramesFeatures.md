@@ -167,9 +167,12 @@
 
 - target: `current` / `all` / `selected`
 - format: `png` / `psd`
+- output type: 現在フレーム / 静止画連番 / WebM 動画
 - shot camera ごとに export settings を持つ
 - export run ごとに `Include Reference Images` を切り替えられる
-- PNG / PSD とも preview 側の output frame 契約に沿って出す
+- 静止画は現在の timeline frame、連番 / 動画は animation clip の全デュレーションまたは keyframe のある frame 群を出す
+- 連番は PNG / PSD を ZIP にまとめ、動画は PSD layer / hidden mask document を作らず PNG 相当の composite frame を WebM として録画する
+- PNG / PSD / WebM とも preview 側の output frame 契約に沿って出す
 - splat export は warmup pass と Spark pending probe を併用し、sort / LoD / pager / worker の明確な未処理状態が連続して空になってから capture する。ただし Spark 側の offline 完了 token ではなく、deadline 付きの best-effort readiness として扱う
 
 PSD export の主な構成:

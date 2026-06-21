@@ -94,6 +94,8 @@ const MESSAGES = {
 			frameTrajectoryNodeMode: "軌道ノード",
 			frameTrajectoryExportSource: "FRAME軌道出力",
 			exportTarget: "書き出し対象",
+			exportMode: "出力タイプ",
+			exportFrameSource: "フレーム範囲",
 			exportPresetSelection: "選択カメラ",
 			referenceImageOpacity: "不透明度",
 			referenceImageScale: "拡縮",
@@ -179,6 +181,26 @@ const MESSAGES = {
 		exportFormat: {
 			png: "PNG",
 			psd: "PSD",
+			webm: "WebM",
+		},
+		exportMode: {
+			current: "現在フレーム",
+			sequence: "連番",
+			video: "動画",
+		},
+		exportFrameSource: {
+			duration: "全デュレーション",
+			keyframes: "キーのあるフレームのみ",
+		},
+		exportModeSummary: {
+			current: "静止画は現在フレーム {frame} の見た目を書き出します。",
+			sequence:
+				"{source}: {frames} フレーム × {cameras} Camera = {count} ファイルを ZIP にまとめます。",
+			video:
+				"{frames} フレーム × {cameras} Camera を {fps} FPS の WebM として書き出します。",
+			noFrames: "書き出せるアニメーションフレームがありません。",
+			videoUnsupported:
+				"このブラウザでは WebM 動画書き出しを利用できません。静止画連番を使ってください。",
 		},
 		gridLayerMode: {
 			bottom: "最下層",
@@ -309,6 +331,8 @@ const MESSAGES = {
 			resetActive: "現在のビューをリセット",
 			refreshPreview: "プレビューを更新",
 			downloadOutput: "書き出す",
+			downloadSequence: "連番を書き出す",
+			downloadVideo: "動画を書き出す",
 			downloadPng: "PNGを書き出す",
 			downloadPsd: "PSDを書き出す",
 			resetScale: "1xに戻す",
@@ -609,6 +633,7 @@ const MESSAGES = {
 				"{index}/{count} {name} の下絵を配置中…",
 			exportPhaseDetailWritePng: "PNG ファイルを書き出しています…",
 			exportPhaseDetailWritePsd: "PSD ドキュメントを書き出しています…",
+			exportPhaseDetailWriteWebm: "WebM 動画を書き出しています…",
 			exportErrorTitle: "書き出しに失敗しました",
 			exportErrorMessage:
 				"書き出し中にエラーが発生しました。詳細を確認してください。",
@@ -710,6 +735,9 @@ const MESSAGES = {
 			exportedBatch: "PNG を {count} 件書き出しました。",
 			psdExported: "PSD を {count} 件書き出しました。",
 			exportedMixed: "{count} 件を書き出しました。",
+			sequenceExported: "静止画連番 {count} ファイルを ZIP に書き出しました。",
+			videoExported:
+				"動画を書き出しました（{count} Camera / {frames} フレーム）。",
 		},
 		status: {
 			ready: "準備完了。",
@@ -750,6 +778,12 @@ const MESSAGES = {
 			pngExportedBatch: "PNG を {count} 件書き出しました。",
 			psdExported: "PSD を {count} 件書き出しました。",
 			exportedMixed: "{count} 件を書き出しました。",
+			sequenceExported:
+				"{format} 連番 {count} ファイルを ZIP に書き出しました。",
+			sequenceExportedMixed:
+				"PNG / PSD 連番 {count} ファイルを ZIP に書き出しました。",
+			videoExported:
+				"WebM 動画を {count} 件書き出しました（各 {frames} フレーム）。",
 			navigationActive:
 				"FPV ナビゲーション有効。WASD/RF で移動、ドラッグで視線、右ドラッグでスライド。基本速度 {speed} m/s。",
 			zoomToolEnabled:
@@ -846,6 +880,8 @@ const MESSAGES = {
 			shotCameraExportFormat: "Camera の書き出し形式を {format} にしました。",
 			frameLimitReached: "FRAME は最大 {limit} 枚までです。",
 			exportTargetChanged: "書き出し対象を {target} にしました。",
+			exportModeChanged: "出力タイプを {mode} にしました。",
+			exportFrameSourceChanged: "フレーム範囲を {source} にしました。",
 			exportPresetSelection:
 				"選択書き出しの ショットカメラ を {count} 件にしました。",
 		},
@@ -918,6 +954,10 @@ const MESSAGES = {
 				"出力プレビューの前に 3DGS かモデルを読み込んでください。",
 			exportRequiresPreset:
 				"書き出し対象の ショットカメラ を 1 つ以上選択してください。",
+			exportRequiresAnimationFrames:
+				"書き出せるアニメーションフレームがありません。全デュレーションを選ぶか、キーを追加してください。",
+			videoExportUnsupported:
+				"このブラウザでは WebM 動画書き出しを利用できません。",
 			projectPackageSaveUnsupported:
 				"この環境ではパッケージ保存ダイアログを利用できません。",
 			projectPackageSaveUnavailable:
@@ -1042,6 +1082,8 @@ const MESSAGES = {
 			frameTrajectoryNodeMode: "Trajectory Node",
 			frameTrajectoryExportSource: "FRAME Trajectory Output",
 			exportTarget: "Export Target",
+			exportMode: "Output Type",
+			exportFrameSource: "Frame Range",
 			exportPresetSelection: "Selected Cameras",
 			referenceImageOpacity: "Opacity",
 			referenceImageScale: "Scale",
@@ -1128,6 +1170,26 @@ const MESSAGES = {
 		exportFormat: {
 			png: "PNG",
 			psd: "PSD",
+			webm: "WebM",
+		},
+		exportMode: {
+			current: "Current Frame",
+			sequence: "Image Sequence",
+			video: "Video",
+		},
+		exportFrameSource: {
+			duration: "Full Duration",
+			keyframes: "Keyframes Only",
+		},
+		exportModeSummary: {
+			current: "Still export writes the current frame {frame}.",
+			sequence:
+				"{source}: {frames} frame(s) × {cameras} Camera(s) = {count} file(s) in a ZIP.",
+			video:
+				"{frames} frame(s) × {cameras} Camera(s) exported as {fps} FPS WebM.",
+			noFrames: "There are no animation frames to export.",
+			videoUnsupported:
+				"This browser cannot export WebM video. Use an image sequence instead.",
 		},
 		gridLayerMode: {
 			bottom: "Bottom-most",
@@ -1259,6 +1321,8 @@ const MESSAGES = {
 			resetActive: "Reset Active View",
 			refreshPreview: "Refresh Preview",
 			downloadOutput: "Export",
+			downloadSequence: "Export Sequence",
+			downloadVideo: "Export Video",
 			downloadPng: "Download PNG",
 			downloadPsd: "Download PSD",
 			resetScale: "Reset 1x",
@@ -1563,6 +1627,7 @@ const MESSAGES = {
 				"Placing reference image {index}/{count}: {name}…",
 			exportPhaseDetailWritePng: "Writing PNG file…",
 			exportPhaseDetailWritePsd: "Writing PSD document…",
+			exportPhaseDetailWriteWebm: "Writing WebM video…",
 			exportErrorTitle: "Export failed",
 			exportErrorMessage:
 				"An error occurred during export. Review the details and try again.",
@@ -1665,6 +1730,9 @@ const MESSAGES = {
 			exportedBatch: "Exported {count} PNG file(s).",
 			psdExported: "Exported {count} PSD file(s).",
 			exportedMixed: "Exported {count} file(s).",
+			sequenceExported: "Exported {count} image sequence file(s) to a ZIP.",
+			videoExported:
+				"Exported video for {count} Camera(s) with {frames} frame(s).",
 		},
 		status: {
 			ready: "Ready.",
@@ -1703,6 +1771,11 @@ const MESSAGES = {
 			pngExportedBatch: "Exported {count} PNG file(s).",
 			psdExported: "Exported {count} PSD file(s).",
 			exportedMixed: "Exported {count} file(s).",
+			sequenceExported: "Exported {count} {format} sequence file(s) to a ZIP.",
+			sequenceExportedMixed:
+				"Exported {count} PNG / PSD sequence file(s) to a ZIP.",
+			videoExported:
+				"Exported {count} WebM video file(s), {frames} frame(s) each.",
 			navigationActive:
 				"FPV navigation active. WASD/RF move, drag to look, right-drag to slide. Base speed {speed} m/s.",
 			zoomToolEnabled:
@@ -1795,6 +1868,8 @@ const MESSAGES = {
 			shotCameraExportFormat: "Camera export format set to {format}.",
 			frameLimitReached: "FRAME limit reached ({limit}).",
 			exportTargetChanged: "Export target set to {target}.",
+			exportModeChanged: "Output type set to {mode}.",
+			exportFrameSourceChanged: "Frame range set to {source}.",
 			exportPresetSelection:
 				"Selected export now includes {count} Camera preset(s).",
 		},
@@ -1867,6 +1942,9 @@ const MESSAGES = {
 			exportRequiresAsset:
 				"Load a splat or model before rendering output preview.",
 			exportRequiresPreset: "Select at least one Camera for export.",
+			exportRequiresAnimationFrames:
+				"There are no animation frames to export. Use full duration or add keyframes.",
+			videoExportUnsupported: "This browser cannot export WebM video.",
 			projectPackageSaveUnsupported:
 				"Package save dialogs are not supported in this environment.",
 			projectPackageSaveUnavailable:

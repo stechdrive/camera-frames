@@ -72,6 +72,22 @@ function applyExportError(
 	showExportError?.(error);
 }
 
+function padFrameNumber(frame) {
+	return String(Math.round(Number(frame) || 0)).padStart(4, "0");
+}
+
+function buildFrameProgressItems(targetDocuments = [], frames = []) {
+	return targetDocuments.flatMap((documentState) =>
+		frames.map((frame) => ({
+			...documentState,
+			id: `${documentState.id}:frame:${frame}`,
+			name: `${documentState.name} / ${padFrameNumber(frame)}`,
+			sourceDocument: documentState,
+			timelineFrame: frame,
+		})),
+	);
+}
+
 export async function runPngExport({
 	targetDocuments,
 	renderSnapshot,
@@ -129,6 +145,274 @@ export async function runPngExport({
 			setSummary,
 			setExportStatus,
 			setStatus,
+		});
+	}
+}
+
+export async function runFrameSequenceExport({
+	targetDocuments,
+	frames,
+	getExportSettings,
+	renderSnapshot,
+	createSnapshotBlob,
+	buildEntryPath,
+	createArchiveBlob,
+	downloadArchive,
+	archiveFilename,
+	setExportStatus,
+	setSummary,
+	setStatus,
+	updateUi,
+	clearExportOverlay,
+	showExportErrorOverlay,
+	setExportProgressOverlay,
+	getPhaseDefaultDetail,
+	requireTargetsMessage,
+	requireFramesMessage,
+	t,
+	now = () => Date.now(),
+	waitForWritePhasePaint = defaultWaitForWritePhasePaint,
+} = {}) {
+	setExportStatus("export.exporting", true);
+
+	try {
+		if (targetDocuments.length === 0) {
+			throw new Error(requireTargetsMessage);
+		}
+		if (!Array.isArray(frames) || frames.length === 0) {
+			throw new Error(requireFramesMessage);
+		}
+
+		const progressItems = buildFrameProgressItems(targetDocuments, frames);
+		const progressStartedAt = now();
+		const entries = [];
+		let pngCount = 0;
+		let psdCount = 0;
+
+		for (const [index, progressItem] of progressItems.entries()) {
+			const documentState = progressItem.sourceDocument;
+			const timelineFrame = progressItem.timelineFrame;
+			const exportSettings = getExportSettings(documentState);
+			const exportFormat =
+				exportSettings.exportFormat === "psd" ? "psd" : "png";
+			let currentPhaseState = null;
+			const pushOverlay = (phaseState = currentPhaseState) =>
+				setExportProgressOverlay(
+					progressItems,
+					index,
+					exportFormat,
+					progressStartedAt,
+					phaseState,
+				);
+			pushOverlay();
+			const snapshot = await renderSnapshot(
+				documentState,
+				timelineFrame,
+				index,
+				progressItems,
+				(phaseState) => {
+					currentPhaseState = phaseState;
+					pushOverlay();
+				},
+			);
+			currentPhaseState = buildWritePhaseState(
+				currentPhaseState,
+				exportFormat,
+				t,
+				getPhaseDefaultDetail,
+			);
+			if (currentPhaseState?.definitions?.length) {
+				pushOverlay();
+				await waitForWritePhasePaint?.();
+			}
+
+			const blob = await createSnapshotBlob(
+				documentState,
+				snapshot,
+				exportFormat,
+				timelineFrame,
+				index,
+				progressItems,
+			);
+			entries.push({
+				path: buildEntryPath(
+					documentState,
+					snapshot,
+					exportFormat,
+					timelineFrame,
+					index,
+					progressItems,
+				),
+				data: blob,
+			});
+			if (exportFormat === "psd") {
+				psdCount += 1;
+			} else {
+				pngCount += 1;
+			}
+		}
+
+		const archiveBlob = await createArchiveBlob(entries);
+		downloadArchive(archiveBlob, archiveFilename);
+		const exportCount = entries.length;
+		setSummary(
+			t("exportSummary.sequenceExported", {
+				count: exportCount,
+			}),
+		);
+		setStatus(
+			pngCount > 0 && psdCount > 0
+				? t("status.sequenceExportedMixed", { count: exportCount })
+				: t("status.sequenceExported", {
+						count: exportCount,
+						format: pngCount > 0 ? "PNG" : "PSD",
+					}),
+		);
+		clearExportOverlay();
+		setExportStatus("export.ready");
+		updateUi();
+	} catch (error) {
+		applyExportError(error, {
+			setSummary,
+			setExportStatus,
+			setStatus,
+			showExportError: showExportErrorOverlay,
+		});
+	}
+}
+
+export async function runVideoExport({
+	targetDocuments,
+	frames,
+	fps = 24,
+	isVideoSupported = () => false,
+	renderSnapshot,
+	renderVideoFrame,
+	createVideoBlob,
+	buildVideoFilename,
+	createArchiveBlob,
+	downloadArchive,
+	downloadVideo,
+	archiveFilename,
+	setExportStatus,
+	setSummary,
+	setStatus,
+	updateUi,
+	clearExportOverlay,
+	showExportErrorOverlay,
+	setExportProgressOverlay,
+	getPhaseDefaultDetail,
+	requireTargetsMessage,
+	requireFramesMessage,
+	videoUnsupportedMessage,
+	t,
+	now = () => Date.now(),
+	waitForWritePhasePaint = defaultWaitForWritePhasePaint,
+} = {}) {
+	setExportStatus("export.exporting", true);
+
+	try {
+		if (targetDocuments.length === 0) {
+			throw new Error(requireTargetsMessage);
+		}
+		if (!Array.isArray(frames) || frames.length === 0) {
+			throw new Error(requireFramesMessage);
+		}
+		if (!isVideoSupported()) {
+			throw new Error(videoUnsupportedMessage);
+		}
+
+		const progressItems = buildFrameProgressItems(targetDocuments, frames);
+		const progressStartedAt = now();
+		const videoEntries = [];
+		let progressIndex = 0;
+
+		for (const [cameraIndex, documentState] of targetDocuments.entries()) {
+			const videoBlob = await createVideoBlob(
+				async (drawFrame) => {
+					for (const timelineFrame of frames) {
+						const currentProgressIndex = progressIndex;
+						const progressItem = progressItems[currentProgressIndex];
+						let currentPhaseState = null;
+						const pushOverlay = (phaseState = currentPhaseState) =>
+							setExportProgressOverlay(
+								progressItems,
+								currentProgressIndex,
+								"webm",
+								progressStartedAt,
+								phaseState,
+							);
+						pushOverlay();
+						const snapshot = await renderSnapshot(
+							documentState,
+							timelineFrame,
+							currentProgressIndex,
+							progressItems,
+							(phaseState) => {
+								currentPhaseState = phaseState;
+								pushOverlay();
+							},
+						);
+						currentPhaseState = buildWritePhaseState(
+							currentPhaseState,
+							"webm",
+							t,
+							getPhaseDefaultDetail,
+						);
+						if (currentPhaseState?.definitions?.length) {
+							pushOverlay();
+							await waitForWritePhasePaint?.();
+						}
+						await drawFrame(
+							renderVideoFrame(documentState, snapshot, progressItem),
+						);
+						progressIndex += 1;
+					}
+				},
+				{ fps },
+			);
+			const filename = buildVideoFilename(
+				documentState,
+				videoBlob,
+				null,
+				cameraIndex,
+				targetDocuments,
+			);
+			if (targetDocuments.length === 1) {
+				downloadVideo(videoBlob, filename);
+			} else {
+				videoEntries.push({
+					path: filename,
+					data: videoBlob,
+				});
+			}
+		}
+
+		if (videoEntries.length > 0) {
+			const archiveBlob = await createArchiveBlob(videoEntries);
+			downloadArchive(archiveBlob, archiveFilename);
+		}
+		setSummary(
+			t("exportSummary.videoExported", {
+				count: targetDocuments.length,
+				frames: frames.length,
+			}),
+		);
+		setStatus(
+			t("status.videoExported", {
+				count: targetDocuments.length,
+				frames: frames.length,
+			}),
+		);
+		clearExportOverlay();
+		setExportStatus("export.ready");
+		updateUi();
+	} catch (error) {
+		applyExportError(error, {
+			setSummary,
+			setExportStatus,
+			setStatus,
+			showExportError: showExportErrorOverlay,
 		});
 	}
 }

@@ -111,7 +111,7 @@ function createCompositeCanvas({ width, height, layers = [] }) {
 	});
 }
 
-export function downloadPsdDocument({ width, height, filename, layers = [] }) {
+export function createPsdDocumentBlob({ width, height, layers = [] }) {
 	const compositeCanvas = createCompositeCanvas({
 		width,
 		height,
@@ -138,9 +138,13 @@ export function downloadPsdDocument({ width, height, filename, layers = [] }) {
 		},
 		{ compress: false },
 	);
-	const blob = new Blob([psdBuffer], {
+	return new Blob([psdBuffer], {
 		type: "application/octet-stream",
 	});
+}
+
+export function downloadPsdDocument({ width, height, filename, layers = [] }) {
+	const blob = createPsdDocumentBlob({ width, height, layers });
 	const url = URL.createObjectURL(blob);
 	const anchor = document.createElement("a");
 	anchor.href = url;

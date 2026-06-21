@@ -64,6 +64,8 @@ const api = createControllerApi({
 		resetActiveView: () => "reset",
 	},
 	exportController: {
+		setExportMode: (value) => `export-mode:${value}`,
+		setExportFrameSource: (value) => `export-frame-source:${value}`,
 		setExportTarget: () => {},
 		toggleExportPreset: () => {},
 		setReferenceImageExportSessionEnabled: () => {},
@@ -300,6 +302,11 @@ assert.equal(api.copyShotCameraToViewport(), "copy-s2v");
 assert.equal(api.resetActiveView(), "reset");
 assert.equal(api.setShotCameraLensShiftXPercent(12), "shift-x:12");
 assert.equal(api.setShotCameraLensShiftYPercent(-8), "shift-y:-8");
+assert.equal(api.setExportMode("sequence"), "export-mode:sequence");
+assert.equal(
+	api.setExportFrameSource("keyframes"),
+	"export-frame-source:keyframes",
+);
 assert.equal(api.downloadOutput(), "download-output");
 assert.equal(api.setCompositionGuideEnabled(true), "guide-enabled");
 assert.equal(api.setCompositionGuideScope("all-frames"), "guide-scope");

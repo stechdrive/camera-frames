@@ -1,5 +1,13 @@
 import { html } from "htm/preact";
 import {
+	ANIMATION_EXPORT_FRAME_SOURCE_DURATION,
+	ANIMATION_EXPORT_FRAME_SOURCE_KEYFRAMES,
+	ANIMATION_EXPORT_MODE_CURRENT,
+	ANIMATION_EXPORT_MODE_SEQUENCE,
+	ANIMATION_EXPORT_MODE_VIDEO,
+	resolveAnimationExportFrames,
+} from "../animation/animation-export.js";
+import {
 	MAX_CAMERA_VIEW_ZOOM_PCT,
 	MAX_OUTPUT_FRAME_HEIGHT_PCT,
 	MAX_OUTPUT_FRAME_WIDTH_PCT,
@@ -34,6 +42,31 @@ import {
 	SectionHeading,
 	TooltipBubble,
 } from "./workbench-primitives.js";
+
+function isWebmVideoExportSupportedInUi() {
+	return Boolean(
+		typeof MediaRecorder !== "undefined" &&
+			typeof HTMLCanvasElement !== "undefined" &&
+			HTMLCanvasElement.prototype.captureStream &&
+			(typeof MediaRecorder.isTypeSupported !== "function" ||
+				MediaRecorder.isTypeSupported("video/webm")),
+	);
+}
+
+function getExportTargetCount({
+	activeShotCamera,
+	exportPresetIds,
+	exportTarget,
+	store,
+}) {
+	if (exportTarget === "all") {
+		return store.workspace.shotCameras.value.length;
+	}
+	if (exportTarget === "selected") {
+		return exportPresetIds.length;
+	}
+	return activeShotCamera ? 1 : 0;
+}
 
 function CameraPropertyInlineField({
 	prefix,
@@ -868,6 +901,7 @@ export function OutputFrameSection({
 }
 
 export function ExportSection({
+	activeShotCamera = null,
 	controller,
 	exportBusy,
 	exportPresetIds,
@@ -881,6 +915,71 @@ export function ExportSection({
 }) {
 	const exportReferenceImagesEnabled =
 		store.referenceImages.exportSessionEnabled.value !== false;
+	const exportMode = store.exportOptions.mode.value;
+	const exportFrameSource = store.exportOptions.frameSource.value;
+	const animationFrames = resolveAnimationExportFrames(
+		store.animation.document.value,
+		{ frameSource: exportFrameSource },
+	);
+	const targetCount = getExportTargetCount({
+		activeShotCamera,
+		exportPresetIds,
+		exportTarget,
+		store,
+	});
+	const totalFrameExports = targetCount * animationFrames.length;
+	const currentFrame = Math.round(
+		Number(store.animation.timelineFrame.value) || 1,
+	);
+	const activeClip = store.animation.activeClip.value;
+	const exportFps = Math.max(1, Math.round(Number(activeClip?.fps) || 24));
+	const videoSupported = isWebmVideoExportSupportedInUi();
+	const sequenceMode = exportMode !== ANIMATION_EXPORT_MODE_CURRENT;
+	const animationFrameMissing = sequenceMode && animationFrames.length === 0;
+	const videoUnavailable =
+		exportMode === ANIMATION_EXPORT_MODE_VIDEO && !videoSupported;
+	const exportDisabled =
+		exportBusy ||
+		exportSelectionMissing ||
+		animationFrameMissing ||
+		videoUnavailable;
+	const downloadActionLabel =
+		exportMode === ANIMATION_EXPORT_MODE_SEQUENCE
+			? t("action.downloadSequence")
+			: exportMode === ANIMATION_EXPORT_MODE_VIDEO
+				? t("action.downloadVideo")
+				: t("action.downloadOutput");
+	const exportModeOptions = [
+		{
+			value: ANIMATION_EXPORT_MODE_CURRENT,
+			label: t("exportMode.current"),
+		},
+		{
+			value: ANIMATION_EXPORT_MODE_SEQUENCE,
+			label: t("exportMode.sequence"),
+		},
+		{
+			value: ANIMATION_EXPORT_MODE_VIDEO,
+			label: t("exportMode.video"),
+		},
+	];
+	const exportSummaryText =
+		exportMode === ANIMATION_EXPORT_MODE_CURRENT
+			? t("exportModeSummary.current", { frame: currentFrame })
+			: animationFrameMissing
+				? t("exportModeSummary.noFrames")
+				: exportMode === ANIMATION_EXPORT_MODE_VIDEO
+					? t("exportModeSummary.video", {
+							frames: animationFrames.length,
+							cameras: targetCount,
+							fps: exportFps,
+						})
+					: t("exportModeSummary.sequence", {
+							frames: animationFrames.length,
+							cameras: targetCount,
+							count: totalFrameExports,
+							source: t(`exportFrameSource.${exportFrameSource}`),
+						});
 
 	return html`
 		<${DisclosureBlock}
@@ -902,11 +1001,79 @@ export function ExportSection({
 						id="download-output"
 						type="button"
 						class="button button--primary button--compact field__label-action"
-						disabled=${exportBusy || exportSelectionMissing}
+						disabled=${exportDisabled}
 						onClick=${() => controller()?.downloadOutput()}
 					>
-						${t("action.downloadOutput")}
+						${downloadActionLabel}
 					</button>
+				</div>
+				<div class="export-run-settings">
+					<span class="export-run-settings__label">
+						${t("field.exportMode")}
+					</span>
+					<div
+						class="export-mode-segment"
+						role="group"
+						aria-label=${t("field.exportMode")}
+					>
+						${exportModeOptions.map(
+							(option) => html`
+								<button
+									key=${option.value}
+									type="button"
+									class=${
+										exportMode === option.value
+											? "export-mode-segment__button is-active"
+											: "export-mode-segment__button"
+									}
+									onPointerDown=${stopUiEvent}
+									onClick=${(event) => {
+										stopUiEvent(event);
+										controller()?.setExportMode?.(option.value);
+									}}
+								>
+									${option.label}
+								</button>
+							`,
+						)}
+					</div>
+					${
+						sequenceMode &&
+						html`
+							<label class="field">
+								<span>${t("field.exportFrameSource")}</span>
+								<select
+									id="export-frame-source"
+									value=${exportFrameSource}
+									...${INTERACTIVE_FIELD_PROPS}
+									onChange=${(event) =>
+										controller()?.setExportFrameSource?.(
+											event.currentTarget.value,
+										)}
+								>
+									<option value=${ANIMATION_EXPORT_FRAME_SOURCE_DURATION}>
+										${t("exportFrameSource.duration")}
+									</option>
+									<option value=${ANIMATION_EXPORT_FRAME_SOURCE_KEYFRAMES}>
+										${t("exportFrameSource.keyframes")}
+									</option>
+								</select>
+							</label>
+						`
+					}
+					<p
+						class=${
+							videoUnavailable || animationFrameMissing
+								? "export-run-settings__summary is-warning"
+								: "export-run-settings__summary"
+						}
+					>
+						${
+							videoUnavailable
+								? t("exportModeSummary.videoUnsupported")
+								: exportSummaryText
+						}
+					</p>
 				</div>
 				<select
 					id="export-target"

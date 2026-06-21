@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import {
+	runFrameSequenceExport,
 	runOutputExport,
 	runPngExport,
 	runPsdExport,
+	runVideoExport,
 } from "../src/controllers/export/download-actions.js";
 
 {
@@ -258,6 +260,152 @@ import {
 	]);
 	assert.deepEqual(calls[5], ["paint"]);
 	assert.deepEqual(calls[6], ["downloadPsd"]);
+}
+
+{
+	const calls = [];
+	await runFrameSequenceExport({
+		targetDocuments: [{ id: "camera-a", name: "Camera A", frames: [] }],
+		frames: [1, 3],
+		getExportSettings: () => ({ exportFormat: "png" }),
+		renderSnapshot: async (
+			documentState,
+			timelineFrame,
+			index,
+			progressItems,
+			onProgress,
+		) => {
+			onProgress?.({
+				definitions: [{ id: "write", label: "Write" }],
+				completedIds: new Set(),
+			});
+			calls.push([
+				"render",
+				documentState.id,
+				timelineFrame,
+				index,
+				progressItems.length,
+			]);
+			return { id: `snapshot-${timelineFrame}` };
+		},
+		createSnapshotBlob: async (
+			documentState,
+			snapshot,
+			exportFormat,
+			timelineFrame,
+		) => {
+			calls.push([
+				"blob",
+				documentState.id,
+				snapshot.id,
+				exportFormat,
+				timelineFrame,
+			]);
+			return new Blob([snapshot.id]);
+		},
+		buildEntryPath: (documentState, _snapshot, exportFormat, timelineFrame) =>
+			`${documentState.id}-f${timelineFrame}.${exportFormat}`,
+		createArchiveBlob: async (entries) => {
+			calls.push(["zip", entries.map((entry) => entry.path)]);
+			return new Blob(["zip"]);
+		},
+		downloadArchive: (blob, filename) =>
+			calls.push(["downloadArchive", filename, blob.size]),
+		archiveFilename: "sequence.zip",
+		setExportStatus: (...args) => calls.push(["setExportStatus", ...args]),
+		setSummary: (value) => calls.push(["setSummary", value]),
+		setStatus: (value) => calls.push(["setStatus", value]),
+		updateUi: () => calls.push(["updateUi"]),
+		clearExportOverlay: () => calls.push(["clearExportOverlay"]),
+		showExportErrorOverlay: (error) => calls.push(["showError", error.message]),
+		setExportProgressOverlay: (...args) => calls.push(["overlay", ...args]),
+		getPhaseDefaultDetail: (id, format, t) => `${id}:${format}:${t("detail")}`,
+		requireTargetsMessage: "missing target",
+		requireFramesMessage: "missing frames",
+		t: (key, values = {}) => `${key}:${JSON.stringify(values)}`,
+		now: () => 24680,
+		waitForWritePhasePaint: () => calls.push(["paint"]),
+	});
+
+	assert.deepEqual(calls[0], ["setExportStatus", "export.exporting", true]);
+	assert.deepEqual(calls[1][0], "overlay");
+	assert.deepEqual(calls[2][0], "overlay");
+	assert.deepEqual(calls[3], ["render", "camera-a", 1, 0, 2]);
+	assert.deepEqual(calls[5], ["paint"]);
+	assert.deepEqual(calls[6], ["blob", "camera-a", "snapshot-1", "png", 1]);
+	assert.deepEqual(calls[13], ["zip", ["camera-a-f1.png", "camera-a-f3.png"]]);
+	assert.deepEqual(calls[14], ["downloadArchive", "sequence.zip", 3]);
+	assert.deepEqual(calls.at(-2), ["setExportStatus", "export.ready"]);
+	assert.deepEqual(calls.at(-1), ["updateUi"]);
+}
+
+{
+	const calls = [];
+	await runVideoExport({
+		targetDocuments: [{ id: "camera-a", name: "Camera A", frames: [] }],
+		frames: [2, 4],
+		fps: 12,
+		isVideoSupported: () => true,
+		renderSnapshot: async (
+			documentState,
+			timelineFrame,
+			index,
+			progressItems,
+			onProgress,
+		) => {
+			onProgress?.({
+				definitions: [{ id: "write", label: "Write" }],
+				completedIds: new Set(),
+			});
+			calls.push([
+				"renderVideo",
+				documentState.id,
+				timelineFrame,
+				index,
+				progressItems.length,
+			]);
+			return { frame: timelineFrame };
+		},
+		renderVideoFrame: (_documentState, snapshot) => ({
+			id: `canvas-${snapshot.frame}`,
+		}),
+		createVideoBlob: async (renderFrames, options) => {
+			calls.push(["createVideo", options.fps]);
+			await renderFrames(async (canvas) => calls.push(["draw", canvas.id]));
+			return new Blob(["video"]);
+		},
+		buildVideoFilename: (documentState) => `${documentState.id}.webm`,
+		createArchiveBlob: async () => {
+			throw new Error("single video export should not create a ZIP");
+		},
+		downloadArchive: () => {},
+		downloadVideo: (blob, filename) =>
+			calls.push(["downloadVideo", filename, blob.size]),
+		archiveFilename: "video.zip",
+		setExportStatus: (...args) => calls.push(["setExportStatus", ...args]),
+		setSummary: (value) => calls.push(["setSummary", value]),
+		setStatus: (value) => calls.push(["setStatus", value]),
+		updateUi: () => calls.push(["updateUi"]),
+		clearExportOverlay: () => calls.push(["clearExportOverlay"]),
+		showExportErrorOverlay: (error) => calls.push(["showError", error.message]),
+		setExportProgressOverlay: (...args) => calls.push(["overlay", ...args]),
+		getPhaseDefaultDetail: (id, format, t) => `${id}:${format}:${t("detail")}`,
+		requireTargetsMessage: "missing target",
+		requireFramesMessage: "missing frames",
+		videoUnsupportedMessage: "no video",
+		t: (key, values = {}) => `${key}:${JSON.stringify(values)}`,
+		now: () => 13579,
+		waitForWritePhasePaint: () => calls.push(["paint"]),
+	});
+
+	assert.deepEqual(calls[0], ["setExportStatus", "export.exporting", true]);
+	assert.deepEqual(calls[1], ["createVideo", 12]);
+	assert.deepEqual(calls[4], ["renderVideo", "camera-a", 2, 0, 2]);
+	assert.deepEqual(calls[7], ["draw", "canvas-2"]);
+	assert.deepEqual(calls[13], ["draw", "canvas-4"]);
+	assert.deepEqual(calls[14], ["downloadVideo", "camera-a.webm", 5]);
+	assert.deepEqual(calls.at(-2), ["setExportStatus", "export.ready"]);
+	assert.deepEqual(calls.at(-1), ["updateUi"]);
 }
 
 console.log("✅ CAMERA_FRAMES export download actions tests passed!");

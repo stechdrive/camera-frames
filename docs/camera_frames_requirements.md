@@ -407,8 +407,13 @@ per-splat edit の current contract:
 
 - export target は `current` / `all` / `selected`
 - export format は `png` / `psd`
+- export mode は `current` / `sequence` / `video`
 - selected export は shot camera checkbox で選び、実行順は workspace 上の shot camera 順に従う
 - export は shot camera ごとの `exportSettings` を使う
+- `current` mode の静止画書き出しは現在の timeline frame の見た目を出力する
+- `sequence` mode は animation clip の全デュレーション、または camera / scene asset のいずれかに key がある frame だけを PNG / PSD 連番として ZIP にまとめる
+- `video` mode は animation clip の frame 群を WebM として書き出す。動画では PSD layer / hidden mask document は生成せず、PNG 相当の composite frame を録画する
+- sequence / video export の対象 frame は timeline animation の shot camera pose / lens と scene asset object transform を評価する。Output Frame / FRAME / reference image はアニメーション対象にしない
 
 shot camera ごとの export settings:
 

@@ -703,6 +703,7 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 			case INSPECTOR_QUICK_SECTION_EXPORT:
 				return html`
 					<${ExportSection}
+						activeShotCamera=${activeShotCamera}
 						controller=${controller}
 						exportBusy=${exportBusy}
 						exportPresetIds=${exportPresetIds}

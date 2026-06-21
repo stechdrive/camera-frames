@@ -59,9 +59,13 @@ export function getExportPhaseDefaultDetail(phaseId, exportFormat, t) {
 		case "reference-images":
 			return t("overlay.exportPhaseDetailReferenceImages");
 		case "write":
-			return exportFormat === "psd"
-				? t("overlay.exportPhaseDetailWritePsd")
-				: t("overlay.exportPhaseDetailWritePng");
+			if (exportFormat === "psd") {
+				return t("overlay.exportPhaseDetailWritePsd");
+			}
+			if (exportFormat === "webm") {
+				return t("overlay.exportPhaseDetailWriteWebm");
+			}
+			return t("overlay.exportPhaseDetailWritePng");
 		default:
 			return "";
 	}
@@ -77,9 +81,9 @@ export function buildExportProgressOverlay({
 }) {
 	const safeDocuments = Array.isArray(targetDocuments) ? targetDocuments : [];
 	const activeDocument = safeDocuments[currentIndex] ?? null;
-	const formatLabel = t(
-		`exportFormat.${exportFormat === "psd" ? "psd" : "png"}`,
-	);
+	const formatKey =
+		exportFormat === "psd" ? "psd" : exportFormat === "webm" ? "webm" : "png";
+	const formatLabel = t(`exportFormat.${formatKey}`);
 	const detail =
 		safeDocuments.length > 1
 			? t("overlay.exportDetailBatch", {

@@ -1,3 +1,8 @@
+import {
+	sanitizeAnimationExportFrameSource,
+	sanitizeAnimationExportMode,
+} from "../../animation/animation-export.js";
+
 export function clearExportOverlay(store) {
 	if (store.overlay.value?.source === "export") {
 		store.overlay.value = null;
@@ -50,6 +55,26 @@ export function setExportProgressOverlay(
 }
 
 export function createExportOptionsFacade({ store, t, setStatus } = {}) {
+	function setExportMode(nextValue) {
+		const mode = sanitizeAnimationExportMode(nextValue);
+		store.exportOptions.mode.value = mode;
+		setStatus(
+			t("status.exportModeChanged", {
+				mode: t(`exportMode.${mode}`),
+			}),
+		);
+	}
+
+	function setExportFrameSource(nextValue) {
+		const frameSource = sanitizeAnimationExportFrameSource(nextValue);
+		store.exportOptions.frameSource.value = frameSource;
+		setStatus(
+			t("status.exportFrameSourceChanged", {
+				source: t(`exportFrameSource.${frameSource}`),
+			}),
+		);
+	}
+
 	function setExportTarget(nextValue) {
 		const target =
 			nextValue === "all" || nextValue === "selected" ? nextValue : "current";
@@ -93,6 +118,8 @@ export function createExportOptionsFacade({ store, t, setStatus } = {}) {
 	}
 
 	return {
+		setExportMode,
+		setExportFrameSource,
 		setExportTarget,
 		toggleExportPreset,
 		setReferenceImageExportSessionEnabled,

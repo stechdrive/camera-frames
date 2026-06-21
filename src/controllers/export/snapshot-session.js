@@ -58,7 +58,7 @@ export function createSnapshotPhaseTracker(
 }
 
 export async function withOutputSnapshotSession(
-	{ shotCameraId, timelineFrame = null },
+	{ shotCameraId, timelineFrame = null, exportSettingsOverride = null },
 	{
 		scene,
 		spark,
@@ -85,7 +85,12 @@ export async function withOutputSnapshotSession(
 ) {
 	const targetDocument = getShotCameraDocument(shotCameraId);
 	const previousShotCameraId = store.workspace.activeShotCameraId.value;
+	const previousTimelineFrame = store.animation?.timelineFrame?.value;
 	const shouldRestore = shotCameraId && shotCameraId !== previousShotCameraId;
+	const shouldRestoreTimelineFrame =
+		timelineFrame != null &&
+		previousTimelineFrame != null &&
+		Number(timelineFrame) !== Number(previousTimelineFrame);
 	const previousGuidesVisible = guides.visible;
 	const previousGuideOverlayState = guideOverlay.captureState();
 	const previousSparkAutoUpdate = spark.autoUpdate;
@@ -94,7 +99,10 @@ export async function withOutputSnapshotSession(
 	const readinessPolicy =
 		buildViewportLodExportReadinessPolicy(previewLodScale);
 	const previousHelperVisibility = new Map();
-	const targetExportSettings = getShotCameraExportSettings(targetDocument);
+	const targetExportSettings = {
+		...getShotCameraExportSettings(targetDocument),
+		...(exportSettingsOverride ?? {}),
+	};
 
 	for (const [entryId, entry] of shotCameraRegistry.entries()) {
 		previousHelperVisibility.set(entryId, entry.helper.visible);
@@ -165,11 +173,19 @@ export async function withOutputSnapshotSession(
 			if (shouldRestore) {
 				store.workspace.activeShotCameraId.value = previousShotCameraId;
 				syncActiveShotCameraFromDocument();
-				getAnimationController?.()?.applyCurrentFrame?.();
+				getAnimationController?.()?.applyCurrentFrame?.(
+					shouldRestoreTimelineFrame
+						? { frame: previousTimelineFrame }
+						: undefined,
+				);
 				syncShotProjection();
 				syncOutputCamera();
 			} else {
-				getAnimationController?.()?.applyCurrentFrame?.();
+				getAnimationController?.()?.applyCurrentFrame?.(
+					shouldRestoreTimelineFrame
+						? { frame: previousTimelineFrame }
+						: undefined,
+				);
 			}
 
 			updateShotCameraHelpers();

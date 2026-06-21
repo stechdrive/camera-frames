@@ -120,6 +120,7 @@ async function main() {
 	const timelineSmoke = await runTimelineSmoke(cdp);
 	const timelineCameraAnimationSmoke =
 		await runTimelineCameraAnimationSmoke(cdp);
+	const exportOutputSmoke = await runExportOutputSmoke(cdp);
 	await captureScreenshot(cdp, join(outDir, "timeline-smoke.png"));
 	cdp.close();
 	cdp = null;
@@ -176,6 +177,7 @@ async function main() {
 					...timelineSmoke,
 					cameraAnimation: timelineCameraAnimationSmoke,
 				},
+				exportOutput: exportOutputSmoke,
 				fixture: fixtureInfo,
 				screenshots: [
 					relativePath(join(outDir, "project-smoke.png")),
@@ -396,6 +398,157 @@ async function createCdpTarget(cdpPort, url) {
 		throw new Error(`Could not create CDP target: ${response.status}`);
 	}
 	return await response.json();
+}
+
+async function runExportOutputSmoke(cdp) {
+	const result = await evaluate(
+		cdp,
+		`(async () => {
+			const test = globalThis.__CF_TEST__;
+			if (!test?.store || !test?.controller) {
+				return { ok: false, error: "__CF_TEST__ store/controller unavailable" };
+			}
+			const waitForReady = async (frames = 4, delayMs = 0) => {
+				if (typeof test.waitForReady === "function") {
+					await test.waitForReady({ frames, delayMs });
+					return;
+				}
+				for (let i = 0; i < frames; i++) {
+					await new Promise((resolve) => requestAnimationFrame(resolve));
+				}
+				if (delayMs > 0) {
+					await new Promise((resolve) => setTimeout(resolve, delayMs));
+				}
+			};
+			const text = (element) => element?.textContent?.replace(/\\s+/g, " ").trim() ?? "";
+			const click = (element, label) => {
+				if (!element) {
+					throw new Error("Missing export UI element: " + label);
+				}
+				element.click();
+				return element;
+			};
+			const findByText = (selector, pattern) =>
+				[...document.querySelectorAll(selector)].find((element) =>
+					pattern.test(text(element)),
+				);
+			const videoSupported = Boolean(
+				typeof MediaRecorder !== "undefined" &&
+					typeof HTMLCanvasElement !== "undefined" &&
+					HTMLCanvasElement.prototype.captureStream &&
+					(typeof MediaRecorder.isTypeSupported !== "function" ||
+						MediaRecorder.isTypeSupported("video/webm")),
+			);
+
+			test.store.workbenchManualCollapsed.value = false;
+			test.store.workbenchAutoCollapsed.value = false;
+			test.store.workbenchManualExpanded.value = true;
+			await waitForReady(6);
+
+			const exportTab =
+				findByText(".workbench-tab", /書き出し|Export/i) ??
+				document.querySelectorAll(".workbench-inspector-header .workbench-tab")[3];
+			if (!exportTab) {
+				throw new Error(
+					"Export tab not found; counts=" +
+						JSON.stringify({
+							tabs: document.querySelectorAll(".workbench-tab").length,
+							headers: document.querySelectorAll(".workbench-inspector-header").length,
+							railButtons: document.querySelectorAll(".workbench-inspector-rail__button").length,
+							workbenchCollapsed: test.store.workbenchCollapsed.value,
+						}),
+				);
+			}
+			click(exportTab, "Export tab");
+			await waitForReady(5);
+			const downloadButton = () => document.querySelector("#download-output");
+			if (!downloadButton()) {
+				throw new Error("Export output section did not render");
+			}
+			const readState = () => ({
+				mode: test.store.exportOptions.mode.value,
+				frameSource: test.store.exportOptions.frameSource.value,
+				buttonLabel: text(downloadButton()),
+				buttonDisabled: Boolean(downloadButton()?.disabled),
+				summary: text(document.querySelector(".export-run-settings__summary")),
+				hasFrameSourceSelect: Boolean(document.querySelector("#export-frame-source")),
+				modeButtons: [...document.querySelectorAll(".export-mode-segment__button")].map(text),
+			});
+
+			const initial = readState();
+			click(findByText(".export-mode-segment__button", /連番|Sequence/i), "sequence mode");
+			await waitForReady(5);
+			const sequence = readState();
+			const frameSourceSelect = document.querySelector("#export-frame-source");
+			if (!frameSourceSelect) {
+				throw new Error("Frame range select did not render in sequence mode");
+			}
+			frameSourceSelect.value = "keyframes";
+			frameSourceSelect.dispatchEvent(new Event("change", { bubbles: true }));
+			await waitForReady(5);
+			const keyframes = readState();
+			click(findByText(".export-mode-segment__button", /動画|Video/i), "video mode");
+			await waitForReady(5);
+			const video = readState();
+			click(findByText(".export-mode-segment__button", /現在フレーム|Current/i), "current mode");
+			await waitForReady(5);
+			const current = readState();
+
+			const failures = [];
+			if (initial.modeButtons.length !== 3) {
+				failures.push("Export mode segmented control did not render three modes");
+			}
+			if (initial.mode !== "current") {
+				failures.push("Initial export mode was not current");
+			}
+			if (!/現在フレーム|current frame/i.test(initial.summary)) {
+				failures.push("Current frame summary did not describe current-frame export");
+			}
+			if (sequence.mode !== "sequence" || !sequence.hasFrameSourceSelect) {
+				failures.push("Sequence mode did not expose frame range select");
+			}
+			if (!/連番|sequence/i.test(sequence.buttonLabel)) {
+				failures.push("Sequence mode did not update the export button label");
+			}
+			if (keyframes.frameSource !== "keyframes") {
+				failures.push("Keyframes-only frame source did not update store state");
+			}
+			if (video.mode !== "video") {
+				failures.push("Video mode did not update store state");
+			}
+			if (!/動画|video/i.test(video.buttonLabel)) {
+				failures.push("Video mode did not update the export button label");
+			}
+			if (videoSupported && /対応していない|cannot export/i.test(video.summary)) {
+				failures.push("Video summary reported unsupported despite browser support");
+			}
+			if (!videoSupported && !video.buttonDisabled) {
+				failures.push("Video export button was enabled in an unsupported browser");
+			}
+			if (current.mode !== "current" || current.hasFrameSourceSelect) {
+				failures.push("Current mode did not hide frame range select");
+			}
+			return {
+				ok: failures.length === 0,
+				failures,
+				summary: {
+					initial,
+					sequence,
+					keyframes,
+					video,
+					current,
+					videoSupported,
+				},
+			};
+		})()`,
+		{ awaitPromise: true },
+	);
+	if (!result?.ok) {
+		throw new Error(
+			`Export output smoke failed: ${JSON.stringify(result, null, 2)}`,
+		);
+	}
+	return result.summary;
 }
 
 async function runTimelineSmoke(cdp) {

@@ -261,11 +261,19 @@ export function createExportOutputRuntime(
 		});
 	}
 
-	function withSnapshotSession(shotCameraId, callback) {
+	function withSnapshotSession(
+		shotCameraId,
+		{
+			timelineFrame = store.animation?.timelineFrame?.value ?? null,
+			exportSettingsOverride = null,
+		} = {},
+		callback,
+	) {
 		return withOutputSnapshotSessionFn(
 			{
 				shotCameraId,
-				timelineFrame: store.animation?.timelineFrame?.value ?? null,
+				timelineFrame,
+				exportSettingsOverride,
 			},
 			{
 				scene,
@@ -297,10 +305,16 @@ export function createExportOutputRuntime(
 
 	async function renderOutputSnapshotForShotCamera(
 		shotCameraId,
-		{ onProgress = null } = {},
+		{
+			onProgress = null,
+			timelineFrame = null,
+			exportSettingsOverride = null,
+			readinessPolicy: renderReadinessPolicy = null,
+		} = {},
 	) {
 		return withSnapshotSession(
 			shotCameraId,
+			{ timelineFrame, exportSettingsOverride },
 			async ({
 				targetDocument,
 				targetExportSettings,
@@ -311,12 +325,16 @@ export function createExportOutputRuntime(
 				sceneAssets,
 				backgroundCanvas,
 				passPlan,
-				readinessPolicy,
+				readinessPolicy: sessionReadinessPolicy,
 			}) => {
 				const previousReadinessPolicy = activeReadinessPolicy;
 				activeReadinessPolicy = mergeReadinessPolicy(
-					readinessPolicy,
+					sessionReadinessPolicy,
 					readinessPolicyOverride,
+				);
+				activeReadinessPolicy = mergeReadinessPolicy(
+					activeReadinessPolicy,
+					renderReadinessPolicy,
 				);
 				try {
 					const snapshot = await renderOutputSnapshotSessionFn(

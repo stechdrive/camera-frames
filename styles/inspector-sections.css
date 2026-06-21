@@ -909,6 +909,73 @@
 	gap: 0.45rem;
 }
 
+.export-run-settings {
+	display: flex;
+	flex-direction: column;
+	gap: 0.42rem;
+	min-width: 0;
+	margin-bottom: 0.2rem;
+	padding: 0.2rem 0 0.12rem;
+}
+
+.export-run-settings__label {
+	color: var(--text-dim);
+	font-size: 0.68rem;
+	line-height: 1;
+}
+
+.export-mode-segment {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 2px;
+	padding: 2px;
+	border: 1px solid var(--line);
+	border-radius: 8px;
+	background: rgba(2, 8, 16, 0.5);
+}
+
+.export-mode-segment__button {
+	appearance: none;
+	min-width: 0;
+	min-height: 1.7rem;
+	padding: 0.32rem 0.42rem;
+	border: 1px solid transparent;
+	border-radius: 6px;
+	background: transparent;
+	color: var(--text-dim);
+	font:
+		700 0.68rem / 1 "Avenir Next",
+		"Segoe UI",
+		sans-serif;
+	cursor: pointer;
+	transition:
+		background-color 120ms ease,
+		border-color 120ms ease,
+		color 120ms ease;
+}
+
+.export-mode-segment__button:hover {
+	border-color: rgba(255, 255, 255, 0.14);
+	color: var(--text);
+}
+
+.export-mode-segment__button.is-active {
+	border-color: rgba(255, 103, 77, 0.42);
+	background: rgba(255, 103, 77, 0.12);
+	color: var(--text);
+}
+
+.export-run-settings__summary {
+	margin: 0;
+	color: var(--text-dim);
+	font-size: 0.7rem;
+	line-height: 1.35;
+}
+
+.export-run-settings__summary.is-warning {
+	color: #ffd18a;
+}
+
 .export-selection-list {
 	display: flex;
 	flex-direction: column;
