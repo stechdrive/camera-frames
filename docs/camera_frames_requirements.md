@@ -412,7 +412,7 @@ per-splat edit の current contract:
 - export は shot camera ごとの `exportSettings` を使う
 - `current` mode の静止画書き出しは現在の timeline frame の見た目を出力する
 - `sequence` mode は animation clip の全デュレーション、または camera / scene asset のいずれかに key がある frame だけを PNG / PSD 連番として ZIP にまとめる。UI で sequence に切り替えた直後の frame source は keyframe-only とする
-- `video` mode は animation clip の frame 群を WebM として書き出す。動画では PSD layer / hidden mask document は生成せず、PNG 相当の composite frame を録画する。UI で video に切り替えた直後の frame source は full duration とし、WebM の frame 間隔は clip fps を基準にしてレンダー待ち時間を含めない
+- `video` mode は animation clip の frame 群を WebM として書き出す。動画では PSD layer / hidden mask document は生成せず、PNG 相当の composite frame を WebCodecs で encode する。UI で video に切り替えた直後の frame source は full duration とし、各 `VideoFrame` の timestamp / duration は clip fps を基準にしてレンダー待ち時間を含めない。`MediaRecorder` / realtime canvas capture は video export の正式経路にしない
 - sequence / video export の対象 frame は timeline animation の shot camera pose / lens と scene asset object transform を評価する。Output Frame / FRAME / reference image はアニメーション対象にしない
 - export progress overlay はキャンセル操作を提供する。キャンセル後は次 frame / 次 camera へ進まず、ZIP / WebM / PNG / PSD download を作らず、export busy state を解除する
 

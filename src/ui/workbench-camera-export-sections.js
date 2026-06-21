@@ -45,11 +45,10 @@ import {
 
 function isWebmVideoExportSupportedInUi() {
 	return Boolean(
-		typeof MediaRecorder !== "undefined" &&
+		typeof VideoFrame !== "undefined" &&
+			typeof VideoEncoder !== "undefined" &&
 			typeof HTMLCanvasElement !== "undefined" &&
-			HTMLCanvasElement.prototype.captureStream &&
-			(typeof MediaRecorder.isTypeSupported !== "function" ||
-				MediaRecorder.isTypeSupported("video/webm")),
+			typeof document !== "undefined",
 	);
 }
 

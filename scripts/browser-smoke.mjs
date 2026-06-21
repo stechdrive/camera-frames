@@ -410,11 +410,9 @@ async function runWebmEncoderTimingSmoke(cdp) {
 		cdp,
 		`(async () => {
 			const supported = Boolean(
-				typeof MediaRecorder !== "undefined" &&
-					typeof HTMLCanvasElement !== "undefined" &&
-					HTMLCanvasElement.prototype.captureStream &&
-					(typeof MediaRecorder.isTypeSupported !== "function" ||
-						MediaRecorder.isTypeSupported("video/webm")),
+				typeof VideoFrame !== "undefined" &&
+					typeof VideoEncoder !== "undefined" &&
+					typeof HTMLCanvasElement !== "undefined",
 			);
 			if (!supported) {
 				return { ok: true, supported: false };
@@ -448,7 +446,7 @@ async function runWebmEncoderTimingSmoke(cdp) {
 				});
 			const frameCount = 4;
 			const fps = 4;
-			const renderDelayMs = 300;
+			const renderDelayMs = 500;
 			const canvas = document.createElement("canvas");
 			canvas.width = 48;
 			canvas.height = 32;
@@ -469,7 +467,7 @@ async function runWebmEncoderTimingSmoke(cdp) {
 			);
 			const elapsedSeconds = (performance.now() - startedAt) / 1000;
 			const duration = await loadVideoDuration(blob);
-			const expectedDuration = Math.max(0, frameCount - 1) / fps;
+			const expectedDuration = frameCount / fps;
 			const maxDeltaSeconds = 0.25;
 			return {
 				ok:
@@ -529,11 +527,9 @@ async function runExportOutputSmoke(cdp) {
 					pattern.test(text(element)),
 				);
 			const videoSupported = Boolean(
-				typeof MediaRecorder !== "undefined" &&
-					typeof HTMLCanvasElement !== "undefined" &&
-					HTMLCanvasElement.prototype.captureStream &&
-					(typeof MediaRecorder.isTypeSupported !== "function" ||
-						MediaRecorder.isTypeSupported("video/webm")),
+				typeof VideoFrame !== "undefined" &&
+					typeof VideoEncoder !== "undefined" &&
+					typeof HTMLCanvasElement !== "undefined",
 			);
 
 			test.store.workbenchManualCollapsed.value = false;
