@@ -1,0 +1,15 @@
+[package]
+name = "camera-frames"
+version = "1.5.0"
+description = "CAMERA_FRAMES desktop shell"
+authors = ["stechdrive"]
+license = "MIT"
+repository = "https://github.com/stechdrive/camera-frames"
+edition = "2021"
+rust-version = "1.77"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }

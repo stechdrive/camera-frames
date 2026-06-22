@@ -53,6 +53,8 @@ CAMERA_FRAMES の共有 contract を Git 管理するための基点です。
 
 - 起動の composition root は `src/controller.js`
 - bootstrap は `src/main.js`
+- GitHub Pages 版は Vite の通常 build (`base=/camera-frames/`) を正規 Web 配布として維持する
+- Windows desktop build は Tauri shell を使い、同一 frontend source を desktop mode (`base=./`) で build して embedded frontend として扱う。desktop build の運用詳細は `docs/desktop-build.md` を参照する
 - UI ではない local preference / status helper は `src/app/` を正本にし、`src/ui/` 側は必要な表示 shim に留める
 - 現行 UI は single-pane 前提で運用する
 - `WORKSPACE_LAYOUT_QUAD` 定数は残っているが、現行の product baseline には含めない

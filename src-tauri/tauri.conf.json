@@ -1,0 +1,39 @@
+{
+	"$schema": "https://schema.tauri.app/config/2",
+	"productName": "CAMERA_FRAMES",
+	"version": "1.5.0",
+	"identifier": "io.github.stechdrive.cameraframes",
+	"build": {
+		"beforeDevCommand": "npm run dev",
+		"devUrl": "http://localhost:3000",
+		"beforeBuildCommand": "npm run desktop:build:web",
+		"frontendDist": "../dist"
+	},
+	"app": {
+		"windows": [
+			{
+				"label": "main",
+				"title": "CAMERA_FRAMES",
+				"width": 1440,
+				"height": 960,
+				"minWidth": 1024,
+				"minHeight": 720,
+				"resizable": true,
+				"fullscreen": false
+			}
+		],
+		"security": {
+			"csp": null
+		}
+	},
+	"bundle": {
+		"active": true,
+		"targets": ["nsis"],
+		"icon": ["icons/icon.ico"],
+		"windows": {
+			"webviewInstallMode": {
+				"type": "skip"
+			}
+		}
+	}
+}

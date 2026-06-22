@@ -149,7 +149,7 @@ function createDevStampPlugin(rootDir) {
 	};
 }
 
-export default defineConfig(({ command }) => {
+export default defineConfig(({ command, mode }) => {
 	const codeStamp = createCodeStamp(repoRoot);
 	const buildInfo = {
 		name: packageJson.name,
@@ -338,8 +338,11 @@ export default defineConfig(({ command }) => {
 		},
 	};
 
+	const base =
+		command === "build" ? (mode === "desktop" ? "./" : "/camera-frames/") : "/";
+
 	return {
-		base: command === "build" ? "/camera-frames/" : "/",
+		base,
 		define: {
 			__APP_NAME__: JSON.stringify(buildInfo.name),
 			__APP_VERSION__: JSON.stringify(buildInfo.version),

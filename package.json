@@ -17,6 +17,10 @@
 		"test:local-scenarios": "node scripts/local-cf-test-scenarios.mjs",
 		"test:rad-streaming": "node scripts/rad-streaming-smoke.mjs",
 		"develop": "npm run dev",
+		"desktop:dev": "tauri dev",
+		"desktop:build:web": "vite build --mode desktop",
+		"desktop:build:exe": "tauri build --no-bundle",
+		"desktop:build": "tauri build",
 		"deploy": "npm run pages:publish",
 		"pages:build": "npm run build",
 		"pages:publish": "npm run build && node scripts/publish-pages.mjs",
@@ -36,6 +40,7 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.5.0",
+		"@tauri-apps/cli": "^2.0.0",
 		"modern-screenshot": "^4.7.0",
 		"ts-node": "10.9.2",
 		"typescript": "^6.0.3",
