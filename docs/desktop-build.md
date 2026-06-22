@@ -36,6 +36,7 @@ npm run desktop:build:exe
 ```
 
 `desktop:build:exe` は `tauri build --no-bundle` を使う。installer bundle を作らないため、開発中に setup を毎回実行する必要はない。
+release exe は Windows GUI subsystem で build し、起動時に console window を開かない。
 
 想定出力:
 

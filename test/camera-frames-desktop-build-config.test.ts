@@ -16,6 +16,7 @@ function readJson(path: string) {
 const packageJson = readJson("package.json");
 const tauriConfig = readJson("src-tauri/tauri.conf.json");
 const cargoToml = readText("src-tauri/Cargo.toml");
+const tauriMainRs = readText("src-tauri/src/main.rs");
 const viteConfig = readText("vite.config.js");
 const gitignore = readText(".gitignore");
 
@@ -53,6 +54,13 @@ function assertCargoMetadata() {
 	assert.equal(cargoVersion, packageJson.version);
 }
 
+function assertWindowsReleaseExeDoesNotOpenConsole() {
+	assert.match(
+		tauriMainRs,
+		/#!\[cfg_attr\(not\(debug_assertions\), windows_subsystem = "windows"\)\]/,
+	);
+}
+
 function assertViteBaseMode() {
 	assert.match(
 		viteConfig,
@@ -72,6 +80,7 @@ function assertGeneratedFilesAreIgnored() {
 assertPackageScripts();
 assertTauriConfig();
 assertCargoMetadata();
+assertWindowsReleaseExeDoesNotOpenConsole();
 assertViteBaseMode();
 assertGeneratedFilesAreIgnored();
 
