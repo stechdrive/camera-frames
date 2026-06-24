@@ -8,6 +8,10 @@ const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, "..");
 const distDir = path.join(repoRoot, "dist");
 const worktreeDir = path.join(repoRoot, ".local", "gh-pages-publish");
+const pagesBranch = "gh-pages";
+const remotePagesRef = `refs/remotes/origin/${pagesBranch}`;
+const remotePagesHeadRef = `refs/heads/${pagesBranch}`;
+const publishBranch = `gh-pages-publish-${Date.now()}-${process.pid}`;
 
 function run(command, args, options = {}) {
 	const result = spawnSync(command, args, {
@@ -71,7 +75,22 @@ async function main() {
 	const headSha = capture("git", ["rev-parse", "--short", "HEAD"]);
 
 	try {
-		run("git", ["worktree", "add", "--force", worktreeDir, "gh-pages"]);
+		run("git", ["fetch", "origin", `+${pagesBranch}:${remotePagesRef}`]);
+		const remoteHead = capture("git", ["rev-parse", remotePagesRef]);
+		const remoteTree = capture("git", [
+			"rev-parse",
+			`${remotePagesRef}^{tree}`,
+		]);
+
+		run("git", [
+			"worktree",
+			"add",
+			"--force",
+			"--detach",
+			worktreeDir,
+			remotePagesRef,
+		]);
+		run("git", ["-C", worktreeDir, "switch", "--orphan", publishBranch]);
 		await resetWorktreeRoot();
 		await copyDistContents();
 		await writeFile(path.join(worktreeDir, ".nojekyll"), "");
@@ -83,18 +102,11 @@ async function main() {
 		await writeFile(path.join(worktreeDir, "404.html"), indexHtml);
 
 		run("git", ["-C", worktreeDir, "add", "-A"]);
+		const nextTree = capture("git", ["-C", worktreeDir, "write-tree"]);
 
-		const diffResult = spawnSync(
-			"git",
-			["-C", worktreeDir, "diff", "--cached", "--quiet"],
-			{ cwd: repoRoot, shell: false },
-		);
-		if (diffResult.status === 0) {
+		if (nextTree === remoteTree) {
 			console.log("gh-pages is already up to date.");
 			return;
-		}
-		if (diffResult.status !== 1) {
-			throw new Error("Failed to inspect gh-pages diff state.");
 		}
 
 		run("git", [
@@ -104,7 +116,14 @@ async function main() {
 			"-m",
 			`deploy: publish ${headSha}`,
 		]);
-		run("git", ["-C", worktreeDir, "push", "origin", "gh-pages"]);
+		run("git", [
+			"-C",
+			worktreeDir,
+			"push",
+			`--force-with-lease=${remotePagesHeadRef}:${remoteHead}`,
+			"origin",
+			`${publishBranch}:${pagesBranch}`,
+		]);
 	} finally {
 		const worktreeList = spawnSync("git", ["worktree", "list", "--porcelain"], {
 			cwd: repoRoot,
@@ -119,6 +138,11 @@ async function main() {
 		} else {
 			await rm(worktreeDir, { force: true, recursive: true });
 		}
+		spawnSync("git", ["branch", "-D", publishBranch], {
+			cwd: repoRoot,
+			stdio: "ignore",
+			shell: false,
+		});
 	}
 }
 
