@@ -19,6 +19,9 @@ const cargoToml = readText("src-tauri/Cargo.toml");
 const tauriMainRs = readText("src-tauri/src/main.rs");
 const viteConfig = readText("vite.config.js");
 const gitignore = readText(".gitignore");
+const deployPagesAndPortableScript = readText(
+	"scripts/deploy-pages-and-portable.mjs",
+);
 
 function assertPackageScripts() {
 	assert.equal(
@@ -102,11 +105,21 @@ function assertGeneratedFilesAreIgnored() {
 	assert.match(gitignore, /^!src-tauri\/icons\/icon\.ico$/m);
 }
 
+function assertPagesPublishCanSpawnNpmOnWindows() {
+	assert.match(deployPagesAndPortableScript, /const npmCommand = "npm";/);
+	assert.match(
+		deployPagesAndPortableScript,
+		/const useNpmShell = process\.platform === "win32";/,
+	);
+	assert.match(deployPagesAndPortableScript, /shell: useNpmShell/);
+}
+
 assertPackageScripts();
 assertTauriConfig();
 assertCargoMetadata();
 assertWindowsReleaseExeDoesNotOpenConsole();
 assertViteBaseMode();
 assertGeneratedFilesAreIgnored();
+assertPagesPublishCanSpawnNpmOnWindows();
 
 console.log("CAMERA_FRAMES desktop build config tests passed.");

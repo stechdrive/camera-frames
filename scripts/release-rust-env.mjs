@@ -76,6 +76,7 @@ export function runCommand(command, args, options = {}) {
 		cwd: options.cwd ?? getRepoRoot(),
 		env: options.env ?? process.env,
 		stdio: "inherit",
+		shell: options.shell ?? false,
 	});
 
 	if (result.error) {
