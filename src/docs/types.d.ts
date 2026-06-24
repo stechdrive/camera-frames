@@ -1,6 +1,6 @@
 // Type definitions for the CAMERA_FRAMES docs fixture system.
 // Consumed via JSDoc `@type {import("../types").Fixture}` annotations from
-// .js source. See docs/help/CAPTURE.md for the capture workflow.
+// .js source.
 
 export type FixtureType =
 	| "icon"

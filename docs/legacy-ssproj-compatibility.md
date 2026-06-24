@@ -45,9 +45,9 @@
 
 ### 2.1 この文書の使い方
 
-- legacy import 周りを簡略化したくなったら、先にこの文書の case matrix と test map を見る
+- legacy import 周りを簡略化したくなったら、先にこの文書の case matrix を見る
 - この文書に載っているケースは「実データ救済対象」であり、未使用コード扱いしない
-- 互換 branch を削る時は、少なくとも対応 test とこの文書を同時更新する
+- 互換 branch を削る時は、この文書の contract も同時更新する
 - 互換が壊れる可能性がある変更では、通常 feature の docs よりこの文書を優先して確認する
 
 ## 3. 必ず守るべき互換条件
@@ -89,14 +89,14 @@
 
 ### 3.3 Asset extraction case matrix
 
-| legacy case | current repo での扱い | 壊れると起きること | 主な確認先 |
-| --- | --- | --- | --- |
-| `manifest.json` がなく `document.json` だけある `.ssproj` | current project open 失敗後に legacy project 判定へ落として import runtime で読む | old `.ssproj` が開けない | `project-controller.js`, `camera-frames-project-controller.test.ts` |
-| model path の大文字小文字が archive 実体とずれる | case-insensitive に path を解決する | GLB が見つからず scene が欠ける | `src/project/package-legacy.js`, `camera-frames-project-package.test.ts` |
-| `models/layout.glb` のような完全 path でなく leaf 名しか残っていない | leaf-name fallback で archive 実体に寄せる | 旧 model asset が欠落する | `src/project/package-legacy.js`, `camera-frames-project-package.test.ts` |
-| splat path が `.sog` や drift した参照名になっている | packed splat の実体 `meta.json` に寄せて companion files もまとめる | 旧 splat が開けない | `src/project/package-legacy.js`, `camera-frames-project-package.test.ts` |
-| old splat entry に filename がない | synthetic `assetId` / `filename` を補い、`legacyTransformBakedInAsset` を保持する | old raw splat の transform 救済が消える | `src/project/package-legacy.js`, `camera-frames-project-package.test.ts` |
-| archive に `refs/` 画像が混ざっている | importable scene asset から除外する | scene asset 判定が誤爆する | `src/project/package-legacy.js`, `camera-frames-project-package.test.ts` |
+| legacy case | current repo での扱い | 壊れると起きること |
+| --- | --- | --- |
+| `manifest.json` がなく `document.json` だけある `.ssproj` | current project open 失敗後に legacy project 判定へ落として import runtime で読む | old `.ssproj` が開けない |
+| model path の大文字小文字が archive 実体とずれる | case-insensitive に path を解決する | GLB が見つからず scene が欠ける |
+| `models/layout.glb` のような完全 path でなく leaf 名しか残っていない | leaf-name fallback で archive 実体に寄せる | 旧 model asset が欠落する |
+| splat path が `.sog` や drift した参照名になっている | packed splat の実体 `meta.json` に寄せて companion files もまとめる | 旧 splat が開けない |
+| old splat entry に filename がない | synthetic `assetId` / `filename` を補い、`legacyTransformBakedInAsset` を保持する | old raw splat の transform 救済が消える |
+| archive に `refs/` 画像が混ざっている | importable scene asset から除外する | scene asset 判定が誤爆する |
 
 ## 4. `cameraFramesState` 変換の互換条件
 
@@ -271,69 +271,7 @@ old package から展開した asset は、archive path だけ読めても足り
 - current app に存在しない obsolete field の完全再現
 - 互換のために current save format を old shape に引き戻すこと
 
-## 8. ドキュメント運用
-
-この互換は feature list に埋めず、migration contract として独立保守するのがよい。
-
-推奨運用:
-
-- この文書に「何を補正しているか」を書く
-- 互換修正をしたら、対象となる old shape と期待 current shape をここに 1 行追加する
-- 可能なら同時に test fixture を追加する
-- 「コードを簡単にしたい」理由だけで legacy branch を削らない
-
-変更時チェックリスト:
-
-1. 変更対象がこの文書の case matrix のどれに触るかを先に特定する
-2. old input shape と current normalized shape の対応が変わるなら、先にこの文書へ追記する
-3. path 解決、shot 生成、workspace 適用順のどこに影響するかを分けて考える
-4. 「補正するもの」と「補正しないもの」を混同していないか確認する
-5. 対応する test を追加または更新してから refactor する
-6. 実コードで不要に見える branch でも、旧 asset corpus を救っている可能性がある前提で扱う
-
-書き方の型:
-
-- old input shape
-- current にどう正規化するか
-- それを壊すと何が壊れるか
-- どの test が守っているか
-
-## 9. 推奨テスト
-
-最低限、legacy 互換に手を入れたら次を確認する:
-
-- [camera-frames-legacy-ssproj.test.ts](../test/camera-frames-legacy-ssproj.test.ts)
-  - old cameraFramesState から shot camera / camera transform / output frame / frame / export setting が正しく current shape に移るか
-- [camera-frames-project-package.test.ts](../test/camera-frames-project-package.test.ts)
-  - old package asset path 解決、leaf match、`.sog` rescue、raw splat synthetic fallback、legacyState 引き継ぎが壊れていないか
-- [camera-frames-project-state-bridge.test.ts](../test/camera-frames-project-state-bridge.test.ts)
-  - legacy import で shot documents、active shot、live camera transform、viewport sync が正しい順で適用されるか
-- [camera-frames-project-controller.test.ts](../test/camera-frames-project-controller.test.ts)
-  - old package open の fallback branch が生きているか
-- [camera-frames-scene-asset-project-state.test.ts](../test/camera-frames-scene-asset-project-state.test.ts)
-  - imported asset の `baseScale / worldScale / contentTransform / visible / legacyState` が current project state に乗るか
-- [camera-frames-project-file.test.ts](../test/camera-frames-project-file.test.ts)
-  - current `.ssproj` へ救済保存した後も、scene asset state と legacyState の round-trip が崩れないか
-
-必要なら追加で見る:
-
-- current output frame / projection 周りの test
-- asset state persistence 周りの test
-- legacy GLB の local scale / local rotation を持つ fixture で、import 後の world 見えが崩れないことを確認する専用 test
-
-### 9.1 test map
-
-| 変更内容 | 最低限見る test |
-| --- | --- |
-| legacy project 判定や open flow を触る | `camera-frames-project-controller.test.ts` |
-| archive path 解決や packed splat 展開を触る | `camera-frames-project-package.test.ts` |
-| shot camera 生成、renderBox 変換、frame 変換を触る | `camera-frames-legacy-ssproj.test.ts` |
-| legacy import 後の active shot / viewport 同期を触る | `camera-frames-project-state-bridge.test.ts` |
-| asset state への落とし込みや save/open round-trip を触る | `camera-frames-scene-asset-project-state.test.ts`, `camera-frames-project-file.test.ts` |
-| legacy `handlesByFrameId` → `nodesByFrameId` migration や trajectory node sanitize を触る | `camera-frames-frame-trajectory.test.ts` |
-| GLB wrapper-child 補正を触る | 既存 test だけでは薄い。専用 fixture test を追加する |
-
-## 10. この文書をどこから参照するか
+## 8. この文書をどこから参照するか
 
 この文書は次と一緒に読む前提にする:
 
@@ -343,7 +281,7 @@ old package から展開した asset は、archive path だけ読めても足り
 通常の current feature contract は `camera_frames_requirements.md` 側で管理し、
 旧資産の migration safety はこの文書で独立して管理する。
 
-## 11. Historical Reference
+## 9. Historical Reference
 
 旧 CAMERA_FRAMES の source history が必要になった時の参照先:
 

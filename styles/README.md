@@ -15,5 +15,3 @@
 - `inspector-sections.css`: inspector 内の feature section と asset/reference/export list
 - `frame-overlays.css`: frame layer、composition guide、trajectory、frame item
 - `help.css` / `docs-annotation.css`: help / docs fixture 専用
-
-CSS を移動または追加した時は `npm run lint` と `npm test` を通し、UI 表示に影響しうる変更では `npm run test:local-scenarios -- --include-built-ins --scenario css-visual-baseline,css-visual-mobile-baseline` で実アプリ screenshot も確認する。

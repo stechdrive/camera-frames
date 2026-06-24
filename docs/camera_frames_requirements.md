@@ -9,7 +9,6 @@ CAMERA_FRAMES の共有 contract を Git 管理するための基点です。
 
 - 正本は常に `src/`, `test/`, `package.json`
 - `docs/` は共有される仕様・保守契約
-- `.local/` は Git 管理しない補助メモ
 - 旧 `CAMERA_FRAMES` / `supersplat-cameraframes` 側の資料は履歴参照であり、この repo の仕様を上書きしない
 
 判断に迷った時の優先順:
@@ -18,8 +17,7 @@ CAMERA_FRAMES の共有 contract を Git 管理するための基点です。
 2. この文書
 3. `docs/CameraFramesFeatures.md`
 4. `docs/legacy-ssproj-compatibility.md`
-5. `.local/` の補助資料
-6. 外部 repo / 過去資料
+5. 外部 repo / 過去資料
 
 ## 1. 現在の基準
 
@@ -54,7 +52,7 @@ CAMERA_FRAMES の共有 contract を Git 管理するための基点です。
 - 起動の composition root は `src/controller.js`
 - bootstrap は `src/main.js`
 - GitHub Pages 版は Vite の通常 build (`base=/camera-frames/`) を正規 Web 配布として維持する
-- Windows desktop build は Tauri shell を使い、同一 frontend source を desktop mode (`base=./`) で build して embedded frontend として扱う。desktop build の運用詳細は `docs/desktop-build.md` を参照する
+- Windows desktop build は Tauri shell を使い、同一 frontend source を desktop frontend として扱う
 - UI ではない local preference / status helper は `src/app/` を正本にし、`src/ui/` 側は必要な表示 shim に留める
 - 現行 UI は single-pane 前提で運用する
 - `WORKSPACE_LAYOUT_QUAD` 定数は残っているが、現行の product baseline には含めない
@@ -148,7 +146,6 @@ CAMERA_FRAMES の共有 contract を Git 管理するための基点です。
   - per-splat edit / FullData gate に入ると FullData/PackedSplats へ swap し、runtime 上の RAD cache は stale として外す。RAD-only から展開した editable data には `lodTree` / `radMeta` を持ち込まない
   - Quality save は package snapshot capture 前に browser module worker + WASM RAD encoder を lazy load し、生成できた asset だけ `radBundle` を同梱する
   - RAD 生成は asset 単位の best-effort とし、worker load / encode / unsupported input で失敗しても既存 Quality `.ssproj` 保存は継続する。失敗した asset は FullData + `lodSplats` 保存へ戻し、`radBundle` は付けない
-  - dev build では `?cfDevValidation=rad-ssproj&projectUrl=...` と `globalThis.__CF_BROWSER_VALIDATE__` で、browser-use から RAD package open / object transform / per-splat FullData swap を JSON 検証できる
 - `.ssproj` ZIP entry の圧縮方針は package open / RAD Range / 大容量 save の contract として扱う
   - JSON と raw PLY は deflate level 6 を基本にする
   - GLB / FBX、image (`jpg` / `jpeg` / `png` / `webp`)、SOG、SPZ、ZIP、RAD、packed splat companion binary、raw-packed `packedArray` / `extraArrays` / `lodSplats` binary は stored/uncompressed とする
@@ -528,7 +525,7 @@ PSD layer 順の詳細契約:
 - tool / shortcut / mode の意味
 - preview / export consistency の前提
 
-内部構造だけの整理で user-visible contract が変わらない場合は、まず `test/` と `.local/` を優先してよい。
+内部構造だけの整理で user-visible contract が変わらない場合は、まず `test/` を優先してよい。
 
 ファイル分割 / リファクター時の運用ルール:
 
@@ -557,43 +554,3 @@ PSD layer 順の詳細契約:
 - per-splat edit: `src/controllers/per-splat-edit-controller.js`
 - input / shortcut: `src/interactions/input-router.js`, `src/interactions/input/`
 - UI local preferences / status helpers: `src/app/mobile-ui-scale.js`, `src/app/viewport-lod-scale.js`, `src/app/project-status.js`, `src/ui/mobile-ui-scale.js`, `src/ui/viewport-lod-scale.js`, `src/ui/project-status.js`, `src/app/viewport-lod-scale-runtime-binding.js`
-
-## 12. Verification Baseline
-
-変更時の最低確認:
-
-- 全体:
-  - `npm run build`
-  - `npm test`
-  - local `.ssproj` fixture がある保守環境では、必要に応じて `npm run test:local-scenarios` も実行する（手順は `docs/local-test-scenarios.md`）
-- architecture / dependency boundary:
-  - `test/camera-frames-architecture-boundaries.test.ts`
-- project / save:
-  - `test/camera-frames-project-controller.test.ts`
-  - `test/camera-frames-project-file.test.ts`
-  - `test/camera-frames-project-document.test.ts`
-  - `test/camera-frames-project-open-apply.test.ts`
-  - `test/camera-frames-project-source-staging.test.ts`
-  - `test/camera-frames-ssproj-snapshot.test.ts`
-  - `test/camera-frames-asset-controller-public-api.test.ts`
-- projection / output frame / frame:
-  - `test/camera-frames-projection.test.ts`
-  - `test/camera-frames-output-frame-controller.test.ts`
-  - `test/camera-frames-frame-controller.test.ts`
-  - `test/camera-frames-frame-trajectory.test.ts`
-  - `test/camera-frames-frame-mask-export.test.ts`
-- reference image:
-  - `test/camera-frames-reference-image-*.test.ts`
-  - `test/reference-image-controller*.test.ts`
-- export:
-  - `test/camera-frames-export-*.test.ts`
-  - `test/camera-frames-psd-export.test.ts`
-  - `npm run test:local-scenarios -- --scenario cf-test-psd-export`（local `.ssproj` から browser PSD export → `ag-psd` readback / layer fingerprint golden 比較）
-- per-splat:
-  - `test/camera-frames-per-splat-edit-controller.test.ts`
-- UI local preferences / HUD:
-  - `test/camera-frames-mobile-ui-scale.test.ts`
-  - `test/camera-frames-viewport-lod-scale.test.ts`
-  - `test/camera-frames-viewport-lod-scale-runtime-binding.test.ts`
-  - `test/camera-frames-viewport-project-status-hud.test.ts`
-  - `test/camera-frames-input-router.test.ts`

@@ -4,8 +4,8 @@ This directory is a test-only fixture for embedded RAD streaming smoke tests.
 It is intentionally small and is not a visual quality or performance benchmark.
 
 Current RAD behavior is specified in `docs/camera_frames_requirements.md` and
-covered by project/RAD tests. This README only documents how to regenerate the
-checked-in smoke fixture.
+covered by project/RAD tests. This README only identifies the checked-in smoke
+fixture files.
 
 ## Files
 
@@ -21,24 +21,6 @@ checked-in smoke fixture.
 - current repo dependency baseline: `@sparkjsdev/spark@2.1.0`
 - source tag used for this fixture generation: `v2.0.0`
 - source commit observed at generation time: `ea56ee73f1ec015deac852998870e1dc80f21a7f`
-
-## Regeneration
-
-The RAD file should be regenerated from the checked-in PLY, not copied from an
-external sample:
-
-```powershell
-git clone --depth 1 --branch v2.0.0 https://github.com/sparkjsdev/spark.git .local/spark-v2.0.0
-Push-Location .local/spark-v2.0.0
-cargo run --manifest-path rust/build-lod/Cargo.toml --release --no-default-features -- ..\..\test\fixtures\rad\tiny-splats.ply --quality --rad
-Pop-Location
-Get-FileHash -Algorithm SHA256 test\fixtures\rad\tiny-splats.ply, test\fixtures\rad\tiny-splats-lod.rad
-```
-
-`--no-default-features` only avoids compiling the optional GPU SH clustering
-path. The fixture generation still uses Spark v2.0.0 `build-lod --quality
---rad`, producing a single-file RAD suitable for testing `blob:` URL Range
-fetches.
 
 The fixture exists to verify:
 

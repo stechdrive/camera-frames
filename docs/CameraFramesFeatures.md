@@ -1,12 +1,11 @@
-# CAMERA_FRAMES 機能一覧 / 回帰チェック観点
+# CAMERA_FRAMES 機能一覧
 
 最終更新: 2026-06-21
 
 ## 0. この文書の役割
 
-この文書は、現行 repo の「何ができるか」を短く把握するための一覧です。
-仕様の正本は `docs/camera_frames_requirements.md` と `src/` / `test/` であり、
-ここでは maintainer や coding agent が回帰確認に使いやすい粒度で整理します。
+この文書は、現行 CAMERA_FRAMES の「何ができるか」を短く把握するための一覧です。
+詳細な仕様 contract は `docs/camera_frames_requirements.md` を参照します。
 
 ## 1. 現在の baseline
 
@@ -214,104 +213,7 @@ PSD export の主な構成:
 - `exportSplatLayers` の既定値や reference image model は旧文書より現 repo 実装を優先する
 - ただし旧 `.ssproj` の読込み互換は migration contract として維持する。詳細は [legacy-ssproj-compatibility.md](./legacy-ssproj-compatibility.md)
 
-## 4. 回帰で壊しやすい観点
-
-### 4.1 Save / Open
-
-- `Ctrl+S` が working save と package save を取り違えないか
-- `.ssproj` open 時に compatible working save が不正に適用 / 不適用にならないか
-- mobile / touch 環境の `.ssproj` staging がクラウド provider Blob に依存し続けないか
-- legacy `.ssproj` fallback import が current project context を壊さないか
-
-代表テスト:
-
-- `test/camera-frames-project-controller.test.ts`
-- `test/camera-frames-project-file.test.ts`
-- `test/camera-frames-project-open-apply.test.ts`
-- `test/camera-frames-project-source-staging.test.ts`
-- `test/camera-frames-asset-controller-public-api.test.ts`
-- `test/camera-frames-legacy-ssproj.test.ts`
-
-### 4.2 Projection / Output Frame / FRAME
-
-- output frame scale clamp
-- off-axis framing
-- lens shift を加えた off-axis projection と、shift 前 layout frustum を使う pose / roll 軸維持
-- anchor fixed のままの paper resize
-- viewport-only orthographic
-- frame drag / resize / rotate / anchor
-- trajectory edit toggle / handle drag / node mode
-- output frame resize 後の FRAME と trajectory remap
-- frame mask bounds / trajectory と PSD mask
-
-代表テスト:
-
-- `test/camera-frames-projection.test.ts`
-- `test/camera-frames-projection-controller.test.ts`
-- `test/camera-frames-output-frame-controller.test.ts`
-- `test/camera-frames-frame-controller.test.ts`
-- `test/camera-frames-frame-trajectory.test.ts`
-- `test/camera-frames-frame-mask-export.test.ts`
-
-### 4.3 Reference images
-
-- preset と shot binding の分離
-- per-shot override
-- `baseRenderBox` 基準の位置保持
-- output frame size / anchor 変更時の effective offset 再計算
-- PSD layer import
-- preview / export の参加条件
-- back / front group 順序
-
-代表テスト:
-
-- `test/camera-frames-reference-image-*.test.ts`
-- `test/reference-image-controller*.test.ts`
-
-### 4.4 Export
-
-- export target resolution
-- PNG / PSD の分岐
-- guide / reference / frame / mask / model / splat の layering
-- PSD trajectory layer source の反映
-- PSD hidden frame mask は viewport の `mode=off` でも素材レイヤーとして保持
-- export 時の reference image session toggle
-
-代表テスト:
-
-- `test/camera-frames-export-targets.test.ts`
-- `test/camera-frames-export-output-snapshot.test.ts`
-- `test/camera-frames-export-reference-images.test.ts`
-- `test/camera-frames-export-psd-document.test.ts`
-- `test/camera-frames-psd-export.test.ts`
-- `npm run test:local-scenarios -- --scenario cf-test-psd-export`（local `.ssproj` から browser PSD export → `ag-psd` readback / layer fingerprint golden 比較）
-
-### 4.5 Per-splat edit
-
-- runtime-only raw selection と persistent source 更新の境界
-- transform / delete / separate / duplicate 後の source consistency
-
-代表テスト:
-
-- `test/camera-frames-per-splat-edit-controller.test.ts`
-- `test/camera-frames-scene-asset-state-persistence.test.ts`
-
-### 4.6 UI local preferences
-
-- `プレビュー品質` と mobile `UI 倍率` が `.ssproj` / working save / history / dirty state に混入しないか
-- export 中の LoD scale override 後に最新の preview preference へ戻るか
-- HUD slider / background task pill / mobile scale modal が viewport interaction routing を壊さないか
-
-代表テスト:
-
-- `test/camera-frames-mobile-ui-scale.test.ts`
-- `test/camera-frames-viewport-lod-scale.test.ts`
-- `test/camera-frames-viewport-lod-scale-runtime-binding.test.ts`
-- `test/camera-frames-viewport-project-status-hud.test.ts`
-- `test/camera-frames-input-router.test.ts`
-- `test/camera-frames-architecture-boundaries.test.ts`
-
-## 5. 現在 baseline に含めないもの
+## 4. 現在 baseline に含めないもの
 
 - `.sscam`
 - generic viewer 方向の UI
@@ -319,7 +221,7 @@ PSD export の主な構成:
 - 外部 sidecar / server 前提の generic streaming LoD
 - `WORKSPACE_LAYOUT_QUAD` の完成機能
 
-## 6. まだ完成扱いにしないもの
+## 5. まだ完成扱いにしないもの
 
 今の repo で「ある程度あるが、完成済み機能として固定しない」もの:
 
@@ -329,14 +231,7 @@ PSD export の主な構成:
 - Spark pending probe を含む LoD readiness の実 scene 追加検証
 - `focus selected / fit scene` の productized workflow
 
-## 7. この文書の使い方
-
-- PR / 変更時は、まず `docs/camera_frames_requirements.md` で contract を確認する
-- 変更が user-visible なら、この文書の該当機能欄と代表テストも更新する
-- user-visible UI（パネル・モーダル・ショートカット・export 設定など）を変えたら、対応する [docs/help/ja/](./help/ja/) の章も同じ PR で更新する（詳細は [help/UPDATING.md](./help/UPDATING.md) と [help/CAPTURE.md](./help/CAPTURE.md)）
-- `.local/` のメモ更新だけで済ませず、共有すべき仕様変更は `docs/` に昇格させる
-
-## 8. ユーザー向け資料（アプリ内ヘルプ）
+## 6. ユーザー向け資料（アプリ内ヘルプ）
 
 アプリの `F1` で開く Help モーダルと repo / GitHub Pages 公開用の正本は [docs/help/](./help/) 以下にある。章構成:
 
@@ -354,22 +249,3 @@ PSD export の主な構成:
 | [10 Export](./help/ja/10-export.md) | target / format / PSD layers |
 | [11 キーボードショートカット一覧](./help/ja/11-shortcuts.md) | 全ショートカット |
 | [12 用語集とトラブルシューティング](./help/ja/12-glossary-troubleshooting.md) | glossary + FAQ |
-
-実装の配線:
-
-- Help モーダル本体 / Markdown renderer / 検索 / deep link: `src/ui/help/`
-- 各 Inspector パネルの `?` ボタン: `src/ui/workbench-primitives.js` の `DisclosureBlock`（`helpSectionId` / `onOpenHelp` props）
-- 実アプリ検証ブリッジ（dev のみ）: `src/main.js` + `src/app/dev-test-bridge.js`（`globalThis.__CF_TEST__`）
-- Help 撮影ブリッジ（dev のみ）: `src/main.js` + `src/ui/help/docs-bridge.js`（`globalThis.__CF_DOCS__`）
-- RAD `.ssproj` browser-use 検証ブリッジ（dev のみ）: `src/main.js` + `src/app/dev-browser-validation.js`（`globalThis.__CF_BROWSER_VALIDATE__`, `?cfDevValidation=rad-ssproj&projectUrl=...`）
-- Fixture 定義 / レジストリ: `src/docs/fixtures/` + `src/docs/mock/` + `src/docs/docs-app.js`（撮影手順は [docs/help/CAPTURE.md](help/CAPTURE.md)）
-- 画像保存エンドポイント（dev のみ）: `vite.config.js` の `screenshotServePlugin`（`/__screenshot` と `/__backdrop`）
-- Viewport backdrop 実体: `docs/help/assets/fixture-backdrops/`（静的 PNG、mock-scene 経由）
-- 撮影用ベースシーン: `.local/cf-test/cf-test2.ssproj`（gitignored、権利クリア済み）
-
-回帰観点:
-
-- 新パネルを足したら、どれかの章に `helpSectionId` で紐付ける
-- 新ショートカットを足したら `11-shortcuts.md` に追記する
-- UI 文言を変えたら、関連章の `last-updated` を当日の日付に更新する
-- 撮影し直した PNG は `docs/help/assets/screenshots/ja/` に保存される

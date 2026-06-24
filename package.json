@@ -24,7 +24,10 @@
 		"release:audit-paths": "node scripts/audit-release-paths.mjs",
 		"deploy": "npm run pages:publish",
 		"pages:build": "npm run build",
-		"pages:publish": "npm run build && node scripts/publish-pages.mjs",
+		"pages:publish": "node scripts/deploy-pages-and-portable.mjs",
+		"pages:publish:web": "npm run build && node scripts/publish-pages.mjs",
+		"portable:build": "npm run desktop:build:exe && npm run release:audit-paths -- --tauri-exe --rad-wasm-source",
+		"portable:publish": "npm run portable:build && node scripts/publish-portable-release.mjs",
 		"build:rad-encoder": "node scripts/build-rad-encoder.mjs"
 	},
 	"dependencies": {

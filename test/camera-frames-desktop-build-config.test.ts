@@ -41,9 +41,22 @@ function assertPackageScripts() {
 		packageJson.scripts["release:audit-paths"],
 		"node scripts/audit-release-paths.mjs",
 	);
+	assert.equal(packageJson.scripts.deploy, "npm run pages:publish");
 	assert.equal(
 		packageJson.scripts["pages:publish"],
+		"node scripts/deploy-pages-and-portable.mjs",
+	);
+	assert.equal(
+		packageJson.scripts["pages:publish:web"],
 		"npm run build && node scripts/publish-pages.mjs",
+	);
+	assert.equal(
+		packageJson.scripts["portable:build"],
+		"npm run desktop:build:exe && npm run release:audit-paths -- --tauri-exe --rad-wasm-source",
+	);
+	assert.equal(
+		packageJson.scripts["portable:publish"],
+		"npm run portable:build && node scripts/publish-portable-release.mjs",
 	);
 }
 

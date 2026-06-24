@@ -1,10 +1,9 @@
 // Dev-only bridge for driving help screenshot capture. Mounted on
 // globalThis.__CF_DOCS__ from src/main.js when import.meta.env.DEV is
 // true. The bridge is orchestrated from outside the page (e.g.
-// preview_eval) and exposes the fixture capture pipeline used
-// by docs/help/CAPTURE.md. Real app project loading is provided by
-// the dev test bridge and re-exposed here only for existing docs capture
-// workflows that regenerate static backdrop PNGs.
+// preview_eval) and exposes the fixture capture pipeline. Real app project
+// loading is provided by the dev test bridge and re-exposed here only for
+// existing docs capture workflows that regenerate static backdrop PNGs.
 
 import { domToPng } from "modern-screenshot";
 import { createDevTestBridge } from "../../app/dev-test-bridge.js";
