@@ -27,7 +27,19 @@ function assertPackageScripts() {
 	);
 	assert.equal(
 		packageJson.scripts["desktop:build:exe"],
-		"tauri build --no-bundle",
+		"node scripts/build-tauri.mjs --no-bundle",
+	);
+	assert.equal(
+		packageJson.scripts["desktop:build"],
+		"node scripts/build-tauri.mjs",
+	);
+	assert.equal(
+		packageJson.scripts["build:rad-encoder"],
+		"node scripts/build-rad-encoder.mjs",
+	);
+	assert.equal(
+		packageJson.scripts["release:audit-paths"],
+		"node scripts/audit-release-paths.mjs",
 	);
 	assert.equal(
 		packageJson.scripts["pages:publish"],

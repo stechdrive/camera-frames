@@ -19,12 +19,13 @@
 		"develop": "npm run dev",
 		"desktop:dev": "tauri dev",
 		"desktop:build:web": "vite build --mode desktop",
-		"desktop:build:exe": "tauri build --no-bundle",
-		"desktop:build": "tauri build",
+		"desktop:build:exe": "node scripts/build-tauri.mjs --no-bundle",
+		"desktop:build": "node scripts/build-tauri.mjs",
+		"release:audit-paths": "node scripts/audit-release-paths.mjs",
 		"deploy": "npm run pages:publish",
 		"pages:build": "npm run build",
 		"pages:publish": "npm run build && node scripts/publish-pages.mjs",
-		"build:rad-encoder": "wasm-pack build src/engine/rad-encoder-wasm-rs --target web --out-dir ../rad-encoder-wasm/pkg --release"
+		"build:rad-encoder": "node scripts/build-rad-encoder.mjs"
 	},
 	"dependencies": {
 		"@playcanvas/splat-transform": "^2.6.0",
