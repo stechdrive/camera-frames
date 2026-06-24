@@ -38,6 +38,7 @@ The app is not a general-purpose 3DGS viewer. It is focused on paper-first compo
 
 - Live app: [https://stechdrive.github.io/camera-frames/](https://stechdrive.github.io/camera-frames/)
 - English UI: [https://stechdrive.github.io/camera-frames/?lang=en](https://stechdrive.github.io/camera-frames/?lang=en)
+- Latest release: [https://github.com/stechdrive/camera-frames/releases/latest](https://github.com/stechdrive/camera-frames/releases/latest)
 - Repository: [https://github.com/stechdrive/camera-frames](https://github.com/stechdrive/camera-frames)
 
 ## 日本語
@@ -69,6 +70,7 @@ CAMERA_FRAMES は、日本のアニメ制作におけるレイアウトと背景
 
 - 公開版: [https://stechdrive.github.io/camera-frames/](https://stechdrive.github.io/camera-frames/)
 - 英語 UI: [https://stechdrive.github.io/camera-frames/?lang=en](https://stechdrive.github.io/camera-frames/?lang=en)
+- 最新リリース: [https://github.com/stechdrive/camera-frames/releases/latest](https://github.com/stechdrive/camera-frames/releases/latest)
 - リポジトリ: [https://github.com/stechdrive/camera-frames](https://github.com/stechdrive/camera-frames)
 
 ## 何ができるか
