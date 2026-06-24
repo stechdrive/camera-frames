@@ -109,9 +109,16 @@ function assertPagesPublishCanSpawnNpmOnWindows() {
 	assert.match(deployPagesAndPortableScript, /const npmCommand = "npm";/);
 	assert.match(
 		deployPagesAndPortableScript,
-		/const useNpmShell = process\.platform === "win32";/,
+		/const npmExecPath = process\.env\.npm_execpath;/,
 	);
-	assert.match(deployPagesAndPortableScript, /shell: useNpmShell/);
+	assert.match(
+		deployPagesAndPortableScript,
+		/runCommand\(process\.execPath, \[npmExecPath, "run", script, \.\.\.args\]/,
+	);
+	assert.match(
+		deployPagesAndPortableScript,
+		/shell: process\.platform === "win32"/,
+	);
 }
 
 assertPackageScripts();

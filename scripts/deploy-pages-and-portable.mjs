@@ -4,7 +4,7 @@ import { getRepoRoot, runCommand } from "./release-rust-env.mjs";
 
 const repoRoot = getRepoRoot();
 const npmCommand = "npm";
-const useNpmShell = process.platform === "win32";
+const npmExecPath = process.env.npm_execpath;
 
 function requireReleaseToken() {
 	if (process.env.GITHUB_TOKEN || process.env.GH_TOKEN) {
@@ -16,9 +16,15 @@ function requireReleaseToken() {
 }
 
 function npmRun(script, args = []) {
+	if (npmExecPath) {
+		runCommand(process.execPath, [npmExecPath, "run", script, ...args], {
+			cwd: repoRoot,
+		});
+		return;
+	}
 	runCommand(npmCommand, ["run", script, ...args], {
 		cwd: repoRoot,
-		shell: useNpmShell,
+		shell: process.platform === "win32",
 	});
 }
 
