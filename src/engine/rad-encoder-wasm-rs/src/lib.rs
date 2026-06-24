@@ -20,11 +20,15 @@ pub fn encode_packed_rad_bundle(
     bounds: JsValue,
 ) -> Result<JsValue, JsValue> {
     if num_splats == 0 {
-        return Err(JsValue::from_str("RAD bundle encode requires at least one splat."));
+        return Err(JsValue::from_str(
+            "RAD bundle encode requires at least one splat.",
+        ));
     }
     let packed_len = packed_array.length() as usize;
     if packed_len < num_splats.saturating_mul(4) {
-        return Err(JsValue::from_str("packedArray is shorter than numSplats * 4."));
+        return Err(JsValue::from_str(
+            "packedArray is shorter than numSplats * 4.",
+        ));
     }
 
     let mut packed = vec![0u32; packed_len];
@@ -91,7 +95,11 @@ pub fn encode_packed_rad_bundle(
     write_rad_root(&mut root_bytes, &meta)?;
 
     let result = Object::new();
-    Reflect::set(&result, &JsValue::from_str("root"), &entry_object(&root_name, root_bytes))?;
+    Reflect::set(
+        &result,
+        &JsValue::from_str("root"),
+        &entry_object(&root_name, root_bytes),
+    )?;
 
     let chunk_array = Array::new();
     for (name, bytes) in chunks {
@@ -112,7 +120,11 @@ pub fn encode_packed_rad_bundle(
         &JsValue::from_str(&root_name),
     )?;
     let build = Object::new();
-    Reflect::set(&build, &JsValue::from_str("mode"), &JsValue::from_str("quality"))?;
+    Reflect::set(
+        &build,
+        &JsValue::from_str("mode"),
+        &JsValue::from_str("quality"),
+    )?;
     Reflect::set(&build, &JsValue::from_str("chunked"), &JsValue::TRUE)?;
     Reflect::set(
         &build,
@@ -368,8 +380,10 @@ fn encode_chunk(
         meta["lodTree"] = Value::Bool(true);
     }
 
-    let meta_bytes = serde_json::to_vec(&meta).map_err(|error| JsValue::from_str(&error.to_string()))?;
-    let mut encoded = Vec::with_capacity(8 + roundup8(meta_bytes.len()) + 8 + payload_bytes as usize);
+    let meta_bytes =
+        serde_json::to_vec(&meta).map_err(|error| JsValue::from_str(&error.to_string()))?;
+    let mut encoded =
+        Vec::with_capacity(8 + roundup8(meta_bytes.len()) + 8 + payload_bytes as usize);
     encoded.extend_from_slice(&RAD_CHUNK_MAGIC);
     encoded.extend_from_slice(&(meta_bytes.len() as u32).to_le_bytes());
     encoded.extend_from_slice(&meta_bytes);
@@ -557,7 +571,11 @@ fn entry_object(name: &str, bytes: Vec<u8>) -> JsValue {
     let object = Object::new();
     let size = bytes.len();
     let array = Uint8Array::from(bytes.as_slice());
-    let _ = Reflect::set(&object, &JsValue::from_str("name"), &JsValue::from_str(name));
+    let _ = Reflect::set(
+        &object,
+        &JsValue::from_str("name"),
+        &JsValue::from_str(name),
+    );
     let _ = Reflect::set(&object, &JsValue::from_str("bytes"), &array);
     let _ = Reflect::set(
         &object,
