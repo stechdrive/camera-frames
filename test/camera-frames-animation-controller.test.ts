@@ -285,6 +285,121 @@ assert.deepEqual(
 );
 
 {
+	const unboundStore = createStore({
+		version: 1,
+		enabled: true,
+		autoKeyTargetKeys: [],
+		activeClipId: "clip-1",
+		clips: [
+			{
+				id: "clip-1",
+				name: "No Bindings",
+				fps: 24,
+				startFrame: 1,
+				durationFrames: 24,
+				playbackStartFrame: 1,
+				playbackEndFrame: 24,
+				bindings: [],
+			},
+		],
+	});
+	const unboundAssetObject = new THREE.Object3D();
+	const unboundAsset = {
+		id: 7,
+		kind: "model",
+		worldScale: 1,
+		object: unboundAssetObject,
+	};
+	const unboundController = createAnimationController({
+		store: unboundStore,
+		state: { baseFovX: 50 },
+		shotCameraRegistry: new Map(),
+		getAssetController: () => ({
+			getSceneAssets: () => [unboundAsset],
+			getSceneAsset: (assetId: number | string) =>
+				String(assetId) === "7" ? unboundAsset : null,
+			applyAssetWorldScale: () => {},
+		}),
+		updateUi: () => {},
+	});
+	assert.equal(unboundController.applyCurrentFrame({ frame: 1 }), true);
+	unboundAssetObject.rotation.y = Math.PI / 2;
+	unboundAssetObject.updateMatrixWorld(true);
+	assert.equal(unboundController.applyCurrentFrame({ frame: 1 }), true);
+	assert.ok(Math.abs(unboundAssetObject.rotation.y - Math.PI / 2) < 1e-8);
+	unboundController.withBaseRuntimeStateForSnapshot(() => {
+		assert.ok(Math.abs(unboundAssetObject.rotation.y - Math.PI / 2) < 1e-8);
+	});
+	assert.ok(Math.abs(unboundAssetObject.rotation.y - Math.PI / 2) < 1e-8);
+}
+
+{
+	const removedBindingStore = createStore({
+		version: 1,
+		enabled: true,
+		autoKeyTargetKeys: [],
+		activeClipId: "clip-1",
+		clips: [
+			{
+				id: "clip-1",
+				name: "Removed Binding",
+				fps: 24,
+				startFrame: 1,
+				durationFrames: 24,
+				playbackStartFrame: 1,
+				playbackEndFrame: 24,
+				bindings: [
+					{
+						id: "asset-binding",
+						target: { kind: "scene-asset", id: 8 },
+						tracks: [
+							{
+								path: "transform.position.x",
+								keys: [{ frame: 1, value: 3 }],
+							},
+						],
+					},
+				],
+			},
+		],
+	});
+	const removedBindingAssetObject = new THREE.Object3D();
+	const removedBindingAsset = {
+		id: 8,
+		kind: "model",
+		worldScale: 1,
+		object: removedBindingAssetObject,
+	};
+	const removedBindingController = createAnimationController({
+		store: removedBindingStore,
+		state: { baseFovX: 50 },
+		shotCameraRegistry: new Map(),
+		getAssetController: () => ({
+			getSceneAssets: () => [removedBindingAsset],
+			getSceneAsset: (assetId: number | string) =>
+				String(assetId) === "8" ? removedBindingAsset : null,
+			applyAssetWorldScale: () => {},
+		}),
+		updateUi: () => {},
+	});
+	assert.equal(removedBindingController.applyCurrentFrame({ frame: 1 }), true);
+	assert.equal(removedBindingAssetObject.position.x, 3);
+	removedBindingStore.animation.document.value = {
+		...removedBindingStore.animation.document.value,
+		clips: removedBindingStore.animation.document.value.clips.map((clip) => ({
+			...clip,
+			bindings: [],
+		})),
+	};
+	assert.equal(removedBindingController.applyCurrentFrame({ frame: 1 }), true);
+	assert.equal(removedBindingAssetObject.position.x, 0);
+	removedBindingAssetObject.position.x = 7;
+	removedBindingAssetObject.updateMatrixWorld(true);
+	assert.equal(removedBindingController.applyCurrentFrame({ frame: 1 }), true);
+	assert.equal(removedBindingAssetObject.position.x, 7);
+}
+
+{
 	const releaseOnlyStore = createStore({
 		version: 1,
 		enabled: true,

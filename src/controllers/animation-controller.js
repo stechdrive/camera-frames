@@ -145,6 +145,7 @@ export function createAnimationController({
 	const baseShotCameraStates = new Map();
 	const baseSceneAssetStates = new Map();
 	const evaluatedShotCameraLens = new Map();
+	const evaluatedRuntimeTargetKeys = new Set();
 	const manuallyEditedRuntimeTargets = new Set();
 	let timelineKeyClipboard = null;
 	let runtimeStateCaptured = false;
@@ -314,6 +315,7 @@ export function createAnimationController({
 			}
 		}
 		evaluatedShotCameraLens.clear();
+		evaluatedRuntimeTargetKeys.clear();
 		store.animation.evaluatedLens.value = null;
 		const activeBaseState = baseShotCameraStates.get(
 			store.workspace.activeShotCameraId.value,
@@ -330,6 +332,43 @@ export function createAnimationController({
 			updateUi?.();
 		}
 		return true;
+	}
+
+	function restoreRuntimeTargetsToBase(targetKeys) {
+		if (!runtimeStateCaptured) {
+			return false;
+		}
+		let restored = false;
+		for (const targetKey of targetKeys ?? []) {
+			const target = parseTargetKey(targetKey);
+			if (target?.kind === ANIMATION_TARGET_SHOT_CAMERA) {
+				const baseState = baseShotCameraStates.get(target.id);
+				const entry = shotCameraRegistry.get(target.id);
+				if (!entry?.camera || !baseState) {
+					continue;
+				}
+				applyCameraRuntimeState(entry, baseState);
+				evaluatedShotCameraLens.delete(target.id);
+				if (target.id === store.workspace.activeShotCameraId.value) {
+					store.animation.evaluatedLens.value = null;
+					if (state) {
+						state.baseFovX = baseState.lens.baseFovX;
+					}
+				}
+				restored = true;
+				continue;
+			}
+			if (target?.kind === ANIMATION_TARGET_SCENE_ASSET) {
+				const baseState = baseSceneAssetStates.get(String(target.id));
+				const asset = getSceneAssetByAnimationId(target.id);
+				if (!asset?.object || !baseState) {
+					continue;
+				}
+				applyAssetWorldTransform(asset, baseState);
+				restored = true;
+			}
+		}
+		return restored;
 	}
 
 	function captureCurrentTargetRuntimeState(target) {
@@ -2211,13 +2250,39 @@ export function createAnimationController({
 		);
 	}
 
+	function getEvaluatedRuntimeTargetKeysForClip(clip) {
+		const targetKeys = new Set();
+		for (const binding of clip?.bindings ?? []) {
+			const hasImplementedChannels =
+				binding.target.kind === ANIMATION_TARGET_SHOT_CAMERA
+					? hasBindingChannelGroup(
+							binding,
+							ANIMATION_CHANNEL_GROUP_TRANSFORM,
+						) || hasBindingChannelGroup(binding, ANIMATION_CHANNEL_GROUP_LENS)
+					: binding.target.kind === ANIMATION_TARGET_SCENE_ASSET
+						? hasBindingChannelGroup(binding, ANIMATION_CHANNEL_GROUP_TRANSFORM)
+						: false;
+			const targetKey = hasImplementedChannels
+				? createTargetKey(binding.target)
+				: "";
+			if (targetKey) {
+				targetKeys.add(targetKey);
+			}
+		}
+		return targetKeys;
+	}
+
 	function withBaseRuntimeStateForSnapshot(callback) {
 		const shouldReapply = runtimeEvaluated && isAnimationEnabled();
 		const frame = store.animation.timelineFrame.value;
 		const preservedRuntimeStates = shouldReapply
 			? captureManualRuntimeStates()
 			: new Map();
-		restoreBaseRuntimeState();
+		if (shouldReapply) {
+			restoreRuntimeTargetsToBase(evaluatedRuntimeTargetKeys);
+		} else {
+			restoreBaseRuntimeState();
+		}
 		try {
 			return callback?.();
 		} finally {
@@ -2250,8 +2315,15 @@ export function createAnimationController({
 			manuallyEditedRuntimeTargets.clear();
 		}
 		ensureRuntimeStateCaptured();
-		restoreBaseRuntimeState();
 		const clip = getActiveAnimationClip(getAnimationDocument());
+		const nextEvaluatedTargetKeys = getEvaluatedRuntimeTargetKeysForClip(clip);
+		restoreRuntimeTargetsToBase(
+			new Set([...evaluatedRuntimeTargetKeys, ...nextEvaluatedTargetKeys]),
+		);
+		evaluatedRuntimeTargetKeys.clear();
+		for (const targetKey of nextEvaluatedTargetKeys) {
+			evaluatedRuntimeTargetKeys.add(targetKey);
+		}
 		const timelineFrame = clampTimelineFrame(frame, clip);
 		store.animation.timelineFrame.value = timelineFrame;
 		for (const binding of clip.bindings) {

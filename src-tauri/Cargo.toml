@@ -1,6 +1,6 @@
 [package]
 name = "camera-frames"
-version = "1.5.0"
+version = "1.5.1"
 description = "CAMERA_FRAMES desktop shell"
 authors = ["stechdrive"]
 license = "MIT"

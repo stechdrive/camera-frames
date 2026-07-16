@@ -188,7 +188,7 @@ import {
 }
 
 {
-	const animationFrames = [];
+	const animationCalls = [];
 	const store = {
 		workspace: {
 			activeShotCameraId: { value: "camera-prev" },
@@ -231,14 +231,17 @@ import {
 			updateShotCameraHelpers: () => {},
 			setRenderLock: () => {},
 			getAnimationController: () => ({
-				applyCurrentFrame: ({ frame } = {}) => animationFrames.push(frame),
+				applyCurrentFrame: (options = {}) => animationCalls.push(options),
 			}),
 		},
 		async () => {
 			assert.equal(store.workspace.activeShotCameraId.value, "camera-next");
 		},
 	);
-	assert.deepEqual(animationFrames, [12, 10]);
+	assert.deepEqual(animationCalls, [
+		{ frame: 12, preserveManualEdits: true },
+		{ frame: 10, preserveManualEdits: true },
+	]);
 	assert.equal(store.workspace.activeShotCameraId.value, "camera-prev");
 }
 

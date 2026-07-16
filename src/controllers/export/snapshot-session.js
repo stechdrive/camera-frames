@@ -103,6 +103,11 @@ export async function withOutputSnapshotSession(
 		...getShotCameraExportSettings(targetDocument),
 		...(exportSettingsOverride ?? {}),
 	};
+	const applyAnimationFrame = (frame) =>
+		getAnimationController?.()?.applyCurrentFrame?.({
+			frame,
+			preserveManualEdits: true,
+		});
 
 	for (const [entryId, entry] of shotCameraRegistry.entries()) {
 		previousHelperVisibility.set(entryId, entry.helper.visible);
@@ -119,9 +124,7 @@ export async function withOutputSnapshotSession(
 		setRenderLock(true);
 		spark.lodSplatScale = exportLodScale;
 		syncActiveShotCameraFromDocument();
-		getAnimationController?.()?.applyCurrentFrame?.({
-			frame: timelineFrame ?? store.animation?.timelineFrame?.value,
-		});
+		applyAnimationFrame(timelineFrame ?? store.animation?.timelineFrame?.value);
 		syncShotProjection();
 		syncOutputCamera();
 
@@ -173,18 +176,14 @@ export async function withOutputSnapshotSession(
 			if (shouldRestore) {
 				store.workspace.activeShotCameraId.value = previousShotCameraId;
 				syncActiveShotCameraFromDocument();
-				getAnimationController?.()?.applyCurrentFrame?.(
-					shouldRestoreTimelineFrame
-						? { frame: previousTimelineFrame }
-						: undefined,
+				applyAnimationFrame(
+					shouldRestoreTimelineFrame ? previousTimelineFrame : undefined,
 				);
 				syncShotProjection();
 				syncOutputCamera();
 			} else {
-				getAnimationController?.()?.applyCurrentFrame?.(
-					shouldRestoreTimelineFrame
-						? { frame: previousTimelineFrame }
-						: undefined,
+				applyAnimationFrame(
+					shouldRestoreTimelineFrame ? previousTimelineFrame : undefined,
 				);
 			}
 

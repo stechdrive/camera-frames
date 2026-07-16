@@ -197,6 +197,7 @@ PSD export の主な構成:
 - `キーを追加` は key を作成できた target だけを Auto Key 対象にする
 - Auto Key は camera / mesh / splat の target 単位で保持し、タイムライン track row のキーアイコンで ON/OFF を確認・切替できる
 - Auto Key が ON の target だけが、現在フレームでの数値編集や transform drag を key 更新へ routing される
+- timeline frame 評価は binding のある target だけを評価し、binding のない model / splat の手動 transform は preview / export 間で保持する
 - タイムライン上の key は target row + frame 単位で選択し、ドラッグ移動、コピー、現在フレームへの貼り付け、削除ができる
 - 選択 key の補間を `Linear` / `Hold` で切り替えられる。Graph Editor は未提供
 - 前後 key へのジャンプ、選択 key の時間スケール、現在フレームの key 状態表示、track row filter を持つ
