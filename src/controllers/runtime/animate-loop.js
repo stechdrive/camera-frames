@@ -149,10 +149,20 @@ export function createRuntimeAnimateLoop({
 		const previousBackground = scene.background;
 		const previousClearAlpha = renderer.getClearAlpha();
 		renderer.getClearColor(_tempClearColor);
+		const hasBackReferenceImagePreview =
+			store.referenceImages?.previewLayers?.value?.some(
+				(layer) => layer?.group === "back",
+			) === true;
 		const clearColor = previousBackground?.isColor ? previousBackground : null;
 		renderer.autoClear = true;
-		renderer.setClearColor(clearColor ?? 0x08111d, 1);
+		renderer.setClearColor(
+			clearColor ?? 0x08111d,
+			hasBackReferenceImagePreview ? 0 : 1,
+		);
 		renderer.clear();
+		if (hasBackReferenceImagePreview) {
+			scene.background = null;
+		}
 		if (
 			guideState.gridVisible &&
 			guideState.gridLayerMode === GUIDE_GRID_LAYER_MODE_BOTTOM
@@ -162,7 +172,9 @@ export function createRuntimeAnimateLoop({
 			scene.background = null;
 			renderer.render(scene, renderCamera);
 		} else {
-			scene.background = previousBackground;
+			scene.background = hasBackReferenceImagePreview
+				? null
+				: previousBackground;
 			renderer.autoClear = false;
 			renderer.render(scene, renderCamera);
 		}

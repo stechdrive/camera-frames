@@ -1,6 +1,6 @@
 # CAMERA_FRAMES 機能一覧
 
-最終更新: 2026-06-21
+最終更新: 2026-07-27
 
 ## 0. この文書の役割
 
@@ -108,6 +108,7 @@
 - active shot camera ごとに preset binding を持てる
 - per-shot override を持てる
 - item は `front` / `back` group を持つ
+- preview では `back` を無限平面グリッドと 3D scene の下、`front` をその上に合成する
 - item は preview visible と export enabled を別に持つ
 - PSD import は leaf layer を individual item に展開する
 - 複数選択と transform に対応する
@@ -227,7 +228,6 @@ PSD export の主な構成:
 今の repo で「ある程度あるが、完成済み機能として固定しない」もの:
 
 - preview / export correctness の詰め
-- reference image の true back-layer composition の最終 hardening
 - very large project save/load の hardening
 - Spark pending probe を含む LoD readiness の実 scene 追加検証
 - `focus selected / fit scene` の productized workflow

@@ -27,7 +27,7 @@ export function createControllerRuntimeResources({
 	const renderer = new WebGLRendererImpl({
 		canvas: viewportCanvas,
 		antialias: false,
-		alpha: false,
+		alpha: true,
 		preserveDrawingBuffer: Boolean(preserveDrawingBuffer),
 	});
 	renderer.setPixelRatio(viewportPixelRatio);

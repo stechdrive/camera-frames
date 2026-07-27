@@ -124,6 +124,7 @@ function readCssWithImports(url, seen = new Set()) {
 		".reference-image-layer--back",
 		"z-index",
 	);
+	const viewportCanvasZ = getCssNumberDeclaration(css, "#viewport", "z-index");
 	const frontReferenceZ = getCssNumberDeclaration(
 		css,
 		".reference-image-layer--front",
@@ -140,11 +141,27 @@ function readCssWithImports(url, seen = new Set()) {
 		".reference-image-selection-layer",
 		"z-index",
 	);
+	const referenceHitZ = getCssNumberDeclaration(
+		css,
+		".reference-image-hit-layer",
+		"z-index",
+	);
 
-	assert.ok(backReferenceZ < frontReferenceZ);
+	assert.ok(backReferenceZ < viewportCanvasZ);
+	assert.ok(viewportCanvasZ < frontReferenceZ);
 	assert.ok(frontReferenceZ < frameMaskZ);
 	assert.ok(frameMaskZ < renderBoxZ);
+	assert.ok(renderBoxZ < referenceHitZ);
+	assert.ok(referenceHitZ < referenceSelectionZ);
 	assert.ok(frameMaskZ < referenceSelectionZ);
+	assert.equal(
+		getCssDeclaration(
+			css,
+			".viewport-shell--back-reference-visible #viewport",
+			"background",
+		),
+		"transparent",
+	);
 	assert.equal(
 		getCssDeclaration(css, ".frame-mask-layer", "pointer-events"),
 		"none",

@@ -1,6 +1,6 @@
 # CAMERA_FRAMES 実装要件 / 保守基点
 
-最終更新: 2026-06-21
+最終更新: 2026-07-27
 
 ## 0. この文書の役割
 
@@ -315,6 +315,9 @@ reference image の基準:
 - つまり下絵は「今の紙サイズに焼き付いた絶対位置」ではなく、「元の紙面基準の位置」を保ちながら current output frame へ投影される
 - output frame の anchor や size を変えても、下絵は広がった / 縮んだ紙面上の対応位置へ置き直される
 - export run には runtime-only の `Include Reference Images` トグルがあり、既定値は ON
+- preview の `back` group は WebGL canvas より背面に合成し、無限平面グリッドと 3D scene の下に表示する
+- preview の `front` group は WebGL canvas より前面に合成し、無限平面グリッドと 3D scene の上に表示する
+- `back` group が表示されている preview frame だけ WebGL canvas を透過合成し、背面下絵がない通常 frame の不透明背景 contract は維持する
 
 並び順・表示順・読込みの不変条件:
 

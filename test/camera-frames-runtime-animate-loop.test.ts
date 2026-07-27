@@ -2,9 +2,15 @@ import assert from "node:assert/strict";
 import * as THREE from "three";
 import { createRuntimeAnimateLoop } from "../src/controllers/runtime/animate-loop.js";
 
-function createHarness() {
+function createHarness({
+	hasBackReferenceImage = false,
+	gridVisible = false,
+	gridLayerMode = "bottom",
+	sceneBackground = null,
+} = {}) {
 	const calls: string[] = [];
 	const camera = new THREE.PerspectiveCamera();
+	const scene = { background: sceneBackground };
 	let snapshotX = 0;
 	const renderer = {
 		autoClear: true,
@@ -19,16 +25,29 @@ function createHarness() {
 			target.set(0x000000);
 			return target;
 		},
-		setClearColor() {},
-		clear() {},
-		render() {},
+		setClearColor(_color: unknown, alpha: number) {
+			calls.push(`clear-alpha:${alpha}`);
+		},
+		clear() {
+			calls.push("clear");
+		},
+		render() {
+			calls.push(
+				scene.background === null ? "render:bg-null" : "render:bg-color",
+			);
+		},
 	};
 	const animate = createRuntimeAnimateLoop({
 		renderer,
-		scene: { background: null },
+		scene,
 		store: {
 			shotCamera: {
 				rollDeg: { value: 0 },
+			},
+			referenceImages: {
+				previewLayers: {
+					value: hasBackReferenceImage ? [{ group: "back" }] : [],
+				},
 			},
 		},
 		state: { mode: "camera" },
@@ -48,10 +67,10 @@ function createHarness() {
 		getActiveViewportCamera: () => camera,
 		guideOverlay: {
 			captureState: () => ({
-				gridVisible: false,
-				gridLayerMode: "bottom",
+				gridVisible,
+				gridLayerMode,
 			}),
-			renderBackground: () => {},
+			renderBackground: () => calls.push("grid-background"),
 			renderOverlay: () => {},
 			renderViewportOverlay: () => {},
 		},
@@ -89,7 +108,7 @@ function createHarness() {
 		getActiveCameraHistoryLabel: () => "camera.pose",
 	});
 
-	return { animate, camera, calls };
+	return { animate, camera, calls, scene };
 }
 
 {
@@ -111,6 +130,47 @@ function createHarness() {
 		assert.ok(!calls.includes("project-presentation"));
 		assert.ok(!calls.includes("camera-summary"));
 		assert.ok(calls.includes("note:false"));
+	} finally {
+		globalThis.window = originalWindow;
+	}
+}
+
+{
+	const originalWindow = globalThis.window;
+	globalThis.window = { __cameraFramesTiming: false } as typeof window;
+	const background = new THREE.Color(0x08111d);
+	const { animate, calls, scene } = createHarness({
+		hasBackReferenceImage: true,
+		gridVisible: true,
+		gridLayerMode: "bottom",
+		sceneBackground: background,
+	});
+	try {
+		animate(16);
+
+		assert.ok(calls.includes("clear-alpha:0"));
+		assert.ok(
+			calls.indexOf("grid-background") < calls.indexOf("render:bg-null"),
+		);
+		assert.equal(scene.background, background);
+	} finally {
+		globalThis.window = originalWindow;
+	}
+}
+
+{
+	const originalWindow = globalThis.window;
+	globalThis.window = { __cameraFramesTiming: false } as typeof window;
+	const background = new THREE.Color(0x08111d);
+	const { animate, calls } = createHarness({
+		hasBackReferenceImage: false,
+		sceneBackground: background,
+	});
+	try {
+		animate(16);
+
+		assert.ok(calls.includes("clear-alpha:1"));
+		assert.ok(calls.includes("render:bg-color"));
 	} finally {
 		globalThis.window = originalWindow;
 	}

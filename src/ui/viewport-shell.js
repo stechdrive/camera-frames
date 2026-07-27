@@ -580,6 +580,7 @@ export function ViewportShell({ store, controller, refs, t }) {
 	const frontReferenceImageLayers = referenceImageLayers.filter(
 		(layer) => layer.group !== "back",
 	);
+	const hasBackReferenceImagePreview = backReferenceImageLayers.length > 0;
 	const selectedReferenceImageLayers = referenceImageLayers.filter((layer) =>
 		selectedReferenceImageIds.has(layer.id),
 	);
@@ -831,11 +832,17 @@ export function ViewportShell({ store, controller, refs, t }) {
 		<main
 			id="viewport-shell"
 			ref=${refs.viewportShellRef}
-			class=${
+			class=${[
+				"viewport-shell",
 				workbenchCollapsed
-					? "viewport-shell viewport-shell--inspector-collapsed"
-					: "viewport-shell viewport-shell--inspector-open"
-			}
+					? "viewport-shell--inspector-collapsed"
+					: "viewport-shell--inspector-open",
+				hasBackReferenceImagePreview
+					? "viewport-shell--back-reference-visible"
+					: "",
+			]
+				.filter(Boolean)
+				.join(" ")}
 		>
 			<canvas id="viewport" ref=${refs.viewportCanvasRef} tabindex="0"></canvas>
 			<${ViewportProjectStatusHud} store=${store} controller=${controller} t=${t} />
@@ -888,19 +895,10 @@ export function ViewportShell({ store, controller, refs, t }) {
 							key=${layer.id}
 							class=${
 								selectedReferenceImageIds.has(layer.id)
-									? referenceImageEditMode
-										? "reference-image-layer__entry reference-image-layer__entry--selected reference-image-layer__entry--interactive"
-										: "reference-image-layer__entry reference-image-layer__entry--selected"
-									: referenceImageEditMode
-										? "reference-image-layer__entry reference-image-layer__entry--interactive"
-										: "reference-image-layer__entry"
+									? "reference-image-layer__entry reference-image-layer__entry--selected"
+									: "reference-image-layer__entry"
 							}
 							style=${getReferenceImageContainerStyle(layer)}
-							onPointerDown=${
-								referenceImageEditMode
-									? (event) => startReferenceImageMove(layer.id, event)
-									: undefined
-							}
 						>
 							<img
 								class=${
@@ -1097,19 +1095,10 @@ export function ViewportShell({ store, controller, refs, t }) {
 							key=${layer.id}
 							class=${
 								selectedReferenceImageIds.has(layer.id)
-									? referenceImageEditMode
-										? "reference-image-layer__entry reference-image-layer__entry--selected reference-image-layer__entry--interactive"
-										: "reference-image-layer__entry reference-image-layer__entry--selected"
-									: referenceImageEditMode
-										? "reference-image-layer__entry reference-image-layer__entry--interactive"
-										: "reference-image-layer__entry"
+									? "reference-image-layer__entry reference-image-layer__entry--selected"
+									: "reference-image-layer__entry"
 							}
 							style=${getReferenceImageContainerStyle(layer)}
-							onPointerDown=${
-								referenceImageEditMode
-									? (event) => startReferenceImageMove(layer.id, event)
-									: undefined
-							}
 						>
 							<img
 								class=${
@@ -1127,6 +1116,24 @@ export function ViewportShell({ store, controller, refs, t }) {
 					`,
 				)}
 			</div>
+			${
+				referenceImageEditMode &&
+				html`
+					<div class="reference-image-hit-layer">
+						${referenceImageLayers.map(
+							(layer) => html`
+								<div
+									key=${layer.id}
+									class="reference-image-layer__entry reference-image-layer__entry--interactive reference-image-hit-layer__entry"
+									style=${getReferenceImageContainerStyle(layer)}
+									onPointerDown=${(event) =>
+										startReferenceImageMove(layer.id, event)}
+								></div>
+							`,
+						)}
+					</div>
+				`
+			}
 			${
 				referenceImageEditMode &&
 				referenceImageSelectionBox &&

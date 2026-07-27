@@ -102,6 +102,7 @@ class FakeFBXLoader {}
 	});
 
 	assert.equal(resources.renderer.options.canvas.id, "viewport");
+	assert.equal(resources.renderer.options.alpha, true);
 	assert.equal(resources.renderer.pixelRatio, 2);
 	assert.equal(resources.renderer.outputColorSpace, "srgb");
 	assert.equal(resources.scene.background.value, 0x08111d);
