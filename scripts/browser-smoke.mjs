@@ -125,6 +125,7 @@ async function main() {
 		await runTimelineSceneAssetTransformSmoke(cdp);
 	const exportOutputSmoke = await runExportOutputSmoke(cdp);
 	await captureScreenshot(cdp, join(outDir, "timeline-smoke.png"));
+	const blenderPackageSmoke = await runBlenderPackageSmoke(cdp, baseUrl);
 	cdp.close();
 	cdp = null;
 
@@ -183,6 +184,7 @@ async function main() {
 					sceneAssetTransform: timelineSceneAssetTransformSmoke,
 				},
 				exportOutput: exportOutputSmoke,
+				blenderPackage: blenderPackageSmoke,
 				fixture: fixtureInfo,
 				screenshots: [
 					relativePath(join(outDir, "project-smoke.png")),
@@ -558,6 +560,7 @@ async function runExportOutputSmoke(cdp) {
 				throw new Error("Export output section did not render");
 			}
 			const readState = () => ({
+				formatMode: test.store.exportOptions.formatMode.value,
 				mode: test.store.exportOptions.mode.value,
 				frameSource: test.store.exportOptions.frameSource.value,
 				buttonLabel: text(downloadButton()),
@@ -565,6 +568,9 @@ async function runExportOutputSmoke(cdp) {
 				summary: text(document.querySelector(".export-run-settings__summary")),
 				hasFrameSourceSelect: Boolean(document.querySelector("#export-frame-source")),
 				modeButtons: [...document.querySelectorAll(".export-mode-segment__button")].map(text),
+				hasRasterSettings: Boolean(
+					document.querySelector("#shot-camera-export-name"),
+				),
 			});
 
 			const initial = readState();
@@ -585,6 +591,20 @@ async function runExportOutputSmoke(cdp) {
 			click(findByText(".export-mode-segment__button", /現在フレーム|Current/i), "current mode");
 			await waitForReady(5);
 			const current = readState();
+			const formatSelect = document.querySelector(
+				"#shot-camera-export-format",
+			);
+			if (!formatSelect) {
+				throw new Error("Export format select did not render");
+			}
+			formatSelect.value = "blender";
+			formatSelect.dispatchEvent(new Event("change", { bubbles: true }));
+			await waitForReady(5);
+			const blender = readState();
+			formatSelect.value = "psd";
+			formatSelect.dispatchEvent(new Event("change", { bubbles: true }));
+			await waitForReady(5);
+			const rasterRestored = readState();
 
 			const failures = [];
 			if (initial.modeButtons.length !== 3) {
@@ -626,6 +646,24 @@ async function runExportOutputSmoke(cdp) {
 			if (current.mode !== "current" || current.hasFrameSourceSelect) {
 				failures.push("Current mode did not hide frame range select");
 			}
+			if (blender.formatMode !== "blender") {
+				failures.push("BLENDER format did not update session format state");
+			}
+			if (blender.modeButtons.length !== 0 || blender.hasFrameSourceSelect) {
+				failures.push("BLENDER format did not hide raster animation controls");
+			}
+			if (!/Blender/i.test(blender.buttonLabel)) {
+				failures.push("BLENDER format did not update the export button label");
+			}
+			if (blender.hasRasterSettings) {
+				failures.push("BLENDER format did not hide raster-only settings");
+			}
+			if (
+				rasterRestored.formatMode !== "raster" ||
+				!rasterRestored.hasRasterSettings
+			) {
+				failures.push("Returning to PSD did not restore raster settings");
+			}
 			return {
 				ok: failures.length === 0,
 				failures,
@@ -635,6 +673,8 @@ async function runExportOutputSmoke(cdp) {
 					duration,
 					video,
 					current,
+					blender,
+					rasterRestored,
 					videoSupported,
 				},
 			};
@@ -644,6 +684,129 @@ async function runExportOutputSmoke(cdp) {
 	if (!result?.ok) {
 		throw new Error(
 			`Export output smoke failed: ${JSON.stringify(result, null, 2)}`,
+		);
+	}
+	return result.summary;
+}
+
+async function runBlenderPackageSmoke(cdp, baseUrl) {
+	const result = await evaluate(
+		cdp,
+		`(async () => {
+			const test = globalThis.__CF_TEST__;
+			if (!test?.store || !test?.controller) {
+				return { ok: false, error: "__CF_TEST__ store/controller unavailable" };
+			}
+			const waitForReady = async (frames = 4, delayMs = 0) => {
+				if (typeof test.waitForReady === "function") {
+					await test.waitForReady({ frames, delayMs });
+					return;
+				}
+				for (let i = 0; i < frames; i++) {
+					await new Promise((resolve) => requestAnimationFrame(resolve));
+				}
+				if (delayMs > 0) {
+					await new Promise((resolve) => setTimeout(resolve, delayMs));
+				}
+			};
+			await test.controller.clearScene?.();
+			await waitForReady(4);
+			test.store.remoteUrl.value = ${JSON.stringify(
+				[
+					`${baseUrl}/test/fixtures/rad/tiny-splats.ply`,
+					`${baseUrl}/.local/cf-test/${encodeURIComponent("3m_三角柱定規.glb")}`,
+				].join("\n"),
+			)};
+			await test.controller.loadRemoteUrls?.();
+			await waitForReady(8, 100);
+			const sceneAssets = test.controller.__debugGetSceneAssets?.() ?? [];
+			const splatAsset = sceneAssets.find((asset) => asset?.kind === "splat");
+			if (!splatAsset) {
+				return {
+					ok: false,
+					error: "Tiny 3DGS fixture did not load",
+					sceneAssets: sceneAssets.map((asset) => ({
+						id: asset.id,
+						kind: asset.kind,
+						label: asset.label,
+					})),
+				};
+			}
+			test.controller.setExportFormat?.("blender");
+			await waitForReady(4);
+			const packageResult = await test.controller.downloadOutput?.();
+			const splatEntry = packageResult?.entries?.find(
+				(entry) => entry.path?.startsWith("splats/") && entry.path?.endsWith(".glb"),
+			);
+			const modelEntry = packageResult?.entries?.find(
+				(entry) => entry.path?.startsWith("geometry/") && entry.path?.endsWith(".glb"),
+			);
+			if (!(splatEntry?.data instanceof Uint8Array)) {
+				return { ok: false, error: "Blender package did not contain a splat GLB" };
+			}
+			if (
+				!(modelEntry?.data instanceof Uint8Array) ||
+				new DataView(
+					modelEntry.data.buffer,
+					modelEntry.data.byteOffset,
+					modelEntry.data.byteLength,
+				).getUint32(0, true) !== 0x46546c67
+			) {
+				return { ok: false, error: "Blender package did not contain a valid model GLB" };
+			}
+			const view = new DataView(
+				splatEntry.data.buffer,
+				splatEntry.data.byteOffset,
+				splatEntry.data.byteLength,
+			);
+			const jsonLength = view.getUint32(12, true);
+			const documentState = JSON.parse(
+				new TextDecoder()
+					.decode(splatEntry.data.subarray(20, 20 + jsonLength))
+					.trimEnd(),
+			);
+			const primitive = documentState.meshes?.[0]?.primitives?.[0];
+			const attributes = primitive?.attributes ?? {};
+			const failures = [];
+			if (!documentState.extensionsUsed?.includes("KHR_gaussian_splatting")) {
+				failures.push("Splat GLB did not declare KHR_gaussian_splatting");
+			}
+			if (!primitive?.extensions?.KHR_gaussian_splatting) {
+				failures.push("Splat GLB primitive did not use KHR_gaussian_splatting");
+			}
+			for (const attributeName of [
+				"POSITION",
+				"COLOR_0",
+				"KHR_gaussian_splatting:ROTATION",
+				"KHR_gaussian_splatting:SCALE",
+				"KHR_gaussian_splatting:OPACITY",
+				"KHR_gaussian_splatting:SH_DEGREE_0_COEF_0",
+			]) {
+				if (!Number.isInteger(attributes[attributeName])) {
+					failures.push("Missing splat attribute: " + attributeName);
+				}
+			}
+			return {
+				ok: failures.length === 0,
+				failures,
+				summary: {
+					filename: packageResult.filename,
+					assetCount: packageResult.manifest.assets.length,
+					cameraCount: packageResult.manifest.cameras.length,
+					splatCount: packageResult.manifest.assets.find(
+						(asset) => asset.kind === "splat",
+					)?.splatCount,
+					modelGlbBytes: modelEntry.data.byteLength,
+					extensionsUsed: documentState.extensionsUsed,
+					entryPaths: packageResult.entries.map((entry) => entry.path),
+				},
+			};
+		})()`,
+		{ awaitPromise: true },
+	);
+	if (!result?.ok) {
+		throw new Error(
+			`Blender package smoke failed: ${JSON.stringify(result, null, 2)}`,
 		);
 	}
 	return result.summary;

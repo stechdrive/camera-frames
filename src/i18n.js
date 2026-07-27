@@ -182,6 +182,11 @@ const MESSAGES = {
 			png: "PNG",
 			psd: "PSD",
 			webm: "WebM",
+			blender: "BLENDER",
+		},
+		exportFormatSummary: {
+			blender:
+				"モデル、KHR_gaussian_splatting GLB、Camera、照明、下絵、アニメーション再構築スクリプトを ZIP にまとめます。",
 		},
 		exportMode: {
 			current: "現在フレーム",
@@ -193,6 +198,8 @@ const MESSAGES = {
 			keyframes: "キーのあるフレームのみ",
 		},
 		exportModeSummary: {
+			blender:
+				"{cameras} Camera と {assets} 個の3DオブジェクトをBlenderパッケージにまとめます。",
 			current: "静止画は現在フレーム {frame} の見た目を書き出します。",
 			sequence:
 				"{source}: {frames} フレーム × {cameras} Camera = {count} ファイルを ZIP にまとめます。",
@@ -348,6 +355,7 @@ const MESSAGES = {
 			resetActive: "現在のビューをリセット",
 			refreshPreview: "プレビューを更新",
 			downloadOutput: "書き出す",
+			downloadBlenderPackage: "Blenderパッケージを書き出す",
 			downloadSequence: "連番を書き出す",
 			downloadVideo: "動画を書き出す",
 			downloadPng: "PNGを書き出す",
@@ -758,6 +766,8 @@ const MESSAGES = {
 			sequenceExported: "静止画連番 {count} ファイルを ZIP に書き出しました。",
 			videoExported:
 				"動画を書き出しました（{count} Camera / {frames} フレーム）。",
+			blenderReady:
+				"Blenderパッケージを書き出しました（{cameras} Camera / {assets} オブジェクト）。",
 			cancelled: "書き出しをキャンセルしました。",
 		},
 		status: {
@@ -899,6 +909,7 @@ const MESSAGES = {
 			deletedFrames: "{count} 個の FRAME を削除しました。",
 			shotCameraClipMode: "Camera のクリップ範囲を {mode} にしました。",
 			shotCameraExportFormat: "Camera の書き出し形式を {format} にしました。",
+			exportFormatChanged: "書き出し形式を {format} にしました。",
 			frameLimitReached: "FRAME は最大 {limit} 枚までです。",
 			exportTargetChanged: "書き出し対象を {target} にしました。",
 			exportModeChanged: "出力タイプを {mode} にしました。",
@@ -907,6 +918,8 @@ const MESSAGES = {
 			exportCancelled: "書き出しをキャンセルしました。",
 			exportPresetSelection:
 				"選択書き出しの ショットカメラ を {count} 件にしました。",
+			blenderPackageBuilding: "Blenderパッケージを構築中...",
+			blenderPackageReady: "Blenderパッケージを書き出しました。",
 		},
 		backgroundTask: {
 			autoLodRunningSingle: "LoD 最適化中… ({name})",
@@ -1194,6 +1207,11 @@ const MESSAGES = {
 			png: "PNG",
 			psd: "PSD",
 			webm: "WebM",
+			blender: "BLENDER",
+		},
+		exportFormatSummary: {
+			blender:
+				"Creates a ZIP with models, KHR_gaussian_splatting GLBs, Cameras, lighting, references, animation, and a reconstruction script.",
 		},
 		exportMode: {
 			current: "Current Frame",
@@ -1205,6 +1223,8 @@ const MESSAGES = {
 			keyframes: "Keyframes Only",
 		},
 		exportModeSummary: {
+			blender:
+				"Packages {cameras} Camera(s) and {assets} 3D object(s) for Blender.",
 			current: "Still export writes the current frame {frame}.",
 			sequence:
 				"{source}: {frames} frame(s) × {cameras} Camera(s) = {count} file(s) in a ZIP.",
@@ -1361,6 +1381,7 @@ const MESSAGES = {
 			resetActive: "Reset Active View",
 			refreshPreview: "Refresh Preview",
 			downloadOutput: "Export",
+			downloadBlenderPackage: "Export Blender Package",
 			downloadSequence: "Export Sequence",
 			downloadVideo: "Export Video",
 			downloadPng: "Download PNG",
@@ -1776,6 +1797,8 @@ const MESSAGES = {
 			sequenceExported: "Exported {count} image sequence file(s) to a ZIP.",
 			videoExported:
 				"Exported video for {count} Camera(s) with {frames} frame(s).",
+			blenderReady:
+				"Exported Blender package with {cameras} Camera(s) and {assets} object(s).",
 			cancelled: "Export cancelled.",
 		},
 		status: {
@@ -1910,6 +1933,7 @@ const MESSAGES = {
 			deletedFrames: "Deleted {count} FRAMEs.",
 			shotCameraClipMode: "Camera clip range set to {mode}.",
 			shotCameraExportFormat: "Camera export format set to {format}.",
+			exportFormatChanged: "Export format set to {format}.",
 			frameLimitReached: "FRAME limit reached ({limit}).",
 			exportTargetChanged: "Export target set to {target}.",
 			exportModeChanged: "Output type set to {mode}.",
@@ -1918,6 +1942,8 @@ const MESSAGES = {
 			exportCancelled: "Export cancelled.",
 			exportPresetSelection:
 				"Selected export now includes {count} Camera preset(s).",
+			blenderPackageBuilding: "Building Blender package...",
+			blenderPackageReady: "Blender package exported.",
 		},
 		backgroundTask: {
 			autoLodRunningSingle: "Building LoD… ({name})",

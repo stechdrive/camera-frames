@@ -238,6 +238,14 @@ export function createControllerApi({
 		setShotCameraName: cameraController.setShotCameraName,
 		setShotCameraExportName: cameraController.setShotCameraExportName,
 		setShotCameraExportFormat: cameraController.setShotCameraExportFormat,
+		setExportFormat: (nextValue) => {
+			if (nextValue === "blender") {
+				exportController.setExportFormatMode("blender");
+				return;
+			}
+			exportController.setExportFormatMode("raster");
+			cameraController.setShotCameraExportFormat(nextValue);
+		},
 		setShotCameraExportGridOverlay:
 			cameraController.setShotCameraExportGridOverlay,
 		setShotCameraExportGridLayerMode:
@@ -249,6 +257,7 @@ export function createControllerApi({
 		setCompositionGuideEnabled: cameraController.setCompositionGuideEnabled,
 		setCompositionGuideScope: cameraController.setCompositionGuideScope,
 		setCompositionGuidePattern: cameraController.setCompositionGuidePattern,
+		setExportFormatMode: exportController.setExportFormatMode,
 		setExportMode: exportController.setExportMode,
 		setExportFrameSource: exportController.setExportFrameSource,
 		setExportTarget: exportController.setExportTarget,

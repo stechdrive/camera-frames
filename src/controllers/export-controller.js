@@ -1,8 +1,13 @@
 import { getActiveAnimationClip } from "../animation/animation-model.js";
-import { IS_DEV_RUNTIME, hasEnabledQueryFlag } from "../build-info.js";
+import {
+	BUILD_INFO,
+	IS_DEV_RUNTIME,
+	hasEnabledQueryFlag,
+} from "../build-info.js";
 import { renderExportPassToCanvas } from "../engine/export-bundle.js";
 import { createZipBlob, downloadBlob } from "./export/archive-download.js";
 import { buildSnapshotExportBundle } from "./export/bundle-build.js";
+import { buildBlenderPackageEntries } from "./export/blender-package.js";
 import { createCanvasFromPixels } from "./export/canvas-utils.js";
 import {
 	runFrameSequenceExport,
@@ -73,6 +78,8 @@ export function createExportController({
 	syncOutputCamera,
 	updateShotCameraHelpers,
 	getAnimationController = () => null,
+	captureProjectState = () => null,
+	ensureFullDataForSplatAssets = async () => true,
 }) {
 	const exportDebugLayersEnabled =
 		IS_DEV_RUNTIME && hasEnabledQueryFlag("psdDebug");
@@ -182,52 +189,55 @@ export function createExportController({
 		buildPsdDocument,
 	});
 
-	const { downloadPng, downloadPsd, downloadOutput } =
-		createExportDownloadFacade({
-			getTargetDocuments: getExportTargetShotCameras,
-			getExportSettings: getShotCameraExportSettings,
-			getExportMode: () => store.exportOptions.mode.value,
-			getExportFrameSource: () => store.exportOptions.frameSource.value,
-			getAnimationDocument: () => store.animation.document.value,
-			getVideoExportFps: () =>
-				getActiveAnimationClip(store.animation.document.value)?.fps ?? 24,
-			isVideoExportSupported: isWebmVideoExportSupported,
-			renderSnapshot: outputRuntime.renderOutputSnapshotForShotCamera,
-			renderVideoFrameSnapshot:
-				outputRuntime.renderVideoFrameSnapshotForShotCamera,
-			downloadPngFromSnapshot,
-			downloadPsdFromSnapshot,
-			createPngBlobFromSnapshot,
-			createPsdBlobFromSnapshot,
-			createZipBlob,
-			downloadBlob,
-			createWebmFromFrameRenderer,
-			renderCompositeOutputCanvas,
-			renderVideoCompositeOutputCanvas,
-			drawFramesToContext,
-			previewContextError: t("error.previewContext"),
-			buildFilename: buildShotCameraExportFilename,
-			buildPsdExportDocument,
-			setExportStatus,
-			setSummary: (value) => {
-				store.exportSummary.value = value;
-			},
-			setStatus,
-			updateUi,
-			beginExportRun,
-			finishExportRun,
-			clearExportOverlay,
-			showExportErrorOverlay,
-			setExportProgressOverlay,
-			getPhaseDefaultDetail: getExportPhaseDefaultDetail,
-			requireTargetsMessage: t("error.exportRequiresPreset"),
-			t,
-			runPngExportFn: runPngExport,
-			runPsdExportFn: runPsdExport,
-			runOutputExportFn: runOutputExport,
-			runFrameSequenceExportFn: runFrameSequenceExport,
-			runVideoExportFn: runVideoExport,
-		});
+	const {
+		downloadPng,
+		downloadPsd,
+		downloadOutput: downloadRasterOutput,
+	} = createExportDownloadFacade({
+		getTargetDocuments: getExportTargetShotCameras,
+		getExportSettings: getShotCameraExportSettings,
+		getExportMode: () => store.exportOptions.mode.value,
+		getExportFrameSource: () => store.exportOptions.frameSource.value,
+		getAnimationDocument: () => store.animation.document.value,
+		getVideoExportFps: () =>
+			getActiveAnimationClip(store.animation.document.value)?.fps ?? 24,
+		isVideoExportSupported: isWebmVideoExportSupported,
+		renderSnapshot: outputRuntime.renderOutputSnapshotForShotCamera,
+		renderVideoFrameSnapshot:
+			outputRuntime.renderVideoFrameSnapshotForShotCamera,
+		downloadPngFromSnapshot,
+		downloadPsdFromSnapshot,
+		createPngBlobFromSnapshot,
+		createPsdBlobFromSnapshot,
+		createZipBlob,
+		downloadBlob,
+		createWebmFromFrameRenderer,
+		renderCompositeOutputCanvas,
+		renderVideoCompositeOutputCanvas,
+		drawFramesToContext,
+		previewContextError: t("error.previewContext"),
+		buildFilename: buildShotCameraExportFilename,
+		buildPsdExportDocument,
+		setExportStatus,
+		setSummary: (value) => {
+			store.exportSummary.value = value;
+		},
+		setStatus,
+		updateUi,
+		beginExportRun,
+		finishExportRun,
+		clearExportOverlay,
+		showExportErrorOverlay,
+		setExportProgressOverlay,
+		getPhaseDefaultDetail: getExportPhaseDefaultDetail,
+		requireTargetsMessage: t("error.exportRequiresPreset"),
+		t,
+		runPngExportFn: runPngExport,
+		runPsdExportFn: runPsdExport,
+		runOutputExportFn: runOutputExport,
+		runFrameSequenceExportFn: runFrameSequenceExport,
+		runVideoExportFn: runVideoExport,
+	});
 
 	const exportBundleFacade = createExportBundleFacade({
 		getFrames: getActiveFrames,
@@ -238,6 +248,7 @@ export function createExportController({
 	});
 
 	const {
+		setExportFormatMode,
 		setExportMode,
 		setExportFrameSource,
 		setExportTarget,
@@ -249,6 +260,54 @@ export function createExportController({
 		setStatus,
 	});
 
+	async function downloadBlenderPackage() {
+		const targetDocuments = getExportTargetShotCameras();
+		if (targetDocuments.length === 0) {
+			throw new Error(t("error.exportRequiresPreset"));
+		}
+		setExportStatus("export.exporting", true);
+		setStatus(t("status.blenderPackageBuilding"));
+		try {
+			const projectSnapshot = captureProjectState();
+			const splatAssetIds = (projectSnapshot?.scene?.assets ?? [])
+				.filter(
+					(asset) => asset?.kind === "splat" && asset?.exportRole !== "omit",
+				)
+				.map((asset) => asset.id);
+			await ensureFullDataForSplatAssets(splatAssetIds, { silent: true });
+			const packageResult = await buildBlenderPackageEntries({
+				projectName: store.project.name.value,
+				targetDocuments,
+				projectSnapshot,
+				sceneAssets: getSceneAssets(),
+				shotCameraRegistry,
+				getOutputSizeState,
+				includeReferenceImages:
+					store.referenceImages.exportSessionEnabled.value !== false,
+				appVersion: BUILD_INFO.version,
+			});
+			const archive = await createZipBlob(packageResult.entries, { level: 0 });
+			downloadBlob(archive, packageResult.filename);
+			store.exportSummary.value = t("exportSummary.blenderReady", {
+				cameras: packageResult.manifest.cameras.length,
+				assets: packageResult.manifest.assets.length,
+			});
+			setExportStatus("export.ready");
+			setStatus(t("status.blenderPackageReady"));
+			return packageResult;
+		} catch (error) {
+			setExportStatus("export.idle");
+			showExportErrorOverlay(error);
+			throw error;
+		}
+	}
+
+	function downloadOutput() {
+		return store.exportOptions.formatMode.value === "blender"
+			? downloadBlenderPackage()
+			: downloadRasterOutput();
+	}
+
 	return {
 		getExportTargetShotCameras,
 		renderOutputSnapshotForShotCamera:
@@ -258,8 +317,10 @@ export function createExportController({
 		downloadPng,
 		downloadPsd,
 		downloadOutput,
+		downloadBlenderPackage,
 		cancelExport,
 		buildShotCameraExportFilename,
+		setExportFormatMode,
 		setExportMode,
 		setExportFrameSource,
 		setExportTarget,

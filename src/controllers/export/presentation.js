@@ -60,6 +60,20 @@ export function setExportProgressOverlay(
 }
 
 export function createExportOptionsFacade({ store, t, setStatus } = {}) {
+	function setExportFormatMode(nextValue) {
+		const formatMode = nextValue === "blender" ? "blender" : "raster";
+		store.exportOptions.formatMode.value = formatMode;
+		setStatus(
+			t("status.exportFormatChanged", {
+				format: t(
+					formatMode === "blender"
+						? "exportFormat.blender"
+						: `exportFormat.${store.shotCamera.exportFormat.value}`,
+				),
+			}),
+		);
+	}
+
 	function setExportMode(nextValue) {
 		const mode = sanitizeAnimationExportMode(nextValue);
 		store.exportOptions.mode.value = mode;
@@ -130,6 +144,7 @@ export function createExportOptionsFacade({ store, t, setStatus } = {}) {
 	}
 
 	return {
+		setExportFormatMode,
 		setExportMode,
 		setExportFrameSource,
 		setExportTarget,

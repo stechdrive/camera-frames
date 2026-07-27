@@ -557,6 +557,7 @@ export function ExportSettingsSection({
 	store,
 	t,
 }) {
+	const blenderFormat = exportFormat === "blender";
 	return html`
 		<${DisclosureBlock}
 			icon="export-tab"
@@ -568,36 +569,46 @@ export function ExportSettingsSection({
 			onToggle=${onToggle}
 		>
 			<label class="field">
-				<span class="field-label-tooltip">
-					${t("field.shotCameraExportName")}
-					<${TooltipBubble}
-						title=${t("field.shotCameraExportName")}
-						description=${t("tooltip.shotCameraExportName")}
-						placement="right"
-					/>
-				</span>
-				<${TextDraftInput}
-					id="shot-camera-export-name"
-					placeholder=${activeShotCamera?.name ?? "Camera"}
-					value=${store.shotCamera.exportName.value}
-					onCommit=${(nextValue) =>
-						controller()?.setShotCameraExportName(nextValue)}
-				/>
-			</label>
-			<label class="field">
 				<span>${t("field.exportFormat")}</span>
 				<select
 					id="shot-camera-export-format"
 					value=${exportFormat}
 					...${INTERACTIVE_FIELD_PROPS}
 					onChange=${(event) =>
-						controller()?.setShotCameraExportFormat(event.currentTarget.value)}
+						controller()?.setExportFormat?.(event.currentTarget.value)}
 				>
 					<option value="png">${t("exportFormat.png")}</option>
 					<option value="psd">${t("exportFormat.psd")}</option>
+					<option value="blender">${t("exportFormat.blender")}</option>
 				</select>
 			</label>
-			<label class="checkbox-field">
+			${
+				blenderFormat &&
+				html`<p class="export-run-settings__summary">
+					${t("exportFormatSummary.blender")}
+				</p>`
+			}
+			${
+				!blenderFormat &&
+				html`
+					<label class="field">
+						<span class="field-label-tooltip">
+							${t("field.shotCameraExportName")}
+							<${TooltipBubble}
+								title=${t("field.shotCameraExportName")}
+								description=${t("tooltip.shotCameraExportName")}
+								placement="right"
+							/>
+						</span>
+						<${TextDraftInput}
+							id="shot-camera-export-name"
+							placeholder=${activeShotCamera?.name ?? "Camera"}
+							value=${store.shotCamera.exportName.value}
+							onCommit=${(nextValue) =>
+								controller()?.setShotCameraExportName(nextValue)}
+						/>
+					</label>
+					<label class="checkbox-field">
 				<input
 					id="shot-camera-export-grid-overlay"
 					type="checkbox"
@@ -608,8 +619,11 @@ export function ExportSettingsSection({
 						)}
 				/>
 				<span>${t("field.exportGridOverlay")}</span>
-			</label>
+					</label>
+				`
+			}
 			${
+				!blenderFormat &&
 				exportGridOverlay &&
 				html`
 					<label class="field">
@@ -637,6 +651,7 @@ export function ExportSettingsSection({
 				`
 			}
 			${
+				!blenderFormat &&
 				exportFormat === "psd" &&
 				html`
 					<label class="checkbox-field">
@@ -912,6 +927,7 @@ export function ExportSection({
 	store,
 	t,
 }) {
+	const blenderFormat = store.exportOptions.formatMode.value === "blender";
 	const exportReferenceImagesEnabled =
 		store.referenceImages.exportSessionEnabled.value !== false;
 	const exportMode = store.exportOptions.mode.value;
@@ -933,17 +949,18 @@ export function ExportSection({
 	const activeClip = store.animation.activeClip.value;
 	const exportFps = Math.max(1, Math.round(Number(activeClip?.fps) || 24));
 	const videoSupported = isWebmVideoExportSupportedInUi();
-	const sequenceMode = exportMode !== ANIMATION_EXPORT_MODE_CURRENT;
+	const sequenceMode =
+		!blenderFormat && exportMode !== ANIMATION_EXPORT_MODE_CURRENT;
 	const animationFrameMissing = sequenceMode && animationFrames.length === 0;
 	const videoUnavailable =
 		exportMode === ANIMATION_EXPORT_MODE_VIDEO && !videoSupported;
 	const exportDisabled =
 		exportBusy ||
 		exportSelectionMissing ||
-		animationFrameMissing ||
-		videoUnavailable;
-	const downloadActionLabel =
-		exportMode === ANIMATION_EXPORT_MODE_SEQUENCE
+		(!blenderFormat && (animationFrameMissing || videoUnavailable));
+	const downloadActionLabel = blenderFormat
+		? t("action.downloadBlenderPackage")
+		: exportMode === ANIMATION_EXPORT_MODE_SEQUENCE
 			? t("action.downloadSequence")
 			: exportMode === ANIMATION_EXPORT_MODE_VIDEO
 				? t("action.downloadVideo")
@@ -962,8 +979,14 @@ export function ExportSection({
 			label: t("exportMode.video"),
 		},
 	];
-	const exportSummaryText =
-		exportMode === ANIMATION_EXPORT_MODE_CURRENT
+	const exportSummaryText = blenderFormat
+		? t("exportModeSummary.blender", {
+				cameras: targetCount,
+				assets: store.sceneAssets.value.filter(
+					(asset) => asset?.exportRole !== "omit",
+				).length,
+			})
+		: exportMode === ANIMATION_EXPORT_MODE_CURRENT
 			? t("exportModeSummary.current", { frame: currentFrame })
 			: animationFrameMissing
 				? t("exportModeSummary.noFrames")
@@ -1006,7 +1029,9 @@ export function ExportSection({
 						${downloadActionLabel}
 					</button>
 				</div>
-				<div class="export-run-settings">
+				${
+					!blenderFormat &&
+					html`<div class="export-run-settings">
 					<span class="export-run-settings__label">
 						${t("field.exportMode")}
 					</span>
@@ -1073,7 +1098,8 @@ export function ExportSection({
 								: exportSummaryText
 						}
 					</p>
-				</div>
+					</div>`
+				}
 				<select
 					id="export-target"
 					value=${exportTarget}
@@ -1116,6 +1142,12 @@ export function ExportSection({
 						</div>
 					</div>
 				`
+			}
+			${
+				blenderFormat &&
+				html`<p class="export-run-settings__summary">
+					${exportSummaryText}
+				</p>`
 			}
 			<label class="checkbox-field">
 				<input

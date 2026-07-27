@@ -86,6 +86,7 @@ import {
 	const statusCalls = [];
 	const store = {
 		exportOptions: {
+			formatMode: { value: "raster" },
 			mode: { value: "current" },
 			frameSource: { value: "duration" },
 			target: { value: "current" },
@@ -100,6 +101,9 @@ import {
 		referenceImages: {
 			exportSessionEnabled: { value: true },
 		},
+		shotCamera: {
+			exportFormat: { value: "psd" },
+		},
 	};
 
 	const facade = createExportOptionsFacade({
@@ -107,6 +111,11 @@ import {
 		t: (key, values = {}) => `${key}:${JSON.stringify(values)}`,
 		setStatus: (value) => statusCalls.push(value),
 	});
+
+	facade.setExportFormatMode("blender");
+	assert.equal(store.exportOptions.formatMode.value, "blender");
+	facade.setExportFormatMode("raster");
+	assert.equal(store.exportOptions.formatMode.value, "raster");
 
 	facade.setExportMode("sequence");
 	assert.equal(store.exportOptions.mode.value, "sequence");
@@ -136,15 +145,15 @@ import {
 	assert.equal(store.referenceImages.exportSessionEnabled.value, false);
 
 	assert.equal(
-		statusCalls[0],
+		statusCalls[2],
 		'status.exportModeChanged:{"mode":"exportMode.sequence:{}"}',
 	);
 	assert.equal(
-		statusCalls[1],
+		statusCalls[3],
 		'status.exportFrameSourceChanged:{"source":"exportFrameSource.duration:{}"}',
 	);
 	assert.equal(
-		statusCalls[3],
+		statusCalls[5],
 		'status.exportTargetChanged:{"target":"exportTarget.selected:{}"}',
 	);
 	assert.equal(statusCalls.at(-1), 'status.exportPresetSelection:{"count":1}');

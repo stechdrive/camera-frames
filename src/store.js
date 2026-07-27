@@ -263,6 +263,7 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	const exportPresetIds = signal([]);
 	const exportMode = signal(ANIMATION_EXPORT_MODE_CURRENT);
 	const exportFrameSource = signal(ANIMATION_EXPORT_FRAME_SOURCE_DURATION);
+	const exportFormatMode = signal("raster");
 	const shotCameraNearLive = signal(DEFAULT_CAMERA_NEAR);
 	const shotCameraFarLive = signal(DEFAULT_CAMERA_FAR);
 	const shotCameraPositionX = signal(0);
@@ -699,6 +700,7 @@ export function createCameraFramesStore(runtimeInfo = null) {
 			presetCount: exportPresetCount,
 			mode: exportMode,
 			frameSource: exportFrameSource,
+			formatMode: exportFormatMode,
 		},
 		exportWidth,
 		exportHeight,

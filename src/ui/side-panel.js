@@ -108,7 +108,10 @@ export function SidePanel({ store, controller, locale, t, refs }) {
 	const selectedSceneAsset = store.selectedSceneAsset.value;
 	const activeShotCamera = store.workspace.activeShotCamera.value;
 	const shotCameraClipMode = store.shotCamera.clippingMode.value;
-	const exportFormat = store.shotCamera.exportFormat.value;
+	const exportFormat =
+		store.exportOptions.formatMode.value === "blender"
+			? "blender"
+			: store.shotCamera.exportFormat.value;
 	const exportGridOverlay = store.shotCamera.exportGridOverlay.value;
 	const exportGridLayerMode = store.shotCamera.exportGridLayerMode.value;
 	const exportModelLayers = store.shotCamera.exportModelLayers.value;

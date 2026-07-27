@@ -166,7 +166,7 @@
 ### 2.9 Export
 
 - target: `current` / `all` / `selected`
-- format: `png` / `psd`
+- format: `png` / `psd` / session-only `blender`
 - output type: 現在フレーム / 静止画連番 / WebM 動画
 - shot camera ごとに export settings を持つ
 - export run ごとに `Include Reference Images` を切り替えられる
@@ -176,6 +176,9 @@
 - export progress overlay からキャンセルでき、キャンセル後は次 frame / 次 camera へ進まず download を作成しない
 - PNG / PSD / WebM とも preview 側の output frame 契約に沿って出す
 - splat export は warmup pass と Spark pending probe を併用し、sort / LoD / pager / worker の明確な未処理状態が連続して空になってから capture する。ただし Spark 側の offline 完了 token ではなく、deadline 付きの best-effort readiness として扱う
+- `blender` は shot camera ごとの PNG / PSD 設定を上書きしない session-only format とし、選択対象の Camera、scene asset、lighting、reference image、timeline animation を再構築する ZIP を出す
+- Blender package の model は asset ごとの GLB、3DGS は編集済み PackedSplats から作る `KHR_gaussian_splatting` GLB、animation は Blender script での baked key として保持する
+- 標準 Blender 用再構築では 3DGS の PointCloud proxy も作るが、KHR GLBを source of truth とする。proxy は DC color と最大 Gaussian axis の radius を使い、anisotropy / higher-order SH の完全再現とは扱わない
 
 PSD export の主な構成:
 

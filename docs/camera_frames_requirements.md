@@ -421,7 +421,7 @@ per-splat edit の current contract:
 ## 8. Export の契約
 
 - export target は `current` / `all` / `selected`
-- export format は `png` / `psd`
+- export format は shot camera 保存値の `png` / `psd` と、runtime-only の `blender`
 - export mode は `current` / `sequence` / `video`
 - selected export は shot camera checkbox で選び、実行順は workspace 上の shot camera 順に従う
 - export は shot camera ごとの `exportSettings` を使う
@@ -431,6 +431,12 @@ per-splat edit の current contract:
 - `video` mode は animation clip の frame 群を WebM として書き出す。動画では PSD layer / hidden mask document / asset mask pass は生成せず、動画専用の composite-only frame を Mediabunny + WebCodecs で encode / mux する。UI で video に切り替えた直後の frame source は full duration とし、各 frame の timestamp / duration は clip fps を基準にしてレンダー待ち時間を含めない。`MediaRecorder` / realtime canvas capture は video export の正式経路にしない
 - sequence / video export の対象 frame は timeline animation の shot camera pose / lens と scene asset object transform を評価する。Output Frame / FRAME / reference image はアニメーション対象にしない
 - export progress overlay はキャンセル操作を提供する。キャンセル後は次 frame / 次 camera へ進まず、ZIP / WebM / PNG / PSD download を作らず、export busy state を解除する
+- `blender` 選択は shot camera ごとの `exportSettings.exportFormat` を書き換えず、session-only state として保持する
+- Blender package は選択した Camera ごとに pose / exact frustum / clipping / output resolution を保持し、scene asset transform、lighting、reference image source と配置、timeline animation の実装済み transform / lens channel を再構築スクリプトへ渡す
+- model asset は asset ごとの binary GLB、3DGS asset は編集済み runtime `PackedSplats` から生成した `KHR_gaussian_splatting` GLB を source of truth とする。deferred RAD asset は package 作成前に FullData へ materialize する
+- KHR GLB は Gaussian position / log scale / quaternion / opacity / DC color を保持する。現 package contract は higher-order SH を書き出さず `shBands: 0` / `runtime-packed-dc` と明示する
+- 標準 Blender 再構築は KHR GLBを直接レンダリングできるとは仮定せず、Blender PointCloud proxy を自動生成する。proxy の radius は最大 Gaussian axis、color は DC color を使い、anisotropy / view-dependent higher-order SH の fidelity は保証しない
+- reference image は Blender Camera Background Image と exact layout metadata の両方で保持する。Camera Background Image は viewport guide であり、Blender render compositor への自動合成は contract に含めない
 
 shot camera ごとの export settings:
 
