@@ -711,6 +711,16 @@ async function runBlenderPackageSmoke(cdp, baseUrl) {
 			};
 			await test.controller.clearScene?.();
 			await waitForReady(4);
+			const referenceBlob = await fetch(
+				"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+			).then((response) => response.blob());
+			const referenceFile = new File(
+				[referenceBlob],
+				"browser-smoke-reference.png",
+				{ type: "image/png" },
+			);
+			await test.controller.importReferenceImageFiles?.([referenceFile]);
+			await waitForReady(4);
 			test.store.remoteUrl.value = ${JSON.stringify(
 				[
 					`${baseUrl}/test/fixtures/rad/tiny-splats.ply`,
@@ -735,43 +745,51 @@ async function runBlenderPackageSmoke(cdp, baseUrl) {
 			test.controller.setExportFormat?.("blender");
 			await waitForReady(4);
 			const packageResult = await test.controller.downloadOutput?.();
-			const splatEntry = packageResult?.entries?.find(
-				(entry) => entry.path?.startsWith("splats/") && entry.path?.endsWith(".glb"),
+			const entryPaths = packageResult?.entryPaths ?? [];
+			const splatPath = entryPaths.find(
+				(path) => path?.startsWith("splats/") && path?.endsWith(".glb"),
 			);
-			const modelEntry = packageResult?.entries?.find(
-				(entry) => entry.path?.startsWith("geometry/") && entry.path?.endsWith(".glb"),
+			const modelPath = entryPaths.find(
+				(path) => path?.startsWith("geometry/") && path?.endsWith(".glb"),
 			);
-			if (!(splatEntry?.data instanceof Uint8Array)) {
+			const referencePath = entryPaths.find(
+				(path) => path?.startsWith("references/") && path?.endsWith(".png"),
+			);
+			if (!splatPath) {
 				return { ok: false, error: "Blender package did not contain a splat GLB" };
 			}
-			if (
-				!(modelEntry?.data instanceof Uint8Array) ||
-				new DataView(
-					modelEntry.data.buffer,
-					modelEntry.data.byteOffset,
-					modelEntry.data.byteLength,
-				).getUint32(0, true) !== 0x46546c67
-			) {
-				return { ok: false, error: "Blender package did not contain a valid model GLB" };
+			if (!modelPath) {
+				return { ok: false, error: "Blender package did not contain a model GLB" };
 			}
-			const view = new DataView(
-				splatEntry.data.buffer,
-				splatEntry.data.byteOffset,
-				splatEntry.data.byteLength,
+			if (!referencePath) {
+				return { ok: false, error: "Blender package did not contain a reference image" };
+			}
+			const splatManifest = packageResult.manifest.assets.find(
+				(asset) => asset.kind === "splat",
 			);
-			const jsonLength = view.getUint32(12, true);
-			const documentState = JSON.parse(
-				new TextDecoder()
-					.decode(splatEntry.data.subarray(20, 20 + jsonLength))
-					.trimEnd(),
+			const splatSummary = packageResult.entrySummaries?.find(
+				(entry) => entry.path === splatPath,
 			);
-			const primitive = documentState.meshes?.[0]?.primitives?.[0];
-			const attributes = primitive?.attributes ?? {};
+			const modelSummary = packageResult.entrySummaries?.find(
+				(entry) => entry.path === modelPath,
+			);
 			const failures = [];
-			if (!documentState.extensionsUsed?.includes("KHR_gaussian_splatting")) {
+			if (modelSummary?.glbMagic !== 0x46546c67) {
+				failures.push("Model entry did not contain a valid GLB header");
+			}
+			if (splatSummary?.glbMagic !== 0x46546c67) {
+				failures.push("Splat entry did not contain a valid GLB header");
+			}
+			if (splatManifest?.extension !== "KHR_gaussian_splatting") {
+				failures.push("Splat manifest did not declare KHR_gaussian_splatting");
+			}
+			if (!(Number(splatManifest?.splatCount) > 0)) {
+				failures.push("Splat manifest did not contain a positive splat count");
+			}
+			if (!splatSummary?.extensionsUsed?.includes("KHR_gaussian_splatting")) {
 				failures.push("Splat GLB did not declare KHR_gaussian_splatting");
 			}
-			if (!primitive?.extensions?.KHR_gaussian_splatting) {
+			if (!splatSummary?.primitiveExtensions?.KHR_gaussian_splatting) {
 				failures.push("Splat GLB primitive did not use KHR_gaussian_splatting");
 			}
 			for (const attributeName of [
@@ -782,9 +800,26 @@ async function runBlenderPackageSmoke(cdp, baseUrl) {
 				"KHR_gaussian_splatting:OPACITY",
 				"KHR_gaussian_splatting:SH_DEGREE_0_COEF_0",
 			]) {
-				if (!Number.isInteger(attributes[attributeName])) {
+				if (!Number.isInteger(splatSummary?.primitiveAttributes?.[attributeName])) {
 					failures.push("Missing splat attribute: " + attributeName);
 				}
+			}
+			const referenceDocumentBeforePsd = test.store.referenceImages.document.value;
+			const referenceSourceBeforePsd =
+				referenceDocumentBeforePsd?.assets?.[0]?.source?.file ?? null;
+			test.controller.setExportFormat?.("psd");
+			test.controller.setReferenceImageExportSessionEnabled?.(true);
+			await waitForReady(4);
+			await test.controller.downloadPsd?.();
+			await waitForReady(4);
+			const referenceDocumentAfterPsd = test.store.referenceImages.document.value;
+			const referenceSourceAfterPsd =
+				referenceDocumentAfterPsd?.assets?.[0]?.source?.file ?? null;
+			if (!(referenceSourceAfterPsd instanceof Blob)) {
+				failures.push("Reference source Blob was unavailable after Blender export");
+			}
+			if (referenceSourceAfterPsd !== referenceSourceBeforePsd) {
+				failures.push("Reference source Blob identity changed during consecutive exports");
 			}
 			return {
 				ok: failures.length === 0,
@@ -793,12 +828,15 @@ async function runBlenderPackageSmoke(cdp, baseUrl) {
 					filename: packageResult.filename,
 					assetCount: packageResult.manifest.assets.length,
 					cameraCount: packageResult.manifest.cameras.length,
-					splatCount: packageResult.manifest.assets.find(
-						(asset) => asset.kind === "splat",
-					)?.splatCount,
-					modelGlbBytes: modelEntry.data.byteLength,
-					extensionsUsed: documentState.extensionsUsed,
-					entryPaths: packageResult.entries.map((entry) => entry.path),
+					splatCount: splatManifest?.splatCount,
+					splatPath,
+					modelPath,
+					referencePath,
+					splatGlbBytes: splatSummary?.byteLength,
+					modelGlbBytes: modelSummary?.byteLength,
+					psdAfterBlender: true,
+					referenceSourceBytes: referenceSourceAfterPsd?.size ?? 0,
+					entryPaths,
 				},
 			};
 		})()`,

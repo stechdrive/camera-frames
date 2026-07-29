@@ -177,7 +177,9 @@
 - PNG / PSD / WebM とも preview 側の output frame 契約に沿って出す
 - splat export は warmup pass と Spark pending probe を併用し、sort / LoD / pager / worker の明確な未処理状態が連続して空になってから capture する。ただし Spark 側の offline 完了 token ではなく、deadline 付きの best-effort readiness として扱う
 - `blender` は shot camera ごとの PNG / PSD 設定を上書きしない session-only format とし、選択対象の Camera、scene asset、lighting、reference image、timeline animation を再構築する ZIP を出す
-- Blender package の model は asset ごとの GLB、3DGS は編集済み PackedSplats から作る `KHR_gaussian_splatting` GLB、animation は Blender script での baked key として保持する
+- Blender package の model は asset ごとの GLB、3DGS は編集済み PackedSplats から作る `KHR_gaussian_splatting` GLB、animation は Blender script での baked key として保持する。deferred RAD は asset ごとの一時 FullData として順次処理し、書き出し後も viewport の PagedSplats / RAD source を維持する
+- Blender package は生成した asset entry を順次 ZIP へ書き込み、全 asset の GLB bytes と一時 FullDataを同時保持しない
+- 下絵の source / decode が失敗した時は対象名、Blob情報、両 decode 経路の理由をエラー詳細へ出し、黙って欠落させない
 - 標準 Blender 用再構築では 3DGS の PointCloud proxy も作るが、KHR GLBを source of truth とする。proxy は DC color と最大 Gaussian axis の radius を使い、anisotropy / higher-order SH の完全再現とは扱わない
 
 PSD export の主な構成:

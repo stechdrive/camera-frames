@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {
 	clearExportOverlay,
 	createExportOptionsFacade,
+	formatExportErrorDetail,
 	setExportProgressOverlay,
 	showExportErrorOverlay,
 } from "../src/controllers/export/presentation.js";
@@ -80,6 +81,21 @@ import {
 
 	store.overlay.value.actions[0].onClick();
 	assert.equal(store.overlay.value, null);
+
+	assert.equal(
+		formatExportErrorDetail({
+			type: "error",
+			constructor: { name: "Event" },
+		}),
+		"Event(error)",
+	);
+	assert.notEqual(
+		formatExportErrorDetail({
+			type: "error",
+			constructor: { name: "Event" },
+		}),
+		"[object Event]",
+	);
 }
 
 {

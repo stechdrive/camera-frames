@@ -452,6 +452,7 @@ export function createAssetController({
 		createSplatAssetFromSource,
 		replaceSplatAssetFromSource,
 		ensureFullDataForSplatAssets,
+		withSplatAssetPackedSplats,
 		loadModelFromSource,
 	} = createSceneAssetSourceLoadingController({
 		sceneState,
@@ -756,6 +757,7 @@ export function createAssetController({
 		setAssetLabel,
 		duplicateSelectedSceneAssets,
 		ensureFullDataForSplatAssets,
+		withSplatAssetPackedSplats,
 		deleteSelectedSceneAssets,
 		setSelectedSceneAssetsVisibility,
 		applyAssetTransform,

@@ -433,7 +433,8 @@ per-splat edit の current contract:
 - export progress overlay はキャンセル操作を提供する。キャンセル後は次 frame / 次 camera へ進まず、ZIP / WebM / PNG / PSD download を作らず、export busy state を解除する
 - `blender` 選択は shot camera ごとの `exportSettings.exportFormat` を書き換えず、session-only state として保持する
 - Blender package は選択した Camera ごとに pose / exact frustum / clipping / output resolution を保持し、scene asset transform、lighting、reference image source と配置、timeline animation の実装済み transform / lens channel を再構築スクリプトへ渡す
-- model asset は asset ごとの binary GLB、3DGS asset は編集済み runtime `PackedSplats` から生成した `KHR_gaussian_splatting` GLB を source of truth とする。deferred RAD asset は package 作成前に FullData へ materialize する
+- model asset は asset ごとの binary GLB、3DGS asset は編集済み runtime `PackedSplats` から生成した `KHR_gaussian_splatting` GLB を source of truth とする。deferred RAD asset は asset ごとに書き出し専用の一時 FullData へ materialize し、KHR GLB bytes の生成直後に破棄してからZIPへ追加する。書き出しのために runtime の `PagedSplats` / source を FullData へ恒久 swap しない
+- Blender package の asset entry は生成順に ZIP writer へ渡し、全 asset の GLB bytes と FullData temporary を entries 配列へ同時保持しない
 - KHR GLB は Gaussian position / log scale / quaternion / opacity / DC color を保持する。現 package contract は higher-order SH を書き出さず `shBands: 0` / `runtime-packed-dc` と明示する
 - 標準 Blender 再構築は KHR GLBを直接レンダリングできるとは仮定せず、Blender PointCloud proxy を自動生成する。proxy の radius は最大 Gaussian axis、color は DC color を使い、anisotropy / view-dependent higher-order SH の fidelity は保証しない
 - reference image は Blender Camera Background Image と exact layout metadata の両方で保持する。Camera Background Image は viewport guide であり、Blender render compositor への自動合成は contract に含めない
@@ -453,6 +454,9 @@ export のルール:
 - `exportSplatLayers` は `exportModelLayers` が有効な時だけ有効
 - guide layer mode は `bottom` / `overlay`
 - reference image の export 参加条件は `exportEnabled` と export session toggle の両方
+- export 対象の reference image に source Blob / metadata がない場合は黙って欠落させず、対象名を含むエラーで停止する
+- reference image decode は `createImageBitmap` と `HTMLImageElement` fallback の両方の失敗理由、Blob size / MIME / 小範囲 read probe を保持し、`[object Event]` だけのエラー表示にしない。fallback 失敗時も一時 object URL を必ず revoke する
+- reference image の decoded drawable は同一 asset の最後の layer を rasterize した直後に cleanup し、shot 内の全下絵処理が終わるまで不要な decoded bitmap を保持しない
 - splat を含む scene export では、既定 warmup pass に加えて Spark の sort / LoD / pager / worker の pending state を読み取り専用 probe で確認し、pending が連続して空になった時点を capture ready として扱う。これは Spark の DCC 的な完了保証ではなく、既定 deadline 内での best-effort readiness として扱う
 
 PNG export:

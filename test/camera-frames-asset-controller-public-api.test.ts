@@ -151,6 +151,92 @@ function createAssetControllerForPublicApiTest({
 	assert.equal(typeof controller.removeSceneAssets, "function");
 	assert.equal(typeof controller.duplicateSelectedSceneAssets, "function");
 	assert.equal(typeof controller.ensureFullDataForSplatAssets, "function");
+	assert.equal(typeof controller.withSplatAssetPackedSplats, "function");
+}
+
+{
+	const harness = createAssetControllerForPublicApiTest();
+	let fullDataLoads = 0;
+	let temporaryDisposals = 0;
+	let runtimeUnregisters = 0;
+	const source = createProjectFilePackedSplatSource({
+		fileName: "temporary-export.rawsplat",
+		packedArray: new Uint32Array(),
+		numSplats: 1,
+		deferredFullData: {
+			async loadFullData() {
+				fullDataLoads += 1;
+				return {
+					packedArray: new Uint32Array([1, 2, 3, 4]),
+					numSplats: 1,
+					extra: {},
+					splatEncoding: null,
+					lodSplats: null,
+				};
+			},
+		},
+		skipClone: true,
+	});
+	const paged = { dispose() {} };
+	const mesh = { paged };
+	const asset = {
+		id: "temporary-export",
+		kind: "splat",
+		label: "Temporary export",
+		object: new THREE.Group(),
+		contentObject: new THREE.Group(),
+		disposeTarget: mesh,
+		source,
+		radBundleRuntime: {
+			async unregister() {
+				runtimeUnregisters += 1;
+			},
+		},
+	};
+	harness.sceneState.assets.push(asset);
+
+	const result = await harness.controller.withSplatAssetPackedSplats(
+		asset.id,
+		async (packedSplats, context) => {
+			assert.equal(context.temporary, true);
+			assert.ok(packedSplats);
+			assert.equal(context.source.numSplats, 1);
+			const dispose = packedSplats.dispose?.bind(packedSplats);
+			packedSplats.dispose = () => {
+				temporaryDisposals += 1;
+				dispose?.();
+			};
+			return "exported";
+		},
+	);
+
+	assert.equal(result, "exported");
+	assert.equal(fullDataLoads, 1);
+	assert.equal(temporaryDisposals, 1);
+	assert.equal(asset.source, source);
+	assert.equal(mesh.paged, paged);
+	assert.equal(mesh.packedSplats, undefined);
+	assert.equal(runtimeUnregisters, 0);
+
+	await assert.rejects(
+		harness.controller.withSplatAssetPackedSplats(
+			asset.id,
+			async (packedSplats) => {
+				const dispose = packedSplats.dispose?.bind(packedSplats);
+				packedSplats.dispose = () => {
+					temporaryDisposals += 1;
+					dispose?.();
+				};
+				throw new Error("stop export");
+			},
+		),
+		/stop export/,
+	);
+	assert.equal(fullDataLoads, 2);
+	assert.equal(temporaryDisposals, 2);
+	assert.equal(asset.source, source);
+	assert.equal(mesh.paged, paged);
+	assert.equal(runtimeUnregisters, 0);
 }
 
 {

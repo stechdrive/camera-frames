@@ -7,7 +7,7 @@ related-files:
   - docs/camera_frames_requirements.md
   - docs/legacy-ssproj-compatibility.md
   - docs/CameraFramesFeatures.md
-last-updated: 2026-06-20
+last-updated: 2026-07-29
 ---
 
 # 用語集とトラブルシューティング
@@ -249,6 +249,8 @@ CAMERA_FRAMES の PNG は**線形空間**で合成されるため、通常の sR
 
 - スプラットの描画安定化（約 1.5 秒のウォームアップ）がタイムアウトしている可能性があります。大量のスプラットアセットがある場合に発生しやすい
 - メモリ不足の場合もあります（特にサイズの大きいスプラット + PSD スプラットレイヤー化 ON）
+- 下絵のデコード失敗時は、エラー詳細にファイル名、Blobサイズ / MIME、Blobの読み取り可否、2つの画像デコード経路の失敗理由が表示されます。`Blob ... readable` なのに両方のデコードが失敗している場合は、メモリ不足または画像形式の破損を確認してください
+- Blender書き出しは3DGSをアセットごとに一時展開し、ZIPへ順次追加します。書き出し後にRAD / PagedSplatsをFullDataへ置き換えたままにしないため、通常はプロジェクトを開き直さずPNG / PSD書き出しへ続けます
 
 ### 2.9 履歴 / 元に戻す
 

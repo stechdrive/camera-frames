@@ -1,4 +1,5 @@
 import { readPsd } from "ag-psd";
+import { loadBlobImageDrawable } from "./blob-image-loader.js";
 import {
 	REFERENCE_IMAGE_MAX_APPLIED_DIM,
 	REFERENCE_IMAGE_MAX_PREVIEW_DIM,
@@ -19,38 +20,6 @@ function createCanvas(width, height) {
 	canvas.width = Math.max(1, Math.round(width));
 	canvas.height = Math.max(1, Math.round(height));
 	return canvas;
-}
-
-async function loadImageElement(url) {
-	return await new Promise((resolve, reject) => {
-		const image = new Image();
-		image.onload = () => resolve(image);
-		image.onerror = (error) => reject(error);
-		image.src = url;
-	});
-}
-
-async function loadDrawableFromBlob(blob) {
-	let drawable = null;
-	let cleanup = null;
-	try {
-		drawable = await createImageBitmap(blob);
-		cleanup = () => {
-			try {
-				drawable?.close?.();
-			} catch {
-				// ignore
-			}
-		};
-		return { drawable, cleanup };
-	} catch {
-		const objectUrl = URL.createObjectURL(blob);
-		drawable = await loadImageElement(objectUrl);
-		cleanup = () => {
-			URL.revokeObjectURL(objectUrl);
-		};
-		return { drawable, cleanup };
-	}
 }
 
 export function createCanvasBlob(canvas, type = "image/png") {
@@ -74,7 +43,11 @@ export async function decodeReferenceImageBlob(
 	} = {},
 ) {
 	const normalizedFilename = normalizeReferenceImageFileName(filename);
-	const { drawable, cleanup } = await loadDrawableFromBlob(blob);
+	const { drawable, cleanup } = await loadBlobImageDrawable(blob, {
+		filename: normalizedFilename,
+		description: "Reference image",
+		errorName: "ReferenceImageDecodeError",
+	});
 	try {
 		const originalSize = {
 			w: Math.max(1, Math.round(drawable.width)),

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
 	buildReferenceImageExportCanvas,
+	loadReferenceImageDrawable,
 	renderReferenceImageLayersForShotCamera,
 } from "../src/controllers/export/reference-images.js";
 import {
@@ -69,6 +70,81 @@ import { createShotCameraDocument } from "../src/workspace-model.js";
 		right: 250,
 		bottom: 125,
 	});
+}
+
+{
+	const blob = new Blob([new Uint8Array([1, 2, 3])], {
+		type: "image/png",
+	});
+	let revokeCount = 0;
+	const imageElement: {
+		onload?: (() => void) | null;
+		onerror?: ((event: { type: string }) => void) | null;
+		src?: string;
+	} = {};
+	Object.defineProperty(imageElement, "src", {
+		set() {
+			queueMicrotask(() => imageElement.onload?.());
+		},
+	});
+	const loaded = await loadReferenceImageDrawable(blob, {
+		filename: "fallback.png",
+		createImageBitmapFn: async () => {
+			throw new Error("bitmap decoder unavailable");
+		},
+		createObjectUrl: () => "blob:fallback",
+		revokeObjectUrl: () => {
+			revokeCount += 1;
+		},
+		createImageElement: () => imageElement,
+	});
+
+	assert.equal(loaded.drawable, imageElement);
+	loaded.cleanup();
+	loaded.cleanup();
+	assert.equal(revokeCount, 1);
+}
+
+{
+	const blob = new Blob([new Uint8Array([1, 2, 3])], {
+		type: "image/png",
+	});
+	let revokeCount = 0;
+	const imageElement: {
+		onload?: (() => void) | null;
+		onerror?: ((event: { type: string }) => void) | null;
+		src?: string;
+	} = {};
+	Object.defineProperty(imageElement, "src", {
+		set() {
+			queueMicrotask(() => imageElement.onerror?.({ type: "error" }));
+		},
+	});
+
+	await assert.rejects(
+		loadReferenceImageDrawable(blob, {
+			filename: "broken-reference.png",
+			createImageBitmapFn: async () => {
+				throw new DOMException("allocation failed", "InvalidStateError");
+			},
+			createObjectUrl: () => "blob:broken",
+			revokeObjectUrl: () => {
+				revokeCount += 1;
+			},
+			createImageElement: () => imageElement,
+		}),
+		(error: Error) => {
+			assert.equal(error.name, "ReferenceImageDecodeError");
+			assert.match(error.message, /broken-reference\.png/);
+			assert.match(error.message, /Blob size=3 bytes/);
+			assert.match(error.message, /readable/);
+			assert.match(error.message, /InvalidStateError: allocation failed/);
+			assert.match(error.message, /HTMLImageElement emitted "error"/);
+			assert.doesNotMatch(error.message, /\[object Event\]/);
+			return true;
+		},
+	);
+	assert.equal(revokeCount, 1);
 }
 
 {
@@ -156,6 +232,13 @@ import { createShotCameraDocument } from "../src/workspace-model.js";
 		applyOpacity: false,
 		loadDrawable: async (blob) => {
 			loadCount += 1;
+			if (blob === sharedBlob) {
+				assert.equal(
+					cleanupCount,
+					1,
+					"the previous unique drawable should be released before decoding the next asset",
+				);
+			}
 			return {
 				drawable: { id: blob === sharedBlob ? "shared" : "unique" },
 				cleanup: () => {
@@ -219,6 +302,48 @@ import { createShotCameraDocument } from "../src/workspace-model.js";
 
 	assert.deepEqual(layers, []);
 	assert.equal(loadCount, 0);
+}
+
+{
+	const documentState = createDefaultReferenceImageDocument();
+	const asset = createReferenceImageAsset({
+		id: "asset-missing-blob",
+		label: "Missing Blob",
+		source: null,
+		sourceMeta: {
+			filename: "missing.png",
+			mime: "image/png",
+			originalSize: { w: 10, h: 10 },
+			appliedSize: { w: 10, h: 10 },
+			pixelRatio: 1,
+			usedOriginal: true,
+		},
+	});
+	const preset = createReferenceImagePreset({
+		id: "preset-missing-blob",
+		name: "Missing Blob",
+		items: [
+			createReferenceImageItem({
+				id: "item-missing-blob",
+				assetId: asset.id,
+				name: "Missing Blob",
+			}),
+		],
+	});
+	documentState.assets.push(asset);
+	documentState.presets.push(preset);
+	const camera = createShotCameraDocument();
+	camera.referenceImages.presetId = preset.id;
+
+	await assert.rejects(
+		renderReferenceImageLayersForShotCamera({
+			referenceImageDocument: documentState,
+			documentState: camera,
+			width: 100,
+			height: 100,
+		}),
+		/Reference image source Blob for "Missing Blob" is unavailable/,
+	);
 }
 
 console.log("✅ CAMERA_FRAMES export reference images tests passed!");

@@ -91,6 +91,7 @@ class FakeGltfExporter {
 {
 	const modelObject = new THREE.Group();
 	const packedSplats = createPackedSplats();
+	const splatLeaseCalls = [];
 	const shotCamera = {
 		id: "shot-a",
 		name: "Camera A",
@@ -197,6 +198,10 @@ class FakeGltfExporter {
 		]),
 		getOutputSizeState: () => ({ width: 1754, height: 1240 }),
 		GLTFExporterClass: FakeGltfExporter,
+		withSplatAssetPackedSplats: async (assetId, operation, options) => {
+			splatLeaseCalls.push({ assetId, options });
+			return await operation(packedSplats);
+		},
 		appVersion: "9.9.9",
 	});
 
@@ -215,6 +220,9 @@ class FakeGltfExporter {
 	assert.equal(result.manifest.assets[1].shBands, 0);
 	assert.equal(result.manifest.cameras[0].output.width, 1754);
 	assert.equal(result.manifest.cameras[0].transform.position.x, 1);
+	assert.deepEqual(splatLeaseCalls, [
+		{ assetId: "splat-a", options: { silent: true } },
+	]);
 
 	const paths = result.entries.map((entry) => entry.path);
 	assert.deepEqual(paths, [
@@ -225,6 +233,20 @@ class FakeGltfExporter {
 		"open_in_blender.cmd",
 		"README.txt",
 	]);
+	assert.deepEqual(result.entryPaths, paths);
+	const splatSummary = result.entrySummaries.find(
+		(entry) => entry.path === "splats/002-Room.glb",
+	);
+	assert.equal(splatSummary.glbMagic, 0x46546c67);
+	assert.deepEqual(splatSummary.extensionsUsed, ["KHR_gaussian_splatting"]);
+	assert.ok(splatSummary.primitiveExtensions.KHR_gaussian_splatting);
+	assert.ok(
+		Number.isInteger(
+			splatSummary.primitiveAttributes[
+				"KHR_gaussian_splatting:SH_DEGREE_0_COEF_0"
+			],
+		),
+	);
 	const scriptEntry = result.entries.find(
 		(entry) => entry.path === "build_blend.py",
 	);
@@ -244,5 +266,49 @@ class FakeGltfExporter {
 	assert.doesNotMatch(
 		script,
 		/camera_object\.matrix_world = blender_matrix\(.*?\)/,
+	);
+	const readmeEntry = result.entries.find(
+		(entry) => entry.path === "README.txt",
+	);
+	const readme = new TextDecoder().decode(readmeEntry?.data as Uint8Array);
+	assert.match(readme, /CAMERA_FRAMES Blenderパッケージ/);
+	assert.match(readme, /最短手順/);
+	assert.match(readme, /Blenderバージョンについて/);
+	assert.match(
+		readme,
+		/標準BlenderはKHR_gaussian_splattingを直接レンダリングしません/,
+	);
+	assert.match(readme, /下絵について/);
+	assert.doesNotMatch(readme, /Quick start|Package contract|3DGS note/);
+}
+
+{
+	const streamedEntries = [];
+	const result = await buildBlenderPackageEntries({
+		projectName: "Streamed",
+		targetDocuments: [],
+		projectSnapshot: {
+			scene: {
+				assets: [],
+				lighting: {},
+				referenceImages: null,
+			},
+			animation: null,
+		},
+		sceneAssets: [],
+		writeEntry: async (entry) => {
+			streamedEntries.push(entry);
+		},
+		appVersion: "9.9.9",
+	});
+
+	assert.deepEqual(result.entries, []);
+	assert.deepEqual(
+		streamedEntries.map((entry) => entry.path),
+		["manifest.json", "build_blend.py", "open_in_blender.cmd", "README.txt"],
+	);
+	assert.deepEqual(
+		result.entryPaths,
+		streamedEntries.map((entry) => entry.path),
 	);
 }

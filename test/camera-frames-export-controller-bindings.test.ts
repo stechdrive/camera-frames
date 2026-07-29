@@ -28,6 +28,7 @@ import { createExportControllerBindings } from "../src/app/export-controller-bin
 		syncShotProjection: () => "sync-shot",
 		syncOutputCamera: () => "sync-output",
 		updateShotCameraHelpers: () => "helpers",
+		withSplatAssetPackedSplats: () => "temporary-splat",
 	});
 
 	assert.equal(bindings.scene.id, "scene");
@@ -47,6 +48,7 @@ import { createExportControllerBindings } from "../src/app/export-controller-bin
 	assert.equal(bindings.syncShotProjection(), "sync-shot");
 	assert.equal(bindings.syncOutputCamera(), "sync-output");
 	assert.equal(bindings.updateShotCameraHelpers(), "helpers");
+	assert.equal(bindings.withSplatAssetPackedSplats(), "temporary-splat");
 }
 
 console.log("✅ CAMERA_FRAMES export controller bindings tests passed!");

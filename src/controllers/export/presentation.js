@@ -13,6 +13,23 @@ export function clearExportOverlay(store) {
 	}
 }
 
+export function formatExportErrorDetail(error) {
+	if (error instanceof Error) {
+		return error.stack || error.message || error.name;
+	}
+	if (error && typeof error === "object") {
+		const type =
+			typeof error.type === "string" && error.type ? error.type : "unknown";
+		const constructorName =
+			typeof error.constructor?.name === "string" &&
+			error.constructor.name !== "Object"
+				? error.constructor.name
+				: "Event";
+		return `${constructorName}(${type})`;
+	}
+	return String(error ?? "");
+}
+
 export function showExportErrorOverlay(
 	error,
 	{
@@ -21,8 +38,7 @@ export function showExportErrorOverlay(
 		clearExportOverlay: clearExportOverlayFn = clearExportOverlay,
 	} = {},
 ) {
-	const detail =
-		error instanceof Error ? error.stack || error.message : String(error ?? "");
+	const detail = formatExportErrorDetail(error);
 	store.overlay.value = {
 		source: "export",
 		kind: "error",

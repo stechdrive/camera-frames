@@ -630,6 +630,68 @@ export function createSceneAssetSourceLoadingController({
 		return true;
 	}
 
+	async function withSplatAssetPackedSplats(
+		assetId,
+		operation,
+		{ silent = false } = {},
+	) {
+		if (typeof operation !== "function") {
+			throw new TypeError("A splat export operation is required.");
+		}
+		const asset =
+			getSceneAsset(assetId) ??
+			sceneState.assets.find(
+				(candidate) => String(candidate?.id) === String(assetId),
+			) ??
+			null;
+		if (asset?.kind !== "splat") {
+			throw new Error(`Splat asset "${String(assetId)}" is unavailable.`);
+		}
+
+		const source = asset.source;
+		if (!hasProjectFilePackedSplatDeferredFullData(source)) {
+			const packedSplats = asset.disposeTarget?.packedSplats ?? null;
+			if (!packedSplats) {
+				throw new Error(
+					`Splat asset "${asset.label ?? String(asset.id)}" has no exportable FullData.`,
+				);
+			}
+			return await operation(packedSplats, {
+				asset,
+				source,
+				temporary: false,
+			});
+		}
+
+		if (!silent) {
+			setStatus?.(t("status.loadingItems", { count: 1 }));
+		}
+		const fullSource = await loadProjectFilePackedSplatFullDataSource(source);
+		const temporaryPackedSplats = await createPackedSplatsFromSourceData({
+			fileName: fullSource.fileName,
+			inputBytes: fullSource.inputBytes,
+			extraFiles: fullSource.extraFiles,
+			fileType: fullSource.fileType,
+			pathOrUrl: fullSource.fileName,
+			packedArray: fullSource.packedArray,
+			numSplats: fullSource.numSplats,
+			extra: fullSource.extra,
+			splatEncoding: fullSource.splatEncoding,
+		});
+		try {
+			return await operation(temporaryPackedSplats, {
+				asset,
+				source: fullSource,
+				temporary: true,
+			});
+		} finally {
+			temporaryPackedSplats.dispose?.();
+			if (!silent) {
+				setStatus?.(t("status.loadedItems", { count: 1 }));
+			}
+		}
+	}
+
 	async function loadSplatFromSource(source, options = {}) {
 		return await loadSplatAssetFromSource(source, options);
 	}
@@ -767,6 +829,7 @@ export function createSceneAssetSourceLoadingController({
 		createSplatAssetFromSource,
 		replaceSplatAssetFromSource,
 		ensureFullDataForSplatAssets,
+		withSplatAssetPackedSplats,
 		loadModelFromSource,
 	};
 }

@@ -20,7 +20,27 @@ function createZipReaderForEntry(data) {
 	return new Uint8ArrayReader(data);
 }
 
-export async function createZipBlob(entries = [], { level = 0 } = {}) {
+async function addZipEntry(zipWriter, entry, level) {
+	const path = sanitizeArchivePath(entry?.path);
+	if (!path) {
+		return false;
+	}
+	try {
+		await zipWriter.add(path, createZipReaderForEntry(entry.data), {
+			level,
+			zip64: true,
+		});
+		return true;
+	} catch (error) {
+		const detail =
+			error instanceof Error ? error.message : String(error ?? "unknown error");
+		throw new Error(`Failed to write ZIP entry "${path}": ${detail}`, {
+			cause: error,
+		});
+	}
+}
+
+export async function createStreamingZipBlob(writeEntries, { level = 0 } = {}) {
 	const writer = new BlobWriter("application/zip");
 	const zipWriter = new ZipWriter(writer, {
 		level,
@@ -28,17 +48,11 @@ export async function createZipBlob(entries = [], { level = 0 } = {}) {
 		useWebWorkers: true,
 	});
 	try {
-		for (const entry of entries) {
-			const path = sanitizeArchivePath(entry?.path);
-			if (!path) {
-				continue;
-			}
-			await zipWriter.add(path, createZipReaderForEntry(entry.data), {
-				level,
-				zip64: true,
-			});
-		}
-		return await zipWriter.close(undefined, { zip64: true });
+		const value = await writeEntries((entry) =>
+			addZipEntry(zipWriter, entry, level),
+		);
+		const blob = await zipWriter.close(undefined, { zip64: true });
+		return { blob, value };
 	} catch (error) {
 		try {
 			await zipWriter.close();
@@ -47,6 +61,18 @@ export async function createZipBlob(entries = [], { level = 0 } = {}) {
 		}
 		throw error;
 	}
+}
+
+export async function createZipBlob(entries = [], { level = 0 } = {}) {
+	const result = await createStreamingZipBlob(
+		async (addEntry) => {
+			for (const entry of entries) {
+				await addEntry(entry);
+			}
+		},
+		{ level },
+	);
+	return result.blob;
 }
 
 export function downloadBlob(blob, filename, { createLink = null } = {}) {

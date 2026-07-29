@@ -575,6 +575,48 @@ function createReferenceFilePath(asset) {
 	return `references/${sanitizeFileStem(asset?.id, "reference")}-${stem}${extension}`;
 }
 
+function summarizePackageEntry(entry) {
+	const data = entry?.data;
+	const summary = {
+		path: entry?.path ?? "",
+		byteLength:
+			data instanceof Blob
+				? data.size
+				: Number(data?.byteLength ?? data?.length ?? 0),
+	};
+	if (
+		!(data instanceof Uint8Array) ||
+		!String(entry?.path ?? "")
+			.toLowerCase()
+			.endsWith(".glb") ||
+		data.byteLength < 20
+	) {
+		return summary;
+	}
+	try {
+		const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+		summary.glbMagic = view.getUint32(0, true);
+		const jsonLength = view.getUint32(12, true);
+		if (
+			view.getUint32(16, true) !== 0x4e4f534a ||
+			20 + jsonLength > data.byteLength
+		) {
+			return summary;
+		}
+		const documentState = JSON.parse(
+			new TextDecoder().decode(data.subarray(20, 20 + jsonLength)).trimEnd(),
+		);
+		summary.extensionsUsed = documentState.extensionsUsed ?? [];
+		summary.primitiveAttributes =
+			documentState.meshes?.[0]?.primitives?.[0]?.attributes ?? {};
+		summary.primitiveExtensions =
+			documentState.meshes?.[0]?.primitives?.[0]?.extensions ?? {};
+	} catch {
+		// Entry summaries are diagnostics only; the exporter owns GLB validation.
+	}
+	return summary;
+}
+
 function buildCameraReferences({
 	referenceDocument,
 	documentState,
@@ -602,8 +644,20 @@ function buildCameraReferences({
 	)) {
 		const asset = resolved.assetsById.get(item.assetId);
 		const sourceFile = asset?.source?.file;
-		if (!(sourceFile instanceof Blob) || !asset?.sourceMeta) {
-			continue;
+		if (!asset) {
+			throw new Error(
+				`Reference image asset "${item.assetId}" for "${item.name}" is unavailable.`,
+			);
+		}
+		if (!asset.sourceMeta) {
+			throw new Error(
+				`Reference image metadata for "${item.name}" is unavailable.`,
+			);
+		}
+		if (!(sourceFile instanceof Blob)) {
+			throw new Error(
+				`Reference image source Blob for "${item.name}" is unavailable.`,
+			);
 		}
 		let path = referencePaths.get(asset.id);
 		if (!path) {
@@ -650,11 +704,24 @@ export async function buildBlenderPackageEntries({
 	includeReferenceImages = true,
 	GLTFExporterClass = GLTFExporter,
 	buildSplatGlb = buildSplatGlbBytes,
+	withSplatAssetPackedSplats = null,
+	writeEntry = null,
 	appVersion = "0.0.0",
 } = {}) {
 	const safeProjectName = sanitizeFileStem(projectName, "camera-frames");
 	const blendFile = `${safeProjectName}.blend`;
 	const entries = [];
+	const entryPaths = [];
+	const entrySummaries = [];
+	const emitEntry = async (entry) => {
+		entryPaths.push(entry.path);
+		entrySummaries.push(summarizePackageEntry(entry));
+		if (typeof writeEntry === "function") {
+			await writeEntry(entry);
+			return;
+		}
+		entries.push(entry);
+	};
 	const referenceEntries = [];
 	const referencePaths = new Map();
 	const animationRange = resolveAnimationRange(projectSnapshot?.animation);
@@ -670,7 +737,9 @@ export async function buildBlenderPackageEntries({
 		}
 		const runtimeAsset = runtimeAssetsById.get(String(assetState?.id));
 		if (!runtimeAsset) {
-			continue;
+			throw new Error(
+				`Scene asset "${assetState?.label ?? assetState?.id}" is unavailable for Blender export.`,
+			);
 		}
 		const fileStem = `${String(index + 1).padStart(3, "0")}-${sanitizeFileStem(
 			removeKnownAssetExtension(assetState?.label),
@@ -683,17 +752,26 @@ export async function buildBlenderPackageEntries({
 		let data;
 		let splatCount = null;
 		if (assetState?.kind === "splat") {
-			const packedSplats = runtimeAsset?.disposeTarget?.packedSplats;
-			data = await buildSplatGlb(packedSplats);
-			splatCount =
-				packedSplats?.getNumSplats?.() ?? packedSplats?.numSplats ?? 0;
+			const buildSplatEntry = async (packedSplats) => ({
+				data: await buildSplatGlb(packedSplats),
+				splatCount:
+					packedSplats?.getNumSplats?.() ?? packedSplats?.numSplats ?? 0,
+			});
+			const splatEntry =
+				typeof withSplatAssetPackedSplats === "function"
+					? await withSplatAssetPackedSplats(assetState.id, buildSplatEntry, {
+							silent: true,
+						})
+					: await buildSplatEntry(runtimeAsset?.disposeTarget?.packedSplats);
+			data = splatEntry.data;
+			splatCount = splatEntry.splatCount;
 		} else {
 			data = await exportThreeObjectToGlb(
 				runtimeAsset.contentObject ?? runtimeAsset.object,
 				GLTFExporterClass,
 			);
 		}
-		entries.push({ path, data });
+		await emitEntry({ path, data });
 		const binding = findBinding(
 			animationRange,
 			ANIMATION_TARGET_SCENE_ASSET,
@@ -789,7 +867,9 @@ export async function buildBlenderPackageEntries({
 		});
 	}
 
-	entries.push(...referenceEntries);
+	for (const entry of referenceEntries) {
+		await emitEntry(entry);
+	}
 	const manifest = {
 		schema: "camera_frames_blender_package",
 		version: 1,
@@ -813,7 +893,7 @@ export async function buildBlenderPackageEntries({
 			endFrame: animationRange.endFrame,
 		},
 	};
-	entries.push(
+	for (const entry of [
 		{
 			path: "manifest.json",
 			data: toTextBytes(JSON.stringify(manifest, null, 2)),
@@ -835,10 +915,14 @@ export async function buildBlenderPackageEntries({
 				}),
 			),
 		},
-	);
+	]) {
+		await emitEntry(entry);
+	}
 	return {
 		filename: `${safeProjectName}-blender.zip`,
 		manifest,
 		entries,
+		entryPaths,
+		entrySummaries,
 	};
 }

@@ -539,8 +539,8 @@ export function createCameraFramesController(elements, store) {
 			updateShotCameraHelpers,
 			getAnimationController: () => animationController,
 			captureProjectState,
-			ensureFullDataForSplatAssets: (...args) =>
-				assetController.ensureFullDataForSplatAssets(...args),
+			withSplatAssetPackedSplats: (...args) =>
+				assetController.withSplatAssetPackedSplats(...args),
 		}),
 	);
 	viewportLodScaleRuntimeBinding = createViewportLodScaleRuntimeBinding({

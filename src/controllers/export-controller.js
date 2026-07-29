@@ -5,7 +5,11 @@ import {
 	hasEnabledQueryFlag,
 } from "../build-info.js";
 import { renderExportPassToCanvas } from "../engine/export-bundle.js";
-import { createZipBlob, downloadBlob } from "./export/archive-download.js";
+import {
+	createStreamingZipBlob,
+	createZipBlob,
+	downloadBlob,
+} from "./export/archive-download.js";
 import { buildSnapshotExportBundle } from "./export/bundle-build.js";
 import { buildBlenderPackageEntries } from "./export/blender-package.js";
 import { createCanvasFromPixels } from "./export/canvas-utils.js";
@@ -79,7 +83,7 @@ export function createExportController({
 	updateShotCameraHelpers,
 	getAnimationController = () => null,
 	captureProjectState = () => null,
-	ensureFullDataForSplatAssets = async () => true,
+	withSplatAssetPackedSplats = null,
 }) {
 	const exportDebugLayersEnabled =
 		IS_DEV_RUNTIME && hasEnabledQueryFlag("psdDebug");
@@ -269,24 +273,24 @@ export function createExportController({
 		setStatus(t("status.blenderPackageBuilding"));
 		try {
 			const projectSnapshot = captureProjectState();
-			const splatAssetIds = (projectSnapshot?.scene?.assets ?? [])
-				.filter(
-					(asset) => asset?.kind === "splat" && asset?.exportRole !== "omit",
-				)
-				.map((asset) => asset.id);
-			await ensureFullDataForSplatAssets(splatAssetIds, { silent: true });
-			const packageResult = await buildBlenderPackageEntries({
-				projectName: store.project.name.value,
-				targetDocuments,
-				projectSnapshot,
-				sceneAssets: getSceneAssets(),
-				shotCameraRegistry,
-				getOutputSizeState,
-				includeReferenceImages:
-					store.referenceImages.exportSessionEnabled.value !== false,
-				appVersion: BUILD_INFO.version,
-			});
-			const archive = await createZipBlob(packageResult.entries, { level: 0 });
+			const { blob: archive, value: packageResult } =
+				await createStreamingZipBlob(
+					(addEntry) =>
+						buildBlenderPackageEntries({
+							projectName: store.project.name.value,
+							targetDocuments,
+							projectSnapshot,
+							sceneAssets: getSceneAssets(),
+							shotCameraRegistry,
+							getOutputSizeState,
+							includeReferenceImages:
+								store.referenceImages.exportSessionEnabled.value !== false,
+							withSplatAssetPackedSplats,
+							writeEntry: addEntry,
+							appVersion: BUILD_INFO.version,
+						}),
+					{ level: 0 },
+				);
 			downloadBlob(archive, packageResult.filename);
 			store.exportSummary.value = t("exportSummary.blenderReady", {
 				cameras: packageResult.manifest.cameras.length,

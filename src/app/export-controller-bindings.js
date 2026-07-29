@@ -26,7 +26,7 @@ export function createExportControllerBindings({
 	updateShotCameraHelpers,
 	getAnimationController = () => null,
 	captureProjectState = () => null,
-	ensureFullDataForSplatAssets = async () => true,
+	withSplatAssetPackedSplats = null,
 } = {}) {
 	return {
 		scene,
@@ -56,6 +56,6 @@ export function createExportControllerBindings({
 		updateShotCameraHelpers,
 		getAnimationController,
 		captureProjectState,
-		ensureFullDataForSplatAssets,
+		withSplatAssetPackedSplats,
 	};
 }

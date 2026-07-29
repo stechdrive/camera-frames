@@ -4,46 +4,14 @@ import {
 	getReferenceImageRenderBoxAnchor,
 	resolveReferenceImageItemsForShot,
 } from "../../reference-image-model.js";
+import { loadBlobImageDrawable } from "../../engine/blob-image-loader.js";
 
-export async function loadReferenceImageDrawable(
-	blob,
-	{
-		createImageBitmapFn = globalThis.createImageBitmap,
-		createObjectUrl = (value) => URL.createObjectURL(value),
-		revokeObjectUrl = (value) => URL.revokeObjectURL(value),
-		createImageElement = () => new Image(),
-	} = {},
-) {
-	try {
-		if (typeof createImageBitmapFn !== "function") {
-			throw new Error("createImageBitmap unavailable");
-		}
-		const imageBitmap = await createImageBitmapFn(blob);
-		return {
-			drawable: imageBitmap,
-			cleanup: () => {
-				try {
-					imageBitmap.close?.();
-				} catch {
-					// ignore
-				}
-			},
-		};
-	} catch {
-		const objectUrl = createObjectUrl(blob);
-		const image = await new Promise((resolve, reject) => {
-			const element = createImageElement();
-			element.onload = () => resolve(element);
-			element.onerror = (error) => reject(error);
-			element.src = objectUrl;
-		});
-		return {
-			drawable: image,
-			cleanup: () => {
-				revokeObjectUrl(objectUrl);
-			},
-		};
-	}
+export async function loadReferenceImageDrawable(blob, options = {}) {
+	return await loadBlobImageDrawable(blob, {
+		...options,
+		description: "Reference image",
+		errorName: "ReferenceImageDecodeError",
+	});
 }
 
 function rotateReferencePoint(point, angleRad) {
@@ -165,6 +133,13 @@ export async function renderReferenceImageLayersForShotCamera({
 			}
 			return left.order - right.order || left.id.localeCompare(right.id);
 		});
+	const remainingUsesByAssetId = new Map();
+	for (const item of candidates) {
+		remainingUsesByAssetId.set(
+			item.assetId,
+			(remainingUsesByAssetId.get(item.assetId) ?? 0) + 1,
+		);
+	}
 
 	try {
 		for (const [index, item] of candidates.entries()) {
@@ -175,13 +150,27 @@ export async function renderReferenceImageLayersForShotCamera({
 			});
 			const asset = resolved.assetsById.get(item.assetId) ?? null;
 			const sourceFile = asset?.source?.file ?? null;
-			if (!(sourceFile instanceof Blob) || !asset?.sourceMeta) {
-				continue;
+			if (!asset) {
+				throw new Error(
+					`Reference image asset "${item.assetId}" for "${item.name}" is unavailable.`,
+				);
+			}
+			if (!asset.sourceMeta) {
+				throw new Error(
+					`Reference image metadata for "${item.name}" is unavailable.`,
+				);
+			}
+			if (!(sourceFile instanceof Blob)) {
+				throw new Error(
+					`Reference image source Blob for "${item.name}" is unavailable.`,
+				);
 			}
 
 			let cacheEntry = assetDrawableCache.get(asset.id) ?? null;
 			if (!cacheEntry) {
-				cacheEntry = await loadDrawable(sourceFile);
+				cacheEntry = await loadDrawable(sourceFile, {
+					filename: asset.sourceMeta.filename ?? item.name,
+				});
 				assetDrawableCache.set(asset.id, cacheEntry);
 			}
 
@@ -227,6 +216,14 @@ export async function renderReferenceImageLayersForShotCamera({
 				canvas: renderedLayer.canvas,
 				bounds: renderedLayer.bounds,
 			});
+			const remainingUses = (remainingUsesByAssetId.get(asset.id) ?? 1) - 1;
+			if (remainingUses <= 0) {
+				cacheEntry.cleanup?.();
+				assetDrawableCache.delete(asset.id);
+				remainingUsesByAssetId.delete(asset.id);
+			} else {
+				remainingUsesByAssetId.set(asset.id, remainingUses);
+			}
 		}
 	} finally {
 		for (const cacheEntry of assetDrawableCache.values()) {
