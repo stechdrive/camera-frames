@@ -58,6 +58,12 @@ def blender_matrix(transform):
     return THREE_TO_BLENDER @ source_matrix @ THREE_TO_BLENDER.inverted()
 
 
+def blender_camera_matrix(transform):
+    # Three.js and Blender cameras both look down their local -Z axis.
+    # Convert only the world basis so the camera's local axes remain unchanged.
+    return THREE_TO_BLENDER @ three_matrix(transform)
+
+
 def add_custom_properties(target, values):
     for key, value in values.items():
         if value is None:
@@ -285,7 +291,7 @@ def create_camera_scene(camera_record, content_collection, world):
     configure_camera_data(camera_data, camera_record)
     camera_object = bpy.data.objects.new(camera_name, camera_data)
     content_collection.objects.link(camera_object)
-    camera_object.matrix_world = blender_matrix(camera_record["transform"])
+    camera_object.matrix_world = blender_camera_matrix(camera_record["transform"])
     attach_reference_backgrounds(camera_data, camera_record)
     add_custom_properties(camera_object, {
         "camera_frames_camera_id": camera_record.get("id"),
@@ -310,7 +316,7 @@ def create_camera_scene(camera_record, content_collection, world):
     if samples:
         camera_object.rotation_mode = "QUATERNION"
         for sample in samples:
-            camera_object.matrix_world = blender_matrix(sample["transform"])
+            camera_object.matrix_world = blender_camera_matrix(sample["transform"])
             configure_camera_data(camera_data, sample)
             frame = int(sample["frame"])
             camera_object.keyframe_insert(data_path="location", frame=frame)

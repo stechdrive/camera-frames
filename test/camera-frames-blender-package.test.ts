@@ -232,4 +232,17 @@ class FakeGltfExporter {
 	assert.match(script, /KHR_gaussian_splatting/);
 	assert.match(script, /bpy\.ops\.wm\.save_as_mainfile/);
 	assert.match(script, /THREE_TO_BLENDER/);
+	assert.match(
+		script,
+		/def blender_camera_matrix\(transform\):[\s\S]*?return THREE_TO_BLENDER @ three_matrix\(transform\)/,
+	);
+	assert.equal(
+		script.match(/camera_object\.matrix_world = blender_camera_matrix\(.*?\)/g)
+			?.length,
+		2,
+	);
+	assert.doesNotMatch(
+		script,
+		/camera_object\.matrix_world = blender_matrix\(.*?\)/,
+	);
 }
