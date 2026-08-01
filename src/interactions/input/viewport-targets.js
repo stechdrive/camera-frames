@@ -8,7 +8,7 @@ export function isViewportOverlayControlTarget(target) {
 	}
 	return (
 		target.closest(
-			".viewport-project-status, .viewport-lod-scale, .background-task-pill",
+			".viewport-project-status, .viewport-lod-scale, .background-task-pill, .workspace-pane__chrome, .workspace-splitter",
 		) !== null
 	);
 }

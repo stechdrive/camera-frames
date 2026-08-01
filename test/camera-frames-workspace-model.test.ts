@@ -7,8 +7,13 @@ import {
 	COMPOSITION_GUIDE_SCOPE_SELECTED_FRAME,
 } from "../src/engine/composition-guides.js";
 import {
+	WORKSPACE_LAYOUT_QUAD,
+	WORKSPACE_LAYOUT_SINGLE,
+	WORKSPACE_LAYOUT_SPLIT,
 	WORKSPACE_PANE_CAMERA,
+	WORKSPACE_PANE_CAMERA_ID,
 	WORKSPACE_PANE_VIEWPORT,
+	WORKSPACE_PANE_VIEWPORT_ID,
 	createDefaultShotCameraDocuments,
 	createDefaultWorkspacePanes,
 	createFrameDocument,
@@ -27,16 +32,36 @@ import {
 } from "../src/workspace-model.js";
 
 const panes = createDefaultWorkspacePanes();
-assert.equal(panes.length, 1);
+assert.equal(WORKSPACE_LAYOUT_SINGLE, "single");
+assert.equal(WORKSPACE_LAYOUT_SPLIT, "split");
+assert.equal(WORKSPACE_LAYOUT_QUAD, "quad");
+assert.equal(panes.length, 2);
+assert.equal(panes[0].id, WORKSPACE_PANE_CAMERA_ID);
 assert.equal(panes[0].role, WORKSPACE_PANE_CAMERA);
+assert.equal(panes[1].id, WORKSPACE_PANE_VIEWPORT_ID);
+assert.equal(panes[1].role, WORKSPACE_PANE_VIEWPORT);
 assert.equal(getWorkspaceModeLabelKey(panes[0]), "mode.camera");
-
-const viewportPanes = setSinglePaneRole(panes, WORKSPACE_PANE_VIEWPORT);
-assert.equal(viewportPanes[0].role, WORKSPACE_PANE_VIEWPORT);
+assert.equal(getWorkspaceModeLabelKey(panes[1]), "mode.viewport");
 assert.equal(
-	getActiveWorkspacePane(viewportPanes, "pane-main")?.role,
+	getActiveWorkspacePane(panes, WORKSPACE_PANE_CAMERA_ID)?.role,
+	WORKSPACE_PANE_CAMERA,
+);
+assert.equal(
+	getActiveWorkspacePane(panes, "missing-pane")?.id,
+	WORKSPACE_PANE_CAMERA_ID,
+);
+
+const legacySinglePane = [panes[0]];
+const viewportPanes = setSinglePaneRole(
+	legacySinglePane,
 	WORKSPACE_PANE_VIEWPORT,
 );
+assert.equal(viewportPanes[0].role, WORKSPACE_PANE_VIEWPORT);
+assert.equal(
+	getActiveWorkspacePane(viewportPanes, WORKSPACE_PANE_CAMERA_ID)?.role,
+	WORKSPACE_PANE_VIEWPORT,
+);
+assert.equal(legacySinglePane[0].role, WORKSPACE_PANE_CAMERA);
 
 const shotCameras = createDefaultShotCameraDocuments();
 assert.equal(shotCameras.length, 1);

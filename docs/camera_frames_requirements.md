@@ -54,9 +54,17 @@ CAMERA_FRAMES の共有 contract を Git 管理するための基点です。
 - GitHub Pages 版は Vite の通常 build (`base=/camera-frames/`) を正規 Web 配布として維持する
 - Windows desktop build は Tauri shell を使い、同一 frontend source を desktop frontend として扱う
 - UI ではない local preference / status helper は `src/app/` を正本にし、`src/ui/` 側は必要な表示 shim に留める
-- 現行 UI は single-pane 前提で運用する
+- 端末 local に保存済み layout がない時の既定 UI は従来と同じ `Camera View` 1 画面とし、既存の shot layout 導線を変えない
+- `2画面` 操作では、選択中 shot camera の `Camera View` と editor camera の `Viewport` を同時表示する
+- 2画面時は各 pane header の閉じる操作で片方を閉じ、残った pane を全画面表示する。最後の 1 pane は閉じない
+- 2画面の divider は pointer drag と keyboard で移動でき、pane ごとの表示サイズを変更できる
+- 横幅が狭い時は左右分割ではなく上下分割に切り替える
+- click した pane を active interaction context とし、keyboard / pointer による camera 操作は active pane にだけ適用する
+- Camera pane は常に選択中 shot camera、Viewport pane は既存の workspace 全体で 1 系統の editor camera を使う。pane ごとの任意 camera 割当ては現行 contract に含めない
+- 2画面の 3DGS 描画は pane ごとに accumulator / sort ordering を分離する一方、共有 splat source の LoD 選択は Camera pane 側の primary renderer だけが駆動し、Viewport pane は同じ選択結果を利用する。複数 renderer から同じ `PagedSplats` を更新しない
+- reference image preview / edit overlay は 2画面時は Camera pane に合成し、Camera pane を閉じた単一 Viewport では従来の Viewport preview / edit を維持する
+- 表示 layout、divider ratio、active pane は端末 local の UI state とし、portable `.ssproj`、undo / redo、project dirty 判定には含めない
 - `WORKSPACE_LAYOUT_QUAD` 定数は残っているが、現行の product baseline には含めない
-- 将来 split view / multi-pane を導入する余地は残すが、現行 contract には pane ごとの個別 camera 割当てや viewport state 保存を含めない
 - 主要 UI 面:
   - `src/ui/viewport-shell.js`: viewport, HUD, overlay, direct manipulation
   - `src/ui/side-panel.js`: left rail, inspector, file / export 導線
@@ -214,14 +222,15 @@ shot camera の責務:
 - lens shift は camera を回転せずに投影中心だけをずらす shot camera lens state として扱う。UI では `%`、保存値は factor (`0.1` = `10%`) とし、標準 FRAME の幅 / 高さを基準単位にする
 - lens shift は render / preview / export の実投影に反映するが、pose の yaw / pitch / roll 分解や roll 軸は shift 前の output frame layout frustum を基準にし、既存の camera 操作 contract を変えない
 - custom frustum / output frame / export / reference image binding は shot camera 側の責務として保存する
-- current camera view では active shot camera を使う
+- Camera pane では常に active shot camera を使い、shot camera の選択変更を表示へ即時反映する
 
 viewport camera との分離:
 
 - viewport camera は shot camera document とは別の editor-only camera として扱う
 - viewport は `perspective` と `orthographic` を切り替えられるが、orthographic は viewport-only であり shot camera document にはしない
-- 現行 baseline では viewport state は workspace 全体で 1 系統だけ持ち、pane ごとの個別 viewport pose / projection persistence はまだ contract に含めない
-- 将来 split view / multi-pane を導入する場合も、pane ごとに shot camera を割り当てること、または pane ごとに viewport 用の perspective / orthographic state を持つことを妨げないよう、shot camera と viewport camera の概念を混同しない
+- Viewport state は workspace 全体で 1 系統だけ持ち、2画面時も同じ editor camera の pose / perspective / orthographic state を使う
+- Camera pane と Viewport pane の表示状態は分離するが、pane ごとの個別 shot camera 割当てや複数 viewport camera は現行 contract に含めない
+- split layout の表示状態を shot camera document や viewport camera state に混ぜず、shot camera と viewport camera の概念を分離したまま保つ
 
 viewport projection 切替の契約:
 

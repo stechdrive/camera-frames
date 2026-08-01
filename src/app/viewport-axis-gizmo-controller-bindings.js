@@ -4,6 +4,7 @@ export function createViewportAxisGizmoControllerBindings({
 	viewportAxisGizmoSvg,
 	getActiveViewportCamera,
 	viewportProjectionController,
+	isViewportPaneVisible = null,
 } = {}) {
 	return {
 		state,
@@ -15,5 +16,6 @@ export function createViewportAxisGizmoControllerBindings({
 			"perspective",
 		getViewportOrthoState: () =>
 			viewportProjectionController?.getViewportOrthoState?.() ?? null,
+		isViewportPaneVisible,
 	};
 }

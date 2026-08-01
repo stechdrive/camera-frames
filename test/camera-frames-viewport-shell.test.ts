@@ -119,6 +119,10 @@ function readCssWithImports(url, seen = new Set()) {
 
 {
 	const css = readCssWithImports(new URL("../app.css", import.meta.url));
+	const viewportShellSource = readFileSync(
+		new URL("../src/ui/viewport-shell.js", import.meta.url),
+		"utf8",
+	);
 	const backReferenceZ = getCssNumberDeclaration(
 		css,
 		".reference-image-layer--back",
@@ -165,6 +169,22 @@ function readCssWithImports(url, seen = new Set()) {
 	assert.equal(
 		getCssDeclaration(css, ".frame-mask-layer", "pointer-events"),
 		"none",
+	);
+	assert.doesNotMatch(
+		viewportShellSource,
+		/reference-image-layer--(?:back|front) camera-pane-layer/,
+	);
+	assert.doesNotMatch(
+		viewportShellSource,
+		/reference-image-(?:hit|selection)-layer camera-pane-layer/,
+	);
+	assert.match(
+		css,
+		/data-camera-pane-visible="false"[^{}]*workspace-pane\[data-pane-role="camera"\][^{]*\{[^}]*display:\s*block;[^}]*visibility:\s*hidden;/s,
+	);
+	assert.match(
+		css,
+		/data-camera-pane-visible="false"[^{}]*camera-workspace-pane-overlay\.camera-pane-layer[^{]*\{[^}]*display:\s*block\s*!important;[^}]*visibility:\s*hidden;/s,
 	);
 }
 

@@ -75,6 +75,17 @@ async function maybeAwait(value) {
 	return value;
 }
 
+async function waitForAnimationFrames(count = 1) {
+	const frameCount = Math.max(1, Math.floor(Number(count) || 1));
+	for (let index = 0; index < frameCount; index += 1) {
+		if (typeof globalThis.requestAnimationFrame === "function") {
+			await new Promise((resolve) => globalThis.requestAnimationFrame(resolve));
+		} else {
+			await Promise.resolve();
+		}
+	}
+}
+
 export async function runRadSsprojDevValidation({
 	controller,
 	projectUrl,
@@ -127,6 +138,23 @@ export async function runRadSsprojDevValidation({
 					asset.sourceDeferredFullData,
 			),
 			{ assets: openSummary },
+		);
+
+		await maybeAwait(controller.showDualWorkspace?.());
+		await waitForAnimationFrames(16);
+		const lodOwnership =
+			controller.__debugGetWorkspaceSparkLodOwnershipState?.() ?? null;
+		observations.dualViewLodOwnership = lodOwnership;
+		const lodFollower = lodOwnership?.followers?.[0] ?? null;
+		check(
+			"dual-view-single-lod-owner",
+			lodOwnership?.driverCount === 1 &&
+				lodOwnership?.primary?.enableDriveLod === true &&
+				lodFollower?.enableDriveLod === false &&
+				lodFollower?.enableLodFetching === false &&
+				lodFollower?.hasLodWorker === false &&
+				lodFollower?.hasPager === false,
+			lodOwnership ?? {},
 		);
 
 		const radAsset = pickRadBackedAsset(assetsAfterOpen, assetIndex);

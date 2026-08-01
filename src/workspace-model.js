@@ -30,6 +30,7 @@ import {
 } from "./reference-image-model.js";
 
 export const WORKSPACE_LAYOUT_SINGLE = "single";
+export const WORKSPACE_LAYOUT_SPLIT = "split";
 export const WORKSPACE_LAYOUT_QUAD = "quad";
 const SHOT_CAMERA_ID_PREFIX = "shot-camera-";
 const FRAME_ID_PREFIX = "frame-";
@@ -47,6 +48,8 @@ const DEFAULT_FRAME_TRAJECTORY_EXPORT_SOURCE =
 
 export const WORKSPACE_PANE_CAMERA = "camera";
 export const WORKSPACE_PANE_VIEWPORT = "viewport";
+export const WORKSPACE_PANE_CAMERA_ID = "pane-camera";
+export const WORKSPACE_PANE_VIEWPORT_ID = "pane-viewport";
 
 export const VIEWPORT_PRESET_PERSPECTIVE = "perspective";
 export const VIEWPORT_PRESET_TOP = "top";
@@ -56,8 +59,15 @@ export const VIEWPORT_PRESET_RIGHT = "right";
 export function createDefaultWorkspacePanes() {
 	return [
 		{
-			id: "pane-main",
+			id: WORKSPACE_PANE_CAMERA_ID,
 			role: WORKSPACE_PANE_CAMERA,
+			viewportPreset: VIEWPORT_PRESET_PERSPECTIVE,
+			projection: "perspective",
+			shotCameraBinding: "active",
+		},
+		{
+			id: WORKSPACE_PANE_VIEWPORT_ID,
+			role: WORKSPACE_PANE_VIEWPORT,
 			viewportPreset: VIEWPORT_PRESET_PERSPECTIVE,
 			projection: "perspective",
 			shotCameraBinding: "active",
@@ -418,8 +428,9 @@ export function getWorkspacePaneById(panes, paneId) {
 export function getActiveWorkspacePane(panes, activePaneId) {
 	return (
 		getWorkspacePaneById(panes, activePaneId) ??
+		panes.find((pane) => pane.role === WORKSPACE_PANE_CAMERA) ??
 		panes[0] ?? {
-			id: "pane-fallback",
+			id: WORKSPACE_PANE_CAMERA_ID,
 			role: WORKSPACE_PANE_CAMERA,
 			viewportPreset: VIEWPORT_PRESET_PERSPECTIVE,
 			projection: "perspective",

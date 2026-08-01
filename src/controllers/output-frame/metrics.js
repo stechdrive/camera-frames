@@ -4,6 +4,7 @@ import { computeWorkbenchLayoutState } from "./layout-compute.js";
 export function createOutputFrameMetricsController({
 	store,
 	viewportShell,
+	workbenchContainer = null,
 	workbenchRightColumn,
 	renderBox,
 	getActiveShotCameraDocument,
@@ -37,7 +38,10 @@ export function createOutputFrameMetricsController({
 	}
 
 	function getWorkbenchContainerSize() {
-		const containerElement = viewportShell.parentElement;
+		const containerElement =
+			workbenchContainer?.current ??
+			workbenchContainer ??
+			viewportShell.parentElement;
 		return {
 			width: Math.max(
 				containerElement?.clientWidth ?? viewportShell.clientWidth,

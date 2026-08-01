@@ -1,5 +1,5 @@
 import { html } from "htm/preact";
-import { useLayoutEffect, useRef } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import * as THREE from "three";
 import { getBuildVersionLabel } from "../build-info.js";
 import { VIEWPORT_PIXEL_RATIO } from "../constants.js";
@@ -14,6 +14,18 @@ import {
 	VIEWPORT_PIE_RADIUS,
 	buildViewportPieActions,
 } from "../engine/viewport-pie.js";
+import {
+	WORKSPACE_MIN_PANE_SIZE_PX,
+	WORKSPACE_SPLIT_RATIO_MAX,
+	WORKSPACE_SPLIT_RATIO_MIN,
+	WORKSPACE_SPLITTER_SIZE_PX,
+	resolveWorkspaceSplitRatioForSize,
+} from "../app/workspace-view-layout.js";
+import {
+	WORKSPACE_LAYOUT_SPLIT,
+	WORKSPACE_PANE_CAMERA,
+	WORKSPACE_PANE_VIEWPORT,
+} from "../workspace-model.js";
 import { BackgroundTaskIndicator } from "./background-task-indicator.js";
 import { CompositionGuideLayer } from "./composition-guide-layer.js";
 import { computeDropHintStyle, getOverlayBounds } from "./drop-hint-layout.js";
@@ -403,7 +415,6 @@ function SplatEditBrushPreview({ store, viewportShellRef }) {
 function FrameMaskCanvas({ store, refs }) {
 	const canvasRef = useRef(null);
 	const drawMaskCanvasRef = useRef(() => {});
-	const mode = store.mode.value;
 	const frames = store.frames.documents.value;
 	const frameMaskMode = store.frames.maskMode.value;
 	const frameMaskOpacityPct = store.frames.maskOpacityPct.value;
@@ -425,7 +436,7 @@ function FrameMaskCanvas({ store, refs }) {
 	const drawMaskCanvas = () => {
 		const canvas = canvasRef.current;
 		const shellElement =
-			refs.viewportShellRef?.current ?? refs.viewportShellRef ?? null;
+			refs.cameraPaneRef?.current ?? refs.cameraPaneRef ?? null;
 		const renderBoxNode =
 			refs.renderBoxRef?.current ?? refs.renderBoxRef ?? null;
 		if (
@@ -459,7 +470,6 @@ function FrameMaskCanvas({ store, refs }) {
 		context.setTransform(1, 0, 0, 1, 0, 0);
 		context.clearRect(0, 0, canvas.width, canvas.height);
 		if (
-			mode !== "camera" ||
 			frameMaskOpacity <= 0 ||
 			maskedFrames.length === 0 ||
 			!(renderBoxNode instanceof HTMLElement) ||
@@ -497,7 +507,7 @@ function FrameMaskCanvas({ store, refs }) {
 
 	useLayoutEffect(() => {
 		const shellElement =
-			refs.viewportShellRef?.current ?? refs.viewportShellRef ?? null;
+			refs.cameraPaneRef?.current ?? refs.cameraPaneRef ?? null;
 		const renderBoxNode =
 			refs.renderBoxRef?.current ?? refs.renderBoxRef ?? null;
 		if (
@@ -536,13 +546,13 @@ function FrameMaskCanvas({ store, refs }) {
 			window.removeEventListener("resize", redraw);
 			resizeObserver?.disconnect();
 		};
-	}, [refs.renderBoxRef, refs.viewportShellRef]);
+	}, [refs.cameraPaneRef, refs.renderBoxRef]);
 
-	if (mode !== "camera" || frameMaskOpacity <= 0 || maskedFrames.length === 0) {
+	if (frameMaskOpacity <= 0 || maskedFrames.length === 0) {
 		return null;
 	}
 	return html`
-		<div class="frame-mask-layer">
+		<div class="frame-mask-layer camera-pane-layer">
 			<canvas ref=${canvasRef} class="frame-mask-layer__canvas"></canvas>
 		</div>
 	`;
@@ -562,13 +572,257 @@ function getReferenceImageAnchorHandleKey(anchorAx, anchorAy) {
 	return getFrameAnchorHandleKey({ x: anchorAx, y: anchorAy });
 }
 
+const WORKSPACE_VERTICAL_SPLIT_MAX_WIDTH_PX = 720;
+
+function resolveWorkspaceSplitOrientation(width) {
+	const numericWidth = Number(width);
+	const fallbackWidth =
+		typeof window === "undefined"
+			? Number.POSITIVE_INFINITY
+			: window.innerWidth;
+	return (Number.isFinite(numericWidth) ? numericWidth : fallbackWidth) <=
+		WORKSPACE_VERTICAL_SPLIT_MAX_WIDTH_PX
+		? "vertical"
+		: "horizontal";
+}
+
+function WorkspacePaneChrome({ pane, active, split, controller, paneRef, t }) {
+	if (!pane) {
+		return null;
+	}
+	const label =
+		pane.role === WORKSPACE_PANE_CAMERA ? t("mode.camera") : t("mode.viewport");
+	return html`
+		<section
+			ref=${paneRef}
+			class=${
+				active ? "workspace-pane workspace-pane--active" : "workspace-pane"
+			}
+			data-workspace-pane=${pane.id}
+			data-pane-role=${pane.role}
+			aria-label=${label}
+		>
+			<div class="workspace-pane__chrome">
+				<span class="workspace-pane__label">${label}</span>
+				${
+					split
+						? html`
+						<button
+							type="button"
+							class="workspace-pane__close"
+							aria-label=${t("action.closeWorkspacePane", { name: label })}
+							title=${t("action.closeWorkspacePane", { name: label })}
+							onPointerDown=${(event) => event.stopPropagation()}
+							onClick=${() => controller()?.closeWorkspacePane?.(pane.id)}
+						>
+							×
+						</button>
+					`
+						: html`
+						<button
+							type="button"
+							class="workspace-pane__dual"
+							aria-label=${t("action.showDualWorkspace")}
+							title=${t("action.showDualWorkspace")}
+							onPointerDown=${(event) => event.stopPropagation()}
+							onClick=${() => controller()?.showDualWorkspace?.()}
+						>
+							▥
+						</button>
+					`
+				}
+			</div>
+		</section>
+	`;
+}
+
 export function ViewportShell({ store, controller, refs, t }) {
 	const splatEditHudDragRef = useRef(null);
+	const workspaceSplitDragRef = useRef(null);
+	const [workspaceSplitOrientation, setWorkspaceSplitOrientation] = useState(
+		resolveWorkspaceSplitOrientation,
+	);
+	const [workspaceShellSize, setWorkspaceShellSize] = useState({
+		width: 0,
+		height: 0,
+	});
+	const workspaceLayout = store.workspace.layout.value;
+	const workspaceSplitRatio = store.workspace.splitRatio?.value ?? 0.5;
+	const workspacePanes = store.workspace.panes.value ?? [];
+	const activeWorkspacePaneId = store.workspace.activePaneId.value;
+	const cameraWorkspacePane = workspacePanes.find(
+		(pane) => pane.role === WORKSPACE_PANE_CAMERA,
+	);
+	const viewportWorkspacePane = workspacePanes.find(
+		(pane) => pane.role === WORKSPACE_PANE_VIEWPORT,
+	);
+	const workspaceSplit = workspaceLayout === WORKSPACE_LAYOUT_SPLIT;
+	const cameraPaneVisible =
+		workspaceSplit || activeWorkspacePaneId === cameraWorkspacePane?.id;
+	const viewportPaneVisible =
+		workspaceSplit || activeWorkspacePaneId === viewportWorkspacePane?.id;
+	const activeWorkspacePane = workspacePanes.find(
+		(pane) => pane.id === activeWorkspacePaneId,
+	);
+	const activeWorkspacePaneRef =
+		activeWorkspacePane?.role === WORKSPACE_PANE_VIEWPORT
+			? refs.viewportPaneRef
+			: refs.cameraPaneRef;
+
+	useEffect(() => {
+		const shell = refs.viewportShellRef?.current;
+		if (!shell) {
+			return undefined;
+		}
+		const syncLayoutForSize = () => {
+			const rect = shell.getBoundingClientRect?.();
+			if (!(rect?.width > 0) || !(rect?.height > 0)) {
+				return;
+			}
+			const nextOrientation = resolveWorkspaceSplitOrientation(rect.width);
+			setWorkspaceSplitOrientation(nextOrientation);
+			setWorkspaceShellSize((previousSize) =>
+				previousSize.width === rect.width && previousSize.height === rect.height
+					? previousSize
+					: { width: rect.width, height: rect.height },
+			);
+			if (workspaceSplit) {
+				controller()?.setWorkspaceSplitRatio?.(
+					store.workspace.splitRatio?.peek?.() ??
+						store.workspace.splitRatio?.value ??
+						0.5,
+					{
+						orientation: nextOrientation,
+						width: rect.width,
+						height: rect.height,
+					},
+				);
+			}
+		};
+		syncLayoutForSize();
+		const resizeObserver =
+			typeof ResizeObserver === "function"
+				? new ResizeObserver(syncLayoutForSize)
+				: null;
+		resizeObserver?.observe(shell);
+		window.addEventListener?.("resize", syncLayoutForSize);
+		return () => {
+			resizeObserver?.disconnect();
+			window.removeEventListener?.("resize", syncLayoutForSize);
+		};
+	}, [workspaceSplit, controller, refs.viewportShellRef, store]);
+
+	const updateWorkspaceSplitFromPointer = (event) => {
+		const drag = workspaceSplitDragRef.current;
+		if (!drag || drag.pointerId !== event.pointerId) {
+			return;
+		}
+		const shell = refs.viewportShellRef?.current;
+		const rect = shell?.getBoundingClientRect?.();
+		if (!(rect?.width > 0) || !(rect?.height > 0)) {
+			return;
+		}
+		const availableSize = Math.max(
+			(drag.orientation === "vertical" ? rect.height : rect.width) -
+				WORKSPACE_SPLITTER_SIZE_PX,
+			1,
+		);
+		const nextRatio =
+			drag.orientation === "vertical"
+				? (event.clientY - rect.top - drag.pointerOffsetPx) / availableSize
+				: (event.clientX - rect.left - drag.pointerOffsetPx) / availableSize;
+		controller()?.setWorkspaceSplitRatio?.(nextRatio, {
+			orientation: drag.orientation,
+			width: rect.width,
+			height: rect.height,
+			persist: false,
+		});
+		event.preventDefault();
+	};
+
+	const finishWorkspaceSplitDrag = (event) => {
+		const drag = workspaceSplitDragRef.current;
+		if (!drag || drag.pointerId !== event.pointerId) {
+			return;
+		}
+		workspaceSplitDragRef.current = null;
+		controller()?.persistWorkspaceViewLayout?.();
+		refs.workspaceSplitterRef?.current?.releasePointerCapture?.(
+			event.pointerId,
+		);
+		event.preventDefault();
+		event.stopPropagation();
+	};
+
+	const startWorkspaceSplitDrag = (event) => {
+		if (event.button !== 0) {
+			return;
+		}
+		workspaceSplitDragRef.current = {
+			pointerId: event.pointerId,
+			orientation: workspaceSplitOrientation,
+			pointerOffsetPx:
+				workspaceSplitOrientation === "vertical"
+					? event.clientY - event.currentTarget.getBoundingClientRect().top
+					: event.clientX - event.currentTarget.getBoundingClientRect().left,
+		};
+		event.currentTarget.setPointerCapture?.(event.pointerId);
+		event.preventDefault();
+		event.stopPropagation();
+	};
+
+	const handleWorkspaceSplitKeyDown = (event) => {
+		const decrementKey =
+			workspaceSplitOrientation === "vertical" ? "ArrowUp" : "ArrowLeft";
+		const incrementKey =
+			workspaceSplitOrientation === "vertical" ? "ArrowDown" : "ArrowRight";
+		let nextRatio = null;
+		if (event.key === decrementKey) {
+			nextRatio = workspaceSplitRatio - 0.025;
+		} else if (event.key === incrementKey) {
+			nextRatio = workspaceSplitRatio + 0.025;
+		} else if (event.key === "Home") {
+			nextRatio = 0.2;
+		} else if (event.key === "End") {
+			nextRatio = 0.8;
+		}
+		if (nextRatio === null) {
+			return;
+		}
+		const shellRect = refs.viewportShellRef?.current?.getBoundingClientRect?.();
+		controller()?.setWorkspaceSplitRatio?.(nextRatio, {
+			orientation: workspaceSplitOrientation,
+			width: shellRect?.width ?? 0,
+			height: shellRect?.height ?? 0,
+		});
+		event.preventDefault();
+		event.stopPropagation();
+	};
+	const workspaceAvailableSplitSize =
+		Math.max(
+			(workspaceSplitOrientation === "vertical"
+				? workspaceShellSize.height
+				: workspaceShellSize.width) ?? 0,
+			0,
+		) - WORKSPACE_SPLITTER_SIZE_PX;
+	const workspaceSplitMinRatio = resolveWorkspaceSplitRatioForSize({
+		splitRatio: WORKSPACE_SPLIT_RATIO_MIN,
+		availableSize: workspaceAvailableSplitSize,
+		minPaneSize: WORKSPACE_MIN_PANE_SIZE_PX,
+	});
+	const workspaceSplitMaxRatio = resolveWorkspaceSplitRatioForSize({
+		splitRatio: WORKSPACE_SPLIT_RATIO_MAX,
+		availableSize: workspaceAvailableSplitSize,
+		minPaneSize: WORKSPACE_MIN_PANE_SIZE_PX,
+	});
 	const workbenchCollapsed = store.workbenchCollapsed.value;
 	const splatEditActive = store.splatEdit.active.value;
 	const splatEditHudPosition = store.splatEdit.hudPosition.value;
 	const referenceImageEditMode = store.viewportReferenceImageEditMode.value;
-	const blockOverlayInteractions = referenceImageEditMode || splatEditActive;
+	const blockOverlayInteractions =
+		store.mode.value !== WORKSPACE_PANE_CAMERA ||
+		referenceImageEditMode ||
+		splatEditActive;
 	const outputFrameLabel = t("section.outputFrame");
 	const referenceImageLayers = store.referenceImages.previewLayers.value;
 	const selectedReferenceImageIds = new Set(
@@ -832,6 +1086,20 @@ export function ViewportShell({ store, controller, refs, t }) {
 		<main
 			id="viewport-shell"
 			ref=${refs.viewportShellRef}
+			data-workspace-layout=${workspaceLayout}
+			data-workspace-orientation=${workspaceSplitOrientation}
+			data-active-workspace-pane=${activeWorkspacePaneId}
+			data-camera-pane-visible=${cameraPaneVisible ? "true" : "false"}
+			data-viewport-pane-visible=${viewportPaneVisible ? "true" : "false"}
+			data-mobile-workbench=${store.mobileUi?.active?.value ? "true" : "false"}
+			style=${{
+				"--workspace-split-ratio": String(workspaceSplitRatio),
+				"--workspace-camera-size": `calc(${(workspaceSplitRatio * 100).toFixed(
+					4,
+				)}% - ${(workspaceSplitRatio * WORKSPACE_SPLITTER_SIZE_PX).toFixed(
+					4,
+				)}px)`,
+			}}
 			class=${[
 				"viewport-shell",
 				workbenchCollapsed
@@ -844,16 +1112,70 @@ export function ViewportShell({ store, controller, refs, t }) {
 				.filter(Boolean)
 				.join(" ")}
 		>
-			<canvas id="viewport" ref=${refs.viewportCanvasRef} tabindex="0"></canvas>
+			<canvas
+				id="viewport"
+				ref=${refs.viewportCanvasRef}
+				tabindex="0"
+				aria-label=${t(`mode.${activeWorkspacePane?.role ?? "camera"}`)}
+			></canvas>
+			<div
+				class="workspace-pane-layout"
+				role="group"
+				aria-label=${t("workspace.views")}
+			>
+				<${WorkspacePaneChrome}
+					pane=${cameraWorkspacePane}
+					active=${activeWorkspacePaneId === cameraWorkspacePane?.id}
+					split=${workspaceSplit}
+					controller=${controller}
+					paneRef=${refs.cameraPaneRef}
+					t=${t}
+				/>
+				${
+					workspaceSplit &&
+					html`
+						<div
+							ref=${refs.workspaceSplitterRef}
+							class="workspace-splitter"
+							role="separator"
+							tabindex="0"
+							aria-label=${t("workspace.resizeViews")}
+							aria-orientation=${
+								workspaceSplitOrientation === "horizontal"
+									? "vertical"
+									: "horizontal"
+							}
+							aria-valuemin=${Math.round(workspaceSplitMinRatio * 100)}
+							aria-valuemax=${Math.round(workspaceSplitMaxRatio * 100)}
+							aria-valuenow=${Math.round(workspaceSplitRatio * 100)}
+							onPointerDown=${startWorkspaceSplitDrag}
+							onPointerMove=${updateWorkspaceSplitFromPointer}
+							onPointerUp=${finishWorkspaceSplitDrag}
+							onPointerCancel=${finishWorkspaceSplitDrag}
+							onKeyDown=${handleWorkspaceSplitKeyDown}
+						></div>
+					`
+				}
+				<${WorkspacePaneChrome}
+					pane=${viewportWorkspacePane}
+					active=${activeWorkspacePaneId === viewportWorkspacePane?.id}
+					split=${workspaceSplit}
+					controller=${controller}
+					paneRef=${refs.viewportPaneRef}
+					t=${t}
+				/>
+			</div>
 			<${ViewportProjectStatusHud} store=${store} controller=${controller} t=${t} />
 			<${BackgroundTaskIndicator} store=${store} t=${t} />
-			<${SplatEditBrushPreview}
-				store=${store}
-				viewportShellRef=${refs.viewportShellRef}
-			/>
-			<div class="viewport-orbit-reticle" aria-hidden="true">
-				<div class="viewport-orbit-reticle__ring"></div>
-				<div class="viewport-orbit-reticle__dot"></div>
+			<div class="active-workspace-pane-overlay">
+				<${SplatEditBrushPreview}
+					store=${store}
+					viewportShellRef=${activeWorkspacePaneRef}
+				/>
+				<div class="viewport-orbit-reticle" aria-hidden="true">
+					<div class="viewport-orbit-reticle__ring"></div>
+					<div class="viewport-orbit-reticle__dot"></div>
+				</div>
 			</div>
 			${
 				splatEditActive &&
@@ -916,108 +1238,113 @@ export function ViewportShell({ store, controller, refs, t }) {
 					`,
 				)}
 			</div>
-			${
-				pieState.open &&
-				html`
-					<div
-						class=${
-							pieState.coarse
-								? "viewport-pie viewport-pie--coarse"
-								: "viewport-pie"
-						}
-						style=${{
-							left: `${pieState.x}px`,
-							top: `${pieState.y}px`,
-							"--cf-pie-scale": String(pieState.scale ?? 1),
-						}}
-					>
-						<button
-							type="button"
-							class="viewport-pie__center"
-							onPointerDown=${handlePieCenterPointerDown}
-							onClick=${handlePieCenterClick}
+			<div class="active-workspace-pane-overlay active-workspace-pane-overlay--transient">
+				${
+					pieState.open &&
+					html`
+						<div
+							class=${
+								pieState.coarse
+									? "viewport-pie viewport-pie--coarse"
+									: "viewport-pie"
+							}
+							style=${{
+								left: `${pieState.x}px`,
+								top: `${pieState.y}px`,
+								"--cf-pie-scale": String(pieState.scale ?? 1),
+							}}
 						>
-							<span class="viewport-pie__center-label">
-								${hoveredPieAction?.label ?? t("action.quickMenu")}
-							</span>
-						</button>
-						${pieActions.map((action) => {
-							const offsetX =
-								Math.cos(action.angle) *
-								(pieState.radius ?? VIEWPORT_PIE_RADIUS);
-							const offsetY =
-								Math.sin(action.angle) *
-								(pieState.radius ?? VIEWPORT_PIE_RADIUS);
-							return html`
-								<button
-									key=${action.id}
-									type="button"
-									class=${[
-										"viewport-pie__item",
-										action.id === pieState.hoveredActionId || action.active
-											? "viewport-pie__item--active"
-											: "",
-										action.disabled ? "viewport-pie__item--disabled" : "",
-									]
-										.filter(Boolean)
-										.join(" ")}
-									style=${{
-										left: `${offsetX}px`,
-										top: `${offsetY}px`,
-									}}
-									disabled=${Boolean(action.disabled)}
-									onPointerDown=${handlePieActionPointerDown}
-									onClick=${(event) =>
-										action.disabled
-											? undefined
-											: handlePieActionClick(action.id, event)}
-								>
-									<span class="viewport-pie__item-icon">
-										<${WorkbenchIcon} name=${action.icon} size=${18} />
-									</span>
-								</button>
-							`;
-						})}
-					</div>
-				`
-			}
-			${
-				lensHud.visible &&
-				html`
-					<div
-						class="viewport-lens-hud"
-						style=${{
-							left: `${lensHud.x}px`,
-							top: `${lensHud.y}px`,
-						}}
-					>
-						<strong>${lensHud.mmLabel}</strong>
-						<span>${lensHud.fovLabel}</span>
-					</div>
-				`
-			}
-			${
-				rollHud.visible &&
-				html`
-					<div
-						class="viewport-lens-hud viewport-roll-hud"
-						style=${{
-							left: `${rollHud.x}px`,
-							top: `${rollHud.y}px`,
-						}}
-					>
-						<strong>${rollHud.angleLabel}</strong>
-						<span>${t("action.adjustRoll")}</span>
-					</div>
-				`
-			}
-			<${MeasurementOverlay} store=${store} controller=${controller} t=${t} />
+							<button
+								type="button"
+								class="viewport-pie__center"
+								onPointerDown=${handlePieCenterPointerDown}
+								onClick=${handlePieCenterClick}
+							>
+								<span class="viewport-pie__center-label">
+									${hoveredPieAction?.label ?? t("action.quickMenu")}
+								</span>
+							</button>
+							${pieActions.map((action) => {
+								const offsetX =
+									Math.cos(action.angle) *
+									(pieState.radius ?? VIEWPORT_PIE_RADIUS);
+								const offsetY =
+									Math.sin(action.angle) *
+									(pieState.radius ?? VIEWPORT_PIE_RADIUS);
+								return html`
+									<button
+										key=${action.id}
+										type="button"
+										class=${[
+											"viewport-pie__item",
+											action.id === pieState.hoveredActionId || action.active
+												? "viewport-pie__item--active"
+												: "",
+											action.disabled ? "viewport-pie__item--disabled" : "",
+										]
+											.filter(Boolean)
+											.join(" ")}
+										style=${{
+											left: `${offsetX}px`,
+											top: `${offsetY}px`,
+										}}
+										disabled=${Boolean(action.disabled)}
+										onPointerDown=${handlePieActionPointerDown}
+										onClick=${(event) =>
+											action.disabled
+												? undefined
+												: handlePieActionClick(action.id, event)}
+									>
+										<span class="viewport-pie__item-icon">
+											<${WorkbenchIcon} name=${action.icon} size=${18} />
+										</span>
+									</button>
+								`;
+							})}
+						</div>
+					`
+				}
+			</div>
+			<div class="active-workspace-pane-overlay">
+				${
+					lensHud.visible &&
+					html`
+						<div
+							class="viewport-lens-hud"
+							style=${{
+								left: `${lensHud.x}px`,
+								top: `${lensHud.y}px`,
+							}}
+						>
+							<strong>${lensHud.mmLabel}</strong>
+							<span>${lensHud.fovLabel}</span>
+						</div>
+					`
+				}
+				${
+					rollHud.visible &&
+					html`
+						<div
+							class="viewport-lens-hud viewport-roll-hud"
+							style=${{
+								left: `${rollHud.x}px`,
+								top: `${rollHud.y}px`,
+							}}
+						>
+							<strong>${rollHud.angleLabel}</strong>
+							<span>${t("action.adjustRoll")}</span>
+						</div>
+					`
+				}
+				<${MeasurementOverlay} store=${store} controller=${controller} t=${t} />
+			</div>
 			<${ViewportAxisGizmo}
 				controller=${controller}
 				rootRef=${refs.viewportAxisGizmoRef}
 				svgRef=${refs.viewportAxisGizmoSvgRef}
 			/>
 			<${FrameMaskCanvas} store=${store} refs=${refs} />
+			<div class="camera-workspace-pane-overlay camera-pane-layer">
 			<div
 				id="render-box"
 				ref=${refs.renderBoxRef}
@@ -1027,7 +1354,7 @@ export function ViewportShell({ store, controller, refs, t }) {
 						: "render-box"
 				}
 			>
-				<${CompositionGuideLayer} store=${store} />
+				<${CompositionGuideLayer} store=${store} forceVisible=${true} />
 				<${FrameLayer}
 					store=${store}
 					controller=${controller}
@@ -1087,6 +1414,7 @@ export function ViewportShell({ store, controller, refs, t }) {
 					ref=${refs.anchorDotRef}
 					class="render-box__anchor"
 				></div>
+			</div>
 			</div>
 			<div class="reference-image-layer reference-image-layer--front">
 				${frontReferenceImageLayers.map(
@@ -1206,11 +1534,12 @@ export function ViewportShell({ store, controller, refs, t }) {
 					</div>
 				`
 			}
-			<div
-				id="viewport-gizmo"
-				ref=${refs.viewportGizmoRef}
-				class="viewport-gizmo is-hidden"
-			>
+			<div class="active-workspace-pane-overlay">
+				<div
+					id="viewport-gizmo"
+					ref=${refs.viewportGizmoRef}
+					class="viewport-gizmo is-hidden"
+				>
 				<svg
 					class="viewport-gizmo__rings"
 					ref=${refs.viewportGizmoSvgRef}
@@ -1291,6 +1620,7 @@ export function ViewportShell({ store, controller, refs, t }) {
 						</button>
 					`,
 				)}
+				</div>
 			</div>
 		</main>
 	`;

@@ -54,6 +54,7 @@ function createRadAsset() {
 
 {
 	let assets = [];
+	let dualWorkspaceCalls = 0;
 	const controller = {
 		async openProjectSource(source, options) {
 			assert.equal(
@@ -66,6 +67,27 @@ function createRadAsset() {
 		},
 		__debugGetSceneAssets() {
 			return assets;
+		},
+		showDualWorkspace() {
+			dualWorkspaceCalls += 1;
+			return true;
+		},
+		__debugGetWorkspaceSparkLodOwnershipState() {
+			return {
+				primary: {
+					enableDriveLod: true,
+				},
+				followers: [
+					{
+						viewId: "pane-viewport",
+						enableDriveLod: false,
+						enableLodFetching: false,
+						hasLodWorker: false,
+						hasPager: false,
+					},
+				],
+				driverCount: 1,
+			};
 		},
 		setAssetTransform(assetId, { worldPosition }) {
 			const asset = assets.find((entry) => entry.id === assetId);
@@ -109,11 +131,13 @@ function createRadAsset() {
 	});
 
 	assert.equal(result.ok, true);
+	assert.equal(dualWorkspaceCalls, 1);
 	assert.deepEqual(
 		result.checks.map((entry) => [entry.name, entry.ok]),
 		[
 			["project-opened-assets", true],
 			["rad-backed-paged-assets", true],
+			["dual-view-single-lod-owner", true],
 			["object-transform-keeps-rad-streaming", true],
 			["splat-edit-materializes-full-data", true],
 			["splat-edit-first-selection-highlights-full-data", true],

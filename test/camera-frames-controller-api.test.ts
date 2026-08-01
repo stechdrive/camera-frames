@@ -8,6 +8,7 @@ let disposedRuntime = false;
 let disposedGuideOverlay = false;
 let disposedLighting = false;
 let disposedViewportLodScaleBinding = false;
+let disposedWorkspaceSparkRendererManager = false;
 let frameTrajectoryNodeModeCall = null;
 
 const api = createControllerApi({
@@ -284,6 +285,9 @@ const api = createControllerApi({
 	disposeViewportLodScaleBinding: () => {
 		disposedViewportLodScaleBinding = true;
 	},
+	disposeWorkspaceSparkRendererManager: () => {
+		disposedWorkspaceSparkRendererManager = true;
+	},
 	disposeSceneResources: () => {},
 });
 
@@ -368,5 +372,6 @@ assert.equal(disposedRuntime, true);
 assert.equal(disposedGuideOverlay, true);
 assert.equal(disposedLighting, true);
 assert.equal(disposedViewportLodScaleBinding, true);
+assert.equal(disposedWorkspaceSparkRendererManager, true);
 
 console.log("✅ CAMERA_FRAMES controller api tests passed!");

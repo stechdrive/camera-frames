@@ -2,6 +2,7 @@ import { VIEWPORT_LOD_SCALE_DEFAULT } from "../constants.js";
 
 export function createControllerRuntimeResources({
 	viewportCanvas,
+	pointerControlsCanvas = null,
 	viewportPixelRatio,
 	defaultCameraNear,
 	defaultCameraFar,
@@ -74,7 +75,7 @@ export function createControllerRuntimeResources({
 		moveSpeed: defaultFpsMoveSpeed,
 	});
 	const pointerControls = new PointerControlsImpl({
-		canvas: renderer.domElement,
+		canvas: pointerControlsCanvas ?? renderer.domElement,
 		slideSpeed: defaultPointerSlideSpeed,
 		scrollSpeed: defaultPointerScrollSpeed,
 		moveInertia: 0.01,

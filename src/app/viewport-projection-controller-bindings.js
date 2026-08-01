@@ -8,6 +8,14 @@ export function createViewportProjectionControllerBindings({
 	assetController,
 } = {}) {
 	function getViewportSize() {
+		const shellWidth = Number(viewportShell?.clientWidth) || 0;
+		const shellHeight = Number(viewportShell?.clientHeight) || 0;
+		if (shellWidth > 0 && shellHeight > 0) {
+			return {
+				width: Math.max(shellWidth, 1),
+				height: Math.max(shellHeight, 1),
+			};
+		}
 		if (outputFrameController?.getViewportSize) {
 			return outputFrameController.getViewportSize();
 		}

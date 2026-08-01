@@ -127,8 +127,15 @@
 - PC の mouse navigate では、未選択の用紙枠 / FRAME の選択 hit band から左ドラッグを始めても camera / viewport の orbit が優先される
 - PC の mouse navigate では、通常の shot camera / viewport camera の右ドラッグを pan / slide として扱い、drag 中だけ握る手の cursor を表示する
 - touch の 1 本指 navigate は mouse drag と分離し、画面上の内容を指でつかむ向きで扱う
-- current baseline は single-pane であり、pane ごとの個別 camera 割当てや viewport state 保存は未提供
-- ただし将来 split view を入れる余地は残し、shot camera と viewport camera を同一概念へ潰さない
+- 既定表示は従来と同じ Camera View 1 画面
+- `2画面` で、選択中 shot camera の Camera View と editor camera の Viewport を同時表示できる
+- 各 pane header の閉じる操作で片方を全画面化でき、divider は pointer / keyboard で移動できる
+- 横幅が狭い時は上下分割になり、click した pane が camera 操作と shortcut の対象になる
+- Camera pane は常に選択中 shot camera、Viewport pane は workspace 全体で 1 系統の既存 viewport camera を使う
+- 2画面の 3DGS は view ごとに sort を分離しつつ LoD 選択を Camera pane の primary renderer から共有し、静止中に Camera / Viewport の LoD 要求が競合しない
+- 下絵 preview / edit overlay は 2画面時は Camera pane に置き、Camera pane を閉じた単一 Viewport では従来どおり Viewport 上で使える
+- 表示 layout / divider ratio / active pane は端末 local の UI state であり、`.ssproj` / undo / project dirty には含めない
+- pane ごとの任意 camera 割当てや複数 viewport camera は提供せず、shot camera と viewport camera を同一概念へ潰さない
 - perspective ↔ orthographic の切替は viewport look pivot (ユーザが画面中央に見ていた世界座標点) 基準で行い、apparent scale を保存する
 - orthographic 中の軸切替 (例: +X → +Y) では `viewId` のみ差し替え、`focus / size / distance` は保持する (zoom 状態を scene-radius ベースの下限で上書きしない)
 - main tool:
@@ -215,7 +222,7 @@ PSD export の主な構成:
 - `.sscam` は現 repo の機能ではない
 - save の主軸は `working save + .ssproj`
 - Viewport と Camera View は統合しない
-- shot camera と viewport camera は将来の multi-pane 拡張を塞がないよう別概念のまま保つ
+- 2画面表示でも shot camera と viewport camera は別概念のまま保つ
 - current baseline は Spark 2.1 上の現行実装であり、旧 `camera-frames` branch の stable 契約をそのまま移植したものではない
 - `exportSplatLayers` の既定値や reference image model は旧文書より現 repo 実装を優先する
 - ただし旧 `.ssproj` の読込み互換は migration contract として維持する。詳細は [legacy-ssproj-compatibility.md](./legacy-ssproj-compatibility.md)

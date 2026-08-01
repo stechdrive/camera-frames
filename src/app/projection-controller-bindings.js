@@ -1,6 +1,7 @@
 export function createProjectionControllerBindings({
 	state,
 	renderer,
+	viewportShell,
 	getOutputFrameController,
 	syncActiveShotCameraFromDocument,
 	getActiveShotCamera,
@@ -12,6 +13,10 @@ export function createProjectionControllerBindings({
 	return {
 		state,
 		renderer,
+		getRenderSurfaceSize: () => ({
+			width: Math.max(Number(viewportShell?.clientWidth) || 0, 1),
+			height: Math.max(Number(viewportShell?.clientHeight) || 0, 1),
+		}),
 		getOutputSizeState: (documentState) =>
 			getOutputFrameController?.()?.getOutputSizeState?.(documentState),
 		getOutputFrameMetrics: (documentState) =>

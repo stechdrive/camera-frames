@@ -9,6 +9,7 @@ import {
 } from "./animation/animation-export.js";
 import { resolveEffectiveMobileUiScale } from "./app/mobile-ui-scale.js";
 import { resolveEffectiveViewportLodScale } from "./app/viewport-lod-scale.js";
+import { DEFAULT_WORKSPACE_SPLIT_RATIO } from "./app/workspace-view-layout.js";
 import {
 	BASE_RENDER_BOX,
 	DEFAULT_CAMERA_FAR,
@@ -55,12 +56,14 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	const initialLocale = resolveInitialLocale();
 	const locale = signal(initialLocale);
 	const workspaceLayout = signal(WORKSPACE_LAYOUT_SINGLE);
+	const workspaceSplitRatio = signal(DEFAULT_WORKSPACE_SPLIT_RATIO);
 	const workspacePanes = signal(createDefaultWorkspacePanes());
 	const activePaneId = signal(workspacePanes.value[0].id);
 	const shotCameras = signal(createDefaultShotCameraDocuments());
 	const activeShotCameraId = signal(shotCameras.value[0].id);
 	const viewportBaseFovX = signal(DEFAULT_VIEWPORT_CAMERA_BASE_FOVX);
 	const viewportBaseFovXDirty = signal(false);
+	const outputFrameAutoViewZoom = signal(null);
 	const viewportProjectionMode = signal(VIEWPORT_PROJECTION_PERSPECTIVE);
 	const viewportOrthoView = signal(DEFAULT_VIEWPORT_ORTHO_VIEW);
 	const viewportOrthoSize = signal(DEFAULT_VIEWPORT_ORTHO_SIZE);
@@ -344,9 +347,19 @@ export function createCameraFramesStore(runtimeInfo = null) {
 	const heightScale = computed(
 		() => activeShotCamera.value?.outputFrame.heightScale ?? 1,
 	);
-	const viewZoom = computed(
-		() => activeShotCamera.value?.outputFrame.viewZoom ?? 1,
-	);
+	const viewZoom = computed(() => {
+		const activeDocument = activeShotCamera.value;
+		const outputFrame = activeDocument?.outputFrame;
+		const autoViewZoom = outputFrameAutoViewZoom.value;
+		if (
+			outputFrame?.viewZoomAuto !== false &&
+			autoViewZoom?.shotCameraId === activeDocument?.id &&
+			Number.isFinite(autoViewZoom?.value)
+		) {
+			return autoViewZoom.value;
+		}
+		return outputFrame?.viewZoom ?? 1;
+	});
 	const anchor = computed(
 		() => activeShotCamera.value?.outputFrame.anchor ?? "center",
 	);
@@ -493,6 +506,7 @@ export function createCameraFramesStore(runtimeInfo = null) {
 		locale,
 		workspace: {
 			layout: workspaceLayout,
+			splitRatio: workspaceSplitRatio,
 			panes: workspacePanes,
 			activePaneId,
 			shotCameras,
@@ -574,6 +588,7 @@ export function createCameraFramesStore(runtimeInfo = null) {
 			widthScale,
 			heightScale,
 			viewZoom,
+			autoViewZoom: outputFrameAutoViewZoom,
 			anchor,
 		},
 		shotCamera: {

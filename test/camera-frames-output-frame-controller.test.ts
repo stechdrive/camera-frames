@@ -5,6 +5,7 @@ import {
 	computeWorkbenchLayoutState,
 	createOutputFrameController,
 } from "../src/controllers/output-frame-controller.js";
+import { createOutputFrameMetricsController } from "../src/controllers/output-frame/metrics.js";
 import { createCameraFramesStore } from "../src/store.js";
 import { createShotCameraDocument } from "../src/workspace-model.js";
 
@@ -96,6 +97,28 @@ function createOutputFrameHitHarness() {
 			renderBoxRect = nextRect;
 		},
 	};
+}
+
+{
+	const cameraPane = {
+		clientWidth: 600,
+		clientHeight: 720,
+		parentElement: { clientWidth: 600, clientHeight: 720 },
+		getBoundingClientRect: () => ({ right: 600 }),
+	};
+	const workbenchContainer = { clientWidth: 1600, clientHeight: 900 };
+	const metrics = createOutputFrameMetricsController({
+		store: { workbenchCollapsed: { value: false } },
+		viewportShell: cameraPane,
+		workbenchContainer,
+		workbenchRightColumn: null,
+		renderBox: null,
+		getActiveShotCameraDocument: () => ({ outputFrame: {} }),
+	});
+	assert.deepEqual(metrics.getWorkbenchContainerSize(), {
+		width: 1600,
+		height: 900,
+	});
 }
 
 {

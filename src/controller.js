@@ -49,6 +49,13 @@ import {
 } from "./app/viewport-lod-scale.js";
 import { createViewportProjectionControllerBindings } from "./app/viewport-projection-controller-bindings.js";
 import { createViewportToolControllerBindings } from "./app/viewport-tool-controller-bindings.js";
+import { createActiveWorkspacePaneSurface } from "./app/workspace-pane-surface.js";
+import {
+	getVisibleWorkspacePanes,
+	readPersistedWorkspaceViewLayout,
+	writePersistedWorkspaceViewLayout,
+} from "./app/workspace-view-layout.js";
+import { createWorkspaceViewLayoutCommands } from "./app/workspace-view-layout-commands.js";
 import {
 	DEFAULT_CAMERA_FAR,
 	DEFAULT_CAMERA_NEAR,
@@ -80,6 +87,7 @@ import { createViewportProjectionController } from "./controllers/viewport-proje
 import { createViewportToolController } from "./controllers/viewport-tool-controller.js";
 import { drawFramesToContext } from "./engine/frame-overlay.js";
 import { createGuideOverlay } from "./engine/guide-overlays.js";
+import { createWorkspaceSparkRendererManager } from "./engine/workspace-multi-view.js";
 import { horizontalToVerticalFovDegrees } from "./engine/projection.js";
 import {
 	formatAssetWorldScale,
@@ -101,12 +109,17 @@ import {
 import { createHelpCommands } from "./ui/help/help-commands.js";
 import { createMobileUiScaleCommands } from "./ui/settings/mobile-ui-scale-commands.js";
 import { createViewportLodScaleCommands } from "./ui/viewport-lod-scale-commands.js";
-import { WORKSPACE_PANE_CAMERA } from "./workspace-model.js";
+import {
+	WORKSPACE_LAYOUT_SPLIT,
+	WORKSPACE_PANE_CAMERA,
+} from "./workspace-model.js";
 
 export function createCameraFramesController(elements, store) {
 	const {
 		viewportCanvas,
 		viewportShell,
+		cameraPane,
+		viewportPane,
 		workbenchRightColumn,
 		renderBox,
 		frameOverlayCanvas,
@@ -120,6 +133,49 @@ export function createCameraFramesController(elements, store) {
 		assetInput,
 		referenceImageInput,
 	} = elements;
+
+	const persistedWorkspaceViewLayout = readPersistedWorkspaceViewLayout();
+	store.workspace.layout.value = persistedWorkspaceViewLayout.layout;
+	store.workspace.splitRatio.value = persistedWorkspaceViewLayout.splitRatio;
+	store.workspace.activePaneId.value =
+		persistedWorkspaceViewLayout.activePaneId;
+	const getWorkspacePaneElement = (paneId) => {
+		const pane = store.workspace.panes.value.find(
+			(candidate) => candidate.id === paneId,
+		);
+		return pane?.role === WORKSPACE_PANE_CAMERA ? cameraPane : viewportPane;
+	};
+	const getActiveWorkspacePaneElement = () =>
+		getWorkspacePaneElement(store.workspace.activePaneId.value);
+	const activeWorkspaceShell = createActiveWorkspacePaneSurface({
+		eventTarget: viewportShell,
+		workspaceShell: viewportShell,
+		getActivePaneElement: getActiveWorkspacePaneElement,
+	});
+	const activeWorkspaceCanvas = createActiveWorkspacePaneSurface({
+		eventTarget: viewportCanvas,
+		workspaceShell: viewportShell,
+		getActivePaneElement: getActiveWorkspacePaneElement,
+	});
+	const persistWorkspaceViewLayout = () =>
+		writePersistedWorkspaceViewLayout({
+			layout: store.workspace.layout.value,
+			splitRatio: store.workspace.splitRatio.value,
+			activePaneId: store.workspace.activePaneId.value,
+		});
+	const getWorkspaceRenderState = () => ({
+		canvasRect: viewportCanvas.getBoundingClientRect(),
+		shellRect: viewportShell.getBoundingClientRect(),
+		panes: getVisibleWorkspacePanes(store.workspace.panes.value, {
+			layout: store.workspace.layout.value,
+			splitRatio: store.workspace.splitRatio.value,
+			activePaneId: store.workspace.activePaneId.value,
+		}).map((pane) => ({
+			id: pane.id,
+			role: pane.role,
+			rect: getWorkspacePaneElement(pane.id).getBoundingClientRect(),
+		})),
+	});
 
 	const persistedViewportLodScale = readPersistedViewportLodUserScale();
 	if (persistedViewportLodScale !== null) {
@@ -147,6 +203,7 @@ export function createCameraFramesController(elements, store) {
 		modelLoaders,
 	} = createControllerRuntimeResources({
 		viewportCanvas,
+		pointerControlsCanvas: activeWorkspaceCanvas,
 		viewportPixelRatio: VIEWPORT_PIXEL_RATIO,
 		defaultCameraNear: DEFAULT_CAMERA_NEAR,
 		defaultCameraFar: DEFAULT_CAMERA_FAR,
@@ -168,6 +225,11 @@ export function createCameraFramesController(elements, store) {
 		createGuideOverlayImpl: createGuideOverlay,
 		srgbColorSpace: THREE.SRGBColorSpace,
 		viewportLodScale: initialViewportLodScale,
+	});
+	const workspaceSparkRendererManager = createWorkspaceSparkRendererManager({
+		primarySpark: spark,
+		renderer,
+		SparkRendererImpl: SparkRenderer,
 	});
 	const splatSelectionHighlightController =
 		createSplatSelectionHighlightController();
@@ -193,6 +255,7 @@ export function createCameraFramesController(elements, store) {
 	let viewportToolController = null;
 	let shotCameraEditorStateController = null;
 	let viewportLodScaleRuntimeBinding = null;
+	let workspaceViewLayoutCommands = null;
 	let projectPresentationSyncSuspended = true;
 
 	const {
@@ -240,7 +303,7 @@ export function createCameraFramesController(elements, store) {
 		getHistoryController: () => historyController,
 		getProjectionController: () => projectionController,
 		getViewportProjectionController: () => viewportProjectionController,
-		updateUi: () => updateUi(),
+		updateUi: (...args) => updateUi(...args),
 	});
 	const { getOutputSizeState, getOutputFrameMetrics } =
 		createOutputFrameAccessors({
@@ -422,7 +485,7 @@ export function createCameraFramesController(elements, store) {
 			state,
 			t,
 			guides,
-			viewportShell,
+			viewportShell: activeWorkspaceShell,
 			renderBox,
 			setStatus,
 			updateUi,
@@ -564,7 +627,7 @@ export function createCameraFramesController(elements, store) {
 	viewportProjectionController = createViewportProjectionController(
 		createViewportProjectionControllerBindings({
 			store,
-			viewportShell,
+			viewportShell: viewportPane,
 			viewportCamera,
 			viewportOrthoCamera,
 			outputFrameController,
@@ -601,6 +664,7 @@ export function createCameraFramesController(elements, store) {
 			viewportProjectionController,
 			historyController,
 			getAnimationController: () => animationController,
+			persistWorkspaceViewLayout,
 		}),
 	);
 	frameController = createFrameController(
@@ -625,7 +689,8 @@ export function createCameraFramesController(elements, store) {
 		createOutputFrameControllerBindings({
 			store,
 			state,
-			viewportShell,
+			viewportShell: cameraPane,
+			workbenchContainer: viewportShell.parentElement,
 			workbenchRightColumn,
 			renderBox,
 			renderBoxMeta,
@@ -691,7 +756,7 @@ export function createCameraFramesController(elements, store) {
 		createReferenceImageRenderControllerBindings({
 			store,
 			renderBox,
-			viewportShell,
+			viewportShell: cameraPane,
 			getActiveShotCameraDocument,
 			getOutputSizeState,
 		}),
@@ -700,8 +765,8 @@ export function createCameraFramesController(elements, store) {
 		createInteractionControllerBindings({
 			store,
 			state,
-			viewportShell,
-			viewportCanvas,
+			viewportShell: activeWorkspaceShell,
+			viewportCanvas: activeWorkspaceCanvas,
 			assetController,
 			fpsMovement,
 			pointerControls,
@@ -724,7 +789,7 @@ export function createCameraFramesController(elements, store) {
 		createViewportToolControllerBindings({
 			store,
 			state,
-			viewportShell,
+			viewportShell: activeWorkspaceShell,
 			viewportGizmo,
 			viewportGizmoSvg,
 			getActiveCameraViewCamera,
@@ -739,6 +804,7 @@ export function createCameraFramesController(elements, store) {
 		createProjectionControllerBindings({
 			state,
 			renderer,
+			viewportShell,
 			getOutputFrameController: () => outputFrameController,
 			syncActiveShotCameraFromDocument,
 			getActiveShotCamera,
@@ -755,8 +821,8 @@ export function createCameraFramesController(elements, store) {
 		createMeasurementControllerBindings({
 			store,
 			state,
-			viewportShell,
-			viewportCanvas,
+			viewportShell: activeWorkspaceShell,
+			viewportCanvas: activeWorkspaceCanvas,
 			guides,
 			workspacePaneCamera: WORKSPACE_PANE_CAMERA,
 			getActiveViewportCamera: () => getActiveViewportCamera(),
@@ -792,6 +858,9 @@ export function createCameraFramesController(elements, store) {
 			viewportAxisGizmoSvg,
 			getActiveViewportCamera: () => getActiveViewportCamera(),
 			viewportProjectionController,
+			isViewportPaneVisible: () =>
+				store.workspace.layout.value === WORKSPACE_LAYOUT_SPLIT ||
+				store.mode.value !== WORKSPACE_PANE_CAMERA,
 		}),
 	);
 	uiSyncController = createUiSyncController(
@@ -851,6 +920,22 @@ export function createCameraFramesController(elements, store) {
 			t,
 		}),
 	);
+	workspaceViewLayoutCommands = createWorkspaceViewLayoutCommands({
+		store,
+		getCameraController: () => cameraController,
+		getWorkspacePaneElement,
+		clearWorkspaceInteractions: () => {
+			frameController?.clearFrameDrag?.();
+			outputFrameController?.clearOutputFrameSelection?.();
+			interactionController?.applyNavigateInteractionMode?.({ silent: true });
+			interactionController?.clearControlMomentum?.();
+		},
+		clearSecondaryRenderers: () => workspaceSparkRendererManager.clear(),
+		focusWorkspaceSurface: () => viewportCanvas.focus?.(),
+		updateUi,
+		setStatus,
+		t,
+	});
 	const { importOpenedFiles, openFiles, handleAssetInputChange } =
 		createFileOpenRouting({
 			openProjectSource: (...args) =>
@@ -869,9 +954,12 @@ export function createCameraFramesController(elements, store) {
 		createRuntimeControllerBindings({
 			renderer,
 			scene,
+			spark,
+			workspaceSparkRendererManager,
+			getWorkspaceRenderState,
 			store,
 			state,
-			viewportShell,
+			viewportShell: activeWorkspaceShell,
 			dropHint,
 			anchorDot,
 			assetController,
@@ -947,6 +1035,8 @@ export function createCameraFramesController(elements, store) {
 			measurementController,
 			perSplatEditController,
 			viewportAxisGizmoController,
+			activateWorkspacePaneAtPointer:
+				workspaceViewLayoutCommands.activateWorkspacePaneAtPointer,
 			projectPresentationSyncSuspendedRef: {
 				get value() {
 					return projectPresentationSyncSuspended;
@@ -1019,6 +1109,11 @@ export function createCameraFramesController(elements, store) {
 		helpCommands,
 		mobileUiScaleCommands,
 		viewportLodScaleCommands,
+		workspaceViewLayoutCommands,
+		getWorkspaceSparkLodOwnershipState: () =>
+			workspaceSparkRendererManager.getLodOwnershipState(),
+		disposeWorkspaceSparkRendererManager: () =>
+			workspaceSparkRendererManager.dispose(),
 		disposeViewportLodScaleBinding: () =>
 			viewportLodScaleRuntimeBinding?.dispose?.(),
 	});

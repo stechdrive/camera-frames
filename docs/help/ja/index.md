@@ -3,7 +3,7 @@ id: index
 title: CAMERA_FRAMES ヘルプ
 section: 0
 lang: ja
-last-updated: 2026-04-26
+last-updated: 2026-08-02
 ---
 
 # CAMERA_FRAMES ヘルプ
@@ -19,7 +19,7 @@ last-updated: 2026-04-26
 ## 目次
 
 1. [はじめに](01-getting-started.md) — 最初の 5 分：起動から PNG 出力まで
-2. [画面構成](02-ui-layout.md) — ビューポート、サイドパネル、HUD、パイメニューの名称と役割
+2. [画面構成](02-ui-layout.md) — Camera View / Viewport の1画面・2画面表示、サイドパネル、HUD、パイメニュー
 3. [ファイルを開く・保存する](03-open-save.md) — ファイルを読み込む、作業保存、`.ssproj` パッケージ
 4. [シーンアセット](04-scene-assets.md) — スプラットとモデルの追加・表示・順序・変形
 5. [ショットカメラ](05-shot-camera.md) — 複数カメラ管理、位置・レンズ・クリッピング、書き出しファイル名

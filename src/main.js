@@ -23,6 +23,9 @@ function CameraFramesApp({ runtimeInfo }) {
 	const controllerRef = useRef(null);
 	const viewportCanvasRef = useRef(null);
 	const viewportShellRef = useRef(null);
+	const cameraPaneRef = useRef(null);
+	const viewportPaneRef = useRef(null);
+	const workspaceSplitterRef = useRef(null);
 	const workbenchShellRef = useRef(null);
 	const workbenchLeftColumnRef = useRef(null);
 	const workbenchRightColumnRef = useRef(null);
@@ -43,6 +46,9 @@ function CameraFramesApp({ runtimeInfo }) {
 			{
 				viewportCanvas: viewportCanvasRef.current,
 				viewportShell: viewportShellRef.current,
+				cameraPane: cameraPaneRef.current,
+				viewportPane: viewportPaneRef.current,
+				workspaceSplitter: workspaceSplitterRef.current,
 				workbenchShell: workbenchShellRef,
 				workbenchLeftColumn: workbenchLeftColumnRef,
 				workbenchRightColumn: workbenchRightColumnRef,
@@ -91,6 +97,9 @@ function CameraFramesApp({ runtimeInfo }) {
 	const refs = {
 		viewportCanvasRef,
 		viewportShellRef,
+		cameraPaneRef,
+		viewportPaneRef,
+		workspaceSplitterRef,
 		workbenchShellRef,
 		workbenchLeftColumnRef,
 		workbenchRightColumnRef,

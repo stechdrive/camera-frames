@@ -1,6 +1,9 @@
 export function createRuntimeControllerBindings({
 	renderer,
 	scene,
+	spark = null,
+	workspaceSparkRendererManager = null,
+	getWorkspaceRenderState = null,
 	store,
 	state,
 	viewportShell,
@@ -64,12 +67,17 @@ export function createRuntimeControllerBindings({
 	syncControlsToMode,
 	setExportStatus,
 	projectPresentationSyncSuspendedRef,
+	activateWorkspacePaneAtPointer = null,
 } = {}) {
 	return {
 		renderer,
 		scene,
+		spark,
+		workspaceSparkRendererManager,
+		getWorkspaceRenderState,
 		store,
 		state,
+		activateWorkspacePaneAtPointer,
 		viewportShell,
 		dropHint,
 		anchorDot,

@@ -30,6 +30,7 @@ export function createCameraController({
 	clearControlMomentum,
 	beforeActiveShotCameraChange = null,
 	afterActiveShotCameraChange = null,
+	persistWorkspaceViewLayout = null,
 	applyNavigateInteractionMode,
 	copyPose,
 	placeCameraAtHome,
@@ -60,6 +61,7 @@ export function createCameraController({
 		applyNavigateInteractionMode,
 		beforeActiveShotCameraChange,
 		afterActiveShotCameraChange,
+		persistWorkspaceViewLayout,
 	});
 
 	const pose = createCameraPoseController({

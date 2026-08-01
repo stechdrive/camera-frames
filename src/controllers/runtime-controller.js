@@ -7,6 +7,9 @@ import { createRuntimeNavigationCommit } from "./runtime/navigation-commit.js";
 export function createRuntimeController({
 	renderer,
 	scene,
+	spark = null,
+	workspaceSparkRendererManager = null,
+	getWorkspaceRenderState = null,
 	store,
 	state,
 	viewportShell,
@@ -152,6 +155,7 @@ export function createRuntimeController({
 	applyInitialNavigateInteractionMode,
 	loadStartupUrls,
 	setExportStatus,
+	activateWorkspacePaneAtPointer = null,
 }) {
 	const { listen, disposeAllListeners } = createRuntimeListeners();
 	const navigationHistory = createNavigationHistoryController({
@@ -171,6 +175,7 @@ export function createRuntimeController({
 		listen,
 		store,
 		state,
+		activateWorkspacePaneAtPointer,
 		viewportShell,
 		dropHint,
 		anchorDot,
@@ -290,6 +295,9 @@ export function createRuntimeController({
 	const animate = createRuntimeAnimateLoop({
 		renderer,
 		scene,
+		spark,
+		workspaceSparkRendererManager,
+		getWorkspaceRenderState,
 		store,
 		state,
 		exportController,
@@ -360,7 +368,11 @@ export function createRuntimeController({
 		pointerControls.enable = false;
 		navigationCommit.flushNavigationHistory();
 		exportController.dispose();
-		renderer.dispose();
+		try {
+			workspaceSparkRendererManager?.dispose?.();
+		} finally {
+			renderer.dispose();
+		}
 	}
 
 	return {

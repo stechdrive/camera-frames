@@ -28,10 +28,10 @@ export function createViewSyncCommands({
 
 	function syncGuideOverlayState(
 		documentState = getActiveShotCameraDocument?.(),
-		{ gridVisible = true, eyeLevelVisible = true } = {},
+		{ gridVisible = true, eyeLevelVisible = true, viewMode = state.mode } = {},
 	) {
 		const viewportOrthoPreviewGridPlane =
-			state.mode === WORKSPACE_PANE_VIEWPORT
+			viewMode === WORKSPACE_PANE_VIEWPORT
 				? (getViewportProjectionController?.()?.getViewportOrthographicPreviewGridPlane?.() ??
 					null)
 				: null;

@@ -79,8 +79,8 @@ export function createControllerAccessors({
 		getAutoClipRange(camera) {
 			return getSceneFramingController().getAutoClipRange(camera);
 		},
-		updateShotCameraHelpers() {
-			return getCameraController().updateShotCameraHelpers();
+		updateShotCameraHelpers(...args) {
+			return getCameraController().updateShotCameraHelpers(...args);
 		},
 		syncShotCameraEntryFromDocument(entry) {
 			return getCameraController().syncShotCameraEntryFromDocument(entry);

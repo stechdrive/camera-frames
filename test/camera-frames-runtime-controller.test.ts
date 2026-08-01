@@ -237,6 +237,7 @@ class FakeEventTarget {
 			applyInitialNavigateInteractionMode: () => calls.push("initial-nav"),
 			loadStartupUrls: () => calls.push("load-startup-direct"),
 			setExportStatus: () => calls.push("export-status"),
+			activateWorkspacePaneAtPointer: () => calls.push("activate-pane"),
 		});
 
 		controller.init();
@@ -253,6 +254,13 @@ class FakeEventTarget {
 			"ui",
 		]);
 		assert.ok(calls.includes("load-startup-direct"));
+		const pointerDownListeners =
+			viewportShell.listeners.get("pointerdown") ?? [];
+		assert.ok(pointerDownListeners.length > 0);
+		(pointerDownListeners[0].handler as (event: { target: null }) => void)({
+			target: null,
+		});
+		assert.ok(calls.includes("activate-pane"));
 
 		controller.dispose();
 		assert.deepEqual(calls.slice(-3), [

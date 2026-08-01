@@ -17,7 +17,8 @@ export function createProjectionController({
 	renderer,
 	getOutputSizeState,
 	getOutputFrameMetrics,
-	getViewportSize,
+	getRenderSurfaceSize,
+	getViewportSize = null,
 	handleOutputFrameResize,
 	syncActiveShotCameraFromDocument,
 	getActiveShotCamera,
@@ -241,7 +242,8 @@ export function createProjectionController({
 	}
 
 	function handleResize() {
-		const { width, height } = getViewportSize();
+		const { width, height } = getRenderSurfaceSize?.() ??
+			getViewportSize?.() ?? { width: 1, height: 1 };
 		if (width === _lastResizeWidth && height === _lastResizeHeight) {
 			return;
 		}

@@ -10,7 +10,6 @@ import {
 	WORKSPACE_PANE_VIEWPORT,
 	cloneShotCameraDocument,
 	getShotCameraDocumentById,
-	setSinglePaneRole,
 } from "../../workspace-model.js";
 
 function createShotCameraEntry(documentState, scene) {
@@ -52,6 +51,7 @@ export function createCameraActiveShotController({
 	applyNavigateInteractionMode,
 	beforeActiveShotCameraChange = null,
 	afterActiveShotCameraChange = null,
+	persistWorkspaceViewLayout = null,
 }) {
 	function registerShotCameraDocuments() {
 		const documentIds = new Set();
@@ -135,7 +135,9 @@ export function createCameraActiveShotController({
 		return getActiveShotCameraEntry()?.outputCamera ?? viewportCamera;
 	}
 
-	function updateShotCameraHelpers() {
+	function updateShotCameraHelpers(
+		visible = state.mode === WORKSPACE_PANE_VIEWPORT,
+	) {
 		for (const entry of shotCameraRegistry.values()) {
 			entry.helper.visible = false;
 		}
@@ -145,35 +147,49 @@ export function createCameraActiveShotController({
 			return;
 		}
 
-		activeEntry.helper.visible = state.mode === WORKSPACE_PANE_VIEWPORT;
+		activeEntry.helper.visible = Boolean(visible);
 		if (activeEntry.helper.visible) {
 			activeEntry.helper.update();
 		}
 	}
 
-	function setMode(mode) {
+	function setMode(mode, { silent = false } = {}) {
 		if (mode === state.mode) {
-			return;
+			return false;
+		}
+		let targetPane = store.workspace.panes.value.find(
+			(pane) => pane.role === mode,
+		);
+		if (!targetPane && store.workspace.panes.value.length === 1) {
+			store.workspace.panes.value = store.workspace.panes.value.map((pane) => ({
+				...pane,
+				role: mode,
+			}));
+			[targetPane] = store.workspace.panes.value;
+		}
+		if (!targetPane) {
+			return false;
 		}
 
 		if (mode === WORKSPACE_PANE_VIEWPORT && !state.viewportBaseFovXDirty) {
 			state.viewportBaseFovX = DEFAULT_VIEWPORT_CAMERA_BASE_FOVX;
 		}
 
-		store.workspace.panes.value = setSinglePaneRole(
-			store.workspace.panes.value,
-			mode,
-		);
+		store.workspace.activePaneId.value = targetPane.id;
 		clearFrameDrag();
 		clearOutputFrameSelection();
 		applyNavigateInteractionMode();
 		clearControlMomentum();
-		updateUi();
-		setStatus(
-			mode === WORKSPACE_PANE_CAMERA
-				? t("status.cameraEnabled")
-				: t("status.viewportEnabled"),
-		);
+		persistWorkspaceViewLayout?.();
+		updateUi({ syncProjectPresentation: false });
+		if (!silent) {
+			setStatus(
+				mode === WORKSPACE_PANE_CAMERA
+					? t("status.cameraEnabled")
+					: t("status.viewportEnabled"),
+			);
+		}
+		return true;
 	}
 
 	function selectShotCamera(shotCameraId) {

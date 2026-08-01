@@ -3,6 +3,34 @@ import {
 	normalizeProjectDocument,
 } from "../../project/document.js";
 
+const DIRTY_POSE_DECIMAL_PLACES = 12;
+
+function normalizeDirtyPoseNumber(value) {
+	const numeric = Number(value);
+	return Number.isFinite(numeric)
+		? Number(numeric.toFixed(DIRTY_POSE_DECIMAL_PLACES))
+		: numeric;
+}
+
+function normalizeDirtyPoseVector(vector, keys) {
+	return Object.fromEntries(
+		keys.map((key) => [key, normalizeDirtyPoseNumber(vector?.[key])]),
+	);
+}
+
+function normalizeDirtyCameraPose(pose) {
+	return {
+		position: normalizeDirtyPoseVector(pose?.position, ["x", "y", "z"]),
+		quaternion: normalizeDirtyPoseVector(pose?.quaternion, [
+			"x",
+			"y",
+			"z",
+			"w",
+		]),
+		up: normalizeDirtyPoseVector(pose?.up, ["x", "y", "z"]),
+	};
+}
+
 function serializeProjectSourceForDirty(source) {
 	if (!source || typeof source !== "object") {
 		return null;
@@ -23,8 +51,19 @@ function serializeProjectSourceForDirty(source) {
 function buildProjectDirtyPayload(projectSnapshot) {
 	const normalizedProject = normalizeProjectDocument(projectSnapshot);
 	return {
-		workspace: normalizedProject.workspace,
-		shotCameras: normalizedProject.shotCameras,
+		workspace: {
+			...normalizedProject.workspace,
+			viewport: {
+				...normalizedProject.workspace.viewport,
+				pose: normalizeDirtyCameraPose(
+					normalizedProject.workspace.viewport.pose,
+				),
+			},
+		},
+		shotCameras: normalizedProject.shotCameras.map((shotCamera) => ({
+			...shotCamera,
+			pose: normalizeDirtyCameraPose(shotCamera.pose),
+		})),
 		scene: {
 			assets: normalizedProject.scene.assets.map((asset) => ({
 				...asset,

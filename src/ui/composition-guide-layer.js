@@ -117,7 +117,7 @@ function CompositionGuideLayerSurface({
 	`;
 }
 
-export function CompositionGuideLayer({ store }) {
+export function CompositionGuideLayer({ store, forceVisible = false }) {
 	const mode = store.mode.value;
 	const guideState = store.shotCamera.compositionGuide.value;
 	const exportWidth = store.exportWidth.value;
@@ -134,10 +134,12 @@ export function CompositionGuideLayer({ store }) {
 	});
 
 	if (
-		!shouldShowCompositionGuideLayer({
-			mode,
-			enabled: guideState.enabled,
-		}) ||
+		(!forceVisible &&
+			!shouldShowCompositionGuideLayer({
+				mode,
+				enabled: guideState.enabled,
+			})) ||
+		(forceVisible && !guideState.enabled) ||
 		!target
 	) {
 		return null;

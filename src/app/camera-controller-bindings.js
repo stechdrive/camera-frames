@@ -19,6 +19,7 @@ export function createCameraControllerBindings({
 	viewportProjectionController,
 	historyController,
 	getAnimationController = null,
+	persistWorkspaceViewLayout = null,
 } = {}) {
 	return {
 		store,
@@ -81,5 +82,6 @@ export function createCameraControllerBindings({
 				targetKind: "shot-camera",
 			}),
 		runHistoryAction: historyController.runHistoryAction,
+		persistWorkspaceViewLayout,
 	};
 }

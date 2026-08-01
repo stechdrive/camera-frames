@@ -11,7 +11,7 @@ related-files:
   - src/controllers/interaction-controller.js
   - src/controllers/viewport-tool-controller.js
   - src/controllers/per-splat-edit-controller.js
-last-updated: 2026-06-21
+last-updated: 2026-08-02
 ---
 
 # キーボードショートカット一覧
@@ -51,27 +51,29 @@ last-updated: 2026-06-21
 | `Ctrl+I` | スプラット選択を反転 | スプラット編集モード |
 | `Delete` / `Backspace` | 測定ポイント / シーンアセットを削除 | 選択あり |
 
-## ツール切替（ビューポート / カメラモード）
+## ツール切替（Camera View / Viewport）
+
+2画面では、shortcut は最後に click した pane に適用されます。
 
 | キー | 動作 | コンテキスト |
 |---|---|---|
-| `V` | 選択ツールを切替 | ビューポート / カメラモード |
-| `T` | 変形ツールを切替 | ビューポート / カメラモード |
-| `Q` | ピボット編集モードを切替 | ビューポート / カメラモード |
-| `Z` | ズームツールを切替 | ビューポート / カメラモード |
-| `M` | 測定モードを切替 | ビューポート / カメラモード |
-| `Shift+E` | スプラット編集モードを切替 | ビューポート / カメラモード |
-| `R` | 下絵プレビュー表示切替 | ビューポート / カメラモード（下絵あり） |
-| `Shift+R` | 下絵編集モードを切替 | ビューポート / カメラモード |
+| `V` | 選択ツールを切替 | Camera View / Viewport |
+| `T` | 変形ツールを切替 | Camera View / Viewport |
+| `Q` | ピボット編集モードを切替 | Camera View / Viewport |
+| `Z` | ズームツールを切替 | Camera View / Viewport |
+| `M` | 測定モードを切替 | Camera View / Viewport |
+| `Shift+E` | スプラット編集モードを切替 | Camera View / Viewport |
+| `R` | 下絵プレビュー表示切替 | Camera View / Viewport（下絵あり） |
+| `Shift+R` | 下絵編集モードを切替 | Camera View / Viewport |
 
 詳しくは [ビューポートとツール](08-viewport-tools.md) / [スプラット編集](09-per-splat-edit.md)。
 
-## フレーム / マスク（カメラモード）
+## フレーム / マスク（Camera View）
 
 | キー | 動作 | コンテキスト |
 |---|---|---|
-| `F` | フレームマスク（all）を切替 | カメラモード |
-| `Shift+F` | フレームマスク（selected）を切替 | カメラモード |
+| `F` | フレームマスク（all）を切替 | Camera View |
+| `Shift+F` | フレームマスク（selected）を切替 | Camera View |
 
 詳しくは [用紙とフレーム](06-output-frame-and-frames.md)。
 
@@ -179,7 +181,7 @@ last-updated: 2026-06-21
 | **レンズ調整** | レンズ調整モード | — |
 | **新規フレーム** | フレームを作成 | — |
 | **フレームマスク切替** | フレームマスク切替（all） | `F` |
-| **カメラ/ビューポート** | モード切替 | — |
+| **カメラ/ビューポート** | 表示または操作対象の view を切替 | — |
 | **選択クリア** | 選択をクリア | `Ctrl+D` |
 
 ## 補足操作

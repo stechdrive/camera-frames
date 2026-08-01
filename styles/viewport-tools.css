@@ -14,6 +14,325 @@
 	margin-right: calc(var(--workbench-rail-width) + var(--workbench-gap));
 }
 
+.workspace-pane-layout {
+	position: absolute;
+	inset: 0;
+	z-index: 10;
+	pointer-events: none;
+}
+
+.active-workspace-pane-overlay {
+	position: absolute;
+	inset: 0;
+	min-width: 0;
+	min-height: 0;
+	overflow: hidden;
+	pointer-events: none;
+}
+
+.active-workspace-pane-overlay--transient {
+	overflow: visible;
+}
+
+.camera-workspace-pane-overlay {
+	position: absolute;
+	inset: 0;
+	min-width: 0;
+	min-height: 0;
+	overflow: hidden;
+	pointer-events: none;
+}
+
+.viewport-shell[data-workspace-layout="split"][data-workspace-orientation="horizontal"][data-active-workspace-pane="pane-camera"]
+	.active-workspace-pane-overlay {
+	right: auto;
+	width: var(--workspace-camera-size);
+}
+
+.viewport-shell[data-workspace-layout="split"][data-workspace-orientation="horizontal"][data-active-workspace-pane="pane-viewport"]
+	.active-workspace-pane-overlay {
+	left: calc(var(--workspace-camera-size) + 8px);
+}
+
+.viewport-shell[data-workspace-layout="split"][data-workspace-orientation="vertical"][data-active-workspace-pane="pane-camera"]
+	.active-workspace-pane-overlay {
+	bottom: auto;
+	height: var(--workspace-camera-size);
+}
+
+.viewport-shell[data-workspace-layout="split"][data-workspace-orientation="vertical"][data-active-workspace-pane="pane-viewport"]
+	.active-workspace-pane-overlay {
+	top: calc(var(--workspace-camera-size) + 8px);
+}
+
+.workspace-pane {
+	position: absolute;
+	display: none;
+	min-width: 0;
+	min-height: 0;
+	overflow: hidden;
+	border: 0;
+	outline: 1px solid rgba(143, 210, 255, 0.14);
+	outline-offset: -1px;
+	pointer-events: none;
+}
+
+.workspace-pane--active {
+	outline-color: rgba(143, 210, 255, 0.7);
+	box-shadow: inset 0 0 0 1px rgba(143, 210, 255, 0.2);
+}
+
+.viewport-shell[data-workspace-layout="single"]
+	.workspace-pane[data-workspace-pane="pane-camera"][data-pane-role="camera"],
+.viewport-shell[data-workspace-layout="single"]
+	.workspace-pane[data-workspace-pane="pane-viewport"][data-pane-role="viewport"] {
+	inset: 0;
+}
+
+.viewport-shell[data-workspace-layout="single"][data-camera-pane-visible="true"]
+	.workspace-pane[data-pane-role="camera"],
+.viewport-shell[data-workspace-layout="single"][data-viewport-pane-visible="true"]
+	.workspace-pane[data-pane-role="viewport"] {
+	display: block;
+}
+
+/*
+ * Keep the camera pane measurable while a single Viewport is visible. The
+ * output-frame projection remains the source of truth for the legacy Viewport
+ * reference-image preview, even though the camera chrome and camera-only
+ * overlays are hidden.
+ */
+.viewport-shell[data-workspace-layout="single"][data-camera-pane-visible="false"]
+.workspace-pane[data-pane-role="camera"] {
+	display: block;
+	visibility: hidden;
+}
+
+.viewport-shell[data-workspace-layout="split"] .workspace-pane {
+	display: block;
+}
+
+.viewport-shell[data-workspace-layout="split"][data-workspace-orientation="horizontal"]
+	.workspace-pane[data-pane-role="camera"] {
+	left: 0;
+	top: 0;
+	bottom: 0;
+	width: var(--workspace-camera-size);
+}
+
+.viewport-shell[data-workspace-layout="split"][data-workspace-orientation="horizontal"]
+	.workspace-pane[data-pane-role="viewport"] {
+	left: calc(var(--workspace-camera-size) + 8px);
+	top: 0;
+	right: 0;
+	bottom: 0;
+}
+
+.viewport-shell[data-workspace-layout="split"][data-workspace-orientation="vertical"]
+	.workspace-pane[data-pane-role="camera"] {
+	left: 0;
+	top: 0;
+	right: 0;
+	height: var(--workspace-camera-size);
+}
+
+.viewport-shell[data-workspace-layout="split"][data-workspace-orientation="vertical"]
+	.workspace-pane[data-pane-role="viewport"] {
+	left: 0;
+	top: calc(var(--workspace-camera-size) + 8px);
+	right: 0;
+	bottom: 0;
+}
+
+.workspace-pane__chrome {
+	position: absolute;
+	top: 0.65rem;
+	left: 0.65rem;
+	z-index: 12;
+	display: inline-flex;
+	align-items: center;
+	gap: 0.3rem;
+	min-height: 1.7rem;
+	padding: 0.2rem 0.28rem 0.2rem 0.52rem;
+	border: 1px solid rgba(255, 255, 255, 0.14);
+	border-radius: 999px;
+	background: rgba(5, 15, 27, 0.78);
+	box-shadow: 0 8px 18px rgba(0, 0, 0, 0.24);
+	backdrop-filter: blur(10px);
+	pointer-events: auto;
+}
+
+.viewport-shell[data-mobile-workbench="false"][data-workspace-layout="single"]
+	.workspace-pane__chrome,
+.viewport-shell[data-mobile-workbench="false"][data-workspace-layout="split"][data-workspace-orientation="vertical"]
+	.workspace-pane__chrome,
+.viewport-shell[data-mobile-workbench="false"][data-workspace-layout="split"][data-workspace-orientation="horizontal"]
+	.workspace-pane[data-pane-role="camera"]
+	.workspace-pane__chrome {
+	left: calc(0.625rem + 3.55rem + 0.55rem);
+}
+
+.workspace-pane__label {
+	color: rgba(225, 237, 249, 0.84);
+	font:
+		700 0.66rem / 1 "Avenir Next",
+		"Segoe UI",
+		sans-serif;
+	letter-spacing: 0.04em;
+	white-space: nowrap;
+}
+
+.workspace-pane--active .workspace-pane__label {
+	color: #dff3ff;
+}
+
+.workspace-pane__close,
+.workspace-pane__dual {
+	appearance: none;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 1.6rem;
+	height: 1.6rem;
+	padding: 0;
+	border: 0;
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.06);
+	color: rgba(225, 237, 249, 0.78);
+	cursor: pointer;
+	font:
+		700 0.86rem / 1 "Segoe UI",
+		sans-serif;
+}
+
+.workspace-pane__dual {
+	font-size: 0.7rem;
+}
+
+.workspace-pane__close:hover,
+.workspace-pane__dual:hover {
+	background: rgba(143, 210, 255, 0.17);
+	color: #fff;
+}
+
+.workspace-pane__close:focus-visible,
+.workspace-pane__dual:focus-visible,
+.workspace-splitter:focus-visible {
+	outline: 2px solid rgba(143, 210, 255, 0.92);
+	outline-offset: 2px;
+}
+
+.workspace-splitter {
+	position: absolute;
+	z-index: 13;
+	touch-action: none;
+	pointer-events: auto;
+	background: rgba(143, 210, 255, 0.12);
+	transition: background-color 120ms ease;
+}
+
+.workspace-splitter::before {
+	content: "";
+	position: absolute;
+	pointer-events: auto;
+}
+
+.workspace-splitter:hover,
+.workspace-splitter:focus-visible {
+	background: rgba(143, 210, 255, 0.38);
+}
+
+.viewport-shell[data-workspace-orientation="horizontal"] .workspace-splitter {
+	left: var(--workspace-camera-size);
+	top: 0;
+	bottom: 0;
+	width: 8px;
+	cursor: ew-resize;
+}
+
+.viewport-shell[data-workspace-orientation="horizontal"]
+	.workspace-splitter::before {
+	left: -4px;
+	right: -4px;
+	top: 0;
+	bottom: 0;
+}
+
+.viewport-shell[data-workspace-orientation="vertical"] .workspace-splitter {
+	left: 0;
+	top: var(--workspace-camera-size);
+	right: 0;
+	height: 8px;
+	cursor: ns-resize;
+}
+
+.viewport-shell[data-workspace-orientation="vertical"]
+	.workspace-splitter::before {
+	left: 0;
+	right: 0;
+	top: -4px;
+	bottom: -4px;
+}
+
+@media (pointer: coarse) {
+	.viewport-shell[data-workspace-orientation="horizontal"]
+		.workspace-splitter::before {
+		left: -12px;
+		right: -12px;
+	}
+
+	.viewport-shell[data-workspace-orientation="vertical"]
+		.workspace-splitter::before {
+		top: -12px;
+		bottom: -12px;
+	}
+}
+
+.viewport-shell[data-camera-pane-visible="false"] .camera-pane-layer {
+	display: none !important;
+}
+
+.viewport-shell[data-camera-pane-visible="false"]
+	.camera-workspace-pane-overlay.camera-pane-layer {
+	display: block !important;
+	visibility: hidden;
+}
+
+.viewport-shell[data-workspace-layout="split"][data-workspace-orientation="horizontal"]
+	.camera-workspace-pane-overlay.camera-pane-layer,
+.viewport-shell[data-workspace-layout="split"][data-workspace-orientation="horizontal"]
+	.reference-image-layer,
+.viewport-shell[data-workspace-layout="split"][data-workspace-orientation="horizontal"]
+	.frame-mask-layer.camera-pane-layer,
+.viewport-shell[data-workspace-layout="split"][data-workspace-orientation="horizontal"]
+	.reference-image-hit-layer,
+.viewport-shell[data-workspace-layout="split"][data-workspace-orientation="horizontal"]
+	.reference-image-selection-layer {
+	right: auto;
+	width: var(--workspace-camera-size);
+	overflow: hidden;
+}
+
+.viewport-shell[data-workspace-layout="split"][data-workspace-orientation="vertical"]
+	.camera-workspace-pane-overlay.camera-pane-layer,
+.viewport-shell[data-workspace-layout="split"][data-workspace-orientation="vertical"]
+	.reference-image-layer,
+.viewport-shell[data-workspace-layout="split"][data-workspace-orientation="vertical"]
+	.frame-mask-layer.camera-pane-layer,
+.viewport-shell[data-workspace-layout="split"][data-workspace-orientation="vertical"]
+	.reference-image-hit-layer,
+.viewport-shell[data-workspace-layout="split"][data-workspace-orientation="vertical"]
+	.reference-image-selection-layer {
+	bottom: auto;
+	height: var(--workspace-camera-size);
+	overflow: hidden;
+}
+
+.viewport-shell[data-workspace-layout="split"][data-workspace-orientation="vertical"]
+	.viewport-axis-gizmo {
+	top: calc(var(--workspace-camera-size) + 8px + 3.9rem);
+}
+
 .viewport-project-status {
 	position: absolute;
 	top: 1rem;
@@ -906,6 +1225,19 @@ body[data-interaction-mode="roll"] .viewport-axis-gizmo {
 .viewport-shell.is-ortho-panning,
 .viewport-shell.is-ortho-panning * {
 	cursor: grabbing !important;
+}
+
+.viewport-shell .workspace-pane__close,
+.viewport-shell .workspace-pane__dual {
+	cursor: pointer !important;
+}
+
+.viewport-shell[data-workspace-orientation="horizontal"] .workspace-splitter {
+	cursor: ew-resize !important;
+}
+
+.viewport-shell[data-workspace-orientation="vertical"] .workspace-splitter {
+	cursor: ns-resize !important;
 }
 
 .viewport-orbit-reticle {

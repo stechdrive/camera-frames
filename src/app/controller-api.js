@@ -52,6 +52,9 @@ export function createControllerApi({
 	helpCommands = null,
 	mobileUiScaleCommands = null,
 	viewportLodScaleCommands = null,
+	workspaceViewLayoutCommands = null,
+	getWorkspaceSparkLodOwnershipState = null,
+	disposeWorkspaceSparkRendererManager = null,
 	disposeViewportLodScaleBinding = null,
 	disposeSceneResources,
 }) {
@@ -467,6 +470,8 @@ export function createControllerApi({
 		__debugGetLastExportReadiness:
 			exportController.__debugGetLastExportReadiness,
 		__debugGetSceneAssets: () => assetController?.getSceneAssets?.() ?? [],
+		__debugGetWorkspaceSparkLodOwnershipState: () =>
+			getWorkspaceSparkLodOwnershipState?.() ?? null,
 		__debugEnsureFullDataForSplatAssets: (...args) =>
 			assetController?.ensureFullDataForSplatAssets?.(...args),
 		beginHistoryTransaction: (label) =>
@@ -480,12 +485,14 @@ export function createControllerApi({
 		...(helpCommands || {}),
 		...(mobileUiScaleCommands || {}),
 		...(viewportLodScaleCommands || {}),
+		...(workspaceViewLayoutCommands || {}),
 		dispose() {
 			disposeViewportLodScaleBinding?.();
 			measurementController?.dispose?.();
 			perSplatEditController?.dispose?.();
 			guideOverlay.dispose();
 			lightingController?.dispose?.();
+			disposeWorkspaceSparkRendererManager?.();
 			disposeSceneResources?.();
 			runtimeController.dispose();
 		},

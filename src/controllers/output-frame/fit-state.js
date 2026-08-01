@@ -9,7 +9,6 @@ import { computeWorkbenchAutoCollapseState } from "./layout-compute.js";
 export function createOutputFrameFitStateController({
 	store,
 	getActiveShotCameraDocument,
-	updateActiveShotCameraDocument,
 	getOutputFrameDocumentState,
 	getOutputSizeState,
 	getViewportSize,
@@ -19,6 +18,69 @@ export function createOutputFrameFitStateController({
 }) {
 	let lastAutoLayoutSignature = "";
 	let lastFitLayoutSignature = "";
+	let fallbackAutoViewZoom = null;
+	let runtimeFitState = null;
+
+	function getAutoViewZoomState() {
+		return store.renderBox?.autoViewZoom?.value ?? fallbackAutoViewZoom;
+	}
+
+	function setAutoViewZoomState(value) {
+		fallbackAutoViewZoom = value;
+		if (store.renderBox?.autoViewZoom) {
+			store.renderBox.autoViewZoom.value = value;
+		}
+	}
+
+	function getShotCameraRuntimeKey(documentState) {
+		return documentState?.id ?? "active";
+	}
+
+	function getRuntimeFitState(documentState) {
+		return runtimeFitState?.shotCameraId ===
+			getShotCameraRuntimeKey(documentState)
+			? runtimeFitState
+			: null;
+	}
+
+	function getEffectiveViewZoom(documentState) {
+		const outputFrameDocument = getOutputFrameDocumentState(documentState);
+		if (outputFrameDocument.viewZoomAuto === false) {
+			return outputFrameDocument.viewZoom ?? 1;
+		}
+		const autoViewZoom = getAutoViewZoomState();
+		return (
+			(autoViewZoom?.shotCameraId === getShotCameraRuntimeKey(documentState) &&
+			Number.isFinite(autoViewZoom?.value)
+				? autoViewZoom.value
+				: null) ??
+			outputFrameDocument.viewZoom ??
+			1
+		);
+	}
+
+	function getOutputFramePresentationState(
+		documentState = getActiveShotCameraDocument(),
+	) {
+		const outputFrameDocument = getOutputFrameDocumentState(documentState);
+		const presentationState = {
+			...outputFrameDocument,
+			viewZoom: getEffectiveViewZoom(documentState),
+		};
+		const fitState = getRuntimeFitState(documentState);
+		if (!fitState) {
+			return presentationState;
+		}
+
+		presentationState.fitScale = fitState.fitScale;
+		presentationState.fitViewportWidth = fitState.fitViewportWidth;
+		presentationState.fitViewportHeight = fitState.fitViewportHeight;
+		if (presentationState.viewportCenterAuto !== false) {
+			presentationState.viewportCenterX = fitState.viewportCenterX;
+			presentationState.viewportCenterY = fitState.viewportCenterY;
+		}
+		return presentationState;
+	}
 
 	function getFitLayoutSignature(documentState, width, height, layout) {
 		return [
@@ -102,6 +164,13 @@ export function createOutputFrameFitStateController({
 		layout = syncAutoWorkbenchLayout(documentState),
 	) {
 		if (!documentState?.outputFrame?.viewZoomAuto || !layout) {
+			if (
+				documentState &&
+				getAutoViewZoomState()?.shotCameraId ===
+					getShotCameraRuntimeKey(documentState)
+			) {
+				setAutoViewZoomState(null);
+			}
 			lastAutoLayoutSignature = "";
 			return false;
 		}
@@ -120,19 +189,32 @@ export function createOutputFrameFitStateController({
 			return false;
 		}
 		lastAutoLayoutSignature = signature;
+		const runtimeKey = getShotCameraRuntimeKey(documentState);
+		const autoViewZoom = getAutoViewZoomState();
+		const previousZoom =
+			(autoViewZoom?.shotCameraId === runtimeKey &&
+			Number.isFinite(autoViewZoom?.value)
+				? autoViewZoom.value
+				: null) ??
+			documentState.outputFrame.viewZoom ??
+			1;
 
-		if (
-			Math.abs(
-				(documentState.outputFrame.viewZoom ?? 1) - layout.recommendedZoom,
-			) < 1e-4
-		) {
+		if (Math.abs(previousZoom - layout.recommendedZoom) < 1e-4) {
+			if (
+				autoViewZoom?.shotCameraId !== runtimeKey ||
+				autoViewZoom.value !== layout.recommendedZoom
+			) {
+				setAutoViewZoomState({
+					shotCameraId: runtimeKey,
+					value: layout.recommendedZoom,
+				});
+			}
 			return false;
 		}
 
-		updateActiveShotCameraDocument((nextDocumentState) => {
-			nextDocumentState.outputFrame.viewZoom = layout.recommendedZoom;
-			nextDocumentState.outputFrame.viewZoomAuto = true;
-			return nextDocumentState;
+		setAutoViewZoomState({
+			shotCameraId: runtimeKey,
+			value: layout.recommendedZoom,
 		});
 		return true;
 	}
@@ -143,7 +225,7 @@ export function createOutputFrameFitStateController({
 		viewportHeight = getViewportSize().height,
 		force = false,
 	) {
-		const outputFrameDocument = getOutputFrameDocumentState(documentState);
+		const outputFrameDocument = getOutputFramePresentationState(documentState);
 		if (!documentState?.outputFrame) {
 			return outputFrameDocument;
 		}
@@ -205,15 +287,16 @@ export function createOutputFrameFitStateController({
 			safeBottom: layout.safeBottom,
 		});
 
-		outputFrameDocument.fitScale = metrics.fitScale;
-		outputFrameDocument.fitViewportWidth = width;
-		outputFrameDocument.fitViewportHeight = height;
-		outputFrameDocument.viewportCenterX = clampedCenter.x / width;
-		outputFrameDocument.viewportCenterY = clampedCenter.y / height;
-		outputFrameDocument.viewportCenterAuto =
-			outputFrameDocument.viewportCenterAuto !== false;
+		runtimeFitState = {
+			shotCameraId: getShotCameraRuntimeKey(documentState),
+			fitScale: metrics.fitScale,
+			fitViewportWidth: width,
+			fitViewportHeight: height,
+			viewportCenterX: clampedCenter.x / width,
+			viewportCenterY: clampedCenter.y / height,
+		};
 		lastFitLayoutSignature = fitLayoutSignature;
-		return outputFrameDocument;
+		return getOutputFramePresentationState(documentState);
 	}
 
 	function getOutputFrameMetrics(
@@ -268,6 +351,7 @@ export function createOutputFrameFitStateController({
 		resolveAutoLayout,
 		syncAutoWorkbenchLayout,
 		syncAutoViewZoom,
+		getOutputFramePresentationState,
 		syncOutputFrameFitState,
 		getOutputFrameMetrics,
 		handleResize,

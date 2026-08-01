@@ -23,6 +23,7 @@ export function createViewportAxisGizmoController({
 	getActiveViewportCamera,
 	getViewportProjectionMode,
 	getViewportOrthoState,
+	isViewportPaneVisible = () => state.mode === WORKSPACE_PANE_VIEWPORT,
 }) {
 	const nodeElements = new Map();
 	const lineElements = new Map();
@@ -177,7 +178,7 @@ export function createViewportAxisGizmoController({
 		if (!axisGizmo) {
 			return;
 		}
-		if (state.mode !== WORKSPACE_PANE_VIEWPORT) {
+		if (!isViewportPaneVisible()) {
 			hideAxisGizmo();
 			return;
 		}

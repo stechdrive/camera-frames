@@ -83,6 +83,7 @@ export function bindInputRouter({
 	closeViewportPieMenu,
 	handleViewportPieAction,
 	state,
+	activateWorkspacePaneAtPointer = null,
 	fpsMovement,
 	pointerControls,
 	isFrameSelectionActive,
@@ -555,6 +556,15 @@ export function bindInputRouter({
 			syncControlsToMode?.();
 		}
 	}
+
+	listen(
+		viewportShell,
+		"pointerdown",
+		(event) => {
+			activateWorkspacePaneAtPointer?.(event);
+		},
+		{ capture: true },
+	);
 
 	listen(
 		viewportShell,
