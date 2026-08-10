@@ -132,6 +132,10 @@ CAMERA_FRAMES の共有 contract を Git 管理するための基点です。
   - lighting
   - reference image assets / presets / per-shot binding
   - project identity (`projectId`, `packageRevision`, `resources`)
+- package save で model 原本または reference image 原本を読み取れない場合は、該当素材だけを package から除外して警告を表示し、shot camera / output frame / FRAME / lighting / animation / 読み取り可能な素材の `.ssproj` 保存を継続する
+  - 除外した reference image asset を参照する preset item は、保存 document から同時に除く
+  - 救済保存後も live project と package の差分は dirty として残し、警告後に New / Open を自動続行しない
+  - 3DGS source、ZIP 書込み、project document 自体の失敗はデータ破損を隠さず従来どおり保存失敗とする
 - package save dialog の top-level 保存モードは `Fast` / `Quality`。初期値は `Quality` で、既定では RAD-only package save とする
   - `Fast` は通常の package save。未編集 PLY / SPZ があり WebGPU + worker が使える場合だけ、advanced option として SOG compression を選べる
   - `Quality` は package snapshot capture 前に必要な splat asset へ Spark `PackedSplats.createLodSplats({ quality: true })` を実行し、WASM RAD encoder で `radBundle` を作る。既定では `packedArray` / `extraArrays` / `lodSplats` を重複保存せず、RAD-only の `raw-packed-splat` として `.ssproj` に含める

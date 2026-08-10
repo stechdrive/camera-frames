@@ -18,6 +18,7 @@ import {
 	isProjectFileEmbeddedFileSource,
 	isProjectFileLazyResourceSource,
 	isProjectFilePackedSplatSource,
+	materializeProjectPackageSaveInputs,
 	openCameraFramesProjectPackage,
 	readCameraFramesProject,
 	writeCameraFramesProjectPackageToWritable,
@@ -78,6 +79,21 @@ class VolatileArchiveSliceBlob extends Blob {
 			super.slice(start, end, contentType),
 			this.state,
 		);
+	}
+}
+
+class UnreadableAssetFile extends File {
+	async arrayBuffer() {
+		throw new DOMException(
+			"The original asset is no longer available.",
+			"NotFoundError",
+		);
+	}
+}
+
+class UnexpectedAssetFailureFile extends File {
+	async arrayBuffer() {
+		throw new Error("Unexpected serializer failure.");
 	}
 }
 
@@ -402,6 +418,113 @@ const projectSnapshot = {
 		referenceImages: referenceImageDocument,
 	},
 };
+
+{
+	const rescueReferenceImages = createDefaultReferenceImageDocument();
+	const missingReferenceAsset = createReferenceImageAsset({
+		id: "missing-reference-asset",
+		label: "Missing Layout Guide",
+		source: createProjectFileEmbeddedFileSource({
+			kind: "reference-image",
+			file: new UnreadableAssetFile(
+				[new Uint8Array([1, 2, 3])],
+				"missing-guide.png",
+				{ type: "image/png" },
+			),
+			fileName: "missing-guide.png",
+		}),
+		sourceMeta: {
+			filename: "missing-guide.png",
+			mime: "image/png",
+			originalSize: { w: 1920, h: 1080 },
+			appliedSize: { w: 1920, h: 1080 },
+			pixelRatio: 1,
+			usedOriginal: true,
+		},
+	});
+	rescueReferenceImages.assets.push(missingReferenceAsset);
+	rescueReferenceImages.presets[0].items.push(
+		createReferenceImageItem({
+			id: "missing-reference-item",
+			assetId: missingReferenceAsset.id,
+			name: "Missing Layout Guide",
+		}),
+	);
+	const rescueProject = {
+		workspace: projectSnapshot.workspace,
+		shotCameras: projectSnapshot.shotCameras,
+		scene: {
+			assets: [
+				{
+					...projectSnapshot.scene.assets[0],
+					id: "missing-model",
+					label: "Missing Set Mesh",
+					source: createProjectFileEmbeddedFileSource({
+						kind: "model",
+						file: new UnreadableAssetFile(
+							[new Uint8Array([4, 5, 6])],
+							"missing-set.glb",
+							{ type: "model/gltf-binary" },
+						),
+						fileName: "missing-set.glb",
+					}),
+				},
+			],
+			referenceImages: rescueReferenceImages,
+		},
+	};
+
+	const materializeResult = await materializeProjectPackageSaveInputs(
+		rescueProject,
+		{ allowPartialAssetSave: true },
+	);
+
+	assert.deepEqual(
+		materializeResult.warnings.map((warning) => warning.kind).sort(),
+		["model", "reference-image"],
+	);
+	assert.equal(rescueProject.scene.assets.length, 0);
+	assert.equal(rescueProject.scene.referenceImages.assets.length, 0);
+	assert.equal(
+		rescueProject.scene.referenceImages.presets[0].items.length,
+		0,
+		"rescue preflight must remove preset items whose image source was omitted",
+	);
+}
+
+{
+	const unexpectedFailureProject = {
+		workspace: projectSnapshot.workspace,
+		shotCameras: projectSnapshot.shotCameras,
+		scene: {
+			assets: [
+				{
+					...projectSnapshot.scene.assets[0],
+					id: "unexpected-model-failure",
+					label: "Unexpected Mesh Failure",
+					source: createProjectFileEmbeddedFileSource({
+						kind: "model",
+						file: new UnexpectedAssetFailureFile(
+							[new Uint8Array([7, 8, 9])],
+							"unexpected.glb",
+							{ type: "model/gltf-binary" },
+						),
+						fileName: "unexpected.glb",
+					}),
+				},
+			],
+			referenceImages: createDefaultReferenceImageDocument(),
+		},
+	};
+
+	await assert.rejects(
+		materializeProjectPackageSaveInputs(unexpectedFailureProject, {
+			allowPartialAssetSave: true,
+		}),
+		/Unexpected serializer failure/,
+		"rescue save must not hide unrelated serializer failures",
+	);
+}
 
 const archive = await buildCameraFramesProjectArchive(projectSnapshot);
 const projectReadProgress = [];

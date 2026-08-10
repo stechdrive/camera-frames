@@ -241,6 +241,36 @@ export function buildPackageErrorOverlay(t, error) {
 	};
 }
 
+export function buildPackageWarningOverlay(t, fileName, warnings = []) {
+	const detail = warnings
+		.map((warning) => {
+			const kind =
+				warning?.kind === "reference-image"
+					? t("overlay.packageWarningKindReferenceImage")
+					: t("overlay.packageWarningKindModel");
+			return `${kind}: ${warning?.label ?? "asset"}\n${warning?.message ?? ""}`.trim();
+		})
+		.filter(Boolean)
+		.join("\n\n");
+	return {
+		kind: "warning",
+		title: t("overlay.packageSaveWarningTitle"),
+		message: t("overlay.packageSaveWarningMessage", {
+			name: fileName,
+			count: warnings.length,
+		}),
+		detail,
+		detailLabel: t("overlay.packageSaveWarningDetailLabel"),
+		actions: [
+			{
+				label: t("action.close"),
+				primary: true,
+				onClick: () => {},
+			},
+		],
+	};
+}
+
 export async function waitForOverlayFrame() {
 	if (typeof globalThis.requestAnimationFrame === "function") {
 		await new Promise((resolve) => globalThis.requestAnimationFrame(resolve));

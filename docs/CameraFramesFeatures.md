@@ -54,6 +54,7 @@
 - `raw-packed-splat` は `radBundle` と `fullDataPolicy: "derive-from-rad"` を持てる。RAD-only source は RAD が quantized source of truth で、per-splat edit に入る時に leaf splat だけの editable `PackedSplats` へ展開する
 - RAD bundle 付き `.ssproj` は Service Worker の `Range` 配信経由で Spark `PagedSplats` 表示を優先する。FullData 付き source は失敗時に FullData 読み込みへ戻り、RAD-only source は RAD の full decode へ戻る
 - `.ssproj` ZIP では RAD / GLB / FBX / image / SOG / SPZ / packed companion binary / raw-packed binary を stored entry として保存し、JSON と raw PLY は deflate を使う
+- メッシュ原本または下絵原本が失われて読み取れない場合でも、該当素材を警告付きで除外し、カメラ / FRAME / シーン設定 / 読み取り可能な素材を救済 `.ssproj` として保存できる。3DGS や package 書込み自体の失敗は通常どおりエラーにする
 
 ### 2.3 Scene assets
 

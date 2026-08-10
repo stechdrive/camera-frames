@@ -585,7 +585,7 @@ export function createAssetController({
 				);
 				const createdAsset =
 					asset.kind === "splat"
-						? await loadSplatAssetFromSource(duplicateSource, {
+						? await loadSplatFromSource(duplicateSource, {
 								insertIndex: sourceIndex >= 0 ? sourceIndex + 1 : null,
 							})
 						: await loadModelFromSource(duplicateSource, {

@@ -328,6 +328,42 @@ function createAssetControllerForPublicApiTest({
 
 {
 	const harness = createAssetControllerForPublicApiTest();
+	const source = createProjectFilePackedSplatSource({
+		fileName: "stage.rawsplat",
+		packedArray: new Uint32Array([1, 2, 3, 4, 5, 6, 7, 8]),
+		numSplats: 2,
+		extra: {},
+		splatEncoding: null,
+	});
+	const createdAsset =
+		await harness.controller.createSplatAssetFromSource(source);
+	harness.controller.selectSceneAsset(createdAsset.id);
+
+	const duplicatedCount =
+		await harness.controller.duplicateSelectedSceneAssets();
+
+	assert.equal(duplicatedCount, 1);
+	assert.deepEqual(
+		harness.sceneState.assets.map((asset) => asset.label),
+		["stage.rawsplat", "stage.rawsplat Copy"],
+	);
+	const duplicatedAsset = harness.sceneState.assets[1];
+	assert.deepEqual(harness.store.selectedSceneAssetIds.value, [2]);
+	assert.equal(harness.store.selectedSceneAssetId.value, 2);
+	assert.notEqual(
+		duplicatedAsset.disposeTarget.packedSplats.packedArray,
+		createdAsset.disposeTarget.packedSplats.packedArray,
+		"scene-manager duplication must create independent 3DGS packed data",
+	);
+	assert.deepEqual(
+		Array.from(duplicatedAsset.disposeTarget.packedSplats.packedArray),
+		Array.from(createdAsset.disposeTarget.packedSplats.packedArray),
+	);
+	assert.equal(harness.statusEvents.at(-1), "status.duplicatedSceneAsset");
+}
+
+{
+	const harness = createAssetControllerForPublicApiTest();
 	let fullDataLoads = 0;
 	const source = createProjectFilePackedSplatSource({
 		fileName: "lod-first.rawsplat",

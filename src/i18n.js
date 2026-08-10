@@ -674,6 +674,13 @@ const MESSAGES = {
 			packageSaveErrorTitle: "プロジェクトの書き出しに失敗しました",
 			packageSaveErrorMessage:
 				"プロジェクトの書き出し中にエラーが発生しました。詳細を確認してください。",
+			packageSaveWarningTitle:
+				"一部の素材を除外してプロジェクトを書き出しました",
+			packageSaveWarningMessage:
+				"{name} は保存できましたが、読み取れない素材 {count} 件を除外しました。シーン設定、カメラ、FRAME、利用可能な素材は保存されています。",
+			packageSaveWarningDetailLabel: "保存できなかった素材",
+			packageWarningKindModel: "メッシュ",
+			packageWarningKindReferenceImage: "下絵",
 			packagePhaseCollect: "状態を収集",
 			packagePhaseResolve: "asset を解決",
 			packagePhaseCompress: "3DGS を圧縮",
@@ -789,6 +796,8 @@ const MESSAGES = {
 			workingStateSaved: "{name} を保存しました。",
 			workingStateRestored: "{name} の作業状態を復元しました。",
 			packageSaved: "{name} を書き出しました。",
+			packageSavedWithWarnings:
+				"{name} を書き出しました（読み取れない素材 {count} 件を除外）。",
 			autoLodReady: "{name} の描画を LoD 最適化しました。",
 			autoLodFailed:
 				"{name} の LoD 最適化に失敗しました。通常描画のまま動作を続けます。",
@@ -1712,6 +1721,12 @@ const MESSAGES = {
 			packageSaveErrorTitle: "Project export failed",
 			packageSaveErrorMessage:
 				"An error occurred while exporting the project. Check the details below.",
+			packageSaveWarningTitle: "Project exported with some assets omitted",
+			packageSaveWarningMessage:
+				"{name} was saved, but {count} unreadable asset(s) were omitted. Scene settings, cameras, FRAMEs, and all available assets are preserved.",
+			packageSaveWarningDetailLabel: "Assets that could not be saved",
+			packageWarningKindModel: "Mesh",
+			packageWarningKindReferenceImage: "Reference image",
 			packagePhaseCollect: "Collecting state",
 			packagePhaseResolve: "Resolving assets",
 			packagePhaseCompress: "Compressing 3DGS",
@@ -1829,6 +1844,8 @@ const MESSAGES = {
 			workingStateRestored: "Restored working state for {name}.",
 			referenceImagesImported: "Loaded {count} reference image file(s).",
 			packageSaved: "Exported {name}.",
+			packageSavedWithWarnings:
+				"Exported {name} with {count} unreadable asset(s) omitted.",
 			autoLodReady: "Optimized rendering for {name} with LoD.",
 			autoLodFailed:
 				"Could not build LoD for {name}. Continuing with raw rendering.",

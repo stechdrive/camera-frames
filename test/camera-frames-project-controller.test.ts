@@ -3,6 +3,7 @@ import { createProjectController } from "../src/controllers/project-controller.j
 import { buildZipArchiveBytes } from "../src/project-archive.js";
 import {
 	PROJECT_FILE_PACKED_SPLAT_FULL_DATA_POLICY_DERIVE_FROM_RAD,
+	createProjectFileEmbeddedFileSource,
 	createProjectFilePackedSplatSource,
 	materializeProjectFilePackedSplatFullData,
 } from "../src/project/document.js";
@@ -11,7 +12,11 @@ import {
 	isProjectFilePackedSplatSource,
 	readCameraFramesProject,
 } from "../src/project/file/index.js";
-import { createDefaultReferenceImageDocument } from "../src/reference-image-model.js";
+import {
+	createDefaultReferenceImageDocument,
+	createReferenceImageAsset,
+	createReferenceImageItem,
+} from "../src/reference-image-model.js";
 
 function t(key, values = {}) {
 	switch (key) {
@@ -286,6 +291,15 @@ class SaveInvalidatedBlob extends Blob {
 			);
 		}
 		return await super.arrayBuffer();
+	}
+}
+
+class UnreadableAssetFile extends File {
+	async arrayBuffer() {
+		throw new DOMException(
+			"The original asset is no longer available.",
+			"NotFoundError",
+		);
 	}
 }
 
@@ -764,6 +778,128 @@ await withNavigator({ gpu: {} }, async () => {
 		qualityGroup?.fields?.some((f) => f.id === "preserveSplatFullData"),
 		"Quality group must expose the FullData preservation toggle.",
 	);
+});
+
+// A missing mesh source or reference-image source must not make the project
+// document itself unsavable. The package omits only those assets and reports
+// exactly what was lost.
+await withNavigator({ gpu: {} }, async () => {
+	const referenceImages = createDefaultReferenceImageDocument();
+	const missingReferenceAsset = createReferenceImageAsset({
+		id: "missing-reference",
+		label: "Missing Board",
+		source: createProjectFileEmbeddedFileSource({
+			kind: "reference-image",
+			file: new UnreadableAssetFile(
+				[new Uint8Array([1, 2, 3])],
+				"missing-board.png",
+				{ type: "image/png" },
+			),
+			fileName: "missing-board.png",
+		}),
+		sourceMeta: {
+			filename: "missing-board.png",
+			mime: "image/png",
+			originalSize: { w: 1920, h: 1080 },
+			appliedSize: { w: 1920, h: 1080 },
+			pixelRatio: 1,
+			usedOriginal: true,
+		},
+	});
+	referenceImages.assets.push(missingReferenceAsset);
+	referenceImages.presets[0].items.push(
+		createReferenceImageItem({
+			id: "missing-reference-item",
+			assetId: missingReferenceAsset.id,
+			name: "Missing Board",
+		}),
+	);
+	const harness = createHarness({
+		captureProjectStateSpy: () => ({
+			workspace: {
+				activeShotCameraId: "",
+				viewport: {
+					baseFovX: 55,
+					pose: {
+						position: { x: 0, y: 0, z: 0 },
+						quaternion: { x: 0, y: 0, z: 0, w: 1 },
+						up: { x: 0, y: 1, z: 0 },
+					},
+				},
+			},
+			shotCameras: [],
+			scene: {
+				assets: [
+					{
+						id: "missing-mesh",
+						kind: "model",
+						label: "Missing Mesh",
+						source: createProjectFileEmbeddedFileSource({
+							kind: "model",
+							file: new UnreadableAssetFile(
+								[new Uint8Array([4, 5, 6])],
+								"missing-mesh.glb",
+								{ type: "model/gltf-binary" },
+							),
+							fileName: "missing-mesh.glb",
+						}),
+					},
+				],
+				referenceImages,
+			},
+		}),
+	});
+	const originalShowSaveFilePicker = globalThis.showSaveFilePicker;
+	const originalRequestAnimationFrame = globalThis.requestAnimationFrame;
+	const originalIndexedDb = globalThis.indexedDB;
+	globalThis.requestAnimationFrame = (callback) => setTimeout(callback, 0);
+	globalThis.indexedDB = createCompletingIndexedDb();
+	const savedPackage = createCollectingProjectFileHandle(
+		"rescued-project.ssproj",
+	);
+	globalThis.showSaveFilePicker = async () => savedPackage.fileHandle;
+	try {
+		await withCapturedConsole(["warn"], async (consoleCalls) => {
+			await harness.projectController.exportProject();
+			await harness.store.overlay.value.onSubmit({
+				saveMode: "quality",
+				sogCompress: false,
+				sogMaxShBands: "2",
+				sogIterations: "10",
+			});
+			assert.equal(consoleCalls.warn.length, 2);
+		});
+	} finally {
+		globalThis.showSaveFilePicker = originalShowSaveFilePicker;
+		globalThis.requestAnimationFrame = originalRequestAnimationFrame;
+		if (originalIndexedDb === undefined) {
+			delete globalThis.indexedDB;
+		} else {
+			globalThis.indexedDB = originalIndexedDb;
+		}
+	}
+
+	assert.equal(harness.store.overlay.value?.kind, "warning");
+	assert.match(harness.store.overlay.value?.detail ?? "", /Missing Mesh/u);
+	assert.match(harness.store.overlay.value?.detail ?? "", /Missing Board/u);
+	assert.equal(harness.statusEvents.at(-1), "status.packageSavedWithWarnings");
+	assert.equal(
+		harness.store.project.packageDirty.value,
+		true,
+		"a rescue package must remain dirty while omitted live assets still exist",
+	);
+
+	const savedArchiveBytes = await collectWritableChunks(savedPackage.chunks);
+	const savedProject = await readCameraFramesProject(
+		new File([savedArchiveBytes], "rescued-project.ssproj"),
+	);
+	assert.equal(savedProject.assetEntries.length, 0);
+	assert.equal(savedProject.project.scene.referenceImages.assets.length, 0);
+	assert.equal(
+		savedProject.project.scene.referenceImages.presets[0].items.length,
+		0,
+	);
+	assert.equal(savedProject.project.shotCameras.length, 1);
 });
 
 // A RAD-backed .ssproj that has not entered per-splat editing should be able

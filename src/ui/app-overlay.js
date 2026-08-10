@@ -463,7 +463,9 @@ export function AppOverlay({ overlay }) {
 		<div class="app-overlay" role="presentation">
 			<div
 				class="overlay-card"
-				role=${overlay.kind === "error" ? "alertdialog" : "dialog"}
+				role=${
+					["error", "warning"].includes(overlay.kind) ? "alertdialog" : "dialog"
+				}
 				aria-modal="true"
 			>
 				<div class="overlay-card__header">
@@ -494,7 +496,11 @@ export function AppOverlay({ overlay }) {
 						? renderProgressBody(overlay, progressTick)
 						: null
 				}
-				${overlay.kind === "error" ? renderErrorBody(overlay) : null}
+				${
+					["error", "warning"].includes(overlay.kind)
+						? renderErrorBody(overlay)
+						: null
+				}
 				${renderOverlayButtonsWithState(
 					overlayWithActions,
 					fieldValues,

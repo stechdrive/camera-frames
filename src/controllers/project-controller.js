@@ -31,6 +31,7 @@ import {
 	buildPackageErrorOverlay,
 	buildPackageProgressDetail,
 	buildPackageProgressOverlay,
+	buildPackageWarningOverlay,
 	waitForOverlayFrame,
 } from "./project/overlays.js";
 import { createProjectPackageSaveAssetsController } from "./project/package-save-assets.js";
@@ -106,6 +107,24 @@ export function createProjectController({
 
 	function normalizeSaveMode(value) {
 		return value === "quality" ? "quality" : "fast";
+	}
+
+	function mergePackageWarnings(...warningLists) {
+		const warningsByKey = new Map();
+		for (const warning of warningLists.flat()) {
+			if (!warning) {
+				continue;
+			}
+			const key = [
+				warning.code,
+				warning.kind,
+				warning.id,
+				warning.label,
+				warning.message,
+			].join("\u0000");
+			warningsByKey.set(key, warning);
+		}
+		return Array.from(warningsByKey.values());
 	}
 
 	function setOverlay(nextOverlay) {
@@ -601,6 +620,7 @@ export function createProjectController({
 		currentProjectName =
 			currentProjectName || getProjectBaseName(buildProjectFilename());
 		const suggestedName = getSuggestedPackageFilename();
+		const preflightWarnings = [];
 		try {
 			if (sogCompress) {
 				const sogCompressionAvailability =
@@ -659,9 +679,14 @@ export function createProjectController({
 			if (
 				await shouldMaterializeBeforeOpeningPackageWritable(resolvedSaveTarget)
 			) {
-				await materializeProjectPackageSaveInputs(normalizedProject, {
-					preferRadOnlyPackedSplats,
-				});
+				const materializeResult = await materializeProjectPackageSaveInputs(
+					normalizedProject,
+					{
+						preferRadOnlyPackedSplats,
+						allowPartialAssetSave: true,
+					},
+				);
+				preflightWarnings.push(...(materializeResult?.warnings ?? []));
 			}
 			const writable = await resolvedSaveTarget.fileHandle.createWritable();
 			let packageResult = null;
@@ -674,6 +699,7 @@ export function createProjectController({
 						sogMaxShBands: preferredPackageSaveOptions.sogMaxShBands,
 						sogIterations: preferredPackageSaveOptions.sogIterations,
 						preferRadOnlyPackedSplats,
+						allowPartialAssetSave: true,
 						onProgress: async (progress) => {
 							const detail = buildPackageProgressDetail(t, progress);
 							setOverlay(
@@ -693,25 +719,59 @@ export function createProjectController({
 				throw error;
 			}
 
+			const packageWarnings = mergePackageWarnings(
+				preflightWarnings,
+				packageResult?.warnings ?? [],
+			);
+			const savedProject =
+				packageResult?.serializedProject ?? normalizedProject;
 			projectFileHandle = resolvedSaveTarget.fileHandle;
-			await deleteCameraFramesWorkingState(normalizedProject.projectId);
+			if (packageWarnings.length === 0) {
+				await deleteCameraFramesWorkingState(normalizedProject.projectId);
+			}
 			await runWorkingStateCleanup();
-			clearOverlay();
 			rememberProjectContext({
-				projectId: normalizedProject.projectId,
-				packageRevision: normalizedProject.packageRevision,
+				projectId: savedProject.projectId,
+				packageRevision: savedProject.packageRevision,
 				packageFingerprint: packageResult.packageFingerprint,
 				projectName: getProjectBaseName(resolvedSaveTarget.fileName),
 				fileHandle: resolvedSaveTarget.fileHandle,
 			});
-			markCurrentProjectClean(normalizedProject);
-			markCurrentPackageClean(normalizedProject);
-			syncProjectPresentation(normalizedProject);
-			setStatus(
-				t("status.packageSaved", {
-					name: resolvedSaveTarget.fileName || suggestedName,
-				}),
-			);
+			if (packageWarnings.length === 0) {
+				clearOverlay();
+				markCurrentProjectClean(savedProject);
+				markCurrentPackageClean(savedProject);
+				syncProjectPresentation(captureProjectState());
+				setStatus(
+					t("status.packageSaved", {
+						name: resolvedSaveTarget.fileName || suggestedName,
+					}),
+				);
+			} else {
+				for (const warning of packageWarnings) {
+					console.warn(
+						`[camera-frames] omitted unavailable ${warning.kind} "${warning.label}" while saving the project package.`,
+						warning.message,
+					);
+				}
+				markCurrentPackageClean(savedProject);
+				syncProjectPresentation(captureProjectState());
+				clearPendingAfterSuccessfulSave();
+				const warningOverlay = buildPackageWarningOverlay(
+					t,
+					resolvedSaveTarget.fileName || suggestedName,
+					packageWarnings,
+				);
+				warningOverlay.actions[0].onClick = () => clearOverlay();
+				setOverlay(warningOverlay);
+				setStatus(
+					t("status.packageSavedWithWarnings", {
+						name: resolvedSaveTarget.fileName || suggestedName,
+						count: packageWarnings.length,
+					}),
+				);
+				return;
+			}
 			const nextAction = pendingAfterSuccessfulSave;
 			clearPendingAfterSuccessfulSave();
 			if (typeof nextAction === "function") {

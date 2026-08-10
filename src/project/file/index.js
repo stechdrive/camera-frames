@@ -32,6 +32,68 @@ const DEFAULT_SOG_MAX_SH_BANDS = 2;
 const PROJECT_ZIP_LEVEL = 6;
 const textEncoder = new TextEncoder();
 
+function createOmittedPackageAssetWarning(kind, asset, error) {
+	return {
+		code: "package-asset-omitted",
+		kind,
+		id: String(asset?.id ?? ""),
+		label: String(asset?.label ?? asset?.source?.fileName ?? "asset"),
+		message: String(error?.message ?? error ?? "Asset source is unavailable."),
+	};
+}
+
+function isUnavailableAssetSourceError(error) {
+	const errorName = String(error?.name ?? "").trim();
+	if (
+		[
+			"NotFoundError",
+			"NotReadableError",
+			"NotAllowedError",
+			"SecurityError",
+			"InvalidStateError",
+		].includes(errorName)
+	) {
+		return true;
+	}
+	const message = String(error?.message ?? error ?? "");
+	return (
+		/missing a serializable source/i.test(message) ||
+		/(?:file|asset|source).*(?:not found|not readable|unavailable|no longer available)/i.test(
+			message,
+		) ||
+		/(?:not found|not readable|unavailable|no longer available).*(?:file|asset|source)/i.test(
+			message,
+		) ||
+		(error instanceof TypeError && /arrayBuffer/i.test(message))
+	);
+}
+
+function canOmitSceneAssetAfterSaveFailure(
+	asset,
+	allowPartialAssetSave,
+	error,
+) {
+	return (
+		allowPartialAssetSave === true &&
+		asset?.kind === "model" &&
+		isUnavailableAssetSourceError(error)
+	);
+}
+
+function canOmitReferenceImageAfterSaveFailure(allowPartialAssetSave, error) {
+	return allowPartialAssetSave === true && isUnavailableAssetSourceError(error);
+}
+
+function buildSerializedReferenceImageDocument(
+	normalizedReferenceImages,
+	serializedReferenceImageAssets,
+) {
+	return normalizeReferenceImageDocument({
+		...normalizedReferenceImages,
+		assets: serializedReferenceImageAssets,
+	});
+}
+
 export {
 	createProjectFileEmbeddedFileSource,
 	createProjectFilePackedSplatSource,
@@ -58,6 +120,7 @@ async function serializeCameraFramesProjectPackageContents(
 		sogMaxShBands = DEFAULT_SOG_MAX_SH_BANDS,
 		sogIterations = DEFAULT_SOG_ITERATIONS,
 		preferRadOnlyPackedSplats = false,
+		allowPartialAssetSave = false,
 		onProgress = null,
 	} = {},
 ) {
@@ -70,6 +133,7 @@ async function serializeCameraFramesProjectPackageContents(
 	const serializedAssets = [];
 	const totalAssets = normalizedProject.scene.assets.length;
 	const serializedReferenceImageAssets = [];
+	const warnings = [];
 	const normalizedReferenceImages = normalizeReferenceImageDocument(
 		normalizedProject.scene.referenceImages,
 	);
@@ -77,18 +141,29 @@ async function serializeCameraFramesProjectPackageContents(
 
 	for (const [index, asset] of normalizedProject.scene.assets.entries()) {
 		const resourceId = `resource-${index + 1}`;
-		const serializedSource = await serializeProjectAssetSource(
-			asset,
-			index,
-			totalAssets,
-			{
-				compressSplatsToSog,
-				sogMaxShBands,
-				sogIterations,
-				preferRadOnlyPackedSplats,
-				onProgress,
-			},
-		);
+		let serializedSource = null;
+		try {
+			serializedSource = await serializeProjectAssetSource(
+				asset,
+				index,
+				totalAssets,
+				{
+					compressSplatsToSog,
+					sogMaxShBands,
+					sogIterations,
+					preferRadOnlyPackedSplats,
+					onProgress,
+				},
+			);
+		} catch (error) {
+			if (
+				!canOmitSceneAssetAfterSaveFailure(asset, allowPartialAssetSave, error)
+			) {
+				throw error;
+			}
+			warnings.push(createOmittedPackageAssetWarning("model", asset, error));
+			continue;
+		}
 
 		Object.assign(archiveEntries, serializedSource.archiveEntries);
 		resources[resourceId] = serializedSource.resource;
@@ -103,14 +178,31 @@ async function serializeCameraFramesProjectPackageContents(
 		referenceAsset,
 	] of normalizedReferenceImages.assets.entries()) {
 		const resourceId = `reference-image-resource-${index + 1}`;
-		const serializedSource = await serializeReferenceImageAssetSource(
-			referenceAsset,
-			index,
-			totalReferenceImageAssets,
-			{
-				onProgress,
-			},
-		);
+		let serializedSource = null;
+		try {
+			serializedSource = await serializeReferenceImageAssetSource(
+				referenceAsset,
+				index,
+				totalReferenceImageAssets,
+				{
+					onProgress,
+				},
+			);
+		} catch (error) {
+			if (
+				!canOmitReferenceImageAfterSaveFailure(allowPartialAssetSave, error)
+			) {
+				throw error;
+			}
+			warnings.push(
+				createOmittedPackageAssetWarning(
+					"reference-image",
+					referenceAsset,
+					error,
+				),
+			);
+			continue;
+		}
 		Object.assign(archiveEntries, serializedSource.archiveEntries);
 		resources[resourceId] = serializedSource.resource;
 		serializedReferenceImageAssets.push({
@@ -118,6 +210,10 @@ async function serializeCameraFramesProjectPackageContents(
 			source: createProjectAssetResourceRef(resourceId),
 		});
 	}
+	const serializedReferenceImages = buildSerializedReferenceImageDocument(
+		normalizedReferenceImages,
+		serializedReferenceImageAssets,
+	);
 
 	const serializedProject = {
 		...normalizedProject,
@@ -126,8 +222,7 @@ async function serializeCameraFramesProjectPackageContents(
 			...normalizedProject.scene,
 			assets: serializedAssets,
 			referenceImages: {
-				...normalizedReferenceImages,
-				assets: serializedReferenceImageAssets,
+				...serializedReferenceImages,
 			},
 		},
 	};
@@ -144,6 +239,7 @@ async function serializeCameraFramesProjectPackageContents(
 		archiveEntries,
 		serializedProject,
 		packageFingerprint,
+		warnings,
 	};
 }
 
@@ -248,22 +344,54 @@ async function materializeRadBundleEntries(source) {
 
 export async function materializeProjectPackageSaveInputs(
 	project,
-	{ preferRadOnlyPackedSplats = false } = {},
+	{ preferRadOnlyPackedSplats = false, allowPartialAssetSave = false } = {},
 ) {
+	const warnings = [];
 	await materializeDeferredPackedSplatSources(project, {
 		preferRadOnlyPackedSplats,
 	});
+	const materializedSceneAssets = [];
 	for (const asset of project?.scene?.assets ?? []) {
-		await materializeEmbeddedProjectFileSource(asset?.source);
-		await materializeRadBundleEntries(asset?.source);
+		try {
+			await materializeEmbeddedProjectFileSource(asset?.source);
+			await materializeRadBundleEntries(asset?.source);
+		} catch (error) {
+			if (
+				!canOmitSceneAssetAfterSaveFailure(asset, allowPartialAssetSave, error)
+			) {
+				throw error;
+			}
+			warnings.push(createOmittedPackageAssetWarning("model", asset, error));
+			continue;
+		}
+		materializedSceneAssets.push(asset);
 	}
+	project.scene.assets = materializedSceneAssets;
 	const normalizedReferenceImages = normalizeReferenceImageDocument(
 		project?.scene?.referenceImages,
 	);
+	const materializedReferenceImageAssets = [];
 	for (const asset of normalizedReferenceImages.assets ?? []) {
-		await materializeEmbeddedProjectFileSource(asset?.source);
+		try {
+			await materializeEmbeddedProjectFileSource(asset?.source);
+		} catch (error) {
+			if (
+				!canOmitReferenceImageAfterSaveFailure(allowPartialAssetSave, error)
+			) {
+				throw error;
+			}
+			warnings.push(
+				createOmittedPackageAssetWarning("reference-image", asset, error),
+			);
+			continue;
+		}
+		materializedReferenceImageAssets.push(asset);
 	}
-	project.scene.referenceImages = normalizedReferenceImages;
+	project.scene.referenceImages = buildSerializedReferenceImageDocument(
+		normalizedReferenceImages,
+		materializedReferenceImageAssets,
+	);
+	return { warnings };
 }
 
 export async function buildCameraFramesProjectPackage(
@@ -273,6 +401,7 @@ export async function buildCameraFramesProjectPackage(
 		sogMaxShBands = DEFAULT_SOG_MAX_SH_BANDS,
 		sogIterations = DEFAULT_SOG_ITERATIONS,
 		preferRadOnlyPackedSplats = false,
+		allowPartialAssetSave = false,
 		onProgress = null,
 	} = {},
 ) {
@@ -283,6 +412,7 @@ export async function buildCameraFramesProjectPackage(
 			sogMaxShBands,
 			sogIterations,
 			preferRadOnlyPackedSplats,
+			allowPartialAssetSave,
 			onProgress,
 		},
 	);
@@ -298,6 +428,7 @@ export async function buildCameraFramesProjectPackage(
 		manifest: buildProjectManifest(),
 		serializedProject: packageContents.serializedProject,
 		packageFingerprint: packageContents.packageFingerprint,
+		warnings: packageContents.warnings,
 	};
 }
 
@@ -365,6 +496,7 @@ export async function writeCameraFramesProjectPackageToWritable(
 		sogMaxShBands = DEFAULT_SOG_MAX_SH_BANDS,
 		sogIterations = DEFAULT_SOG_ITERATIONS,
 		preferRadOnlyPackedSplats = false,
+		allowPartialAssetSave = false,
 		onProgress = null,
 	} = options ?? {};
 	const normalizedProject = normalizeProjectDocument(projectSnapshot);
@@ -377,6 +509,7 @@ export async function writeCameraFramesProjectPackageToWritable(
 		normalizedProject.scene.referenceImages,
 	);
 	const serializedReferenceImageAssets = [];
+	const warnings = [];
 	const totalAssets = normalizedProject.scene.assets.length;
 	const totalReferenceImageAssets = normalizedReferenceImages.assets.length;
 	const totalEntries = countProjectArchiveEntries(normalizedProject, {
@@ -390,18 +523,29 @@ export async function writeCameraFramesProjectPackageToWritable(
 
 	for (const [index, asset] of normalizedProject.scene.assets.entries()) {
 		const resourceId = `resource-${index + 1}`;
-		const serializedSource = await serializeProjectAssetSource(
-			asset,
-			index,
-			totalAssets,
-			{
-				compressSplatsToSog,
-				sogMaxShBands,
-				sogIterations,
-				preferRadOnlyPackedSplats,
-				onProgress,
-			},
-		);
+		let serializedSource = null;
+		try {
+			serializedSource = await serializeProjectAssetSource(
+				asset,
+				index,
+				totalAssets,
+				{
+					compressSplatsToSog,
+					sogMaxShBands,
+					sogIterations,
+					preferRadOnlyPackedSplats,
+					onProgress,
+				},
+			);
+		} catch (error) {
+			if (
+				!canOmitSceneAssetAfterSaveFailure(asset, allowPartialAssetSave, error)
+			) {
+				throw error;
+			}
+			warnings.push(createOmittedPackageAssetWarning("model", asset, error));
+			continue;
+		}
 		for (const [path, bytes] of Object.entries(
 			serializedSource.archiveEntries,
 		)) {
@@ -440,14 +584,31 @@ export async function writeCameraFramesProjectPackageToWritable(
 		referenceAsset,
 	] of normalizedReferenceImages.assets.entries()) {
 		const resourceId = `reference-image-resource-${index + 1}`;
-		const serializedSource = await serializeReferenceImageAssetSource(
-			referenceAsset,
-			index,
-			totalReferenceImageAssets,
-			{
-				onProgress,
-			},
-		);
+		let serializedSource = null;
+		try {
+			serializedSource = await serializeReferenceImageAssetSource(
+				referenceAsset,
+				index,
+				totalReferenceImageAssets,
+				{
+					onProgress,
+				},
+			);
+		} catch (error) {
+			if (
+				!canOmitReferenceImageAfterSaveFailure(allowPartialAssetSave, error)
+			) {
+				throw error;
+			}
+			warnings.push(
+				createOmittedPackageAssetWarning(
+					"reference-image",
+					referenceAsset,
+					error,
+				),
+			);
+			continue;
+		}
 		for (const [path, bytes] of Object.entries(
 			serializedSource.archiveEntries,
 		)) {
@@ -480,6 +641,10 @@ export async function writeCameraFramesProjectPackageToWritable(
 			source: createProjectAssetResourceRef(resourceId),
 		});
 	}
+	const serializedReferenceImages = buildSerializedReferenceImageDocument(
+		normalizedReferenceImages,
+		serializedReferenceImageAssets,
+	);
 
 	const serializedProject = {
 		...normalizedProject,
@@ -488,8 +653,7 @@ export async function writeCameraFramesProjectPackageToWritable(
 			...normalizedProject.scene,
 			assets: serializedAssets,
 			referenceImages: {
-				...normalizedReferenceImages,
-				assets: serializedReferenceImageAssets,
+				...serializedReferenceImages,
 			},
 		},
 	};
@@ -529,6 +693,7 @@ export async function writeCameraFramesProjectPackageToWritable(
 		manifest,
 		serializedProject,
 		packageFingerprint,
+		warnings,
 	};
 }
 
