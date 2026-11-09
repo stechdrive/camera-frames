@@ -6,6 +6,10 @@ import {
 	createOutputFrameController,
 } from "../src/controllers/output-frame-controller.js";
 import { createOutputFrameMetricsController } from "../src/controllers/output-frame/metrics.js";
+import {
+	getExportSize,
+	getTargetFrustumExtents,
+} from "../src/engine/projection.js";
 import { createCameraFramesStore } from "../src/store.js";
 import { createShotCameraDocument } from "../src/workspace-model.js";
 
@@ -28,6 +32,7 @@ function createOutputFrameHitHarness() {
 	let shotCameraDocument = createShotCameraDocument({
 		name: "Camera 1",
 	});
+	const historyLabels = [];
 	let renderBoxRect = {
 		left: 120,
 		top: 80,
@@ -89,10 +94,16 @@ function createOutputFrameHitHarness() {
 			return shotCameraDocument;
 		},
 		updateUi: () => {},
+		runHistoryAction: (label, applyChange) => {
+			historyLabels.push(label);
+			applyChange();
+		},
 	});
 	return {
 		controller,
 		state,
+		historyLabels,
+		getDocument: () => shotCameraDocument,
 		setRenderBoxRect: (nextRect) => {
 			renderBoxRect = nextRect;
 		},
@@ -281,6 +292,70 @@ function createOutputFrameHitHarness() {
 		}),
 		false,
 	);
+}
+
+{
+	const harness = createOutputFrameHitHarness();
+	const document = harness.getDocument();
+	document.outputFrame.anchor = "top-left";
+	const frustum = () =>
+		getTargetFrustumExtents({
+			near: 0.1,
+			horizontalFovDegrees: document.lens.baseFovX,
+			...document.outputFrame,
+		});
+	const before = frustum();
+	harness.controller.setBoxWidthPixels(" 2048 ");
+	assert.deepEqual(getExportSize(document.outputFrame), {
+		width: 2048,
+		height: 1240,
+	});
+	harness.controller.setBoxHeightPixels("１５３６．６");
+	assert.deepEqual(getExportSize(document.outputFrame), {
+		width: 2048,
+		height: 1537,
+	});
+	assert.ok(Math.abs(frustum().left - before.left) < 1e-9);
+	assert.ok(Math.abs(frustum().top - before.top) < 1e-9);
+	assert.deepEqual(harness.historyLabels, [
+		"output-frame.width",
+		"output-frame.height",
+	]);
+
+	const snapshot = structuredClone(document);
+	for (const value of [
+		"",
+		"  ",
+		"NaN",
+		"Infinity",
+		"-Infinity",
+		"2048px",
+		"0x1000",
+		"<script>alert(1)</script>",
+		"9".repeat(400),
+		Number.NaN,
+		Number.POSITIVE_INFINITY,
+		null,
+		undefined,
+	]) {
+		harness.controller.setBoxWidthPixels(value);
+		harness.controller.setBoxHeightPixels(value);
+		assert.deepEqual(document, snapshot, `invalid input: ${value}`);
+	}
+	assert.equal(harness.historyLabels.length, 2);
+
+	harness.controller.setBoxWidthPixels(-100);
+	harness.controller.setBoxHeightPixels("0");
+	assert.deepEqual(getExportSize(document.outputFrame), {
+		width: 1754,
+		height: 1240,
+	});
+	harness.controller.setBoxWidthPixels("999999");
+	harness.controller.setBoxHeightPixels("999999");
+	assert.deepEqual(getExportSize(document.outputFrame), {
+		width: 15996,
+		height: 15996,
+	});
 }
 
 console.log("✅ CAMERA_FRAMES output frame controller tests passed!");

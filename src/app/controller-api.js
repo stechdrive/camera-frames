@@ -223,6 +223,8 @@ export function createControllerApi({
 		setViewportTransformHover: viewportToolController.setViewportTransformHover,
 		setBoxWidthPercent: outputFrameController.setBoxWidthPercent,
 		setBoxHeightPercent: outputFrameController.setBoxHeightPercent,
+		setBoxWidthPixels: outputFrameController.setBoxWidthPixels,
+		setBoxHeightPixels: outputFrameController.setBoxHeightPixels,
 		setViewZoomPercent: outputFrameController.setViewZoomPercent,
 		fitOutputFrameToSafeArea: outputFrameController.fitOutputFrameToSafeArea,
 		canFitOutputFrameToSafeArea:

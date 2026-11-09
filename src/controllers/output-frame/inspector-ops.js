@@ -1,4 +1,28 @@
-import { clampViewZoom } from "../../engine/projection.js";
+import { BASE_RENDER_BOX } from "../../constants.js";
+import {
+	clampOutputFrameScaleFactor,
+	clampViewZoom,
+} from "../../engine/projection.js";
+
+function getPixelScalePercent(nextValue, baseDimension) {
+	if (typeof nextValue !== "string" && typeof nextValue !== "number") {
+		return null;
+	}
+	const text = String(nextValue).normalize("NFKC").trim();
+	if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(text)) {
+		return null;
+	}
+	const pixels = Number(text);
+	if (!Number.isFinite(pixels)) {
+		return null;
+	}
+	return (
+		clampOutputFrameScaleFactor(
+			Math.round(pixels) / baseDimension,
+			baseDimension,
+		) * 100
+	);
+}
 
 export function createOutputFrameInspectorOps({
 	runHistoryAction,
@@ -40,6 +64,20 @@ export function createOutputFrameInspectorOps({
 			});
 		});
 		updateUi();
+	}
+
+	function setBoxWidthPixels(nextValue) {
+		const percent = getPixelScalePercent(nextValue, BASE_RENDER_BOX.width);
+		if (percent !== null) {
+			setBoxWidthPercent(percent);
+		}
+	}
+
+	function setBoxHeightPixels(nextValue) {
+		const percent = getPixelScalePercent(nextValue, BASE_RENDER_BOX.height);
+		if (percent !== null) {
+			setBoxHeightPercent(percent);
+		}
 	}
 
 	function setViewZoomFactor(nextZoom) {
@@ -102,6 +140,8 @@ export function createOutputFrameInspectorOps({
 	return {
 		setBoxWidthPercent,
 		setBoxHeightPercent,
+		setBoxWidthPixels,
+		setBoxHeightPixels,
 		setViewZoomFactor,
 		setViewZoomPercent,
 		canFitOutputFrameToSafeArea,

@@ -8,6 +8,7 @@ import {
 	resolveAnimationExportFrames,
 } from "../animation/animation-export.js";
 import {
+	BASE_RENDER_BOX,
 	MAX_CAMERA_VIEW_ZOOM_PCT,
 	MAX_OUTPUT_FRAME_HEIGHT_PCT,
 	MAX_OUTPUT_FRAME_WIDTH_PCT,
@@ -771,7 +772,22 @@ export function OutputFrameSection({
 						onLiveChange=${(event) =>
 							controller()?.setBoxWidthPercent(event.currentTarget.value)}
 					/>
-					<output id="box-width-value">${widthLabel}</output>
+					<div class="numeric-unit">
+						<${NumericDraftInput}
+							id="box-width-value"
+							aria-label=${`${t("field.outputFrameWidth")} (px)`}
+							title=${widthLabel}
+							inputMode="numeric"
+							min=${BASE_RENDER_BOX.width}
+							max=${Math.round((BASE_RENDER_BOX.width * MAX_OUTPUT_FRAME_WIDTH_PCT) / 100)}
+							step="1"
+							value=${store.exportWidth.value}
+							controller=${controller}
+							historyLabel="output-frame.width"
+							onCommit=${(nextValue) => controller()?.setBoxWidthPixels(nextValue)}
+						/>
+						<${NumericUnitLabel} value="px" />
+					</div>
 				</div>
 			</label>
 			<label class="field field--range">
@@ -788,7 +804,22 @@ export function OutputFrameSection({
 						onLiveChange=${(event) =>
 							controller()?.setBoxHeightPercent(event.currentTarget.value)}
 					/>
-					<output id="box-height-value">${heightLabel}</output>
+					<div class="numeric-unit">
+						<${NumericDraftInput}
+							id="box-height-value"
+							aria-label=${`${t("field.outputFrameHeight")} (px)`}
+							title=${heightLabel}
+							inputMode="numeric"
+							min=${BASE_RENDER_BOX.height}
+							max=${Math.round((BASE_RENDER_BOX.height * MAX_OUTPUT_FRAME_HEIGHT_PCT) / 100)}
+							step="1"
+							value=${store.exportHeight.value}
+							controller=${controller}
+							historyLabel="output-frame.height"
+							onCommit=${(nextValue) => controller()?.setBoxHeightPixels(nextValue)}
+						/>
+						<${NumericUnitLabel} value="px" />
+					</div>
 				</div>
 			</label>
 			<div class="field field--inline-compact field--anchor-compact">

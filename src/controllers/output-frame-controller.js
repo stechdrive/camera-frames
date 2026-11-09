@@ -257,6 +257,8 @@ export function createOutputFrameController({
 		setViewZoomFactor: inspectorOps.setViewZoomFactor,
 		setBoxWidthPercent: inspectorOps.setBoxWidthPercent,
 		setBoxHeightPercent: inspectorOps.setBoxHeightPercent,
+		setBoxWidthPixels: inspectorOps.setBoxWidthPixels,
+		setBoxHeightPixels: inspectorOps.setBoxHeightPixels,
 		setViewZoomPercent: inspectorOps.setViewZoomPercent,
 		fitOutputFrameToSafeArea: inspectorOps.fitOutputFrameToSafeArea,
 		canFitOutputFrameToSafeArea: inspectorOps.canFitOutputFrameToSafeArea,

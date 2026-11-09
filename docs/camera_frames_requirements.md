@@ -262,6 +262,7 @@ viewport projection 切替の契約:
 - `FRAME` 最大数は `20`
 - output frame の width / height scale は base size 未満に縮めない
 - export output は 1 辺 `16000px` を超えないよう clamp する
+- 右ペインの用紙設定では幅 / 高さを px 単位で直接入力できる。Enter / フォーカス移動で確定、Escape で取消し。小数は整数に丸め、既存のサイズ範囲に clamp する。空欄 / 非数値 / 非有限値は適用しない
 - camera view zoom は `20%` から `200%`
 - anchor は 3x3 の preset を持つ
 - centered off-axis framing を維持するため、frustum は anchor / center / scale を反映して再計算する

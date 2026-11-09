@@ -152,6 +152,8 @@ const api = createControllerApi({
 	outputFrameController: {
 		setBoxWidthPercent: () => {},
 		setBoxHeightPercent: () => {},
+		setBoxWidthPixels: (value) => `width-pixels:${value}`,
+		setBoxHeightPixels: (value) => `height-pixels:${value}`,
 		setViewZoomPercent: () => {},
 		fitOutputFrameToSafeArea: () => {},
 		canFitOutputFrameToSafeArea: () => true,
@@ -348,6 +350,8 @@ assert.equal(api.jumpTimelineStart(), "jump-start");
 assert.equal(api.jumpTimelineEnd(), "jump-end");
 assert.equal(api.copyShotCameraToViewport(), "copy-s2v");
 assert.equal(api.resetActiveView(), "reset");
+assert.equal(api.setBoxWidthPixels("2048"), "width-pixels:2048");
+assert.equal(api.setBoxHeightPixels("1536"), "height-pixels:1536");
 assert.equal(api.setShotCameraLensShiftXPercent(12), "shift-x:12");
 assert.equal(api.setShotCameraLensShiftYPercent(-8), "shift-y:-8");
 assert.equal(api.setExportMode("sequence"), "export-mode:sequence");
